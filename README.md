@@ -28,3 +28,11 @@ Download latest version of Wino Mail from Microsoft Store for free.
 	&mode=full">
 	<img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
 </a>
+
+## Contributing Translations
+
+[![Crowdin](https://badges.crowdin.net/wino-mail/localized.svg)](https://crowdin.com/project/wino-mail)
+
+If you'd like to contribute to the translations please go to [Wino Mail Crowdin page](https://crowdin.com/project/wino-mail). If you don't see the language you want to translate, open an issue or let me know in the [Discord channel](https://discord.gg/windows-apps-hub-714581497222398064).
+
+Current version (1.6.12) does not have localization support. However, next version (will be released in February) will have all the translations included with your contributions.
