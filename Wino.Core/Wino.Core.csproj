@@ -7,13 +7,6 @@
 	<LangVersion>12</LangVersion>
   </PropertyGroup>
 
-  <!--<ItemGroup>
-    <Compile Remove="Integration\ContextMenu\CustomServerContextMenuProvider.cs" />
-    <Compile Remove="Integration\ContextMenu\GoogleContextMenuProvider.cs" />
-    <Compile Remove="Integration\ContextMenu\MicrosoftContextMenuProvider.cs" />
-    <Compile Remove="Integration\ContextMenu\SharedContextMenuProvider.cs" />
-    <Compile Remove="Services\IntegrationProcessor.cs" />
-  </ItemGroup>-->
 
    <ItemGroup>
      <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />
@@ -28,7 +21,7 @@
      <PackageReference Include="MailKit" Version="4.4.0" />
      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
      <PackageReference Include="Microsoft.Graph" Version="5.45.0" />
-     <PackageReference Include="Microsoft.Identity.Client" Version="4.59.0" />
+     <PackageReference Include="Microsoft.Identity.Client" Version="4.60.3" />
      <PackageReference Include="MimeKit" Version="4.4.0" />
      <PackageReference Include="morelinq" Version="4.1.0" />
      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
