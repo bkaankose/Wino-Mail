@@ -1,0 +1,888 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+    <PackageCertificateThumbprint>
+    </PackageCertificateThumbprint>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{68A432B8-C1B7-494C-8D6D-230788EA683E}</ProjectGuid>
+    <OutputType>AppContainerExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Wino</RootNamespace>
+    <AssemblyName>Wino</AssemblyName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
+    <TargetPlatformVersion Condition=" '$(TargetPlatformVersion)' == '' ">10.0.22621.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <MinimumVisualStudioVersion>14</MinimumVisualStudioVersion>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
+    <PackageCertificateKeyFile>Wino.Mail_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x86|x64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+    <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
+    <AppxPackageDir>C:\Users\bkaan\Desktop\Packages\</AppxPackageDir>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <!-- .NET Native Shit -->
+    <Use64BitCompiler>true</Use64BitCompiler>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    <SingleThreadNUTC>true</SingleThreadNUTC>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
+    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <OutOfProcPDB>true</OutOfProcPDB>
+    <!-- Opt-in to generate PDB's out of process -->
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\ARM\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>full</DebugType>
+    <PlatformTarget>ARM</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM'">
+    <OutputPath>bin\ARM\Release\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>ARM</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <!-- .NET Native Shit -->
+    <Use64BitCompiler>true</Use64BitCompiler>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    <SingleThreadNUTC>true</SingleThreadNUTC>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
+    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <OutOfProcPDB>true</OutOfProcPDB>
+    <!-- Opt-in to generate PDB's out of process -->
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\ARM64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>full</DebugType>
+    <PlatformTarget>ARM64</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
+    <OutputPath>bin\ARM64\Release\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>ARM64</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <!-- .NET Native Shit -->
+    <Use64BitCompiler>true</Use64BitCompiler>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    <SingleThreadNUTC>true</SingleThreadNUTC>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
+    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <OutOfProcPDB>true</OutOfProcPDB>
+    <!-- Opt-in to generate PDB's out of process -->
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS; DEBUG</DefineConstants>
+    <NoWarn>
+    </NoWarn>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <ErrorReport>prompt</ErrorReport>
+    <!-- .NET Native Shit -->
+    <Use64BitCompiler>true</Use64BitCompiler>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    <SingleThreadNUTC>true</SingleThreadNUTC>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
+    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <OutOfProcPDB>true</OutOfProcPDB>
+    <!-- Opt-in to generate PDB's out of process -->
+  </PropertyGroup>
+  <PropertyGroup>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <!-- UWP WAM Authentication on Xbox needs this. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AdaptiveTriggerLibrary">
+      <Version>1.2.2</Version>
+    </PackageReference>
+    <PackageReference Include="ColorHashSharp">
+      <Version>1.0.0</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Common">
+      <Version>8.2.2</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Diagnostics">
+      <Version>8.2.2</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm">
+      <Version>8.2.2</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Animations">
+      <Version>8.0.240109</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
+      <Version>8.0.240109</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers">
+      <Version>8.0.240109</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox">
+      <Version>8.0.240109</Version>
+    </PackageReference>
+    <PackageReference Include="EmailValidation">
+      <Version>1.0.10</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AppCenter.Analytics">
+      <Version>5.0.3</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AppCenter.Crashes">
+      <Version>5.0.3</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection">
+      <Version>8.0.0</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
+      <Version>6.2.14</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Toolkit.Uwp.UI.Controls.Markdown">
+      <Version>7.1.3</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.UI.Xaml">
+      <Version>2.8.6</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed">
+      <Version>2.0.1</Version>
+    </PackageReference>
+    <PackageReference Include="Nito.AsyncEx">
+      <Version>5.1.2</Version>
+    </PackageReference>
+    <PackageReference Include="ReactiveUI">
+      <Version>19.6.1</Version>
+    </PackageReference>
+    <PackageReference Include="Serilog">
+      <Version>3.1.1</Version>
+    </PackageReference>
+    <PackageReference Include="Serilog.Exceptions">
+      <Version>8.4.0</Version>
+    </PackageReference>
+    <PackageReference Include="sqlite-net-pcl">
+      <Version>1.8.116</Version>
+    </PackageReference>
+    <PackageReference Include="Win2D.uwp">
+      <Version>1.27.1</Version>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Activation\ActivationHandler.cs" />
+    <Compile Include="Activation\BackgroundActivationHandler.cs" />
+    <Compile Include="Activation\DefaultActivationHandler.cs" />
+    <Compile Include="Activation\FileActivationHandler.cs" />
+    <Compile Include="Activation\ProtocolActivationHandler.cs" />
+    <Compile Include="Activation\ToastNotificationActivationHandler.cs" />
+    <Compile Include="BasePage.cs" />
+    <Compile Include="Behaviors\BindableCommandBarBehavior.cs" />
+    <Compile Include="Behaviors\CreateMailNavigationItemBehavior.cs" />
+    <Compile Include="Controls\AccountNavigationItem.cs" />
+    <Compile Include="Controls\Advanced\WinoAppTitleBar.xaml.cs">
+      <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\ControlConstants.cs" />
+    <Compile Include="Controls\SettingsMenuItemControl.cs" />
+    <Compile Include="Controls\Advanced\WinoListView.cs" />
+    <Compile Include="Controls\WinoFontIconSource.cs" />
+    <Compile Include="Controls\WinoFontIcon.cs" />
+    <Compile Include="Controls\WinoSwipeControlItems.cs" />
+    <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
+      <DependentUpon>AccountEditDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\AccountPickerDialog.xaml.cs">
+      <DependentUpon>AccountPickerDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
+    <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
+      <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\MoveMailDialog.xaml.cs">
+      <DependentUpon>MoveMailDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\NewImapSetupDialog.xaml.cs">
+      <DependentUpon>NewImapSetupDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\StoreRatingDialog.xaml.cs">
+      <DependentUpon>StoreRatingDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\SystemFolderConfigurationDialog.xaml.cs">
+      <DependentUpon>SystemFolderConfigurationDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\WinoMessageDialog.xaml.cs">
+      <DependentUpon>WinoMessageDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\TextInputDialog.xaml.cs">
+      <DependentUpon>TextInputDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Extensions\MimeKitExtensions.cs" />
+    <Compile Include="Extensions\UIExtensions.cs" />
+    <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="MenuFlyouts\AccountSelectorFlyout.cs" />
+    <Compile Include="MenuFlyouts\FolderOperationFlyout.cs" />
+    <Compile Include="MenuFlyouts\FolderOperationMenuFlyoutItem.cs" />
+    <Compile Include="MenuFlyouts\MailOperationFlyout.cs" />
+    <Compile Include="MenuFlyouts\MailOperationMenuFlyoutItem.cs" />
+    <Compile Include="MenuFlyouts\WinoOperationFlyout.cs" />
+    <Compile Include="MenuFlyouts\WinoOperationFlyoutItem.cs" />
+    <Compile Include="Controls\RendererCommandBar.cs" />
+    <Compile Include="Controls\WinoPivotControl.xaml.cs">
+      <DependentUpon>WinoPivotControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Converters\ReverseBooleanConverter.cs" />
+    <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
+      <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Helpers\JsonHelpers.cs" />
+    <Compile Include="Extensions\AnimationExtensions.cs" />
+    <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
+    <Compile Include="Extensions\CompositionExtensions.Size.cs" />
+    <Compile Include="Extensions\CompositionEnums.cs" />
+    <Compile Include="Extensions\EnumerableExtensions.cs" />
+    <Compile Include="Extensions\UtilExtensions.cs" />
+    <Compile Include="Helpers\SettingsStorageExtensions.cs" />
+    <Compile Include="MenuFlyouts\FilterMenuFlyout.cs" />
+    <Compile Include="Controls\ImagePreviewControl.cs" />
+    <Compile Include="Controls\MailItemDisplayInformationControl.xaml.cs">
+      <DependentUpon>MailItemDisplayInformationControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MenuFlyouts\MoveButtonFlyout.cs" />
+    <Compile Include="Controls\WinoInfoBar.cs" />
+    <Compile Include="Controls\WinoNavigationViewItem.cs" />
+    <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
+    <Compile Include="Dialogs\ConfirmationDialog.xaml.cs">
+      <DependentUpon>ConfirmationDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
+      <DependentUpon>NewAccountDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MenuFlyouts\RendererCommandBarItem.cs" />
+    <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
+    <Compile Include="Helpers\XamlHelpers.cs" />
+    <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
+    <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
+    <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
+    <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
+    <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
+    <Compile Include="Selectors\MailItemDisplaySelector.cs" />
+    <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
+    <Compile Include="Selectors\RendererCommandBarItemTemplateSelector.cs" />
+    <Compile Include="Services\ApplicationResourceManager.cs" />
+    <Compile Include="Services\DialogService.cs" />
+    <Compile Include="Services\LaunchProtocolService.cs" />
+    <Compile Include="Services\PreferencesService.cs" />
+    <Compile Include="Services\StatePersistenceService.cs" />
+    <Compile Include="Services\ToastActivationService.cs" />
+    <Compile Include="Services\WinoNavigationService.cs" />
+    <Compile Include="Styles\CommandBarItems.xaml.cs">
+      <DependentUpon>CommandBarItems.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AppShellAbstract.cs" />
+    <Compile Include="Views\Abstract\ComposePageAbstract.cs" />
+    <Compile Include="Views\Abstract\IdlePageAbstract.cs" />
+    <Compile Include="Views\Abstract\MailListPageAbstract.cs" />
+    <Compile Include="Views\Abstract\MailRenderingPageAbstract.cs" />
+    <Compile Include="Views\Abstract\MergedAccountDetailsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\MessageListPageAbstract.cs" />
+    <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
+    <Compile Include="Views\Abstract\ReadingPanePageAbstract.cs" />
+    <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\SettingsPageBase.cs" />
+    <Compile Include="Views\Abstract\SignatureManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\WelcomePageAbstract.cs" />
+    <Compile Include="Views\Account\AccountDetailsPage.xaml.cs">
+      <DependentUpon>AccountDetailsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Account\AccountManagementPage.xaml.cs">
+      <DependentUpon>AccountManagementPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Account\MergedAccountDetailsPage.xaml.cs">
+      <DependentUpon>MergedAccountDetailsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ComposePage.xaml.cs">
+      <DependentUpon>ComposePage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\IdlePage.xaml.cs">
+      <DependentUpon>IdlePage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ImapSetup\AdvancedImapSetupPage.xaml.cs">
+      <DependentUpon>AdvancedImapSetupPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ImapSetup\AutoDiscoveryPage.xaml.cs">
+      <DependentUpon>AutoDiscoveryPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ImapSetup\PreparingImapFoldersPage.xaml.cs">
+      <DependentUpon>PreparingImapFoldersPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ImapSetup\TestingImapConnectionPage.xaml.cs">
+      <DependentUpon>TestingImapConnectionPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ImapSetup\WelcomeImapSetupPage.xaml.cs">
+      <DependentUpon>WelcomeImapSetupPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\MailListPage.xaml.cs">
+      <DependentUpon>MailListPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\MailRenderingPage.xaml.cs">
+      <DependentUpon>MailRenderingPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\NewAccountManagementPage.xaml.cs">
+      <DependentUpon>NewAccountManagementPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\SettingsPage.xaml.cs">
+      <DependentUpon>SettingsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\AboutPage.xaml.cs">
+      <DependentUpon>AboutPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\MessageListPage.xaml.cs">
+      <DependentUpon>MessageListPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\PersonalizationPage.xaml.cs">
+      <DependentUpon>PersonalizationPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AppShell.xaml.cs">
+      <DependentUpon>AppShell.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\ReadingPanePage.xaml.cs">
+      <DependentUpon>ReadingPanePage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\SettingOptionsPage.xaml.cs">
+      <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\SignatureManagementPage.xaml.cs">
+      <DependentUpon>SignatureManagementPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\WelcomePage.xaml.cs">
+      <DependentUpon>WelcomePage.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Mica.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Content>
+    <Content Include="AppThemes\Nighty.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Content>
+    <Content Include="AppThemes\Forest.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="AppThemes\Clouds.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="AppThemes\Snowflake.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="AppThemes\Garden.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="AppThemes\Acrylic.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="AppThemes\Custom.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+    <Page Include="Controls\Advanced\WinoAppTitleBar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\MailItemDisplayInformationControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\WinoPivotControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\AccountEditDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\AccountPickerDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\CustomThemeBuilderDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\MoveMailDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\NewImapSetupDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\StoreRatingDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\SystemFolderConfigurationDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\WinoMessageDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\TextInputDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\ConfirmationDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\NewAccountDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\AccountCreationDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\ContentPresenters.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\Converters.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\FontIcons.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\ImagePreviewControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\ItemContainerStyles.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\WinoInfoBar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\CommandBarItems.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\Colors.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Account\AccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Account\AccountManagementPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\Account\MergedAccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ComposePage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\IdlePage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ImapSetup\AdvancedImapSetupPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ImapSetup\AutoDiscoveryPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ImapSetup\PreparingImapFoldersPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ImapSetup\TestingImapConnectionPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\ImapSetup\WelcomeImapSetupPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\MailListPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\MailRenderingPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\NewAccountManagementPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\SettingsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\AboutPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\MessageListPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\PersonalizationPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="AppShell.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\Settings\ReadingPanePage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\SettingOptionsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\SignatureManagementPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\WelcomePage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\BadgeLogo.scale-100.png" />
+    <Content Include="Assets\BadgeLogo.scale-125.png" />
+    <Content Include="Assets\BadgeLogo.scale-150.png" />
+    <Content Include="Assets\BadgeLogo.scale-200.png" />
+    <Content Include="Assets\BadgeLogo.scale-400.png" />
+    <Content Include="Assets\EML\eml.png" />
+    <Content Include="Assets\FileTypes\type_archive.png" />
+    <Content Include="Assets\FileTypes\type_audio.png" />
+    <Content Include="Assets\FileTypes\type_executable.png" />
+    <Content Include="Assets\FileTypes\type_none.png" />
+    <Content Include="Assets\FileTypes\type_other.png" />
+    <Content Include="Assets\FileTypes\type_html.png" />
+    <Content Include="Assets\FileTypes\type_image.png" />
+    <Content Include="Assets\FileTypes\type_pdf.png" />
+    <Content Include="Assets\FileTypes\type_rar.png" />
+    <Content Include="Assets\FileTypes\type_video.png" />
+    <Content Include="Assets\LargeTile.scale-100.png" />
+    <Content Include="Assets\LargeTile.scale-125.png" />
+    <Content Include="Assets\LargeTile.scale-150.png" />
+    <Content Include="Assets\LargeTile.scale-200.png" />
+    <Content Include="Assets\LargeTile.scale-400.png" />
+    <Content Include="Assets\NotificationIcons\delete.png" />
+    <Content Include="Assets\NotificationIcons\dismiss.png" />
+    <Content Include="Assets\NotificationIcons\markread.png" />
+    <Content Include="Assets\NotificationIcons\profile-dark.png" />
+    <Content Include="Assets\NotificationIcons\profile-light.png" />
+    <Content Include="Assets\Providers\Gmail.png" />
+    <Content Include="Assets\Providers\IMAP4.png" />
+    <Content Include="Assets\Providers\Office 365.png" />
+    <Content Include="Assets\Providers\Outlook.png" />
+    <Content Include="Assets\Providers\Yahoo.png" />
+    <Content Include="Assets\SmallTile.scale-100.png" />
+    <Content Include="Assets\SmallTile.scale-125.png" />
+    <Content Include="Assets\SmallTile.scale-150.png" />
+    <Content Include="Assets\SmallTile.scale-200.png" />
+    <Content Include="Assets\SmallTile.scale-400.png" />
+    <Content Include="Assets\SplashScreen.scale-100.png" />
+    <Content Include="Assets\SplashScreen.scale-125.png" />
+    <Content Include="Assets\SplashScreen.scale-150.png" />
+    <Content Include="Assets\SplashScreen.scale-400.png" />
+    <Content Include="Assets\Square150x150Logo.scale-100.png" />
+    <Content Include="Assets\Square150x150Logo.scale-125.png" />
+    <Content Include="Assets\Square150x150Logo.scale-150.png" />
+    <Content Include="Assets\Square150x150Logo.scale-400.png" />
+    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
+    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-24.png" />
+    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
+    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-32.png" />
+    <Content Include="Assets\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
+    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-16.png" />
+    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-256.png" />
+    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-32.png" />
+    <Content Include="Assets\Square44x44Logo.altform-unplated_targetsize-48.png" />
+    <Content Include="Assets\Square44x44Logo.scale-100.png" />
+    <Content Include="Assets\Square44x44Logo.scale-125.png" />
+    <Content Include="Assets\Square44x44Logo.scale-150.png" />
+    <Content Include="Assets\Square44x44Logo.scale-400.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-16.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-256.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-32.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-48.png" />
+    <Content Include="Assets\StoreLogo.scale-100.png" />
+    <Content Include="Assets\StoreLogo.scale-125.png" />
+    <Content Include="Assets\StoreLogo.scale-150.png" />
+    <Content Include="Assets\StoreLogo.scale-200.png" />
+    <Content Include="Assets\StoreLogo.scale-400.png" />
+    <Content Include="Assets\Thumbnails\airbnb.com.png" />
+    <Content Include="Assets\Thumbnails\apple.com.png" />
+    <Content Include="Assets\Thumbnails\google.com.png" />
+    <Content Include="Assets\Thumbnails\microsoft.com.png" />
+    <Content Include="Assets\Thumbnails\steampowered.com.png" />
+    <Content Include="Assets\Thumbnails\youtube.com.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-100.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-125.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-150.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-400.png" />
+    <Content Include="BackgroundImages\Acrylic.jpg" />
+    <Content Include="BackgroundImages\Forest.jpg" />
+    <Content Include="BackgroundImages\Clouds.jpg" />
+    <Content Include="BackgroundImages\Garden.jpg" />
+    <Content Include="BackgroundImages\Mica.jpg" />
+    <Content Include="BackgroundImages\Nighty.jpg" />
+    <Content Include="BackgroundImages\Snowflake.jpg" />
+    <Content Include="JS\Quill\darkreader.js" />
+    <Content Include="JS\Quill\full.html" />
+    <Content Include="JS\Quill\highlight.min.js" />
+    <Content Include="JS\Quill\image-resize.min.js" />
+    <Content Include="JS\Quill\katex.min.css" />
+    <Content Include="JS\Quill\katex.min.js" />
+    <Content Include="JS\Quill\monokai-sublime.min.css" />
+    <Content Include="JS\Quill\quill.core.css" />
+    <Content Include="JS\Quill\quill.core.js" />
+    <Content Include="JS\Quill\quill.js" />
+    <Content Include="JS\Quill\quill.min.js" />
+    <Content Include="JS\Quill\quill.snow.css" />
+    <Content Include="Assets\WinoIcons.ttf" />
+    <Content Include="JS\Quill\reader.css" />
+    <Content Include="JS\Quill\reader.html" />
+    <Content Include="Assets\ReleaseNotes\170.md" />
+    <None Include="Package.StoreAssociation.xml" />
+    <Content Include="Properties\Default.rd.xml" />
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    <None Include="Wino.Mail_TemporaryKey.pfx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\Thumbnails\uber.com.png" />
+    <None Include="JS\Quill\quill.min.js.map" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.BackgroundTasks\Wino.BackgroundTasks.csproj">
+      <Project>{d9ef0f59-f5f2-4d6c-a5ba-84043d8f3e08}</Project>
+      <Name>Wino.BackgroundTasks</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj">
+      <Project>{CF3312E5-5DA0-4867-9945-49EA7598AF1F}</Project>
+      <Name>Wino.Core.Domain</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.UWP.csproj">
+      <Project>{395f19ba-1e42-495c-9db5-1a6f537fccb8}</Project>
+      <Name>Wino.Core.UWP</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj">
+      <Project>{E6B1632A-8901-41E8-9DDF-6793C7698B0B}</Project>
+      <Name>Wino.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj">
+      <Project>{d62f1c03-da57-4709-a640-0283296a8e66}</Project>
+      <Name>Wino.Mail.ViewModels</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">
+      <Name>Windows Desktop Extensions for the UWP</Name>
+    </SDKReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="JS\Quill\Fonts\" />
+  </ItemGroup>
+  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
+    <VisualStudioVersion>14.0</VisualStudioVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|x86'">
+    <OutputPath>bin\x86\Debug .NET Native\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
+    <Optimize>false</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <NoStdLib>true</NoStdLib>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
+    <!-- .NET Native Shit -->
+    <Use64BitCompiler>true</Use64BitCompiler>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    <SingleThreadNUTC>true</SingleThreadNUTC>
+    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
+    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
+    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <OutOfProcPDB>true</OutOfProcPDB>
+    <!-- Opt-in to generate PDB's out of process -->
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|ARM'">
+    <OutputPath>bin\ARM\Debug .NET Native\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <NoStdLib>true</NoStdLib>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>ARM</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|ARM64'">
+    <OutputPath>bin\ARM64\Debug .NET Native\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <NoStdLib>true</NoStdLib>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>ARM64</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|x64'">
+    <OutputPath>bin\x64\Debug .NET Native\</OutputPath>
+    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
+    <Optimize>true</Optimize>
+    <NoWarn>;2008</NoWarn>
+    <NoStdLib>true</NoStdLib>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

@@ -1,0 +1,19 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <SolidColorBrush x:Key="FlaggedBrush">#e74c3c</SolidColorBrush>
+    <SolidColorBrush x:Key="DeleteBrush">#e74c3c</SolidColorBrush>
+    <SolidColorBrush x:Key="AttentionBrush">#ff7675</SolidColorBrush>
+
+    <SolidColorBrush x:Key="FolderSyncBrush">#1abc9c</SolidColorBrush>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Name="Light">
+            <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
+            <SolidColorBrush x:Key="SettingsPaneBorderBrush">#636e72</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
+            <SolidColorBrush x:Key="SettingsPaneBorderBrush">#2d3436</SolidColorBrush>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

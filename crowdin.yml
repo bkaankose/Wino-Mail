@@ -1,0 +1,3 @@
+files:
+  - source: /Wino.Core.Domain/Translations/en_US/resources.json
+    translation: /Wino.Core.Domain/Translations/%locale_with_underscore%/resources.json

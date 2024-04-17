@@ -1,0 +1,22 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <x:String x:Key="ThemeName">TestTheme.xaml</x:String>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Name="Light">
+            <!--  Background Image  -->
+            <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/bg6.jpg</x:String>
+            <SolidColorBrush x:Key="ShellTitleBarBackgroundColorBrush">#A3FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="ShellNavigationViewBackgroundColorBrush">#A3FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">#fdcb6e</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="Dark">
+            <!--  Background Image  -->
+            <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/bg6.jpg</x:String>
+
+            <SolidColorBrush x:Key="ShellTitleBarBackgroundColorBrush">#A3000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ShellNavigationViewBackgroundColorBrush">#A3000000</SolidColorBrush>
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">#A3262626</SolidColorBrush>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

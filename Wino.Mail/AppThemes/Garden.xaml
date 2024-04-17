@@ -1,0 +1,27 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:xaml="using:Windows.UI.Xaml"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <x:String x:Key="ThemeName">Garden</x:String>
+    <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/Garden.jpg</x:String>
+    <x:Boolean x:Key="UseMica">False</x:Boolean>
+
+    <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />
+    <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
+    <Thickness x:Key="RendererGridMargin">4,0,4,0</Thickness>
+    <xaml:CornerRadius x:Key="MailListGridCornerRadius">6,6,6,6</xaml:CornerRadius>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Name="Light">
+            <!--  Brushes  -->
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">#A3FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#FFFFFF</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="Dark">
+            <!--  Brushes  -->
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">#A3262626</SolidColorBrush>
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#5413191F</SolidColorBrush>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

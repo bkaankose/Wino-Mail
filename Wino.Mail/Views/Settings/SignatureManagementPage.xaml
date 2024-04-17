@@ -1,0 +1,284 @@
+﻿<abstract:SignatureManagementPageAbstract
+    x:Class="Wino.Views.Settings.SignatureManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    mc:Ignorable="d">
+
+    <Grid RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!--  Wino Pivot  -->
+            <controls:WinoPivotControl
+                IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}"
+                ItemsSource="{x:Bind ViewModel.ToolbarSections}"
+                SelectedItem="{x:Bind ViewModel.SelectedToolbarSection, Mode=TwoWay}"
+                SelectorPipeColor="{ThemeResource NavigationViewSelectionIndicatorForeground}">
+                <controls:WinoPivotControl.DataTemplate>
+                    <DataTemplate x:DataType="reader:EditorToolbarSection">
+                        <TextBlock Text="{x:Bind Title}" />
+                    </DataTemplate>
+                </controls:WinoPivotControl.DataTemplate>
+            </controls:WinoPivotControl>
+
+            <StackPanel
+                Grid.Column="1"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Spacing="12"
+                Orientation="Horizontal">
+                <Button Content="{x:Bind domain:Translator.Buttons_Save}" Command="{x:Bind ViewModel.SaveSignatureCommand}" />
+                <ToggleButton Content="{x:Bind domain:Translator.SettingsEnableSignature}" IsChecked="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
+            </StackPanel>
+        </Grid>
+
+        <!--  Editor Options  -->
+        <ScrollViewer
+            Grid.Row="1"
+            VerticalAlignment="Top"
+            IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}"
+            VerticalScrollMode="Disabled"
+            HorizontalScrollBarVisibility="Hidden"
+            HorizontalScrollMode="Enabled">
+            <Grid Padding="8,0">
+                <!--  Format Panel  -->
+                <Grid x:Name="FormatPanel" Visibility="{x:Bind helpers:XamlHelpers.IsFormatSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ToggleButton
+                            x:Name="BoldButton"
+                            Height="32"
+                            Click="BoldButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource BoldPathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+                        <ToggleButton
+                            x:Name="ItalicButton"
+                            Height="32"
+                            Click="ItalicButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource ItalicPathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+                        <ToggleButton
+                            x:Name="UnderlineButton"
+                            Height="32"
+                            Click="UnderlineButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource UnderlinePathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+                        <ToggleButton
+                            x:Name="StrokeButton"
+                            Height="32"
+                            Click="StrokeButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource StrikePathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <AppBarSeparator />
+
+                        <ToggleButton
+                            x:Name="BulletListButton"
+                            Height="32"
+                            Click="BulletListButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource BulletedListPathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <ToggleButton
+                            x:Name="OrderedListButton"
+                            Height="32"
+                            Click="OrderedListButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource OrderedListPathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <Button
+                            x:Name="DecreaseIndentButton"
+                            Height="32"
+                            Click="DecreaseIndentClicked">
+                            <Button.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
+                                </Viewbox>
+                            </Button.Content>
+                        </Button>
+
+                        <Button
+                            x:Name="IncreaseIndentButton"
+                            Height="32"
+                            Click="IncreaseIndentClicked">
+                            <Button.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
+                                </Viewbox>
+                            </Button.Content>
+                        </Button>
+
+                        <AppBarSeparator />
+
+                        <ToggleButton
+                            x:Name="DirectionButton"
+                            Height="32"
+                            Click="DirectionButtonClicked">
+                            <ToggleButton.Content>
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource ParagraphPathIcon}" />
+                                </Viewbox>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <ComboBox
+                            x:Name="AlignmentListView"
+                            Width="120"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            SelectionChanged="AlignmentChanged">
+                            <ComboBoxItem Tag="left">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Left}" />
+                                </StackPanel>
+                            </ComboBoxItem>
+
+                            <ComboBoxItem Tag="center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Center}" />
+                                </StackPanel>
+                            </ComboBoxItem>
+
+                            <ComboBoxItem Tag="right">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource AlignRightPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Right}" />
+                                </StackPanel>
+                            </ComboBoxItem>
+
+                            <ComboBoxItem Tag="justify">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Justify}" />
+                                </StackPanel>
+                            </ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+
+                <!--  Insert Panel  -->
+                <Grid x:Name="InsertPanel" Visibility="{x:Bind helpers:XamlHelpers.IsInsertSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button
+                            x:Name="AddImageButton"
+                            Height="32"
+                            Click="AddImageClicked">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16" VerticalAlignment="Center">
+                                        <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock Text="{x:Bind domain:Translator.Photos}" />
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+
+                        <Button
+                            x:Name="EmojiButton"
+                            Height="32"
+                            Click="EmojiButtonClicked">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16" VerticalAlignment="Center">
+                                        <PathIcon Data="{StaticResource EmojiPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock Text="{x:Bind domain:Translator.Emoji}" />
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+
+                        <Button
+                            x:Name="LinkButton"
+                            Height="32"
+                            Click="LinkButtonClicked">
+                            <Button.Flyout>
+                                <Flyout x:Name="HyperlinkFlyout">
+                                    <StackPanel Width="250" Spacing="6">
+                                        <TextBox x:Name="HyperlinkTextBox" Header="Text" />
+                                        <TextBox
+                                            x:Name="LinkUrlTextBox"
+                                            Header="Link"
+                                            PlaceholderText="https://" />
+                                        <Button
+                                            x:Name="AddHyperlinkButton"
+                                            Margin="0,6"
+                                            HorizontalAlignment="Stretch"
+                                            Click="HyperlinkAddClicked"
+                                            Content="{x:Bind domain:Translator.AddHyperlink}" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="16" VerticalAlignment="Center">
+                                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                                    </Viewbox>
+                                    <TextBlock Text="Link" />
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+
+        <muxc:WebView2
+            x:Name="Chromium"
+            Grid.Row="2"
+            Margin="0,0,0,250"
+            BorderBrush="LightGray"
+            BorderThickness="1"
+            Visibility="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}" />
+    </Grid>
+</abstract:SignatureManagementPageAbstract>

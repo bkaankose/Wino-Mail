@@ -1,0 +1,79 @@
+﻿<ContentDialog
+    x:Class="Wino.Dialogs.NewAccountDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
+    Title="{x:Bind domain:Translator.NewAccountDialog_Title}"
+    Style="{StaticResource WinoDialogStyle}"
+    HorizontalContentAlignment="Stretch"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    IsPrimaryButtonEnabled="False"
+    Opened="DialogOpened"
+    xmlns:domain="using:Wino.Core.Domain"
+    PrimaryButtonClick="CreateClicked"
+    DefaultButton="Primary"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_CreateAccount}"
+    SecondaryButtonClick="CancelClicked"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <DataTemplate x:Key="NewMailProviderTemplate" x:DataType="accounts:ProviderDetail">
+            <Grid Padding="6" Margin="0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Image
+                    Width="35"
+                    Height="35"
+                    Source="{x:Bind ProviderImage}" />
+                <StackPanel
+                    Spacing="2"
+                    Grid.Column="1"
+                    Margin="12,0"
+                    VerticalAlignment="Center">
+                    <TextBlock FontWeight="Bold" Text="{x:Bind Name}" />
+                    <TextBlock Text="{x:Bind Description}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </ContentDialog.Resources>
+
+    <Grid MinWidth="400">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Info panel  -->
+        <TextBox
+            x:Name="AccountNameTextbox"
+            Header="{x:Bind domain:Translator.NewAccountDialog_AccountName}"
+            Text="{x:Bind domain:Translator.NewAccountDialog_AccountNameDefaultValue}"
+            PlaceholderText="{x:Bind domain:Translator.NewAccountDialog_AccountNamePlaceholder}"
+            TextChanged="AccountNameChanged" />
+
+        <!--  TODO  -->
+        <!--<Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Color" />
+            <muxc:ColorPicker x:Name="AccountColorPicker" Grid.Column="1" />
+        </Grid>-->
+
+        <ListView
+            Grid.Row="2"
+            Margin="0,12"
+            Padding="0"
+            ItemTemplate="{StaticResource NewMailProviderTemplate}"
+            ItemsSource="{x:Bind Providers}"
+            SelectedItem="{x:Bind SelectedMailProvider, Mode=TwoWay}"
+            SelectionMode="Single" />
+    </Grid>
+</ContentDialog>

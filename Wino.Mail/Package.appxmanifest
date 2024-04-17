@@ -1,0 +1,111 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap mp rescap">
+
+	<!-- Publisher Cache Folders -->
+	<Extensions>
+		<Extension Category="windows.publisherCacheFolders">
+			<PublisherCacheFolders>
+				<Folder Name="WinoShared" />
+			</PublisherCacheFolders>
+		</Extension>
+	</Extensions>
+	
+  <Identity
+    Name="58272BurakKSE.WinoMailPreview"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Version="1.7.0.0" />
+
+  <mp:PhoneIdentity PhoneProductId="0f6f3c1b-6ffd-4212-9c91-a16e8d1fa437" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+
+  <Properties>
+    <DisplayName>Wino Mail</DisplayName>
+    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.0.0" MaxVersionTested="10.0.0.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="Wino.App">
+      <uap:VisualElements
+        DisplayName="Wino Mail"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        Description="Mail client designed for Windows 11"
+        BackgroundColor="transparent">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
+        <uap:SplashScreen Image="Assets\SplashScreen.png"  BackgroundColor="transparent"/>
+        <uap:LockScreen BadgeLogo="Assets\BadgeLogo.png" Notification="badgeAndTileText"/>
+      </uap:VisualElements>
+      <Extensions>
+		<!-- App updated task. Notifies about new version after each Store update. -->
+		<Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
+
+		<!-- SessionConnected task for background synchronization on startup. -->
+		<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
+			<BackgroundTasks>
+				<Task Type="systemEvent" />
+			</BackgroundTasks>
+		</Extension>
+
+		<!-- Protocol activation: mailto -->
+		<uap:Extension Category="windows.protocol">
+			<uap:Protocol Name="mailto" />
+		</uap:Extension>
+		  
+		<!-- Protocol activation: Google oAuth -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="google.pw.oauth2">
+            <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+		<!-- File Assosication: EML -->
+		<uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="eml">
+            <uap:Logo>EML\eml.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.eml</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+
+		<uap5:Extension Category="windows.startupTask">
+			<uap5:StartupTask
+			    TaskId="WinoStartupId"
+			    Enabled="false"
+			    DisplayName="Wino Startup Service" />
+		</uap5:Extension>
+		  
+		<!-- Registration of full trust backend application. -->
+		<!--<uap:Extension Category="windows.appService">
+			<uap:AppService Name="Wino.AppService" />
+		</uap:Extension>-->
+		  
+		<!--<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.AppService.exe" />-->
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <Capability Name="privateNetworkClientServer"/>
+    <Capability Name="internetClientServer"/>
+  </Capabilities>
+</Package>

@@ -1,0 +1,209 @@
+﻿<!--
+    This file contains Runtime Directives used by .NET Native. The defaults here are suitable for most
+    developers. However, you can modify these parameters to modify the behavior of the .NET Native
+    optimizer.
+
+    Runtime Directives are documented at https://go.microsoft.com/fwlink/?LinkID=391919
+
+    To fully enable reflection for App1.MyClass and all of its public/private members
+    <Type Name="App1.MyClass" Dynamic="Required All"/>
+
+    To enable dynamic creation of the specific instantiation of AppClass<T> over System.Int32
+    <TypeInstantiation Name="App1.AppClass" Arguments="System.Int32" Activate="Required Public" />
+
+    Using the Namespace directive to apply reflection policy to all the types in a particular namespace
+    <Namespace Name="DataClasses.ViewModels" Serialize="All" />
+-->
+
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+  <Application>
+    <!--
+      An Assembly element with Name="*Application*" applies to all assemblies in
+      the application package. The asterisks are not wildcards.
+    -->
+
+	  <Assembly Name="*Application*" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Graph" Serialize="Excluded" />
+	  <Namespace Name="Microsoft.Graph.Models" Serialize="Required PublicAndInternal" />
+	  
+	  <!-- Here we go... -->
+	  <!--<Assembly Name="Xamarin.Essentials" Dynamic="Required All" />
+	  <Assembly Name="AdaptiveTriggerLibrary" Dynamic="Required All" />
+	  <Assembly Name="Azure.Core" Dynamic="Required All" />
+	  <Assembly Name="BouncyCastle.Crypto" Dynamic="Required All" />
+	  <Assembly Name="ColorCode.Core" Dynamic="Required All" />
+	  <Assembly Name="ColorCode.UWP"  Dynamic="Required All" />
+	  <Assembly Name="ColorHashSharp"  Dynamic="Required All" />
+	  <Assembly Name="CommunityToolkit.Common"  Dynamic="Required All" />
+	  <Assembly Name="CommunityToolkit.Mvvm"  Dynamic="Required All" />
+	  <Assembly Name="DynamicData"  Dynamic="Required All" />
+	  <Assembly Name="Google.Apis.Auth"  Dynamic="Required All" />
+	  <Assembly Name="Google.Apis.Auth.PlatformServices"  Dynamic="Required All" />
+	  <Assembly Name="Google.Apis.Core"  Dynamic="Required All" />
+	  <Assembly Name="Google.Apis"  Dynamic="Required All" />
+	  <Assembly Name="Google.Apis.Gmail.v1"  Dynamic="Required All" />
+	  <Assembly Name="Microsoft.AppCenter.Analytics"  Dynamic="Required All" />
+	  <Assembly Name="Microsoft.AppCenter.Crashes"  Dynamic="Required All" />
+	  <Assembly Name="Microsoft.AppCenter"  Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Bcl.AsyncInterfaces"  Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Extensions.DependencyInjection.Abstractions" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Extensions.DependencyInjection" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Graph.Core" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Graphics.Canvas" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.IdentityModel.Abstractions" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.IdentityModel.JsonWebTokens" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.IdentityModel.Logging" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.IdentityModel.Protocols" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.IdentityModel.Protocols.OpenIdConnect" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.IdentityModel.Tokens" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Kiota.Abstractions" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Kiota.Authentication.Azure" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Kiota.Http.HttpClientLibrary" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Kiota.Serialization.Form" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Kiota.Serialization.Json" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Kiota.Serialization.Text" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit.Uwp" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit.Uwp.UI.Animations" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit.Uwp.UI.Controls.Core" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit.Uwp.UI.Controls.Markdown" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit.Uwp.UI.Controls.Primitives" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Toolkit.Uwp.UI" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Web.WebView2.Core" Dynamic="Required All" />
+	  <Assembly Name="Microsoft.Win32.Primitives" Dynamic="Required All" />
+	  <Assembly Name="MimeKit" Dynamic="Required All" />
+	  <Assembly Name="MoreLinq" Dynamic="Required All" />
+	  <Assembly Name="mscorlib" Dynamic="Required All" />
+	  <Assembly Name="netstandard" Dynamic="Required All" />
+	  <Assembly Name="Newtonsoft.Json" Dynamic="Required All" />
+	  <Assembly Name="Nito.AsyncEx.Context" Dynamic="Required All" />
+	  <Assembly Name="Nito.AsyncEx.Coordination" Dynamic="Required All" />
+	  <Assembly Name="Nito.AsyncEx.Interop.WaitHandles" Dynamic="Required All" />
+	  <Assembly Name="Nito.AsyncEx.Oop" Dynamic="Required All" />
+	  <Assembly Name="Nito.AsyncEx.Tasks" Dynamic="Required All" />
+	  <Assembly Name="Nito.Cancellation" Dynamic="Required All" />
+	  <Assembly Name="Nito.Collections.Deque" Dynamic="Required All" />
+	  <Assembly Name="Nito.Disposables" Dynamic="Required All" />
+	  <Assembly Name="ReactiveUI" Dynamic="Required All" />
+	  <Assembly Name="Refit" Dynamic="Required All" />
+	  <Assembly Name="Serilog" Dynamic="Required All" />
+	  <Assembly Name="Serilog.Sinks.File" Dynamic="Required All" />
+	  <Assembly Name="Splat" Dynamic="Required All" />
+	  <Assembly Name="SQLite-net" Dynamic="Required All" />
+	  <Assembly Name="SQLitePCLRaw.batteries_v2" Dynamic="Required All" />
+	  <Assembly Name="SQLitePCLRaw.core" Dynamic="Required All" />
+	  <Assembly Name="SQLitePCLRaw.provider.e_sqlite3" Dynamic="Required All" />
+	  <Assembly Name="SqlKata" Dynamic="Required All" />
+	  <Assembly Name="System.AppContext" Dynamic="Required All" />
+	  <Assembly Name="System.Buffers" Dynamic="Required All" />
+	  <Assembly Name="System.Collections.Concurrent" Dynamic="Required All" />
+	  <Assembly Name="System.Collections" Dynamic="Required All" />
+	  <Assembly Name="System.Collections.Immutable" Dynamic="Required All" />
+	  <Assembly Name="System.Collections.NonGeneric" Dynamic="Required All" />
+	  <Assembly Name="System.Collections.Specialized" Dynamic="Required All" />
+	  <Assembly Name="System.ComponentModel.Annotations" Dynamic="Required All" />
+	  <Assembly Name="System.ComponentModel" Dynamic="Required All" />
+	  <Assembly Name="System.ComponentModel.EventBasedAsync" Dynamic="Required All" />
+	  <Assembly Name="System.ComponentModel.Primitives" Dynamic="Required All" />
+	  <Assembly Name="System.ComponentModel.TypeConverter" Dynamic="Required All" />
+	  <Assembly Name="System.Console" Dynamic="Required All" />
+	  <Assembly Name="System.Core" Dynamic="Required All" />
+	  <Assembly Name="System.Data.Common" Dynamic="Required All" />
+	  <Assembly Name="System.Data.DataSetExtensions" Dynamic="Required All" />
+	  <Assembly Name="System.Data" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.Debug" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.DiagnosticSource" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.FileVersionInfo" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.Process" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.StackTrace" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.Tools" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.TraceSource" Dynamic="Required All" />
+	  <Assembly Name="System.Diagnostics.Tracing" Dynamic="Required All" />
+	  <Assembly Name="System" Dynamic="Required All" />
+	  <Assembly Name="System.Drawing" Dynamic="Required All" />
+	  <Assembly Name="System.Drawing.Primitives" Dynamic="Required All" />
+	  <Assembly Name="System.Formats.Asn1" Dynamic="Required All" />
+	  <Assembly Name="System.Globalization" Dynamic="Required All" />
+	  <Assembly Name="System.IdentityModel.Tokens.Jwt" Dynamic="Required All" />
+	  <Assembly Name="System.IO.Compression" Dynamic="Required All" />
+	  <Assembly Name="System.IO.MemoryMappedFiles" Dynamic="Required All" />
+	  <Assembly Name="System.Linq" Dynamic="Required All" />
+	  <Assembly Name="System.Memory.Data" Dynamic="Required All" />
+	  <Assembly Name="System.Memory" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Http" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Http.Json" Dynamic="Required All" />
+	  <Assembly Name="System.Net.HttpListener" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Mail" Dynamic="Required All" />
+	  <Assembly Name="System.Net.NameResolution" Dynamic="Required All" />
+	  <Assembly Name="System.Net.NetworkInformation" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Primitives" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Requests" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Security" Dynamic="Required All" />
+	  <Assembly Name="System.Net.ServicePoint" Dynamic="Required All" />
+	  <Assembly Name="System.Net.Sockets" Dynamic="Required All" />
+	  <Assembly Name="System.Net.WebHeaderCollection" Dynamic="Required All" />
+	  <Assembly Name="System.Numerics" Dynamic="Required All" />
+	  <Assembly Name="System.Numerics.Vectors" Dynamic="Required All" />
+	  <Assembly Name="System.Numerics.Vectors.WindowsRuntime" Dynamic="Required All" />
+	  <Assembly Name="System.ObjectModel" Dynamic="Required All" />
+	  <Assembly Name="System.Private.Uri" Dynamic="Required All" />
+	  <Assembly Name="System.Private.Xml" Dynamic="Required All" />
+	  <Assembly Name="System.Private.Xml.Linq" Dynamic="Required All" />
+	  <Assembly Name="System.Reactive" Dynamic="Required All" />
+	  <Assembly Name="System.Reflection" Dynamic="Required All" />
+	  <Assembly Name="System.Reflection.Extensions" Dynamic="Required All" />
+	  <Assembly Name="System.Reflection.Metadata" Dynamic="Required All" />
+	  <Assembly Name="System.Resources.ResourceManager" Dynamic="Required All" />
+	  <Assembly Name="System.Resources.Writer" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.CompilerServices.Unsafe" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.Extensions" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.InteropServices" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.InteropServices.RuntimeInformation" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.InteropServices.WindowsRuntime" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.Numerics" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.Serialization.Formatters" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.Serialization.Primitives" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.WindowsRuntime" Dynamic="Required All" />
+	  <Assembly Name="System.Runtime.WindowsRuntime.UI.Xaml" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Claims" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.Algorithms" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.Cng" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.Csp" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.Encoding" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.Pkcs" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.Primitives" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Cryptography.X509Certificates" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Principal" Dynamic="Required All" />
+	  <Assembly Name="System.Security.Principal.Windows" Dynamic="Required All" />
+	  <Assembly Name="System.Text.Encoding.CodePages" Dynamic="Required All" />
+	  <Assembly Name="System.Text.Encoding.Extensions" Dynamic="Required All" />
+	  <Assembly Name="System.Text.Encodings.Web" Dynamic="Required All" />
+	  <Assembly Name="System.Text.Json" Dynamic="Required All" />
+	  <Assembly Name="System.Text.RegularExpressions" Dynamic="Required All" />
+	  <Assembly Name="System.Threading" Dynamic="Required All" />
+	  <Assembly Name="System.Threading.Overlapped" Dynamic="Required All" />
+	  <Assembly Name="System.Threading.Tasks" Dynamic="Required All" />
+	  <Assembly Name="System.Threading.Tasks.Extensions" Dynamic="Required All" />
+	  <Assembly Name="System.Threading.Thread" Dynamic="Required All" />
+	  <Assembly Name="System.Threading.ThreadPool" Dynamic="Required All" />
+	  <Assembly Name="System.Threading.Timer" Dynamic="Required All" />
+	  <Assembly Name="System.Transactions.Local" Dynamic="Required All" />
+	  <Assembly Name="System.Web.HttpUtility" Dynamic="Required All" />
+	  <Assembly Name="System.Xml.ReaderWriter" Dynamic="Required All" />
+	  <Assembly Name="System.Xml.XDocument" Dynamic="Required All" />
+	  <Assembly Name="System.Xml.XPath.XDocument" Dynamic="Required All" />
+	  <Assembly Name="Tavis.UriTemplates" Dynamic="Required All" />
+	  <Assembly Name="WindowsBase" Dynamic="Required All" />
+	  <Assembly Name="Wino.Common" Dynamic="Required All" />
+	  <Assembly Name="Wino.Core" Dynamic="Required All" />
+	  <Assembly Name="Wino.Database" Dynamic="Required All" />-->
+	  
+	  <!-- Add your application specific runtime directives here. -->
+    <Type Name="Windows.Foundation.TypedEventHandler{Microsoft.UI.Xaml.Controls.NavigationView,Microsoft.UI.Xaml.Controls.NavigationViewItemInvokedEventArgs}" MarshalObject="Public" />
+
+    <Type Name="Microsoft.UI.Xaml.Controls.NavigationView">
+      <Event Name="ItemInvoked" Dynamic="Required"/>
+    </Type>
+  </Application>
+</Directives>

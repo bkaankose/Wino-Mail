@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Wino.Core</RootNamespace>
+    <Configurations>Debug;Release</Configurations>
+	<LangVersion>12</LangVersion>
+  </PropertyGroup>
+
+  <!--<ItemGroup>
+    <Compile Remove="Integration\ContextMenu\CustomServerContextMenuProvider.cs" />
+    <Compile Remove="Integration\ContextMenu\GoogleContextMenuProvider.cs" />
+    <Compile Remove="Integration\ContextMenu\MicrosoftContextMenuProvider.cs" />
+    <Compile Remove="Integration\ContextMenu\SharedContextMenuProvider.cs" />
+    <Compile Remove="Services\IntegrationProcessor.cs" />
+  </ItemGroup>-->
+
+   <ItemGroup>
+     <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />
+     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+     <PackageReference Include="Google.Apis.Gmail.v1" Version="1.67.0.3287" />
+     <PackageReference Include="HtmlAgilityPack" Version="1.11.59" />
+     <PackageReference Include="HtmlKit" Version="1.1.0" />
+     <PackageReference Include="IsExternalInit" Version="1.0.3">
+       <PrivateAssets>all</PrivateAssets>
+       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+     </PackageReference>
+     <PackageReference Include="MailKit" Version="4.4.0" />
+     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+     <PackageReference Include="Microsoft.Graph" Version="5.45.0" />
+     <PackageReference Include="Microsoft.Identity.Client" Version="4.59.0" />
+     <PackageReference Include="MimeKit" Version="4.4.0" />
+     <PackageReference Include="morelinq" Version="4.1.0" />
+     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+     <PackageReference Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
+     <PackageReference Include="Serilog" Version="3.1.1" />
+     <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
+     <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0" />
+     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+     <PackageReference Include="SqlKata" Version="2.4.0" />
+     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+     <PackageReference Include="Xamarin.Essentials" Version="1.8.1" />
+   </ItemGroup>
+
+   <ItemGroup>
+     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+   </ItemGroup>
+</Project>

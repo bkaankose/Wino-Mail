@@ -1,0 +1,53 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:xaml="using:Windows.UI.Xaml"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <x:String x:Key="ThemeName">Custom</x:String>
+    <x:String x:Key="ThemeBackgroundImage">ms-appdata:///local/CustomWallpaper.jpg</x:String>
+    <x:Boolean x:Key="UseMica">False</x:Boolean>
+
+    <ImageBrush
+        x:Key="WinoApplicationBackgroundColor"
+        Stretch="UniformToFill"
+        ImageSource="{StaticResource ThemeBackgroundImage}" />
+
+    <Thickness x:Key="RendererGridMargin">0,0,0,0</Thickness>
+    <xaml:CornerRadius x:Key="MailListGridCornerRadius">0,6,6,0</xaml:CornerRadius>
+
+    <!--  Navigation View Settings  -->
+    <xaml:CornerRadius x:Key="NavigationViewContentGridCornerRadius">0,0,0,0</xaml:CornerRadius>
+    <xaml:CornerRadius x:Key="OverlayCornerRadius">0,1,0,0</xaml:CornerRadius>
+    <Thickness x:Key="NavigationViewContentMargin">0,0,0,0</Thickness>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Name="Light">
+            <!--  Reading Page Date/Name Group Header Background  -->
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
+
+            <Color x:Key="MainCustomThemeColor">#D9FFFFFF</Color>
+
+            <!--  Reading Pane Background  -->
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
+
+            <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="Dark">
+            <!--  Reading Page Date/Name Group Header Background  -->
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
+
+            <Color x:Key="MainCustomThemeColor">#E61F1F1F</Color>
+
+            <!--  Reading Pane Background  -->
+            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
+
+            <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+            <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

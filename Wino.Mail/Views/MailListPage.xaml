@@ -1,0 +1,891 @@
+﻿<abstract:MailListPageAbstract
+    x:Class="Wino.Views.MailListPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:i="using:Microsoft.Xaml.Interactivity"
+    xmlns:ic="using:Microsoft.Xaml.Interactions.Core"
+    xmlns:listview="using:Wino.Controls.Advanced"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:menuflyouts="using:Wino.MenuFlyouts"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:selectors="using:Wino.Selectors"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
+    xmlns:wino="using:Wino"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    x:Name="root"
+    Loaded="MailListPageLoaded"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <CollectionViewSource
+            x:Name="MailCollectionViewSource"
+            IsSourceGrouped="True"
+            Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
+
+        <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
+        <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
+        <Thickness x:Key="ExpanderHeaderBorderThickness">0,0,0,0</Thickness>
+
+        <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush">Transparent</SolidColorBrush>
+        <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush">Transparent</SolidColorBrush>
+        <SolidColorBrush x:Key="ExpanderContentBorderBrush">Transparent</SolidColorBrush>
+
+        <StaticResource x:Key="ExpanderContentBackground" ResourceKey="CardBackgroundFillColorSecondaryBrush" />
+        <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+
+        <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
+        <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
+
+        <DataTemplate x:Key="FolderPivotTemplate" x:DataType="viewModelData:FolderPivotViewModel">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <TextBlock Text="{x:Bind FolderTitle}" />
+                <TextBlock
+                    x:Name="CountTextBlock"
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
+                    <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
+                </TextBlock>
+            </StackPanel>
+        </DataTemplate>
+
+        <!--  Header Templates  -->
+        <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="collections:IReadOnlyObservableGroup">
+            <Grid
+                Margin="6,2"
+                AllowFocusOnInteraction="False"
+                Background="{ThemeResource MailListHeaderBackgroundColor}"
+                CornerRadius="6">
+                <TextBlock
+                    Padding="12"
+                    AllowFocusOnInteraction="False"
+                    VerticalAlignment="Center"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}" />
+            </Grid>
+        </DataTemplate>
+
+        <!--
+            Thread items should not display multi select checkbox.
+            We override one for thread view models, and default items should use
+            what the system has by default. Overriding ListViewItem and ListViewItemPresenter styles
+            are really dangerous since they are somehow messy at system level.
+        -->
+
+        <!--  Thread Item Container Style  -->
+        <Style x:Key="ThreadItemContainerStyle" TargetType="ListViewItem">
+            <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
+            <Setter Property="FontSize" Value="{ThemeResource ControlContentThemeFontSize}" />
+            <Setter Property="Background" Value="{ThemeResource ListViewItemBackground}" />
+            <Setter Property="Foreground" Value="{ThemeResource ListViewItemForeground}" />
+            <Setter Property="TabNavigation" Value="Local" />
+            <Setter Property="IsHoldingEnabled" Value="True" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="{ThemeResource ListViewItemMinWidth}" />
+            <Setter Property="MinHeight" Value="{ThemeResource ListViewItemMinHeight}" />
+            <Setter Property="AllowDrop" Value="False" />
+            <Setter Property="UseSystemFocusVisuals" Value="{StaticResource UseSystemFocusVisuals}" />
+            <Setter Property="FocusVisualMargin" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <ListViewItemPresenter
+                            x:Name="Root"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                            CheckBoxBrush="Transparent"
+                            CheckBrush="Transparent"
+                            CheckMode="Overlay"
+                            ContentMargin="{TemplateBinding Padding}"
+                            ContentTransitions="{TemplateBinding ContentTransitions}"
+                            Control.IsTemplateFocusTarget="True"
+                            CornerRadius="5"
+                            DisabledOpacity="{ThemeResource ListViewItemDisabledThemeOpacity}"
+                            DragBackground="{ThemeResource ListViewItemDragBackground}"
+                            DragForeground="{ThemeResource ListViewItemDragForeground}"
+                            DragOpacity="{ThemeResource ListViewItemDragThemeOpacity}"
+                            FocusBorderBrush="{ThemeResource ListViewItemFocusBorderBrush}"
+                            FocusSecondaryBorderBrush="{ThemeResource ListViewItemFocusSecondaryBorderBrush}"
+                            FocusVisualMargin="{TemplateBinding FocusVisualMargin}"
+                            PlaceholderBackground="{ThemeResource ListViewItemPlaceholderBackground}"
+                            PointerOverBackground="{ThemeResource ListViewItemBackgroundPointerOver}"
+                            PointerOverForeground="{ThemeResource ListViewItemForegroundPointerOver}"
+                            PressedBackground="{ThemeResource ListViewItemBackgroundPressed}"
+                            ReorderHintOffset="{ThemeResource ListViewItemReorderHintThemeOffset}"
+                            RevealBackground="{ThemeResource ListViewItemRevealBackground}"
+                            RevealBorderBrush="{ThemeResource ListViewItemRevealBorderBrush}"
+                            RevealBorderThickness="{ThemeResource ListViewItemRevealBorderThemeThickness}"
+                            SelectedBackground="{ThemeResource ListViewItemBackgroundSelected}"
+                            SelectedForeground="{ThemeResource ListViewItemForegroundSelected}"
+                            SelectedPointerOverBackground="{ThemeResource ListViewItemBackgroundSelectedPointerOver}"
+                            SelectedPressedBackground="{ThemeResource ListViewItemBackgroundSelectedPressed}"
+                            SelectionCheckMarkVisualEnabled="False">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="Selected" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.(RevealBrush.State)" Value="PointerOver" />
+                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPointerOver}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="PointerOverSelected">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.(RevealBrush.State)" Value="PointerOver" />
+                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPointerOver}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="PointerOverPressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.(RevealBrush.State)" Value="Pressed" />
+                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPressed}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.(RevealBrush.State)" Value="Pressed" />
+                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPressed}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="PressedSelected">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.(RevealBrush.State)" Value="Pressed" />
+                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPressed}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="DisabledStates">
+                                    <VisualState x:Name="Enabled" />
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.RevealBorderThickness" Value="0" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </ListViewItemPresenter>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--  Mail Item Container Style Selector  -->
+        <selectors:MailItemContainerStyleSelector x:Key="WinoContainerSelector" Thread="{StaticResource ThreadItemContainerStyle}" />
+
+        <!--  Swipe Items  -->
+        <!--  Left  -->
+        <muxc:SwipeItems x:Key="LeftSwipeItems" Mode="Execute">
+            <muxc:SwipeItem
+                BehaviorOnInvoked="Close"
+                Invoked="LeftSwipeItemInvoked"
+                Text="{x:Bind domain:Translator.MailOperation_Delete}">
+                <muxc:SwipeItem.IconSource>
+                    <controls:WinoFontIconSource Icon="Delete" />
+                </muxc:SwipeItem.IconSource>
+                <muxc:SwipeItem.Background>
+                    <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                        <GradientStop Offset="0.0" Color="#FFF5A6A6" />
+                        <GradientStop Offset="0.5" Color="#FFEF4444" />
+                        <GradientStop Offset="1.0" Color="#FFF32525" />
+                    </LinearGradientBrush>
+                </muxc:SwipeItem.Background>
+            </muxc:SwipeItem>
+        </muxc:SwipeItems>
+
+        <!--  Right  -->
+        <muxc:SwipeItems x:Key="RightSwipeItems" Mode="Execute">
+            <muxc:SwipeItem
+                BehaviorOnInvoked="Close"
+                Invoked="RightSwipeItemInvoked"
+                Text="{x:Bind domain:Translator.MarkReadUnread}">
+                <muxc:SwipeItem.IconSource>
+                    <controls:WinoFontIconSource Icon="MarkRead" />
+                </muxc:SwipeItem.IconSource>
+            </muxc:SwipeItem>
+        </muxc:SwipeItems>
+
+        <!--  Single Mail Item Template  -->
+        <DataTemplate x:Key="SingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
+            <muxc:SwipeControl
+                LeftItems="{StaticResource LeftSwipeItems}"
+                RightItems="{StaticResource RightSwipeItems}"
+                Tag="{x:Bind}">
+                <controls:MailItemDisplayInformationControl
+                    x:DefaultBindMode="OneWay"
+                    MailItem="{Binding}"
+                    HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                    CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                    ContextRequested="MailItemContextRequested"
+                    DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                    FocusVisualMargin="8"
+                    FocusVisualPrimaryBrush="{StaticResource SystemControlRevealFocusVisualBrush}"
+                    FocusVisualPrimaryThickness="2"
+                    FocusVisualSecondaryBrush="{StaticResource SystemControlFocusVisualSecondaryBrush}"
+                    FocusVisualSecondaryThickness="1"
+                    FromAddress="{x:Bind FromAddress}"
+                    FromName="{x:Bind FromName}"
+                    HasAttachments="{x:Bind HasAttachments}"
+                    IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                    IsCustomFocused="{x:Bind IsCustomFocused, Mode=OneWay}"
+                    IsDraft="{x:Bind IsDraft, Mode=OneWay}"
+                    IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
+                    IsRead="{x:Bind IsRead, Mode=OneWay}"
+                    LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                    Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                    ReceivedDate="{x:Bind CreationDate}"
+                    IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                    RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                    ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                    Snippet="{x:Bind PreviewText}"
+                    Subject="{x:Bind Subject}" />
+            </muxc:SwipeControl>
+        </DataTemplate>
+
+        <!--  Single Mail Item Template for Threads  -->
+        <DataTemplate x:Key="ThreadSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
+            <muxc:SwipeControl
+                LeftItems="{StaticResource LeftSwipeItems}"
+                RightItems="{StaticResource RightSwipeItems}"
+                Tag="{x:Bind}">
+                <controls:MailItemDisplayInformationControl
+                    x:DefaultBindMode="OneWay"
+                    MailItem="{Binding}"
+                    HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                    CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                    ContextRequested="MailItemContextRequested"
+                    DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                    FocusVisualMargin="8"
+                    IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                    FocusVisualPrimaryBrush="{StaticResource SystemControlRevealFocusVisualBrush}"
+                    FocusVisualPrimaryThickness="2"
+                    FocusVisualSecondaryBrush="{StaticResource SystemControlFocusVisualSecondaryBrush}"
+                    FocusVisualSecondaryThickness="1"
+                    FromAddress="{x:Bind FromAddress}"
+                    FromName="{x:Bind FromName}"
+                    HasAttachments="{x:Bind HasAttachments}"
+                    IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                    Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                    IsCustomFocused="{x:Bind IsCustomFocused, Mode=OneWay}"
+                    IsDraft="{x:Bind IsDraft, Mode=OneWay}"
+                    IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
+                    IsRead="{x:Bind IsRead, Mode=OneWay}"
+                    LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                    ReceivedDate="{x:Bind CreationDate}"
+                    RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                    ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                    Snippet="{x:Bind PreviewText}"
+                    Subject="{x:Bind Subject}" />
+            </muxc:SwipeControl>
+        </DataTemplate>
+
+        <!--  Mail Item Content Selector  -->
+        <selectors:MailItemDisplaySelector x:Key="MailItemDisplaySelector" SingleMailItemTemplate="{StaticResource SingleMailItemTemplate}">
+            <selectors:MailItemDisplaySelector.ThreadMailItemTemplate>
+                <DataTemplate x:DataType="viewModelData:ThreadMailItemViewModel">
+                    <muxc:Expander
+                        x:Name="ThreadExpander"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        BackgroundSizing="InnerBorderEdge"
+                        BorderThickness="0"
+                        IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
+                        <muxc:Expander.Header>
+                            <controls:MailItemDisplayInformationControl
+                                x:DefaultBindMode="OneWay"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                MailItem="{Binding}"
+                                Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                                CanDrag="True"
+                                IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                                HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                                LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                                CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                                RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                                ConnectedExpander="{Binding ElementName=ThreadExpander}"
+                                ContextRequested="MailItemContextRequested"
+                                DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                                DragStarting="ThreadHeaderDragStart"
+                                DropCompleted="ThreadHeaderDragFinished"
+                                FromAddress="{x:Bind FromAddress}"
+                                FromName="{x:Bind FromName}"
+                                IsHitTestVisible="True"
+                                HasAttachments="{x:Bind HasAttachments}"
+                                IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                                IsDraft="{x:Bind IsDraft}"
+                                IsFlagged="{x:Bind IsFlagged}"
+                                IsRead="{x:Bind IsRead}"
+                                ReceivedDate="{x:Bind CreationDate}"
+                                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                                Snippet="{x:Bind PreviewText}"
+                                Subject="{x:Bind Subject}" />
+                        </muxc:Expander.Header>
+                        <muxc:Expander.Content>
+                            <listview:WinoListView
+                                x:Name="ThreadItemsList"
+                                ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                                IsThreadListView="True"
+                                ItemTemplate="{StaticResource ThreadSingleMailItemTemplate}"
+                                ItemsSource="{x:Bind ThreadItems}"
+                                ProcessKeyboardAccelerators="ProcessMailItemKeyboardAccelerator"
+                                ScrollViewer.VerticalScrollBarVisibility="Hidden">
+                                <ListView.ItemContainerTransitions>
+                                    <TransitionCollection>
+                                        <EdgeUIThemeTransition />
+                                    </TransitionCollection>
+                                </ListView.ItemContainerTransitions>
+                            </listview:WinoListView>
+                        </muxc:Expander.Content>
+                    </muxc:Expander>
+                </DataTemplate>
+            </selectors:MailItemDisplaySelector.ThreadMailItemTemplate>
+        </selectors:MailItemDisplaySelector>
+
+        <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
+
+        <Style
+            x:Key="TopCommandBarButtonStyle"
+            TargetType="Button"
+            BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+
+        <Style
+            x:Key="TopCommandBarToggleButtonStyle"
+            TargetType="ToggleButton"
+            BasedOn="{StaticResource DefaultToggleButtonStyle}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+    </Page.Resources>
+
+    <wino:BasePage.ShellContent>
+        <AutoSuggestBox
+            x:Name="SearchBar"
+            Margin="0,0,8,0"
+            VerticalAlignment="Center"
+            BorderBrush="Transparent"
+            GotFocus="SearchBoxFocused"
+            IsFocusEngagementEnabled="False"
+            IsTabStop="False"
+            LostFocus="SearchBarUnfocused"
+            PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
+            QueryIcon="Find"
+            TabIndex="1000"
+            Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}">
+            <i:Interaction.Behaviors>
+                <ic:EventTriggerBehavior EventName="QuerySubmitted">
+                    <ic:InvokeCommandAction Command="{x:Bind ViewModel.PerformSearchCommand}" />
+                </ic:EventTriggerBehavior>
+            </i:Interaction.Behaviors>
+        </AutoSuggestBox>
+    </wino:BasePage.ShellContent>
+
+    <Grid x:Name="RootGrid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="ReaderColumn" Width="Auto" />
+            <ColumnDefinition x:Name="RendererColumn" Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!--  Mail Items  -->
+        <Grid
+            x:Name="ReaderGrid"
+            MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}"
+            Margin="-1,0,0,0"
+            Padding="4,0,0,0"
+            HorizontalAlignment="Left"
+            Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
+            CornerRadius="{ThemeResource MailListGridCornerRadius}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!--  Top Area  -->
+            <Grid
+                Padding="6"
+                CornerRadius="8"
+                RowSpacing="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!--  Top Commands  -->
+                <Grid
+                    Grid.Row="0"
+                    Padding="2,0"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    CornerRadius="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="48" />
+                        <RowDefinition Height="2" />
+                    </Grid.RowDefinitions>
+
+                    <!--  Commands  -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button
+                            Style="{StaticResource TopCommandBarButtonStyle}"
+                            Command="{x:Bind ViewModel.SyncFolderCommand}"
+                            IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}">
+                            <Button.Content>
+                                <controls:WinoFontIcon Icon="Sync" FontSize="16" />
+                            </Button.Content>
+                        </Button>
+
+                        <ToggleButton
+                            x:Name="SelectionModeToggle"
+                            Grid.Column="1"
+                            Style="{StaticResource TopCommandBarToggleButtonStyle}"
+                            Checked="SelectionModeToggleChecked"
+                            Unchecked="SelectionModeToggleUnchecked">
+                            <ToggleButton.Content>
+                                <controls:WinoFontIcon FontSize="18" Icon="MultiSelect" />
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <AppBarSeparator Grid.Column="2" Margin="2,0" />
+
+                        <Button
+                            x:Name="ArchiveAppBarButton"
+                            Grid.Column="3"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsArchiveSpecialFolder), Mode=OneWay}"
+                            Style="{StaticResource TopCommandBarButtonStyle}"
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Archive}">
+                            <Button.Content>
+                                <controls:WinoFontIcon FontSize="18" Icon="Archive" />
+                            </Button.Content>
+                            <Button.CommandParameter>
+                                <enums:MailOperation>Archive</enums:MailOperation>
+                            </Button.CommandParameter>
+                        </Button>
+
+                        <Button
+                            x:Name="UnarchiveAppBarButton"
+                            Grid.Column="3"
+                            x:Load="{x:Bind ViewModel.IsArchiveSpecialFolder, Mode=OneWay}"
+                            Style="{StaticResource TopCommandBarButtonStyle}"
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Unarchive}">
+                            <Button.Content>
+                                <controls:WinoFontIcon FontSize="18" Icon="UnArchive" />
+                            </Button.Content>
+                            <Button.CommandParameter>
+                                <enums:MailOperation>UnArchive</enums:MailOperation>
+                            </Button.CommandParameter>
+                        </Button>
+
+                        <Button
+                            Grid.Column="4"
+                            Style="{StaticResource TopCommandBarButtonStyle}"
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Delete}">
+                            <Button.CommandParameter>
+                                <enums:MailOperation>SoftDelete</enums:MailOperation>
+                            </Button.CommandParameter>
+                            <Button.Content>
+                                <controls:WinoFontIcon FontSize="18" Icon="Delete" />
+                            </Button.Content>
+                        </Button>
+
+                        <Button
+                            x:Name="MoveButtonAppBarButton"
+                            Grid.Column="5"
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Style="{StaticResource TopCommandBarButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Move}">
+                            <Button.CommandParameter>
+                                <enums:MailOperation>Move</enums:MailOperation>
+                            </Button.CommandParameter>
+                            <Button.Content>
+                                <controls:WinoFontIcon FontSize="18" Icon="Move" />
+                            </Button.Content>
+                        </Button>
+
+                        <Button
+                            Grid.Column="6"
+                            Style="{StaticResource TopCommandBarButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}">
+                            <Button.Content>
+                                <controls:WinoFontIcon FontSize="20" Icon="More" />
+                            </Button.Content>
+                            <Button.Flyout>
+                                <MenuFlyout AreOpenCloseAnimationsEnabled="False" Placement="BottomEdgeAlignedLeft">
+                                    <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_SetFlag}">
+                                        <MenuFlyoutItem.CommandParameter>
+                                            <enums:MailOperation>SetFlag</enums:MailOperation>
+                                        </MenuFlyoutItem.CommandParameter>
+                                        <MenuFlyoutItem.Icon>
+                                            <controls:WinoFontIcon Icon="Flag" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_ClearFlag}">
+                                        <MenuFlyoutItem.CommandParameter>
+                                            <enums:MailOperation>ClearFlag</enums:MailOperation>
+                                        </MenuFlyoutItem.CommandParameter>
+                                        <MenuFlyoutItem.Icon>
+                                            <controls:WinoFontIcon Icon="ClearFlag" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_MarkAsRead}">
+                                        <MenuFlyoutItem.CommandParameter>
+                                            <enums:MailOperation>MarkAsRead</enums:MailOperation>
+                                        </MenuFlyoutItem.CommandParameter>
+                                        <MenuFlyoutItem.Icon>
+                                            <controls:WinoFontIcon Icon="MarkRead" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_MarkAsUnread}">
+                                        <MenuFlyoutItem.CommandParameter>
+                                            <enums:MailOperation>MarkAsUnread</enums:MailOperation>
+                                        </MenuFlyoutItem.CommandParameter>
+                                        <MenuFlyoutItem.Icon>
+                                            <controls:WinoFontIcon Icon="MarkUnread" />
+                                        </MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+
+                    <muxc:ProgressBar
+                        x:Name="LoadingProgressBar"
+                        Grid.Row="1"
+                        IsIndeterminate="True"
+                        x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}" />
+                </Grid>
+
+                <!--  Search Mode Panel  -->
+                <Grid
+                    x:Name="SearchModePanel"
+                    Grid.Row="1"
+                    Padding="12"
+                    x:Load="{x:Bind ViewModel.IsInSearchMode, Mode=OneWay}"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    CornerRadius="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind domain:Translator.Results}" />
+
+                    <Button
+                        x:Name="BackToFolderButton"
+                        Grid.Column="1"
+                        HorizontalAlignment="Right"
+                        x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsPerformingSearch), Mode=OneWay}">
+                        <Viewbox Width="16">
+                            <PathIcon Data="M512,584.5L87.5,1009C77.5,1019 65.5,1024 51.5,1024C36.8333,1024 24.5833,1019.08 14.75,1009.25C4.91667,999.417 0,987.167 0,972.5C0,958.5 5,946.5 15,936.5L439.5,512L15,87.5C5,77.5 0,65.3334 0,51C0,44 1.33333,37.3334 4,31C6.66667,24.6667 10.3333,19.25 15,14.75C19.6667,10.25 25.1667,6.66669 31.5,4C37.8333,1.33337 44.5,0 51.5,0C65.5,0 77.5,5 87.5,15L512,439.5L936.5,15C946.5,5 958.667,0 973,0C980,0 986.583,1.33337 992.75,4C998.917,6.66669 1004.33,10.3334 1009,15C1013.67,19.6667 1017.33,25.0834 1020,31.25C1022.67,37.4167 1024,44 1024,51C1024,65.3334 1019,77.5 1009,87.5L584.5,512L1009,936.5C1019,946.5 1024,958.5 1024,972.5C1024,979.5 1022.67,986.167 1020,992.5C1017.33,998.833 1013.75,1004.33 1009.25,1009C1004.75,1013.67 999.333,1017.33 993,1020C986.667,1022.67 980,1024 973,1024C958.667,1024 946.5,1019 936.5,1009Z" />
+                        </Viewbox>
+                    </Button>
+                </Grid>
+
+                <!--  Pivot + Sync + Multi Select  -->
+                <Grid
+                    Grid.Row="1"
+                    Margin="0,0,0,5"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsInSearchMode), Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!--  Select All Checkbox  -->
+                    <CheckBox
+                        x:Name="SelectAllCheckbox"
+                        Grid.Row="1"
+                        MinWidth="0"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Canvas.ZIndex="100"
+                        Checked="SelectAllCheckboxChecked"
+                        Unchecked="SelectAllCheckboxUnchecked"
+                        Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
+
+                    <!--  Folders  -->
+                    <controls:WinoPivotControl
+                        x:Name="WinoPivot"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        DataTemplate="{StaticResource FolderPivotTemplate}"
+                        ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
+                        SelectionChanged="FolderPivotChanged"
+                        SelectorPipeColor="{ThemeResource NavigationViewSelectionIndicatorForeground}" />
+
+                    <!--  Filtering  -->
+                    <muxc:DropDownButton
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
+                        ToolTipService.ToolTip="Filter">
+                        <muxc:DropDownButton.Flyout>
+                            <menuflyouts:FilterMenuFlyout
+                                x:Name="FilterMenuFlyout"
+                                AreOpenCloseAnimationsEnabled="True"
+                                FilterOptions="{x:Bind ViewModel.FilterOptions, Mode=OneTime}"
+                                Placement="Bottom"
+                                SelectedFilterChangedCommand="{x:Bind ViewModel.SelectedFilterChangedCommand}"
+                                SelectedFilterOption="{x:Bind ViewModel.SelectedFilterOption, Mode=TwoWay}"
+                                SelectedSortingOption="{x:Bind ViewModel.SelectedSortingOption, Mode=TwoWay}"
+                                SelectedSortingOptionChangedCommand="{x:Bind ViewModel.SelectedSortingChangedCommand}"
+                                SortingOptions="{x:Bind ViewModel.SortingOptions, Mode=OneTime}" />
+                        </muxc:DropDownButton.Flyout>
+                    </muxc:DropDownButton>
+
+                    <muxc:InfoBar
+                        Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
+                        Grid.Row="0"
+                        Grid.ColumnSpan="3"
+                        IsClosable="True"
+                        IsOpen="{x:Bind ViewModel.IsFolderSynchronizationEnabled, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
+                        Severity="Informational">
+                        <muxc:InfoBar.ActionButton>
+                            <Button Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
+                        </muxc:InfoBar.ActionButton>
+                    </muxc:InfoBar>
+                </Grid>
+            </Grid>
+
+            <!--  No items createria  -->
+            <StackPanel
+                x:Name="NoItemsPanel"
+                Grid.Row="0"
+                Grid.RowSpan="3"
+                VerticalAlignment="Center"
+                Opacity="0.4"
+                Spacing="10">
+
+                <Viewbox Width="48" Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
+                    <Path Data="M252,960C227,960 203.083,954.917 180.25,944.75C157.417,934.583 137.417,920.917 120.25,903.75C103.083,886.583 89.4167,866.583 79.25,843.75C69.0833,820.917 64,797 64,772L64,252C64,227 69.0833,203.083 79.25,180.25C89.4167,157.417 103.083,137.417 120.25,120.25C137.417,103.083 157.417,89.4167 180.25,79.25C203.083,69.0834 227,64.0001 252,64L772,64C797,64.0001 820.917,69.0834 843.75,79.25C866.583,89.4167 886.583,103.083 903.75,120.25C920.917,137.417 934.583,157.417 944.75,180.25C954.917,203.083 960,227 960,252L960,772C960,797 954.917,820.917 944.75,843.75C934.583,866.583 920.917,886.583 903.75,903.75C886.583,920.917 866.583,934.583 843.75,944.75C820.917,954.917 797,960 772,960ZM770.5,896C787.167,896 803.083,892.583 818.25,885.75C833.417,878.917 846.75,869.75 858.25,858.25C869.75,846.75 878.917,833.417 885.75,818.25C892.583,803.083 896,787.167 896,770.5L896,253.5C896,236.833 892.583,220.917 885.75,205.75C878.917,190.583 869.75,177.25 858.25,165.75C846.75,154.25 833.417,145.083 818.25,138.25C803.083,131.417 787.167,128 770.5,128L253.5,128C236.833,128 220.917,131.417 205.75,138.25C190.583,145.083 177.25,154.25 165.75,165.75C154.25,177.25 145.083,190.583 138.25,205.75C131.417,220.917 128,236.833 128,253.5L128,770.5C128,787.167 131.417,803.083 138.25,818.25C145.083,833.417 154.25,846.75 165.75,858.25C177.25,869.75 190.583,878.917 205.75,885.75C220.917,892.583 236.833,896 253.5,896ZM559,604.5C541.667,616.833 523.417,625.833 504.25,631.5C485.083,637.167 465,640 444,640C418,640 393.583,634.833 370.75,624.5C347.917,614.167 328,600.167 311,582.5C294,564.833 280.583,544.417 270.75,521.25C260.917,498.083 256,473.667 256,448C256,421.333 261,396.333 271,373C281,349.667 294.667,329.333 312,312C329.333,294.667 349.667,281 373,271C396.333,261 421.333,256 448,256C473.667,256 498.083,260.917 521.25,270.75C544.417,280.583 564.833,294 582.5,311C600.167,328 614.167,347.917 624.5,370.75C634.833,393.583 640,418 640,444C640,465 637.167,485.083 631.5,504.25C625.833,523.417 616.833,541.667 604.5,559L758.5,713.5C764.833,719.833 768,727.333 768,736C768,744.667 764.833,752.167 758.5,758.5C752.167,764.833 744.667,768 736,768C727.333,768 719.833,764.833 713.5,758.5ZM576,448L576,445.5C576,428.167 572.5,411.917 565.5,396.75C558.5,381.583 549.167,368.333 537.5,357C525.833,345.667 512.25,336.667 496.75,330C481.25,323.333 465,320 448,320C430.333,320 413.75,323.417 398.25,330.25C382.75,337.083 369.25,346.25 357.75,357.75C346.25,369.25 337.083,382.833 330.25,398.5C323.417,414.167 320,430.667 320,448C320,465.667 323.417,482.25 330.25,497.75C337.083,513.25 346.25,526.75 357.75,538.25C369.25,549.75 382.75,558.917 398.25,565.75C413.75,572.583 430.333,576 448,576C465.333,576 481.833,572.583 497.5,565.75C513.167,558.917 526.75,549.75 538.25,538.25C549.75,526.75 558.917,513.25 565.75,497.75C572.583,482.25 576,465.667 576,448Z" Fill="{ThemeResource InformationBrush}" />
+                </Viewbox>
+
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="20"
+                    FontWeight="ExtraLight"
+                    Foreground="{ThemeResource InformationBrush}"
+                    Text="{x:Bind domain:Translator.NoMessageCrieteria}"
+                    Visibility="{x:Bind ViewModel.IsCriteriaFailed, Mode=OneWay}" />
+
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="20"
+                    FontWeight="ExtraLight"
+                    Foreground="{ThemeResource InformationBrush}"
+                    Text="{x:Bind domain:Translator.NoMessageEmptyFolder}"
+                    Visibility="{x:Bind ViewModel.IsFolderEmpty, Mode=OneWay}" />
+            </StackPanel>
+
+            <!--  Mail Items  -->
+            <muxc:RefreshContainer
+                Grid.Row="2"
+                RefreshRequested="PullToRefreshRequested"
+                Visibility="{x:Bind ViewModel.IsPerformingSearch, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}">
+                <SemanticZoom x:Name="SemanticZoomContainer" CanChangeViews="{x:Bind ViewModel.PreferencesService.IsSemanticZoomEnabled, Mode=OneWay}">
+                    <SemanticZoom.ZoomedInView>
+                        <listview:WinoListView
+                            x:Name="MailListView"
+                            HorizontalContentAlignment="Stretch"
+                            ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                            LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
+                            ItemContainerStyleSelector="{StaticResource WinoContainerSelector}"
+                            ItemTemplateSelector="{StaticResource MailItemDisplaySelector}"
+                            ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
+                            ItemDeletedCommand="{x:Bind ViewModel.MailOperationCommand}"
+                            ProcessKeyboardAccelerators="ProcessMailItemKeyboardAccelerator"
+                            ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListView.ItemContainerTransitions>
+                                <TransitionCollection>
+                                    <AddDeleteThemeTransition />
+                                </TransitionCollection>
+                            </ListView.ItemContainerTransitions>
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel AreStickyGroupHeadersEnabled="True" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                            <ListView.Resources>
+                                <ResourceDictionary>
+                                    <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
+                                </ResourceDictionary>
+                            </ListView.Resources>
+                            <ListView.GroupStyle>
+                                <GroupStyle HeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}" HidesIfEmpty="True" />
+                            </ListView.GroupStyle>
+                        </listview:WinoListView>
+                    </SemanticZoom.ZoomedInView>
+                    <SemanticZoom.ZoomedOutView>
+                        <ListView
+                            x:Name="ZoomOutList"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(SemanticZoomContainer.IsZoomedInViewActive), Mode=OneWay}"
+                            ItemsSource="{x:Bind MailCollectionViewSource.View.CollectionGroups}">
+                            <ListView.Resources>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Margin" Value="0,12" />
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </ListView.Resources>
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="ICollectionViewGroup">
+                                    <Grid
+                                        Margin="4,0"
+                                        Background="{ThemeResource MailListHeaderBackgroundColor}"
+                                        CornerRadius="4">
+                                        <TextBlock
+                                            Margin="12,0"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </SemanticZoom.ZoomedOutView>
+                </SemanticZoom>
+            </muxc:RefreshContainer>
+
+            <muxc:ProgressRing
+                x:Name="LoadingProgressIndicator"
+                Grid.Row="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}"
+                Canvas.ZIndex="999" />
+
+            <!--  Search Mode Panel  -->
+            <Grid
+                x:Name="SearchProgressPanel"
+                Grid.Row="2"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind ViewModel.IsInSearchMode, Mode=OneWay}">
+
+                <!--  Searching  -->
+                <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.IsPerformingSearch, Mode=OneWay}">
+                    <TextBlock HorizontalTextAlignment="Center">
+                        <Run Text="{x:Bind domain:Translator.SearchingIn}" /><Run FontWeight="SemiBold" Text="{x:Bind ViewModel.ActiveFolder.FolderName, Mode=OneWay}" />
+                    </TextBlock>
+                    <muxc:ProgressRing />
+                </StackPanel>
+            </Grid>
+
+            <!--  Update Info Bar  -->
+            <controls:WinoInfoBar
+                Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
+                Grid.Row="2"
+                Margin="6,0,6,6"
+                VerticalAlignment="Bottom"
+                AnimationType="SlideFromBottomToTop"
+                DismissInterval="2"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.IsBarOpen, Mode=TwoWay}"
+                Message="{x:Bind ViewModel.BarMessage, Mode=OneWay}"
+                Severity="{x:Bind helpers:XamlHelpers.InfoBarSeverityConverter(ViewModel.BarSeverity), Mode=OneWay}" />
+
+        </Grid>
+
+        <!--  Mail Rendering Frame  -->
+        <Frame
+            x:Name="RenderingFrame"
+            Grid.Column="1"
+            IsNavigationStackEnabled="False" />
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="AdaptiveStates" CurrentStateChanged="AdaptivenessChanged">
+                <VisualState x:Name="NormalState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="{x:Bind helpers:XamlHelpers.MailListAdaptivityConverter(ViewModel.StatePersistanceService.MailListPaneLength), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+
+                <VisualState x:Name="NarrowState">
+                    <VisualState.Setters>
+                        <Setter Target="ReaderGrid.MaxWidth" Value="10000" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+
+            <!--  Pane open adjustments  -->
+            <VisualStateGroup x:Name="PaneStates">
+                <VisualState x:Name="PaneOpened">
+                    <VisualState.Setters>
+                        <!--<Setter Target="RootGrid.Margin" Value="-6,0,0,0" />-->
+                        <Setter Target="ReaderGrid.Margin" Value="-4,0,0,0" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind PreferencesService.IsNavigationPaneOpened, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="PaneClosed" />
+            </VisualStateGroup>
+
+            <!--  Mail reader states  -->
+            <VisualStateGroup x:Name="ReaderStates">
+                <VisualState x:Name="ReaderActive">
+                    <VisualState.Setters>
+                        <Setter Target="ReaderGrid.CornerRadius" Value="0" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind StatePersistanceService.IsReadingMail, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+</abstract:MailListPageAbstract>
+
