@@ -121,7 +121,7 @@ namespace Wino.Mail.ViewModels.Collections
 
                     var addedAccountProviderType = addedItem.AssignedAccount.ProviderType;
 
-                    var threadingStrategy = ThreadingStrategyProvider.GetStrategy(addedAccountProviderType);
+                    var threadingStrategy = ThreadingStrategyProvider?.GetStrategy(addedAccountProviderType);
 
                     if (threadingStrategy?.ShouldThreadWithItem(addedItem, item) ?? false)
                     {
