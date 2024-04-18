@@ -84,6 +84,7 @@ namespace Wino.Views.ImapSetup
                 // TODO: Auto discovery settings adjustments.
 
                 UsernameBox.Text = preDefinedSettings.UserMinimalSettings.Email;
+                AddressBox.Text = preDefinedSettings.UserMinimalSettings.Email;
                 DisplayNameBox.Text = preDefinedSettings.UserMinimalSettings.DisplayName;
                 PasswordBox.Password = preDefinedSettings.UserMinimalSettings.Password;
 
@@ -107,6 +108,7 @@ namespace Wino.Views.ImapSetup
                 // Auto discovery failed. Only minimal settings are passed.
 
                 UsernameBox.Text = autoDiscoveryMinimalSettings.Email;
+                AddressBox.Text = autoDiscoveryMinimalSettings.Email;
                 DisplayNameBox.Text = autoDiscoveryMinimalSettings.DisplayName;
                 PasswordBox.Password = autoDiscoveryMinimalSettings.Password;
             }
