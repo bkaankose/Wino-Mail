@@ -904,9 +904,12 @@ namespace Wino.Core.Synchronizers
                 // Local copy doesn't exists. Continue execution to insert mail copy.
             }
 
-            foreach (var labelId in message.LabelIds)
+            if (message.LabelIds is not null)
             {
-                packageList.Add(new NewMailItemPackage(mailCopy, mimeMessage, labelId));
+                foreach (var labelId in message.LabelIds)
+                {
+                    packageList.Add(new NewMailItemPackage(mailCopy, mimeMessage, labelId));
+                }
             }
 
             return packageList;
