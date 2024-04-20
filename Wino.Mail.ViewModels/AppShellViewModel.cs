@@ -602,7 +602,7 @@ namespace Wino.Mail.ViewModels
         {
             NavigationService.Navigate(winoPage);
 
-            StatePersistenceService.CoreWindowTitle = "Wino Mail";
+            StatePersistenceService.CoreWindowTitle = "Wino Mail Beta";
         }
 
         public async Task MenuItemInvokedOrSelectedAsync(IMenuItem clickedMenuItem)
