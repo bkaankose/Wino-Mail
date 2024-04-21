@@ -57,7 +57,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer>
         <StackPanel>
             <controls:SettingsCard
                 Header="{x:Bind domain:Translator.SettingsRenameMergeAccount_Title}"

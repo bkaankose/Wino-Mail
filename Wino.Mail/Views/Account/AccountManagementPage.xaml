@@ -73,7 +73,7 @@
             RootAccountTemplate="{StaticResource RootAccountTemplate}" />
     </Page.Resources>
 
-    <ScrollViewer Margin="-12,0" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer Margin="-12,0">
         <Grid
             MaxWidth="900"
             Padding="20"

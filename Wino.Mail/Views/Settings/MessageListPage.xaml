@@ -9,7 +9,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer>
         <StackPanel>
             <controls:SettingsExpander Description="{x:Bind domain:Translator.SettingsHoverActions_Description}" Header="{x:Bind domain:Translator.SettingsHoverActions_Title}">
                 <controls:SettingsExpander.HeaderIcon>

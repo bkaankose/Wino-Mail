@@ -12,7 +12,7 @@
     mc:Ignorable="d">
 
 
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer Grid.Row="1">
         <StackPanel Spacing="3">
             <controls:SettingsCard
                 IsClickEnabled="True"

@@ -17,7 +17,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer x:Name="MainScrollviewer" VerticalScrollBarVisibility="Auto" Padding="{StaticResource ImapSetupDialogSubPagePadding}">
+        <ScrollViewer x:Name="MainScrollviewer" Padding="{StaticResource ImapSetupDialogSubPagePadding}">
             <StackPanel Spacing="12" Padding="0,0,16,0">
                 <TextBlock
                     d:Text="Advanced IMAP / SMTP Configuration"

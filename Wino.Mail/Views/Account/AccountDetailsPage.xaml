@@ -68,7 +68,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer>
         <StackPanel Spacing="4">
             <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsAccountName_Title}" Description="{x:Bind domain:Translator.SettingsAccountName_Description}">
                 <controls:SettingsCard.HeaderIcon>
@@ -95,7 +95,7 @@
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ScrollViewer>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

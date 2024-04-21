@@ -177,7 +177,7 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer>
         <StackPanel Spacing="3">
             <!--  Accent Color  -->
             <controls:SettingsExpander
