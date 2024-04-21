@@ -12,7 +12,7 @@
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
     mc:Ignorable="d">
 
-    <ScrollViewer>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
             <controls:SettingsExpander
                 Header="{x:Bind domain:Translator.SettingsReaderFont_Title}"

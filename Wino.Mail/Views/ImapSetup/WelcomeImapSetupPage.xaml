@@ -14,7 +14,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer x:Name="MainScrollviewer" Padding="{StaticResource ImapSetupDialogSubPagePadding}">
+        <ScrollViewer x:Name="MainScrollviewer" VerticalScrollBarVisibility="Auto" Padding="{StaticResource ImapSetupDialogSubPagePadding}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

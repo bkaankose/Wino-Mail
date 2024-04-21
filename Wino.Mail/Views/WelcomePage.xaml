@@ -10,7 +10,7 @@
     mc:Ignorable="d">
 
     <Grid Padding="24">
-        <ScrollViewer>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
             <controls:MarkdownTextBlock
                 x:Name="MarkdownControl"
                 LinkClicked="HyperlinkClicked"

@@ -23,7 +23,7 @@
             <Setter Property="Width" Value="100" />
         </Style>
     </ContentDialog.Resources>
-    <ScrollViewer>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

@@ -51,7 +51,7 @@
         </Grid>
 
         <!--  Editor Options  -->
-        <ScrollViewer
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
             Grid.Row="1"
             VerticalAlignment="Top"
             IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}"
