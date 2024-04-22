@@ -204,6 +204,13 @@
 
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
 
+                <!--  Define Global Styles here  -->
+                <ResourceDictionary>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                    </Style>
+                </ResourceDictionary>
+
                 <!--  Last item must always be the default theme.  -->
                 <ResourceDictionary Source="/AppThemes/Mica.xaml" />
             </ResourceDictionary.MergedDictionaries>
