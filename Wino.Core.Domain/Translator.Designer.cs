@@ -457,6 +457,12 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
+		/// Rename Folder
+		/// </summary>
+		public static string DialogMessage_RenameFolderTitle => Resources.GetTranslatedString(@"DialogMessage_RenameFolderTitle");	
+	
+
+        /// <summary>
 		/// Enter new name for this folder
 		/// </summary>
 		public static string DialogMessage_RenameFolderMessage => Resources.GetTranslatedString(@"DialogMessage_RenameFolderMessage");	
