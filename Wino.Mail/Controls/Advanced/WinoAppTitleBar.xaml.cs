@@ -101,9 +101,9 @@ namespace Wino.Controls.Advanced
             UpdateLayout();
 
             CoreWindowTitleTextBlock.Visibility = Visibility.Collapsed;
-            ContentGrid.Width = double.NaN;
-            ContentGrid.Margin = new Thickness(0, 0, 0, 0);
-            ContentGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+            ShellContentContainer.Width = double.NaN;
+            ShellContentContainer.Margin = new Thickness(0, 0, 0, 0);
+            ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Stretch;
 
             EmptySpaceWidth.Width = new GridLength(1, GridUnitType.Star);
 
@@ -118,8 +118,8 @@ namespace Wino.Controls.Advanced
 
                 if (!IsReaderNarrowed)
                 {
-                    ContentGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                    ContentGrid.Width = ReadingPaneLength;
+                    ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
+                    ShellContentContainer.Width = ReadingPaneLength;
                 }
             }
             else if (NavigationViewDisplayMode == Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Expanded)
@@ -129,12 +129,12 @@ namespace Wino.Controls.Advanced
                     CoreWindowTitleTextBlock.Visibility = Visibility.Visible;
 
                     // LMargin = OpenPaneLength - LeftMenuStackPanel
-                    ContentGrid.Margin = new Thickness(OpenPaneLength - LeftMenuStackPanel.ActualSize.X, 0, 0, 0);
+                    ShellContentContainer.Margin = new Thickness(OpenPaneLength - LeftMenuStackPanel.ActualSize.X, 0, 0, 0);
 
                     if (!IsReaderNarrowed)
                     {
-                        ContentGrid.HorizontalAlignment = HorizontalAlignment.Left;
-                        ContentGrid.Width = ReadingPaneLength;
+                        ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
+                        ShellContentContainer.Width = ReadingPaneLength;
                     }
                 }
                 else
