@@ -76,6 +76,8 @@
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Unlink Accounts",
     "DialogMessage_EmptySubjectConfirmation": "Missin Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Message has no subject. Do you want to continue?",
+    "DialogMessage_RenameFolderTitle": "Rename Folder",
+    "DialogMessage_RenameFolderMessage": "Enter new name for this folder",
     "Dialog_DontAskAgain": "Don't ask again",
     "DiscordChannelDisclaimerMessage": "Wino doesn't have it's own Discord server, but special 'wino-mail' channel is hosted at 'Developer Sanctuary' server.\nTo get the updates about Wino please join Developer Sanctuary server and follow 'wino-mail' channel under 'Community Projects'\n\nYou will be directed to server URL since Discord doesn't support channel invites.",
     "DiscordChannelDisclaimerTitle": "Important Discord Information",
