@@ -492,6 +492,18 @@ namespace Wino.Core.Services
             var foldersToDelete = existingFolders.ExceptBy(allFolders, a => a.RemoteFolderId);
             var foldersToUpdate = allFolders.Except(foldersToInsert).Except(foldersToDelete);
 
+            // allFolders will have different Ids than existingFolders.
+            // We must match them with remote folder id and account id relation.
+
+            foreach (var existingFolder in existingFolders)
+            {
+                var remoteFolder = allFolders.FirstOrDefault(a => a.RemoteFolderId == existingFolder.RemoteFolderId);
+
+                if (remoteFolder == null) continue;
+
+                remoteFolder.Id = existingFolder.Id;
+            }
+
             _logger.Debug("Found {0} folders to insert, {1} folders to update and {2} folders to delete.",
                           foldersToInsert.Count(),
                           foldersToUpdate.Count(),

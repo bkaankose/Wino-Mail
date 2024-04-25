@@ -10,7 +10,6 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Synchronization;
 using Wino.Core.Requests;
@@ -85,13 +84,17 @@ namespace Wino.Core.Services
             }
         }
 
-        public async Task ExecuteAsync(FolderOperation operation, IMailItemFolder folderStructure)
+        public async Task ExecuteAsync(FolderOperationPreperationRequest folderRequest)
         {
-            IRequest request = null;
+            if (folderRequest == null || folderRequest.Folder == null) return;
+
+            IRequestBase request = null;
+
+            var accountId = folderRequest.Folder.MailAccountId;
 
             try
             {
-                request = await _winoRequestProcessor.PrepareFolderRequestAsync(operation, folderStructure);
+                request = await _winoRequestProcessor.PrepareFolderRequestAsync(folderRequest);
             }
             catch (NotImplementedException)
             {
@@ -102,7 +105,10 @@ namespace Wino.Core.Services
                 Log.Error(ex, "Folder operation execution failed.");
             }
 
-            // _synchronizationWorker.Queue(request);
+            if (request == null) return;
+
+            QueueRequest(request, accountId);
+            QueueSynchronization(accountId);
         }
 
         public Task ExecuteAsync(DraftPreperationRequest draftPreperationRequest)
@@ -125,7 +131,7 @@ namespace Wino.Core.Services
             return Task.CompletedTask;
         }
 
-        private void QueueRequest(IRequest request, Guid accountId)
+        private void QueueRequest(IRequestBase request, Guid accountId)
         {
             var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
 

@@ -223,7 +223,7 @@ namespace Wino.Mail.ViewModels
                 if (selectedMailItemViewModel != null && !selectedMailItemViewModel.IsRead)
                 {
                     var operation = MailOperation.MarkAsRead;
-                    var package = new MailOperationPreperationRequest(operation,_activeMailItem.MailCopy);
+                    var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
 
                     await ExecuteMailOperationAsync(package);
                 }
@@ -353,10 +353,9 @@ namespace Wino.Mail.ViewModels
 
                 OnPropertyChanged(nameof(CanSynchronize));
                 OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            });
 
-            // Force synchronization after enabling the folder.
-            SyncFolder();
+                UpdateFolderPivots();
+            });
         }
 
         private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
