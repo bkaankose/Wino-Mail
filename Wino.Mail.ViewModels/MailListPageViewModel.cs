@@ -364,10 +364,9 @@ namespace Wino.Mail.ViewModels
 
                 OnPropertyChanged(nameof(CanSynchronize));
                 OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            });
 
-            // Force synchronization after enabling the folder.
-            SyncFolder();
+                UpdateFolderPivots();
+            });
         }
 
         private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)

@@ -199,6 +199,12 @@ namespace Wino.Mail.ViewModels
                 await ExecuteUIThread(() =>
                 {
                     item.UpdateFolder(updatedFolder);
+
+                    // If the current folder is updated, update the window title.
+                    if (SelectedMenuItem is IBaseFolderMenuItem selectedFolderMenuItem && selectedFolderMenuItem.EntityId.GetValueOrDefault() == updatedFolder.Id)
+                    {
+                        UpdateWindowTitleForFolder(selectedFolderMenuItem);
+                    }
                 });
             }
         }
@@ -470,10 +476,16 @@ namespace Wino.Mail.ViewModels
             var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, mailInitCompletionSource);
 
             NavigationService.NavigateFolder(args);
-            StatePersistenceService.CoreWindowTitle = $"{baseFolderMenuItem.AssignedAccountName} - {baseFolderMenuItem.FolderName}";
+
+            UpdateWindowTitleForFolder(baseFolderMenuItem);
 
             // Wait until mail list page picks up the event and finish initialization of the mails.
             await mailInitCompletionSource.Task;
+        }
+
+        private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
+        {
+            StatePersistenceService.CoreWindowTitle = $"{folder.AssignedAccountName} - {folder.FolderName}";
         }
 
         private async Task NavigateSpecialFolderAsync(MailAccount account, SpecialFolderType specialFolderType, bool extendAccountMenu)
@@ -566,7 +578,12 @@ namespace Wino.Mail.ViewModels
 
             foreach (var folder in folderMenuItem.HandlingFolders)
             {
-                await _winoRequestDelegator.ExecuteAsync(operation, folder);
+                if (folder is MailItemFolder realFolder)
+                {
+                    var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder);
+
+                    await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+                }
             }
 
             // Refresh the pins.
@@ -661,7 +678,7 @@ namespace Wino.Mail.ViewModels
                 }
 
                 clickedBaseAccountMenuItem.IsSelected = true;
-                
+
 
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
 
