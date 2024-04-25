@@ -183,19 +183,30 @@ namespace Wino.Core.Services
                 throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedAction, action));
         }
 
-        public async Task<IRequest> PrepareFolderRequestAsync(FolderOperation operation, IMailItemFolder mailItemFolder)
+        public async Task<IRequestBase> PrepareFolderRequestAsync(FolderOperationPreperationRequest request)
         {
-            if (mailItemFolder == null) return default;
+            if (request == null || request.Folder == null) return default;
 
-            var accountId = mailItemFolder.MailAccountId;
+            IRequestBase change = null;
 
-            IRequest change = null;
+            var folder = request.Folder;
+            var operation = request.Action;
 
-            switch (operation)
+            switch (request.Action)
             {
                 case FolderOperation.Pin:
                 case FolderOperation.Unpin:
-                    await _folderService.ChangeStickyStatusAsync(mailItemFolder.Id, operation == FolderOperation.Pin);
+                    await _folderService.ChangeStickyStatusAsync(folder.Id, operation == FolderOperation.Pin);
+                    break;
+
+                case FolderOperation.Rename:
+                    var newFolderName = await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage);
+
+                    if (!string.IsNullOrEmpty(newFolderName))
+                    {
+                        change = new RenameFolderRequest(folder, newFolderName);
+                    }
+
                     break;
                     //case FolderOperation.MarkAllAsRead:
                     //    // Get all mails in the folder.
@@ -213,13 +224,6 @@ namespace Wino.Core.Services
 
                     //    if (mailsToDelete.Any())
                     //        change = new FolderEmptyRequest(accountId, mailsToDelete.Select(a => a.Id).Distinct(), folderStructure.RemoteFolderId, folderStructure.FolderId);
-
-                    //    break;
-                    //case FolderOperation.Rename:
-                    //    var newFolderName = await _dialogService.ShowRenameFolderDialogAsync(folderStructure.FolderName);
-
-                    //    if (!string.IsNullOrEmpty(newFolderName))
-                    //        change = new RenameFolderRequest(accountId, folderStructure.RemoteFolderId, folderStructure.FolderId, newFolderName, folderStructure.FolderName);
 
                     //    break;
                     //case FolderOperation.Delete:

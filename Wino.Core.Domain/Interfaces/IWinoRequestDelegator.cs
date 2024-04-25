@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 
@@ -28,8 +27,7 @@ namespace Wino.Core.Domain.Interfaces
         /// <summary>
         /// Prepares requires IRequest collection for folder actions and executes them via proper synchronizers.
         /// </summary>
-        /// <param name="operation">Folder operation to execute.</param>
-        /// <param name="folderStructure">Target folder</param>
-        Task ExecuteAsync(FolderOperation operation, IMailItemFolder folderStructure);
+        /// <param name="folderOperationPreperationRequest">Folder prep request.</param>
+        Task ExecuteAsync(FolderOperationPreperationRequest folderOperationPreperationRequest);
     }
 }

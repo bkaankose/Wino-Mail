@@ -97,6 +97,13 @@ namespace Wino.Core.Integration
                 yield return new HttpRequestBundle<TNativeRequestType, TResponse>(action(item), batchChangeRequest);
         }
 
+        public IEnumerable<IRequestBundle<TNativeRequestType>> CreateHttpBundleWithResponse<TResponse>(
+            IRequestBase item,
+            Func<IRequestBase, TNativeRequestType> action)
+        {
+            yield return new HttpRequestBundle<TNativeRequestType, TResponse>(action(item), item);
+        }
+
         /// <summary>
         /// Creates a batched HttpBundle with TResponse of expected response type from the http call for each of the items in the batch.
         /// Func will be executed for each item separately in the batch request.

@@ -217,8 +217,13 @@ namespace Wino.Core.Synchronizers
                             changeRequestQueue.TryTake(out _);
                         }
                     }
-                    else
+                    else if (changeRequestQueue.TryTake(out request))
+                    {
+                        // This is a folder operation.
+                        // There is no need to batch them since Users can't do folder ops in bulk.
+
                         batchList.Add(request);
+                    }
                 }
             }
 
@@ -262,6 +267,10 @@ namespace Wino.Core.Synchronizers
                         case MailSynchronizerOperation.CreateDraft:
                             yield return CreateDraft((BatchCreateDraftRequest)item);
                             break;
+                        case MailSynchronizerOperation.RenameFolder:
+                            yield return RenameFolder((RenameFolderRequest)item);
+                            break;
+
                     }
                 }
             };
@@ -313,6 +322,7 @@ namespace Wino.Core.Synchronizers
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> MoveToFocused(BatchMoveToFocusedRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> CreateDraft(BatchCreateDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> SendDraft(BatchSendDraftRequestRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual IEnumerable<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
         /// <summary>
         /// Downloads a single missing message from synchronizer and saves it to given FileId from IMailItem.
