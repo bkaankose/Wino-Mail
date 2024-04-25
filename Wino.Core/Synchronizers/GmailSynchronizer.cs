@@ -670,6 +670,22 @@ namespace Wino.Core.Synchronizers
             await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
 
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
+        {
+            return CreateHttpBundleWithResponse<Label>(request, (item) =>
+            {
+                if (item is not RenameFolderRequest renameFolderRequest)
+                    throw new ArgumentException($"Renaming folder must be handled with '{nameof(RenameFolderRequest)}'");
+
+                var label = new Label()
+                {
+                    Name = renameFolderRequest.NewFolderName
+                };
+
+                return _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
+            });
+        }
+
         #endregion
 
         #region Request Execution
