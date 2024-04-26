@@ -508,6 +508,22 @@ namespace Wino.Core.Synchronizers
             await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
 
+        public override IEnumerable<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
+        {
+            return CreateHttpBundleWithResponse<MailFolder>(request, (item) =>
+            {
+                if (item is not RenameFolderRequest renameFolderRequest)
+                    throw new ArgumentException($"Renaming folder must be handled with '{nameof(RenameFolderRequest)}'");
+
+                var requestBody = new MailFolder
+                {
+                    DisplayName = request.NewFolderName,
+                };
+
+                return _graphClient.Me.MailFolders[request.Folder.RemoteFolderId].ToPatchRequestInformation(requestBody);
+            });
+        }
+
         #endregion
 
         public override async Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
@@ -594,11 +610,6 @@ namespace Wino.Core.Synchronizers
             else if (bundle is HttpRequestBundle<RequestInformation, MimeMessage> mimeBundle)
             {
                 // TODO: Handle mime retrieve message.
-            }
-            else if (!httpResponseMessage.IsSuccessStatusCode)
-            {
-                // TODO: Should we even handle this?
-                throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));
             }
         }
 
