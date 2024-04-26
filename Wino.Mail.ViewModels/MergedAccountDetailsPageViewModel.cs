@@ -112,7 +112,8 @@ namespace Wino.Mail.ViewModels
 
             var newName = await DialogService.ShowTextInputDialogAsync(EditingMergedAccount.MergedInbox.Name,
                                                                        Translator.DialogMessage_RenameLinkedAccountsTitle,
-                                                                       Translator.DialogMessage_RenameLinkedAccountsMessage);
+                                                                       Translator.DialogMessage_RenameLinkedAccountsMessage,
+                                                                       Translator.FolderOperation_Rename);
 
             if (string.IsNullOrWhiteSpace(newName)) return;
 
