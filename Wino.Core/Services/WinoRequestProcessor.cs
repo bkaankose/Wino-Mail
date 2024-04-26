@@ -200,7 +200,7 @@ namespace Wino.Core.Services
                     break;
 
                 case FolderOperation.Rename:
-                    var newFolderName = await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage);
+                    var newFolderName = await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
 
                     if (!string.IsNullOrEmpty(newFolderName))
                     {
