@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
@@ -218,7 +219,7 @@ namespace Wino.Views
 
         private void BarDynamicOverflowChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
         {
-            if (args.Action == CommandBarDynamicOverflowAction.AddingToOverflow)
+            if (args.Action == CommandBarDynamicOverflowAction.AddingToOverflow || sender.SecondaryCommands.Any())
                 sender.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Visible;
             else
                 sender.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Collapsed;

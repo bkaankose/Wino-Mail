@@ -150,10 +150,11 @@
             x:Name="RendererBar"
             Grid.Row="0"
             Margin="8,6,0,0"
-            IsSticky="False"
             DefaultLabelPosition="Right"
             HorizontalContentAlignment="Stretch"
-            OverflowButtonVisibility="Auto">
+            OverflowButtonVisibility="Auto"
+            DynamicOverflowItemsChanging="BarDynamicOverflowChanging"
+            IsDynamicOverflowEnabled="True">
             <interactivity:Interaction.Behaviors>
                 <local:BindableCommandBarBehavior
                     ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}"
