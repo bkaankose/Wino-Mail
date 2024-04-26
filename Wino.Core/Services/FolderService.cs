@@ -342,6 +342,16 @@ namespace Wino.Core.Services
             }
             else
             {
+                // TODO: This is not alright. We should've updated the folder instead of inserting.
+                // Now we need to match the properties that user might've set locally.
+
+                folder.Id = existingFolder.Id;
+                folder.IsSticky = existingFolder.IsSticky;
+                folder.SpecialFolderType = existingFolder.SpecialFolderType;
+                folder.ShowUnreadCount = existingFolder.ShowUnreadCount;
+                folder.TextColorHex = existingFolder.TextColorHex;
+                folder.BackgroundColorHex = existingFolder.BackgroundColorHex;
+
                 _logger.Debug("Folder {Id} - {FolderName} already exists. Updating.", folder.Id, folder.FolderName);
 
                 await UpdateFolderAsync(folder).ConfigureAwait(false);
@@ -538,7 +548,10 @@ namespace Wino.Core.Services
 
             folder.DeltaToken = synchronizationIdentifier;
 
-            await UpdateFolderAsync(folder).ConfigureAwait(false);
+            // No need to trigger UI change for this.
+            // Directly update the database.
+
+            await Connection.UpdateAsync(folder).ConfigureAwait(false);
 
             return synchronizationIdentifier;
         }
