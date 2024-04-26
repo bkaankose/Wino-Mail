@@ -351,7 +351,7 @@ namespace Wino.Core.Synchronizers
 
                 graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -363,7 +363,7 @@ namespace Wino.Core.Synchronizers
                 deltaRequest.QueryParameters.Add("%24deltaToken", currentDeltaLink);
                 graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
             var iterator = PageIterator<MailFolder, Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, graphFolders, (folder) =>
