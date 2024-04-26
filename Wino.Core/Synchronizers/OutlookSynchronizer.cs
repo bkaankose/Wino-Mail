@@ -574,7 +574,11 @@ namespace Wino.Core.Synchronizers
                                                                    HttpResponseMessage httpResponseMessage,
                                                                    CancellationToken cancellationToken = default)
         {
-            if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
+            if (!httpResponseMessage.IsSuccessStatusCode)
+            {
+                throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));
+            }
+            else if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
             {
                 var outlookMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken);
 
