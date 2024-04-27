@@ -179,6 +179,7 @@
             Margin="0,6"
             VerticalAlignment="Top"
             VerticalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Hidden"
             HorizontalScrollBarVisibility="Hidden"
             HorizontalScrollMode="Enabled">
             <Grid Margin="16,0,16,20" Padding="8,0">
