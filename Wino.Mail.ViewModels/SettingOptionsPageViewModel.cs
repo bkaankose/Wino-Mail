@@ -1,5 +1,7 @@
-﻿using CommunityToolkit.Mvvm.Input;
+﻿using System;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
@@ -22,23 +24,17 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         public void NavigateSubDetail(object type)
         {
-            if (type is string stringParameter)
+            if (type is WinoPage pageType)
             {
-                WinoPage pageType = default;
-
-                string pageTitle = stringParameter;
-
-                // They are just params and don't have to be localized. Don't change.
-                if (stringParameter == "Personalization")
-                    pageType = WinoPage.PersonalizationPage;
-                else if (stringParameter == "About")
-                    pageType = WinoPage.AboutPage;
-                else if (stringParameter == "Message List")
-                    pageType = WinoPage.MessageListPage;
-                else if (stringParameter == "Reading Pane")
-                    pageType = WinoPage.ReadingPanePage;
-                else if (stringParameter == "Language And Time")
-                    pageType = WinoPage.LanguageTimePage;
+                string pageTitle = pageType switch
+                {
+                    WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
+                    WinoPage.AboutPage => Translator.SettingsAbout_Title,
+                    WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
+                    WinoPage.ReadingPanePage => Translator.SettingsReadingPane_Title,
+                    WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
+                    _ => throw new NotImplementedException()
+                };
 
                 Messenger.Send(new BreadcrumbNavigationRequested(pageTitle, pageType));
             }
