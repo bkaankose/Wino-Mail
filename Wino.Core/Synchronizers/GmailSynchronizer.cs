@@ -347,7 +347,7 @@ namespace Wino.Core.Synchronizers
                 }
             }
 
-            await _gmailChangeProcessor.UpdateFolderStructureAsync(Account.Id, initializedFolders).ConfigureAwait(false);
+            await _gmailChangeProcessor.BulkUpdateFolderStructureAsync(Account.Id, initializedFolders).ConfigureAwait(false);
         }
 
         /// <summary>

@@ -403,6 +403,11 @@ namespace Wino.Core.Services
 
             await Connection.DeleteAsync(folder).ConfigureAwait(false);
 
+            // Delete all existing mails from this folder.
+            await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", folder.Id);
+
+            // TODO: Delete MIME messages from the disk.
+
             ReportUIChange(new FolderRemovedMessage(folder, account));
         }
 
@@ -496,6 +501,8 @@ namespace Wino.Core.Services
         // v2
         public async Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
         {
+            if (allFolders == null || !allFolders.Any()) return;
+
             var existingFolders = await GetFoldersAsync(accountId).ConfigureAwait(false);
 
             var foldersToInsert = allFolders.ExceptBy(existingFolders, a => a.RemoteFolderId);

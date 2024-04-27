@@ -348,6 +348,15 @@ namespace Wino.Core.Synchronizers
             _clientPool.Release(client);
         }
 
+        public override IEnumerable<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
+        {
+            return CreateTaskBundle(async (ImapClient client) =>
+            {
+                var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
+                await folder.RenameAsync(folder.ParentFolder, request.NewFolderName).ConfigureAwait(false);
+            }, request);
+        }
+
         #endregion
 
         public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(ImapMessageCreationPackage message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
@@ -403,25 +412,22 @@ namespace Wino.Core.Synchronizers
             // Therefore this should be avoided as many times as possible.
 
             // This may create some inconsistencies, but nothing we can do...
-            if (options.Type == SynchronizationType.FoldersOnly || options.Type == SynchronizationType.Full)
-            {
-                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-            }
+            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
             if (options.Type != SynchronizationType.FoldersOnly)
             {
-                var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+                //var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
-                for (int i = 0; i < synchronizationFolders.Count; i++)
-                {
-                    var folder = synchronizationFolders[i];
-                    var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
+                //for (int i = 0; i < synchronizationFolders.Count; i++)
+                //{
+                //    var folder = synchronizationFolders[i];
+                //    var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                    options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                //    options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
 
-                    var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
-                    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
-                }
+                //    var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
+                //    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                //}
             }
 
             options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
@@ -495,20 +501,32 @@ namespace Wino.Core.Synchronizers
             }
         }
 
-        // TODO: This can be optimized by starting checking the local folders UidValidtyNext first.
-        // TODO: We need to determine deleted folders here. Also for that we need to start by local folders.
-        // TODO: UpdateFolderStructureAsync
+        private bool IsRealFolder(IMailFolder folder) =>
+            !folder.Attributes.HasFlag(FolderAttributes.NonExistent)
+            && !folder.Attributes.HasFlag(FolderAttributes.NoSelect)
+            && !folder.IsNamespace;
+
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
             // https://www.rfc-editor.org/rfc/rfc4549#section-1.1    
 
-            var _synchronizationClient = await _clientPool.GetClientAsync();
+            var _synchronizationClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
             var nameSpace = _synchronizationClient.PersonalNamespaces[0];
 
-            var folders = (await _synchronizationClient.GetFoldersAsync(nameSpace, cancellationToken: cancellationToken)).ToList();
+            var remoteFolders = (await _synchronizationClient.GetFoldersAsync(nameSpace, cancellationToken: cancellationToken).ConfigureAwait(false)).ToList();
 
-            // Special folders
+            // Get all folders from the client.
+            var localFolders = await _imapChangeProcessor.GetExistingFoldersAsync(Account.Id);
+
+            // Remove folders that are not in the remote list.
+            var toRemove = localFolders.Where(a => remoteFolders.Any(b => b.FullName == a.RemoteFolderId) == false).ToList();
+
+            foreach (var item in toRemove)
+            {
+                await _imapChangeProcessor.DeleteFolderAsync(Account.Id, item.RemoteFolderId);
+                localFolders.Remove(item);
+            }
 
             bool isSpecialFoldersSupported = _synchronizationClient.Capabilities.HasFlag(ImapCapabilities.SpecialUse) || _synchronizationClient.Capabilities.HasFlag(ImapCapabilities.XList);
 
@@ -529,18 +547,21 @@ namespace Wino.Core.Synchronizers
             var mailItemFolders = new List<MailItemFolder>();
 
             // Sometimes Inbox is the root namespace. We need to check for that.
-            if (inbox != null && !folders.Contains(inbox))
-                folders.Add(inbox);
+            if (inbox != null && !remoteFolders.Contains(inbox))
+                remoteFolders.Add(inbox);
 
-            foreach (var item in folders)
+            foreach (var item in remoteFolders)
             {
                 // Namespaces are not needed as folders.
                 // Non-existed folders don't need to be synchronized.
 
-                if ((item.IsNamespace && !item.Attributes.HasFlag(FolderAttributes.Inbox)) || !item.Exists)
+                // (item.IsNamespace && !item.Attributes.HasFlag(FolderAttributes.Inbox)) || !item.Exists
+                if (!IsRealFolder(item))
                     continue;
 
-                // Try to synchronize all folders.
+                // We don't need to synchronize existing folders.
+                if (localFolders.Any(a => a.RemoteFolderId == item.FullName))
+                    continue;
 
                 try
                 {
@@ -567,15 +588,12 @@ namespace Wino.Core.Synchronizers
                             localFolder.SpecialFolderType = SpecialFolderType.Starred;
                     }
 
+                    localFolder.IsSynchronizationEnabled = localFolder.SpecialFolderType != SpecialFolderType.Other;
+
                     if (localFolder.SpecialFolderType != SpecialFolderType.Other)
                     {
                         localFolder.IsSystemFolder = true;
                         localFolder.IsSticky = true;
-                        localFolder.IsSynchronizationEnabled = true;
-                    }
-                    else
-                    {
-                        localFolder.IsSynchronizationEnabled = false;
                     }
 
                     // By default, all special folders update unread count in the UI except Trash.
@@ -610,7 +628,7 @@ namespace Wino.Core.Synchronizers
                 }
             }
 
-            await _imapChangeProcessor.UpdateFolderStructureAsync(Account.Id, mailItemFolders);
+            await _imapChangeProcessor.BulkUpdateFolderStructureAsync(Account.Id, mailItemFolders);
         }
 
         private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
