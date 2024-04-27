@@ -113,7 +113,6 @@ namespace Wino
         {
             services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
             services.AddSingleton<IThemeService, ThemeService>();
-            services.AddSingleton<IThemeService, ThemeService>();
             services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
             services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
