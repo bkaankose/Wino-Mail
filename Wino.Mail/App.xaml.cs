@@ -141,6 +141,7 @@ namespace Wino
             services.AddTransient(typeof(MessageListPageViewModel));
             services.AddTransient(typeof(ReadingPanePageViewModel));
             services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
+            services.AddTransient(typeof(LanguageTimePageViewModel));
         }
 
         #endregion

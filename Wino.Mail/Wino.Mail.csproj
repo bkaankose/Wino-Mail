@@ -356,6 +356,7 @@
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\ComposePageAbstract.cs" />
     <Compile Include="Views\Abstract\IdlePageAbstract.cs" />
+    <Compile Include="Views\Abstract\LanguageTimePageAbstract.cs" />
     <Compile Include="Views\Abstract\MailListPageAbstract.cs" />
     <Compile Include="Views\Abstract\MailRenderingPageAbstract.cs" />
     <Compile Include="Views\Abstract\MergedAccountDetailsPageAbstract.cs" />
@@ -412,6 +413,9 @@
     </Compile>
     <Compile Include="Views\Settings\AboutPage.xaml.cs">
       <DependentUpon>AboutPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\LanguageTimePage.xaml.cs">
+      <DependentUpon>LanguageTimePage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\MessageListPage.xaml.cs">
       <DependentUpon>MessageListPage.xaml</DependentUpon>
@@ -625,6 +629,10 @@
     <Page Include="Views\Settings\AboutPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\LanguageTimePage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\Settings\MessageListPage.xaml">
       <SubType>Designer</SubType>

@@ -62,10 +62,10 @@ namespace Wino.Helpers
             }
         }
 
-        public static string GetCreationDateString(DateTime date)
+        public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
         {
             var localTime = date.ToLocalTime();
-            return $"{localTime.ToLongDateString()} {localTime.ToLongTimeString()}";
+            return $"{localTime.ToLongDateString()} {(prefer24HourTime ? localTime.ToString("HH:mm:ss") : localTime.ToLongTimeString())}";
         }
 
         public static string GetMailGroupDateString(object groupObject)
