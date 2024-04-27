@@ -38,14 +38,15 @@ namespace Wino.Core.Integration.Processors
 
         Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
 
-        // For gmail.
-        Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
+        // For Gmail and IMAP.
+        Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
 
         Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
         Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
         Task InsertFolderAsync(MailItemFolder folder);
 
         Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
+        Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
     }
 
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -91,8 +92,11 @@ namespace Wino.Core.Integration.Processors
             => _mailService.CreateMailAsync(accountId, package);
 
         // Folder methods
-        public Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
+        public Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
             => _folderService.BulkUpdateFolderStructureAsync(accountId, allFolders);
+
+        public Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId)
+            => _folderService.GetFoldersAsync(accountId);
 
         public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
             => _mailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
