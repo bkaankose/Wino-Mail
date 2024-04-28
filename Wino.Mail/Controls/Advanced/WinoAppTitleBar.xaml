@@ -92,19 +92,18 @@
                 </animations:Implicit.ShowAnimations>
             </TextBlock>
 
-            <Grid
-                x:Name="ContentGrid"
+            <!--  Shell Sub Content  -->
+            <ContentPresenter
+                x:Name="ShellContentContainer"
                 Grid.Column="1"
-                Background="Transparent">
-                <!--  Shell Sub Content  -->
-                <ContentPresenter Canvas.ZIndex="2" Content="{x:Bind ShellFrameContent, Mode=OneWay}">
-                    <ContentPresenter.ContentTransitions>
-                        <TransitionCollection>
-                            <PaneThemeTransition Edge="Top" />
-                        </TransitionCollection>
-                    </ContentPresenter.ContentTransitions>
-                </ContentPresenter>
-            </Grid>
+                Canvas.ZIndex="2"
+                Content="{x:Bind ShellFrameContent, Mode=OneWay}">
+                <ContentPresenter.ContentTransitions>
+                    <TransitionCollection>
+                        <PaneThemeTransition Edge="Top" />
+                    </TransitionCollection>
+                </ContentPresenter.ContentTransitions>
+            </ContentPresenter>
         </Grid>
     </Grid>
 </UserControl>
