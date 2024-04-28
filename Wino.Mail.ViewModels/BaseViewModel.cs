@@ -82,7 +82,7 @@ namespace Wino.Mail.ViewModels
 
         void IRecipient<FolderAddedMessage>.Receive(FolderAddedMessage message) => OnFolderAdded(message.AddedFolder, message.Account);
         void IRecipient<FolderUpdatedMessage>.Receive(FolderUpdatedMessage message) => OnFolderUpdated(message.UpdatedFolder, message.Account);
-        void IRecipient<FolderRemovedMessage>.Receive(FolderRemovedMessage message) => OnFolderAdded(message.RemovedFolder, message.Account);
+        void IRecipient<FolderRemovedMessage>.Receive(FolderRemovedMessage message) => OnFolderRemoved(message.RemovedFolder, message.Account);
 
         void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
         void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);
