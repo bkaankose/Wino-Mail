@@ -394,9 +394,7 @@ namespace Wino.Core.Services
 
             await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
 
-            // Update UI except unread folder to prevent automatic navigation to the next mail.
-            if (mailCopy.AssignedFolder.SpecialFolderType != SpecialFolderType.Unread)
-                ReportUIChange(new MailRemovedMessage(mailCopy));
+            ReportUIChange(new MailRemovedMessage(mailCopy));
         }
 
         #endregion

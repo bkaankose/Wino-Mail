@@ -45,6 +45,14 @@ namespace Wino.Mail.ViewModels
         private Guid? trackingSynchronizationId = null;
         private int completedTrackingSynchronizationCount = 0;
 
+        /* [Bug] Unread folder reads All emails automatically with setting "Mark as Read: When Selected" enabled 
+         * https://github.com/bkaankose/Wino-Mail/issues/162
+         * We store the UniqueIds of the mails that are marked as read in Gmail Unread folder
+         * to prevent them from being removed from the list when they are marked as read.
+         */
+
+        private HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = new HashSet<Guid>();
+
         private IObservable<System.Reactive.EventPattern<NotifyCollectionChangedEventArgs>> selectionChangedObservable = null;
 
         public WinoMailCollection MailCollection { get; } = new WinoMailCollection();
@@ -210,9 +218,9 @@ namespace Wino.Mail.ViewModels
 
             _activeMailItem = selectedMailItemViewModel;
 
-            Messenger.Send(new ActiveMailItemChangedEvent(selectedMailItemViewModel));
+            Messenger.Send(new ActiveMailItemChangedEvent(_activeMailItem));
 
-            if (selectedMailItemViewModel == null) return;
+            if (_activeMailItem == null || _activeMailItem.IsRead) return;
 
             // Automatically set mark as read or not based on preferences.
 
@@ -220,13 +228,16 @@ namespace Wino.Mail.ViewModels
 
             if (markAsPreference == MailMarkAsOption.WhenSelected)
             {
-                if (selectedMailItemViewModel != null && !selectedMailItemViewModel.IsRead)
-                {
-                    var operation = MailOperation.MarkAsRead;
-                    var package = new MailOperationPreperationRequest(operation,_activeMailItem.MailCopy);
+                var operation = MailOperation.MarkAsRead;
+                var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
 
-                    await ExecuteMailOperationAsync(package);
+                if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
+                    !gmailUnreadFolderMarkedAsReadUniqueIds.Contains(_activeMailItem.UniqueId))
+                {
+                    gmailUnreadFolderMarkedAsReadUniqueIds.Add(_activeMailItem.UniqueId);
                 }
+
+                await ExecuteMailOperationAsync(package);
             }
             else if (markAsPreference == MailMarkAsOption.AfterDelay && PreferencesService.MarkAsDelay >= 0)
             {
@@ -558,13 +569,17 @@ namespace Wino.Mail.ViewModels
             // We should delete the items only if:
             // 1. They are deleted from the active folder.
             // 2. Deleted from draft or sent folder.
+            // 3. Removal is not caused by Gmail Unread folder action.
             // Delete/sent are special folders that can list their items in other folders.
 
             bool removedFromActiveFolder = ActiveFolder.HandlingFolders.Any(a => a.Id == removedMail.AssignedFolder.Id);
             bool removedFromDraftOrSent = removedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
                                           removedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent;
 
-            if (removedFromActiveFolder || removedFromDraftOrSent)
+            bool isDeletedByGmailUnreadFolderAction = ActiveFolder.SpecialFolderType == SpecialFolderType.Unread &&
+                                                      gmailUnreadFolderMarkedAsReadUniqueIds.Contains(removedMail.UniqueId);
+
+            if ((removedFromActiveFolder || removedFromDraftOrSent) && !isDeletedByGmailUnreadFolderAction)
             {
                 bool isDeletedMailSelected = SelectedItems.Any(a => a.MailCopy.UniqueId == removedMail.UniqueId);
 
@@ -801,6 +816,7 @@ namespace Wino.Mail.ViewModels
             isChangingFolder = true;
 
             ActiveFolder = message.BaseFolderMenuItem;
+            gmailUnreadFolderMarkedAsReadUniqueIds.Clear();
 
             trackingSynchronizationId = null;
             completedTrackingSynchronizationCount = 0;
