@@ -209,6 +209,20 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        protected override void OnFolderAdded(MailItemFolder addedFolder, MailAccount account)
+        {
+            base.OnFolderAdded(addedFolder, account);
+
+            // TODO
+        }
+
+        protected override void OnFolderRemoved(MailItemFolder removedFolder, MailAccount account)
+        {
+            base.OnFolderRemoved(removedFolder, account);
+
+            // TODO
+        }
+
         private async Task CreateMergedInboxMenuItemAsync(IEnumerable<MailAccount> accounts)
         {
             var mergedInbox = accounts.First().MergedInbox;
