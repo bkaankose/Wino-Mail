@@ -377,6 +377,8 @@
     "SettingsHoverActions_Title": "悬停动作",
     "SettingsLanguage_Description": "更改 Wino 的显示语言。",
     "SettingsLanguage_Title": "显示语言",
+    "SettingsLanguageTime_Title": "Language & Time",
+    "SettingsLanguageTime_Description": "Wino display language, preferred time format.",
     "CategoriesFolderNameOverride": "分类",
     "MoreFolderNameOverride": "更多",
     "SettingsOptions_Title": "设置",

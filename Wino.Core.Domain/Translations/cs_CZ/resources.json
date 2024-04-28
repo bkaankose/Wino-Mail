@@ -377,6 +377,8 @@
     "SettingsHoverActions_Title": "Akce při přejetí myší",
     "SettingsLanguage_Description": "Změnit jazyk aplikace pro Wino.",
     "SettingsLanguage_Title": "Jazyk aplikace",
+    "SettingsLanguageTime_Title": "Jazyk & čas",
+    "SettingsLanguageTime_Description": "Jazyk aplikace Wino, preferovaný formát času.",
     "CategoriesFolderNameOverride": "Kategorie",
     "MoreFolderNameOverride": "Více",
     "SettingsOptions_Title": "Nastavení",

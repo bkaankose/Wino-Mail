@@ -377,6 +377,8 @@
     "SettingsHoverActions_Title": "Akcje po najechaniu kursorem",
     "SettingsLanguage_Description": "Zmień język wyświetlania Wino.",
     "SettingsLanguage_Title": "Ustawienia języka",
+    "SettingsLanguageTime_Title": "Language & Time",
+    "SettingsLanguageTime_Description": "Wino display language, preferred time format.",
     "CategoriesFolderNameOverride": "Kategorie",
     "MoreFolderNameOverride": "Więcej",
     "SettingsOptions_Title": "Ustawienia",

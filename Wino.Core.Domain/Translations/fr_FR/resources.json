@@ -377,6 +377,8 @@
     "SettingsHoverActions_Title": "Actions de survol",
     "SettingsLanguage_Description": "Changer la langue d'affichage de Wino.",
     "SettingsLanguage_Title": "Langue d'affichage",
+    "SettingsLanguageTime_Title": "Language & Time",
+    "SettingsLanguageTime_Description": "Wino display language, preferred time format.",
     "CategoriesFolderNameOverride": "Catégories",
     "MoreFolderNameOverride": "Plus",
     "SettingsOptions_Title": "Paramètres",
