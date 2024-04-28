@@ -18,6 +18,8 @@ namespace Wino.Helpers
 {
     public static class XamlHelpers
     {
+        private const string TwentyFourHourTimeFormat = "HH:mm";
+        private const string TwelveHourTimeFormat = "hh:mm tt";
         #region Converters
 
         public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
@@ -58,14 +60,14 @@ namespace Wino.Helpers
             {
                 var localTime = receivedDate.ToLocalTime();
 
-                return prefer24HourTime ? localTime.ToString("HH:mm") : localTime.ToString("hh:mm tt");
+                return prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat);
             }
         }
 
-        public static string GetCreationDateString(DateTime date)
+        public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
         {
             var localTime = date.ToLocalTime();
-            return $"{localTime.ToLongDateString()} {localTime.ToLongTimeString()}";
+            return $"{localTime.ToLongDateString()} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
         }
 
         public static string GetMailGroupDateString(object groupObject)

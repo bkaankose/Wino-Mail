@@ -195,7 +195,7 @@
                                     <Run Text="&lt;" /><Run Text="{x:Bind ViewModel.FromAddress, Mode=OneWay}" /><Run Text="&gt;" />
                                 </TextBlock>
                             </HyperlinkButton>
-                            <TextBlock FontSize="12" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate), Mode=OneWay}" />
+                            <TextBlock FontSize="12" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
                         </StackPanel>
                     </Grid>
                 </Grid>

@@ -8,12 +8,5 @@ namespace Wino.Views.Settings
         {
             InitializeComponent();
         }
-
-        public override void OnLanguageChanged()
-        {
-            base.OnLanguageChanged();
-
-            Bindings.Update();
-        }
     }
 }

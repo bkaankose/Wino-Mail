@@ -46,22 +46,15 @@ namespace Wino.Views
             settingsHeader.Title = Translator.MenuSettings;
         }
 
-        private Type GetNavigationPageType(WinoPage page)
+        private Type GetNavigationPageType(WinoPage page) => page switch
         {
-            switch (page)
-            {
-                case WinoPage.AboutPage:
-                    return typeof(AboutPage);
-                case WinoPage.PersonalizationPage:
-                    return typeof(PersonalizationPage);
-                case WinoPage.MessageListPage:
-                    return typeof(MessageListPage);
-                case WinoPage.ReadingPanePage:
-                    return typeof(ReadingPanePage);
-                default:
-                    return null;
-            }
-        }
+            WinoPage.AboutPage => typeof(AboutPage),
+            WinoPage.PersonalizationPage => typeof(PersonalizationPage),
+            WinoPage.MessageListPage => typeof(MessageListPage),
+            WinoPage.ReadingPanePage => typeof(ReadingPanePage),
+            WinoPage.LanguageTimePage => typeof(LanguageTimePage),
+            _ => null,
+        };
 
         void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
         {

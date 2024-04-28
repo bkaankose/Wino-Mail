@@ -20,6 +20,7 @@
         MessageListPage,
         MailListPage,
         ReadingPanePage,
-        SettingOptionsPage
+        LanguageTimePage,
+        SettingOptionsPage,
     }
 }
