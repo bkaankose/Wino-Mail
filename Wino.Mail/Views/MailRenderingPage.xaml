@@ -150,7 +150,6 @@
             x:Name="RendererBar"
             Grid.Row="0"
             Margin="8,6,0,0"
-            IsSticky="True"
             DefaultLabelPosition="Right"
             HorizontalContentAlignment="Stretch"
             OverflowButtonVisibility="Auto"

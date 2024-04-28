@@ -462,7 +462,7 @@ namespace Wino.Mail.ViewModels
             MenuItems.Clear();
 
             // Add light/dark editor theme switch.
-            if (_underlyingThemeService.IsUnderlyingThemeDark())
+            if (IsDarkWebviewRenderer)
                 MenuItems.Add(MailOperationMenuItem.Create(MailOperation.LightEditor));
             else
                 MenuItems.Add(MailOperationMenuItem.Create(MailOperation.DarkEditor));

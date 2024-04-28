@@ -1,7 +1,7 @@
-﻿using Microsoft.Xaml.Interactivity;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Windows.Input;
+using Microsoft.Xaml.Interactivity;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -98,42 +98,37 @@ namespace Wino.Behaviors
             {
                 if (command is MailOperationMenuItem mailOperationMenuItem)
                 {
+                    ICommandBarElement menuItem = null;
+
                     if (mailOperationMenuItem.Operation == Core.Domain.Enums.MailOperation.Seperator)
                     {
-                        var seperator = new AppBarSeparator();
-
-                        if (mailOperationMenuItem.IsSecondaryMenuPreferred)
-                        {
-                            AssociatedObject.SecondaryCommands.Add(seperator);
-                        }
-                        else
-                        {
-                            AssociatedObject.PrimaryCommands.Add(seperator);
-                        }
+                        menuItem = new AppBarSeparator();
                     }
                     else
                     {
-                        var menuItem = new AppBarButton()
+                        var label = XamlHelpers.GetOperationString(mailOperationMenuItem.Operation);
+                        menuItem = new AppBarButton
                         {
                             Icon = new WinoFontIcon() { Glyph = ControlConstants.WinoIconFontDictionary[XamlHelpers.GetWinoIconGlyph(mailOperationMenuItem.Operation)] },
-                            Label = XamlHelpers.GetOperationString(mailOperationMenuItem.Operation),
+                            Label = label,
+                            LabelPosition = string.IsNullOrWhiteSpace(label) ? CommandBarLabelPosition.Collapsed : CommandBarLabelPosition.Default,
                             DataContext = mailOperationMenuItem,
                         };
 
-                        menuItem.Click -= Button_Click;
-                        menuItem.Click += Button_Click;
+                        ((AppBarButton)menuItem).Click -= Button_Click;
+                        ((AppBarButton)menuItem).Click += Button_Click;
+                    }
 
-                        if (mailOperationMenuItem.IsSecondaryMenuPreferred)
-                        {
-                            AssociatedObject.SecondaryCommands.Add(menuItem);
-                        }
-                        else
-                        {
-                            AssociatedObject.PrimaryCommands.Add(menuItem);
-                        }
+                    if (mailOperationMenuItem.IsSecondaryMenuPreferred)
+                    {
+                        AssociatedObject.SecondaryCommands.Add(menuItem);
+                    }
+                    else
+                    {
+                        AssociatedObject.PrimaryCommands.Add(menuItem);
                     }
                 }
-                
+
                 //if (dependencyObject is ICommandBarElement icommandBarElement)
                 //{
                 //    if (dependencyObject is ButtonBase button)
@@ -144,7 +139,7 @@ namespace Wino.Behaviors
 
                 //    if (command is MailOperationMenuItem mailOperationMenuItem)
                 //    {
-                        
+
                 //    }
                 //}
             }
