@@ -34,7 +34,7 @@ namespace Wino.Views.ImapSetup
                 {
                     // Couldn't find settings.
 
-                    WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(WelcomeImapSetupPage), "Couldn't find mailbox settings for {userMinimalSettings.Email}. Please configure it manually."));
+                    WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(WelcomeImapSetupPage), $"Couldn't find mailbox settings for {userMinimalSettings.Email}. Please configure it manually."));
                 }
                 else
                 {
