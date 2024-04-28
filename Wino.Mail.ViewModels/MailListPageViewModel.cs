@@ -606,6 +606,11 @@ namespace Wino.Mail.ViewModels
 
                 await ExecuteUIThread(() => { NotifyItemFoundState(); });
             }
+            else if (isDeletedByGmailUnreadFolderAction)
+            {
+                // Remove the entry from the set so we can listen to actual deletes next time.
+                gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
+            }
         }
         protected override async void OnDraftCreated(MailCopy draftMail, MailAccount account)
         {
