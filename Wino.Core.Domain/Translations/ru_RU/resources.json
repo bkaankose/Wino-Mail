@@ -377,6 +377,8 @@
     "SettingsHoverActions_Title": "Действия при наведении",
     "SettingsLanguage_Description": "Изменить язык интерфейса Wino.",
     "SettingsLanguage_Title": "Язык интерфейса",
+    "SettingsLanguageTime_Title": "Language & Time",
+    "SettingsLanguageTime_Description": "Wino display language, preferred time format.",
     "CategoriesFolderNameOverride": "Категории",
     "MoreFolderNameOverride": "Ещё",
     "SettingsOptions_Title": "Параметры",
