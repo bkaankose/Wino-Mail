@@ -53,7 +53,6 @@ namespace Wino.Core.Integration.Threading
                 var threadItems = (await GetThreadItemsAsync(potentiallyThreadedMails.Select(x => (x.ThreadId, x.AssignedFolder)).ToList(), assignedAccount.Id, sentFolder.Id, draftFolder.Id))
                 .GroupBy(x => x.ThreadId);
 
-                var folderCache = new Dictionary<Guid, MailItemFolder>();
                 foreach (var threadItem in threadItems)
                 {
                     if (threadItem.Count() == 1)

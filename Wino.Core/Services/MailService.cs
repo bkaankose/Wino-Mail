@@ -195,7 +195,7 @@ namespace Wino.Core.Services
             // Avoid DBs calls as possible, storing info in a dictionary.
             foreach (var mail in mails)
             {
-                await PopulateFolderAndAccountAssignment(mail, folderCache, accountCache).ConfigureAwait(false);
+                await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache).ConfigureAwait(false);
             }
 
             // Remove items that has no assigned account or folder.
@@ -229,7 +229,7 @@ namespace Wino.Core.Services
                 // Almost everything already should be in cache from initial population.
                 foreach (var mail in accountThreadedItems)
                 {
-                    await PopulateFolderAndAccountAssignment(mail, folderCache, accountCache).ConfigureAwait(false);
+                    await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache).ConfigureAwait(false);
                 }
 
                 if (accountThreadedItems != null)
@@ -243,13 +243,13 @@ namespace Wino.Core.Services
             return threadedItems;
 
             // Recursive function to populate folder and account assignments for each mail item.
-            async Task PopulateFolderAndAccountAssignment(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache)
+            async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache)
             {
                 if (mail is ThreadMailItem threadMailItem)
                 {
                     foreach (var childMail in threadMailItem.ThreadItems)
                     {
-                        await PopulateFolderAndAccountAssignment(childMail, folderCache, accountCache).ConfigureAwait(false);
+                        await LoadAssignedPropertiesWithCacheAsync(childMail, folderCache, accountCache).ConfigureAwait(false);
                     }
                 }
 
