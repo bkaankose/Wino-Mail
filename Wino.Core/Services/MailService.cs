@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
 using MimeKit.Text;
 using MoreLinq;
@@ -186,72 +187,96 @@ namespace Wino.Core.Services
 
             var mails = await Connection.QueryAsync<MailCopy>(query);
 
-            // Fill in assigned account and folder for each mail.
-            // To speed things up a bit, we'll load account and assigned folder in groups
-            // to reduce the query time.
+            Dictionary<Guid, MailItemFolder> folderCache = [];
+            Dictionary<Guid, MailAccount> accountCache = [];
 
-            var groupedByFolders = mails.GroupBy(a => a.FolderId);
-
-            foreach (var group in groupedByFolders)
+            // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
+            // This is needed to execute threading strategy by account type.
+            // Avoid DBs calls as possible, storing info in a dictionary.
+            foreach (var mail in mails)
             {
-                MailItemFolder folderAssignment = null;
-                MailAccount accountAssignment = null;
-
-                folderAssignment = await _folderService.GetFolderAsync(group.Key).ConfigureAwait(false);
-
-                if (folderAssignment != null)
-                {
-                    accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
-                }
-
-                group.ForEach(a =>
-                {
-                    a.AssignedFolder = folderAssignment;
-                    a.AssignedAccount = accountAssignment;
-                });
+                await PopulateFolderAndAccountAssignment(mail, folderCache, accountCache).ConfigureAwait(false);
             }
 
             // Remove items that has no assigned account or folder.
             mails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
 
-            // Each account items must be threaded separately.
-
-            if (options.CreateThreads)
-            {
-                var threadedItems = new List<IMailItem>();
-
-                var groupedByAccounts = mails.GroupBy(a => a.AssignedAccount.Id);
-
-                foreach (var group in groupedByAccounts)
-                {
-                    if (!group.Any()) continue;
-
-                    var accountId = group.Key;
-                    var groupAccount = mails.First(a => a.AssignedAccount.Id == accountId).AssignedAccount;
-
-                    var threadingStrategy = _threadingStrategyProvider.GetStrategy(groupAccount.ProviderType);
-
-                    // Only thread items from Draft and Sent folders must present here.
-                    // Otherwise this strategy will fetch the items that are in Deleted folder as well.
-                    var accountThreadedItems = await threadingStrategy.ThreadItemsAsync(group.ToList());
-
-                    if (accountThreadedItems != null)
-                    {
-                        threadedItems.AddRange(accountThreadedItems);
-                    }
-                }
-
-                threadedItems.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
-
-                return threadedItems;
-            }
-            else
+            if (!options.CreateThreads)
             {
                 // Threading is disabled. Just return everything as it is.
-
                 mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
 
                 return new List<IMailItem>(mails);
+            }
+
+            // Populate threaded items.
+
+            var threadedItems = new List<IMailItem>();
+
+            // Each account items must be threaded separately.
+            foreach (var group in mails.GroupBy(a => a.AssignedAccount.Id))
+            {
+                var accountId = group.Key;
+                var groupAccount = mails.First(a => a.AssignedAccount.Id == accountId).AssignedAccount;
+
+                var threadingStrategy = _threadingStrategyProvider.GetStrategy(groupAccount.ProviderType);
+
+                // Only thread items from Draft and Sent folders must present here.
+                // Otherwise this strategy will fetch the items that are in Deleted folder as well.
+                var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group]);
+
+                // Populate threaded items with folder and account assignments.
+                // Almost everything already should be in cache from initial population.
+                foreach (var mail in accountThreadedItems)
+                {
+                    await PopulateFolderAndAccountAssignment(mail, folderCache, accountCache).ConfigureAwait(false);
+                }
+
+                if (accountThreadedItems != null)
+                {
+                    threadedItems.AddRange(accountThreadedItems);
+                }
+            }
+
+            threadedItems.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
+
+            return threadedItems;
+
+            // Recursive function to populate folder and account assignments for each mail item.
+            async Task PopulateFolderAndAccountAssignment(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache)
+            {
+                if (mail is ThreadMailItem threadMailItem)
+                {
+                    foreach (var childMail in threadMailItem.ThreadItems)
+                    {
+                        await PopulateFolderAndAccountAssignment(childMail, folderCache, accountCache).ConfigureAwait(false);
+                    }
+                }
+
+                if (mail is MailCopy mailCopy)
+                {
+                    MailAccount accountAssignment = null;
+
+                    var isFolderCached = folderCache.TryGetValue(mailCopy.FolderId, out MailItemFolder folderAssignment);
+                    accountAssignment = null;
+                    if (!isFolderCached)
+                    {
+                        folderAssignment = await _folderService.GetFolderAsync(mailCopy.FolderId).ConfigureAwait(false);
+                        _ = folderCache.TryAdd(mailCopy.FolderId, folderAssignment);
+                    }
+                    if (folderAssignment != null)
+                    {
+                        var isAccountCached = accountCache.TryGetValue(folderAssignment.MailAccountId, out accountAssignment);
+                        if (!isAccountCached)
+                        {
+                            accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
+                            _ = accountCache.TryAdd(folderAssignment.MailAccountId, accountAssignment);
+                        }
+                    }
+
+                    mailCopy.AssignedFolder = folderAssignment;
+                    mailCopy.AssignedAccount = accountAssignment;
+                }
             }
         }
 

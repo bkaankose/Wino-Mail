@@ -26,87 +26,56 @@ namespace Wino.Core.Integration.Threading
             return originalItem.ThreadId != null && originalItem.ThreadId == targetItem.ThreadId;
         }
 
+        ///<inheritdoc/>
         public async Task<List<IMailItem>> ThreadItemsAsync(List<MailCopy> items)
         {
-            var accountId = items.First().AssignedAccount.Id;
+            var assignedAccount = items[0].AssignedAccount;
 
-            var threads = new List<ThreadMailItem>();
-            var assignedAccount = items.First().AssignedAccount;
-
-            // TODO: Can be optimized by moving to the caller.
-            var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(accountId, Domain.Enums.SpecialFolderType.Sent);
-            var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(accountId, Domain.Enums.SpecialFolderType.Draft);
+            var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
+            var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Draft);
 
             if (sentFolder == null || draftFolder == null) return default;
 
-            // Child -> Parent approach.
+            // True: Non threaded items.
+            // False: Potentially threaded items.
+            var nonThreadedOrThreadedMails = items
+                .Distinct()
+                .GroupBy(x => string.IsNullOrEmpty(x.ThreadId))
+                .ToDictionary(x => x.Key, x => x);
 
-            var potentialThreadItems = items.Distinct().Where(a => !string.IsNullOrEmpty(a.ThreadId));
+            _ = nonThreadedOrThreadedMails.TryGetValue(true, out var nonThreadedMails);
+            var isThreadedItems = nonThreadedOrThreadedMails.TryGetValue(false, out var potentiallyThreadedMails);
 
-            var mailLookupTable = new Dictionary<string, bool>();
+            List<IMailItem> resultList = nonThreadedMails is null ? [] : [.. nonThreadedMails];
 
-            // Fill up the mail lookup table to prevent double thread creation.
-            foreach (var mail in items)
-                if (!mailLookupTable.ContainsKey(mail.Id))
-                    mailLookupTable.Add(mail.Id, false);
-
-            foreach (var potentialItem in potentialThreadItems)
+            if (isThreadedItems)
             {
-                if (mailLookupTable[potentialItem.Id])
-                    continue;
+                var threadItems = (await GetThreadItemsAsync(potentiallyThreadedMails.Select(x => (x.ThreadId, x.AssignedFolder)).ToList(), assignedAccount.Id, sentFolder.Id, draftFolder.Id))
+                .GroupBy(x => x.ThreadId);
 
-                mailLookupTable[potentialItem.Id] = true;
-
-                var allThreadItems = await GetThreadItemsAsync(potentialItem.ThreadId, accountId, potentialItem.AssignedFolder, sentFolder.Id, draftFolder.Id);
-
-                if (allThreadItems.Count == 1)
+                var folderCache = new Dictionary<Guid, MailItemFolder>();
+                foreach (var threadItem in threadItems)
                 {
-                    // It's a single item.
-                    // Mark as not-processed as thread.
-
-                    mailLookupTable[potentialItem.Id] = false;
-                }
-                else
-                {
-                    // Thread item. Mark all items as true in dict.
-                    var threadItem = new ThreadMailItem();
-
-                    foreach (var childThreadItem in allThreadItems)
+                    if (threadItem.Count() == 1)
                     {
-                        if (mailLookupTable.ContainsKey(childThreadItem.Id))
-                            mailLookupTable[childThreadItem.Id] = true;
-
-                        childThreadItem.AssignedAccount = assignedAccount;
-                        childThreadItem.AssignedFolder = await _folderService.GetFolderAsync(childThreadItem.FolderId);
-
-                        threadItem.AddThreadItem(childThreadItem);
+                        resultList.Add(threadItem.First());
+                        continue;
                     }
 
-                    // Multiple mail copy ids from different folders are thing for Gmail.
-                    if (threadItem.ThreadItems.Count == 1)
-                        mailLookupTable[potentialItem.Id] = false;
-                    else
-                        threads.Add(threadItem);
+                    var thread = new ThreadMailItem();
+                    foreach (var childThreadItem in threadItem)
+                    {
+                        thread.AddThreadItem(childThreadItem);
+                    }
+                    resultList.Add(thread);
                 }
             }
 
-            // At this points all mails in the list belong to single items.
-            // Merge with threads.
-            // Last sorting will be done later on in MailService.
-
-            // Remove single mails that are included in thread.
-            items.RemoveAll(a => mailLookupTable.ContainsKey(a.Id) && mailLookupTable[a.Id]);
-
-            var finalList = new List<IMailItem>(items);
-
-            finalList.AddRange(threads);
-
-            return finalList;
+            return resultList;
         }
 
-        private async Task<List<MailCopy>> GetThreadItemsAsync(string threadId,
+        private async Task<List<MailCopy>> GetThreadItemsAsync(List<(string threadId, MailItemFolder threadingFolder)> potentialThread,
                                                                Guid accountId,
-                                                               MailItemFolder threadingFolder,
                                                                Guid sentFolderId,
                                                                Guid draftFolderId)
         {
@@ -118,24 +87,20 @@ namespace Wino.Core.Integration.Threading
 
             // TODO: Convert to SQLKata query.
 
-            string query = string.Empty;
-
-            if (threadingFolder.SpecialFolderType == SpecialFolderType.Draft || threadingFolder.SpecialFolderType == SpecialFolderType.Sent)
-            {
-                query = @$"SELECT DISTINCT MC.* FROM MailCopy MC
+            var query = @$"SELECT DISTINCT MC.* FROM MailCopy MC
                            INNER JOIN MailItemFolder MF on MF.Id = MC.FolderId
-                           WHERE MF.MailAccountId == '{accountId}' AND MC.ThreadId = '{threadId}'";
-            }
-            else
-            {
-                query = @$"SELECT DISTINCT MC.* FROM MailCopy MC
-                           INNER JOIN MailItemFolder MF on MF.Id = MC.FolderId
-                           WHERE MF.MailAccountId == '{accountId}' AND MC.FolderId IN ('{threadingFolder.Id}','{sentFolderId}','{draftFolderId}')
-                           AND MC.ThreadId = '{threadId}'";
-            }
-
+                           WHERE MF.MailAccountId == '{accountId}' AND
+                           ({string.Join(" OR ", potentialThread.Select(x => ConditionForItem(x, sentFolderId, draftFolderId)))})";
 
             return await _databaseService.Connection.QueryAsync<MailCopy>(query);
+
+            static string ConditionForItem((string threadId, MailItemFolder threadingFolder) potentialThread, Guid sentFolderId, Guid draftFolderId)
+            {
+                if (potentialThread.threadingFolder.SpecialFolderType == SpecialFolderType.Draft || potentialThread.threadingFolder.SpecialFolderType == SpecialFolderType.Sent)
+                    return $"(MC.ThreadId = '{potentialThread.threadId}')";
+
+                return $"(MC.ThreadId = '{potentialThread.threadId}' AND MC.FolderId IN ('{potentialThread.threadingFolder.Id}','{sentFolderId}','{draftFolderId}'))";
+            }
         }
     }
 }
