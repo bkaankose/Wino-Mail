@@ -19,15 +19,15 @@
 	</Extensions>
 	
   <Identity
-    Name="58272BurakKSE.WinoMailPreview"
-    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Name="49014Shompinice.50918299FB257"
+    Publisher="CN=8136FD48-8D5A-4FB2-8DF9-A606C867768F"
     Version="1.7.0.0" />
 
-  <mp:PhoneIdentity PhoneProductId="0f6f3c1b-6ffd-4212-9c91-a16e8d1fa437" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+  <mp:PhoneIdentity PhoneProductId="612e93bb-9e5f-4b90-96dc-12ebfd3475b8" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Wino Mail</DisplayName>
-    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
+    <DisplayName>Mail Universal</DisplayName>
+    <PublisherDisplayName>Shompinice</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -44,7 +44,7 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="Wino.App">
       <uap:VisualElements
-        DisplayName="Wino Mail"
+        DisplayName="Mail Universal"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png"
         Description="Mail client designed for Windows 11"

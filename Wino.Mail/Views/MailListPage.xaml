@@ -435,7 +435,7 @@
                 <Grid
                     Grid.Row="0"
                     Padding="2,0"
-                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    Background="Transparent"
                     CornerRadius="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="48" />
