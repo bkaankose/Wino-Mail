@@ -101,9 +101,9 @@ namespace Wino.Controls.Advanced
             UpdateLayout();
 
             CoreWindowTitleTextBlock.Visibility = Visibility.Collapsed;
-            ShellContentContainer.Width = double.NaN;
-            ShellContentContainer.Margin = new Thickness(0, 0, 0, 0);
-            ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Stretch;
+            //ShellContentContainer.Width = double.NaN;
+            //ShellContentContainer.Margin = new Thickness(0, 0, 0, 0);
+            //ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Stretch;
 
             EmptySpaceWidth.Width = new GridLength(1, GridUnitType.Star);
 
@@ -118,8 +118,9 @@ namespace Wino.Controls.Advanced
 
                 if (!IsReaderNarrowed)
                 {
-                    ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
-                    ShellContentContainer.Width = ReadingPaneLength;
+                    //ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
+                    //ShellContentContainer.Width = ReadingPaneLength;
+                    ShellContentContainer.Margin = new Thickness(10, 0, 0, 0);
                 }
             }
             else if (NavigationViewDisplayMode == Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Expanded)
@@ -129,18 +130,29 @@ namespace Wino.Controls.Advanced
                     CoreWindowTitleTextBlock.Visibility = Visibility.Visible;
 
                     // LMargin = OpenPaneLength - LeftMenuStackPanel
-                    ShellContentContainer.Margin = new Thickness(OpenPaneLength - LeftMenuStackPanel.ActualSize.X, 0, 0, 0);
+                    // ShellContentContainer.Margin = new Thickness(OpenPaneLength - LeftMenuStackPanel.ActualSize.X, 0, 0, 0);
 
                     if (!IsReaderNarrowed)
                     {
-                        ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
-                        ShellContentContainer.Width = ReadingPaneLength;
+                        //ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
+                        //ShellContentContainer.Width = ReadingPaneLength;
                     }
                 }
                 else
                 {
-                    EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Pixel);
+                    //EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Pixel);
                 }
+            }
+
+            if(this.ActualWidth >= 720)
+            {
+                ShellContentContainer.Margin = new Thickness(125, 0, 0, 0);
+                ShellContentContainer.MaxWidth = 400;
+            }
+            else
+            {
+                ShellContentContainer.Margin = new Thickness(60, 0, -40, 0);
+                ShellContentContainer.MaxWidth = double.PositiveInfinity;
             }
         }
 
