@@ -378,10 +378,10 @@
         </Style>
     </Page.Resources>
 
+    
     <wino:BasePage.ShellContent>
         <AutoSuggestBox
             x:Name="SearchBar"
-            Margin="0,0,8,0"
             VerticalAlignment="Center"
             BorderBrush="Transparent"
             GotFocus="SearchBoxFocused"
