@@ -2,8 +2,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -40,6 +38,7 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IWinoRequestDelegator _requestDelegator;
         private readonly IClipboardService _clipboardService;
+        private readonly IUnsubscriptionService _unsubscriptionService;
 
         private bool forceImageLoading = false;
 
@@ -127,6 +126,7 @@ namespace Wino.Mail.ViewModels
                                           IWinoRequestDelegator requestDelegator,
                                           IStatePersistanceService statePersistanceService,
                                           IClipboardService clipboardService,
+                                          IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService) : base(dialogService)
         {
             NativeAppService = nativeAppService;
@@ -134,6 +134,7 @@ namespace Wino.Mail.ViewModels
             PreferencesService = preferencesService;
 
             _clipboardService = clipboardService;
+            _unsubscriptionService = unsubscriptionService;
             _underlyingThemeService = underlyingThemeService;
             _mimeFileService = mimeFileService;
             _mailService = mailService;
@@ -194,15 +195,9 @@ namespace Wino.Mail.ViewModels
                     confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
                     if (!confirmed) return;
 
-                    using var httpClient = new HttpClient();
+                    bool isOneClickUnsubscribed = await _unsubscriptionService.OneClickUnsubscribeAsync(CurrentRenderModel.UnsubscribeInfo);
 
-                    var unsubscribeRequest = new HttpRequestMessage(HttpMethod.Post, CurrentRenderModel.UnsubscribeInfo.HttpLink)
-                    {
-                        Content = new StringContent("List-Unsubscribe=One-Click", Encoding.UTF8, "application/x-www-form-urlencoded")
-                    };
-
-                    var result = await httpClient.SendAsync(unsubscribeRequest);
-                    if (result.IsSuccessStatusCode)
+                    if (isOneClickUnsubscribed)
                     {
                         DialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, FromName), InfoBarMessageType.Success);
                     }
