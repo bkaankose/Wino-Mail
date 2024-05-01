@@ -225,8 +225,9 @@ namespace Wino.Mail.ViewModels
 
                 if (!confirmed) return;
 
-                // TODO:Implement mailto link support.
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Mailto unsubscribe is not supported yet.", InfoBarMessageType.Error);
+                // TODO: Implement automatic mail send after user confirms the action.
+                // Currently it will launch compose page and user should manually press send button.
+                await NativeAppService.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.MailToLink));
             }
         }
 
