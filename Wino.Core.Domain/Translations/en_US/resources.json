@@ -80,7 +80,7 @@
     "DialogMessage_UnsubscribeConfirmationOneClickMessage": "Do you want to stop getting messages from {0}?",
     "DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage": "To stop getting messages from {0}, go to their website to unsubscribe.",
     "DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton": "Go to website",
-    "DialogMessage_UnsubscribeConfirmationMailtoMessage": "Do you want to stop getting messages from {0}? WinoMail will unsubscribe for you by sending an email from your email account to {1}.",
+    "DialogMessage_UnsubscribeConfirmationMailtoMessage": "Do you want to stop getting messages from {0}? Wino will unsubscribe for you by sending an email from your email account to {1}.",
     "Dialog_DontAskAgain": "Don't ask again",
     "DiscordChannelDisclaimerMessage": "Wino doesn't have it's own Discord server, but special 'wino-mail' channel is hosted at 'Developer Sanctuary' server.\nTo get the updates about Wino please join Developer Sanctuary server and follow 'wino-mail' channel under 'Community Projects'\n\nYou will be directed to server URL since Discord doesn't support channel invites.",
     "DiscordChannelDisclaimerTitle": "Important Discord Information",
