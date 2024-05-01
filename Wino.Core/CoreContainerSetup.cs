@@ -37,6 +37,7 @@ namespace Wino.Core
             services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
             services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
             services.AddTransient<IFontService, FontService>();
+            services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
 
             services.AddTransient<OutlookThreadingStrategy>();
             services.AddTransient<GmailThreadingStrategy>();

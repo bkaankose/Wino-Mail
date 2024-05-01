@@ -404,6 +404,31 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_EmptySubjectConfirmationMessage => Resources.GetTranslatedString(@"DialogMessage_EmptySubjectConfirmationMessage");	
 	
         /// <summary>
+		/// Unsubscribe
+		/// </summary>
+		public static string DialogMessage_UnsubscribeConfirmationTitle => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationTitle");	
+	
+        /// <summary>
+		/// Do you want to stop getting messages from {0}?
+		/// </summary>
+		public static string DialogMessage_UnsubscribeConfirmationOneClickMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationOneClickMessage");	
+	
+        /// <summary>
+		/// To stop getting messages from {0}, go to their website to unsubscribe.
+		/// </summary>
+		public static string DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage");	
+	
+        /// <summary>
+		/// Go to website
+		/// </summary>
+		public static string DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton");	
+	
+        /// <summary>
+		/// Do you want to stop getting messages from {0}? WinoMail will unsubscribe for you by sending an email from your email account to {1}.
+		/// </summary>
+		public static string DialogMessage_UnsubscribeConfirmationMailtoMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationMailtoMessage");	
+	
+        /// <summary>
 		/// Don't ask again
 		/// </summary>
 		public static string Dialog_DontAskAgain => Resources.GetTranslatedString(@"Dialog_DontAskAgain");	
@@ -1172,6 +1197,16 @@ namespace Wino.Core.Domain
 		/// This unsubscribe link is invalid. Failed to unsubscribe from the list.
 		/// </summary>
 		public static string Info_UnsubscribeLinkInvalidMessage => Resources.GetTranslatedString(@"Info_UnsubscribeLinkInvalidMessage");	
+	
+        /// <summary>
+		/// Successfully unsubscribed from {0}.
+		/// </summary>
+		public static string Info_UnsubscribeSuccessMessage => Resources.GetTranslatedString(@"Info_UnsubscribeSuccessMessage");	
+	
+        /// <summary>
+		/// Failed to unsubscribe
+		/// </summary>
+		public static string Info_UnsubscribeErrorMessage => Resources.GetTranslatedString(@"Info_UnsubscribeErrorMessage");	
 	
         /// <summary>
 		/// Authentication method
