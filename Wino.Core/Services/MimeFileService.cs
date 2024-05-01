@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MimeKit;
@@ -221,22 +222,24 @@ namespace Wino.Core.Services
                 }
             }
 
-            // Check for List-Unsubscribe link if possible.
-
             if (message.Headers.Contains(HeaderId.ListUnsubscribe))
             {
-                renderingModel.UnsubscribeLink = message.Headers[HeaderId.ListUnsubscribe].Normalize();
+                var unsubscribeLinks = message.Headers[HeaderId.ListUnsubscribe]
+                    .Normalize()
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => x.Trim([' ', '<', '>']));
 
-                // Sometimes this link is wrapped with < >, remove them.
-                if (renderingModel.UnsubscribeLink.StartsWith("<"))
+                // Only two types of unsubscribe links are possible.
+                // So each has it's own property to simplify the usage.
+                renderingModel.UnsubscribeInfo = new UnsubscribeInfo()
                 {
-                    renderingModel.UnsubscribeLink = renderingModel.UnsubscribeLink.Substring(1, renderingModel.UnsubscribeLink.Length - 2);
-                }
+                    HttpLink = unsubscribeLinks.FirstOrDefault(x => x.StartsWith("http", StringComparison.OrdinalIgnoreCase)),
+                    MailToLink = unsubscribeLinks.FirstOrDefault(x => x.StartsWith("mailto", StringComparison.OrdinalIgnoreCase)),
+                    IsOneClick = message.Headers.Contains(HeaderId.ListUnsubscribePost)
+                };
             }
 
             return renderingModel;
         }
-
-
     }
 }
