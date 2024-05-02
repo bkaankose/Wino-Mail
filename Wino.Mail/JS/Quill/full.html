@@ -5,14 +5,12 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="language" content="english">
     <meta name="viewport" content="width=device-width">
-
     <link rel="stylesheet" href="https://app.example/katex.min.css" />
-
     <link rel="stylesheet" href="https://app.example/monokai-sublime.min.css" />
-
     <link rel="stylesheet" href="https://app.example/quill.snow.css" />
+    <link rel="stylesheet" href="https://app.example/global.css" />
 
-    <style>
+     <style>
         body >
         /* #standalone-container {
             margin: 50px auto;
@@ -30,6 +28,7 @@
     </style>
 </head>
 <body>
+    <meta name="color-scheme" content="dark light">
     <div id="standalone-container">
         <!-- remove display none to enable toolbar -->
         <div id="toolbar-container" style="display: none;">
@@ -242,22 +241,22 @@
             return quill.getText();
         }
 
-        function SetLightEditor()
-        {
+        function SetLightEditor(){
+            document.documentElement.setAttribute('data-theme', 'light');
             DarkReader.disable();
         }
 
-        function SetDarkEditor()
-        {
+        function SetDarkEditor(){
+            document.documentElement.setAttribute('data-theme', 'dark');
             DarkReader.enable();
         }
 
-        // function ShowToolbar() {
-        //     document.getElementById('editor-container').style.display = 'block';
+                // function ShowToolbar() {
+                //     document.getElementById('editor-container').style.display = 'block';
         //     quill.focus();
         // }
 
-        // function HideToolbar() {
+                // function HideToolbar() {
         //     document.getElementById('editor-container').style.display = 'none';
         // }
 
