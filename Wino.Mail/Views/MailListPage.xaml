@@ -408,6 +408,7 @@
 
         <!--  Mail Items  -->
         <Grid
+            Width="350"
             x:Name="ReaderGrid"
             MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}"
             Margin="-1,0,0,0"
