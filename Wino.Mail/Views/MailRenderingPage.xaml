@@ -344,7 +344,8 @@
             <controls:WebView2
                 x:Name="Chromium"
                 NavigationStarting="WebViewNavigationStarting"
-                FontFamily="Segoe UI" />
+                FontFamily="Segoe UI"
+                Background="Red"/>
 
             <muxc:ProgressRing
                 IsActive="{x:Bind ViewModel.ShouldDisplayDownloadProgress, Mode=OneWay}"

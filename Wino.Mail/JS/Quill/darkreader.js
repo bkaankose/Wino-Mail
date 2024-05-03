@@ -891,7 +891,8 @@
         ActiveBorder: 0x3b99fc,
         ActiveCaption: 0x000000,
         AppWorkspace: 0xaaaaaa,
-        Background: 0x6363ce,
+        /*Background: 0x6363ce,*/
+        Background: 0x000000,
         ButtonFace: 0xffffff,
         ButtonHighlight: 0xe9e9e9,
         ButtonShadow: 0x9fa09f,
