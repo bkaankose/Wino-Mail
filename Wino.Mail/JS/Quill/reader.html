@@ -1,32 +1,38 @@
 <html>
-    <body style="padding-left:12px; padding-right:12px; padding-top:8px; padding-bottom: 8px; margin: 0px; border-radius: 8px;">
-        <meta name="color-scheme" content="dark light">
-        <script src="https://app.reader/darkreader.js"></script>
+<body style="padding-left:12px; padding-right:12px; padding-top:8px; padding-bottom: 8px; margin: 0px; border-radius: 8px;">
+    <meta name="color-scheme" content="dark light">
+    <script src="https://app.reader/darkreader.js"></script>
 
-        <script>
-            function RenderHTML(htmlString) {
-                var containerDiv = document.getElementById("readerDiv");
-                containerDiv.innerHTML = htmlString;
-            }
+    <script>
+        function RenderHTML(htmlString) {
+            var containerDiv = document.getElementById("readerDiv");
+            containerDiv.innerHTML = htmlString;
+        }
 
-            function ChangeFontFamily(fontFamily) {
-                var containerDiv = document.getElementById("readerDiv");
-                containerDiv.style.fontFamily = fontFamily;
-            }
+        function ChangeFontFamily(fontFamily) {
+            var containerDiv = document.getElementById("readerDiv");
+            containerDiv.style.fontFamily = fontFamily;
+        }
 
-            function ChangeFontSize(size) {
-                var containerDiv = document.getElementById("readerDiv");
-                containerDiv.style.fontSize = size;
-            }
+        function ChangeFontSize(size) {
+            var containerDiv = document.getElementById("readerDiv");
+            containerDiv.style.fontSize = size;
+        }
 
-            function ChangePrefferedTheme(theme) {
-                document.documentElement.setAttribute('data-theme', theme);
-            }
-        </script>
+        function SetLightEditor() {
+            document.documentElement.setAttribute('data-theme', 'light');
+            DarkReader.disable();
+        }
 
-        <link rel="stylesheet" href="https://app.reader/reader.css" />
+        function SetDarkEditor() {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            DarkReader.enable();
+        }
+    </script>
 
-        <div id="readerDiv">
-        </div>
-    </body>
+    <link rel="stylesheet" href="https://app.reader/reader.css" />
+    <div id="readerDiv">
+    </div>
+    <link rel="stylesheet" href="https://app.reader/global.css" />
+</body>
 </html>

@@ -755,6 +755,7 @@
     <Content Include="BackgroundImages\Snowflake.jpg" />
     <Content Include="JS\Quill\darkreader.js" />
     <Content Include="JS\Quill\full.html" />
+    <Content Include="JS\Quill\global.css" />
     <Content Include="JS\Quill\highlight.min.js" />
     <Content Include="JS\Quill\image-resize.min.js" />
     <Content Include="JS\Quill\katex.min.css" />

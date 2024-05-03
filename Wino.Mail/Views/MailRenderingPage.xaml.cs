@@ -42,7 +42,7 @@ namespace Wino.Views
             InitializeComponent();
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarWinStyleAnimation");
             NavigationCacheMode = NavigationCacheMode.Enabled;
         }
 
@@ -233,15 +233,13 @@ namespace Wino.Views
             {
                 Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
 
-                await InvokeScriptSafeAsync("ChangePrefferedTheme('dark')");
-                await InvokeScriptSafeAsync("DarkReader.enable();");
+                await InvokeScriptSafeAsync("SetDarkEditor();");
             }
             else
             {
                 Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
 
-                await InvokeScriptSafeAsync("ChangePrefferedTheme('light')");
-                await InvokeScriptSafeAsync("DarkReader.disable();");
+                await InvokeScriptSafeAsync("SetLightEditor();");
             }
         }
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading;
@@ -21,9 +20,9 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
 using Wino.Extensions;
@@ -57,6 +56,7 @@ namespace Wino.Views
             InitializeComponent();
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarWinStyleAnimation");
         }
 
         private static async void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
@@ -261,11 +261,13 @@ namespace Wino.Views
 
             if (IsComposerDarkMode)
             {
-                await InvokeScriptSafeAsync("DarkReader.enable();");
+                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
+                await InvokeScriptSafeAsync("SetDarkEditor();");
             }
             else
             {
-                await InvokeScriptSafeAsync("DarkReader.disable();");
+                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
+                await InvokeScriptSafeAsync("SetLightEditor();");
             }
         }
 
