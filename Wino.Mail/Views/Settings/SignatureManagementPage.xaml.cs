@@ -31,6 +31,7 @@ namespace Wino.Views.Settings
             this.InitializeComponent();
 
             // Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarWinStyleAnimation");
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
