@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Toolkit.Uwp.Helpers;
 using Windows.Storage;
 using Wino.Mail.ViewModels.Data;
 
@@ -11,7 +12,7 @@ namespace Wino.Extensions
         {
             if (storageFile == null) return null;
 
-            var bytes = await File.ReadAllBytesAsync(storageFile.Name);
+            var bytes = await storageFile.ReadBytesAsync();
 
             return new MailAttachmentViewModel(storageFile.Name, bytes);
         }
