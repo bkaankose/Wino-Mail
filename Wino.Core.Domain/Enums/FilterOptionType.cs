@@ -5,6 +5,7 @@
         All,
         Unread,
         Flagged,
-        Mentions
+        Mentions,
+        Files
     }
 }

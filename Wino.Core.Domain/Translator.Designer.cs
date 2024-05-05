@@ -629,6 +629,11 @@ namespace Wino.Core.Domain
 		public static string FilteringOption_Unread => Resources.GetTranslatedString(@"FilteringOption_Unread");	
 	
         /// <summary>
+		/// Has files
+		/// </summary>
+		public static string FilteringOption_Files => Resources.GetTranslatedString(@"FilteringOption_Files");	
+	
+        /// <summary>
 		/// Focused
 		/// </summary>
 		public static string Focused => Resources.GetTranslatedString(@"Focused");	

@@ -88,7 +88,8 @@ namespace Wino.Mail.ViewModels
         [
             new (Translator.FilteringOption_All, FilterOptionType.All),
             new (Translator.FilteringOption_Unread, FilterOptionType.Unread),
-            new (Translator.FilteringOption_Flagged, FilterOptionType.Flagged)
+            new (Translator.FilteringOption_Flagged, FilterOptionType.Flagged),
+            new (Translator.FilteringOption_Files, FilterOptionType.Files)
         ];
 
         private FolderPivotViewModel _selectedFolderPivot;
@@ -510,14 +511,12 @@ namespace Wino.Mail.ViewModels
 
         private bool ShouldPreventItemAdd(IMailItem mailItem)
         {
-            bool condition2 = false;
-
-            bool condition1 = mailItem.IsRead
+            bool condition = mailItem.IsRead
                               && SelectedFilterOption.Type == FilterOptionType.Unread
                               || !mailItem.IsFlagged
                               && SelectedFilterOption.Type == FilterOptionType.Flagged;
 
-            return condition1 || condition2;
+            return condition;
         }
 
         protected override async void OnMailAdded(MailCopy addedMail)
@@ -546,7 +545,7 @@ namespace Wino.Mail.ViewModels
                     NotifyItemFoundState();
                 });
             }
-            catch (Exception) { }
+            catch { }
             finally
             {
                 listManipulationSemepahore.Release();

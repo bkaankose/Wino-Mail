@@ -156,6 +156,9 @@ namespace Wino.Core.Services
                 case FilterOptionType.Flagged:
                     query.Where("MailCopy.IsFlagged", true);
                     break;
+                case FilterOptionType.Files:
+                    query.Where("MailCopy.HasAttachments", true);
+                    break;
             }
 
             if (options.IsFocusedOnly != null)
