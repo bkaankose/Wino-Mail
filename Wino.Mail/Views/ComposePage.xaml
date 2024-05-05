@@ -54,11 +54,14 @@
         </DataTemplate>
 
         <!--  Attachment Template  -->
+        <!--  Margin -8 0 is used to remove the padding from the ListViewItem-->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
             <Grid
-                Height="75"
+                Height="50"
                 Background="Transparent"
-                ColumnSpacing="3">
+                ColumnSpacing="3"
+                Margin="-8 0"
+                Padding="0,0,5,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="36" />
                     <ColumnDefinition Width="*" />
@@ -74,7 +77,7 @@
                 <!--  Name && Size  -->
                 <Grid
                     Grid.Column="1"
-                    MaxWidth="250"
+                    MaxWidth="200"
                     VerticalAlignment="Center">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -85,7 +88,7 @@
                         FontSize="13"
                         Text="{x:Bind FileName}"
                         MaxLines="2"
-                        TextTrimming="None" />
+                        TextTrimming="CharacterEllipsis" />
 
                     <TextBlock
                         Grid.Row="1"
@@ -98,7 +101,7 @@
 
                 <SymbolIcon
                     Grid.Column="2"
-                    Margin="6,0"
+                    Margin="0,0,0,0"
                     VerticalAlignment="Center"
                     Symbol="Cancel"
                     Foreground="{StaticResource DeleteBrush}" />
@@ -602,24 +605,25 @@
                 Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <!--  Attachments  -->
-            <ListView
-                x:Name="AttachmentsListView"
-                Grid.Row="6"
-                Grid.ColumnSpan="2"
-                x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
-                IsItemClickEnabled="True"
-                ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
-                ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
-                ScrollViewer.VerticalScrollBarVisibility="Visible"
-                ScrollViewer.VerticalScrollMode="Enabled"
-                ItemClick="AttachmentClicked"
-                SelectionMode="None">
+            <ListView x:Name="AttachmentsListView"
+                  Grid.Row="6"
+                  Padding="5"
+                  Grid.ColumnSpan="2"
+                  x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
+                  IsItemClickEnabled="True"
+                  ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
+                  ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
+                  ItemClick="AttachmentClicked"
+                  SelectionMode="None">
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <ItemsStackPanel Orientation="Horizontal" />
+                        <controls1:WrapPanel Orientation="Horizontal" />
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
             </ListView>
+
+            <!--Attachments-->
+            
         </Grid>
 
         <Grid
