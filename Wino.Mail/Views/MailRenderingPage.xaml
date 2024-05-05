@@ -65,7 +65,7 @@
             <Grid Height="51" RowSpacing="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="50" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="5" />
                 </Grid.RowDefinitions>
                 <Grid
                     Grid.Row="0"
@@ -111,8 +111,7 @@
                     <!--  Name && Size  -->
                     <Grid Grid.Column="1"
                           VerticalAlignment="Center"
-                          Padding="0,0,5,0"
-                          MaxWidth="250">
+                          Padding="0,0,5,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -139,10 +138,10 @@
                     Grid.Row="1"
                     VerticalAlignment="Top"
                     HorizontalAlignment="Stretch"
+                    Margin="0, -5, 0,0"
                     Visibility="{x:Bind IsBusy, Mode=OneWay}"
                     IsIndeterminate="{x:Bind IsBusy, Mode=OneWay}"
                     ShowPaused="False"
-                    Margin="0, -5, 0,0"
                     ShowError="False"/>
             </Grid>
 
@@ -319,7 +318,7 @@
                   ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
                   ItemClick="AttachmentClicked"
                   SelectionMode="None"
-                  Height="53">
+                  Height="55">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <controls2:WrapPanel Orientation="Horizontal"/>
