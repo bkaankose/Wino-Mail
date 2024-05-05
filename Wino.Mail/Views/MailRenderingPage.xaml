@@ -62,18 +62,17 @@
         <!--  Attachment Template  -->
         <!--  Margin -8 0 is used to remove the padding from the ListViewItem-->
         <DataTemplate x:Key="FileAttachmentTemplate" x:DataType="viewModelData:MailAttachmentViewModel">
-            <Grid Height="51" RowSpacing="0">
+            <Grid Height="51">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="50" />
-                    <RowDefinition Height="5" />
+                    <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <Grid
                     Grid.Row="0"
                     Height="50"
                     Background="Transparent"
                     ColumnSpacing="3"
-                    Padding="0,0,5,0"
-                    Margin="-8 0">
+                    Margin="-8,0,0,0">
                     <ToolTipService.ToolTip>
                         <ToolTip Content="{x:Bind FileName}" />
                     </ToolTipService.ToolTip>
@@ -111,7 +110,6 @@
                     <!--  Name && Size  -->
                     <Grid Grid.Column="1"
                           VerticalAlignment="Center"
-                          Padding="0,0,5,0"
                           MaxWidth="200">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -127,7 +125,6 @@
 
                         <TextBlock
                             Grid.Row="1"
-                            Margin="0,2,0,0"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Bottom"
                             FontSize="11"
@@ -139,7 +136,7 @@
                     Grid.Row="1"
                     VerticalAlignment="Top"
                     HorizontalAlignment="Stretch"
-                    Margin="0, -5, 0,0"
+                    Margin="0,-5,0,0"
                     Visibility="{x:Bind IsBusy, Mode=OneWay}"
                     IsIndeterminate="{x:Bind IsBusy, Mode=OneWay}"
                     ShowPaused="False"

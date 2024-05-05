@@ -60,8 +60,7 @@
                 Height="50"
                 Background="Transparent"
                 ColumnSpacing="3"
-                Margin="-8 0"
-                Padding="0,0,5,0">
+                Margin="-8,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="36" />
                     <ColumnDefinition Width="*" />
@@ -101,7 +100,6 @@
 
                 <SymbolIcon
                     Grid.Column="2"
-                    Margin="0,0,0,0"
                     VerticalAlignment="Center"
                     Symbol="Cancel"
                     Foreground="{StaticResource DeleteBrush}" />
@@ -607,7 +605,6 @@
             <!--  Attachments  -->
             <ListView x:Name="AttachmentsListView"
                   Grid.Row="6"
-                  Padding="5"
                   Grid.ColumnSpan="2"
                   x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
                   IsItemClickEnabled="True"
