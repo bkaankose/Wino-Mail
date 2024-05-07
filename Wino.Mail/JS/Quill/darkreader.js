@@ -1438,11 +1438,11 @@
         var lines = [];
         if (!isIFrame) {
             lines.push('html {');
-            lines.push("    background-color: " + modifyBackgroundColor({ r: 255, g: 255, b: 255 }, filter) + " !important;");
+            lines.push("    background-color: " + modifyBackgroundColor({ r: 10, g: 255, b: 255, a: 0 }, filter) + " !important;");
             lines.push('}');
         }
         lines.push((isIFrame ? '' : 'html, body, ') + "input, textarea, select, button {");
-        lines.push("    background-color: " + modifyBackgroundColor({ r: 255, g: 255, b: 255 }, filter) + ";");
+        lines.push("    background-color: " + modifyBackgroundColor({ r: 10, g: 255, b: 255, a: 0 }, filter) + ";");
         lines.push('}');
         lines.push('html, body, input, textarea, select, button {');
         lines.push("    border-color: " + modifyBorderColor({ r: 76, g: 76, b: 76 }, filter) + ";");
@@ -2810,7 +2810,7 @@
         var userAgentStyle = createOrUpdateStyle('darkreader--user-agent');
         document.head.insertBefore(userAgentStyle, fallbackStyle.nextSibling);
         userAgentStyle.textContent = getModifiedUserAgentStyle(filter, isIFrame);
-        setupStylePositionWatcher(userAgentStyle, 'user-agent');
+        //setupStylePositionWatcher(userAgentStyle, 'user-agent');
         var textStyle = createOrUpdateStyle('darkreader--text');
         document.head.insertBefore(textStyle, fallbackStyle.nextSibling);
         if (filter.useFont || filter.textStroke > 0) {

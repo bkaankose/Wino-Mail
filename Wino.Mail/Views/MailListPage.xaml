@@ -616,19 +616,20 @@
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                                    <Setter Property="Margin" Value="0,12" />
+                                    <Setter Property="Margin" Value="0,0" />
                                     <Setter Property="Padding" Value="0" />
                                 </Style>
                             </ListView.Resources>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="ICollectionViewGroup">
                                     <Grid
+                                        
                                         Margin="4,0"
-                                        Background="{ThemeResource MailListHeaderBackgroundColor}"
+                                        Background="Transparent"
                                         CornerRadius="4">
                                         <TextBlock
                                             Margin="12,0"
-                                            HorizontalAlignment="Center"
+                                            HorizontalAlignment="Left"
                                             VerticalAlignment="Center"
                                             FontWeight="SemiBold"
                                             Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}" />

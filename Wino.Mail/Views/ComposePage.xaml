@@ -113,7 +113,7 @@
 
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="56" />
+            <RowDefinition Height="66" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -174,122 +174,144 @@
 
         <!--  Editor Options  -->
         <ScrollViewer
+            Height="65"
             Grid.Row="1"
-            Margin="0,6"
+            Margin="0,0"
             VerticalAlignment="Top"
             VerticalScrollMode="Disabled"
             HorizontalScrollBarVisibility="Hidden"
             HorizontalScrollMode="Enabled">
-            <Grid Margin="16,0,16,20" Padding="8,0">
+            <Grid Margin="0" Padding="0,0" Height="60">
                 <!--  Format Panel  -->
-                <Grid x:Name="FormatPanel" Visibility="{x:Bind helpers:XamlHelpers.IsFormatSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <ToggleButton
+                <Grid Height="60" x:Name="FormatPanel" Visibility="{x:Bind helpers:XamlHelpers.IsFormatSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <CommandBar HorizontalAlignment="Left">
+
+
+                            <AppBarToggleButton
                             x:Name="BoldButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="BoldButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
+                                <ToggleButton.Content>
                                     <PathIcon Data="{StaticResource BoldPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-                        <ToggleButton
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
+                            <AppBarToggleButton
                             x:Name="ItalicButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="ItalicButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource ItalicPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-                        <ToggleButton
+                                <ToggleButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource ItalicPathIcon}" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
+                            <AppBarToggleButton
                             x:Name="UnderlineButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="UnderlineButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource UnderlinePathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-                        <ToggleButton
+                                <ToggleButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource UnderlinePathIcon}" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
+                            <AppBarToggleButton
                             x:Name="StrokeButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="StrokeButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource StrikePathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
+                                <ToggleButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource StrikePathIcon}" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
 
-                        <AppBarSeparator />
+                            <AppBarSeparator />
 
-                        <ToggleButton
+                            <AppBarToggleButton
                             x:Name="BulletListButton"
-                            Height="32"
+                            Height="66"
+                                Width="45"
+                                Margin="0 -1 0 1"                              
                             Click="BulletListButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource BulletedListPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
+                                <ToggleButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource BulletedListPathIcon}" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
 
-                        <ToggleButton
+                            <AppBarToggleButton
                             x:Name="OrderedListButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="OrderedListButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource OrderedListPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
+                                <ToggleButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource OrderedListPathIcon}" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
 
-                        <Button
+                            <AppBarButton
                             x:Name="DecreaseIndentButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="DecreaseIndentClicked">
-                            <Button.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
-                                </Viewbox>
-                            </Button.Content>
-                        </Button>
+                                <Button.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
+                                    </Viewbox>
+                                </Button.Content>
+                            </AppBarButton>
 
-                        <Button
+                            <AppBarButton
                             x:Name="IncreaseIndentButton"
-                            Height="32"
+                            Height="66"
+Width="45"
+Margin="0 -1 0 1"
                             Click="IncreaseIndentClicked">
-                            <Button.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
-                                </Viewbox>
-                            </Button.Content>
-                        </Button>
+                                <Button.Content>
+                                    <Viewbox Width="66">
+                                        <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
+                                    </Viewbox>
+                                </Button.Content>
+                            </AppBarButton>
 
-                        <AppBarSeparator />
+                            <AppBarSeparator />
 
-                        <ToggleButton
+                            <AppBarToggleButton
                             x:Name="DirectionButton"
-                            Height="32"
+                            Height="66"
+                            Width="45"
+                            Margin="0 -1 0 1"
                             Click="DirectionButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource ParagraphPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
+                                <ToggleButton.Content>
+                                    <Viewbox Width="16" >
+                                        <PathIcon Data="{StaticResource ParagraphPathIcon}" />
+                                    </Viewbox>
+                                </ToggleButton.Content>
+                            </AppBarToggleButton>
 
+
+                        </CommandBar>
                         <ComboBox
-                            x:Name="AlignmentListView"
-                            Width="120"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            SelectionChanged="AlignmentChanged">
+    x:Name="AlignmentListView"
+    Width="120"
+    Height="32"
+    VerticalAlignment="Center"
+    SelectionChanged="AlignmentChanged">
                             <ComboBoxItem Tag="left">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Viewbox Width="16">
@@ -327,6 +349,8 @@
                             </ComboBoxItem>
                         </ComboBox>
                     </StackPanel>
+                        
+
                 </Grid>
 
                 <!--  Insert Panel  -->
@@ -509,6 +533,7 @@
                 </Grid.ColumnDefinitions>
 
                 <controls1:TokenizingTextBox
+                    Background="Transparent"
                     x:Name="ToBox"
                     Grid.Column="0"
                     VerticalAlignment="Center"
@@ -573,6 +598,7 @@
                 Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
 
             <controls1:TokenizingTextBox
+                
                 x:Name="BccBox"
                 Grid.Row="4"
                 Grid.Column="1"
@@ -595,6 +621,7 @@
                 Text="{x:Bind domain:Translator.ComposerSubject}" />
 
             <TextBox
+                Background="Transparent"
                 Grid.Row="5"
                 Grid.Column="1"
                 Margin="0,4,0,0"
