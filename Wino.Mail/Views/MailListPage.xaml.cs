@@ -532,5 +532,13 @@ namespace Wino.Views
         {
             ViewModel.SyncFolderCommand?.Execute(null);
         }
+
+        private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+        {
+            if(args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && string.IsNullOrWhiteSpace(sender.Text))
+            {
+                await ViewModel.PerformSearchAsync();
+            }
+        }
     }
 }

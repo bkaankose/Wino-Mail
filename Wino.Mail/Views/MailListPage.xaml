@@ -391,6 +391,7 @@
             PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
             QueryIcon="Find"
             TabIndex="1000"
+            TextChanged="SearchBar_TextChanged"
             Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}">
             <i:Interaction.Behaviors>
                 <ic:EventTriggerBehavior EventName="QuerySubmitted">
@@ -590,36 +591,6 @@
                         x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}" />
                 </Grid>
 
-                <!--  Search Mode Panel  -->
-                <Grid
-                    x:Name="SearchModePanel"
-                    Grid.Row="1"
-                    Padding="12"
-                    x:Load="{x:Bind ViewModel.IsInSearchMode, Mode=OneWay}"
-                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                    CornerRadius="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        Text="{x:Bind domain:Translator.Results}" />
-
-                    <Button
-                        x:Name="BackToFolderButton"
-                        Grid.Column="1"
-                        HorizontalAlignment="Right"
-                        x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsPerformingSearch), Mode=OneWay}">
-                        <Viewbox Width="16">
-                            <PathIcon Data="M512,584.5L87.5,1009C77.5,1019 65.5,1024 51.5,1024C36.8333,1024 24.5833,1019.08 14.75,1009.25C4.91667,999.417 0,987.167 0,972.5C0,958.5 5,946.5 15,936.5L439.5,512L15,87.5C5,77.5 0,65.3334 0,51C0,44 1.33333,37.3334 4,31C6.66667,24.6667 10.3333,19.25 15,14.75C19.6667,10.25 25.1667,6.66669 31.5,4C37.8333,1.33337 44.5,0 51.5,0C65.5,0 77.5,5 87.5,15L512,439.5L936.5,15C946.5,5 958.667,0 973,0C980,0 986.583,1.33337 992.75,4C998.917,6.66669 1004.33,10.3334 1009,15C1013.67,19.6667 1017.33,25.0834 1020,31.25C1022.67,37.4167 1024,44 1024,51C1024,65.3334 1019,77.5 1009,87.5L584.5,512L1009,936.5C1019,946.5 1024,958.5 1024,972.5C1024,979.5 1022.67,986.167 1020,992.5C1017.33,998.833 1013.75,1004.33 1009.25,1009C1004.75,1013.67 999.333,1017.33 993,1020C986.667,1022.67 980,1024 973,1024C958.667,1024 946.5,1019 936.5,1009Z" />
-                        </Viewbox>
-                    </Button>
-                </Grid>
-
                 <!--  Pivot + Sync + Multi Select  -->
                 <Grid
                     Grid.Row="1"
@@ -698,18 +669,22 @@
             <!--  No items createria  -->
             <StackPanel
                 x:Name="NoItemsPanel"
-                Grid.Row="0"
+                Grid.Row="2"
                 Grid.RowSpan="3"
                 VerticalAlignment="Center"
-                Opacity="0.4"
+                HorizontalAlignment="Stretch"
                 Spacing="10">
 
-                <Viewbox Width="48" Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
+                <Viewbox
+                    Width="48"
+                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}"
+                    Opacity="0.4">
                     <Path Data="M252,960C227,960 203.083,954.917 180.25,944.75C157.417,934.583 137.417,920.917 120.25,903.75C103.083,886.583 89.4167,866.583 79.25,843.75C69.0833,820.917 64,797 64,772L64,252C64,227 69.0833,203.083 79.25,180.25C89.4167,157.417 103.083,137.417 120.25,120.25C137.417,103.083 157.417,89.4167 180.25,79.25C203.083,69.0834 227,64.0001 252,64L772,64C797,64.0001 820.917,69.0834 843.75,79.25C866.583,89.4167 886.583,103.083 903.75,120.25C920.917,137.417 934.583,157.417 944.75,180.25C954.917,203.083 960,227 960,252L960,772C960,797 954.917,820.917 944.75,843.75C934.583,866.583 920.917,886.583 903.75,903.75C886.583,920.917 866.583,934.583 843.75,944.75C820.917,954.917 797,960 772,960ZM770.5,896C787.167,896 803.083,892.583 818.25,885.75C833.417,878.917 846.75,869.75 858.25,858.25C869.75,846.75 878.917,833.417 885.75,818.25C892.583,803.083 896,787.167 896,770.5L896,253.5C896,236.833 892.583,220.917 885.75,205.75C878.917,190.583 869.75,177.25 858.25,165.75C846.75,154.25 833.417,145.083 818.25,138.25C803.083,131.417 787.167,128 770.5,128L253.5,128C236.833,128 220.917,131.417 205.75,138.25C190.583,145.083 177.25,154.25 165.75,165.75C154.25,177.25 145.083,190.583 138.25,205.75C131.417,220.917 128,236.833 128,253.5L128,770.5C128,787.167 131.417,803.083 138.25,818.25C145.083,833.417 154.25,846.75 165.75,858.25C177.25,869.75 190.583,878.917 205.75,885.75C220.917,892.583 236.833,896 253.5,896ZM559,604.5C541.667,616.833 523.417,625.833 504.25,631.5C485.083,637.167 465,640 444,640C418,640 393.583,634.833 370.75,624.5C347.917,614.167 328,600.167 311,582.5C294,564.833 280.583,544.417 270.75,521.25C260.917,498.083 256,473.667 256,448C256,421.333 261,396.333 271,373C281,349.667 294.667,329.333 312,312C329.333,294.667 349.667,281 373,271C396.333,261 421.333,256 448,256C473.667,256 498.083,260.917 521.25,270.75C544.417,280.583 564.833,294 582.5,311C600.167,328 614.167,347.917 624.5,370.75C634.833,393.583 640,418 640,444C640,465 637.167,485.083 631.5,504.25C625.833,523.417 616.833,541.667 604.5,559L758.5,713.5C764.833,719.833 768,727.333 768,736C768,744.667 764.833,752.167 758.5,758.5C752.167,764.833 744.667,768 736,768C727.333,768 719.833,764.833 713.5,758.5ZM576,448L576,445.5C576,428.167 572.5,411.917 565.5,396.75C558.5,381.583 549.167,368.333 537.5,357C525.833,345.667 512.25,336.667 496.75,330C481.25,323.333 465,320 448,320C430.333,320 413.75,323.417 398.25,330.25C382.75,337.083 369.25,346.25 357.75,357.75C346.25,369.25 337.083,382.833 330.25,398.5C323.417,414.167 320,430.667 320,448C320,465.667 323.417,482.25 330.25,497.75C337.083,513.25 346.25,526.75 357.75,538.25C369.25,549.75 382.75,558.917 398.25,565.75C413.75,572.583 430.333,576 448,576C465.333,576 481.833,572.583 497.5,565.75C513.167,558.917 526.75,549.75 538.25,538.25C549.75,526.75 558.917,513.25 565.75,497.75C572.583,482.25 576,465.667 576,448Z" Fill="{ThemeResource InformationBrush}" />
                 </Viewbox>
 
                 <TextBlock
                     HorizontalAlignment="Center"
+                    Opacity="0.4"
                     FontSize="20"
                     FontWeight="ExtraLight"
                     Foreground="{ThemeResource InformationBrush}"
@@ -718,12 +693,22 @@
 
                 <TextBlock
                     HorizontalAlignment="Center"
+                    Opacity="0.4"
                     FontSize="20"
                     FontWeight="ExtraLight"
                     Foreground="{ThemeResource InformationBrush}"
                     Text="{x:Bind domain:Translator.NoMessageEmptyFolder}"
                     Visibility="{x:Bind ViewModel.IsFolderEmpty, Mode=OneWay}" />
             </StackPanel>
+
+            <!--Renders progress ring for search/initialization. It should be on top of everything.-->
+            <muxc:ProgressRing
+                Grid.Row="2"
+                x:Name="LoadingProgressIndicator"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}"
+                Canvas.ZIndex="999" />
 
             <!--  Mail Items  -->
             <muxc:RefreshContainer
@@ -796,31 +781,7 @@
                 </SemanticZoom>
             </muxc:RefreshContainer>
 
-            <muxc:ProgressRing
-                x:Name="LoadingProgressIndicator"
-                Grid.Row="2"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}"
-                Canvas.ZIndex="999" />
-
-            <!--  Search Mode Panel  -->
-            <Grid
-                x:Name="SearchProgressPanel"
-                Grid.Row="2"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                x:Load="{x:Bind ViewModel.IsInSearchMode, Mode=OneWay}">
-
-                <!--  Searching  -->
-                <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.IsPerformingSearch, Mode=OneWay}">
-                    <TextBlock HorizontalTextAlignment="Center">
-                        <Run Text="{x:Bind domain:Translator.SearchingIn}" /><Run FontWeight="SemiBold" Text="{x:Bind ViewModel.ActiveFolder.FolderName, Mode=OneWay}" />
-                    </TextBlock>
-                    <muxc:ProgressRing />
-                </StackPanel>
-            </Grid>
-
+           
             <!--  Update Info Bar  -->
             <controls:WinoInfoBar
                 Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"

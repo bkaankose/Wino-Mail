@@ -205,7 +205,7 @@ namespace Wino.Controls.Advanced
             {
                 bool found = false;
 
-                Items.Where(a => a is ThreadMailItemViewModel).Cast<ThreadMailItemViewModel>().ForEach(c =>
+                Items.OfType<ThreadMailItemViewModel>().ForEach(c =>
                 {
                     if (!found)
                     {
