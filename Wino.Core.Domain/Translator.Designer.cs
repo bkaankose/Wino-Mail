@@ -1519,7 +1519,7 @@ namespace Wino.Core.Domain
 		public static string NoMailSelected => Resources.GetTranslatedString(@"NoMailSelected");	
 	
         /// <summary>
-		/// Mo messages match your search criteria
+		/// No messages match your search criteria
 		/// </summary>
 		public static string NoMessageCrieteria => Resources.GetTranslatedString(@"NoMessageCrieteria");	
 	

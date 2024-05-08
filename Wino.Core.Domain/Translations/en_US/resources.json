@@ -299,7 +299,7 @@
     "NewAccountDialog_AccountNamePlaceholder": "eg. Personal Mail",
     "NewAccountDialog_Title": "Add New Account",
     "NoMailSelected": "No message selected",
-    "NoMessageCrieteria": "Mo messages match your search criteria",
+    "NoMessageCrieteria": "No messages match your search criteria",
     "NoMessageEmptyFolder": "This folder is empty",
     "Notifications_MultipleNotificationsMessage": "You have {0} new mails",
     "Notifications_MultipleNotificationsTitle": "New Mails",

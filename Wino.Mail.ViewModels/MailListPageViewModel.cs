@@ -167,6 +167,65 @@ namespace Wino.Mail.ViewModels
                 });
         }
 
+        #region Properties
+
+        /// <summary>
+        /// Selected internal folder. This can be either folder's own name or Focused-Other.
+        /// </summary>
+        public FolderPivotViewModel SelectedFolderPivot
+        {
+            get => _selectedFolderPivot;
+            set
+            {
+                if (_selectedFolderPivot != null)
+                    _selectedFolderPivot.SelectedItemCount = 0;
+
+                SetProperty(ref _selectedFolderPivot, value);
+            }
+        }
+
+        /// <summary>
+        /// Selected sorting option.
+        /// </summary>
+        public SortingOption SelectedSortingOption
+        {
+            get => _selectedSortingOption;
+            set
+            {
+                if (SetProperty(ref _selectedSortingOption, value))
+                {
+                    if (value != null && MailCollection != null)
+                    {
+                        MailCollection.SortingType = value.Type;
+                    }
+                }
+            }
+        }
+
+        public bool CanSynchronize => !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
+        public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
+        public int SelectedItemCount => SelectedItems.Count;
+        public bool HasMultipleItemSelections => SelectedItemCount > 1;
+        public bool HasSelectedItems => SelectedItems.Any();
+        public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
+
+        /// <summary>
+        /// Indicates current state of the mail list. Doesn't matter it's loading or no.
+        /// </summary>
+        public bool IsEmpty => MailCollection.Count == 0;
+
+        /// <summary>
+        /// Progress ring only should be visible when the folder is initializing and there are no items. We don't need to show it when there are items.
+        /// </summary>
+        public bool IsProgressRing => IsInitializingFolder && IsEmpty;
+        private bool isFilters => IsInSearchMode || SelectedFilterOption.Type != FilterOptionType.All;
+        public bool IsCriteriaFailed => !IsInitializingFolder && IsEmpty && isFilters;
+        public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !isFilters;
+
+        public bool IsInSearchMode { get; set; }
+
+        #endregion
+
         private async void ActiveMailItemChanged(MailItemViewModel selectedMailItemViewModel)
         {
             if (_activeMailItem == selectedMailItemViewModel) return;
@@ -209,64 +268,6 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        /// <summary>
-        /// Selected internal folder. This can be either folder's own name or Focused-Other.
-        /// </summary>
-        public FolderPivotViewModel SelectedFolderPivot
-        {
-            get => _selectedFolderPivot;
-            set
-            {
-                if (_selectedFolderPivot != null)
-                    _selectedFolderPivot.SelectedItemCount = 0;
-
-                SetProperty(ref _selectedFolderPivot, value);
-            }
-        }
-
-        /// <summary>
-        /// Selected sorting option.
-        /// </summary>
-        public SortingOption SelectedSortingOption
-        {
-            get => _selectedSortingOption;
-            set
-            {
-                if (SetProperty(ref _selectedSortingOption, value))
-                {
-                    if (value != null && MailCollection != null)
-                    {
-                        MailCollection.SortingType = value.Type;
-                    }
-                }
-            }
-        }
-
-        #region Properties
-        public bool CanSynchronize => !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
-        public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
-        public int SelectedItemCount => SelectedItems.Count;
-        public bool HasMultipleItemSelections => SelectedItemCount > 1;
-        public bool HasSelectedItems => SelectedItems.Any();
-        public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
-
-        /// <summary>
-        /// Indicates current state of the mail list. Doesn't matter it's loading or no.
-        /// </summary>
-        public bool IsEmpty => MailCollection.Count == 0;
-
-        /// <summary>
-        /// Progress ring only should be visible when the folder is initializing and there are no items. We don't need to show it when there are items.
-        /// </summary>
-        public bool IsProgressRing => IsInitializingFolder && IsEmpty;
-        private bool isFilters => IsInSearchMode || SelectedFilterOption.Type != FilterOptionType.All;
-        public bool IsCriteriaFailed => !IsInitializingFolder && IsEmpty && isFilters;
-        public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !isFilters;
-
-        public bool IsInSearchMode { get; set; }
-
-        #endregion
-
         public void NotifyItemSelected()
         {
             OnPropertyChanged(nameof(HasSelectedItems));
@@ -283,11 +284,6 @@ namespace Wino.Mail.ViewModels
             OnPropertyChanged(nameof(IsCriteriaFailed));
             OnPropertyChanged(nameof(IsFolderEmpty));
         }
-
-        [RelayCommand]
-        public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
-
-        public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
 
         protected override void OnDispatcherAssigned()
         {
@@ -390,6 +386,9 @@ namespace Wino.Mail.ViewModels
         }
 
         #region Commands
+
+        [RelayCommand]
+        public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
 
         /// <summary>
         /// Executes the requested mail operation for currently selected items.
@@ -542,6 +541,8 @@ namespace Wino.Mail.ViewModels
         }
 
         #endregion
+
+        public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
 
         public IEnumerable<MailItemViewModel> GetTargetMailItemViewModels(IMailItem clickedItem)
         {
