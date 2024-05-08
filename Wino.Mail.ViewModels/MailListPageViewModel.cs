@@ -491,7 +491,7 @@ namespace Wino.Mail.ViewModels
 
                 if (ActiveFolder == null) return;
 
-                PivotFolders.Add(new FolderPivotViewModel("Results", isFocused));
+                PivotFolders.Add(new FolderPivotViewModel(Translator.SearchPivotName, isFocused));
 
                 // This will trigger refresh.
                 SelectedFolderPivot = PivotFolders.FirstOrDefault();

@@ -323,6 +323,7 @@
     "SynchronizationFolderReport_Failed": "synchronization is failed",
     "SearchBarPlaceholder": "Search",
     "SearchingIn": "Searching in",
+    "SearchPivotName": "Results",
     "SettingsAboutGithub_Description": "Go to issue tracker GitHub repository.",
     "SettingsAboutGithub_Title": "GitHub",
     "SettingsAccountManagementAppendMessage_Title": "Append messages to Sent folder",

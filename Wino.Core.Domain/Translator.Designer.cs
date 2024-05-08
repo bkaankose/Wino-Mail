@@ -1639,6 +1639,11 @@ namespace Wino.Core.Domain
 		public static string SearchingIn => Resources.GetTranslatedString(@"SearchingIn");	
 	
         /// <summary>
+		/// Results
+		/// </summary>
+		public static string SearchPivotName => Resources.GetTranslatedString(@"SearchPivotName");	
+	
+        /// <summary>
 		/// Go to issue tracker GitHub repository.
 		/// </summary>
 		public static string SettingsAboutGithub_Description => Resources.GetTranslatedString(@"SettingsAboutGithub_Description");	
