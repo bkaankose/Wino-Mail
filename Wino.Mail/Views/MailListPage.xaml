@@ -403,17 +403,16 @@
 
     <Grid x:Name="RootGrid">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="ReaderColumn" Width="Auto" />
+            <ColumnDefinition x:Name="ReaderColumn" Width="*" MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}"/>
             <ColumnDefinition x:Name="RendererColumn" Width="*" />
         </Grid.ColumnDefinitions>
 
         <!--  Mail Items  -->
         <Grid
             x:Name="ReaderGrid"
-            MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}"
             Margin="-1,0,0,0"
             Padding="4,0,0,0"
-            HorizontalAlignment="Left"
+            HorizontalAlignment="Stretch"
             Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
             CornerRadius="{ThemeResource MailListGridCornerRadius}">
             <Grid.RowDefinitions>
@@ -699,22 +698,21 @@
                     Foreground="{ThemeResource InformationBrush}"
                     Text="{x:Bind domain:Translator.NoMessageEmptyFolder}"
                     Visibility="{x:Bind ViewModel.IsFolderEmpty, Mode=OneWay}" />
-            </StackPanel>
 
-            <!--Renders progress ring for search/initialization. It should be on top of everything.-->
-            <muxc:ProgressRing
-                Grid.Row="2"
-                x:Name="LoadingProgressIndicator"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}"
-                Canvas.ZIndex="999" />
+                <muxc:ProgressRing
+                    Grid.Row="2"
+                    x:Name="LoadingProgressIndicator"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind ViewModel.IsProgressRing, Mode=OneWay}"
+                    Canvas.ZIndex="999" />
+            </StackPanel>
 
             <!--  Mail Items  -->
             <muxc:RefreshContainer
                 Grid.Row="2"
                 RefreshRequested="PullToRefreshRequested"
-                Visibility="{x:Bind ViewModel.IsPerformingSearch, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}">
+                Visibility="{x:Bind ViewModel.IsEmpty, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}">
                 <SemanticZoom x:Name="SemanticZoomContainer" CanChangeViews="{x:Bind ViewModel.PreferencesService.IsSemanticZoomEnabled, Mode=OneWay}">
                     <SemanticZoom.ZoomedInView>
                         <listview:WinoListView
@@ -781,7 +779,7 @@
                 </SemanticZoom>
             </muxc:RefreshContainer>
 
-           
+
             <!--  Update Info Bar  -->
             <controls:WinoInfoBar
                 Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"

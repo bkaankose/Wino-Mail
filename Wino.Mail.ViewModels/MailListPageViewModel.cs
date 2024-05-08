@@ -104,9 +104,8 @@ namespace Wino.Mail.ViewModels
         [NotifyPropertyChangedFor(nameof(IsEmpty))]
         [NotifyPropertyChangedFor(nameof(IsCriteriaFailed))]
         [NotifyPropertyChangedFor(nameof(IsFolderEmpty))]
+        [NotifyPropertyChangedFor(nameof(IsProgressRing))]
         private bool isInitializingFolder;
-
-        private bool isLoadMoreItemsLoading;
 
         [ObservableProperty]
         private InfoBarMessageType barSeverity;
@@ -250,22 +249,19 @@ namespace Wino.Mail.ViewModels
         public bool HasMultipleItemSelections => SelectedItemCount > 1;
         public bool HasSelectedItems => SelectedItems.Any();
         public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
-        public bool IsEmpty => !IsInitializingFolder && !IsPerformingSearch && MailCollection.Count == 0;
-        public bool IsCriteriaFailed => IsEmpty && IsInSearchMode;
-        public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !IsInSearchMode;
 
-        private bool _isPerformingSearch;
-        public bool IsPerformingSearch
-        {
-            get => _isPerformingSearch;
-            set
-            {
-                if (SetProperty(ref _isPerformingSearch, value))
-                {
-                    NotifyItemFoundState();
-                }
-            }
-        }
+        /// <summary>
+        /// Indicates current state of the mail list. Doesn't matter it's loading or no.
+        /// </summary>
+        public bool IsEmpty => MailCollection.Count == 0;
+
+        /// <summary>
+        /// Progress ring only should be visible when the folder is initializing and there are no items. We don't need to show it when there are items.
+        /// </summary>
+        public bool IsProgressRing => IsInitializingFolder && IsEmpty;
+        private bool isFilters => IsInSearchMode || SelectedFilterOption.Type != FilterOptionType.All;
+        public bool IsCriteriaFailed => !IsInitializingFolder && IsEmpty && isFilters;
+        public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !isFilters;
 
         public bool IsInSearchMode { get; set; }
 
@@ -473,24 +469,16 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         public async Task PerformSearchAsync()
         {
-            try
+            if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
             {
-                if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
-                {
-                    IsInSearchMode = false;
-                    await InitializeFolderAsync();
-                }
-
-                if (!string.IsNullOrEmpty(SearchQuery))
-                {
-                    IsInSearchMode = true;
-                    IsPerformingSearch = true;
-                    await InitializeFolderAsync();
-                }
+                IsInSearchMode = false;
+                await InitializeFolderAsync();
             }
-            finally
+
+            if (!string.IsNullOrEmpty(SearchQuery))
             {
-                IsPerformingSearch = false;
+                IsInSearchMode = true;
+                await InitializeFolderAsync();
             }
         }
 
