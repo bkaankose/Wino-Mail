@@ -839,9 +839,11 @@ namespace Wino.Mail.ViewModels
 
             void ResetFilters()
             {
+                // Expected that FilterOptions and SortingOptions have default value in 0 index.
                 SelectedFilterOption = FilterOptions[0];
                 SelectedSortingOption = SortingOptions[0];
                 SearchQuery = string.Empty;
+                IsInSearchMode = false;
             }
         }
 
