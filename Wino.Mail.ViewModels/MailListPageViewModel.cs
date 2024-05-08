@@ -57,8 +57,8 @@ namespace Wino.Mail.ViewModels
 
         public WinoMailCollection MailCollection { get; } = new WinoMailCollection();
 
-        public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = new ObservableCollection<MailItemViewModel>();
-        public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = new ObservableCollection<FolderPivotViewModel>();
+        public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
+        public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
 
         private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -99,7 +99,7 @@ namespace Wino.Mail.ViewModels
         private FilterOption _selectedFilterOption;
         private SortingOption _selectedSortingOption;
 
-        // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied.
+        // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied or loading more items.
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsEmpty))]
         [NotifyPropertyChangedFor(nameof(IsCriteriaFailed))]
@@ -471,14 +471,31 @@ namespace Wino.Mail.ViewModels
         {
             if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
             {
+                UpdateFolderPivots();
                 IsInSearchMode = false;
                 await InitializeFolderAsync();
             }
 
             if (!string.IsNullOrEmpty(SearchQuery))
             {
+
                 IsInSearchMode = true;
+                CreateSearchPivot();
                 await InitializeFolderAsync();
+            }
+
+            void CreateSearchPivot()
+            {
+                PivotFolders.Clear();
+                var isFocused = SelectedFolderPivot?.IsFocused;
+                SelectedFolderPivot = null;
+
+                if (ActiveFolder == null) return;
+
+                PivotFolders.Add(new FolderPivotViewModel("Results", isFocused));
+
+                // This will trigger refresh.
+                SelectedFolderPivot = PivotFolders.FirstOrDefault();
             }
         }
 
