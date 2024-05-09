@@ -51,14 +51,14 @@ namespace Wino.Mail.ViewModels
          * to prevent them from being removed from the list when they are marked as read.
          */
 
-        private HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = new HashSet<Guid>();
+        private readonly HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = [];
 
         private IObservable<System.Reactive.EventPattern<NotifyCollectionChangedEventArgs>> selectionChangedObservable = null;
 
         public WinoMailCollection MailCollection { get; } = new WinoMailCollection();
 
-        public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = new ObservableCollection<MailItemViewModel>();
-        public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = new ObservableCollection<FolderPivotViewModel>();
+        public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
+        public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
 
         private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -68,7 +68,6 @@ namespace Wino.Mail.ViewModels
         public IPreferencesService PreferencesService { get; }
 
         private readonly IMailService _mailService;
-        private readonly INotificationBuilder _notificationBuilder;
         private readonly IFolderService _folderService;
         private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
@@ -100,10 +99,12 @@ namespace Wino.Mail.ViewModels
         private FilterOption _selectedFilterOption;
         private SortingOption _selectedSortingOption;
 
+        // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied or loading more items.
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsEmpty))]
         [NotifyPropertyChangedFor(nameof(IsCriteriaFailed))]
         [NotifyPropertyChangedFor(nameof(IsFolderEmpty))]
+        [NotifyPropertyChangedFor(nameof(IsProgressRing))]
         private bool isInitializingFolder;
 
         [ObservableProperty]
@@ -118,10 +119,21 @@ namespace Wino.Mail.ViewModels
         [ObservableProperty]
         private bool isBarOpen;
 
+        /// <summary>
+        /// Current folder that is being represented from the menu.
+        /// </summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanSynchronize))]
+        [NotifyPropertyChangedFor(nameof(IsFolderSynchronizationEnabled))]
+        private IBaseFolderMenuItem activeFolder;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanSynchronize))]
+        private bool isAccountSynchronizerInSynchronization;
+
         public MailListPageViewModel(IDialogService dialogService,
                                      IWinoNavigationService navigationService,
                                      IMailService mailService,
-                                     INotificationBuilder notificationBuilder,
                                      IStatePersistanceService statePersistanceService,
                                      IFolderService folderService,
                                      IWinoSynchronizerFactory winoSynchronizerFactory,
@@ -136,7 +148,6 @@ namespace Wino.Mail.ViewModels
             NavigationService = navigationService;
 
             _mailService = mailService;
-            _notificationBuilder = notificationBuilder;
             _folderService = folderService;
             _winoSynchronizerFactory = winoSynchronizerFactory;
             _threadingStrategyProvider = threadingStrategyProvider;
@@ -156,52 +167,64 @@ namespace Wino.Mail.ViewModels
                 });
         }
 
-        /// <summary>
-        /// Executes the requested mail operation for currently selected items.
-        /// </summary>
-        /// <param name="operation">Action to execute for selected items.</param>
-        [RelayCommand]
-        private async Task MailOperationAsync(int mailOperationIndex)
-        {
-            if (!SelectedItems.Any()) return;
-
-            // Commands don't like enums. So it has to be int.
-            var operation = (MailOperation)mailOperationIndex;
-
-            var package = new MailOperationPreperationRequest(operation, SelectedItems.Select(a => a.MailCopy));
-
-            await ExecuteMailOperationAsync(package);
-        }
+        #region Properties
 
         /// <summary>
-        /// Sens a new message to synchronize current folder.
+        /// Selected internal folder. This can be either folder's own name or Focused-Other.
         /// </summary>
-        [RelayCommand]
-        private void SyncFolder()
+        public FolderPivotViewModel SelectedFolderPivot
         {
-            if (!CanSynchronize) return;
-
-            // Only synchronize listed folders.
-
-            // When doing linked inbox sync, we need to save the sync id to report progress back only once.
-            // Otherwise, we will report progress for each folder and that's what we don't want.
-
-            trackingSynchronizationId = Guid.NewGuid();
-            completedTrackingSynchronizationCount = 0;
-
-            foreach (var folder in ActiveFolder.HandlingFolders)
+            get => _selectedFolderPivot;
+            set
             {
-                var options = new SynchronizationOptions()
-                {
-                    AccountId = folder.MailAccountId,
-                    Type = SynchronizationType.Custom,
-                    SynchronizationFolderIds = [folder.Id],
-                    GroupedSynchronizationTrackingId = trackingSynchronizationId
-                };
+                if (_selectedFolderPivot != null)
+                    _selectedFolderPivot.SelectedItemCount = 0;
 
-                Messenger.Send(new NewSynchronizationRequested(options));
+                SetProperty(ref _selectedFolderPivot, value);
             }
         }
+
+        /// <summary>
+        /// Selected sorting option.
+        /// </summary>
+        public SortingOption SelectedSortingOption
+        {
+            get => _selectedSortingOption;
+            set
+            {
+                if (SetProperty(ref _selectedSortingOption, value))
+                {
+                    if (value != null && MailCollection != null)
+                    {
+                        MailCollection.SortingType = value.Type;
+                    }
+                }
+            }
+        }
+
+        public bool CanSynchronize => !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
+        public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
+        public int SelectedItemCount => SelectedItems.Count;
+        public bool HasMultipleItemSelections => SelectedItemCount > 1;
+        public bool HasSelectedItems => SelectedItems.Any();
+        public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
+
+        /// <summary>
+        /// Indicates current state of the mail list. Doesn't matter it's loading or no.
+        /// </summary>
+        public bool IsEmpty => MailCollection.Count == 0;
+
+        /// <summary>
+        /// Progress ring only should be visible when the folder is initializing and there are no items. We don't need to show it when there are items.
+        /// </summary>
+        public bool IsProgressRing => IsInitializingFolder && IsEmpty;
+        private bool isFilters => IsInSearchMode || SelectedFilterOption.Type != FilterOptionType.All;
+        public bool IsCriteriaFailed => !IsInitializingFolder && IsEmpty && isFilters;
+        public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !isFilters;
+
+        public bool IsInSearchMode { get; set; }
+
+        #endregion
 
         private async void ActiveMailItemChanged(MailItemViewModel selectedMailItemViewModel)
         {
@@ -245,83 +268,6 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        /// <summary>
-        /// Selected internal folder. This can be either folder's own name or Focused-Other.
-        /// </summary>
-        public FolderPivotViewModel SelectedFolderPivot
-        {
-            get => _selectedFolderPivot;
-            set
-            {
-                if (_selectedFolderPivot != null)
-                    _selectedFolderPivot.SelectedItemCount = 0;
-
-                SetProperty(ref _selectedFolderPivot, value);
-            }
-        }
-
-        /// <summary>
-        /// Selected sorting option.
-        /// </summary>
-        public SortingOption SelectedSortingOption
-        {
-            get => _selectedSortingOption;
-            set
-            {
-                if (SetProperty(ref _selectedSortingOption, value))
-                {
-                    if (value != null && MailCollection != null)
-                    {
-                        MailCollection.SortingType = value.Type;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Current folder that is being represented from the menu.
-        /// </summary>
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CanSynchronize))]
-        [NotifyPropertyChangedFor(nameof(IsFolderSynchronizationEnabled))]
-        private IBaseFolderMenuItem activeFolder;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CanSynchronize))]
-        private bool isAccountSynchronizerInSynchronization;
-
-        public bool CanSynchronize => !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
-
-        public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
-
-        #region Properties
-
-        public int SelectedItemCount => SelectedItems.Count;
-        public bool HasMultipleItemSelections => SelectedItemCount > 1;
-        public bool HasSelectedItems => SelectedItems.Any();
-        public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
-        public bool IsEmpty => !IsPerformingSearch && MailCollection.Count == 0;
-        public bool IsCriteriaFailed => IsEmpty && IsInSearchMode;
-        public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !IsInSearchMode;
-
-        private bool _isPerformingSearch;
-
-        public bool IsPerformingSearch
-        {
-            get => _isPerformingSearch;
-            set
-            {
-                if (SetProperty(ref _isPerformingSearch, value))
-                {
-                    NotifyItemFoundState();
-                }
-            }
-        }
-
-        public bool IsInSearchMode => !string.IsNullOrEmpty(SearchQuery);
-
-        #endregion
-
         public void NotifyItemSelected()
         {
             OnPropertyChanged(nameof(HasSelectedItems));
@@ -338,11 +284,6 @@ namespace Wino.Mail.ViewModels
             OnPropertyChanged(nameof(IsCriteriaFailed));
             OnPropertyChanged(nameof(IsFolderEmpty));
         }
-
-        [RelayCommand]
-        public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
-
-        public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
 
         protected override void OnDispatcherAssigned()
         {
@@ -444,6 +385,58 @@ namespace Wino.Mail.ViewModels
             SelectedFolderPivot = PivotFolders.FirstOrDefault();
         }
 
+        #region Commands
+
+        [RelayCommand]
+        public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
+
+        /// <summary>
+        /// Executes the requested mail operation for currently selected items.
+        /// </summary>
+        /// <param name="operation">Action to execute for selected items.</param>
+        [RelayCommand]
+        private async Task MailOperationAsync(int mailOperationIndex)
+        {
+            if (!SelectedItems.Any()) return;
+
+            // Commands don't like enums. So it has to be int.
+            var operation = (MailOperation)mailOperationIndex;
+
+            var package = new MailOperationPreperationRequest(operation, SelectedItems.Select(a => a.MailCopy));
+
+            await ExecuteMailOperationAsync(package);
+        }
+
+        /// <summary>
+        /// Sens a new message to synchronize current folder.
+        /// </summary>
+        [RelayCommand]
+        private void SyncFolder()
+        {
+            if (!CanSynchronize) return;
+
+            // Only synchronize listed folders.
+
+            // When doing linked inbox sync, we need to save the sync id to report progress back only once.
+            // Otherwise, we will report progress for each folder and that's what we don't want.
+
+            trackingSynchronizationId = Guid.NewGuid();
+            completedTrackingSynchronizationCount = 0;
+
+            foreach (var folder in ActiveFolder.HandlingFolders)
+            {
+                var options = new SynchronizationOptions()
+                {
+                    AccountId = folder.MailAccountId,
+                    Type = SynchronizationType.Custom,
+                    SynchronizationFolderIds = [folder.Id],
+                    GroupedSynchronizationTrackingId = trackingSynchronizationId
+                };
+
+                Messenger.Send(new NewSynchronizationRequested(options));
+            }
+        }
+
         [RelayCommand]
         private async Task SelectedPivotChanged()
         {
@@ -472,6 +465,84 @@ namespace Wino.Mail.ViewModels
             await InitializeFolderAsync();
         }
 
+        [RelayCommand]
+        public async Task PerformSearchAsync()
+        {
+            if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
+            {
+                UpdateFolderPivots();
+                IsInSearchMode = false;
+                await InitializeFolderAsync();
+            }
+
+            if (!string.IsNullOrEmpty(SearchQuery))
+            {
+
+                IsInSearchMode = true;
+                CreateSearchPivot();
+            }
+
+            void CreateSearchPivot()
+            {
+                PivotFolders.Clear();
+                var isFocused = SelectedFolderPivot?.IsFocused;
+                SelectedFolderPivot = null;
+
+                if (ActiveFolder == null) return;
+
+                PivotFolders.Add(new FolderPivotViewModel(Translator.SearchPivotName, isFocused));
+
+                // This will trigger refresh.
+                SelectedFolderPivot = PivotFolders.FirstOrDefault();
+            }
+        }
+
+        [RelayCommand]
+        private async Task EnableFolderSynchronizationAsync()
+        {
+            if (ActiveFolder == null) return;
+
+            foreach (var folder in ActiveFolder.HandlingFolders)
+            {
+                await _folderService.ChangeFolderSynchronizationStateAsync(folder.Id, true);
+            }
+
+            // TODO
+            //ActiveFolder.IsSynchronizationEnabled = true;
+
+            //OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
+            //OnPropertyChanged(nameof(CanSynchronize));
+
+            //SyncFolderCommand?.Execute(null);
+        }
+
+        [RelayCommand]
+        private async Task LoadMoreItemsAsync()
+        {
+            if (IsInitializingFolder) return;
+
+            await ExecuteUIThread(() => { IsInitializingFolder = true; });
+
+            var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
+                                                                          SelectedFilterOption.Type,
+                                                                          SelectedSortingOption.Type,
+                                                                          PreferencesService.IsThreadingEnabled,
+                                                                          SelectedFolderPivot.IsFocused,
+                                                                          IsInSearchMode ? SearchQuery : string.Empty,
+                                                                          MailCollection.MailCopyIdHashSet);
+
+            var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
+
+            var viewModels = PrepareMailViewModels(items);
+
+            await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, clearIdCache: false); });
+            await ExecuteUIThread(() => { IsInitializingFolder = false; });
+        }
+
+        #endregion
+
+        public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
+
         public IEnumerable<MailItemViewModel> GetTargetMailItemViewModels(IMailItem clickedItem)
         {
             // Threat threads as a whole and include everything in the group. Except single selections outside of the thread.
@@ -496,7 +567,7 @@ namespace Wino.Mail.ViewModels
                 if (includedInSelectedItems)
                     contextMailItems = SelectedItems;
                 else
-                    contextMailItems = new List<MailItemViewModel>() { clickedMailItemViewModel };
+                    contextMailItems = [clickedMailItemViewModel];
             }
 
             return contextMailItems;
@@ -506,7 +577,7 @@ namespace Wino.Mail.ViewModels
             => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems);
 
         public void ChangeCustomFocusedState(IEnumerable<IMailItem> mailItems, bool isFocused)
-            => mailItems.Where(a => a is MailItemViewModel).Cast<MailItemViewModel>().ForEach(a => a.IsCustomFocused = isFocused);
+            => mailItems.OfType<MailItemViewModel>().ForEach(a => a.IsCustomFocused = isFocused);
 
         private bool ShouldPreventItemAdd(IMailItem mailItem)
         {
@@ -650,29 +721,6 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        [RelayCommand]
-        private async Task LoadMoreItemsAsync()
-        {
-            if (IsInitializingFolder) return;
-
-            await ExecuteUIThread(() => { IsInitializingFolder = true; });
-
-            var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
-                                                                          SelectedFilterOption.Type,
-                                                                          SelectedSortingOption.Type,
-                                                                          PreferencesService.IsThreadingEnabled,
-                                                                          SelectedFolderPivot.IsFocused,
-                                                                          SearchQuery,
-                                                                          MailCollection.MailCopyIdHashSet);
-
-            var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
-
-            var viewModels = PrepareMailViewModels(items);
-
-            await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, clearIdCache: false); });
-            await ExecuteUIThread(() => { IsInitializingFolder = false; });
-        }
-
         private async Task InitializeFolderAsync()
         {
             if (SelectedFilterOption == null || SelectedFolderPivot == null || SelectedSortingOption == null)
@@ -680,10 +728,6 @@ namespace Wino.Mail.ViewModels
 
             try
             {
-                // Clear search query if not performing search.
-                if (!IsPerformingSearch)
-                    SearchQuery = string.Empty;
-
                 MailCollection.Clear();
                 MailCollection.MailCopyIdHashSet.Clear();
 
@@ -768,53 +812,12 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        [RelayCommand]
-        private async Task EnableFolderSynchronizationAsync()
-        {
-            if (ActiveFolder == null) return;
+        #region Receivers
+        void IRecipient<MailItemSelectedEvent>.Receive(MailItemSelectedEvent message)
+            => SelectedItems.Add(message.SelectedMailItem);
 
-            foreach (var folder in ActiveFolder.HandlingFolders)
-            {
-                await _folderService.ChangeFolderSynchronizationStateAsync(folder.Id, true);
-            }
-
-            // TODO
-            //ActiveFolder.IsSynchronizationEnabled = true;
-
-            //OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            //OnPropertyChanged(nameof(CanSynchronize));
-
-            //SyncFolderCommand?.Execute(null);
-        }
-
-        void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
-        {
-            // Find mail item and add to selected items.
-
-            MailItemViewModel navigatingMailItem = null;
-            ThreadMailItemViewModel threadMailItemViewModel = null;
-
-            for (int i = 0; i < 3; i++)
-            {
-                var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
-
-                if (mailContainer != null)
-                {
-                    navigatingMailItem = mailContainer.ItemViewModel;
-                    threadMailItemViewModel = mailContainer.ThreadViewModel;
-
-                    break;
-                }
-            }
-
-            if (threadMailItemViewModel != null)
-                threadMailItemViewModel.IsThreadExpanded = true;
-
-            if (navigatingMailItem != null)
-                WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(navigatingMailItem, message.ScrollToItem));
-            else
-                Debugger.Break();
-        }
+        void IRecipient<MailItemSelectionRemovedEvent>.Receive(MailItemSelectionRemovedEvent message)
+            => SelectedItems.Remove(message.RemovedMailItem);
 
         async void IRecipient<ActiveMailFolderChangedEvent>.Receive(ActiveMailFolderChangedEvent message)
         {
@@ -835,6 +838,9 @@ namespace Wino.Mail.ViewModels
             // Prepare Focused - Other or folder name tabs.
             UpdateFolderPivots();
 
+            // Reset filters and sorting options.
+            ResetFilters();
+
             await InitializeFolderAsync();
 
             // TODO: This should be done in a better way.
@@ -847,13 +853,16 @@ namespace Wino.Mail.ViewModels
             message.FolderInitLoadAwaitTask?.TrySetResult(true);
 
             isChangingFolder = false;
+
+            void ResetFilters()
+            {
+                // Expected that FilterOptions and SortingOptions have default value in 0 index.
+                SelectedFilterOption = FilterOptions[0];
+                SelectedSortingOption = SortingOptions[0];
+                SearchQuery = string.Empty;
+                IsInSearchMode = false;
+            }
         }
-
-        void IRecipient<MailItemSelectedEvent>.Receive(MailItemSelectedEvent message)
-            => SelectedItems.Add(message.SelectedMailItem);
-
-        void IRecipient<MailItemSelectionRemovedEvent>.Receive(MailItemSelectionRemovedEvent message)
-            => SelectedItems.Remove(message.RemovedMailItem);
 
         public void Receive(AccountSynchronizationCompleted message)
         {
@@ -889,23 +898,39 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
+        {
+            // Find mail item and add to selected items.
+
+            MailItemViewModel navigatingMailItem = null;
+            ThreadMailItemViewModel threadMailItemViewModel = null;
+
+            for (int i = 0; i < 3; i++)
+            {
+                var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
+
+                if (mailContainer != null)
+                {
+                    navigatingMailItem = mailContainer.ItemViewModel;
+                    threadMailItemViewModel = mailContainer.ThreadViewModel;
+
+                    break;
+                }
+            }
+
+            if (threadMailItemViewModel != null)
+                threadMailItemViewModel.IsThreadExpanded = true;
+
+            if (navigatingMailItem != null)
+                WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(navigatingMailItem, message.ScrollToItem));
+            else
+                Debugger.Break();
+        }
+
+        #endregion
+
         public async void Receive(NewSynchronizationRequested message)
             => await ExecuteUIThread(() => { OnPropertyChanged(nameof(CanSynchronize)); });
-
-        [RelayCommand]
-        public async Task PerformSearchAsync()
-        {
-            try
-            {
-                IsPerformingSearch = !string.IsNullOrEmpty(SearchQuery);
-
-                await InitializeFolderAsync();
-            }
-            finally
-            {
-                IsPerformingSearch = false;
-            }
-        }
 
         public async void Receive(AccountSynchronizerStateChanged message)
             => await CheckIfAccountIsSynchronizingAsync();

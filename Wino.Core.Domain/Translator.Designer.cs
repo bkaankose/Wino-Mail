@@ -424,7 +424,7 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton");	
 	
         /// <summary>
-		/// Do you want to stop getting messages from {0}? WinoMail will unsubscribe for you by sending an email from your email account to {1}.
+		/// Do you want to stop getting messages from {0}? Wino will unsubscribe for you by sending an email from your email account to {1}.
 		/// </summary>
 		public static string DialogMessage_UnsubscribeConfirmationMailtoMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationMailtoMessage");	
 	
@@ -1514,17 +1514,17 @@ namespace Wino.Core.Domain
 		public static string NewAccountDialog_Title => Resources.GetTranslatedString(@"NewAccountDialog_Title");	
 	
         /// <summary>
-		/// no message selected
+		/// No message selected
 		/// </summary>
 		public static string NoMailSelected => Resources.GetTranslatedString(@"NoMailSelected");	
 	
         /// <summary>
-		/// no messages match your search criteria.
+		/// No messages match your search criteria
 		/// </summary>
 		public static string NoMessageCrieteria => Resources.GetTranslatedString(@"NoMessageCrieteria");	
 	
         /// <summary>
-		/// this folder is empty.
+		/// This folder is empty
 		/// </summary>
 		public static string NoMessageEmptyFolder => Resources.GetTranslatedString(@"NoMessageEmptyFolder");	
 	
@@ -1629,14 +1629,19 @@ namespace Wino.Core.Domain
 		public static string SynchronizationFolderReport_Failed => Resources.GetTranslatedString(@"SynchronizationFolderReport_Failed");	
 	
         /// <summary>
-		/// search
+		/// Search
 		/// </summary>
 		public static string SearchBarPlaceholder => Resources.GetTranslatedString(@"SearchBarPlaceholder");	
 	
         /// <summary>
-		/// searching in
+		/// Searching in
 		/// </summary>
 		public static string SearchingIn => Resources.GetTranslatedString(@"SearchingIn");	
+	
+        /// <summary>
+		/// Results
+		/// </summary>
+		public static string SearchPivotName => Resources.GetTranslatedString(@"SearchPivotName");	
 	
         /// <summary>
 		/// Go to issue tracker GitHub repository.

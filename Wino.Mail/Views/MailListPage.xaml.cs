@@ -16,6 +16,7 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Controls;
 using Wino.Controls.Advanced;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -420,7 +421,7 @@ namespace Wino.Views
 
         private void SearchBarUnfocused(object sender, RoutedEventArgs e)
         {
-            SearchBar.PlaceholderText = "search";
+            SearchBar.PlaceholderText = Translator.SearchBarPlaceholder;
         }
 
         private void MailListPageLoaded(object sender, RoutedEventArgs e)
@@ -531,6 +532,14 @@ namespace Wino.Views
         private void PullToRefreshRequested(Microsoft.UI.Xaml.Controls.RefreshContainer sender, Microsoft.UI.Xaml.Controls.RefreshRequestedEventArgs args)
         {
             ViewModel.SyncFolderCommand?.Execute(null);
+        }
+
+        private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+        {
+            if(args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && string.IsNullOrWhiteSpace(sender.Text))
+            {
+                await ViewModel.PerformSearchAsync();
+            }
         }
     }
 }
