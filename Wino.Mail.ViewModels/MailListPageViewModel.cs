@@ -480,7 +480,6 @@ namespace Wino.Mail.ViewModels
 
                 IsInSearchMode = true;
                 CreateSearchPivot();
-                await InitializeFolderAsync();
             }
 
             void CreateSearchPivot()
