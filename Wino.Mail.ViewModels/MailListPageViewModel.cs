@@ -306,8 +306,6 @@ namespace Wino.Mail.ViewModels
 
                 OnPropertyChanged(nameof(CanSynchronize));
                 OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-
-                UpdateFolderPivots();
             });
         }
 
