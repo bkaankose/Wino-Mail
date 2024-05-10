@@ -121,6 +121,7 @@
     "FilteringOption_All": "All",
     "FilteringOption_Flagged": "Flagged",
     "FilteringOption_Unread": "Unread",
+    "FilteringOption_Files": "Has files",
     "Focused": "Focused",
     "FolderOperation_CreateSubFolder": "Create sub folder",
     "FolderOperation_Delete": "Delete",

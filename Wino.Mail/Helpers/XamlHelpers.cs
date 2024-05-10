@@ -108,22 +108,16 @@ namespace Wino.Helpers
 
         #region Wino Font Icon Transformation
 
-        public static WinoIconGlyph GetWinoIconGlyph(FilterOptionType type)
+        public static WinoIconGlyph GetWinoIconGlyph(FilterOptionType type) => type switch
         {
-            switch (type)
-            {
-                case FilterOptionType.All:
-                    return WinoIconGlyph.SpecialFolderCategory;
-                case FilterOptionType.Unread:
-                    return WinoIconGlyph.MarkUnread;
-                case FilterOptionType.Flagged:
-                    return WinoIconGlyph.Flag;
-                case FilterOptionType.Mentions:
-                    return WinoIconGlyph.NewMail;
-                default:
-                    return WinoIconGlyph.None;
-            }
-        }
+            FilterOptionType.All => WinoIconGlyph.SpecialFolderCategory,
+            FilterOptionType.Unread => WinoIconGlyph.MarkUnread,
+            FilterOptionType.Flagged => WinoIconGlyph.Flag,
+            FilterOptionType.Mentions => WinoIconGlyph.NewMail,
+            // TODO: Attachments icon should be added to WinoIcons.ttf.
+            FilterOptionType.Files => WinoIconGlyph.None,
+            _ => WinoIconGlyph.None,
+        };
 
         public static WinoIconGlyph GetWinoIconGlyph(MailOperation operation)
         {
