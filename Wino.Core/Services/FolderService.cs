@@ -533,6 +533,19 @@ namespace Wino.Core.Services
 
             foreach (var folder in foldersToUpdate)
             {
+                // We must preserve user settings on folders.
+                // Directly updating the whole entity will lose them.
+
+                var existingFolder = existingFolders.FirstOrDefault(a => a.RemoteFolderId == folder.RemoteFolderId);
+                if (existingFolder == null) continue;
+
+                folder.Id = existingFolder.Id;
+                folder.IsSticky = existingFolder.IsSticky;
+                folder.ShowUnreadCount = existingFolder.ShowUnreadCount;
+                folder.TextColorHex = existingFolder.TextColorHex;
+                folder.BackgroundColorHex = existingFolder.BackgroundColorHex;
+                folder.SpecialFolderType = existingFolder.SpecialFolderType;
+
                 await UpdateFolderAsync(folder).ConfigureAwait(false);
             }
 
