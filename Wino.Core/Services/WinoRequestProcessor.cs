@@ -208,6 +208,9 @@ namespace Wino.Core.Services
                     }
 
                     break;
+                case FolderOperation.Empty:
+                    change = new EmptyFolderRequest(folder);
+                    break;
                     //case FolderOperation.MarkAllAsRead:
                     //    // Get all mails in the folder.
 

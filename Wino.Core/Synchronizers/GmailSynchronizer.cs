@@ -686,6 +686,11 @@ namespace Wino.Core.Synchronizers
             });
         }
 
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
+        {
+            return base.EmptyFolder(request);
+        }
+
         #endregion
 
         #region Request Execution
