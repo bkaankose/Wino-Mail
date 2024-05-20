@@ -229,19 +229,19 @@ namespace Wino.Views
         {
             await DOMLoadedTask.Task;
 
+            await InvokeScriptSafeAsync("ChangePrefferedTheme('light')");
+            await InvokeScriptSafeAsync("DarkReader.disable();");
+
             if (ViewModel.IsDarkWebviewRenderer)
             {
-                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
+                //Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
 
-                await InvokeScriptSafeAsync("ChangePrefferedTheme('dark')");
-                await InvokeScriptSafeAsync("DarkReader.enable();");
+                //await InvokeScriptSafeAsync("ChangePrefferedTheme('dark')");
+                //await InvokeScriptSafeAsync("DarkReader.enable();");
             }
             else
             {
-                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
-
-                await InvokeScriptSafeAsync("ChangePrefferedTheme('light')");
-                await InvokeScriptSafeAsync("DarkReader.disable();");
+                //Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
             }
         }
 

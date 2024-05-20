@@ -339,7 +339,7 @@
             CornerRadius="3"
             Padding="0">
 
-            <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+            <!--<Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />-->
 
             <controls:WebView2
                 x:Name="Chromium"
