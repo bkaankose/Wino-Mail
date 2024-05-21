@@ -246,8 +246,8 @@ namespace Wino.Views.Settings
         {
             var editorBundlePath = (await ViewModel.NativeAppService.GetQuillEditorBundlePathAsync()).Replace("full.html", string.Empty);
 
-            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.reader", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
-            Chromium.Source = new Uri("https://app.reader/full.html");
+            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.example", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
+            Chromium.Source = new Uri("https://app.example/full.html");
 
             Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
             Chromium.CoreWebView2.DOMContentLoaded += DOMLoaded;
