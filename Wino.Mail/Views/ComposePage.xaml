@@ -54,7 +54,7 @@
         </DataTemplate>
 
         <!--  Attachment Template  -->
-        <!--  Margin -8 0 is used to remove the padding from the ListViewItem-->
+        <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
             <Grid
                 Height="50"
@@ -179,6 +179,7 @@
             Margin="0,6"
             VerticalAlignment="Top"
             VerticalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Hidden"
             HorizontalScrollBarVisibility="Hidden"
             HorizontalScrollMode="Enabled">
             <Grid Margin="16,0,16,20" Padding="8,0">
@@ -603,15 +604,16 @@
                 Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
             <!--  Attachments  -->
-            <ListView x:Name="AttachmentsListView"
-                  Grid.Row="6"
-                  Grid.ColumnSpan="2"
-                  x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
-                  IsItemClickEnabled="True"
-                  ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
-                  ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
-                  ItemClick="AttachmentClicked"
-                  SelectionMode="None">
+            <ListView
+                x:Name="AttachmentsListView"
+                Grid.Row="6"
+                Grid.ColumnSpan="2"
+                x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
+                IsItemClickEnabled="True"
+                ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
+                ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
+                ItemClick="AttachmentClicked"
+                SelectionMode="None">
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
                         <controls1:WrapPanel Orientation="Horizontal" />
@@ -619,8 +621,8 @@
                 </ListView.ItemsPanel>
             </ListView>
 
-            <!--Attachments-->
-            
+            <!--  Attachments  -->
+
         </Grid>
 
         <Grid
