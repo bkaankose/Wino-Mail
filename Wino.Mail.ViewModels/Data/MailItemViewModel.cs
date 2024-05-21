@@ -89,10 +89,6 @@ namespace Wino.Mail.ViewModels.Data
         {
             MailCopy = updatedMailItem;
 
-            // DEBUG
-            //if (updatedMailItem.AssignedAccount == null || updatedMailItem.AssignedFolder == null)
-            //    throw new Exception("Assigned account or folder is null.");
-
             OnPropertyChanged(nameof(IsRead));
             OnPropertyChanged(nameof(IsFocused));
             OnPropertyChanged(nameof(IsFlagged));
