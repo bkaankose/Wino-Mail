@@ -74,11 +74,11 @@ namespace Wino.Core.Services
                 new AppLanguageModel(AppLanguage.English, "English"),
                 new AppLanguageModel(AppLanguage.Deutsch, "Deutsch"),
                 new AppLanguageModel(AppLanguage.Russian, "Russian"),
-                new AppLanguageModel(AppLanguage.Turkish, "Türkçe"),
                 new AppLanguageModel(AppLanguage.Polish, "Polski"),
                 new AppLanguageModel(AppLanguage.Czech, "Czech"),
                 new AppLanguageModel(AppLanguage.Spanish, "Spanish"),
                 new AppLanguageModel(AppLanguage.French, "French"),
+                new AppLanguageModel(AppLanguage.Chinese, "Chinese"),
             ];
     }
 }
