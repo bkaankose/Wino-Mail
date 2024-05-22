@@ -64,6 +64,12 @@ namespace Wino.Mail.ViewModels
         [ObservableProperty]
         private MailAccount composingAccount;
 
+        [ObservableProperty]
+        private bool isDraggingOverComposerGrid;
+
+        [ObservableProperty]
+        private bool isDraggingOverDropZone;
+
         public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
 
         public ObservableCollection<MailAccount> Accounts { get; set; } = new ObservableCollection<MailAccount>();
