@@ -254,6 +254,16 @@ namespace Wino.Core.Domain
 		public static string ComposerToPlaceholder => Resources.GetTranslatedString(@"ComposerToPlaceholder");	
 	
         /// <summary>
+		/// Drop your files here
+		/// </summary>
+		public static string ComposerAttachmentsDropZone_Message => Resources.GetTranslatedString(@"ComposerAttachmentsDropZone_Message");	
+	
+        /// <summary>
+		/// Attach
+		/// </summary>
+		public static string ComposerAttachmentsDragDropAttach_Message => Resources.GetTranslatedString(@"ComposerAttachmentsDragDropAttach_Message");	
+	
+        /// <summary>
 		/// Set custom accent color if you wish. Not selecting a color will use your Windows accent color.
 		/// </summary>
 		public static string CustomThemeBuilder_AccentColorDescription => Resources.GetTranslatedString(@"CustomThemeBuilder_AccentColorDescription");	

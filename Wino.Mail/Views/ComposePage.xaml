@@ -107,7 +107,10 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Background="{ThemeResource AppBarBackgroundColor}">
+    <Grid Background="{ThemeResource AppBarBackgroundColor}"
+          AllowDrop="True"
+          DragOver="OnComposeGridDragOver"
+          DragLeave="OnComposeGridDragLeave">
         <Grid.Resources>
             <SolidColorBrush x:Key="AutoSuggestBoxBorderThemeBrush">Transparent</SolidColorBrush>
         </Grid.Resources>
@@ -620,9 +623,36 @@
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
             </ListView>
+        </Grid>
 
-            <!--  Attachments  -->
-
+        <!--  Dropzone  -->
+        <Grid
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}"
+            Drop="OnFileDropGridFileDropped"
+            DragOver="OnFileDropGridDragOver"
+            DragLeave="OnFileDropGridDragLeave"
+            AllowDrop="True">
+            <Grid  Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9" Margin="0,7,5,0">
+                <Rectangle
+                    x:Name="DropZoneBorder"
+                    RadiusX="9"
+                    RadiusY="9"
+                    Fill="Transparent"
+                    Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                    Opacity="0.5"
+                    StrokeDashArray="3,4"
+                    StrokeThickness="2"/>
+                <TextBlock
+                    x:Name="DropZoneText"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Opacity="0.5"
+                    FontSize="20"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}"/>
+            </Grid>
         </Grid>
 
         <Grid
@@ -653,6 +683,18 @@
                 </VisualState>
 
                 <VisualState x:Name="LightMode" />
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="DropZoneState">
+                <VisualState x:Name="Hovered">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverDropZone, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="DropZoneText.Opacity" Value="1" />
+                        <Setter Target="DropZoneBorder.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NotHovered" />
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
     </Grid>
