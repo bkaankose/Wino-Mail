@@ -63,11 +63,11 @@ namespace Wino.Core.Synchronizers
         ];
 
         private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
-        private readonly IDefaultChangeProcessor _outlookChangeProcessor;
+        private readonly IOutlookChangeProcessor _outlookChangeProcessor;
         private readonly GraphServiceClient _graphClient;
         public OutlookSynchronizer(MailAccount account,
                                    IAuthenticator authenticator,
-                                   IDefaultChangeProcessor outlookChangeProcessor) : base(account)
+                                   IOutlookChangeProcessor outlookChangeProcessor) : base(account)
         {
             var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
@@ -191,13 +191,16 @@ namespace Wino.Core.Synchronizers
             {
                 // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
 
-                var deltaToken = Regex.Split(messageIteratorAsync.Deltalink, "deltatoken=")[1];
+                var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
 
                 await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
             }
 
             return downloadedMessageIds;
         }
+
+        private string GetDeltaTokenFromDeltaLink(string deltaLink)
+            => Regex.Split(deltaLink, "deltatoken=")[1];
 
         private bool IsResourceDeleted(IDictionary<string, object> additionalData)
             => additionalData != null && additionalData.ContainsKey("@removed");
@@ -606,7 +609,14 @@ namespace Wino.Core.Synchronizers
 
         public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
         {
-            var mimeMessage = await DownloadMimeMessageAsync(message.Id).ConfigureAwait(false);
+            bool isMailExists = await _outlookChangeProcessor.IsMailExistsAsync(message.Id);
+
+            if (isMailExists)
+            {
+                return null;
+            }
+
+            var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
             var mailCopy = message.AsMailCopy();
 
             if (mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)

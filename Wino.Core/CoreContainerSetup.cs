@@ -23,6 +23,7 @@ namespace Wino.Core
             services.AddSingleton<IMimeFileService, MimeFileService>();
 
             services.AddTransient<IDefaultChangeProcessor, DefaultChangeProcessor>();
+            services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
             services.AddTransient<ITokenService, TokenService>();
             services.AddTransient<IProviderService, ProviderService>();
             services.AddTransient<IFolderService, FolderService>();

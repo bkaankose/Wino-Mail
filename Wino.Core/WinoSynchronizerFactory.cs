@@ -38,6 +38,7 @@ namespace Wino.Core
         private readonly IDatabaseService _databaseService;
         private readonly IMimeFileService _mimeFileService;
         private readonly IDefaultChangeProcessor _defaultChangeProcessor;
+        private readonly IOutlookChangeProcessor _outlookChangeProcessor;
 
         public WinoSynchronizerFactory(INativeAppService nativeAppService,
                                      ITokenService tokenService,
@@ -48,7 +49,8 @@ namespace Wino.Core
                                      ISignatureService signatureService,
                                      IDatabaseService databaseService,
                                      IMimeFileService mimeFileService,
-                                     IDefaultChangeProcessor defaultChangeProcessor)
+                                     IDefaultChangeProcessor defaultChangeProcessor,
+                                     IOutlookChangeProcessor outlookChangeProcessor)
         {
             _contactService = contactService;
             _notificationBuilder = notificationBuilder;
@@ -60,6 +62,7 @@ namespace Wino.Core
             _databaseService = databaseService;
             _mimeFileService = mimeFileService;
             _defaultChangeProcessor = defaultChangeProcessor;
+            _outlookChangeProcessor = outlookChangeProcessor;
         }
 
         public IBaseSynchronizer GetAccountSynchronizer(Guid accountId)
@@ -73,7 +76,7 @@ namespace Wino.Core
             {
                 case Domain.Enums.MailProviderType.Outlook:
                     var outlookAuthenticator = new OutlookAuthenticator(_tokenService, _nativeAppService);
-                    return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _defaultChangeProcessor);
+                    return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor);
                 case Domain.Enums.MailProviderType.Gmail:
                     var gmailAuthenticator = new GmailAuthenticator(_tokenService, _nativeAppService);
 

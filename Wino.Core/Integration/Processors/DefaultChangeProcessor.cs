@@ -55,7 +55,13 @@ namespace Wino.Core.Integration.Processors
 
     public interface IOutlookChangeProcessor : IDefaultChangeProcessor
     {
-
+        /// <summary>
+        /// Interrupted initial synchronization may cause downloaded mails to be saved in the database twice.
+        /// Since downloading mime is costly in Outlook, we need to check if the actual copy of the message has been saved before.
+        /// </summary>
+        /// <param name="messageId">MailCopyId of the message.</param>
+        /// <returns>Whether the mime has b</returns>
+        Task<bool> IsMailExistsAsync(string messageId);
     }
 
     public class DefaultChangeProcessor(IDatabaseService databaseService,
@@ -64,8 +70,9 @@ namespace Wino.Core.Integration.Processors
                                   IAccountService accountService,
                                   IMimeFileService mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
     {
+        protected IMailService MailService = mailService;
+
         private readonly IFolderService _folderService = folderService;
-        private readonly IMailService _mailService = mailService;
         private readonly IAccountService _accountService = accountService;
         private readonly IMimeFileService _mimeFileService = mimeFileService;
 
@@ -73,32 +80,32 @@ namespace Wino.Core.Integration.Processors
             => _accountService.UpdateSynchronizationIdentifierAsync(accountId, synchronizationDeltaIdentifier);
 
         public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
-            => _mailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);
+            => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);
 
         public Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead)
-            => _mailService.ChangeReadStatusAsync(mailCopyId, isRead);
+            => MailService.ChangeReadStatusAsync(mailCopyId, isRead);
 
         public Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
-            => _mailService.DeleteAssignmentAsync(accountId, mailCopyId, remoteFolderId);
+            => MailService.DeleteAssignmentAsync(accountId, mailCopyId, remoteFolderId);
 
         public Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
-            => _mailService.CreateAssignmentAsync(accountId, mailCopyId, remoteFolderId);
+            => MailService.CreateAssignmentAsync(accountId, mailCopyId, remoteFolderId);
 
         public Task DeleteMailAsync(Guid accountId, string mailId)
-            => _mailService.DeleteMailAsync(accountId, mailId);
+            => MailService.DeleteMailAsync(accountId, mailId);
 
         public Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
-            => _mailService.CreateMailAsync(accountId, package);
+            => MailService.CreateMailAsync(accountId, package);
 
         // Folder methods
         public Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
             => _folderService.BulkUpdateFolderStructureAsync(accountId, allFolders);
 
         public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
-            => _mailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
+            => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
 
         public Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)
-            => _mailService.MapLocalDraftAsync(mailCopyId, newDraftId, newThreadId);
+            => MailService.MapLocalDraftAsync(mailCopyId, newDraftId, newThreadId);
 
         public Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
             => _folderService.GetSynchronizationFoldersAsync(options);
@@ -113,7 +120,7 @@ namespace Wino.Core.Integration.Processors
             => _folderService.InsertFolderAsync(folder);
 
         public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
-            => _mailService.GetDownloadedUnreadMailsAsync(accountId, downloadedMailCopyIds);
+            => MailService.GetDownloadedUnreadMailsAsync(accountId, downloadedMailCopyIds);
 
         public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
             => _folderService.GetKnownUidsForFolderAsync(folderId);

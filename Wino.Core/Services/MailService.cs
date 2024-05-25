@@ -856,6 +856,7 @@ namespace Wino.Core.Services
             return Connection.FindWithQueryAsync<MailAccount>(query);
         }
 
-
+        public Task<bool> IsMailExistsAsync(string mailCopyId)
+            => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
     }
 }
