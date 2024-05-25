@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Kopiert",
     "ClipboardTextCopyFailed_Message": "Konnte {0} nicht in die Zwischenablage kopieren.",
     "ComposerToPlaceholder": "klicke Enter, um Adressen einzugeben",
+    "ComposerAttachmentsDropZone_Message": "Dateien hier ablegen",
+    "ComposerAttachmentsDragDropAttach_Message": "Anhängen",
     "CustomThemeBuilder_AccentColorDescription": "Legen Sie eine benutzerdefinierte Akzentfarbe fest. Wenn Sie keine Farbe wählen, wird die Akzentfarbe von Windows verwendet.",
     "CustomThemeBuilder_AccentColorTitle": "Akzentfarbe",
     "CustomThemeBuilder_PickColor": "Auswählen",
