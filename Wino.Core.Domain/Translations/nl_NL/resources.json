@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Copied",
     "ClipboardTextCopyFailed_Message": "Failed to copy {0} to clipboard.",
     "ComposerToPlaceholder": "klik op enter om adressen in te voeren",
+    "ComposerAttachmentsDropZone_Message": "Drop your files here",
+    "ComposerAttachmentsDragDropAttach_Message": "Attach",
     "CustomThemeBuilder_AccentColorDescription": "Stel aan aangepaste accentkleur in. Maak geen keuze om de Windows-accentkleur te gebruiken.",
     "CustomThemeBuilder_AccentColorTitle": "Accentkleur",
     "CustomThemeBuilder_PickColor": "Kies",
