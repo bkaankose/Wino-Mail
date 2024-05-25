@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Zkopírováno",
     "ClipboardTextCopyFailed_Message": "Nepodařilo se zkopírovat \"{0}\" do schránky.",
     "ComposerToPlaceholder": "pro vložení adresy zmáčkni Enter",
+    "ComposerAttachmentsDropZone_Message": "Drop your files here",
+    "ComposerAttachmentsDragDropAttach_Message": "Attach",
     "CustomThemeBuilder_AccentColorDescription": "Pokud chcete, můžete si nastavit barevný tón. Jinak se použije se výchozí barevný tón Windows.",
     "CustomThemeBuilder_AccentColorTitle": "Barevný tón",
     "CustomThemeBuilder_PickColor": "Vybrat",
