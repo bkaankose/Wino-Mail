@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Copied",
     "ClipboardTextCopyFailed_Message": "Failed to copy {0} to clipboard.",
     "ComposerToPlaceholder": "click enter to input addresses",
+    "ComposerAttachmentsDropZone_Message": "Drop your files here",
+    "ComposerAttachmentsDragDropAttach_Message": "Attach",
     "CustomThemeBuilder_AccentColorDescription": "Définir une couleur d'accentuation personnalisée si vous le souhaitez. Ne pas sélectionner une couleur utilisera votre couleur d'accentuation Windows.",
     "CustomThemeBuilder_AccentColorTitle": "Couleur d'accentuation",
     "CustomThemeBuilder_PickColor": "Choisir",
