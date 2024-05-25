@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Copied",
     "ClipboardTextCopyFailed_Message": "Failed to copy {0} to clipboard.",
     "ComposerToPlaceholder": "アドレスを入力するにはエンターをクリックしてください",
+    "ComposerAttachmentsDropZone_Message": "Drop your files here",
+    "ComposerAttachmentsDragDropAttach_Message": "Attach",
     "CustomThemeBuilder_AccentColorDescription": "必要に応じてカスタムアクセントカラーを設定します。選択しない場合、Windowsアクセントカラーが使用されます。",
     "CustomThemeBuilder_AccentColorTitle": "アクセントカラー",
     "CustomThemeBuilder_PickColor": "選択",

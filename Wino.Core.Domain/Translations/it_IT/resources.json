@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Copied",
     "ClipboardTextCopyFailed_Message": "Failed to copy {0} to clipboard.",
     "ComposerToPlaceholder": "clicca Invio per inserire gli indirizzi",
+    "ComposerAttachmentsDropZone_Message": "Drop your files here",
+    "ComposerAttachmentsDragDropAttach_Message": "Attach",
     "CustomThemeBuilder_AccentColorDescription": "Imposta un colore principale personalizzato, se vuoi. Non selezionare un colore userà il colore principale di Windows.",
     "CustomThemeBuilder_AccentColorTitle": "Colore principale",
     "CustomThemeBuilder_PickColor": "Scegli",
