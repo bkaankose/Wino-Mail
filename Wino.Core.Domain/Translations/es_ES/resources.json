@@ -46,6 +46,8 @@
     "ClipboardTextCopied_Title": "Copiado",
     "ClipboardTextCopyFailed_Message": "Error al copiar {0} al portapapeles.",
     "ComposerToPlaceholder": "presiona enter para ingresar direcciones",
+    "ComposerAttachmentsDropZone_Message": "Drop your files here",
+    "ComposerAttachmentsDragDropAttach_Message": "Attach",
     "CustomThemeBuilder_AccentColorDescription": "Establece un color de acento si lo deseas. Si no seleccionas uno se usará tu color de acento de Windows.",
     "CustomThemeBuilder_AccentColorTitle": "Color de acento",
     "CustomThemeBuilder_PickColor": "Elegir",
