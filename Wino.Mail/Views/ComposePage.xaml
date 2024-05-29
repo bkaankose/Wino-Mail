@@ -107,10 +107,11 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Background="{ThemeResource AppBarBackgroundColor}"
-          AllowDrop="True"
-          DragOver="OnComposeGridDragOver"
-          DragLeave="OnComposeGridDragLeave">
+    <Grid
+        Background="{ThemeResource AppBarBackgroundColor}"
+        AllowDrop="True"
+        DragOver="OnComposeGridDragOver"
+        DragLeave="OnComposeGridDragLeave">
         <Grid.Resources>
             <SolidColorBrush x:Key="AutoSuggestBoxBorderThemeBrush">Transparent</SolidColorBrush>
         </Grid.Resources>
@@ -634,7 +635,10 @@
             DragOver="OnFileDropGridDragOver"
             DragLeave="OnFileDropGridDragLeave"
             AllowDrop="True">
-            <Grid  Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9" Margin="0,7,5,0">
+            <Grid
+                Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+                CornerRadius="9"
+                Margin="0,7,5,0">
                 <Rectangle
                     x:Name="DropZoneBorder"
                     RadiusX="9"
@@ -643,7 +647,7 @@
                     Stroke="{ThemeResource TextFillColorPrimaryBrush}"
                     Opacity="0.5"
                     StrokeDashArray="3,4"
-                    StrokeThickness="2"/>
+                    StrokeThickness="2" />
                 <TextBlock
                     x:Name="DropZoneText"
                     HorizontalAlignment="Center"
@@ -651,20 +655,18 @@
                     Opacity="0.5"
                     FontSize="20"
                     FontWeight="SemiBold"
-                    Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}"/>
+                    Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}" />
             </Grid>
         </Grid>
 
         <Grid
             Grid.Row="4"
-            Margin="0,6,0,0"
-            Background="White"
-            Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+            CornerRadius="3"
+            Margin="0,6,0,0">
+            <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-        <muxc:WebView2
-            x:Name="Chromium"
-            Grid.Row="4"
-            Margin="0,6,0,0" />
+            <muxc:WebView2 x:Name="Chromium" />
+        </Grid>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="ComposerThemeToggleButtonStates">
