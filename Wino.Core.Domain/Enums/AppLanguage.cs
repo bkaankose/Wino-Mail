@@ -11,6 +11,8 @@
         Czech,
         Chinese,
         Spanish,
-        French
+        French,
+        Indonesian,
+        Greek,
     }
 }

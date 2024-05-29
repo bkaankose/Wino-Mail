@@ -38,6 +38,8 @@ namespace Wino.Core.Domain.Translations
                 AppLanguage.French => "fr_FR",
                 AppLanguage.Chinese => "zh_CH",
                 AppLanguage.Spanish => "es_ES",
+                AppLanguage.Indonesian => "id_ID",
+                AppLanguage.Greek => "el_GR",
                 _ => "en_US",
             };
         }
