@@ -51,6 +51,11 @@ namespace Wino.Core.Domain.Entities
         public Guid? SignatureId { get; set; }
 
         /// <summary>
+        /// Gets or sets the listing order of the account in the accounts list.
+        /// </summary>
+        public int Order { get; set; }
+
+        /// <summary>
         /// Gets or sets whether the account has any reason for an interactive user action to fix continue operating.
         /// </summary>
         public AccountAttentionReason AttentionReason { get; set; }
