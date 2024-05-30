@@ -320,11 +320,13 @@ namespace Wino.Core.Domain
 		/// </summary>
 		public static string ComposerAttachmentsDropZone_Message => Resources.GetTranslatedString(@"ComposerAttachmentsDropZone_Message");	
 	
+
         /// <summary>
 		/// Attach
 		/// </summary>
 		public static string ComposerAttachmentsDragDropAttach_Message => Resources.GetTranslatedString(@"ComposerAttachmentsDragDropAttach_Message");	
 	
+
         /// <summary>
 		/// Set custom accent color if you wish. Not selecting a color will use your Windows accent color.
 		/// </summary>
@@ -545,48 +547,6 @@ namespace Wino.Core.Domain
 		/// Do you want to stop getting messages from {0}? Wino will unsubscribe for you by sending an email from your email account to {1}.
 		/// </summary>
 		public static string DialogMessage_UnsubscribeConfirmationMailtoMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationMailtoMessage");	
-	
-
-        /// <summary>
-		/// Rename Folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderTitle => Resources.GetTranslatedString(@"DialogMessage_RenameFolderTitle");	
-	
-
-        /// <summary>
-		/// Enter new name for this folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderMessage => Resources.GetTranslatedString(@"DialogMessage_RenameFolderMessage");	
-	
-
-        /// <summary>
-		/// Rename Folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderTitle => Resources.GetTranslatedString(@"DialogMessage_RenameFolderTitle");	
-	
-
-        /// <summary>
-		/// Rename Folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderTitle => Resources.GetTranslatedString(@"DialogMessage_RenameFolderTitle");	
-	
-
-        /// <summary>
-		/// Enter new name for this folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderMessage => Resources.GetTranslatedString(@"DialogMessage_RenameFolderMessage");	
-	
-
-        /// <summary>
-		/// Rename Folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderTitle => Resources.GetTranslatedString(@"DialogMessage_RenameFolderTitle");	
-	
-
-        /// <summary>
-		/// Enter new name for this folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderMessage => Resources.GetTranslatedString(@"DialogMessage_RenameFolderMessage");	
 	
 
         /// <summary>

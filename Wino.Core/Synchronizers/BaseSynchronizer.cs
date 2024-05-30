@@ -270,6 +270,9 @@ namespace Wino.Core.Synchronizers
                         case MailSynchronizerOperation.RenameFolder:
                             yield return RenameFolder((RenameFolderRequest)item);
                             break;
+                        case MailSynchronizerOperation.EmptyFolder:
+                            yield return EmptyFolder((EmptyFolderRequest)item);
+                            break;
 
                     }
                 }
