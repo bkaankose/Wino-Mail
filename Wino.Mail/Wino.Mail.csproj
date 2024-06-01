@@ -200,6 +200,9 @@
     <PackageReference Include="EmailValidation">
       <Version>1.0.10</Version>
     </PackageReference>
+    <PackageReference Include="MicaForUWP">
+      <Version>0.1.10</Version>
+    </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Analytics">
       <Version>5.0.3</Version>
     </PackageReference>
@@ -291,6 +294,7 @@
     <Compile Include="Extensions\MimeKitExtensions.cs" />
     <Compile Include="Extensions\UIExtensions.cs" />
     <Compile Include="GlobalSuppressions.cs" />
+    <Compile Include="ImageLoader.cs" />
     <Compile Include="MenuFlyouts\AccountSelectorFlyout.cs" />
     <Compile Include="MenuFlyouts\FolderOperationFlyout.cs" />
     <Compile Include="MenuFlyouts\FolderOperationMenuFlyoutItem.cs" />
@@ -700,6 +704,9 @@
     <Content Include="Assets\Providers\Office 365.png" />
     <Content Include="Assets\Providers\Outlook.png" />
     <Content Include="Assets\Providers\Yahoo.png" />
+    <Content Include="Assets\Rectangle17.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Assets\SmallTile.scale-100.png" />
     <Content Include="Assets\SmallTile.scale-125.png" />
     <Content Include="Assets\SmallTile.scale-150.png" />

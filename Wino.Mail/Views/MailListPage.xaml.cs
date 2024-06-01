@@ -5,13 +5,18 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Graphics.Canvas.Effects;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Windows.Foundation;
+using Windows.UI;
+using Windows.UI.Composition;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Hosting;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Controls;
@@ -30,6 +35,11 @@ using Wino.Views.Abstract;
 
 namespace Wino.Views
 {
+    public class MyMicaBrush : MicaForUWP.Media.BackdropMicaBrush
+    {
+        public CompositionBrush Brush { get => CompositionBrush; }
+    }
+
     public sealed partial class MailListPage : MailListPageAbstract,
         IRecipient<ResetSingleMailItemSelectionEvent>,
         IRecipient<ClearMailSelectionsRequested>,
@@ -531,6 +541,53 @@ namespace Wino.Views
         private void PullToRefreshRequested(Microsoft.UI.Xaml.Controls.RefreshContainer sender, Microsoft.UI.Xaml.Controls.RefreshRequestedEventArgs args)
         {
             ViewModel.SyncFolderCommand?.Execute(null);
+        }
+
+        private void BlurLayer_Loaded(object sender, RoutedEventArgs e)
+        {
+            var hostElement = sender as UIElement;
+            var compositor = ElementCompositionPreview.GetElementVisual(hostElement).Compositor;
+            var spriteVisual = compositor.CreateSpriteVisual();
+            spriteVisual.Size = hostElement.ActualSize;
+
+            var blurEffect = new GaussianBlurEffect()
+            {
+                BlurAmount = 10,
+                Source = new CompositionEffectSourceParameter("blur")
+            };
+            var brush = compositor.CreateEffectFactory(blurEffect).CreateBrush();
+            brush.SetSourceParameter("blur", compositor.CreateBackdropBrush());
+            spriteVisual.Brush = brush;
+            ElementCompositionPreview.SetElementChildVisual(hostElement, spriteVisual);
+        }
+
+        ManagedSurface surface;
+        private CompositionSurfaceBrush createGradientSurface(Compositor compositor, Size size)
+        {
+            ImageLoader.Initialize(compositor);
+            surface = ImageLoader.Instance.LoadFromUri(new Uri("ms-appx:///Assets/Rectangle17.png"), size);
+            return surface.Brush;
+        }
+
+        private void MicaLayer_Loaded(object sender, RoutedEventArgs e)
+        {
+        
+            var hostElement = sender as UIElement;
+            var compositor = ElementCompositionPreview.GetElementVisual(hostElement).Compositor;
+            var spriteVisual = compositor.CreateSpriteVisual();
+            spriteVisual.Size = hostElement.ActualSize;
+
+            var maskEffect = new AlphaMaskEffect()
+            {
+                AlphaMask = new CompositionEffectSourceParameter("mask"),
+                Source = new CompositionEffectSourceParameter("source")
+            };
+            var maskEffectBrush = compositor.CreateEffectFactory(maskEffect).CreateBrush();
+            maskEffectBrush.SetSourceParameter("mask", createGradientSurface(compositor, new Size(spriteVisual.Size.X, spriteVisual.Size.Y)));
+            maskEffectBrush.SetSourceParameter("source", MyMicaBrush.Brush);
+
+            spriteVisual.Brush = maskEffectBrush;
+            ElementCompositionPreview.SetElementChildVisual(hostElement, spriteVisual);
         }
     }
 }
