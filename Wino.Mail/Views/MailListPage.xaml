@@ -686,9 +686,21 @@
         <!--  Top Commands  -->
         <Grid VerticalAlignment="Bottom">
             <Grid.Resources>
-                <views:MyMicaBrush x:Name="MyMicaBrush" BackgroundSource="WallpaperBackdrop"
-                                   FallbackColor="{ThemeResource SolidBackgroundFillColorBase}"
-                                   TintColor="{ThemeResource SolidBackgroundFillColorBase}"/>
+                <ResourceDictionary>
+                    <ResourceDictionary.ThemeDictionaries>
+                        <ResourceDictionary x:Key="Light">
+                            <Color x:Key="BackgroundColor">#ffffff</Color>
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="Dark">
+                            <Color x:Key="BackgroundColor">#272727</Color>
+                        </ResourceDictionary>
+                    </ResourceDictionary.ThemeDictionaries>
+
+                    <views:MyMicaBrush x:Name="MyMicaBrush" BackgroundSource="WallpaperBackdrop"
+                                   FallbackColor="{ThemeResource BackgroundColor}"
+                                   TintColor="{ThemeResource BackgroundColor}"/>
+                </ResourceDictionary>
+
             </Grid.Resources>
             <Border x:Name="BlurLayer" Loaded="BlurLayer_Loaded"/>
             <Border x:Name="MicaLayer" Loaded="MicaLayer_Loaded"/>
