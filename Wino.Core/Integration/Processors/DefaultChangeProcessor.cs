@@ -14,43 +14,31 @@ namespace Wino.Core.Integration.Processors
     /// Database change processor that handles common operations for all synchronizers.
     /// When a synchronizer detects a change, it should call the appropriate method in this class to reflect the change in the database.
     /// Different synchronizers might need additional implementations.
-    /// <see cref="IGmailChangeProcessor"/> and <see cref="IOutlookChangeProcessor"/>
+    /// <see cref="IGmailChangeProcessor"/>,  <see cref="IOutlookChangeProcessor"/> and  <see cref="IImapChangeProcessor"/>
     /// None of the synchronizers can directly change anything in the database.
     /// </summary>
     public interface IDefaultChangeProcessor
     {
         Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
-        Task<string> UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier);
-
         Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
         Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
-
         Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead);
         Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
-
         Task<bool> CreateMailAsync(Guid AccountId, NewMailItemPackage package);
         Task DeleteMailAsync(Guid accountId, string mailId);
-
-        Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
-        Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
-
         Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds);
-
         Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
-
-        // For gmail.
         Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
-
         Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
         Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
         Task InsertFolderAsync(MailItemFolder folder);
-
-        Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
+        Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
+        Task UpdateFolderLastSyncDateAsync(Guid folderId);
     }
 
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
     {
-
+        Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
     }
 
     public interface IOutlookChangeProcessor : IDefaultChangeProcessor
@@ -62,6 +50,24 @@ namespace Wino.Core.Integration.Processors
         /// <param name="messageId">MailCopyId of the message.</param>
         /// <returns>Whether the mime has b</returns>
         Task<bool> IsMailExistsAsync(string messageId);
+
+        /// <summary>
+        /// Updates Folder's delta synchronization identifier.
+        /// Only used in Outlook since it does per-folder sync.
+        /// </summary>
+        /// <param name="folderId">Folder id</param>
+        /// <param name="synchronizationIdentifier">New synchronization identifier.</param>
+        /// <returns>New identifier if success.</returns>
+        Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier);
+    }
+
+    public interface IImapChangeProcessor : IDefaultChangeProcessor
+    {
+        /// <summary>
+        /// Returns all known uids for the given folder.
+        /// </summary>
+        /// <param name="folderId">Folder id to retrieve uIds for.</param>
+        Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
     }
 
     public class DefaultChangeProcessor(IDatabaseService databaseService,
@@ -72,7 +78,7 @@ namespace Wino.Core.Integration.Processors
     {
         protected IMailService MailService = mailService;
 
-        private readonly IFolderService _folderService = folderService;
+        protected IFolderService FolderService = folderService;
         private readonly IAccountService _accountService = accountService;
         private readonly IMimeFileService _mimeFileService = mimeFileService;
 
@@ -99,33 +105,31 @@ namespace Wino.Core.Integration.Processors
 
         // Folder methods
         public Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
-            => _folderService.BulkUpdateFolderStructureAsync(accountId, allFolders);
+            => FolderService.BulkUpdateFolderStructureAsync(accountId, allFolders);
 
         public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
             => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
 
-        public Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)
-            => MailService.MapLocalDraftAsync(mailCopyId, newDraftId, newThreadId);
+
 
         public Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
-            => _folderService.GetSynchronizationFoldersAsync(options);
-
-        public Task<string> UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier)
-            => _folderService.UpdateFolderDeltaSynchronizationIdentifierAsync(folderId, deltaSynchronizationIdentifier);
+            => FolderService.GetSynchronizationFoldersAsync(options);
 
         public Task DeleteFolderAsync(Guid accountId, string remoteFolderId)
-            => _folderService.DeleteFolderAsync(accountId, remoteFolderId);
+            => FolderService.DeleteFolderAsync(accountId, remoteFolderId);
 
         public Task InsertFolderAsync(MailItemFolder folder)
-            => _folderService.InsertFolderAsync(folder);
+            => FolderService.InsertFolderAsync(folder);
 
         public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
             => MailService.GetDownloadedUnreadMailsAsync(accountId, downloadedMailCopyIds);
 
-        public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
-            => _folderService.GetKnownUidsForFolderAsync(folderId);
+
 
         public Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
             => _mimeFileService.SaveMimeMessageAsync(fileId, mimeMessage, accountId);
+
+        public Task UpdateFolderLastSyncDateAsync(Guid folderId)
+            => FolderService.UpdateFolderLastSyncDateAsync(folderId);
     }
 }

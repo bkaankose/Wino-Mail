@@ -93,7 +93,6 @@ namespace Wino.Core.Synchronizers
 
             try
             {
-
                 options.ProgressListener?.AccountProgressUpdated(Account.Id, 1);
 
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
@@ -101,6 +100,9 @@ namespace Wino.Core.Synchronizers
                 if (options.Type != SynchronizationType.FoldersOnly)
                 {
                     var synchronizationFolders = await _outlookChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+
+                    _logger.Information("Found {Count} folders to synchronize.", synchronizationFolders.Count);
+                    _logger.Information(string.Format("Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName))));
 
                     for (int i = 0; i < synchronizationFolders.Count; i++)
                     {
@@ -149,6 +151,8 @@ namespace Wino.Core.Synchronizers
 
             if (isInitialSync)
             {
+                _logger.Debug("No sync identifier for Folder {FolderName}. Performing initial sync.", folder.FolderName);
+
                 // No delta link. Performing initial sync.
 
                 messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
@@ -161,6 +165,9 @@ namespace Wino.Core.Synchronizers
             else
             {
                 var currentDeltaToken = folder.DeltaToken;
+
+                _logger.Debug("Sync identifier found for Folder {FolderName}. Performing delta sync.", folder.FolderName);
+                _logger.Debug("Current delta token: {CurrentDeltaToken}", currentDeltaToken);
 
                 var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
                 {
@@ -186,6 +193,14 @@ namespace Wino.Core.Synchronizers
 
             latestDeltaLink = messageIteratorAsync.Deltalink;
 
+            if (downloadedMessageIds.Any())
+            {
+                _logger.Debug("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
+            }
+
+            _logger.Debug("Iterator completed for folder {FolderName}", folder.FolderName);
+            _logger.Debug("Extracted latest delta link is {LatestDeltaLink}", latestDeltaLink);
+
             //Store delta link for tracking new changes.
             if (!string.IsNullOrEmpty(latestDeltaLink))
             {
@@ -195,6 +210,8 @@ namespace Wino.Core.Synchronizers
 
                 await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
             }
+
+            await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
 
             return downloadedMessageIds;
         }

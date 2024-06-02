@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 
@@ -12,5 +13,8 @@ namespace Wino.Core.Integration.Processors
     {
         public Task<bool> IsMailExistsAsync(string messageId)
             => MailService.IsMailExistsAsync(messageId);
+
+        public Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
+            => Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ? WHERE Id = ?", synchronizationIdentifier, folderId);
     }
 }

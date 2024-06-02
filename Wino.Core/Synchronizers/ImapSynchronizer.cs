@@ -33,7 +33,7 @@ namespace Wino.Core.Synchronizers
 
         private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
         private readonly ImapClientPool _clientPool;
-        private readonly IDefaultChangeProcessor _imapChangeProcessor;
+        private readonly IImapChangeProcessor _imapChangeProcessor;
 
         // Minimum summary items to Fetch for mail synchronization from IMAP.
         private readonly MessageSummaryItems mailSynchronizationFlags =
@@ -61,7 +61,7 @@ namespace Wino.Core.Synchronizers
         public override uint BatchModificationSize => 1000;
         public override uint InitialMessageDownloadCountPerFolder => 500;
 
-        public ImapSynchronizer(MailAccount account, IDefaultChangeProcessor imapChangeProcessor) : base(account)
+        public ImapSynchronizer(MailAccount account, IImapChangeProcessor imapChangeProcessor) : base(account)
         {
             _clientPool = new ImapClientPool(Account.ServerInformation);
 
@@ -830,10 +830,9 @@ namespace Wino.Core.Synchronizers
                     await _imapChangeProcessor.InsertFolderAsync(folder);
                 }
 
-                // Update last synchronization identifier.
-                // This will update last sync date for the folder.
+                // Update last synchronization date for the folder..
 
-                await _imapChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, string.Empty).ConfigureAwait(false);
+                await _imapChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
 
                 return downloadedMessageIds;
             }

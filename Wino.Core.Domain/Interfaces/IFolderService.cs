@@ -50,15 +50,6 @@ namespace Wino.Core.Domain.Interfaces
         Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
 
         /// <summary>
-        /// Updates Folder's delta synchronization identifier.
-        /// Only used in Outlook since it does per-folder sync.
-        /// </summary>
-        /// <param name="folderId">Folder id</param>
-        /// <param name="synchronizationIdentifier">New synchronization identifier.</param>
-        /// <returns>New identifier if success.</returns>
-        Task<string> UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier);
-
-        /// <summary>
         /// Deletes the folder for the given account by remote folder id.
         /// </summary>
         /// <param name="accountId">Account to remove from.</param>
@@ -86,6 +77,12 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="accountId">Account id to check for.</param>
         /// <returns>True if Inbox exists, False if not.</returns>
         Task<bool> IsInboxAvailableForAccountAsync(Guid accountId);
+
+        /// <summary>
+        /// Updates folder's LastSynchronizedDate to now.
+        /// </summary>
+        /// <param name="folderId">Folder to update.</param>
+        Task UpdateFolderLastSyncDateAsync(Guid folderId);
 
         Task TestAsync();
     }

@@ -513,23 +513,7 @@ namespace Wino.Core.Services
             }
         }
 
-        public async Task<string> UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
-        {
-            var folder = await GetFolderAsync(folderId).ConfigureAwait(false);
 
-            if (folder == null)
-            {
-                _logger.Warning("Folder with id {FolderId} does not exist.", folderId);
-
-                return string.Empty;
-            }
-
-            folder.DeltaToken = synchronizationIdentifier;
-
-            await UpdateFolderAsync(folder).ConfigureAwait(false);
-
-            return synchronizationIdentifier;
-        }
 
         public async Task DeleteFolderAsync(Guid accountId, string remoteFolderId)
         {
@@ -588,5 +572,8 @@ namespace Wino.Core.Services
             => (await Connection.Table<MailItemFolder>()
             .Where(a => a.SpecialFolderType == SpecialFolderType.Inbox && a.MailAccountId == accountId)
             .CountAsync()) == 1;
+
+        public Task UpdateFolderLastSyncDateAsync(Guid folderId)
+            => Connection.ExecuteAsync("UPDATE MailItemFolder SET LastSynchronizedDate = ? WHERE Id = ?", DateTime.UtcNow, folderId);
     }
 }

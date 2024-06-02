@@ -41,12 +41,12 @@ namespace Wino.Core.Synchronizers
         private readonly ConfigurableHttpClient _gmailHttpClient;
         private readonly GmailService _gmailService;
         private readonly IAuthenticator _authenticator;
-        private readonly IDefaultChangeProcessor _gmailChangeProcessor;
+        private readonly IGmailChangeProcessor _gmailChangeProcessor;
         private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
         public GmailSynchronizer(MailAccount account,
                                  IAuthenticator authenticator,
-                                 IDefaultChangeProcessor gmailChangeProcessor) : base(account)
+                                 IGmailChangeProcessor gmailChangeProcessor) : base(account)
         {
             var messageHandler = new GmailClientMessageHandler(() => _authenticator.GetTokenAsync(Account));
 
