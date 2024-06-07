@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "Имя пользователя",
     "AccountEditDialog_Title": "Редактировать учетную запись",
     "AccountPickerDialog_Title": "Выберите учетную запись",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "Добавить",
     "AutoDiscoveryProgressMessage": "Поиск настроек почты...",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "Расширенная конфигурация",
