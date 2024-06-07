@@ -28,7 +28,7 @@
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86</AppxBundlePlatforms>
+    <AppxBundlePlatforms>arm64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
@@ -57,13 +57,9 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <!-- .NET Native Shit -->
-    <Use64BitCompiler>true</Use64BitCompiler>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <SingleThreadNUTC>true</SingleThreadNUTC>
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
-    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
-    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
     <!-- Opt-in to generate PDB's out of process -->
   </PropertyGroup>
@@ -89,15 +85,10 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <!-- .NET Native Shit -->
-    <Use64BitCompiler>true</Use64BitCompiler>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <SingleThreadNUTC>true</SingleThreadNUTC>
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
-    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
-    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
-    <!-- Opt-in to generate PDB's out of process -->
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
     <DebugSymbols>true</DebugSymbols>
@@ -122,15 +113,10 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
     <!-- .NET Native Shit -->
-    <Use64BitCompiler>true</Use64BitCompiler>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <SingleThreadNUTC>true</SingleThreadNUTC>
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
-    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
-    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
-    <!-- Opt-in to generate PDB's out of process -->
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -154,15 +140,10 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <!-- .NET Native Shit -->
-    <Use64BitCompiler>true</Use64BitCompiler>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <SingleThreadNUTC>true</SingleThreadNUTC>
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
-    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
-    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
-    <!-- Opt-in to generate PDB's out of process -->
   </PropertyGroup>
   <PropertyGroup>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
@@ -208,6 +189,11 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection">
       <Version>8.0.0</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Net.Native.Compiler">
+      <Version>2.2.12-rel-33220-00</Version>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.2.14</Version>
