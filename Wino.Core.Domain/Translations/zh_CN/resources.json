@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "账户名称",
     "AccountEditDialog_Title": "编辑账户",
     "AccountPickerDialog_Title": "选择账户",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "添加",
     "AutoDiscoveryProgressMessage": "正在搜索邮件设置…",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "高级设置",
