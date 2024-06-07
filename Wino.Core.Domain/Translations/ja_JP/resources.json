@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "アカウント名",
     "AccountEditDialog_Title": "アカウントの編集",
     "AccountPickerDialog_Title": "アカウントを選択",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "追加",
     "AutoDiscoveryProgressMessage": "メール設定を検索中...",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "詳細設定",

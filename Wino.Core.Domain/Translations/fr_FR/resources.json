@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "Nom du compte",
     "AccountEditDialog_Title": "Modifier le compte",
     "AccountPickerDialog_Title": "Choisir un compte",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "Ajouter",
     "AutoDiscoveryProgressMessage": "Recherche des paramètres de messagerie...",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "Paramètres avancés",
