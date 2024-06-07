@@ -6,8 +6,8 @@ using Microsoft.AppCenter.Analytics;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Messages.Mails;
 

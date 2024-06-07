@@ -661,7 +661,7 @@ namespace Wino.Mail.ViewModels
                 }
 
                 clickedBaseAccountMenuItem.IsSelected = true;
-                
+
 
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
 

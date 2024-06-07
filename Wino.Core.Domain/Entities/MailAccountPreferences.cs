@@ -26,11 +26,6 @@ namespace Wino.Core.Domain.Entities
         public bool IsNotificationsEnabled { get; set; }
 
         /// <summary>
-        /// Gets or sets the custom account identifier color in hex.
-        /// </summary>
-        public string AccountColorHex { get; set; }
-
-        /// <summary>
         /// Gets or sets whether the account has Focused inbox support.
         /// Null if the account provider type doesn't support Focused inbox.
         /// </summary>

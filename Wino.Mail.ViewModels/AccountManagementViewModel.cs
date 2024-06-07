@@ -146,23 +146,22 @@ namespace Wino.Mail.ViewModels
                 var providers = _providerService.GetProviderDetails();
 
                 // Select provider.
-                var accountInformationTuple = await _dialogService.ShowNewAccountMailProviderDialogAsync(providers);
+                var accountCreationDialogResult = await _dialogService.ShowNewAccountMailProviderDialogAsync(providers);
 
-                if (accountInformationTuple != null)
+                if (accountCreationDialogResult != null)
                 {
-                    creationDialog = _dialogService.GetAccountCreationDialog(accountInformationTuple.Item2);
+                    creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
-                    var accountName = accountInformationTuple.Item1;
-                    var providerType = accountInformationTuple.Item2;
-
-                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(providerType);
+                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
 
                     CustomServerInformation customServerInformation = null;
 
                     createdAccount = new MailAccount()
                     {
-                        ProviderType = providerType,
-                        Name = accountName,
+                        ProviderType = accountCreationDialogResult.ProviderType,
+                        Name = accountCreationDialogResult.AccountName,
+                        SenderName = accountCreationDialogResult.SenderName,
+                        AccountColorHex = accountCreationDialogResult.AccountColorHex,
                         Id = Guid.NewGuid()
                     };
 
@@ -184,6 +183,7 @@ namespace Wino.Mail.ViewModels
 
                         createdAccount.Address = customServerInformation.Address;
                         createdAccount.ServerInformation = customServerInformation;
+                        createdAccount.SenderName = customServerInformation.DisplayName;
                     }
                     else
                     {

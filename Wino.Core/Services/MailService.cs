@@ -58,14 +58,7 @@ namespace Wino.Core.Services
 
             string fromName;
 
-            if (isImapAccount)
-                fromName = composerAccount.ServerInformation.DisplayName;
-            else
-            {
-                var composerContact = await _contactService.GetAddressInformationByAddressAsync(composerAccount.Address);
-
-                fromName = composerContact?.Name ?? composerAccount.Address;
-            }
+            fromName = composerAccount.SenderName;
 
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -629,19 +622,7 @@ namespace Wino.Core.Services
             var reason = draftCreationOptions.Reason;
             var referenceMessage = draftCreationOptions.ReferenceMimeMessage;
 
-            // For API synchronizers we should get this from contacts.
-            if (account.ServerInformation == null)
-            {
-                var fromContact = await _contactService.GetAddressInformationByAddressAsync(account.Address).ConfigureAwait(false)
-                ?? new AddressInformation() { Name = account.Address, Address = account.Address };
-
-                message.From.Add(new MailboxAddress(fromContact.Name, fromContact.Address));
-            }
-            else
-            {
-                // For IMAP synchronizer, we have already Display Name in the settings.
-                message.From.Add(new MailboxAddress(account.ServerInformation.DisplayName, account.ServerInformation.Address));
-            }
+            message.From.Add(new MailboxAddress(account.SenderName, account.Address));
 
             // Manage "To"
             if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces
@@ -25,7 +26,7 @@ namespace Wino.Core.Domain.Interfaces
 
         // Custom dialogs
         Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
-        Task<Tuple<string, MailProviderType>> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders);
+        Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders);
         IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
         Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription);
         Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);

@@ -12,6 +12,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Shell;
@@ -108,7 +109,7 @@ namespace Wino.Services
             return await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, question, confirmationButtonTitle));
         }
 
-        public async Task<Tuple<string, MailProviderType>> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders)
+        public async Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders)
         {
             var dialog = new NewAccountDialog
             {
@@ -118,7 +119,7 @@ namespace Wino.Services
 
             await HandleDialogPresentationAsync(dialog);
 
-            return dialog.AccountInformationTuple;
+            return dialog.Result;
         }
 
         public IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)

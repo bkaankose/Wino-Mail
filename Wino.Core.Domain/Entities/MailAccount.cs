@@ -20,7 +20,7 @@ namespace Wino.Core.Domain.Entities
         /// IMAP is populated by user on setup dialog.
         /// </summary>
 
-        public string ProfileName { get; set; }
+        public string SenderName { get; set; }
 
         /// <summary>
         /// Account e-mail address.
@@ -38,6 +38,11 @@ namespace Wino.Core.Domain.Entities
         /// Outlook: deltaToken
         /// </summary>
         public string SynchronizationDeltaIdentifier { get; set; }
+
+        /// <summary>
+        /// TODO: Gets or sets the custom account identifier color in hex.
+        /// </summary>
+        public string AccountColorHex { get; set; }
 
         /// <summary>
         /// Gets or sets the signature to be used for this account.
