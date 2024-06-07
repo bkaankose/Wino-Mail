@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "Nama Akun",
     "AccountEditDialog_Title": "Sunting Akun",
     "AccountPickerDialog_Title": "Pilih akun",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "Tambahkan",
     "AutoDiscoveryProgressMessage": "Mencari pengaturan surel...",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "Pengaturan Lanjutan",
