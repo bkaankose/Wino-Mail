@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "Název účtu",
     "AccountEditDialog_Title": "Upravit účet",
     "AccountPickerDialog_Title": "Vybrat účet",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "Přidat",
     "AutoDiscoveryProgressMessage": "Vyhledávání v nastaveních mailu...",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "Pokročilá nastavení",
