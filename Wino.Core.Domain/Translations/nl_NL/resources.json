@@ -6,6 +6,8 @@
     "AccountEditDialog_Message": "Accountnaam",
     "AccountEditDialog_Title": "Bewerk account",
     "AccountPickerDialog_Title": "Kies een account",
+    "AccountSettingsDialog_AccountName": "Sender Display Name",
+    "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "Toevoegen",
     "AutoDiscoveryProgressMessage": "Zoeken naar mailinstellingen...",
     "BasicIMAPSetupDialog_AdvancedConfiguration": "Geavanceerde configuratie",
