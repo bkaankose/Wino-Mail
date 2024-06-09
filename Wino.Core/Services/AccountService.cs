@@ -423,7 +423,7 @@ namespace Wino.Core.Services
 
                 if (account == null)
                 {
-                    _logger.Error("Could not find account with id {AccountId}", pair.Key);
+                    _logger.Information("Could not find account with id {Key} for reordering. It may be a linked account.", pair.Key);
                     continue;
                 }
 
@@ -431,6 +431,8 @@ namespace Wino.Core.Services
 
                 await Connection.UpdateAsync(account);
             }
+
+            Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
         }
     }
 }

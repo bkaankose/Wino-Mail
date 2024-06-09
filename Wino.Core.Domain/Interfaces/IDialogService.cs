@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -31,6 +32,13 @@ namespace Wino.Core.Domain.Interfaces
         Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription);
         Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);
         Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
+
+        /// <summary>
+        /// Displays a dialog to the user for reordering accounts.
+        /// </summary>
+        /// <param name="availableAccounts">Available accounts in order.</param>
+        /// <returns>Result model that has dict of AccountId-AccountOrder.</returns>
+        Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts);
 
         /// <summary>
         /// Presents a dialog to the user for selecting folder.

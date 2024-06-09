@@ -264,11 +264,8 @@ namespace Wino.Mail.ViewModels
                                                  mergedAccountProviderDetailViewModel));
         }
 
-        [RelayCommand]
-        private async Task ReorderAccountsAsync()
-        {
-
-        }
+        [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
+        private Task ReorderAccountsAsync() => DialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
