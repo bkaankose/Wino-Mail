@@ -42,6 +42,7 @@ namespace Wino.Mail.ViewModels
         public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
         public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
         public bool HasAccountsDefined => Accounts != null && Accounts.Any();
+        public bool CanReorderAccounts => Accounts?.Count > 1;
 
         public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, Accounts.Count, FREE_ACCOUNT_COUNT);
 
@@ -263,6 +264,9 @@ namespace Wino.Mail.ViewModels
                                                  mergedAccountProviderDetailViewModel));
         }
 
+        [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
+        private Task ReorderAccountsAsync() => DialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
+
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
@@ -276,6 +280,9 @@ namespace Wino.Mail.ViewModels
         {
             OnPropertyChanged(nameof(HasAccountsDefined));
             OnPropertyChanged(nameof(UsedAccountsString));
+            OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
+
+            ReorderAccountsCommand.NotifyCanExecuteChanged();
         }
 
         private void PagePropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
