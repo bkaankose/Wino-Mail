@@ -35,7 +35,7 @@ namespace Wino.Dialogs
         private static void OnSelectedProviderChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
         {
             if (obj is NewAccountDialog dialog)
-                dialog.ValidateCreateButton();
+                dialog.Validate();
         }
 
         private void CancelClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
@@ -45,7 +45,7 @@ namespace Wino.Dialogs
 
         private void CreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
-            ValidateCreateButton();
+            Validate();
 
             if (IsSecondaryButtonEnabled)
             {
@@ -54,8 +54,14 @@ namespace Wino.Dialogs
             }
         }
 
-        private void AccountNameChanged(object sender, TextChangedEventArgs e) => ValidateCreateButton();
-        private void SenderNameChanged(object sender, TextChangedEventArgs e) => ValidateCreateButton();
+        private void AccountNameChanged(object sender, TextChangedEventArgs e) => Validate();
+        private void SenderNameChanged(object sender, TextChangedEventArgs e) => Validate();
+
+        private void Validate()
+        {
+            ValidateCreateButton();
+            ValidateNames();
+        }
 
         // Returns whether we can create account or not.
         private void ValidateCreateButton()
@@ -63,14 +69,17 @@ namespace Wino.Dialogs
             bool shouldEnable = SelectedMailProvider != null
                 && SelectedMailProvider.IsSupported
                 && !string.IsNullOrEmpty(AccountNameTextbox.Text)
-                && !string.IsNullOrWhiteSpace(SenderNameTextbox.Text);
+                && (SelectedMailProvider.RequireSenderNameOnCreationDialog ? !string.IsNullOrEmpty(SenderNameTextbox.Text) : true);
 
             IsPrimaryButtonEnabled = shouldEnable;
         }
 
-        private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+        private void ValidateNames()
         {
-            ValidateCreateButton();
+            AccountNameTextbox.IsEnabled = SelectedMailProvider != null;
+            SenderNameTextbox.IsEnabled = SelectedMailProvider != null && SelectedMailProvider.Type != Core.Domain.Enums.MailProviderType.IMAP4;
         }
+
+        private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args) => Validate();
     }
 }
