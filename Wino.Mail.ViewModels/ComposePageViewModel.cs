@@ -160,15 +160,7 @@ namespace Wino.Mail.ViewModels
             isUpdatingMimeBlocked = true;
 
             var assignedAccount = CurrentMailDraftItem.AssignedAccount;
-
-            MailItemFolder sentFolder = null;
-
-            // Load the Sent folder if user wanted to have a copy there.
-            if (assignedAccount.Preferences.ShouldAppendMessagesToSentFolder)
-            {
-                sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
-            }
-
+            var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
             var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, currentMimeMessage, CurrentMailDraftItem.AssignedFolder, sentFolder, CurrentMailDraftItem.AssignedAccount.Preferences);
 
             await _worker.ExecuteAsync(draftSendPreparationRequest);
