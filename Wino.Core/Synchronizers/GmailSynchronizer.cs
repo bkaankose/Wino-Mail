@@ -664,8 +664,17 @@ namespace Wino.Core.Synchronizers
                                                                ITransferProgress transferProgress = null,
                                                                CancellationToken cancellationToken = default)
         {
-            var gmailMessage = await _gmailService.Users.Messages.Get("me", mailItem.Id).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var request = _gmailService.Users.Messages.Get("me", mailItem.Id);
+            request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
+
+            var gmailMessage = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
             var mimeMessage = gmailMessage.GetGmailMimeMessage();
+
+            if (mimeMessage == null)
+            {
+                _logger.Warning("Tried to download Gmail Raw Mime with {Id} id and server responded without a data.", mailItem.Id);
+                return;
+            }
 
             await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
