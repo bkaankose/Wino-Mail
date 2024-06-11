@@ -686,7 +686,8 @@ namespace Wino.Core.Synchronizers
             var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
             var mailCopy = message.AsMailCopy();
 
-            if (mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
+            if (message.IsDraft.GetValueOrDefault()
+                && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
                 && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
             {
                 // This message belongs to existing local draft copy.

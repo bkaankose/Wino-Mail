@@ -148,6 +148,12 @@ namespace Wino.Core.Synchronizers
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
+                // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
+                if (options.Type == SynchronizationType.ExecuteRequests)
+                {
+                    await Task.Delay(2000);
+                }
+
                 // Start the internal synchronization.
                 var synchronizationResult = await SynchronizeInternalAsync(options, activeSynchronizationCancellationToken).ConfigureAwait(false);
 
