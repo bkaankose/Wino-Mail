@@ -406,6 +406,8 @@ namespace Wino.Core.Synchronizers
 
         #region Mail Integration
 
+        public override bool DelaySendOperationSynchronization() => true;
+
         public override IEnumerable<IRequestBundle<RequestInformation>> Move(BatchMoveRequest request)
         {
             var requestBody = new Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody()
