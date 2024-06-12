@@ -148,11 +148,11 @@ namespace Wino.Mail.ViewModels
         }
 
         [RelayCommand]
-        private async Task RemoveSignatureAsync(AccountSignature signatureModel)
+        private async Task DeleteSignatureAsync(AccountSignature signatureModel)
         {
-            var dialogResult = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.SignatureDeleteDialog_Message, signatureModel.Name), Translator.SignatureDeleteDialog_Title, Translator.Buttons_Delete);
+            var shouldRemove = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.SignatureDeleteDialog_Message, signatureModel.Name), Translator.SignatureDeleteDialog_Title, Translator.Buttons_Delete);
 
-            if (!dialogResult) return;
+            if (!shouldRemove) return;
 
             Signatures.Remove(signatureModel);
             await _signatureService.DeleteSignatureAsync(signatureModel);

@@ -41,7 +41,7 @@
                             <controls1:SettingsCard Header="{x:Bind domain:Translator.SettingsSignature_DeleteSignature_Title}">
                                 <Button
                                     Background="Red"
-                                    Command="{Binding ViewModel.RemoveSignatureCommand, Mode=OneWay, ElementName=root}"
+                                    Command="{Binding ViewModel.DeleteSignatureCommand, Mode=OneWay, ElementName=root}"
                                     CommandParameter="{x:Bind}"
                                     Content="{x:Bind domain:Translator.Buttons_Delete}" />
                             </controls1:SettingsCard>
@@ -52,66 +52,67 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid RowSpacing="41">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-        <controls1:SettingsCard
-            Grid.Row="0"
-            Header="{x:Bind domain:Translator.SettingsSignature_Title}"
-            IsClickEnabled="False">
-            <controls1:SettingsCard.HeaderIcon>
-                <PathIcon Data="F1 M 17.060547 2.832031 C 17.151691 2.884115 17.226562 2.958984 17.285156 3.056641 C 17.34375 3.154297 17.373047 3.258465 17.373047 3.369141 C 17.373047 3.421225 17.366535 3.470053 17.353516 3.515625 C 17.340494 3.561199 17.324219 3.606771 17.304688 3.652344 L 10.400391 17.470703 C 10.341797 17.5944 10.25065 17.685547 10.126953 17.744141 L 8.4375 18.59375 C 8.229166 18.697916 8.004557 18.75 7.763672 18.75 C 7.73112 18.75 7.700195 18.75 7.670898 18.75 C 7.641602 18.75 7.610677 18.746744 7.578125 18.740234 L 7.119141 19.658203 C 7.067057 19.762369 6.99056 19.845377 6.889648 19.907227 C 6.788736 19.969076 6.679687 20 6.5625 20 C 6.393229 20 6.246745 19.93815 6.123047 19.814453 C 5.999349 19.690756 5.9375 19.544271 5.9375 19.375 C 5.9375 19.296875 5.960286 19.199219 6.005859 19.082031 C 6.051432 18.964844 6.105143 18.842773 6.166992 18.71582 C 6.228841 18.588867 6.292317 18.470053 6.357422 18.359375 C 6.422526 18.248697 6.471354 18.157553 6.503906 18.085938 C 6.334635 17.825521 6.25 17.542318 6.25 17.236328 L 6.25 15.625 C 6.25 15.520834 6.272786 15.426433 6.318359 15.341797 L 11.943359 4.091797 L 11.308594 3.779297 L 8.994141 8.408203 C 8.942057 8.51237 8.86556 8.595378 8.764648 8.657227 C 8.663736 8.719076 8.554688 8.75 8.4375 8.75 C 8.268229 8.75 8.121744 8.688151 7.998047 8.564453 C 7.874349 8.440756 7.8125 8.294271 7.8125 8.125 C 7.8125 8.040365 7.835286 7.945964 7.880859 7.841797 L 10.214844 3.173828 C 10.31901 2.965496 10.458984 2.801107 10.634766 2.680664 C 10.810547 2.560223 11.015625 2.5 11.25 2.5 C 11.477864 2.5 11.694336 2.55534 11.899414 2.666016 C 12.104492 2.776693 12.304688 2.880859 12.5 2.978516 L 13.193359 1.591797 C 13.245441 1.481121 13.321939 1.396484 13.422852 1.337891 C 13.523763 1.279297 13.632812 1.25 13.75 1.25 C 13.834635 1.25 13.90625 1.263021 13.964844 1.289062 C 14.042969 1.132812 14.119466 0.978191 14.194336 0.825195 C 14.269205 0.672201 14.353841 0.533855 14.448242 0.410156 C 14.542643 0.286459 14.658202 0.187176 14.794922 0.112305 C 14.93164 0.037436 15.104166 0 15.3125 0 C 15.520833 0 15.7194 0.048828 15.908203 0.146484 L 16.826172 0.605469 C 17.034504 0.709637 17.198893 0.847982 17.319336 1.020508 C 17.439777 1.193035 17.5 1.39974 17.5 1.640625 C 17.5 1.86198 17.449543 2.068686 17.348633 2.260742 C 17.247721 2.452801 17.151691 2.64323 17.060547 2.832031 Z M 15.087891 1.845703 L 15.9375 2.265625 L 16.220703 1.699219 L 15.371094 1.279297 Z M 15.908203 3.652344 L 14.033203 2.714844 L 7.5 15.771484 L 7.5 17.236328 C 7.5 17.307943 7.526041 17.369791 7.578125 17.421875 C 7.630208 17.473959 7.692057 17.5 7.763672 17.5 C 7.789713 17.5 7.843424 17.483725 7.924805 17.451172 C 8.006185 17.418619 8.100586 17.376303 8.208008 17.324219 C 8.31543 17.272135 8.429361 17.21517 8.549805 17.15332 C 8.670247 17.091471 8.785807 17.03125 8.896484 16.972656 C 9.007161 16.914062 9.104817 16.861979 9.189453 16.816406 C 9.274088 16.770834 9.335938 16.738281 9.375 16.71875 Z M 17.5 7.5 C 17.845051 7.5 18.168945 7.565104 18.47168 7.695312 C 18.774414 7.825521 19.039713 8.004558 19.267578 8.232422 C 19.495441 8.460287 19.674479 8.725586 19.804688 9.02832 C 19.934895 9.331055 20 9.654948 20 10 C 20 10.345053 19.934895 10.668945 19.804688 10.97168 C 19.674479 11.274414 19.495441 11.539714 19.267578 11.767578 C 19.039713 11.995443 18.774414 12.174479 18.47168 12.304688 C 18.168945 12.434896 17.845051 12.5 17.5 12.5 L 14.6875 12.5 L 15.3125 11.25 L 17.5 11.25 C 17.675781 11.25 17.838541 11.217448 17.988281 11.152344 C 18.13802 11.08724 18.269855 10.997722 18.383789 10.883789 C 18.497721 10.769857 18.587238 10.638021 18.652344 10.488281 C 18.717447 10.338542 18.75 10.175781 18.75 10 C 18.75 9.824219 18.717447 9.661459 18.652344 9.511719 C 18.587238 9.361979 18.497721 9.230144 18.383789 9.116211 C 18.269855 9.002279 18.13802 8.912761 17.988281 8.847656 C 17.838541 8.782553 17.675781 8.75 17.5 8.75 C 17.330729 8.75 17.184244 8.688151 17.060547 8.564453 C 16.936848 8.440756 16.875 8.294271 16.875 8.125 C 16.875 7.95573 16.936848 7.809246 17.060547 7.685547 C 17.184244 7.56185 17.330729 7.5 17.5 7.5 Z M 1.25 15.625 C 1.25 16.054688 1.33138 16.459961 1.494141 16.84082 C 1.656901 17.22168 1.879883 17.553711 2.163086 17.836914 C 2.446289 18.120117 2.77832 18.3431 3.15918 18.505859 C 3.540039 18.668619 3.945312 18.75 4.375 18.75 L 4.804688 18.75 C 4.772135 18.847656 4.744466 18.948568 4.72168 19.052734 C 4.698893 19.1569 4.6875 19.264322 4.6875 19.375 C 4.6875 19.485678 4.698893 19.5931 4.72168 19.697266 C 4.744466 19.801432 4.772135 19.902344 4.804688 20 L 4.375 20 C 3.769531 20 3.201497 19.884439 2.670898 19.65332 C 2.140299 19.422201 1.67806 19.109701 1.28418 18.71582 C 0.890299 18.321939 0.577799 17.859701 0.34668 17.329102 C 0.11556 16.798502 0 16.230469 0 15.625 C 0 15.019531 0.11556 14.451498 0.34668 13.920898 C 0.577799 13.3903 0.890299 12.928061 1.28418 12.53418 C 1.67806 12.1403 2.140299 11.8278 2.670898 11.59668 C 3.201497 11.365561 3.769531 11.25 4.375 11.25 L 6.5625 11.25 L 5.9375 12.5 L 4.375 12.5 C 3.945312 12.5 3.540039 12.583008 3.15918 12.749023 C 2.77832 12.915039 2.446289 13.139648 2.163086 13.422852 C 1.879883 13.706055 1.656901 14.036459 1.494141 14.414062 C 1.33138 14.791667 1.25 15.195312 1.25 15.625 Z " />
-            </controls1:SettingsCard.HeaderIcon>
-            <ToggleSwitch IsOn="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
-        </controls1:SettingsCard>
-
-        <StackPanel Grid.Row="1" Spacing="4">
-            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_SignatureDefaults}" />
+    <ScrollViewer>
+        <Grid RowSpacing="41">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <controls1:SettingsCard
-                Header="{x:Bind domain:Translator.SettingsSignature_ForNewMessages_Title}"
-                IsActionIconVisible="False"
-                IsClickEnabled="False"
-                IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
-                <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForNewMessagesIndex, Mode=TwoWay}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="entities:AccountSignature">
-                            <TextBlock Text="{x:Bind Name}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-
-            </controls1:SettingsCard>
-            <controls1:SettingsCard
-                Header="{x:Bind domain:Translator.SettingsSignature_ForFollowingMessages_Title}"
-                IsActionIconVisible="False"
-                IsClickEnabled="False"
-                IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
-                <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForFollowingMessagesIndex, Mode=TwoWay}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="entities:AccountSignature">
-                            <TextBlock Text="{x:Bind Name}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-            </controls1:SettingsCard>
-        </StackPanel>
-
-        <StackPanel Grid.Row="2" Spacing="3">
-            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_Signatures}" />
-            <controls1:SettingsCard
-                Header="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Title}"
-                IsActionIconVisible="False"
+                Grid.Row="0"
+                Header="{x:Bind domain:Translator.SettingsSignature_Title}"
                 IsClickEnabled="False">
-                <Button
-                    Command="{x:Bind ViewModel.OpenSignatureEditorCreateCommand}"
-                    Content="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Button}"
-                    Style="{StaticResource AccentButtonStyle}" />
+                <controls1:SettingsCard.HeaderIcon>
+                    <PathIcon Data="F1 M 17.060547 2.832031 C 17.151691 2.884115 17.226562 2.958984 17.285156 3.056641 C 17.34375 3.154297 17.373047 3.258465 17.373047 3.369141 C 17.373047 3.421225 17.366535 3.470053 17.353516 3.515625 C 17.340494 3.561199 17.324219 3.606771 17.304688 3.652344 L 10.400391 17.470703 C 10.341797 17.5944 10.25065 17.685547 10.126953 17.744141 L 8.4375 18.59375 C 8.229166 18.697916 8.004557 18.75 7.763672 18.75 C 7.73112 18.75 7.700195 18.75 7.670898 18.75 C 7.641602 18.75 7.610677 18.746744 7.578125 18.740234 L 7.119141 19.658203 C 7.067057 19.762369 6.99056 19.845377 6.889648 19.907227 C 6.788736 19.969076 6.679687 20 6.5625 20 C 6.393229 20 6.246745 19.93815 6.123047 19.814453 C 5.999349 19.690756 5.9375 19.544271 5.9375 19.375 C 5.9375 19.296875 5.960286 19.199219 6.005859 19.082031 C 6.051432 18.964844 6.105143 18.842773 6.166992 18.71582 C 6.228841 18.588867 6.292317 18.470053 6.357422 18.359375 C 6.422526 18.248697 6.471354 18.157553 6.503906 18.085938 C 6.334635 17.825521 6.25 17.542318 6.25 17.236328 L 6.25 15.625 C 6.25 15.520834 6.272786 15.426433 6.318359 15.341797 L 11.943359 4.091797 L 11.308594 3.779297 L 8.994141 8.408203 C 8.942057 8.51237 8.86556 8.595378 8.764648 8.657227 C 8.663736 8.719076 8.554688 8.75 8.4375 8.75 C 8.268229 8.75 8.121744 8.688151 7.998047 8.564453 C 7.874349 8.440756 7.8125 8.294271 7.8125 8.125 C 7.8125 8.040365 7.835286 7.945964 7.880859 7.841797 L 10.214844 3.173828 C 10.31901 2.965496 10.458984 2.801107 10.634766 2.680664 C 10.810547 2.560223 11.015625 2.5 11.25 2.5 C 11.477864 2.5 11.694336 2.55534 11.899414 2.666016 C 12.104492 2.776693 12.304688 2.880859 12.5 2.978516 L 13.193359 1.591797 C 13.245441 1.481121 13.321939 1.396484 13.422852 1.337891 C 13.523763 1.279297 13.632812 1.25 13.75 1.25 C 13.834635 1.25 13.90625 1.263021 13.964844 1.289062 C 14.042969 1.132812 14.119466 0.978191 14.194336 0.825195 C 14.269205 0.672201 14.353841 0.533855 14.448242 0.410156 C 14.542643 0.286459 14.658202 0.187176 14.794922 0.112305 C 14.93164 0.037436 15.104166 0 15.3125 0 C 15.520833 0 15.7194 0.048828 15.908203 0.146484 L 16.826172 0.605469 C 17.034504 0.709637 17.198893 0.847982 17.319336 1.020508 C 17.439777 1.193035 17.5 1.39974 17.5 1.640625 C 17.5 1.86198 17.449543 2.068686 17.348633 2.260742 C 17.247721 2.452801 17.151691 2.64323 17.060547 2.832031 Z M 15.087891 1.845703 L 15.9375 2.265625 L 16.220703 1.699219 L 15.371094 1.279297 Z M 15.908203 3.652344 L 14.033203 2.714844 L 7.5 15.771484 L 7.5 17.236328 C 7.5 17.307943 7.526041 17.369791 7.578125 17.421875 C 7.630208 17.473959 7.692057 17.5 7.763672 17.5 C 7.789713 17.5 7.843424 17.483725 7.924805 17.451172 C 8.006185 17.418619 8.100586 17.376303 8.208008 17.324219 C 8.31543 17.272135 8.429361 17.21517 8.549805 17.15332 C 8.670247 17.091471 8.785807 17.03125 8.896484 16.972656 C 9.007161 16.914062 9.104817 16.861979 9.189453 16.816406 C 9.274088 16.770834 9.335938 16.738281 9.375 16.71875 Z M 17.5 7.5 C 17.845051 7.5 18.168945 7.565104 18.47168 7.695312 C 18.774414 7.825521 19.039713 8.004558 19.267578 8.232422 C 19.495441 8.460287 19.674479 8.725586 19.804688 9.02832 C 19.934895 9.331055 20 9.654948 20 10 C 20 10.345053 19.934895 10.668945 19.804688 10.97168 C 19.674479 11.274414 19.495441 11.539714 19.267578 11.767578 C 19.039713 11.995443 18.774414 12.174479 18.47168 12.304688 C 18.168945 12.434896 17.845051 12.5 17.5 12.5 L 14.6875 12.5 L 15.3125 11.25 L 17.5 11.25 C 17.675781 11.25 17.838541 11.217448 17.988281 11.152344 C 18.13802 11.08724 18.269855 10.997722 18.383789 10.883789 C 18.497721 10.769857 18.587238 10.638021 18.652344 10.488281 C 18.717447 10.338542 18.75 10.175781 18.75 10 C 18.75 9.824219 18.717447 9.661459 18.652344 9.511719 C 18.587238 9.361979 18.497721 9.230144 18.383789 9.116211 C 18.269855 9.002279 18.13802 8.912761 17.988281 8.847656 C 17.838541 8.782553 17.675781 8.75 17.5 8.75 C 17.330729 8.75 17.184244 8.688151 17.060547 8.564453 C 16.936848 8.440756 16.875 8.294271 16.875 8.125 C 16.875 7.95573 16.936848 7.809246 17.060547 7.685547 C 17.184244 7.56185 17.330729 7.5 17.5 7.5 Z M 1.25 15.625 C 1.25 16.054688 1.33138 16.459961 1.494141 16.84082 C 1.656901 17.22168 1.879883 17.553711 2.163086 17.836914 C 2.446289 18.120117 2.77832 18.3431 3.15918 18.505859 C 3.540039 18.668619 3.945312 18.75 4.375 18.75 L 4.804688 18.75 C 4.772135 18.847656 4.744466 18.948568 4.72168 19.052734 C 4.698893 19.1569 4.6875 19.264322 4.6875 19.375 C 4.6875 19.485678 4.698893 19.5931 4.72168 19.697266 C 4.744466 19.801432 4.772135 19.902344 4.804688 20 L 4.375 20 C 3.769531 20 3.201497 19.884439 2.670898 19.65332 C 2.140299 19.422201 1.67806 19.109701 1.28418 18.71582 C 0.890299 18.321939 0.577799 17.859701 0.34668 17.329102 C 0.11556 16.798502 0 16.230469 0 15.625 C 0 15.019531 0.11556 14.451498 0.34668 13.920898 C 0.577799 13.3903 0.890299 12.928061 1.28418 12.53418 C 1.67806 12.1403 2.140299 11.8278 2.670898 11.59668 C 3.201497 11.365561 3.769531 11.25 4.375 11.25 L 6.5625 11.25 L 5.9375 12.5 L 4.375 12.5 C 3.945312 12.5 3.540039 12.583008 3.15918 12.749023 C 2.77832 12.915039 2.446289 13.139648 2.163086 13.422852 C 1.879883 13.706055 1.656901 14.036459 1.494141 14.414062 C 1.33138 14.791667 1.25 15.195312 1.25 15.625 Z " />
+                </controls1:SettingsCard.HeaderIcon>
+                <ToggleSwitch IsOn="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
             </controls1:SettingsCard>
-            <ItemsControl ItemTemplate="{StaticResource SignatureDialogTemplate}" ItemsSource="{x:Bind ViewModel.Signatures}" />
-        </StackPanel>
-    </Grid>
+
+            <StackPanel Grid.Row="1" Spacing="4">
+                <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_SignatureDefaults}" />
+                <controls1:SettingsCard
+                    Header="{x:Bind domain:Translator.SettingsSignature_ForNewMessages_Title}"
+                    IsActionIconVisible="False"
+                    IsClickEnabled="False"
+                    IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForNewMessagesIndex, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="entities:AccountSignature">
+                                <TextBlock Text="{x:Bind Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                </controls1:SettingsCard>
+                <controls1:SettingsCard
+                    Header="{x:Bind domain:Translator.SettingsSignature_ForFollowingMessages_Title}"
+                    IsActionIconVisible="False"
+                    IsClickEnabled="False"
+                    IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForFollowingMessagesIndex, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="entities:AccountSignature">
+                                <TextBlock Text="{x:Bind Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </controls1:SettingsCard>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Spacing="3">
+                <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_Signatures}" />
+                <controls1:SettingsCard
+                    Header="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Title}"
+                    IsActionIconVisible="False"
+                    IsClickEnabled="False">
+                    <Button
+                        Command="{x:Bind ViewModel.OpenSignatureEditorCreateCommand}"
+                        Content="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Button}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </controls1:SettingsCard>
+                <ItemsControl ItemTemplate="{StaticResource SignatureDialogTemplate}" ItemsSource="{x:Bind ViewModel.Signatures}" />
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
 </abstract:SignatureManagementPageAbstract>
