@@ -406,6 +406,8 @@ namespace Wino.Core.Synchronizers
 
         #region Mail Integration
 
+        public override bool DelaySendOperationSynchronization() => true;
+
         public override IEnumerable<IRequestBundle<RequestInformation>> Move(BatchMoveRequest request)
         {
             var requestBody = new Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody()
@@ -518,6 +520,56 @@ namespace Wino.Core.Synchronizers
 
                 return default;
             });
+        }
+
+        public override IEnumerable<IRequestBundle<RequestInformation>> SendDraft(BatchSendDraftRequestRequest request)
+        {
+            var sendDraftPreparationRequest = request.Request;
+
+            // 1. Delete draft
+            // 2. Create new Message with new MIME.
+            // 3. Make sure that conversation id is tagged correctly for replies.
+
+            var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
+            var mimeMessage = sendDraftPreparationRequest.Mime;
+
+            var batchDeleteRequest = new BatchDeleteRequest(new List<IRequest>()
+            {
+                new DeleteRequest(sendDraftPreparationRequest.MailItem)
+            });
+
+            var deleteBundle = Delete(batchDeleteRequest).ElementAt(0);
+
+            mimeMessage.Prepare(EncodingConstraint.None);
+
+            var plainTextBytes = Encoding.UTF8.GetBytes(mimeMessage.ToString());
+            var base64Encoded = Convert.ToBase64String(plainTextBytes);
+
+            var outlookMessage = new Message()
+            {
+                ConversationId = sendDraftPreparationRequest.MailItem.ThreadId
+            };
+
+            // Apply importance here as well just in case.
+            if (mimeMessage.Importance != MessageImportance.Normal)
+                outlookMessage.Importance = mimeMessage.Importance == MessageImportance.High ? Importance.High : Importance.Low;
+
+            var body = new Microsoft.Graph.Me.SendMail.SendMailPostRequestBody()
+            {
+                Message = outlookMessage
+            };
+
+            var sendRequest = _graphClient.Me.SendMail.ToPostRequestInformation(body);
+
+            sendRequest.Headers.Clear();
+            sendRequest.Headers.Add("Content-Type", "text/plain");
+
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded));
+            sendRequest.SetStreamContent(stream, "text/plain");
+
+            var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendRequest, request);
+
+            return [deleteBundle, sendMailRequest];
         }
 
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
@@ -636,7 +688,8 @@ namespace Wino.Core.Synchronizers
             var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
             var mailCopy = message.AsMailCopy();
 
-            if (mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
+            if (message.IsDraft.GetValueOrDefault()
+                && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
                 && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
             {
                 // This message belongs to existing local draft copy.

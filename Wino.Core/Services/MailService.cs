@@ -21,7 +21,7 @@ namespace Wino.Core.Services
 {
     public class MailService : BaseDatabaseService, IMailService
     {
-        private const int ItemLoadCount = 20;
+        private const int ItemLoadCount = 100;
 
         private readonly IFolderService _folderService;
         private readonly IContactService _contactService;
@@ -414,6 +414,14 @@ namespace Wino.Core.Services
             _logger.Debug("Deleting mail {Id} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
 
             await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
+
+            // If there are no more copies exists of the same mail, delete the MIME file as well.
+            var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
+
+            if (!isMailExists)
+            {
+                await _mimeFileService.DeleteMimeMessageAsync(mailCopy.AssignedAccount.Id, mailCopy.FileId).ConfigureAwait(false);
+            }
 
             ReportUIChange(new MailRemovedMessage(mailCopy));
         }

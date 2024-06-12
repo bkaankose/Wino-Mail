@@ -2064,6 +2064,18 @@ namespace Wino.Core.Domain
 		public static string SettingsManageAccountSettings_Title => Resources.GetTranslatedString(@"SettingsManageAccountSettings_Title");	
 	
         /// <summary>
+		/// Reorder Accounts
+		/// </summary>
+		public static string SettingsReorderAccounts_Title => Resources.GetTranslatedString(@"SettingsReorderAccounts_Title");	
+	
+
+        /// <summary>
+		/// Change the order of accounts in the account list.
+		/// </summary>
+		public static string SettingsReorderAccounts_Description => Resources.GetTranslatedString(@"SettingsReorderAccounts_Description");	
+	
+
+        /// <summary>
 		/// Move items to add new link or remove existing link.
 		/// </summary>
 		public static string SettingsManageLink_Description => Resources.GetTranslatedString(@"SettingsManageLink_Description");	

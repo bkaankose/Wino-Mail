@@ -664,8 +664,17 @@ namespace Wino.Core.Synchronizers
                                                                ITransferProgress transferProgress = null,
                                                                CancellationToken cancellationToken = default)
         {
-            var gmailMessage = await _gmailService.Users.Messages.Get("me", mailItem.Id).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var request = _gmailService.Users.Messages.Get("me", mailItem.Id);
+            request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
+
+            var gmailMessage = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
             var mimeMessage = gmailMessage.GetGmailMimeMessage();
+
+            if (mimeMessage == null)
+            {
+                _logger.Warning("Tried to download Gmail Raw Mime with {Id} id and server responded without a data.", mailItem.Id);
+                return;
+            }
 
             await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
@@ -891,7 +900,8 @@ namespace Wino.Core.Synchronizers
             // This seem to be a worse approach. Now both Outlook and Gmail use X-Wino-Draft-Id header to map drafts.
             // This is a better approach since we don't need to fetch the draft resource to get the draft id.
 
-            if (mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
+            if (mailCopy.IsDraft
+                && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
                 && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
             {
                 // This message belongs to existing local draft copy.

@@ -252,6 +252,9 @@
     <Compile Include="Dialogs\AccountPickerDialog.xaml.cs">
       <DependentUpon>AccountPickerDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Dialogs\AccountReorderDialog.xaml.cs">
+      <DependentUpon>AccountReorderDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
     <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
       <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
@@ -322,6 +325,7 @@
     <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
     <Compile Include="Helpers\XamlHelpers.cs" />
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
+    <Compile Include="Selectors\AccountReorderTemplateSelector.cs" />
     <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
     <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
     <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
@@ -484,6 +488,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Dialogs\AccountPickerDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\AccountReorderDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

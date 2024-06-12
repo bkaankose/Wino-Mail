@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -352,6 +353,16 @@ namespace Wino.Services
             var result = await HandleDialogPresentationAsync(signatureEditorDialog);
 
             return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
+        }
+
+        public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
+        {
+            var accountReorderDialog = new AccountReorderDialog(availableAccounts)
+            {
+                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(accountReorderDialog);
         }
     }
 }

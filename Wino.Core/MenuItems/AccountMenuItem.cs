@@ -58,6 +58,16 @@ namespace Wino.Core.MenuItems
             Parameter = account;
             AccountName = account.Name;
             AttentionReason = account.AttentionReason;
+
+            if (SubMenuItems == null) return;
+
+            foreach (var item in SubMenuItems)
+            {
+                if (item is IFolderMenuItem folderMenuItem)
+                {
+                    folderMenuItem.UpdateParentAccounnt(account);
+                }
+            }
         }
 
         private void UpdateFixAccountIssueMenuItem()

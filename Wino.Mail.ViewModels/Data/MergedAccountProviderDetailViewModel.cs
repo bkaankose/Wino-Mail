@@ -18,6 +18,12 @@ namespace Wino.Mail.ViewModels.Data
 
         public string StartupEntityTitle => MergedInbox.Name;
 
+        public int Order => 0;
+
+        public IProviderDetail ProviderDetail { get; set; }
+
+        public string StartupEntityAddresses => AccountAddresses;
+
         public MergedAccountProviderDetailViewModel(MergedInbox mergedInbox, List<AccountProviderDetailViewModel> holdingAccounts)
         {
             MergedInbox = mergedInbox;

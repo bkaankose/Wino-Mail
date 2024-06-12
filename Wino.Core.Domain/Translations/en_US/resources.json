@@ -408,6 +408,8 @@
     "SettingsFolderMenuStyle_Description": "Change whether account folders should be nested inside an account menu item or not. Toggle this off if you like the old menu system in Windows Mail",
     "SettingsManageAccountSettings_Description": "Notifications, signatures, synchronization and other settings per account.",
     "SettingsManageAccountSettings_Title": "Manage Account Settings",
+    "SettingsReorderAccounts_Title": "Reorder Accounts",
+    "SettingsReorderAccounts_Description": "Change the order of accounts in the account list.",
     "SettingsManageLink_Description": "Move items to add new link or remove existing link.",
     "SettingsManageLink_Title": "Manage Link",
     "SettingsMarkAsRead_Description": "Change what should happen to the selected item.",
