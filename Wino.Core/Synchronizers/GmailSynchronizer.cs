@@ -900,7 +900,8 @@ namespace Wino.Core.Synchronizers
             // This seem to be a worse approach. Now both Outlook and Gmail use X-Wino-Draft-Id header to map drafts.
             // This is a better approach since we don't need to fetch the draft resource to get the draft id.
 
-            if (mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
+            if (mailCopy.IsDraft
+                && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
                 && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
             {
                 // This message belongs to existing local draft copy.
