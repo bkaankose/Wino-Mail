@@ -3,282 +3,115 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
-    xmlns:helpers="using:Wino.Helpers"
-    xmlns:domain="using:Wino.Core.Domain"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:entities="using:Wino.Core.Domain.Entities"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    x:Name="root"
     mc:Ignorable="d">
 
-    <Grid RowSpacing="12">
+    <Page.Resources>
+        <DataTemplate x:Key="SignatureDialogTemplate" x:DataType="entities:AccountSignature">
+            <controls1:SwitchPresenter Value="{x:Bind Id}">
+                <!--  Case for "None" signature  -->
+                <controls1:Case Value="{Binding ViewModel.EmptyGuid, Mode=OneTime, ElementName=root}" />
+
+                <!--  Default case for regular signatures  -->
+                <controls1:Case IsDefault="True">
+                    <controls1:SettingsExpander Margin="0,0,0,3" Header="{x:Bind Name}">
+                        <controls1:SettingsExpander.HeaderIcon>
+                            <PathIcon
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Data="F1 M 19.375 17.5 C 19.54427 17.5 19.690754 17.560221 19.814453 17.680664 C 19.93815 17.801107 20 17.949219 20 18.125 C 20 18.28125 19.94466 18.424479 19.833984 18.554688 C 19.638672 18.782553 19.414062 18.986002 19.160156 19.165039 C 18.90625 19.344076 18.636066 19.495443 18.349609 19.619141 C 18.06315 19.742838 17.766926 19.83724 17.460938 19.902344 C 17.154947 19.967447 16.855469 20 16.5625 20 C 15.917969 20 15.322266 19.874674 14.775391 19.624023 C 14.228516 19.373373 13.733724 19.016928 13.291016 18.554688 C 12.972005 18.222656 12.617188 17.963867 12.226562 17.77832 C 11.835938 17.592773 11.40625 17.5 10.9375 17.5 C 10.481771 17.5 10.053711 17.592773 9.65332 17.77832 C 9.25293 17.963867 8.896484 18.222656 8.583984 18.554688 C 8.583984 18.554688 8.55306 18.583984 8.491211 18.642578 C 8.429361 18.701172 8.354492 18.774414 8.266602 18.862305 C 8.178711 18.950195 8.082682 19.046225 7.978516 19.150391 C 7.874349 19.254557 7.775064 19.352213 7.680664 19.443359 C 7.586263 19.534506 7.504883 19.615885 7.436523 19.6875 C 7.368164 19.759115 7.327474 19.801432 7.314453 19.814453 C 7.190755 19.93815 7.044271 20 6.875 20 C 6.705729 20 6.559244 19.93815 6.435547 19.814453 C 6.311849 19.690756 6.25 19.544271 6.25 19.375 C 6.25 19.205729 6.311849 19.059244 6.435547 18.935547 C 6.787109 18.583984 7.119141 18.245443 7.431641 17.919922 C 7.744141 17.5944 8.069661 17.307943 8.408203 17.060547 C 8.746744 16.813152 9.117838 16.616211 9.521484 16.469727 C 9.92513 16.323242 10.397135 16.25 10.9375 16.25 C 11.582031 16.25 12.177734 16.375326 12.724609 16.625977 C 13.271484 16.876627 13.766275 17.233072 14.208984 17.695312 C 14.527994 18.027344 14.882812 18.286133 15.273438 18.47168 C 15.664062 18.657227 16.09375 18.75 16.5625 18.75 C 17.057291 18.75 17.486979 18.657227 17.851562 18.47168 C 18.216145 18.286133 18.570963 18.027344 18.916016 17.695312 C 18.987629 17.630209 19.057617 17.581381 19.125977 17.548828 C 19.194336 17.516275 19.277344 17.5 19.375 17.5 Z M 12.060547 2.832031 C 12.151692 2.884115 12.226562 2.958984 12.285156 3.056641 C 12.34375 3.154297 12.373047 3.258465 12.373047 3.369141 C 12.373047 3.421225 12.366536 3.470053 12.353516 3.515625 C 12.340494 3.561199 12.324218 3.606771 12.304688 3.652344 L 5.400391 17.470703 C 5.341797 17.5944 5.250651 17.685547 5.126953 17.744141 L 3.4375 18.59375 C 3.229167 18.697916 3.004557 18.75 2.763672 18.75 C 2.73112 18.75 2.700195 18.75 2.670898 18.75 C 2.641602 18.75 2.610677 18.746744 2.578125 18.740234 L 2.119141 19.658203 C 2.067057 19.762369 1.99056 19.845377 1.889648 19.907227 C 1.788737 19.969076 1.679688 20 1.5625 20 C 1.393229 20 1.246745 19.93815 1.123047 19.814453 C 0.999349 19.690756 0.9375 19.544271 0.9375 19.375 C 0.9375 19.296875 0.960286 19.199219 1.005859 19.082031 C 1.051432 18.964844 1.105143 18.842773 1.166992 18.71582 C 1.228841 18.588867 1.292318 18.470053 1.357422 18.359375 C 1.422526 18.248697 1.471354 18.157553 1.503906 18.085938 C 1.334635 17.825521 1.25 17.542318 1.25 17.236328 L 1.25 15.625 C 1.25 15.520834 1.272786 15.426433 1.318359 15.341797 L 6.943359 4.091797 L 6.308594 3.779297 L 3.994141 8.408203 C 3.942057 8.51237 3.86556 8.595378 3.764648 8.657227 C 3.663737 8.719076 3.554688 8.75 3.4375 8.75 C 3.268229 8.75 3.121745 8.688151 2.998047 8.564453 C 2.874349 8.440756 2.8125 8.294271 2.8125 8.125 C 2.8125 8.040365 2.835286 7.945964 2.880859 7.841797 L 5.214844 3.173828 C 5.31901 2.965496 5.458984 2.801107 5.634766 2.680664 C 5.810547 2.560223 6.015625 2.5 6.25 2.5 C 6.477864 2.5 6.694335 2.55534 6.899414 2.666016 C 7.104492 2.776693 7.304687 2.880859 7.5 2.978516 L 8.193359 1.591797 C 8.245442 1.481121 8.321939 1.396484 8.422852 1.337891 C 8.523763 1.279297 8.632812 1.25 8.75 1.25 C 8.834635 1.25 8.90625 1.263021 8.964844 1.289062 C 9.042969 1.132812 9.119466 0.978191 9.194336 0.825195 C 9.269205 0.672201 9.353841 0.533855 9.448242 0.410156 C 9.542643 0.286459 9.658203 0.187176 9.794922 0.112305 C 9.931641 0.037436 10.104166 0 10.3125 0 C 10.520833 0 10.7194 0.048828 10.908203 0.146484 L 11.826172 0.605469 C 12.034505 0.709637 12.198893 0.847982 12.319336 1.020508 C 12.439778 1.193035 12.5 1.39974 12.5 1.640625 C 12.5 1.86198 12.449544 2.068686 12.348633 2.260742 C 12.247721 2.452801 12.151692 2.64323 12.060547 2.832031 Z M 10.087891 1.845703 L 10.9375 2.265625 L 11.220703 1.699219 L 10.371094 1.279297 Z M 10.908203 3.652344 L 9.033203 2.714844 L 2.5 15.771484 L 2.5 17.236328 C 2.5 17.307943 2.526042 17.369791 2.578125 17.421875 C 2.630208 17.473959 2.692057 17.5 2.763672 17.5 C 2.789713 17.5 2.843424 17.483725 2.924805 17.451172 C 3.006185 17.418619 3.100586 17.376303 3.208008 17.324219 C 3.315429 17.272135 3.429362 17.21517 3.549805 17.15332 C 3.670247 17.091471 3.785807 17.03125 3.896484 16.972656 C 4.007161 16.914062 4.104817 16.861979 4.189453 16.816406 C 4.274088 16.770834 4.335938 16.738281 4.375 16.71875 Z " />
+                        </controls1:SettingsExpander.HeaderIcon>
+                        <controls1:SettingsExpander.Items>
+                            <controls1:SettingsCard Header="{x:Bind domain:Translator.SettingsSignature_EditSignature_Title}">
+                                <Button
+                                    Width="65"
+                                    Command="{Binding ViewModel.OpenSignatureEditorEditCommand, Mode=OneWay, ElementName=root}"
+                                    CommandParameter="{x:Bind}"
+                                    Content="{x:Bind domain:Translator.Buttons_Edit}" />
+                            </controls1:SettingsCard>
+                            <controls1:SettingsCard Header="{x:Bind domain:Translator.SettingsSignature_DeleteSignature_Title}">
+                                <Button
+                                    Background="Red"
+                                    Command="{Binding ViewModel.RemoveSignatureCommand, Mode=OneWay, ElementName=root}"
+                                    CommandParameter="{x:Bind}"
+                                    Content="{x:Bind domain:Translator.Buttons_Delete}" />
+                            </controls1:SettingsCard>
+                        </controls1:SettingsExpander.Items>
+                    </controls1:SettingsExpander>
+                </controls1:Case>
+            </controls1:SwitchPresenter>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid RowSpacing="41">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+        <controls1:SettingsCard
+            Grid.Row="0"
+            Header="{x:Bind domain:Translator.SettingsSignature_Title}"
+            IsClickEnabled="False">
+            <controls1:SettingsCard.HeaderIcon>
+                <PathIcon Data="F1 M 17.060547 2.832031 C 17.151691 2.884115 17.226562 2.958984 17.285156 3.056641 C 17.34375 3.154297 17.373047 3.258465 17.373047 3.369141 C 17.373047 3.421225 17.366535 3.470053 17.353516 3.515625 C 17.340494 3.561199 17.324219 3.606771 17.304688 3.652344 L 10.400391 17.470703 C 10.341797 17.5944 10.25065 17.685547 10.126953 17.744141 L 8.4375 18.59375 C 8.229166 18.697916 8.004557 18.75 7.763672 18.75 C 7.73112 18.75 7.700195 18.75 7.670898 18.75 C 7.641602 18.75 7.610677 18.746744 7.578125 18.740234 L 7.119141 19.658203 C 7.067057 19.762369 6.99056 19.845377 6.889648 19.907227 C 6.788736 19.969076 6.679687 20 6.5625 20 C 6.393229 20 6.246745 19.93815 6.123047 19.814453 C 5.999349 19.690756 5.9375 19.544271 5.9375 19.375 C 5.9375 19.296875 5.960286 19.199219 6.005859 19.082031 C 6.051432 18.964844 6.105143 18.842773 6.166992 18.71582 C 6.228841 18.588867 6.292317 18.470053 6.357422 18.359375 C 6.422526 18.248697 6.471354 18.157553 6.503906 18.085938 C 6.334635 17.825521 6.25 17.542318 6.25 17.236328 L 6.25 15.625 C 6.25 15.520834 6.272786 15.426433 6.318359 15.341797 L 11.943359 4.091797 L 11.308594 3.779297 L 8.994141 8.408203 C 8.942057 8.51237 8.86556 8.595378 8.764648 8.657227 C 8.663736 8.719076 8.554688 8.75 8.4375 8.75 C 8.268229 8.75 8.121744 8.688151 7.998047 8.564453 C 7.874349 8.440756 7.8125 8.294271 7.8125 8.125 C 7.8125 8.040365 7.835286 7.945964 7.880859 7.841797 L 10.214844 3.173828 C 10.31901 2.965496 10.458984 2.801107 10.634766 2.680664 C 10.810547 2.560223 11.015625 2.5 11.25 2.5 C 11.477864 2.5 11.694336 2.55534 11.899414 2.666016 C 12.104492 2.776693 12.304688 2.880859 12.5 2.978516 L 13.193359 1.591797 C 13.245441 1.481121 13.321939 1.396484 13.422852 1.337891 C 13.523763 1.279297 13.632812 1.25 13.75 1.25 C 13.834635 1.25 13.90625 1.263021 13.964844 1.289062 C 14.042969 1.132812 14.119466 0.978191 14.194336 0.825195 C 14.269205 0.672201 14.353841 0.533855 14.448242 0.410156 C 14.542643 0.286459 14.658202 0.187176 14.794922 0.112305 C 14.93164 0.037436 15.104166 0 15.3125 0 C 15.520833 0 15.7194 0.048828 15.908203 0.146484 L 16.826172 0.605469 C 17.034504 0.709637 17.198893 0.847982 17.319336 1.020508 C 17.439777 1.193035 17.5 1.39974 17.5 1.640625 C 17.5 1.86198 17.449543 2.068686 17.348633 2.260742 C 17.247721 2.452801 17.151691 2.64323 17.060547 2.832031 Z M 15.087891 1.845703 L 15.9375 2.265625 L 16.220703 1.699219 L 15.371094 1.279297 Z M 15.908203 3.652344 L 14.033203 2.714844 L 7.5 15.771484 L 7.5 17.236328 C 7.5 17.307943 7.526041 17.369791 7.578125 17.421875 C 7.630208 17.473959 7.692057 17.5 7.763672 17.5 C 7.789713 17.5 7.843424 17.483725 7.924805 17.451172 C 8.006185 17.418619 8.100586 17.376303 8.208008 17.324219 C 8.31543 17.272135 8.429361 17.21517 8.549805 17.15332 C 8.670247 17.091471 8.785807 17.03125 8.896484 16.972656 C 9.007161 16.914062 9.104817 16.861979 9.189453 16.816406 C 9.274088 16.770834 9.335938 16.738281 9.375 16.71875 Z M 17.5 7.5 C 17.845051 7.5 18.168945 7.565104 18.47168 7.695312 C 18.774414 7.825521 19.039713 8.004558 19.267578 8.232422 C 19.495441 8.460287 19.674479 8.725586 19.804688 9.02832 C 19.934895 9.331055 20 9.654948 20 10 C 20 10.345053 19.934895 10.668945 19.804688 10.97168 C 19.674479 11.274414 19.495441 11.539714 19.267578 11.767578 C 19.039713 11.995443 18.774414 12.174479 18.47168 12.304688 C 18.168945 12.434896 17.845051 12.5 17.5 12.5 L 14.6875 12.5 L 15.3125 11.25 L 17.5 11.25 C 17.675781 11.25 17.838541 11.217448 17.988281 11.152344 C 18.13802 11.08724 18.269855 10.997722 18.383789 10.883789 C 18.497721 10.769857 18.587238 10.638021 18.652344 10.488281 C 18.717447 10.338542 18.75 10.175781 18.75 10 C 18.75 9.824219 18.717447 9.661459 18.652344 9.511719 C 18.587238 9.361979 18.497721 9.230144 18.383789 9.116211 C 18.269855 9.002279 18.13802 8.912761 17.988281 8.847656 C 17.838541 8.782553 17.675781 8.75 17.5 8.75 C 17.330729 8.75 17.184244 8.688151 17.060547 8.564453 C 16.936848 8.440756 16.875 8.294271 16.875 8.125 C 16.875 7.95573 16.936848 7.809246 17.060547 7.685547 C 17.184244 7.56185 17.330729 7.5 17.5 7.5 Z M 1.25 15.625 C 1.25 16.054688 1.33138 16.459961 1.494141 16.84082 C 1.656901 17.22168 1.879883 17.553711 2.163086 17.836914 C 2.446289 18.120117 2.77832 18.3431 3.15918 18.505859 C 3.540039 18.668619 3.945312 18.75 4.375 18.75 L 4.804688 18.75 C 4.772135 18.847656 4.744466 18.948568 4.72168 19.052734 C 4.698893 19.1569 4.6875 19.264322 4.6875 19.375 C 4.6875 19.485678 4.698893 19.5931 4.72168 19.697266 C 4.744466 19.801432 4.772135 19.902344 4.804688 20 L 4.375 20 C 3.769531 20 3.201497 19.884439 2.670898 19.65332 C 2.140299 19.422201 1.67806 19.109701 1.28418 18.71582 C 0.890299 18.321939 0.577799 17.859701 0.34668 17.329102 C 0.11556 16.798502 0 16.230469 0 15.625 C 0 15.019531 0.11556 14.451498 0.34668 13.920898 C 0.577799 13.3903 0.890299 12.928061 1.28418 12.53418 C 1.67806 12.1403 2.140299 11.8278 2.670898 11.59668 C 3.201497 11.365561 3.769531 11.25 4.375 11.25 L 6.5625 11.25 L 5.9375 12.5 L 4.375 12.5 C 3.945312 12.5 3.540039 12.583008 3.15918 12.749023 C 2.77832 12.915039 2.446289 13.139648 2.163086 13.422852 C 1.879883 13.706055 1.656901 14.036459 1.494141 14.414062 C 1.33138 14.791667 1.25 15.195312 1.25 15.625 Z " />
+            </controls1:SettingsCard.HeaderIcon>
+            <ToggleSwitch IsOn="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
+        </controls1:SettingsCard>
 
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="1" Spacing="4">
+            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_SignatureDefaults}" />
+            <controls1:SettingsCard
+                Header="{x:Bind domain:Translator.SettingsSignature_ForNewMessages_Title}"
+                IsActionIconVisible="False"
+                IsClickEnabled="False"
+                IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
+                <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForNewMessagesIndex, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="entities:AccountSignature">
+                            <TextBlock Text="{x:Bind Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
-            <!--  Wino Pivot  -->
-            <controls:WinoPivotControl
-                IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}"
-                ItemsSource="{x:Bind ViewModel.ToolbarSections}"
-                SelectedItem="{x:Bind ViewModel.SelectedToolbarSection, Mode=TwoWay}"
-                SelectorPipeColor="{ThemeResource NavigationViewSelectionIndicatorForeground}">
-                <controls:WinoPivotControl.DataTemplate>
-                    <DataTemplate x:DataType="reader:EditorToolbarSection">
-                        <TextBlock Text="{x:Bind Title}" />
-                    </DataTemplate>
-                </controls:WinoPivotControl.DataTemplate>
-            </controls:WinoPivotControl>
+            </controls1:SettingsCard>
+            <controls1:SettingsCard
+                Header="{x:Bind domain:Translator.SettingsSignature_ForFollowingMessages_Title}"
+                IsActionIconVisible="False"
+                IsClickEnabled="False"
+                IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}">
+                <ComboBox ItemsSource="{x:Bind ViewModel.Signatures}" SelectedIndex="{x:Bind ViewModel.SignatureForFollowingMessagesIndex, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="entities:AccountSignature">
+                            <TextBlock Text="{x:Bind Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls1:SettingsCard>
+        </StackPanel>
 
-            <StackPanel
-                Grid.Column="1"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Center"
-                Spacing="12"
-                Orientation="Horizontal">
-                <Button Content="{x:Bind domain:Translator.Buttons_Save}" Command="{x:Bind ViewModel.SaveSignatureCommand}" />
-                <ToggleButton Content="{x:Bind domain:Translator.SettingsEnableSignature}" IsChecked="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
-            </StackPanel>
-        </Grid>
-
-        <!--  Editor Options  -->
-        <ScrollViewer
-            Grid.Row="1"
-            VerticalAlignment="Top"
-            IsEnabled="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}"
-            VerticalScrollMode="Disabled"
-            HorizontalScrollBarVisibility="Hidden"
-            HorizontalScrollMode="Enabled">
-            <Grid Padding="8,0">
-                <!--  Format Panel  -->
-                <Grid x:Name="FormatPanel" Visibility="{x:Bind helpers:XamlHelpers.IsFormatSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <ToggleButton
-                            x:Name="BoldButton"
-                            Height="32"
-                            Click="BoldButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource BoldPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-                        <ToggleButton
-                            x:Name="ItalicButton"
-                            Height="32"
-                            Click="ItalicButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource ItalicPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-                        <ToggleButton
-                            x:Name="UnderlineButton"
-                            Height="32"
-                            Click="UnderlineButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource UnderlinePathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-                        <ToggleButton
-                            x:Name="StrokeButton"
-                            Height="32"
-                            Click="StrokeButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource StrikePathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-
-                        <AppBarSeparator />
-
-                        <ToggleButton
-                            x:Name="BulletListButton"
-                            Height="32"
-                            Click="BulletListButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource BulletedListPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-
-                        <ToggleButton
-                            x:Name="OrderedListButton"
-                            Height="32"
-                            Click="OrderedListButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource OrderedListPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-
-                        <Button
-                            x:Name="DecreaseIndentButton"
-                            Height="32"
-                            Click="DecreaseIndentClicked">
-                            <Button.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
-                                </Viewbox>
-                            </Button.Content>
-                        </Button>
-
-                        <Button
-                            x:Name="IncreaseIndentButton"
-                            Height="32"
-                            Click="IncreaseIndentClicked">
-                            <Button.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
-                                </Viewbox>
-                            </Button.Content>
-                        </Button>
-
-                        <AppBarSeparator />
-
-                        <ToggleButton
-                            x:Name="DirectionButton"
-                            Height="32"
-                            Click="DirectionButtonClicked">
-                            <ToggleButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource ParagraphPathIcon}" />
-                                </Viewbox>
-                            </ToggleButton.Content>
-                        </ToggleButton>
-
-                        <ComboBox
-                            x:Name="AlignmentListView"
-                            Width="120"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            SelectionChanged="AlignmentChanged">
-                            <ComboBoxItem Tag="left">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16">
-                                        <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Left}" />
-                                </StackPanel>
-                            </ComboBoxItem>
-
-                            <ComboBoxItem Tag="center">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16">
-                                        <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Center}" />
-                                </StackPanel>
-                            </ComboBoxItem>
-
-                            <ComboBoxItem Tag="right">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16">
-                                        <PathIcon Data="{StaticResource AlignRightPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Right}" />
-                                </StackPanel>
-                            </ComboBoxItem>
-
-                            <ComboBoxItem Tag="justify">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16">
-                                        <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Justify}" />
-                                </StackPanel>
-                            </ComboBoxItem>
-                        </ComboBox>
-                    </StackPanel>
-                </Grid>
-
-                <!--  Insert Panel  -->
-                <Grid x:Name="InsertPanel" Visibility="{x:Bind helpers:XamlHelpers.IsInsertSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button
-                            x:Name="AddImageButton"
-                            Height="32"
-                            Click="AddImageClicked">
-                            <Button.Content>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16" VerticalAlignment="Center">
-                                        <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock Text="{x:Bind domain:Translator.Photos}" />
-                                </StackPanel>
-                            </Button.Content>
-                        </Button>
-
-                        <Button
-                            x:Name="EmojiButton"
-                            Height="32"
-                            Click="EmojiButtonClicked">
-                            <Button.Content>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16" VerticalAlignment="Center">
-                                        <PathIcon Data="{StaticResource EmojiPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock Text="{x:Bind domain:Translator.Emoji}" />
-                                </StackPanel>
-                            </Button.Content>
-                        </Button>
-
-                        <Button
-                            x:Name="LinkButton"
-                            Height="32"
-                            Click="LinkButtonClicked">
-                            <Button.Flyout>
-                                <Flyout x:Name="HyperlinkFlyout">
-                                    <StackPanel Width="250" Spacing="6">
-                                        <TextBox x:Name="HyperlinkTextBox" Header="Text" />
-                                        <TextBox
-                                            x:Name="LinkUrlTextBox"
-                                            Header="Link"
-                                            PlaceholderText="https://" />
-                                        <Button
-                                            x:Name="AddHyperlinkButton"
-                                            Margin="0,6"
-                                            HorizontalAlignment="Stretch"
-                                            Click="HyperlinkAddClicked"
-                                            Content="{x:Bind domain:Translator.AddHyperlink}" />
-                                    </StackPanel>
-                                </Flyout>
-                            </Button.Flyout>
-                            <Button.Content>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Viewbox Width="16" VerticalAlignment="Center">
-                                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
-                                    </Viewbox>
-                                    <TextBlock Text="Link" />
-                                </StackPanel>
-                            </Button.Content>
-                        </Button>
-                    </StackPanel>
-                </Grid>
-            </Grid>
-        </ScrollViewer>
-
-        <muxc:WebView2
-            x:Name="Chromium"
-            Grid.Row="2"
-            Margin="0,0,0,250"
-            BorderBrush="LightGray"
-            BorderThickness="1"
-            Visibility="{x:Bind ViewModel.IsSignatureEnabled, Mode=OneWay}" />
+        <StackPanel Grid.Row="2" Spacing="3">
+            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_Signatures}" />
+            <controls1:SettingsCard
+                Header="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Title}"
+                IsActionIconVisible="False"
+                IsClickEnabled="False">
+                <Button
+                    Command="{x:Bind ViewModel.OpenSignatureEditorCreateCommand}"
+                    Content="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Button}"
+                    Style="{StaticResource AccentButtonStyle}" />
+            </controls1:SettingsCard>
+            <ItemsControl ItemTemplate="{StaticResource SignatureDialogTemplate}" ItemsSource="{x:Bind ViewModel.Signatures}" />
+        </StackPanel>
     </Grid>
 </abstract:SignatureManagementPageAbstract>

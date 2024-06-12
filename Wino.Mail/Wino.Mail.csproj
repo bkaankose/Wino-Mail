@@ -259,6 +259,9 @@
     <Compile Include="Dialogs\MoveMailDialog.xaml.cs">
       <DependentUpon>MoveMailDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Dialogs\SignatureEditorDialog.xaml.cs">
+      <DependentUpon>SignatureEditorDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Dialogs\NewImapSetupDialog.xaml.cs">
       <DependentUpon>NewImapSetupDialog.xaml</DependentUpon>
     </Compile>
@@ -491,6 +494,10 @@
     <Page Include="Dialogs\MoveMailDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\SignatureEditorDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Dialogs\NewImapSetupDialog.xaml">
       <SubType>Designer</SubType>

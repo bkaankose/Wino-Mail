@@ -45,12 +45,6 @@ namespace Wino.Core.Domain.Entities
         public string AccountColorHex { get; set; }
 
         /// <summary>
-        /// Gets or sets the signature to be used for this account.
-        /// Null if no signature should be used.
-        /// </summary>
-        public Guid? SignatureId { get; set; }
-
-        /// <summary>
         /// Gets or sets whether the account has any reason for an interactive user action to fix continue operating.
         /// </summary>
         public AccountAttentionReason AttentionReason { get; set; }

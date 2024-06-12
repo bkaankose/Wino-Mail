@@ -39,5 +39,11 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="reason">The reason behind the picking operation
         /// <returns>Selected folder structure. Null if none.</returns>
         Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService);
+
+        /// <summary>
+        /// Presents a dialog to the user for signature creation/modification.
+        /// </summary>
+        /// <returns>Signature information. Null if canceled.</returns>
+        Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null);
     }
 }

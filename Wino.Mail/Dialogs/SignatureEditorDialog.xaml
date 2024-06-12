@@ -1,0 +1,266 @@
+﻿<ContentDialog
+    x:Class="Wino.Dialogs.SignatureEditorDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    Title="{x:Bind domain:Translator.SignatureEditorDialog_Title}"
+    HorizontalContentAlignment="Stretch"
+    Closed="DialogClosed"
+    DefaultButton="Primary"
+    IsPrimaryButtonEnabled="False"
+    Opened="SignatureDialogOpened"
+    PrimaryButtonClick="SaveClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
+    SecondaryButtonClick="CancelClicked"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
+    </ContentDialog.Resources>
+
+    <Grid Margin="0,20,0,0" RowSpacing="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="400" />
+        </Grid.RowDefinitions>
+
+        <TextBox
+            x:Name="SignatureNameTextBox"
+            MinWidth="300"
+            MaxWidth="500"
+            HorizontalAlignment="Left"
+            Header="{x:Bind SignatureNameHeader}"
+            PlaceholderText="{x:Bind domain:Translator.SignatureEditorDialog_SignatureName_Placeholder}"
+            TextChanged="SignatureNameTextBoxTextChanged" />
+
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="500" />
+            </Grid.RowDefinitions>
+
+            <CommandBar
+                Grid.Row="0"
+                HorizontalAlignment="Left"
+                Background="Transparent"
+                DefaultLabelPosition="Collapsed"
+                IsOpen="False">
+                <AppBarButton
+                    x:Name="BoldButton"
+                    Width="48"
+                    Click="BoldButtonClicked"
+                    Label="Bold"
+                    ToolTipService.ToolTip="Bold">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource BoldPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
+                    x:Name="ItalicButton"
+                    Width="48"
+                    Click="ItalicButtonClicked"
+                    Label="Italic"
+                    ToolTipService.ToolTip="Italic">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource ItalicPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
+                    x:Name="UnderlineButton"
+                    Width="48"
+                    Click="UnderlineButtonClicked"
+                    Label="Underline"
+                    ToolTipService.ToolTip="Underline">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource UnderlinePathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
+                    x:Name="StrokeButton"
+                    Width="48"
+                    Click="StrokeButtonClicked"
+                    Label="Stroke"
+                    ToolTipService.ToolTip="Stroke">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource StrikePathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator />
+                <AppBarToggleButton
+                    x:Name="BulletListButton"
+                    Width="48"
+                    Click="BulletListButtonClicked"
+                    Label="Stroke"
+                    ToolTipService.ToolTip="Stroke">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource BulletedListPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+                <AppBarToggleButton
+                    x:Name="OrderedListButton"
+                    Width="48"
+                    Click="OrderedListButtonClicked"
+                    Label="Stroke"
+                    ToolTipService.ToolTip="Stroke">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource OrderedListPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+                <AppBarButton
+                    x:Name="DecreaseIndentButton"
+                    Width="48"
+                    Click="DecreaseIndentClicked"
+                    Label="Stroke"
+                    ToolTipService.ToolTip="Stroke">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
+                    x:Name="IncreaseIndentButton"
+                    Width="48"
+                    Click="IncreaseIndentClicked"
+                    Label="Stroke"
+                    ToolTipService.ToolTip="Stroke">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarSeparator />
+
+                <AppBarToggleButton
+                    x:Name="DirectionButton"
+                    Width="48"
+                    Click="DirectionButtonClicked">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource ParagraphPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
+
+                <AppBarElementContainer VerticalAlignment="Center">
+                    <ComboBox x:Name="AlignmentListView" SelectionChanged="AlignmentChanged">
+                        <ComboBoxItem Tag="left">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
+                                </Viewbox>
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Left}" />
+                            </StackPanel>
+                        </ComboBoxItem>
+
+                        <ComboBoxItem Tag="center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
+                                </Viewbox>
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Center}" />
+                            </StackPanel>
+                        </ComboBoxItem>
+
+                        <ComboBoxItem Tag="right">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource AlignRightPathIcon}" />
+                                </Viewbox>
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Right}" />
+                            </StackPanel>
+                        </ComboBoxItem>
+
+                        <ComboBoxItem Tag="justify">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16">
+                                    <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
+                                </Viewbox>
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Justify}" />
+                            </StackPanel>
+                        </ComboBoxItem>
+                    </ComboBox>
+                </AppBarElementContainer>
+                <AppBarSeparator />
+                <AppBarButton
+                    x:Name="AddImageButton"
+                    Width="48"
+                    Click="AddImageClicked"
+                    ToolTipService.ToolTip="Add Image">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                    </AppBarButton.Icon>
+                    <AppBarButton.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Viewbox Width="16" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                            </Viewbox>
+                            <TextBlock Text="{x:Bind domain:Translator.Photos}" />
+                        </StackPanel>
+                    </AppBarButton.Content>
+                </AppBarButton>
+                <AppBarButton
+                    x:Name="EmojiButton"
+                    Width="48"
+                    Click="EmojiButtonClicked"
+                    ToolTipService.ToolTip="Add Emoji">
+                    <AppBarButton.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Viewbox Width="16" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource EmojiPathIcon}" />
+                            </Viewbox>
+                            <TextBlock Text="{x:Bind domain:Translator.Emoji}" />
+                        </StackPanel>
+                    </AppBarButton.Content>
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource EmojiPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton
+                    x:Name="LinkButton"
+                    Width="48"
+                    Click="HyperlinkAddClicked"
+                    Label="Add Link"
+                    ToolTipService.ToolTip="Add Link">
+                    <AppBarButton.Flyout>
+                        <Flyout x:Name="HyperlinkFlyout">
+                            <StackPanel Width="250" Spacing="6">
+                                <TextBox x:Name="HyperlinkTextBox" Header="Text" />
+                                <TextBox
+                                    x:Name="LinkUrlTextBox"
+                                    Header="Link"
+                                    PlaceholderText="https://" />
+                                <Button
+                                    x:Name="AddHyperlinkButton"
+                                    Margin="0,6"
+                                    HorizontalAlignment="Stretch"
+                                    Click="HyperlinkAddClicked"
+                                    Content="{x:Bind domain:Translator.AddHyperlink}" />
+                            </StackPanel>
+                        </Flyout>
+                    </AppBarButton.Flyout>
+                    <AppBarButton.Content>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Viewbox Width="16" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                            </Viewbox>
+                            <TextBlock Text="Link" />
+                        </StackPanel>
+                    </AppBarButton.Content>
+                    <AppBarButton.Icon>
+                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar>
+            <Grid Grid.Row="1" CornerRadius="10">
+                <muxc:WebView2
+                    x:Name="Chromium"
+                    Width="Auto"
+                    Height="Auto"
+                    BorderBrush="LightGray"
+                    BorderThickness="1" />
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentDialog>
