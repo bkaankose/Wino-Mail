@@ -10,7 +10,6 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
 using Wino.Views.Settings;
 
 namespace Wino.Dialogs
@@ -269,11 +268,13 @@ namespace Wino.Dialogs
 
             if (IsComposerDarkMode)
             {
-                await InvokeScriptSafeAsync("DarkReader.enable();");
+                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
+                await InvokeScriptSafeAsync("SetDarkEditor();");
             }
             else
             {
-                await InvokeScriptSafeAsync("DarkReader.disable();");
+                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
+                await InvokeScriptSafeAsync("SetLightEditor();");
             }
         }
 
@@ -365,16 +366,8 @@ namespace Wino.Dialogs
 
         private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => _domLoadedTask.TrySetResult(true);
 
-        public async void Receive(HtmlRenderingRequested message)
-        {
-            await RenderInternalAsync(message.HtmlBody);
-        }
-
         private void SignatureNameTextBoxTextChanged(object sender, TextChangedEventArgs e) => IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(SignatureNameTextBox.Text);
 
-        private void InvertComposerThemeClicked(object sender, RoutedEventArgs e)
-        {
-            IsComposerDarkMode = !IsComposerDarkMode;
-        }
+        private void InvertComposerThemeClicked(object sender, RoutedEventArgs e) => IsComposerDarkMode = !IsComposerDarkMode;
     }
 }

@@ -29,7 +29,7 @@
     <Grid Margin="0,20,0,0" RowSpacing="30">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="400" />
+            <RowDefinition Height="*" MaxHeight="400" />
         </Grid.RowDefinitions>
 
         <TextBox
