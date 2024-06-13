@@ -1,12 +1,9 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.Background;
-using Windows.ApplicationModel.Core;
-using Windows.UI.Core;
 using Windows.UI.Notifications;
 using Wino.Core;
 using Wino.Core.Domain;
@@ -59,14 +56,8 @@ namespace Wino.Activation
 
             if (taskName == BackgroundTaskService.ToastActivationTaskEx)
             {
-                // ToastNotificationActionTriggerDetail somehow use UI thread.
-                // Calling this without a dispatcher will result in error.
-
-                await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.High, () =>
-                {
-                    if (instance.TriggerDetails is ToastNotificationActionTriggerDetail toastNotificationActionTriggerDetail)
-                        _toastArguments = ToastArguments.Parse(toastNotificationActionTriggerDetail.Argument);
-                });
+                if (instance.TriggerDetails is ToastNotificationActionTriggerDetail toastNotificationActionTriggerDetail)
+                    _toastArguments = ToastArguments.Parse(toastNotificationActionTriggerDetail.Argument);
 
                 // All toast activation mail actions are handled here like mark as read or delete.
                 // This should not launch the application on the foreground.
@@ -75,10 +66,10 @@ namespace Wino.Activation
                 // Prepare package and send to delegator.
 
                 if (_toastArguments.TryGetValue(Constants.ToastMailItemIdKey, out string mailItemId) &&
-                    _toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action))
+                    _toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action) &&
+                    _toastArguments.TryGetValue(Constants.ToastMailItemRemoteFolderIdKey, out string remoteFolderId))
                 {
-                    // TODO: Remote folder id.
-                    var mailItem = await _mailService.GetSingleMailItemAsync(mailItemId, string.Empty);
+                    var mailItem = await _mailService.GetSingleMailItemAsync(mailItemId, remoteFolderId);
 
                     if (mailItem == null) return;
 

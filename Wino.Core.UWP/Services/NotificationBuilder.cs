@@ -87,8 +87,8 @@ namespace Wino.Core.UWP.Services
                     builder.AddArgument(Constants.ToastMailItemIdKey, mailItem.UniqueId.ToString());
                     builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
 
-                    builder.AddButton(GetMarkedAsRead(mailItem.Id));
-                    builder.AddButton(GetDeleteButton(mailItem.Id));
+                    builder.AddButton(GetMarkedAsRead(mailItem.Id, mailItem.AssignedFolder.RemoteFolderId));
+                    builder.AddButton(GetDeleteButton(mailItem.Id, mailItem.AssignedFolder.RemoteFolderId));
                     builder.AddButton(GetDismissButton());
 
                     builder.Show();
@@ -103,19 +103,21 @@ namespace Wino.Core.UWP.Services
             .SetDismissActivation()
             .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/dismiss.png"));
 
-        private ToastButton GetDeleteButton(string mailCopyId)
+        private ToastButton GetDeleteButton(string mailCopyId, string remoteFolderId)
             => new ToastButton()
             .SetContent(Translator.MailOperation_Delete)
             .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/delete.png"))
             .AddArgument(Constants.ToastMailItemIdKey, mailCopyId)
+            .AddArgument(Constants.ToastMailItemRemoteFolderIdKey, remoteFolderId)
             .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
             .SetBackgroundActivation();
 
-        private ToastButton GetMarkedAsRead(string mailCopyId)
+        private ToastButton GetMarkedAsRead(string mailCopyId, string remoteFolderId)
             => new ToastButton()
             .SetContent(Translator.MailOperation_MarkAsRead)
             .SetImageUri(new System.Uri("ms-appx:///Assets/NotificationIcons/markread.png"))
             .AddArgument(Constants.ToastMailItemIdKey, mailCopyId)
+            .AddArgument(Constants.ToastMailItemRemoteFolderIdKey, remoteFolderId)
             .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
             .SetBackgroundActivation();
 
