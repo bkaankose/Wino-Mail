@@ -244,9 +244,7 @@ namespace Wino.Core.Services
 
             await Connection.Table<TokenInformation>().Where(a => a.AccountId == account.Id).DeleteAsync();
             await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
-
-            if (account.SignatureId != null)
-                await Connection.Table<AccountSignature>().DeleteAsync(a => a.Id == account.SignatureId);
+            await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
 
             // Account belongs to a merged inbox.
             // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.
@@ -372,12 +370,14 @@ namespace Wino.Core.Services
             if (isMicrosoftProvider)
                 account.Preferences.IsFocusedInboxEnabled = true;
 
-            await Connection.InsertAsync(preferences);
-
-            // Create default signature.
+            // Setup default signature.
             var defaultSignature = await _signatureService.CreateDefaultSignatureAsync(account.Id);
 
-            account.SignatureId = defaultSignature.Id;
+            account.Preferences.SignatureIdForNewMessages = defaultSignature.Id;
+            account.Preferences.SignatureIdForFollowingMessages = defaultSignature.Id;
+            account.Preferences.IsSignatureEnabled = true;
+
+            await Connection.InsertAsync(preferences);
 
             if (customServerInformation != null)
                 await Connection.InsertAsync(customServerInformation);

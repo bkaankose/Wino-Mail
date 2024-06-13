@@ -681,16 +681,26 @@ namespace Wino.Core.Services
 
                 builder.HtmlBody = visitor.HtmlBody;
             }
-            else
+
+            // Append signatures if needed.
+            if (account.Preferences.IsSignatureEnabled)
             {
-                // Add signature if any.
-                var accountSignature = await _signatureService.GetAccountSignatureAsync(account.Id);
+                var signatureId = reason == DraftCreationReason.Empty ?
+                    account.Preferences.SignatureIdForNewMessages :
+                    account.Preferences.SignatureIdForFollowingMessages;
 
-                if (accountSignature != null)
+                if (signatureId != null)
                 {
-                    // Leave some space for new mail content.
+                    var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
 
-                    builder.HtmlBody = @$"<html><br><br>{accountSignature.HtmlBody}</html>";
+                    if (string.IsNullOrWhiteSpace(builder.HtmlBody))
+                    {
+                        builder.HtmlBody = @$"<html><br><br>{signature.HtmlBody}</html>";
+                    }
+                    else
+                    {
+                        builder.HtmlBody += @$"{signature.HtmlBody}";
+                    }
                 }
             }
 
@@ -734,7 +744,7 @@ namespace Wino.Core.Services
                     message.Body = builder.ToMessageBody();
                 }
 
-                InternetAddressList ExtractRecipients(string parameterValue)
+                static InternetAddressList ExtractRecipients(string parameterValue)
                 {
                     var list = new InternetAddressList();
 

@@ -332,6 +332,29 @@ namespace Wino.Services
             return accountPicker.PickedAccount;
         }
 
+        public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null)
+        {
+            SignatureEditorDialog signatureEditorDialog;
+            if (signatureModel != null)
+            {
+                signatureEditorDialog = new SignatureEditorDialog(signatureModel)
+                {
+                    RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+                };
+            }
+            else
+            {
+                signatureEditorDialog = new SignatureEditorDialog()
+                {
+                    RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+                };
+            }
+
+            var result = await HandleDialogPresentationAsync(signatureEditorDialog);
+
+            return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
+        }
+
         public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
         {
             var accountReorderDialog = new AccountReorderDialog(availableAccounts)
