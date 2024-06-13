@@ -21,17 +21,22 @@ namespace Wino.Core.UWP.Services
         private readonly IUnderlyingThemeService _underlyingThemeService;
         private readonly IAccountService _accountService;
         private readonly IFolderService _folderService;
+        private readonly IMailService _mailService;
 
-        public NotificationBuilder(IUnderlyingThemeService underlyingThemeService, IAccountService accountService, IFolderService folderService)
+        public NotificationBuilder(IUnderlyingThemeService underlyingThemeService,
+                                   IAccountService accountService,
+                                   IFolderService folderService,
+                                   IMailService mailService)
         {
             _underlyingThemeService = underlyingThemeService;
             _accountService = accountService;
             _folderService = folderService;
+            _mailService = mailService;
         }
 
-        public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> newMailItems)
+        public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
         {
-            var mailCount = newMailItems.Count();
+            var mailCount = downloadedMailItems.Count();
 
             // If there are more than 3 mails, just display 1 general toast.
             if (mailCount > 3)
@@ -40,7 +45,7 @@ namespace Wino.Core.UWP.Services
                 builder.SetToastScenario(ToastScenario.Default);
 
                 builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
-                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsTitle, mailCount));
+                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
 
                 builder.AddButton(GetDismissButton());
 
@@ -48,7 +53,22 @@ namespace Wino.Core.UWP.Services
             }
             else
             {
-                foreach (var mailItem in newMailItems)
+                var validItems = new List<IMailItem>();
+
+                // Fetch mails again to fill up assigned folder data and latest statuses.
+                // They've been marked as read by executing synchronizer tasks until inital sync finishes.
+
+                foreach (var item in downloadedMailItems)
+                {
+                    var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
+
+                    if (mailItem != null && mailItem.AssignedFolder != null)
+                    {
+                        validItems.Add(mailItem);
+                    }
+                }
+
+                foreach (var mailItem in validItems)
                 {
                     if (mailItem.IsRead)
                         continue;
