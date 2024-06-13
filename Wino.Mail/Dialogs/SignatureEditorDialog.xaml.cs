@@ -20,7 +20,6 @@ namespace Wino.Dialogs
         private Func<Task<string>> _getHTMLBodyFunction;
         private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
         private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
-        public string SignatureNameHeader { get; set; }
         public AccountSignature Result;
 
         public bool IsComposerDarkMode
@@ -35,7 +34,7 @@ namespace Wino.Dialogs
         {
             InitializeComponent();
 
-            SignatureNameHeader = Translator.SignatureEditorDialog_SignatureName_TitleNew;
+            SignatureNameTextBox.Header = Translator.SignatureEditorDialog_SignatureName_TitleNew;
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarWinStyleAnimation");
 
@@ -47,7 +46,8 @@ namespace Wino.Dialogs
         {
             InitializeComponent();
 
-            SignatureNameHeader = string.Format(Translator.SignatureEditorDialog_SignatureName_TitleEdit, signatureModel.Name);
+            SignatureNameTextBox.Text = signatureModel.Name.Trim();
+            SignatureNameTextBox.Header = string.Format(Translator.SignatureEditorDialog_SignatureName_TitleEdit, signatureModel.Name);
 
             Result = new AccountSignature
             {

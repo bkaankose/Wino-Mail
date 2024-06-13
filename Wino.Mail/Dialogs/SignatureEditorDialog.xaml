@@ -37,7 +37,6 @@
             MinWidth="300"
             MaxWidth="500"
             HorizontalAlignment="Left"
-            Header="{x:Bind SignatureNameHeader}"
             PlaceholderText="{x:Bind domain:Translator.SignatureEditorDialog_SignatureName_Placeholder}"
             TextChanged="SignatureNameTextBoxTextChanged" />
 
@@ -57,9 +56,10 @@
                     Width="48"
                     Click="InvertComposerThemeClicked"
                     LabelPosition="Collapsed"
+                    ToolTipService.ToolTip="Light Theme"
                     Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay}">
                     <AppBarButton.Icon>
-                        <controls:WinoFontIcon Icon="DarkEditor" />
+                        <controls:WinoFontIcon Icon="LightEditor" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -67,9 +67,10 @@
                     Width="48"
                     Click="InvertComposerThemeClicked"
                     LabelPosition="Collapsed"
+                    ToolTipService.ToolTip="Dark Theme"
                     Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
                     <AppBarButton.Icon>
-                        <controls:WinoFontIcon Icon="LightEditor" />
+                        <controls:WinoFontIcon Icon="DarkEditor" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -120,8 +121,8 @@
                     x:Name="BulletListButton"
                     Width="48"
                     Click="BulletListButtonClicked"
-                    Label="Stroke"
-                    ToolTipService.ToolTip="Stroke">
+                    Label="Bullet List"
+                    ToolTipService.ToolTip="Bullet List">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource BulletedListPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -130,8 +131,8 @@
                     x:Name="OrderedListButton"
                     Width="48"
                     Click="OrderedListButtonClicked"
-                    Label="Stroke"
-                    ToolTipService.ToolTip="Stroke">
+                    Label="Ordered List"
+                    ToolTipService.ToolTip="Ordered List">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource OrderedListPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -140,8 +141,8 @@
                     x:Name="DecreaseIndentButton"
                     Width="48"
                     Click="DecreaseIndentClicked"
-                    Label="Stroke"
-                    ToolTipService.ToolTip="Stroke">
+                    Label="Decrease Indent"
+                    ToolTipService.ToolTip="Decrease Indent">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
@@ -150,8 +151,8 @@
                     x:Name="IncreaseIndentButton"
                     Width="48"
                     Click="IncreaseIndentClicked"
-                    Label="Stroke"
-                    ToolTipService.ToolTip="Stroke">
+                    Label="Increase Indent"
+                    ToolTipService.ToolTip="Increase Indent">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
@@ -161,7 +162,9 @@
                 <AppBarToggleButton
                     x:Name="DirectionButton"
                     Width="48"
-                    Click="DirectionButtonClicked">
+                    Click="DirectionButtonClicked"
+                    Label="Direction"
+                    ToolTipService.ToolTip="Direction">
                     <AppBarToggleButton.Icon>
                         <PathIcon Data="{StaticResource ParagraphPathIcon}" />
                     </AppBarToggleButton.Icon>
@@ -211,6 +214,7 @@
                     x:Name="AddImageButton"
                     Width="48"
                     Click="AddImageClicked"
+                    Label="Add Image"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Photos}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
@@ -228,6 +232,7 @@
                     x:Name="EmojiButton"
                     Width="48"
                     Click="EmojiButtonClicked"
+                    Label="Add Emoji"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Emoji}">
                     <AppBarButton.Icon>
                         <PathIcon Data="{StaticResource EmojiPathIcon}" />
@@ -236,9 +241,8 @@
                 <AppBarButton
                     x:Name="LinkButton"
                     Width="48"
-                    Click="HyperlinkAddClicked"
-                    Label="Add Link"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.AddHyperlink}">
+                    Label="Add HyperLink"
+                    ToolTipService.ToolTip="Add HyperLink">
                     <AppBarButton.Flyout>
                         <Flyout x:Name="HyperlinkFlyout">
                             <StackPanel Width="250" Spacing="6">
