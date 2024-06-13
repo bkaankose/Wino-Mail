@@ -644,6 +644,11 @@ namespace Wino.Core.Synchronizers
 
                 var message = new Message();
 
+                if (!string.IsNullOrEmpty(singleDraftRequest.Item.ThreadId))
+                {
+                    message.ThreadId = singleDraftRequest.Item.ThreadId;
+                }
+
                 singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
 
                 var mimeString = singleDraftRequest.Request.Mime.ToString();
