@@ -21,6 +21,8 @@ namespace Wino.Mail.ViewModels.Data
 
         public string StartupEntityAddresses => Account.Address;
 
+        public int HoldingAccountCount => 1;
+
         public AccountProviderDetailViewModel(IProviderDetail providerDetail, MailAccount account)
         {
             ProviderDetail = providerDetail;

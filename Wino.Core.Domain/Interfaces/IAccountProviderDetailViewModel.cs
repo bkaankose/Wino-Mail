@@ -29,5 +29,10 @@ namespace Wino.Core.Domain.Interfaces
         /// Provider details of the account.
         /// </summary>
         IProviderDetail ProviderDetail { get; set; }
+
+        /// <summary>
+        /// How many accounts this provider has.
+        /// </summary>
+        int HoldingAccountCount { get; }
     }
 }

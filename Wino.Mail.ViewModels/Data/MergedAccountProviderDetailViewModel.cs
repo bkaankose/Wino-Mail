@@ -24,6 +24,8 @@ namespace Wino.Mail.ViewModels.Data
 
         public string StartupEntityAddresses => AccountAddresses;
 
+        public int HoldingAccountCount => HoldingAccounts.Count;
+
         public MergedAccountProviderDetailViewModel(MergedInbox mergedInbox, List<AccountProviderDetailViewModel> holdingAccounts)
         {
             MergedInbox = mergedInbox;

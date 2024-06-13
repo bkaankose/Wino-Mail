@@ -42,7 +42,7 @@ namespace Wino.Mail.ViewModels
         public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
         public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
         public bool HasAccountsDefined => Accounts != null && Accounts.Any();
-        public bool CanReorderAccounts => Accounts?.Count > 1;
+        public bool CanReorderAccounts => Accounts?.Sum(a => a.HoldingAccountCount) > 1;
 
         public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, Accounts.Count, FREE_ACCOUNT_COUNT);
 
