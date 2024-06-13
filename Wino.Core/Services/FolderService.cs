@@ -64,8 +64,7 @@ namespace Wino.Core.Services
             }
 
             // Draft and Junk folders are not counted as unread. They must return the item count instead.
-
-            if (folder.SpecialFolderType != SpecialFolderType.Draft || folder.SpecialFolderType != SpecialFolderType.Junk)
+            if (folder.SpecialFolderType != SpecialFolderType.Draft && folder.SpecialFolderType != SpecialFolderType.Junk)
             {
                 query.Where("IsRead", 0);
             }
