@@ -36,6 +36,7 @@ namespace Wino.Dialogs
             InitializeComponent();
 
             SignatureNameHeader = Translator.SignatureEditorDialog_SignatureName_TitleNew;
+            Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarWinStyleAnimation");
 
             // TODO: Should be added additional logic to enable/disable primary button when webview content changed.
@@ -56,6 +57,7 @@ namespace Wino.Dialogs
                 HtmlBody = signatureModel.HtmlBody
             };
 
+            Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,OverlayScrollbarWinStyle,OverlayScrollbarWinStyleAnimation");
 
             // TODO: Should be added additional logic to enable/disable primary button when webview content changed.
@@ -90,7 +92,7 @@ namespace Wino.Dialogs
             if (Chromium.CoreWebView2 != null)
             {
                 Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
-                Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageRecieved;
+                Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
             }
         }
 
@@ -303,32 +305,32 @@ namespace Wino.Dialogs
             Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
             Chromium.CoreWebView2.DOMContentLoaded += DOMLoaded;
 
-            Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageRecieved;
-            Chromium.CoreWebView2.WebMessageReceived += ScriptMessageRecieved;
+            Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
+            Chromium.CoreWebView2.WebMessageReceived += ScriptMessageReceived;
         }
 
         private static async void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
         {
-            //if (obj is ComposePage page)
-            //{
-            //    await page.UpdateEditorThemeAsync();
-            //}
+            if (obj is SignatureEditorDialog dialog)
+            {
+                await dialog.UpdateEditorThemeAsync();
+            }
         }
 
-        private void ScriptMessageRecieved(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
+        private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
             var change = JsonConvert.DeserializeObject<string>(args.WebMessageAsJson);
 
             bool isEnabled = change.EndsWith("ql-active");
 
             if (change.StartsWith("ql-bold"))
-                BoldButton.IsFocusEngaged = isEnabled;
+                BoldButton.IsChecked = isEnabled;
             else if (change.StartsWith("ql-italic"))
-                ItalicButton.IsEnabled = isEnabled;
+                ItalicButton.IsChecked = isEnabled;
             else if (change.StartsWith("ql-underline"))
-                UnderlineButton.IsEnabled = isEnabled;
+                UnderlineButton.IsChecked = isEnabled;
             else if (change.StartsWith("ql-strike"))
-                StrokeButton.IsEnabled = isEnabled;
+                StrokeButton.IsChecked = isEnabled;
             else if (change.StartsWith("orderedListButton"))
                 OrderedListButton.IsChecked = isEnabled;
             else if (change.StartsWith("bulletListButton"))
@@ -369,5 +371,10 @@ namespace Wino.Dialogs
         }
 
         private void SignatureNameTextBoxTextChanged(object sender, TextChangedEventArgs e) => IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(SignatureNameTextBox.Text);
+
+        private void InvertComposerThemeClicked(object sender, RoutedEventArgs e)
+        {
+            IsComposerDarkMode = !IsComposerDarkMode;
+        }
     }
 }
