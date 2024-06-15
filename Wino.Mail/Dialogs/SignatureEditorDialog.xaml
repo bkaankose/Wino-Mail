@@ -43,7 +43,7 @@
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="500" />
+                <RowDefinition Height="300" />
             </Grid.RowDefinitions>
 
             <CommandBar
