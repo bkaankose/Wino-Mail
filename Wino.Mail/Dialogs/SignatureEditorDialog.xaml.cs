@@ -258,8 +258,9 @@ namespace Wino.Dialogs
         private async void LinkButtonClicked(object sender, RoutedEventArgs e)
         {
             // Get selected text from Quill.
-
             HyperlinkTextBox.Text = await TryGetSelectedTextAsync();
+
+            HyperlinkFlyout.ShowAt(LinkButton);
         }
 
         private async Task UpdateEditorThemeAsync()

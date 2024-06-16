@@ -241,6 +241,8 @@
                 <AppBarButton
                     x:Name="LinkButton"
                     Width="48"
+                    Click="LinkButtonClicked"
+                    FrameworkElement.AllowFocusOnInteraction="True"
                     Label="Add HyperLink"
                     ToolTipService.ToolTip="Add HyperLink">
                     <AppBarButton.Flyout>
