@@ -142,7 +142,6 @@ namespace Wino.Mail.ViewModels
                 FooterItems.Clear();
 
                 FooterItems.Add(ManageAccountsMenuItem);
-                FooterItems.Add(RatingItem);
                 FooterItems.Add(SettingsItem);
             });
         }
