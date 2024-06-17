@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Analytics;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Messages.Mails;
@@ -16,13 +15,11 @@ namespace Wino.Views.ImapSetup
 {
     public sealed partial class TestingImapConnectionPage : Page
     {
-        private IImapTestService _imapTestService;
+        private IImapTestService _imapTestService = App.Current.Services.GetService<IImapTestService>();
 
         public TestingImapConnectionPage()
         {
             InitializeComponent();
-
-            _imapTestService = App.Current.Services.GetService<IImapTestService>();
         }
 
         private async Task TryTestConnectionAsync(CustomServerInformation serverInformation)
@@ -40,39 +37,43 @@ namespace Wino.Views.ImapSetup
         {
             base.OnNavigatedTo(e);
 
-            // We either go back to welcome setup page or advanced config page.
-            // Based on if we come from auto discovery or not.
-
-            if (e.Parameter is AutoDiscoverySettings autoDiscoverySettings)
+            // We can only go back to this page from failed connection page.
+            // We must go back once again in that case to actual setup dialog.
+            if (e.NavigationMode == NavigationMode.Back)
             {
-                var serverInformation = autoDiscoverySettings.ToServerInformation();
-
-                try
-                {
-                    await TryTestConnectionAsync(serverInformation);
-                }
-                catch (Exception ex)
-                {
-                    WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(WelcomeImapSetupPage),
-                                                                                             new AutoDiscoveryConnectionTestFailedPackage(autoDiscoverySettings, ex)));
-                }
+                WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested());
             }
-            else if (e.Parameter is CustomServerInformation customServerInformation)
+            else
             {
+                // Test connection
+
+                CustomServerInformation serverInformationToTest = null;
+                AutoDiscoverySettings autoDiscoverySettings = null;
+
+                // Discovery settings are passed.
+                // Create server information out of the discovery settings.
+                if (e.Parameter is AutoDiscoverySettings parameterAutoDiscoverySettings)
+                {
+                    autoDiscoverySettings = parameterAutoDiscoverySettings;
+                    serverInformationToTest = autoDiscoverySettings.ToServerInformation();
+                }
+                else if (e.Parameter is CustomServerInformation customServerInformation)
+                {
+                    // Only server information is passed.
+                    serverInformationToTest = customServerInformation;
+                }
+
                 try
                 {
-                    await TryTestConnectionAsync(customServerInformation);
+                    await TryTestConnectionAsync(serverInformationToTest);
                 }
                 catch (Exception ex)
                 {
-                    Analytics.TrackEvent("IMAP Test Failed", new Dictionary<string, string>()
-                    {
-                        { "Server", customServerInformation.IncomingServer },
-                        { "Port", customServerInformation.IncomingServerPort },
-                    });
+                    string protocolLog = ex is ImapClientPoolException clientPoolException ? clientPoolException.ProtocolLog : string.Empty;
 
-                    WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(AdvancedImapSetupPage),
-                                                                                             new AutoDiscoveryConnectionTestFailedPackage(ex)));
+                    var failurePackage = new ImapConnectionFailedPackage(ex, protocolLog, autoDiscoverySettings);
+
+                    WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
                 }
             }
         }

@@ -1,32 +1,51 @@
 ﻿using System;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Messages.Mails;
-using Wino.Extensions;
 
-// The Blank Page item template is documented at https://go.microsoft.com/fwlink/?LinkId=234238
 
 namespace Wino.Views.ImapSetup
 {
-    /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
-    /// </summary>
     public sealed partial class WelcomeImapSetupPage : Page
     {
-        private AutoDiscoveryConnectionTestFailedPackage failedPackage;
+        private ImapConnectionFailedPackage failedPackage;
+        private readonly IAutoDiscoveryService _autoDiscoveryService = App.Current.Services.GetService<IAutoDiscoveryService>();
 
         public WelcomeImapSetupPage()
         {
             InitializeComponent();
-            NavigationCacheMode = Windows.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
         }
 
-        private void SignInClicked(object sender, RoutedEventArgs e)
+        protected override void OnNavigatedTo(NavigationEventArgs e)
         {
-            failedPackage = null;
+            base.OnNavigatedTo(e);
+
+            AutoDiscoveryPanel.Visibility = Visibility.Collapsed;
+            MainSetupPanel.Visibility = Visibility.Visible;
+
+            if (e.Parameter is MailAccount accountProperties)
+            {
+                DisplayNameBox.Text = accountProperties.Name;
+            }
+        }
+
+        private async void SignInClicked(object sender, RoutedEventArgs e)
+        {
+            MainSetupPanel.Visibility = Visibility.Collapsed;
+            AutoDiscoveryPanel.Visibility = Visibility.Visible;
+
+            // Let users see the discovery message for a while...
+
+            await Task.Delay(1000);
 
             var minimalSettings = new AutoDiscoveryMinimalSettings()
             {
@@ -35,32 +54,27 @@ namespace Wino.Views.ImapSetup
                 Email = AddressBox.Text,
             };
 
-            WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(AutoDiscoveryPage), minimalSettings));
-        }
+            var discoverySettings = await _autoDiscoveryService.GetAutoDiscoverySettings(minimalSettings);
 
-        protected override void OnNavigatedTo(NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
-
-            if (e.Parameter is string errorMessage)
+            if (discoverySettings == null)
             {
-                ErrorMessageText.Text = errorMessage;
+                // Couldn't find settings.
 
-                MainScrollviewer.ScrollToElement(ErrorMessageText);
+                var failurePackage = new ImapConnectionFailedPackage(new Exception(Translator.Exception_ImapAutoDiscoveryFailed), string.Empty, discoverySettings);
+
+                WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
             }
-            else if (e.Parameter is AutoDiscoveryConnectionTestFailedPackage autoDiscoveryConnectionTestFailedPackage)
+            else
             {
-                failedPackage = autoDiscoveryConnectionTestFailedPackage;
-                ErrorMessageText.Text = $"Discovery was successful but connection to the server failed.{Environment.NewLine}{Environment.NewLine}{autoDiscoveryConnectionTestFailedPackage.Error.Message}";
+                // Settings are found. Test the connection with the given password.
 
-                MainScrollviewer.ScrollToElement(ErrorMessageText);
+                discoverySettings.UserMinimalSettings = minimalSettings;
+
+                WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(TestingImapConnectionPage), discoverySettings));
             }
         }
 
-        private void CancelClicked(object sender, RoutedEventArgs e)
-        {
-            WeakReferenceMessenger.Default.Send(new ImapSetupDismissRequested());
-        }
+        private void CancelClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new ImapSetupDismissRequested());
 
         private void AdvancedConfigurationClicked(object sender, RoutedEventArgs e)
         {

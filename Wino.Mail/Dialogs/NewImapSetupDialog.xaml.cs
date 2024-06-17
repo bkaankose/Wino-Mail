@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
@@ -31,8 +32,6 @@ namespace Wino.Dialogs
         public NewImapSetupDialog()
         {
             InitializeComponent();
-
-            ImapFrame.Navigate(typeof(WelcomeImapSetupPage), null, new DrillInNavigationTransitionInfo());
         }
 
         // Not used for now.
@@ -50,9 +49,24 @@ namespace Wino.Dialogs
 
         public Task<CustomServerInformation> GetCustomServerInformationAsync() => _getServerInfoTaskCompletionSource.Task;
 
-        public void Receive(ImapSetupBackNavigationRequested message)
+        public async void Receive(ImapSetupBackNavigationRequested message)
         {
-            ImapFrame.Navigate(message.PageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft });
+            // Frame go back
+            if (message.PageType == null)
+            {
+                if (ImapFrame.CanGoBack)
+                {
+                    // Go back using Dispatcher to allow navigations in OnNavigatedTo.
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        ImapFrame.GoBack();
+                    });
+                }
+            }
+            else
+            {
+                ImapFrame.Navigate(message.PageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft });
+            }
         }
 
         public void Receive(ImapSetupNavigationRequested message)
@@ -68,6 +82,9 @@ namespace Wino.Dialogs
         {
             ImapFrame.Navigate(typeof(PreparingImapFoldersPage), new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromLeft });
         }
+
+        public void StartImapConnectionSetup(MailAccount account) => ImapFrame.Navigate(typeof(WelcomeImapSetupPage), account, new DrillInNavigationTransitionInfo());
+
 
         private void ImapSetupDialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => WeakReferenceMessenger.Default.UnregisterAll(this);
 

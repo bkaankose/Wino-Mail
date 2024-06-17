@@ -43,11 +43,5 @@ namespace Wino.Core.Domain.Entities
 
         public string ProxyServer { get; set; }
         public string ProxyServerPort { get; set; }
-
-        [Obsolete("As 1.7.0")]
-        public bool IncomingRequiresSSL { get; set; }
-
-        [Obsolete("As 1.7.0")]
-        public bool OutgoingRequresSSL { get; set; }
     }
 }

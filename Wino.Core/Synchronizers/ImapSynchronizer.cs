@@ -59,14 +59,14 @@ namespace Wino.Core.Synchronizers
         private ImapClient _inboxIdleClient;
 
         public override uint BatchModificationSize => 1000;
-        public override uint InitialMessageDownloadCountPerFolder => 500;
+        public override uint InitialMessageDownloadCountPerFolder => 250;
 
         public ImapSynchronizer(MailAccount account, IImapChangeProcessor imapChangeProcessor) : base(account)
         {
             _clientPool = new ImapClientPool(Account.ServerInformation);
+            _imapChangeProcessor = imapChangeProcessor;
 
             idleDoneToken = new CancellationTokenSource();
-            _imapChangeProcessor = imapChangeProcessor;
         }
 
         // TODO

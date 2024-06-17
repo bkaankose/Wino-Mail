@@ -1,9 +1,8 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
-using MailKit;
-using MailKit.Net.Imap;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Integration;
 
 namespace Wino.Core.Services
 {
@@ -14,39 +13,40 @@ namespace Wino.Core.Services
         private readonly IPreferencesService _preferencesService;
         private readonly IAppInitializerService _appInitializerService;
 
+        private Stream _protocolLogStream;
+
         public ImapTestService(IPreferencesService preferencesService, IAppInitializerService appInitializerService)
         {
             _preferencesService = preferencesService;
             _appInitializerService = appInitializerService;
         }
 
+        private void EnsureProtocolLogFileExists()
+        {
+            // Create new file for protocol logger.
+            var localAppFolderPath = _appInitializerService.GetApplicationDataFolder();
+
+            var logFile = Path.Combine(localAppFolderPath, ProtocolLogFileName);
+
+            if (File.Exists(logFile))
+                File.Delete(logFile);
+
+            _protocolLogStream = File.Create(logFile);
+        }
+
         public async Task TestImapConnectionAsync(CustomServerInformation serverInformation)
         {
-            ImapClient client = null;
+            EnsureProtocolLogFileExists();
 
-            if (_preferencesService.IsMailkitProtocolLoggerEnabled)
+            var clientPool = new ImapClientPool(serverInformation, _protocolLogStream);
+
+            using (clientPool)
             {
-                // Create new file for protocol logger.
+                // This call will make sure that everything is authenticated + connected successfully.
+                var client = await clientPool.GetClientAsync();
 
-                var localAppFolderPath = _appInitializerService.GetApplicationDataFolder();
-
-                var logFile = Path.Combine(localAppFolderPath, ProtocolLogFileName);
-
-                if (File.Exists(logFile))
-                    File.Delete(logFile);
-
-                var stream = File.Create(logFile);
-
-                client = new ImapClient(new ProtocolLogger(stream));
-            }
-            else
-                client = new ImapClient();
-
-            using (client)
-            {
-                // todo: test connection
-                // await client.InitializeAsync(serverInformation);
                 await client.DisconnectAsync(true);
+                client.Dispose();
             }
         }
     }

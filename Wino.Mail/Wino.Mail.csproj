@@ -380,8 +380,8 @@
     <Compile Include="Views\ImapSetup\AdvancedImapSetupPage.xaml.cs">
       <DependentUpon>AdvancedImapSetupPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\ImapSetup\AutoDiscoveryPage.xaml.cs">
-      <DependentUpon>AutoDiscoveryPage.xaml</DependentUpon>
+    <Compile Include="Views\ImapSetup\ImapConnectionFailedPage.xaml.cs">
+      <DependentUpon>ImapConnectionFailedPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\ImapSetup\PreparingImapFoldersPage.xaml.cs">
       <DependentUpon>PreparingImapFoldersPage.xaml</DependentUpon>
@@ -595,7 +595,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\ImapSetup\AutoDiscoveryPage.xaml">
+    <Page Include="Views\ImapSetup\ImapConnectionFailedPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

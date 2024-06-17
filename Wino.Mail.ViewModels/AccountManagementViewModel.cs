@@ -174,6 +174,9 @@ namespace Wino.Mail.ViewModels
                     // Custom server implementation requires more async waiting.
                     if (creationDialog is ICustomServerAccountCreationDialog customServerDialog)
                     {
+                        // Pass along the account properties and perform initial navigation on the imap frame.
+                        customServerDialog.StartImapConnectionSetup(createdAccount);
+
                         customServerInformation = await customServerDialog.GetCustomServerInformationAsync()
                             ?? throw new AccountSetupCanceledException();
 
