@@ -108,7 +108,7 @@ namespace Wino.Views
             }
             else
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody);
+                await ExecuteScriptFunctionAsync("RenderHTML", ConvertContentTheme("<html><head></head><body>" + htmlBody + "</body></html>", ViewModel.IsDarkWebviewRenderer));
             }
 
             isRenderingInProgress = false;
@@ -147,9 +147,9 @@ namespace Wino.Views
             base.OnNavigatedFrom(e);
         }
 
-        private string ConvertContentTheme(string original, bool rawText = false)
+        private string ConvertContentTheme(string original, bool isDarkMode, bool rawText = false)
         {
-            if (Application.Current.RequestedTheme == ApplicationTheme.Dark)
+            if (isDarkMode)
             {
                 if (rawText)
                 {
