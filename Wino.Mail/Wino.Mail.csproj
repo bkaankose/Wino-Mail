@@ -2,7 +2,7 @@
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>11.0</LangVersion>
     <PackageCertificateThumbprint>
     </PackageCertificateThumbprint>
   </PropertyGroup>
@@ -291,6 +291,7 @@
     <Compile Include="Dialogs\TextInputDialog.xaml.cs">
       <DependentUpon>TextInputDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Extensions\ColorExtensions.cs" />
     <Compile Include="Extensions\MimeKitExtensions.cs" />
     <Compile Include="Extensions\UIExtensions.cs" />
     <Compile Include="GlobalSuppressions.cs" />
