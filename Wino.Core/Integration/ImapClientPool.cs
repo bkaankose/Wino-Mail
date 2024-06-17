@@ -213,7 +213,6 @@ namespace Wino.Core.Integration
 
             if (_protocolLogStream != null)
             {
-                _protocolLogStream.Flush();
                 _protocolLogStream.Dispose();
             }
         }
