@@ -58,6 +58,8 @@ namespace Wino.Core.Integration
             {
                 await EnsureConnectedAsync(client);
 
+                bool mustDoPostAuthIdentification = false;
+
                 if (isCreatedNew && client.IsConnected)
                 {
                     // Activate supported pre-auth capabilities.
@@ -65,14 +67,32 @@ namespace Wino.Core.Integration
                         await client.CompressAsync();
 
                     // Identify if the server supports ID extension.
+                    // Some servers require it pre-authentication, some post-authentication.
+                    // We'll observe the response here and do it after authentication if needed.
+
                     if (client.Capabilities.HasFlag(ImapCapabilities.Id))
-                        await client.IdentifyAsync(_implementation);
+                    {
+                        try
+                        {
+                            await client.IdentifyAsync(_implementation);
+                        }
+                        catch (ImapCommandException commandException) when (commandException.Response == ImapCommandResponse.No)
+                        {
+                            mustDoPostAuthIdentification = true;
+                        }
+                        catch (Exception)
+                        {
+                            throw;
+                        }
+                    }
                 }
 
                 await EnsureAuthenticatedAsync(client);
 
                 if (isCreatedNew && client.IsAuthenticated)
                 {
+                    if (mustDoPostAuthIdentification) await client.IdentifyAsync(_implementation);
+
                     // Activate post-auth capabilities.
                     if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync))
                         await client.EnableQuickResyncAsync();
