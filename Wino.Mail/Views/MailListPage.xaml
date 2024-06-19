@@ -392,7 +392,7 @@
             PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
             QueryIcon="Find"
             TabIndex="1000"
-            TextChanged="SearchBar_TextChanged"
+            
             Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}">
             <i:Interaction.Behaviors>
                 <ic:EventTriggerBehavior EventName="QuerySubmitted">
