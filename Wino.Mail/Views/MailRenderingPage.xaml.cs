@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
@@ -19,6 +20,18 @@ using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
+using System.ComponentModel;
+using Windows.UI.Xaml.Media;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Diagnostics;
+using System.Globalization;
+using System.Windows;
+using Windows.UI;
+using Microsoft.Toolkit.Uwp;
+using Wino.Extensions;
+using Microsoft.Toolkit.Uwp.Helpers;
 
 namespace Wino.Views
 {
@@ -80,23 +93,32 @@ namespace Wino.Views
             return await Chromium.ExecuteScriptAsync(script);
         }
 
-        private async Task RenderInternalAsync(string htmlBody)
+        string _htmlContent = "";
+
+        private async Task RenderInternalAsync(string? htmlBody = null)
         {
             isRenderingInProgress = true;
 
             await DOMLoadedTask.Task;
 
-            await UpdateEditorThemeAsync();
-            await UpdateReaderFontPropertiesAsync();
+            //await UpdateEditorThemeAsync();
+            //await UpdateReaderFontPropertiesAsync();
 
-            if (string.IsNullOrEmpty(htmlBody))
+            if (htmlBody != null)
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", " ");
+                _htmlContent = htmlBody;
             }
-            else
-            {
-                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody);
-            }
+
+            Chromium.NavigateToString(ConvertContentTheme("<html><head></head><body>" + htmlBody + "</body></html>", ViewModel.IsDarkWebviewRenderer));
+            
+            //if (string.IsNullOrEmpty(htmlBody))
+            //{
+            //    await ExecuteScriptFunctionAsync("RenderHTML", " ");
+            //}
+            //else
+            //{
+            //    await ExecuteScriptFunctionAsync("RenderHTML", ConvertContentTheme("<html><head></head><body>" + htmlBody + "</body></html>", ViewModel.IsDarkWebviewRenderer));
+            //}
 
             isRenderingInProgress = false;
         }
@@ -133,6 +155,102 @@ namespace Wino.Views
 
             base.OnNavigatedFrom(e);
         }
+
+        private string ConvertContentTheme(string original, bool isDarkMode, bool rawText = false)
+        {
+            if (isDarkMode)
+            {
+                if (rawText)
+                {
+                    return original;
+                }
+                else
+                {
+                    const string darkCss =
+                        "<style>body{color: white;background: transparent !important; background-color: transparent !important;}</style>";
+                    const string regexPattern =
+                        """(bgcolor|background|color|background-color)\s*(\:|\=\")\s*(\S*)([\;\"])""";
+
+                    var matches = Regex.Matches(original, regexPattern);
+                    foreach (Match match in matches)
+                    {
+                        try
+                        {
+                            Color originalColor;
+                            if (match.Groups[3].Value.StartsWith("rgba"))
+                            {
+                                var rgbaStr = match.Groups[3].Value.Substring(5).TrimEnd(')');
+                                var rgbaArr = rgbaStr.Split(',');
+                                originalColor = Color.FromArgb((byte)(double.Parse(rgbaArr[3]) * 255),
+                                    Byte.Parse(rgbaArr[0]),
+                                    Byte.Parse(rgbaArr[1]), Byte.Parse(rgbaArr[2]));
+                            }
+                            else if (match.Groups[3].Value.StartsWith("rgb"))
+                            {
+                                var rgbStr = match.Groups[3].Value.Substring(4).TrimEnd(')');
+                                var rgbArr = rgbStr.Split(',');
+                                originalColor = Color.FromArgb(255, Byte.Parse(rgbArr[0]),
+                                    Byte.Parse(rgbArr[1]), Byte.Parse(rgbArr[2]));
+                            }
+                            else
+                            {
+                                originalColor = ColorExtensions.ParseColor(match.Groups[3].Value, null);
+                            }
+
+
+                            var hslColor = originalColor.ToHsl();
+
+                            // 合理调整此处区间以便正常拉取色调
+                            if (hslColor.L >= 0.70)
+                            {
+                                hslColor.L = 1 - hslColor.L;
+                            }
+                            else if (hslColor.L <= 0.30)
+                            {
+                                hslColor.L = 1 - hslColor.L;
+                            }
+
+                            var color = Microsoft.Toolkit.Uwp.Helpers.ColorHelper.FromHsl(
+                                hslColor.H, hslColor.S, hslColor.L, hslColor.A);
+
+                            if (match.Groups[1].Value.StartsWith('b') && hslColor.L is > 0.90 or < 0.10)
+                            {
+                                original = original.Replace(match.Value,
+                                    match.Groups[1].Value + match.Groups[2].Value + "transparent" +
+                                    match.Groups[4].Value);
+                                continue;
+                            }
+
+                            original = original.Replace(match.Value,
+                                match.Groups[1].Value + match.Groups[2].Value + $"#{color.R:X2}{color.G:X2}{color.B:X2}" +
+                                match.Groups[4].Value);
+                        }
+                        catch
+                        {
+                            //ignore
+                        }
+                    }
+
+
+                    if (original.Contains("<body>"))
+                    {
+                        original = original.Insert(original.IndexOf("<body>", StringComparison.Ordinal) + 6, darkCss);
+                    }
+
+                    if (original.Contains("<html>"))
+                    {
+                        original = original.Insert(original.IndexOf("<html>", StringComparison.Ordinal) + 6, darkCss);
+                    }
+                }
+
+                // 处理表格
+                original = Regex.Replace(original, @"border(-left|-right|-top|-bottom)*:(\S*)\s*windowtext",
+                    "border$1:$2 white");
+            }
+
+            return original;
+        }
+
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
@@ -229,17 +347,23 @@ namespace Wino.Views
         {
             await DOMLoadedTask.Task;
 
+            await InvokeScriptSafeAsync("ChangePrefferedTheme('light')");
+            await InvokeScriptSafeAsync("DarkReader.disable();");
+
             if (ViewModel.IsDarkWebviewRenderer)
             {
-                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
+                //Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
 
-                await InvokeScriptSafeAsync("SetDarkEditor();");
+                //await InvokeScriptSafeAsync("ChangePrefferedTheme('dark')");
+                //await InvokeScriptSafeAsync("DarkReader.enable();");
             }
             else
             {
-                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
+                //Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
+
 
                 await InvokeScriptSafeAsync("SetLightEditor();");
+
             }
         }
 

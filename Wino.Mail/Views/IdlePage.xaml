@@ -19,12 +19,12 @@
 
             <controls:WinoFontIcon Icon="Mail" FontSize="80" />
 
-            <TextBlock
+            <!--<TextBlock
                 HorizontalAlignment="Center"
                 FontSize="31"
                 Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}"
                 Style="{StaticResource SubheaderTextBlockStyle}"
-                x:Name="CountTextBlock" />
+                x:Name="CountTextBlock" />-->
         </StackPanel>
     </Grid>
 </abstract:IdlePageAbstract>

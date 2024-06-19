@@ -17,7 +17,7 @@ namespace Wino.Core.Authenticators
         // Outlook
         private const string Authority = "https://login.microsoftonline.com/common";
 
-        public string ClientId { get; } = "b19c2035-d740-49ff-b297-de6ec561b208";
+        public string ClientId { get; } = "d26be8d1-9975-4654-aa42-35b398759196";
 
         private readonly string[] MailScope = new string[] { "email", "mail.readwrite", "offline_access", "mail.send" };
 
@@ -27,11 +27,11 @@ namespace Wino.Core.Authenticators
 
         public OutlookAuthenticator(ITokenService tokenService, INativeAppService nativeAppService) : base(tokenService)
         {
-            var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
+            // var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
 
             _publicClientApplication = PublicClientApplicationBuilder.Create(ClientId)
                 .WithAuthority(Authority)
-                .WithRedirectUri(authenticationRedirectUri)
+                .WithRedirectUri("https://login.microsoftonline.com/common/oauth2/nativeclient")
                 .Build();
         }
 
