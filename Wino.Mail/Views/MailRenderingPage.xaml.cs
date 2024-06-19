@@ -93,23 +93,32 @@ namespace Wino.Views
             return await Chromium.ExecuteScriptAsync(script);
         }
 
-        private async Task RenderInternalAsync(string htmlBody)
+        string _htmlContent = "";
+
+        private async Task RenderInternalAsync(string? htmlBody = null)
         {
             isRenderingInProgress = true;
 
             await DOMLoadedTask.Task;
 
-            await UpdateEditorThemeAsync();
-            await UpdateReaderFontPropertiesAsync();
+            //await UpdateEditorThemeAsync();
+            //await UpdateReaderFontPropertiesAsync();
 
-            if (string.IsNullOrEmpty(htmlBody))
+            if (htmlBody != null)
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", " ");
+                _htmlContent = htmlBody;
             }
-            else
-            {
-                await ExecuteScriptFunctionAsync("RenderHTML", ConvertContentTheme("<html><head></head><body>" + htmlBody + "</body></html>", ViewModel.IsDarkWebviewRenderer));
-            }
+
+            Chromium.NavigateToString(ConvertContentTheme("<html><head></head><body>" + htmlBody + "</body></html>", ViewModel.IsDarkWebviewRenderer));
+            
+            //if (string.IsNullOrEmpty(htmlBody))
+            //{
+            //    await ExecuteScriptFunctionAsync("RenderHTML", " ");
+            //}
+            //else
+            //{
+            //    await ExecuteScriptFunctionAsync("RenderHTML", ConvertContentTheme("<html><head></head><body>" + htmlBody + "</body></html>", ViewModel.IsDarkWebviewRenderer));
+            //}
 
             isRenderingInProgress = false;
         }
