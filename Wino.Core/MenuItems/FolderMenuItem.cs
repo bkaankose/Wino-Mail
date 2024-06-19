@@ -46,7 +46,7 @@ namespace Wino.Core.MenuItems
 
         public IEnumerable<IMailItemFolder> HandlingFolders => new List<IMailItemFolder>() { Parameter };
 
-        public MailAccount ParentAccount { get; }
+        public MailAccount ParentAccount { get; private set; }
 
         public string AssignedAccountName => ParentAccount?.Name;
 
@@ -71,5 +71,7 @@ namespace Wino.Core.MenuItems
         }
 
         public override string ToString() => FolderName;
+
+        public void UpdateParentAccounnt(MailAccount account) => ParentAccount = account;
     }
 }

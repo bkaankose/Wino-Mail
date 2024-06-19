@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
 
@@ -7,27 +8,40 @@ namespace Wino.Core.Domain.Interfaces
     public interface ISignatureService
     {
         /// <summary>
-        /// Returns the assigned account signature for the account.
+        /// Get one signature by Id.
         /// </summary>
-        /// <param name="accountId"></param>
-        /// <returns></returns>
-        Task<AccountSignature> GetAccountSignatureAsync(Guid accountId);
+        /// <param name="signatureId">Signature Id.</param>
+        Task<AccountSignature> GetSignatureAsync(Guid signatureId);
 
         /// <summary>
-        /// Creates the initial signature for new created accounts.
+        /// Returns all signatures for specified account.
         /// </summary>
-        /// <param name="accountId"></param>
-        /// <returns></returns>
+        /// <param name="accountId">Account id</param>
+        Task<List<AccountSignature>> GetSignaturesAsync(Guid accountId);
+
+        /// <summary>
+        /// Creates a new signature for the account.
+        /// </summary>
+        /// <param name="signature">Signature that should be created. It should contain ID and account to which it belongs.</param>
+        Task<AccountSignature> CreateSignatureAsync(AccountSignature signature);
+
+        /// <summary>
+        /// Creates a default Wino signature for the account.
+        /// Needed only for initial account setup.
+        /// </summary>
+        /// <param name="accountId">Account Id.</param>
         Task<AccountSignature> CreateDefaultSignatureAsync(Guid accountId);
 
         /// <summary>
-        /// Updates account's existing signature with the given HTML signature.
+        /// Updates existing signature.
         /// </summary>
-        Task<AccountSignature> UpdateAccountSignatureAsync(Guid accountId, string htmlBody);
+        /// <param name="signature">Signature that should be updated. It should contain ID and account to which it belongs.</param>
+        Task<AccountSignature> UpdateSignatureAsync(AccountSignature signature);
 
         /// <summary>
-        /// Disabled signature for the account and deletes existing signature.
+        /// Deletes existing signature.
         /// </summary>
-        Task DeleteAccountSignatureAssignment(Guid accountId);
+        /// <param name="signature">Signature that should be deleted.</param>
+        Task<AccountSignature> DeleteSignatureAsync(AccountSignature signature);
     }
 }

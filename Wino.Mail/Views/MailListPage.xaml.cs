@@ -21,6 +21,7 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Controls;
 using Wino.Controls.Advanced;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -430,7 +431,7 @@ namespace Wino.Views
 
         private void SearchBarUnfocused(object sender, RoutedEventArgs e)
         {
-            SearchBar.PlaceholderText = "search";
+            SearchBar.PlaceholderText = Translator.SearchBarPlaceholder;
         }
 
         private void MailListPageLoaded(object sender, RoutedEventArgs e)
@@ -543,6 +544,7 @@ namespace Wino.Views
             ViewModel.SyncFolderCommand?.Execute(null);
         }
 
+
         private void BlurLayer_Loaded(object sender, RoutedEventArgs e)
         {
             var hostElement = sender as UIElement;
@@ -588,6 +590,7 @@ namespace Wino.Views
 
             spriteVisual.Brush = maskEffectBrush;
             ElementCompositionPreview.SetElementChildVisual(hostElement, spriteVisual);
+
         }
     }
 }

@@ -39,7 +39,8 @@ namespace Wino.Mail.ViewModels
         IRecipient<RefreshUnreadCountsMessage>,
         IRecipient<AccountsMenuRefreshRequested>,
         IRecipient<MergedInboxRenamed>,
-        IRecipient<LanguageChanged>
+        IRecipient<LanguageChanged>,
+        IRecipient<AccountMenuItemsReordered>
     {
         #region Menu Items
 
@@ -141,7 +142,6 @@ namespace Wino.Mail.ViewModels
                 FooterItems.Clear();
 
                 FooterItems.Add(ManageAccountsMenuItem);
-                FooterItems.Add(RatingItem);
                 FooterItems.Add(SettingsItem);
             });
         }
@@ -661,7 +661,7 @@ namespace Wino.Mail.ViewModels
                 }
 
                 clickedBaseAccountMenuItem.IsSelected = true;
-                
+
 
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
 
@@ -1059,5 +1059,19 @@ namespace Wino.Mail.ViewModels
 
             ChangeLoadedAccount(latestSelectedAccountMenuItem, navigateInbox: false);
         }
+
+        private void ReorderAccountMenuItems(Dictionary<Guid, int> newAccountOrder)
+        {
+            foreach (var item in newAccountOrder)
+            {
+                var menuItem = MenuItems.GetAccountMenuItem(item.Key);
+
+                if (menuItem == null) continue;
+
+                MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value);
+            }
+        }
+
+        public void Receive(AccountMenuItemsReordered message) => ReorderAccountMenuItems(message.newOrderDictionary);
     }
 }

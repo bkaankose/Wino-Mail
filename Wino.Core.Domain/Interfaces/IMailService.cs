@@ -53,7 +53,6 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="newMailCopyId"></param>
         /// <param name="newDraftId"></param>
         /// <param name="newThreadId"></param>
-        /// <returns></returns>
         Task MapLocalDraftAsync(string newMailCopyId, string newDraftId, string newThreadId);
 
         Task<MimeMessage> CreateDraftMimeMessageAsync(Guid accountId, DraftCreationOptions options);
@@ -77,5 +76,13 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="uniqueMailId">Unique id of the mail item.</param>
         /// <returns>Account that mail belongs to.</returns>
         Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId);
+
+        /// <summary>
+        /// Checks whether the given mail copy id exists in the database.
+        /// Safely used for Outlook to prevent downloading the same mail twice.
+        /// For Gmail, it should be avoided since one mail may belong to multiple folders.
+        /// </summary>
+        /// <param name="mailCopyId">Native mail id of the message.</param>
+        Task<bool> IsMailExistsAsync(string mailCopyId);
     }
 }

@@ -22,7 +22,10 @@ namespace Wino.Core
             services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
             services.AddSingleton<IMimeFileService, MimeFileService>();
 
-            services.AddTransient<IDefaultChangeProcessor, DefaultChangeProcessor>();
+            services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
+            services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
+            services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
+
             services.AddTransient<ITokenService, TokenService>();
             services.AddTransient<IProviderService, ProviderService>();
             services.AddTransient<IFolderService, FolderService>();
@@ -37,6 +40,7 @@ namespace Wino.Core
             services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
             services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
             services.AddTransient<IFontService, FontService>();
+            services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
 
             services.AddTransient<OutlookThreadingStrategy>();
             services.AddTransient<GmailThreadingStrategy>();

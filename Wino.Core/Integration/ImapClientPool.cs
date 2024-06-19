@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Net.Proxy;
 using MailKit.Security;
@@ -20,7 +23,7 @@ namespace Wino.Core.Integration
     /// TODO: Listens to the Inbox folder for new messages.
     /// </summary>
     /// <param name="customServerInformation">Connection/Authentication info to be used to configure ImapClient.</param>
-    public class ImapClientPool
+    public class ImapClientPool : IDisposable
     {
         // Hardcoded implementation details for ID extension if the server supports.
         // Some providers like Chinese 126 require Id to be sent before authentication.
@@ -40,11 +43,13 @@ namespace Wino.Core.Integration
         private readonly ConcurrentBag<ImapClient> _clients = [];
         private readonly SemaphoreSlim _semaphore = new(MaxPoolSize);
         private readonly CustomServerInformation _customServerInformation;
+        private readonly Stream _protocolLogStream;
         private readonly ILogger _logger = Log.ForContext<ImapClientPool>();
 
-        public ImapClientPool(CustomServerInformation customServerInformation)
+        public ImapClientPool(CustomServerInformation customServerInformation, Stream protocolLogStream = null)
         {
             _customServerInformation = customServerInformation;
+            _protocolLogStream = protocolLogStream;
         }
 
         private async Task EnsureConnectivityAsync(ImapClient client, bool isCreatedNew)
@@ -53,6 +58,8 @@ namespace Wino.Core.Integration
             {
                 await EnsureConnectedAsync(client);
 
+                bool mustDoPostAuthIdentification = false;
+
                 if (isCreatedNew && client.IsConnected)
                 {
                     // Activate supported pre-auth capabilities.
@@ -60,14 +67,32 @@ namespace Wino.Core.Integration
                         await client.CompressAsync();
 
                     // Identify if the server supports ID extension.
+                    // Some servers require it pre-authentication, some post-authentication.
+                    // We'll observe the response here and do it after authentication if needed.
+
                     if (client.Capabilities.HasFlag(ImapCapabilities.Id))
-                        await client.IdentifyAsync(_implementation);
+                    {
+                        try
+                        {
+                            await client.IdentifyAsync(_implementation);
+                        }
+                        catch (ImapCommandException commandException) when (commandException.Response == ImapCommandResponse.No)
+                        {
+                            mustDoPostAuthIdentification = true;
+                        }
+                        catch (Exception)
+                        {
+                            throw;
+                        }
+                    }
                 }
 
                 await EnsureAuthenticatedAsync(client);
 
                 if (isCreatedNew && client.IsAuthenticated)
                 {
+                    if (mustDoPostAuthIdentification) await client.IdentifyAsync(_implementation);
+
                     // Activate post-auth capabilities.
                     if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync))
                         await client.EnableQuickResyncAsync();
@@ -75,13 +100,25 @@ namespace Wino.Core.Integration
             }
             catch (Exception ex)
             {
-                throw new ImapClientPoolException(ex);
+                throw new ImapClientPoolException(ex, GetProtocolLogContent());
             }
             finally
             {
                 // Release it even if it fails.
                 _semaphore.Release();
             }
+        }
+
+        public string GetProtocolLogContent()
+        {
+            if (_protocolLogStream == null) return default;
+
+            // Set the position to the beginning of the stream in case it is not already at the start
+            if (_protocolLogStream.CanSeek)
+                _protocolLogStream.Seek(0, SeekOrigin.Begin);
+
+            using var reader = new StreamReader(_protocolLogStream, Encoding.UTF8, true, 1024, leaveOpen: true);
+            return reader.ReadToEnd();
         }
 
         public async Task<ImapClient> GetClientAsync()
@@ -113,7 +150,17 @@ namespace Wino.Core.Integration
 
         public ImapClient CreateNewClient()
         {
-            var client = new ImapClient();
+            ImapClient client = null;
+
+            // Make sure to create a ImapClient with a protocol logger if enabled.
+            if (_protocolLogStream != null)
+            {
+                client = new ImapClient(new ProtocolLogger(_protocolLogStream));
+            }
+            else
+            {
+                client = new ImapClient();
+            }
 
             HttpProxyClient proxyClient = null;
 
@@ -174,6 +221,20 @@ namespace Wino.Core.Integration
             }
 
             await client.AuthenticateAsync(_customServerInformation.IncomingServerUsername, _customServerInformation.IncomingServerPassword);
+        }
+
+        public void Dispose()
+        {
+            foreach (var client in _clients)
+            {
+                client.Disconnect(true);
+                client.Dispose();
+            }
+
+            if (_protocolLogStream != null)
+            {
+                _protocolLogStream.Dispose();
+            }
         }
     }
 }

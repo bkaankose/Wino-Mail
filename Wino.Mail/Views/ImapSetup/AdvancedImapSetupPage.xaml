@@ -44,28 +44,6 @@
                     IsAddTabButtonVisible="False"
                     CanReorderTabs="False"
                     TabWidthMode="Equal">
-                    <muxc:TabView.TabStripFooter>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button>
-                                <Button.Content>
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <FontIcon
-                                            FontFamily="Segoe Fluent Icons"
-                                            Glyph="&#xE897;"
-                                            FontSize="13" />
-                                        <!--<TextBlock
-                                            Text="Help "
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            FontSize="12" />-->
-                                    </StackPanel>
-                                </Button.Content>
-                                <Button.Flyout>
-                                    <Flyout />
-                                </Button.Flyout>
-                            </Button>
-                        </StackPanel>
-                    </muxc:TabView.TabStripFooter>
                     <muxc:TabViewItem Header="IMAP Settings" IsClosable="False">
                         <!--  IMAP  -->
                         <StackPanel Padding="12" Spacing="10">
@@ -85,7 +63,7 @@
 
                                 <TextBox
                                     d:Header="Port"
-                                    PlaceholderText="993"
+                                    Text="993"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort}"
                                     x:Name="IncomingServerPortBox"
                                     Grid.Column="1" />
@@ -165,6 +143,7 @@
                                     d:Header="Port"
                                     Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort}"
                                     x:Name="OutgoingServerPort"
+                                    Text="587"
                                     Grid.Column="1" />
                             </Grid>
 
@@ -230,11 +209,6 @@
                         </StackPanel>
                     </muxc:TabViewItem>
                 </muxc:TabView>
-
-                <TextBlock
-                    x:Name="ErrorMessage"
-                    TextWrapping="Wrap"
-                    Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}" />
             </StackPanel>
         </ScrollViewer>
 

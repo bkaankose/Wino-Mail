@@ -152,6 +152,11 @@ namespace Wino.Mail.ViewModels.Collections
 
                             await ExecuteUIThread(() => { threadMailItemViewModel.NotifyPropertyChanges(); });
 
+                            if (!MailCopyIdHashSet.Contains(addedItem.UniqueId))
+                            {
+                                MailCopyIdHashSet.Add(addedItem.UniqueId);
+                            }
+
                             break;
                         }
                         else
@@ -173,6 +178,9 @@ namespace Wino.Mail.ViewModels.Collections
                                 if (item is MailItemViewModel itemViewModel)
                                 {
                                     itemViewModel.Update(addedItem);
+
+                                    MailCopyIdHashSet.Remove(itemViewModel.UniqueId);
+                                    MailCopyIdHashSet.Add(addedItem.UniqueId);
                                 }
                             }
                             else

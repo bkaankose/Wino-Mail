@@ -11,15 +11,22 @@ namespace Wino.Core.Domain.Models.Reader
     {
         public string RenderHtml { get; }
         public MailRenderingOptions MailRenderingOptions { get; }
-        public List<MimePart> Attachments { get; set; } = new List<MimePart>();
+        public List<MimePart> Attachments { get; set; } = [];
 
-        public string UnsubscribeLink { get; set; }
-        public bool CanUnsubscribe => !string.IsNullOrEmpty(UnsubscribeLink);
+        public UnsubscribeInfo UnsubscribeInfo { get; set; }
 
         public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null)
         {
             RenderHtml = renderHtml;
             MailRenderingOptions = mailRenderingOptions;
         }
+    }
+
+    public class UnsubscribeInfo
+    {
+        public string HttpLink { get; set; }
+        public string MailToLink { get; set; }
+        public bool IsOneClick { get; set; }
+        public bool CanUnsubscribe => HttpLink != null || MailToLink != null;
     }
 }

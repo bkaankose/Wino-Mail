@@ -20,7 +20,7 @@ namespace Wino.Core.Domain.Entities
         /// IMAP is populated by user on setup dialog.
         /// </summary>
 
-        public string ProfileName { get; set; }
+        public string SenderName { get; set; }
 
         /// <summary>
         /// Account e-mail address.
@@ -40,10 +40,14 @@ namespace Wino.Core.Domain.Entities
         public string SynchronizationDeltaIdentifier { get; set; }
 
         /// <summary>
-        /// Gets or sets the signature to be used for this account.
-        /// Null if no signature should be used.
+        /// TODO: Gets or sets the custom account identifier color in hex.
         /// </summary>
-        public Guid? SignatureId { get; set; }
+        public string AccountColorHex { get; set; }
+
+        /// <summary>
+        /// Gets or sets the listing order of the account in the accounts list.
+        /// </summary>
+        public int Order { get; set; }
 
         /// <summary>
         /// Gets or sets whether the account has any reason for an interactive user action to fix continue operating.

@@ -25,7 +25,7 @@ namespace Wino.Core.Integration.Threading
         private Task<MailCopy> GetReplyParentAsync(IMailItem replyItem, Guid accountId, Guid threadingFolderId, Guid sentFolderId, Guid draftFolderId)
         {
             if (string.IsNullOrEmpty(replyItem?.MessageId)) return Task.FromResult<MailCopy>(null);
-            
+
             var query = new Query("MailCopy")
                 .Distinct()
                 .Take(1)
@@ -61,7 +61,7 @@ namespace Wino.Core.Integration.Threading
         public async Task<List<IMailItem>> ThreadItemsAsync(List<MailCopy> items)
         {
             var threads = new List<ThreadMailItem>();
-            
+
             var account = items.First().AssignedAccount;
             var accountId = account.Id;
 
@@ -77,7 +77,9 @@ namespace Wino.Core.Integration.Threading
             var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(accountId, Domain.Enums.SpecialFolderType.Sent);
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(accountId, Domain.Enums.SpecialFolderType.Draft);
 
-            if (sentFolder == null || draftFolder == null) return default;
+            // Threading is not possible. Return items as it is.
+
+            if (sentFolder == null || draftFolder == null) return new List<IMailItem>(items);
 
             foreach (var replyItem in items)
             {
@@ -134,7 +136,7 @@ namespace Wino.Core.Integration.Threading
 
                     if (mailLookupTable.ContainsKey(replyToParent.Id))
                         mailLookupTable[replyToParent.Id] = true;
-                    
+
                     replyToParent = await GetInReplyToReplyAsync(replyToParent, accountId, replyToParent.AssignedFolder.Id, sentFolder.Id, draftFolder.Id);
                 }
 

@@ -38,6 +38,7 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IWinoRequestDelegator _requestDelegator;
         private readonly IClipboardService _clipboardService;
+        private readonly IUnsubscriptionService _unsubscriptionService;
 
         private bool forceImageLoading = false;
 
@@ -47,7 +48,7 @@ namespace Wino.Mail.ViewModels
         #region Properties
 
         public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
-        public bool CanUnsubscribe => CurrentRenderModel?.CanUnsubscribe ?? false;
+        public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
         public bool IsJunkMail => initializedMailItemViewModel?.AssignedFolder != null && initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
 
         public bool IsImageRenderingDisabled
@@ -125,6 +126,7 @@ namespace Wino.Mail.ViewModels
                                           IWinoRequestDelegator requestDelegator,
                                           IStatePersistanceService statePersistanceService,
                                           IClipboardService clipboardService,
+                                          IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService) : base(dialogService)
         {
             NativeAppService = nativeAppService;
@@ -132,6 +134,7 @@ namespace Wino.Mail.ViewModels
             PreferencesService = preferencesService;
 
             _clipboardService = clipboardService;
+            _unsubscriptionService = unsubscriptionService;
             _underlyingThemeService = underlyingThemeService;
             _mimeFileService = mimeFileService;
             _mailService = mailService;
@@ -172,18 +175,55 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task UnsubscribeAsync()
         {
-            if (!CurrentRenderModel?.CanUnsubscribe ?? false) return;
+            if (!(CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false)) return;
 
-            // TODO: Support for List-Unsubscribe-Post header. It can be done without launching browser.
-            // https://certified-senders.org/wp-content/uploads/2017/07/CSA_one-click_list-unsubscribe.pdf
+            bool confirmed;
 
-            // TODO: Sometimes unsubscribe link can be a mailto: link.
-            // or sometimes with mailto AND http link. We need to handle this.
+            // Try to unsubscribe by http first.
+            if (CurrentRenderModel.UnsubscribeInfo.HttpLink is not null)
+            {
+                if (!Uri.IsWellFormedUriString(CurrentRenderModel.UnsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
+                {
+                    DialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                    return;
+                }
 
-            if (Uri.IsWellFormedUriString(CurrentRenderModel.UnsubscribeLink, UriKind.RelativeOrAbsolute))
-                await NativeAppService.LaunchUriAsync(new Uri((CurrentRenderModel.UnsubscribeLink)));
-            else
-                DialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                // Support for List-Unsubscribe-Post header. It can be done without launching browser.
+                // https://datatracker.ietf.org/doc/html/rfc8058
+                if (CurrentRenderModel.UnsubscribeInfo.IsOneClick)
+                {
+                    confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                    if (!confirmed) return;
+
+                    bool isOneClickUnsubscribed = await _unsubscriptionService.OneClickUnsubscribeAsync(CurrentRenderModel.UnsubscribeInfo);
+
+                    if (isOneClickUnsubscribed)
+                    {
+                        DialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, FromName), InfoBarMessageType.Success);
+                    }
+                    else
+                    {
+                        DialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_UnsubscribeErrorMessage, InfoBarMessageType.Error);
+                    }
+                }
+                else
+                {
+                    confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
+                    if (!confirmed) return;
+
+                    await NativeAppService.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink));
+                }
+            }
+            else if (CurrentRenderModel.UnsubscribeInfo.MailToLink is not null)
+            {
+                confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, FromName, new string(CurrentRenderModel.UnsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+
+                if (!confirmed) return;
+
+                // TODO: Implement automatic mail send after user confirms the action.
+                // Currently it will launch compose page and user should manually press send button.
+                await NativeAppService.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.MailToLink));
+            }
         }
 
         [RelayCommand]

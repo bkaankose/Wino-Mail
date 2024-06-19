@@ -54,11 +54,13 @@
         </DataTemplate>
 
         <!--  Attachment Template  -->
+        <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
             <Grid
-                Height="75"
+                Height="50"
                 Background="Transparent"
-                ColumnSpacing="3">
+                ColumnSpacing="3"
+                Margin="-8,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="36" />
                     <ColumnDefinition Width="*" />
@@ -74,7 +76,7 @@
                 <!--  Name && Size  -->
                 <Grid
                     Grid.Column="1"
-                    MaxWidth="250"
+                    MaxWidth="200"
                     VerticalAlignment="Center">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -85,7 +87,7 @@
                         FontSize="13"
                         Text="{x:Bind FileName}"
                         MaxLines="2"
-                        TextTrimming="None" />
+                        TextTrimming="CharacterEllipsis" />
 
                     <TextBlock
                         Grid.Row="1"
@@ -98,7 +100,6 @@
 
                 <SymbolIcon
                     Grid.Column="2"
-                    Margin="6,0"
                     VerticalAlignment="Center"
                     Symbol="Cancel"
                     Foreground="{StaticResource DeleteBrush}" />
@@ -106,7 +107,11 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Background="{ThemeResource AppBarBackgroundColor}">
+    <Grid
+        Background="{ThemeResource AppBarBackgroundColor}"
+        AllowDrop="True"
+        DragOver="OnComposeGridDragOver"
+        DragLeave="OnComposeGridDragLeave">
         <Grid.Resources>
             <SolidColorBrush x:Key="AutoSuggestBoxBorderThemeBrush">Transparent</SolidColorBrush>
         </Grid.Resources>
@@ -179,6 +184,7 @@
             Margin="0,0"
             VerticalAlignment="Top"
             VerticalScrollMode="Disabled"
+            VerticalScrollBarVisibility="Hidden"
             HorizontalScrollBarVisibility="Hidden"
             HorizontalScrollMode="Enabled">
             <Grid Margin="0" Padding="0,0" Height="60">
@@ -637,28 +643,57 @@ Margin="0 -1 0 1"
                 IsItemClickEnabled="True"
                 ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
                 ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
-                ScrollViewer.VerticalScrollBarVisibility="Visible"
-                ScrollViewer.VerticalScrollMode="Enabled"
                 ItemClick="AttachmentClicked"
                 SelectionMode="None">
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <ItemsStackPanel Orientation="Horizontal" />
+                        <controls1:WrapPanel Orientation="Horizontal" />
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
             </ListView>
         </Grid>
 
+        <!--  Dropzone  -->
+        <Grid
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}"
+            Drop="OnFileDropGridFileDropped"
+            DragOver="OnFileDropGridDragOver"
+            DragLeave="OnFileDropGridDragLeave"
+            AllowDrop="True">
+            <Grid
+                Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+                CornerRadius="9"
+                Margin="0,7,5,0">
+                <Rectangle
+                    x:Name="DropZoneBorder"
+                    RadiusX="9"
+                    RadiusY="9"
+                    Fill="Transparent"
+                    Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                    Opacity="0.5"
+                    StrokeDashArray="3,4"
+                    StrokeThickness="2" />
+                <TextBlock
+                    x:Name="DropZoneText"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Opacity="0.5"
+                    FontSize="20"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}" />
+            </Grid>
+        </Grid>
+
         <Grid
             Grid.Row="4"
-            Margin="0,6,0,0"
-            Background="White"
-            Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+            CornerRadius="3"
+            Margin="0,6,0,0">
+            <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-        <muxc:WebView2
-            x:Name="Chromium"
-            Grid.Row="4"
-            Margin="0,6,0,0" />
+            <muxc:WebView2 x:Name="Chromium" />
+        </Grid>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="ComposerThemeToggleButtonStates">
@@ -677,6 +712,18 @@ Margin="0 -1 0 1"
                 </VisualState>
 
                 <VisualState x:Name="LightMode" />
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="DropZoneState">
+                <VisualState x:Name="Hovered">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverDropZone, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="DropZoneText.Opacity" Value="1" />
+                        <Setter Target="DropZoneBorder.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NotHovered" />
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
     </Grid>

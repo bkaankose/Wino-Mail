@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:controls2="using:CommunityToolkit.WinUI.Controls"
     xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
     xmlns:selectors="using:Wino.Selectors"
     IsDarkEditor="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
@@ -59,75 +60,89 @@
             ReplyAll="{StaticResource CommandBarItemReplyAllTemplate}" />
 
         <!--  Attachment Template  -->
+        <!--  Margin -8 0 is used to remove the padding from the ListViewItem-->
         <DataTemplate x:Key="FileAttachmentTemplate" x:DataType="viewModelData:MailAttachmentViewModel">
-            <Grid
-                Height="75"
-                Background="Transparent"
-                ColumnSpacing="3">
-                <ToolTipService.ToolTip>
-                    <ToolTip Content="{x:Bind FileName}" />
-                </ToolTipService.ToolTip>
-                <Grid.ContextFlyout>
-                    <MenuFlyout Placement="Right">
-                        <MenuFlyoutItem
-                            Text="{x:Bind domain:Translator.Buttons_Open}"
-                            Command="{Binding ElementName=root, Path=ViewModel.OpenAttachmentCommand}"
-                            CommandParameter="{x:Bind}">
-                            <MenuFlyoutItem.Icon>
-                                <PathIcon Data="{StaticResource OpenFilePathIcon}" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                        <MenuFlyoutItem
-                            Text="{x:Bind domain:Translator.Buttons_Save}"
-                            Command="{Binding ElementName=root, Path=ViewModel.SaveAttachmentCommand}"
-                            CommandParameter="{x:Bind}">
-                            <MenuFlyoutItem.Icon>
-                                <PathIcon Data="{StaticResource SaveAttachmentPathIcon}" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                    </MenuFlyout>
-                </Grid.ContextFlyout>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="36" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <Grid Height="51">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="50" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid
+                    Grid.Row="0"
+                    Height="50"
+                    Background="Transparent"
+                    ColumnSpacing="3"
+                    Margin="-8,0,0,0">
+                    <ToolTipService.ToolTip>
+                        <ToolTip Content="{x:Bind FileName}" />
+                    </ToolTipService.ToolTip>
+                    <Grid.ContextFlyout>
+                        <MenuFlyout Placement="Right">
+                            <MenuFlyoutItem
+                                Text="{x:Bind domain:Translator.Buttons_Open}"
+                                Command="{Binding ElementName=root, Path=ViewModel.OpenAttachmentCommand}"
+                                CommandParameter="{x:Bind}">
+                                <MenuFlyoutItem.Icon>
+                                    <PathIcon Data="{StaticResource OpenFilePathIcon}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem
+                                Text="{x:Bind domain:Translator.Buttons_Save}"
+                                Command="{Binding ElementName=root, Path=ViewModel.SaveAttachmentCommand}"
+                                CommandParameter="{x:Bind}">
+                                <MenuFlyoutItem.Icon>
+                                    <PathIcon Data="{StaticResource SaveAttachmentPathIcon}" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Grid.ContextFlyout>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="36" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <!--  Icon  -->
-                <ContentControl
-                    VerticalAlignment="Center"
-                    Content="{x:Bind AttachmentType}"
-                    ContentTemplateSelector="{StaticResource FileTypeIconSelector}" />
+                    <!--  Icon  -->
+                    <ContentControl
+                        VerticalAlignment="Center"
+                        Content="{x:Bind AttachmentType}"
+                        ContentTemplateSelector="{StaticResource FileTypeIconSelector}" />
 
-                <!--  Name && Size  -->
-                <Grid Grid.Column="1" VerticalAlignment="Center">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                    <!--  Name && Size  -->
+                    <Grid Grid.Column="1"
+                          VerticalAlignment="Center"
+                          MaxWidth="200">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <TextBlock
-                        FontSize="13"
-                        Text="{x:Bind FileName}"
-                        MaxLines="2"
-                        TextWrapping="Wrap"
-                        TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            FontSize="13"
+                            Text="{x:Bind FileName}"
+                            MaxLines="1"
+                            TextWrapping="Wrap"
+                            TextTrimming="CharacterEllipsis" />
 
-                    <TextBlock
-                        Grid.Row="1"
-                        Margin="0,2,0,0"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Bottom"
-                        FontSize="11"
-                        Foreground="Gray"
-                        Text="{x:Bind ReadableSize}" />
+                        <TextBlock
+                            Grid.Row="1"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            FontSize="11"
+                            Foreground="Gray"
+                            Text="{x:Bind ReadableSize}" />
+                    </Grid>
                 </Grid>
-
-                <ProgressRing
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                <muxc:ProgressBar
+                    Grid.Row="1"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,-5,0,0"
+                    Visibility="{x:Bind IsBusy, Mode=OneWay}"
+                    IsIndeterminate="{x:Bind IsBusy, Mode=OneWay}"
+                    ShowPaused="False"
+                    ShowError="False"/>
             </Grid>
+
         </DataTemplate>
 
     </Page.Resources>
@@ -292,20 +307,22 @@
             </Grid>
         </Grid>
 
-        <GridView
-            Grid.Row="2"
-            ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-            x:Name="AttachmentsListView"
-            x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.Attachments.Count), Mode=OneWay}"
-            IsItemClickEnabled="True"
-            MaxHeight="200"
-            Padding="8,0,0,0"
-            ItemTemplate="{StaticResource FileAttachmentTemplate}"
-            ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
-            ScrollViewer.VerticalScrollBarVisibility="Visible"
-            ScrollViewer.VerticalScrollMode="Enabled"
-            ItemClick="AttachmentClicked"
-            SelectionMode="None" />
+        <!--  Attachments  -->
+        <ListView x:Name="AttachmentsListView"
+                  Grid.Row="2"
+                  x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.Attachments.Count), Mode=OneWay}"
+                  IsItemClickEnabled="True"
+                  ItemTemplate="{StaticResource FileAttachmentTemplate}"
+                  ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
+                  ItemClick="AttachmentClicked"
+                  SelectionMode="None"
+                  Height="55">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <controls2:WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ListView>
 
         <muxc:ProgressBar
             x:Name="DownloadingProgressBar"

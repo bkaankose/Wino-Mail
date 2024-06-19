@@ -207,11 +207,6 @@ namespace Wino.Views
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
         }
 
-        private void OnShellLoaded(object sender, RoutedEventArgs e)
-        {
-
-        }
-
         private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
         {
             // Delegate this request to ViewModel.

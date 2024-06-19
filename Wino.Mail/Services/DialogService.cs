@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -12,6 +13,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Shell;
@@ -108,7 +110,7 @@ namespace Wino.Services
             return await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, question, confirmationButtonTitle));
         }
 
-        public async Task<Tuple<string, MailProviderType>> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders)
+        public async Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders)
         {
             var dialog = new NewAccountDialog
             {
@@ -118,7 +120,7 @@ namespace Wino.Services
 
             await HandleDialogPresentationAsync(dialog);
 
-            return dialog.AccountInformationTuple;
+            return dialog.Result;
         }
 
         public IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)
@@ -330,6 +332,37 @@ namespace Wino.Services
             return accountPicker.PickedAccount;
         }
 
+        public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null)
+        {
+            SignatureEditorDialog signatureEditorDialog;
+            if (signatureModel != null)
+            {
+                signatureEditorDialog = new SignatureEditorDialog(signatureModel)
+                {
+                    RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+                };
+            }
+            else
+            {
+                signatureEditorDialog = new SignatureEditorDialog()
+                {
+                    RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+                };
+            }
 
+            var result = await HandleDialogPresentationAsync(signatureEditorDialog);
+
+            return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
+        }
+
+        public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
+        {
+            var accountReorderDialog = new AccountReorderDialog(availableAccounts)
+            {
+                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(accountReorderDialog);
+        }
     }
 }

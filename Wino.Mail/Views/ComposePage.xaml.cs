@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading;
@@ -14,16 +13,19 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
 using Newtonsoft.Json;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
-using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
 using Wino.Extensions;
@@ -57,6 +59,7 @@ namespace Wino.Views
             InitializeComponent();
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
         }
 
         private static async void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
@@ -105,20 +108,61 @@ namespace Wino.Views
             picker.FileTypeFilter.Add("*");
             var files = await picker.PickMultipleFilesAsync();
 
-            if (files == null) return;
+            await AttachFiles(files);
+        }
+
+        private void OnComposeGridDragOver(object sender, DragEventArgs e)
+        {
+            ViewModel.IsDraggingOverComposerGrid = true;
+        }
+
+        private void OnComposeGridDragLeave(object sender, DragEventArgs e)
+        {
+            ViewModel.IsDraggingOverComposerGrid = false;
+        }
+
+        private void OnFileDropGridDragOver(object sender, DragEventArgs e)
+        {
+            ViewModel.IsDraggingOverDropZone = true;
+
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = Translator.ComposerAttachmentsDragDropAttach_Message;
+            e.DragUIOverride.IsCaptionVisible = true;
+            e.DragUIOverride.IsGlyphVisible = true;
+            e.DragUIOverride.IsContentVisible = true;
+        }
+
+        private void OnFileDropGridDragLeave(object sender, DragEventArgs e)
+        {
+            ViewModel.IsDraggingOverDropZone = false;
+        }
+
+        private async void OnFileDropGridFileDropped(object sender, DragEventArgs e)
+        {
+            if (e.DataView.Contains(StandardDataFormats.StorageItems))
+            {
+                var storageItems = await e.DataView.GetStorageItemsAsync();
+                var files = storageItems.OfType<StorageFile>();
+
+                await AttachFiles(files);
+            }
+
+            ViewModel.IsDraggingOverComposerGrid = false;
+            ViewModel.IsDraggingOverDropZone = false;
+        }
+
+        private async Task AttachFiles(IEnumerable<StorageFile> files)
+        {
+            if (files?.Any() != true) return;
 
             // Convert files to MailAttachmentViewModel.
-
-            if (files.Any())
+            foreach (var file in files)
             {
-                foreach (var file in files)
+                if (!ViewModel.IncludedAttachments.Any(a => a.FileName == file.Path))
                 {
-                    if (!ViewModel.IncludedAttachments.Any(a => a.FileName == file.Path))
-                    {
-                        var attachmentViewModel = await file.ToAttachmentViewModelAsync();
+                    var attachmentViewModel = await file.ToAttachmentViewModelAsync();
 
-                        ViewModel.IncludedAttachments.Add(attachmentViewModel);
-                    }
+                    ViewModel.IncludedAttachments.Add(attachmentViewModel);
                 }
             }
         }
@@ -261,11 +305,13 @@ namespace Wino.Views
 
             if (IsComposerDarkMode)
             {
-                await InvokeScriptSafeAsync("DarkReader.enable();");
+                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
+                await InvokeScriptSafeAsync("SetDarkEditor();");
             }
             else
             {
-                await InvokeScriptSafeAsync("DarkReader.disable();");
+                Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
+                await InvokeScriptSafeAsync("SetLightEditor();");
             }
         }
 
