@@ -40,6 +40,7 @@ namespace Wino.Core.Domain.Translations
                 AppLanguage.Spanish => "es_ES",
                 AppLanguage.Indonesian => "id_ID",
                 AppLanguage.Greek => "el_GR",
+                AppLanguage.PortugeseBrazil => "pt_BR",
                 _ => "en_US",
             };
         }

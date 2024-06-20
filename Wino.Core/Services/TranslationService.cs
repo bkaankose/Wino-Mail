@@ -80,6 +80,7 @@ namespace Wino.Core.Services
                 new AppLanguageModel(AppLanguage.Greek, "Greek"),
                 new AppLanguageModel(AppLanguage.Indonesian, "Indonesian"),
                 new AppLanguageModel(AppLanguage.Polish, "Polski"),
+                new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil"),
                 new AppLanguageModel(AppLanguage.Russian, "Russian"),
                 new AppLanguageModel(AppLanguage.Spanish, "Spanish")
             ];
