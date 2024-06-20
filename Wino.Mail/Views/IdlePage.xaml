@@ -10,7 +10,36 @@
     mc:Ignorable="d">
 
     <!--  Empty Page for Mail Rendering Sub Frame.  -->
-    <Grid>
+    <Grid HorizontalAlignment="Center"
+                          VerticalAlignment="Center">
+        <PathIcon RenderTransformOrigin=".5,.5"
+          Data="M99.3125 87.25C100.912 87.25 102.43 86.9424 103.865 86.3271C105.301 85.7119 106.552 84.8711 107.618 83.8047C108.726 82.6973 109.587 81.4258 110.202 79.9902C110.817 78.5547 111.125 77.0371 111.125 75.4375V23.3271L58.0303 55.1963C57.415 55.5654 56.7383 55.75 56 55.75C55.2617 55.75 54.585 55.5654 53.9697 55.1963L0.875 23.3271V75.4375C0.875 77.0371 1.18262 78.5547 1.79785 79.9902C2.41309 81.4258 3.25391 82.6973 4.32031 83.8047C5.42773 84.8711 6.69922 85.7119 8.13477 86.3271C9.57031 86.9424 11.0879 87.25 12.6875 87.25H99.3125Z M12.6875 0.625C11.0879 0.625 9.57031 0.932617 8.13477 1.54785C6.69922 2.16309 5.42773 3.02441 4.32031 4.13184C3.25391 5.19824 2.41309 6.44922 1.79785 7.88477C1.18262 9.32031 0.875 10.8379 0.875 12.4375V14.1602L56 47.1982L111.125 14.1602V12.4375C111.125 10.8379 110.817 9.32031 110.202 7.88477C109.587 6.44922 108.726 5.19824 107.618 4.13184C106.552 3.02441 105.301 2.16309 103.865 1.54785C102.43 0.932617 100.912 0.625 99.3125 0.625H12.6875Z">
+            <PathIcon.RenderTransform>
+                <CompositeTransform ScaleX="0.8"
+                            ScaleY="0.8" />
+            </PathIcon.RenderTransform>
+            <PathIcon.Resources>
+                <ResourceDictionary>
+                    <ResourceDictionary.ThemeDictionaries>
+                        <ResourceDictionary x:Key="Light">
+                            <SolidColorBrush x:Key="BlankPageIconForegroundMaskColor"
+                                     Color="#07000000" />
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="Dark">
+                            <SolidColorBrush x:Key="BlankPageIconForegroundMaskColor"
+                                     Color="#17FFFFFF" />
+                        </ResourceDictionary>
+                    </ResourceDictionary.ThemeDictionaries>
+                    <Style TargetType="PathIcon">
+                        <Setter Property="Foreground"
+                        Value="{StaticResource BlankPageIconForegroundMaskColor}" />
+                    </Style>
+                </ResourceDictionary>
+            </PathIcon.Resources>
+        </PathIcon>
+
+    </Grid>
+    <!--<Grid>
         <StackPanel
             Opacity="0.5"
             Spacing="6"
@@ -19,12 +48,12 @@
 
             <controls:WinoFontIcon Icon="Mail" FontSize="80" />
 
-            <!--<TextBlock
+            --><!--<TextBlock
                 HorizontalAlignment="Center"
                 FontSize="31"
                 Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}"
                 Style="{StaticResource SubheaderTextBlockStyle}"
-                x:Name="CountTextBlock" />-->
+                x:Name="CountTextBlock" />--><!--
         </StackPanel>
-    </Grid>
+    </Grid>-->
 </abstract:IdlePageAbstract>

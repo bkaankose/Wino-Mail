@@ -1,0 +1,20 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:media="using:MicaForUWP.Media">
+    <media:BackdropMicaBrush
+        x:Key="ApplicationPageBackgroundThemeMicaElementBrush"
+        BackgroundSource="Backdrop"
+        FallbackColor="{ThemeResource SolidBackgroundFillColorBase}"
+        TintColor="{ThemeResource SolidBackgroundFillColorBase}" />
+    <media:BackdropMicaBrush
+        x:Key="ApplicationPageBackgroundThemeMicaWindowBrush"
+        BackgroundSource="HostBackdrop"
+        FallbackColor="{ThemeResource SolidBackgroundFillColorBase}"
+        TintColor="{ThemeResource SolidBackgroundFillColorBase}" />
+    <media:BackdropMicaBrush
+        x:Key="ApplicationPageBackgroundThemeMicaWallpaperBrush"
+        BackgroundSource="WallpaperBackdrop"
+        FallbackColor="{ThemeResource SolidBackgroundFillColorBase}"
+        TintColor="{ThemeResource SolidBackgroundFillColorBase}" />
+</ResourceDictionary>
