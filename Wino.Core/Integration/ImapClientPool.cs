@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -153,14 +154,10 @@ namespace Wino.Core.Integration
             ImapClient client = null;
 
             // Make sure to create a ImapClient with a protocol logger if enabled.
-            if (_protocolLogStream != null)
-            {
-                client = new ImapClient(new ProtocolLogger(_protocolLogStream));
-            }
-            else
-            {
-                client = new ImapClient();
-            }
+
+            client = _protocolLogStream != null
+                ? new ImapClient(new ProtocolLogger(_protocolLogStream))
+                : new ImapClient();
 
             HttpProxyClient proxyClient = null;
 
@@ -200,27 +197,37 @@ namespace Wino.Core.Integration
         {
             if (client.IsAuthenticated) return;
 
-            switch (_customServerInformation.IncomingAuthenticationMethod)
-            {
-                case ImapAuthenticationMethod.Auto:
-                    break;
-                case ImapAuthenticationMethod.None:
-                    break;
-                case ImapAuthenticationMethod.NormalPassword:
-                    break;
-                case ImapAuthenticationMethod.EncryptedPassword:
-                    break;
-                case ImapAuthenticationMethod.Ntlm:
-                    break;
-                case ImapAuthenticationMethod.CramMd5:
-                    break;
-                case ImapAuthenticationMethod.DigestMd5:
-                    break;
-                default:
-                    break;
-            }
+            var cred = new NetworkCredential(_customServerInformation.IncomingServerUsername, _customServerInformation.IncomingServerPassword);
+            var prefferedAuthenticationMethod = _customServerInformation.IncomingAuthenticationMethod;
 
-            await client.AuthenticateAsync(_customServerInformation.IncomingServerUsername, _customServerInformation.IncomingServerPassword);
+            if (prefferedAuthenticationMethod != ImapAuthenticationMethod.Auto)
+            {
+                // Anything beside Auto must be explicitly set for the client.
+                client.AuthenticationMechanisms.Clear();
+
+                var saslMechanism = GetSASLAuthenticationMethodName(prefferedAuthenticationMethod);
+
+                client.AuthenticationMechanisms.Add(saslMechanism);
+
+                await client.AuthenticateAsync(SaslMechanism.Create(saslMechanism, cred));
+            }
+            else
+            {
+                await client.AuthenticateAsync(cred);
+            }
+        }
+
+        private string GetSASLAuthenticationMethodName(ImapAuthenticationMethod method)
+        {
+            return method switch
+            {
+                ImapAuthenticationMethod.NormalPassword => "PLAIN",
+                ImapAuthenticationMethod.EncryptedPassword => "LOGIN",
+                ImapAuthenticationMethod.Ntlm => "NTLM",
+                ImapAuthenticationMethod.CramMd5 => "CRAM-MD5",
+                ImapAuthenticationMethod.DigestMd5 => "DIGEST-MD5",
+                _ => "PLAIN"
+            };
         }
 
         public void Dispose()
