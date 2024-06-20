@@ -873,7 +873,7 @@ namespace Wino.Mail.ViewModels
 
             Messenger.Send(new NewSynchronizationRequested(options));
 
-            await _nativeAppService.PinAppToTaskbarAsync();
+            //await _nativeAppService.PinAppToTaskbarAsync();
         }
 
         /// <summary>

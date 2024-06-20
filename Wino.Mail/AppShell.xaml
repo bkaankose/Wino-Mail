@@ -256,7 +256,7 @@
         <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menu:FolderMenuItem">
             <controls:WinoNavigationViewItem
                 MinHeight="32"
-                MaxHeight="48"
+                
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
                 DragEnter="ItemDragEnterOnFolder"

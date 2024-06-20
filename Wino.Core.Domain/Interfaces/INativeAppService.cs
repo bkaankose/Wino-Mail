@@ -15,7 +15,7 @@ namespace Wino.Core.Domain.Interfaces
 
         string GetFullAppVersion();
 
-        Task PinAppToTaskbarAsync();
+        //Task PinAppToTaskbarAsync();
 
         /// <summary>
         /// Some cryptographic shit is needed for requesting Google authentication in UWP.
