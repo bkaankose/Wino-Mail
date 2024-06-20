@@ -456,6 +456,8 @@ namespace Wino.Core.Synchronizers
 
                 ImapClient executorClient = null;
 
+                bool isCrashed = false;
+
                 try
                 {
                     executorClient = await _clientPool.GetClientAsync();
@@ -467,11 +469,13 @@ namespace Wino.Core.Synchronizers
 
                     item.Request.RevertUIChanges();
 
+                    isCrashed = true;
                     throw;
                 }
                 finally
                 {
-                    if (executorClient != null)
+                    // Make sure that the client is released from the pool for next usages if error occurs.
+                    if (isCrashed && executorClient != null)
                     {
                         _clientPool.Release(executorClient);
                     }
