@@ -272,7 +272,8 @@ namespace Wino.Core.Services
             await Task.WhenAll(UpdateSystemFolderInternalAsync(configuration.SentFolder, SpecialFolderType.Sent),
                                UpdateSystemFolderInternalAsync(configuration.DraftFolder, SpecialFolderType.Draft),
                                UpdateSystemFolderInternalAsync(configuration.JunkFolder, SpecialFolderType.Junk),
-                               UpdateSystemFolderInternalAsync(configuration.TrashFolder, SpecialFolderType.Deleted));
+                               UpdateSystemFolderInternalAsync(configuration.TrashFolder, SpecialFolderType.Deleted),
+                               UpdateSystemFolderInternalAsync(configuration.ArchiveFolder, SpecialFolderType.Archive));
 
             await _accountService.UpdateAccountAsync(account);
 
@@ -347,7 +348,7 @@ namespace Wino.Core.Services
             }
         }
 
-        private async Task UpdateFolderAsync(MailItemFolder folder)
+        public async Task UpdateFolderAsync(MailItemFolder folder)
         {
             if (folder == null)
             {
@@ -391,6 +392,8 @@ namespace Wino.Core.Services
             _logger.Debug("Deleting folder {FolderName}", folder.FolderName);
 
             await Connection.DeleteAsync(folder).ConfigureAwait(false);
+
+            // TODO: Delete all mail copies for this folder.
 
             ReportUIChange(new FolderRemovedMessage(folder, account));
         }
