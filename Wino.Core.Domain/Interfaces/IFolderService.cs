@@ -85,5 +85,11 @@ namespace Wino.Core.Domain.Interfaces
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
 
         Task TestAsync();
+
+        /// <summary>
+        /// Updates the given folder.
+        /// </summary>
+        /// <param name="folder">Folder to update.</param>
+        Task UpdateFolderAsync(MailItemFolder folder);
     }
 }

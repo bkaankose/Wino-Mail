@@ -68,6 +68,19 @@ namespace Wino.Core.Integration.Processors
         /// </summary>
         /// <param name="folderId">Folder id to retrieve uIds for.</param>
         Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
+
+        /// <summary>
+        /// Returns the list of folders that are available for account.
+        /// </summary>
+        /// <param name="accountId">Account id to get folders for.</param>
+        /// <returns>All folders.</returns>
+        Task<List<MailItemFolder>> GetLocalIMAPFoldersAsync(Guid accountId);
+
+        /// <summary>
+        /// Updates folder.
+        /// </summary>
+        /// <param name="folder">Folder to update.</param>
+        Task UpdateFolderAsync(MailItemFolder folder);
     }
 
     public class DefaultChangeProcessor(IDatabaseService databaseService,
