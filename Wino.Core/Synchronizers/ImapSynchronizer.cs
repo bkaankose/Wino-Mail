@@ -272,6 +272,9 @@ namespace Wino.Core.Synchronizers
             }, request);
         }
 
+        public override IEnumerable<IRequestBundle<ImapRequest>> Archive(BatchArchiveRequest request)
+           => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+
         public override IEnumerable<IRequestBundle<ImapRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {
             return CreateTaskBundle(async (ImapClient client) =>
