@@ -14,8 +14,7 @@ namespace Wino.Core.Extensions
                 FolderName = mailkitMailFolder.Name,
                 RemoteFolderId = mailkitMailFolder.FullName,
                 ParentRemoteFolderId = mailkitMailFolder.ParentFolder?.FullName,
-                SpecialFolderType = Domain.Enums.SpecialFolderType.Other,
-                IsSynchronizationEnabled = true
+                SpecialFolderType = Domain.Enums.SpecialFolderType.Other
             };
         }
     }
