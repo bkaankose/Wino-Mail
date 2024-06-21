@@ -12,7 +12,7 @@
     IsPrimaryButtonEnabled="True"
     SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     xmlns:domain="using:Wino.Core.Domain"
-    PrimaryButtonText="Save Configuration"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_SaveConfiguration}"
     PrimaryButtonClick="SaveClicked"
     Closing="DialogClosing"
     SecondaryButtonClick="CancelClicked"
