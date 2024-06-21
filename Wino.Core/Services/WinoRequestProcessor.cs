@@ -25,6 +25,7 @@ namespace Wino.Core.Services
         private readonly IPreferencesService _preferencesService;
         private readonly IAccountService _accountService;
         private readonly IDialogService _dialogService;
+        private readonly IMailService _mailService;
 
         /// <summary>
         /// Set of rules that defines which action should be executed if user wants to toggle an action.
@@ -42,13 +43,15 @@ namespace Wino.Core.Services
                                     IKeyPressService keyPressService,
                                     IPreferencesService preferencesService,
                                     IAccountService accountService,
-                                    IDialogService dialogService) : base(databaseService)
+                                    IDialogService dialogService,
+                                    IMailService mailService) : base(databaseService)
         {
             _folderService = folderService;
             _keyPressService = keyPressService;
             _preferencesService = preferencesService;
             _accountService = accountService;
             _dialogService = dialogService;
+            _mailService = mailService;
         }
 
         public async Task<List<IRequest>> PrepareRequestsAsync(MailOperationPreperationRequest preperationRequest)
@@ -91,7 +94,11 @@ namespace Wino.Core.Services
 
             foreach (var item in preperationRequest.MailItems)
             {
-                requests.Add(await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution));
+                var singleRequest = await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution);
+
+                if (singleRequest == null) continue;
+
+                requests.Add(singleRequest);
             }
 
             return requests;
@@ -109,6 +116,10 @@ namespace Wino.Core.Services
             // Rule: SoftDelete draft items must be performed as hard delete.
             if (action == MailOperation.SoftDelete && mailItem.IsDraft)
                 action = MailOperation.HardDelete;
+
+            // Rule: Soft/Hard deletes on local drafts are always discard local draft.
+            if ((action == MailOperation.SoftDelete || action == MailOperation.HardDelete) && mailItem.IsLocalDraft)
+                action = MailOperation.DiscardLocalDraft;
 
             // Rule: Toggle actions must be reverted if ToggleExecution is passed true.
             if (shouldToggleActions)
@@ -179,8 +190,12 @@ namespace Wino.Core.Services
             }
             else if (action == MailOperation.AlwaysMoveToFocused || action == MailOperation.AlwaysMoveToOther)
                 return new AlwaysMoveToRequest(mailItem, action == MailOperation.AlwaysMoveToFocused);
+            else if (action == MailOperation.DiscardLocalDraft)
+                await _mailService.DeleteMailAsync(mailItem.AssignedAccount.Id, mailItem.Id);
             else
                 throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedAction, action));
+
+            return null;
         }
 
         public async Task<IRequest> PrepareFolderRequestAsync(FolderOperation operation, IMailItemFolder mailItemFolder)

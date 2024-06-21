@@ -108,6 +108,12 @@ namespace Wino.Core.Domain.Entities
         public string DraftId { get; set; }
 
         /// <summary>
+        /// Whether this mail is only created locally.
+        /// </summary>
+        [Ignore]
+        public bool IsLocalDraft => !string.IsNullOrEmpty(DraftId) && DraftId.StartsWith(Constants.LocalDraftStartPrefix);
+
+        /// <summary>
         /// Whether this copy is draft or not.
         /// </summary>
         public bool IsDraft { get; set; }

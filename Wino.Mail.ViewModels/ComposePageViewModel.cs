@@ -32,21 +32,23 @@ namespace Wino.Mail.ViewModels
         // Update is triggered when we leave the page.
         private bool isUpdatingMimeBlocked = false;
 
-        public bool CanSendMail => ComposingAccount != null && !IsLocalDraft && currentMimeMessage != null;
+        private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null;
 
+        [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
+        [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+        [ObservableProperty]
         private MimeMessage currentMimeMessage = null;
+
         private readonly BodyBuilder bodyBuilder = new BodyBuilder();
 
-        public bool IsLocalDraft => CurrentMailDraftItem != null
-                                    && !string.IsNullOrEmpty(CurrentMailDraftItem.DraftId)
-                                    && CurrentMailDraftItem.DraftId.StartsWith(Constants.LocalDraftStartPrefix);
-
+        public bool IsLocalDraft => CurrentMailDraftItem?.MailCopy?.IsLocalDraft ?? true;
 
         #region Properties
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsLocalDraft))]
-        [NotifyPropertyChangedFor(nameof(CanSendMail))]
+        [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
+        [NotifyCanExecuteChangedFor(nameof(SendCommand))]
         private MailItemViewModel currentMailDraftItem;
 
         [ObservableProperty]
@@ -62,6 +64,8 @@ namespace Wino.Mail.ViewModels
         private string subject;
 
         [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
+        [NotifyCanExecuteChangedFor(nameof(SendCommand))]
         private MailAccount composingAccount;
 
         [ObservableProperty]
@@ -136,7 +140,7 @@ namespace Wino.Mail.ViewModels
         private void RemoveAttachment(MailAttachmentViewModel attachmentViewModel)
             => IncludedAttachments.Remove(attachmentViewModel);
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(canSendMail))]
         private async Task SendAsync()
         {
             // TODO: More detailed mail validations.
@@ -161,20 +165,20 @@ namespace Wino.Mail.ViewModels
 
             var assignedAccount = CurrentMailDraftItem.AssignedAccount;
             var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
-            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, currentMimeMessage, CurrentMailDraftItem.AssignedFolder, sentFolder, CurrentMailDraftItem.AssignedAccount.Preferences);
+            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, CurrentMimeMessage, CurrentMailDraftItem.AssignedFolder, sentFolder, CurrentMailDraftItem.AssignedAccount.Preferences);
 
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }
 
         private async Task UpdateMimeChangesAsync()
         {
-            if (isUpdatingMimeBlocked || currentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
+            if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
 
             // Save recipients.
 
-            SaveAddressInfo(ToItems, currentMimeMessage.To);
-            SaveAddressInfo(CCItemsItems, currentMimeMessage.Cc);
-            SaveAddressInfo(BCCItems, currentMimeMessage.Bcc);
+            SaveAddressInfo(ToItems, CurrentMimeMessage.To);
+            SaveAddressInfo(CCItemsItems, CurrentMimeMessage.Cc);
+            SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
 
             SaveImportance();
             SaveSubject();
@@ -184,13 +188,13 @@ namespace Wino.Mail.ViewModels
             await UpdateMailCopyAsync();
 
             // Save mime file.
-            await _mimeFileService.SaveMimeMessageAsync(CurrentMailDraftItem.MailCopy.FileId, currentMimeMessage, ComposingAccount.Id).ConfigureAwait(false);
+            await _mimeFileService.SaveMimeMessageAsync(CurrentMailDraftItem.MailCopy.FileId, CurrentMimeMessage, ComposingAccount.Id).ConfigureAwait(false);
         }
 
         private async Task UpdateMailCopyAsync()
         {
-            CurrentMailDraftItem.Subject = currentMimeMessage.Subject;
-            CurrentMailDraftItem.PreviewText = currentMimeMessage.TextBody;
+            CurrentMailDraftItem.Subject = CurrentMimeMessage.Subject;
+            CurrentMailDraftItem.PreviewText = CurrentMimeMessage.TextBody;
 
             // Update database.
             await _mailService.UpdateMailAsync(CurrentMailDraftItem.MailCopy);
@@ -208,13 +212,13 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void SaveImportance() { currentMimeMessage.Importance = IsImportanceSelected ? SelectedMessageImportance : MessageImportance.Normal; }
+        private void SaveImportance() { CurrentMimeMessage.Importance = IsImportanceSelected ? SelectedMessageImportance : MessageImportance.Normal; }
 
         private void SaveSubject()
         {
             if (Subject != null)
             {
-                currentMimeMessage.Subject = Subject;
+                CurrentMimeMessage.Subject = Subject;
             }
         }
 
@@ -227,10 +231,10 @@ namespace Wino.Mail.ViewModels
                 bodyBuilder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(bodyBuilder.HtmlBody);
 
             if (bodyBuilder.HtmlBody != null && bodyBuilder.TextBody != null)
-                currentMimeMessage.Body = bodyBuilder.ToMessageBody();
+                CurrentMimeMessage.Body = bodyBuilder.ToMessageBody();
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(canSendMail))]
         private async Task DiscardAsync()
         {
             if (ComposingAccount == null)
@@ -248,7 +252,7 @@ namespace Wino.Mail.ViewModels
                 isUpdatingMimeBlocked = true;
 
                 // Don't send delete request for local drafts. Just delete the record and mime locally.
-                if (CurrentMailDraftItem.IsLocalDraft)
+                if (CurrentMailDraftItem.MailCopy.IsLocalDraft)
                 {
                     await _mailService.DeleteMailAsync(ComposingAccount.Id, CurrentMailDraftItem.Id);
                 }
@@ -413,9 +417,8 @@ namespace Wino.Mail.ViewModels
 
                 Subject = replyingMime.Subject;
 
-                currentMimeMessage = replyingMime;
+                CurrentMimeMessage = replyingMime;
 
-                OnPropertyChanged(nameof(CanSendMail));
                 Messenger.Send(new CreateNewComposeMailRequested(renderModel));
             });
         }
@@ -484,7 +487,9 @@ namespace Wino.Mail.ViewModels
                 await ExecuteUIThread(() =>
                 {
                     CurrentMailDraftItem.Update(updatedMail);
-                    OnPropertyChanged(nameof(CanSendMail));
+
+                    DiscardCommand.NotifyCanExecuteChanged();
+                    SendCommand.NotifyCanExecuteChanged();
                 });
             }
         }

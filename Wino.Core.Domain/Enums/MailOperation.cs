@@ -44,6 +44,7 @@
         DarkEditor,
         LightEditor,
         Print,
+        DiscardLocalDraft,
         Navigate // For toast activation
     }
 }
