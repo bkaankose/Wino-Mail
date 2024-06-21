@@ -149,7 +149,8 @@ namespace Wino.Views.ImapSetup
                 ProxyServer = ProxyServerBox.Text,
                 ProxyServerPort = ProxyServerPortBox.Text,
                 Address = AddressBox.Text,
-                DisplayName = DisplayNameBox.Text
+                DisplayName = DisplayNameBox.Text,
+                MaxConcurrentClients = 5
             };
 
             if (UseSameCredentialsForSending)

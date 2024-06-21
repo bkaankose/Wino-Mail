@@ -48,13 +48,16 @@ namespace Wino.Core.Domain.Models.AutoDiscovery
                 OutgoingServerPassword = UserMinimalSettings.Password,
                 IncomingAuthenticationMethod = Enums.ImapAuthenticationMethod.Auto,
                 OutgoingAuthenticationMethod = Enums.ImapAuthenticationMethod.Auto,
+                OutgoingServerSocketOption = Enums.ImapConnectionSecurity.Auto,
+                IncomingServerSocketOption = Enums.ImapConnectionSecurity.Auto,
                 IncomingServer = imapUrl,
                 OutgoingServer = smtpUrl,
                 IncomingServerPort = imapPort.ToString(),
                 OutgoingServerPort = smtpPort.ToString(),
                 IncomingServerType = Enums.CustomIncomingServerType.IMAP4,
                 IncomingServerUsername = imapUsername,
-                OutgoingServerUsername = smtpUsername
+                OutgoingServerUsername = smtpUsername,
+                MaxConcurrentClients = 5
             };
 
             return serverInfo;
