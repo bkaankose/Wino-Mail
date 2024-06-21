@@ -1,56 +1,70 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
+using MoreLinq;
+using MoreLinq.Extensions;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Messages.Mails;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class SignatureManagementPageViewModel : BaseViewModel
+    public partial class SignatureManagementPageViewModel(IDialogService dialogService,
+                                            ISignatureService signatureService,
+                                            IAccountService accountService) : BaseViewModel(dialogService)
     {
-        public Func<Task<string>> GetHTMLBodyFunction;
-        public Func<Task<string>> GetTextBodyFunction;
-
-        public List<EditorToolbarSection> ToolbarSections { get; set; } = new List<EditorToolbarSection>()
-        {
-            new EditorToolbarSection(){  SectionType = EditorToolbarSectionType.Format },
-            new EditorToolbarSection(){  SectionType = EditorToolbarSectionType.Insert },
-        };
-
-        [ObservableProperty]
-        private EditorToolbarSection selectedToolbarSection;
+        public ObservableCollection<AccountSignature> Signatures { get; set; } = [];
 
         [ObservableProperty]
         private bool isSignatureEnabled;
 
-        public MailAccount Account { get; set; }
+        private int signatureForNewMessagesIndex;
 
-        public AsyncRelayCommand SaveSignatureCommand { get; set; }
+        public Guid EmptyGuid { get; } = Guid.Empty;
 
-        public INativeAppService NativeAppService { get; }
-        private readonly ISignatureService _signatureService;
-        private readonly IAccountService _accountService;
-
-        public SignatureManagementPageViewModel(IDialogService dialogService,
-                                                INativeAppService nativeAppService,
-                                                ISignatureService signatureService,
-                                                IAccountService accountService) : base(dialogService)
+        public int SignatureForNewMessagesIndex
         {
-            SelectedToolbarSection = ToolbarSections[0];
-            NativeAppService = nativeAppService;
-            _signatureService = signatureService;
-            _accountService = accountService;
-            SaveSignatureCommand = new AsyncRelayCommand(SaveSignatureAsync);
+            get => signatureForNewMessagesIndex;
+            set
+            {
+                if (value == -1)
+                {
+                    SetProperty(ref signatureForNewMessagesIndex, 0);
+                }
+                else
+                {
+                    SetProperty(ref signatureForNewMessagesIndex, value);
+                }
+            }
         }
+
+        private int signatureForFollowingMessagesIndex;
+
+        public int SignatureForFollowingMessagesIndex
+        {
+            get => signatureForFollowingMessagesIndex;
+            set
+            {
+                if (value == -1)
+                {
+                    SetProperty(ref signatureForFollowingMessagesIndex, 0);
+                }
+                else
+                {
+                    SetProperty(ref signatureForFollowingMessagesIndex, value);
+                }
+            }
+        }
+
+        private MailAccount Account { get; set; }
+
+        private readonly ISignatureService _signatureService = signatureService;
+        private readonly IAccountService _accountService = accountService;
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)
         {
@@ -59,35 +73,89 @@ namespace Wino.Mail.ViewModels
             if (parameters is Guid accountId)
                 Account = await _accountService.GetAccountAsync(accountId);
 
-            if (Account != null)
+            if (Account == null) return;
+
+            var dbSignatures = await _signatureService.GetSignaturesAsync(Account.Id);
+            IsSignatureEnabled = Account.Preferences.IsSignatureEnabled;
+
+            Signatures.Clear();
+            Signatures.Add(new AccountSignature { Id = EmptyGuid, Name = Translator.SettingsSignature_NoneSignatureName });
+            dbSignatures.ForEach(Signatures.Add);
+
+            SignatureForNewMessagesIndex = Signatures.IndexOf(Signatures.FirstOrDefault(x => x.Id == Account.Preferences.SignatureIdForNewMessages));
+            SignatureForFollowingMessagesIndex = Signatures.IndexOf(Signatures.FirstOrDefault(x => x.Id == Account.Preferences.SignatureIdForFollowingMessages));
+        }
+
+        protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
+
+            switch (e.PropertyName)
             {
-                var accountSignature = await _signatureService.GetAccountSignatureAsync(Account.Id);
-
-                IsSignatureEnabled = accountSignature != null;
-
-                if (IsSignatureEnabled)
-                    Messenger.Send(new HtmlRenderingRequested(accountSignature.HtmlBody));
-                else
-                    Messenger.Send(new HtmlRenderingRequested(string.Empty)); // To get the theme changes. Render empty html.
+                case nameof(IsSignatureEnabled):
+                    Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(SignatureForNewMessagesIndex):
+                    Account.Preferences.SignatureIdForNewMessages = SignatureForNewMessagesIndex > -1
+                        && Signatures[SignatureForNewMessagesIndex].Id != EmptyGuid
+                        ? Signatures[SignatureForNewMessagesIndex].Id : null;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(SignatureForFollowingMessagesIndex):
+                    Account.Preferences.SignatureIdForFollowingMessages = SignatureForFollowingMessagesIndex > -1
+                        && Signatures[SignatureForFollowingMessagesIndex].Id != EmptyGuid
+                        ? Signatures[SignatureForFollowingMessagesIndex].Id : null;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
             }
         }
 
-        private async Task SaveSignatureAsync()
+        [RelayCommand]
+        private async Task OpenSignatureEditorCreateAsync()
         {
-            if (IsSignatureEnabled)
-            {
-                var newSignature = Regex.Unescape(await GetHTMLBodyFunction());
+            var dialogResult = await DialogService.ShowSignatureEditorDialog();
 
-                await _signatureService.UpdateAccountSignatureAsync(Account.Id, newSignature);
+            if (dialogResult == null) return;
 
-                DialogService.InfoBarMessage(Translator.Info_SignatureSavedTitle, Translator.Info_SignatureSavedMessage, Core.Domain.Enums.InfoBarMessageType.Success);
-            }
-            else
-            {
-                await _signatureService.DeleteAccountSignatureAssignment(Account.Id);
+            dialogResult.MailAccountId = Account.Id;
+            Signatures.Add(dialogResult);
+            await _signatureService.CreateSignatureAsync(dialogResult);
+        }
 
-                DialogService.InfoBarMessage(Translator.Info_SignatureDisabledTitle, Translator.Info_SignatureDisabledMessage, Core.Domain.Enums.InfoBarMessageType.Success);
-            }
+        [RelayCommand]
+        private async Task OpenSignatureEditorEditAsync(AccountSignature signatureModel)
+        {
+            var dialogResult = await DialogService.ShowSignatureEditorDialog(signatureModel);
+
+            if (dialogResult == null) return;
+
+            var indexOfCurrentSignature = Signatures.IndexOf(signatureModel);
+            var signatureNewMessagesIndex = SignatureForNewMessagesIndex;
+            var signatureFollowingMessagesIndex = SignatureForFollowingMessagesIndex;
+
+            Signatures[indexOfCurrentSignature] = dialogResult;
+
+            // Reset selection to point updated signature.
+            // When Item updated/removed index switches to -1. We save index that was used before and update -1 to it.
+            if (signatureNewMessagesIndex == indexOfCurrentSignature)
+                SignatureForNewMessagesIndex = indexOfCurrentSignature;
+
+            if (signatureFollowingMessagesIndex == indexOfCurrentSignature)
+                SignatureForFollowingMessagesIndex = indexOfCurrentSignature;
+
+            await _signatureService.UpdateSignatureAsync(dialogResult);
+        }
+
+        [RelayCommand]
+        private async Task DeleteSignatureAsync(AccountSignature signatureModel)
+        {
+            var shouldRemove = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.SignatureDeleteDialog_Message, signatureModel.Name), Translator.SignatureDeleteDialog_Title, Translator.Buttons_Delete);
+
+            if (!shouldRemove) return;
+
+            Signatures.Remove(signatureModel);
+            await _signatureService.DeleteSignatureAsync(signatureModel);
         }
     }
 }

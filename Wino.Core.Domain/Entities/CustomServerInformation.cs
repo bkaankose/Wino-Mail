@@ -11,6 +11,10 @@ namespace Wino.Core.Domain.Entities
 
         public Guid AccountId { get; set; }
 
+        /// <summary>
+        /// This field is ignored. DisplayName is stored in MailAccount as SenderName from now.
+        /// </summary>
+        [Ignore]
         public string DisplayName { get; set; }
         public string Address { get; set; }
         public string IncomingServer { get; set; }
@@ -39,11 +43,11 @@ namespace Wino.Core.Domain.Entities
 
         public string ProxyServer { get; set; }
         public string ProxyServerPort { get; set; }
-        
-        [Obsolete("As 1.7.0")]
-        public bool IncomingRequiresSSL { get; set; }
 
-        [Obsolete("As 1.7.0")]
-        public bool OutgoingRequresSSL { get; set; }
+        /// <summary>
+        /// Number of concurrent clients that can connect to the server.
+        /// Default is 5.
+        /// </summary>
+        public int MaxConcurrentClients { get; set; }
     }
 }

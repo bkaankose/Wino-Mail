@@ -53,7 +53,6 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="newMailCopyId"></param>
         /// <param name="newDraftId"></param>
         /// <param name="newThreadId"></param>
-        /// <returns></returns>
         Task MapLocalDraftAsync(string newMailCopyId, string newDraftId, string newThreadId);
 
         Task<MimeMessage> CreateDraftMimeMessageAsync(Guid accountId, DraftCreationOptions options);

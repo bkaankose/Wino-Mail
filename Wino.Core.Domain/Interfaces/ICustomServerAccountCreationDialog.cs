@@ -15,5 +15,11 @@ namespace Wino.Core.Domain.Interfaces
         /// Displays preparing folders page.
         /// </summary>
         void ShowPreparingFolders();
+
+        /// <summary>
+        /// Updates account properties for the welcome imap setup dialog and starts the setup.
+        /// </summary>
+        /// <param name="account">Account properties.</param>
+        void StartImapConnectionSetup(MailAccount account);
     }
 }

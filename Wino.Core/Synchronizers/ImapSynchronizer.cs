@@ -33,7 +33,7 @@ namespace Wino.Core.Synchronizers
 
         private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
         private readonly ImapClientPool _clientPool;
-        private readonly IDefaultChangeProcessor _imapChangeProcessor;
+        private readonly IImapChangeProcessor _imapChangeProcessor;
 
         // Minimum summary items to Fetch for mail synchronization from IMAP.
         private readonly MessageSummaryItems mailSynchronizationFlags =
@@ -59,14 +59,14 @@ namespace Wino.Core.Synchronizers
         private ImapClient _inboxIdleClient;
 
         public override uint BatchModificationSize => 1000;
-        public override uint InitialMessageDownloadCountPerFolder => 500;
+        public override uint InitialMessageDownloadCountPerFolder => 250;
 
-        public ImapSynchronizer(MailAccount account, IDefaultChangeProcessor imapChangeProcessor) : base(account)
+        public ImapSynchronizer(MailAccount account, IImapChangeProcessor imapChangeProcessor) : base(account)
         {
             _clientPool = new ImapClientPool(Account.ServerInformation);
+            _imapChangeProcessor = imapChangeProcessor;
 
             idleDoneToken = new CancellationTokenSource();
-            _imapChangeProcessor = imapChangeProcessor;
         }
 
         // TODO
@@ -272,6 +272,9 @@ namespace Wino.Core.Synchronizers
             }, request);
         }
 
+        public override IEnumerable<IRequestBundle<ImapRequest>> Archive(BatchArchiveRequest request)
+           => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+
         public override IEnumerable<IRequestBundle<ImapRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {
             return CreateTaskBundle(async (ImapClient client) =>
@@ -462,6 +465,8 @@ namespace Wino.Core.Synchronizers
 
                 ImapClient executorClient = null;
 
+                bool isCrashed = false;
+
                 try
                 {
                     executorClient = await _clientPool.GetClientAsync();
@@ -473,11 +478,13 @@ namespace Wino.Core.Synchronizers
 
                     item.Request.RevertUIChanges();
 
+                    isCrashed = true;
                     throw;
                 }
                 finally
                 {
-                    if (executorClient != null)
+                    // Make sure that the client is released from the pool for next usages if error occurs.
+                    if (isCrashed && executorClient != null)
                     {
                         _clientPool.Release(executorClient);
                     }
@@ -501,134 +508,226 @@ namespace Wino.Core.Synchronizers
             }
         }
 
-        private bool IsRealFolder(IMailFolder folder) =>
-            !folder.Attributes.HasFlag(FolderAttributes.NonExistent)
-            && !folder.Attributes.HasFlag(FolderAttributes.NoSelect)
-            && !folder.IsNamespace;
+        /// <summary>
+        /// Assigns special folder type for the given local folder.
+        /// If server doesn't support special folders, we can't determine the type. MailKit will throw for GetFolder.
+        /// Default type is Other.
+        /// </summary>
+        /// <param name="executorClient">ImapClient from the pool</param>
+        /// <param name="remoteFolder">Assigning remote folder.</param>
+        /// <param name="localFolder">Assigning local folder.</param>
+        private void AssignSpecialFolderType(ImapClient executorClient, IMailFolder remoteFolder, MailItemFolder localFolder)
+        {
+            bool isSpecialFoldersSupported = executorClient.Capabilities.HasFlag(ImapCapabilities.SpecialUse) || executorClient.Capabilities.HasFlag(ImapCapabilities.XList);
+
+
+            if (!isSpecialFoldersSupported)
+            {
+                localFolder.SpecialFolderType = SpecialFolderType.Other;
+                return;
+            }
+
+            if (remoteFolder == executorClient.Inbox)
+                localFolder.SpecialFolderType = SpecialFolderType.Inbox;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Drafts))
+                localFolder.SpecialFolderType = SpecialFolderType.Draft;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Junk))
+                localFolder.SpecialFolderType = SpecialFolderType.Junk;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Trash))
+                localFolder.SpecialFolderType = SpecialFolderType.Deleted;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Sent))
+                localFolder.SpecialFolderType = SpecialFolderType.Sent;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Archive))
+                localFolder.SpecialFolderType = SpecialFolderType.Archive;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Important))
+                localFolder.SpecialFolderType = SpecialFolderType.Important;
+            else if (remoteFolder == executorClient.GetFolder(SpecialFolder.Flagged))
+                localFolder.SpecialFolderType = SpecialFolderType.Starred;
+        }
+
+        /// <summary>
+        /// Whether the local folder should be updated with the remote folder.
+        /// </summary>
+        /// <param name="remoteFolder">Remote folder</param>
+        /// <param name="localFolder">Local folder.</param>
+        private bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
+        {
+            return remoteFolder.Name != localFolder.FolderName;
+        }
 
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
-            // https://www.rfc-editor.org/rfc/rfc4549#section-1.1    
+            // https://www.rfc-editor.org/rfc/rfc4549#section-1.1
 
-            var _synchronizationClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
+            var localFolders = await _imapChangeProcessor.GetLocalIMAPFoldersAsync(Account.Id).ConfigureAwait(false);
 
-            var nameSpace = _synchronizationClient.PersonalNamespaces[0];
+            ImapClient executorClient = null;
 
-            var remoteFolders = (await _synchronizationClient.GetFoldersAsync(nameSpace, cancellationToken: cancellationToken).ConfigureAwait(false)).ToList();
-
-            // Get all folders from the client.
-            var localFolders = await _imapChangeProcessor.GetExistingFoldersAsync(Account.Id);
-
-            // Remove folders that are not in the remote list.
-            var toRemove = localFolders.Where(a => remoteFolders.Any(b => b.FullName == a.RemoteFolderId) == false).ToList();
-
-            foreach (var item in toRemove)
+            try
             {
-                await _imapChangeProcessor.DeleteFolderAsync(Account.Id, item.RemoteFolderId);
-                localFolders.Remove(item);
-            }
+                executorClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
-            bool isSpecialFoldersSupported = _synchronizationClient.Capabilities.HasFlag(ImapCapabilities.SpecialUse) || _synchronizationClient.Capabilities.HasFlag(ImapCapabilities.XList);
+                var remoteFolders = (await executorClient.GetFoldersAsync(executorClient.PersonalNamespaces[0], cancellationToken: cancellationToken)).ToList();
 
-            // Inbox is always available.
-            IMailFolder inbox = _synchronizationClient.Inbox, drafts = null, junk = null, trash = null, sent = null, archive = null, important = null, starred = null;
+                // 1. First check deleted folders.
 
-            if (isSpecialFoldersSupported)
-            {
-                drafts = _synchronizationClient.GetFolder(SpecialFolder.Drafts);
-                junk = _synchronizationClient.GetFolder(SpecialFolder.Junk);
-                trash = _synchronizationClient.GetFolder(SpecialFolder.Trash);
-                sent = _synchronizationClient.GetFolder(SpecialFolder.Sent);
-                archive = _synchronizationClient.GetFolder(SpecialFolder.Archive);
-                important = _synchronizationClient.GetFolder(SpecialFolder.Important);
-                starred = _synchronizationClient.GetFolder(SpecialFolder.Flagged);
-            }
+                // 1.a If local folder doesn't exists remotely, delete it.
+                // 1.b If local folder exists remotely, check if it is still a valid folder. If UidValidity is changed, delete it.
 
-            var mailItemFolders = new List<MailItemFolder>();
+                List<MailItemFolder> deletedFolders = new();
 
-            // Sometimes Inbox is the root namespace. We need to check for that.
-            if (inbox != null && !remoteFolders.Contains(inbox))
-                remoteFolders.Add(inbox);
-
-            foreach (var item in remoteFolders)
-            {
-                // Namespaces are not needed as folders.
-                // Non-existed folders don't need to be synchronized.
-
-                // (item.IsNamespace && !item.Attributes.HasFlag(FolderAttributes.Inbox)) || !item.Exists
-                if (!IsRealFolder(item))
-                    continue;
-
-                // We don't need to synchronize existing folders.
-                if (localFolders.Any(a => a.RemoteFolderId == item.FullName))
-                    continue;
-
-                try
+                foreach (var localFolder in localFolders)
                 {
-                    var localFolder = item.GetLocalFolder();
+                    if (!localFolder.IsSynchronizationEnabled) continue;
 
-                    if (item == inbox)
-                        localFolder.SpecialFolderType = SpecialFolderType.Inbox;
+                    IMailFolder remoteFolder = null;
 
-                    if (isSpecialFoldersSupported)
+                    try
                     {
-                        if (item == drafts)
-                            localFolder.SpecialFolderType = SpecialFolderType.Draft;
-                        else if (item == junk)
-                            localFolder.SpecialFolderType = SpecialFolderType.Junk;
-                        else if (item == trash)
-                            localFolder.SpecialFolderType = SpecialFolderType.Deleted;
-                        else if (item == sent)
-                            localFolder.SpecialFolderType = SpecialFolderType.Sent;
-                        else if (item == archive)
-                            localFolder.SpecialFolderType = SpecialFolderType.Archive;
-                        else if (item == important)
-                            localFolder.SpecialFolderType = SpecialFolderType.Important;
-                        else if (item == starred)
-                            localFolder.SpecialFolderType = SpecialFolderType.Starred;
+                        remoteFolder = remoteFolders.FirstOrDefault(a => a.FullName == localFolder.RemoteFolderId);
+
+                        bool shouldDeleteLocalFolder = false;
+
+                        // Check UidValidity of the remote folder if exists.
+
+                        if (remoteFolder != null)
+                        {
+                            // UidValidity won't be available until it's opened.
+                            await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+                            shouldDeleteLocalFolder = remoteFolder.UidValidity != localFolder.UidValidity;
+                        }
+                        else
+                        {
+                            // Remote folder doesn't exist. Delete it.
+                            shouldDeleteLocalFolder = true;
+                        }
+
+                        if (shouldDeleteLocalFolder)
+                        {
+                            await _imapChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+
+                            deletedFolders.Add(localFolder);
+                        }
                     }
-
-                    localFolder.IsSynchronizationEnabled = localFolder.SpecialFolderType != SpecialFolderType.Other;
-
-                    if (localFolder.SpecialFolderType != SpecialFolderType.Other)
+                    catch (Exception)
                     {
-                        localFolder.IsSystemFolder = true;
-                        localFolder.IsSticky = true;
+                        throw;
                     }
-
-                    // By default, all special folders update unread count in the UI except Trash.
-                    localFolder.ShowUnreadCount = localFolder.SpecialFolderType != SpecialFolderType.Deleted || localFolder.SpecialFolderType != SpecialFolderType.Other;
-
-                    localFolder.MailAccountId = Account.Id;
-
-                    // Sometimes sub folders are parented under Inbox.
-                    // Even though this makes sense in server level, in the client it sucks.
-                    // That will make sub folders to be parented under Inbox in the client.
-                    // Instead, we will mark them as non-parented folders.
-                    // This is better. Model allows personalized folder structure anyways
-                    // even though we don't have the page/control to adjust it.
-
-                    if (item.ParentFolder == _synchronizationClient.Inbox)
-                        localFolder.ParentRemoteFolderId = string.Empty;
-
-                    // Set UidValidity for cache expiration.
-                    // Folder must be opened for this.
-
-                    await item.OpenAsync(FolderAccess.ReadOnly);
-
-                    localFolder.UidValidity = item.UidValidity;
-
-                    await item.CloseAsync();
-
-                    mailItemFolders.Add(localFolder);
+                    finally
+                    {
+                        if (remoteFolder != null)
+                        {
+                            await remoteFolder.CloseAsync().ConfigureAwait(false);
+                        }
+                    }
                 }
-                catch (Exception ex)
+
+                deletedFolders.ForEach(a => localFolders.Remove(a));
+
+                // 2. Get all remote folders and insert/update each of them.
+
+                var nameSpace = executorClient.PersonalNamespaces[0];
+
+                // var remoteFolders = (await executorClient.GetFoldersAsync(nameSpace, cancellationToken: cancellationToken)).ToList();
+
+                IMailFolder inbox = executorClient.Inbox;
+
+                // Sometimes Inbox is the root namespace. We need to check for that.
+                if (inbox != null && !remoteFolders.Contains(inbox))
+                    remoteFolders.Add(inbox);
+
+                foreach (var remoteFolder in remoteFolders)
                 {
-                    Log.Error(ex, $"Folder with name '{item.Name}' failed to be synchronized.");
+                    // Namespaces are not needed as folders.
+                    // Non-existed folders don't need to be synchronized.
+
+                    if ((remoteFolder.IsNamespace && !remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox)) || !remoteFolder.Exists)
+                        continue;
+
+                    var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.FullName);
+
+                    if (existingLocalFolder == null)
+                    {
+                        // Folder doesn't exist locally. Insert it.
+
+                        var localFolder = remoteFolder.GetLocalFolder();
+
+                        // Check whether this is a special folder.
+                        AssignSpecialFolderType(executorClient, remoteFolder, localFolder);
+
+                        bool isSystemFolder = localFolder.SpecialFolderType != SpecialFolderType.Other;
+
+                        localFolder.IsSynchronizationEnabled = isSystemFolder;
+                        localFolder.IsSticky = isSystemFolder;
+
+                        // By default, all special folders update unread count in the UI except Trash.
+                        localFolder.ShowUnreadCount = localFolder.SpecialFolderType != SpecialFolderType.Deleted || localFolder.SpecialFolderType != SpecialFolderType.Other;
+
+                        localFolder.MailAccountId = Account.Id;
+
+                        // Sometimes sub folders are parented under Inbox.
+                        // Even though this makes sense in server level, in the client it sucks.
+                        // That will make sub folders to be parented under Inbox in the client.
+                        // Instead, we will mark them as non-parented folders.
+                        // This is better. Model allows personalized folder structure anyways
+                        // even though we don't have the page/control to adjust it.
+
+                        if (remoteFolder.ParentFolder == executorClient.Inbox)
+                            localFolder.ParentRemoteFolderId = string.Empty;
+
+                        // Set UidValidity for cache expiration.
+                        // Folder must be opened for this.
+
+                        await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
+
+                        localFolder.UidValidity = remoteFolder.UidValidity;
+
+                        await remoteFolder.CloseAsync(cancellationToken: cancellationToken);
+
+                        localFolders.Add(localFolder);
+                    }
+                    else
+                    {
+                        // Update existing folder. Right now we only update the name.
+
+                        // TODO: Moving servers around different parents. This is not supported right now.
+                        // We will need more comphrensive folder update mechanism to support this.
+
+                        if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
+                        {
+                            existingLocalFolder.FolderName = remoteFolder.Name;
+                        }
+                        else
+                        {
+                            // Remove it from the local folder list to skip additional folder updates.
+                            localFolders.Remove(existingLocalFolder);
+                        }
+                    }
+                }
+
+                if (localFolders.Any())
+                {
+                    await _imapChangeProcessor.UpdateFolderStructureAsync(Account.Id, localFolders);
+                }
+                else
+                {
+                    _logger.Information("No update is needed for imap folders.");
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Synchronizing IMAP folders failed.");
 
-            await _imapChangeProcessor.BulkUpdateFolderStructureAsync(Account.Id, mailItemFolders);
+                throw;
+            }
+            finally
+            {
+                if (executorClient != null)
+                {
+                    _clientPool.Release(executorClient);
+                }
+            }
         }
 
         private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
@@ -812,17 +911,17 @@ namespace Wino.Core.Synchronizers
                 // Fetch completely missing new items in the end.
 
                 // Limit check.
-                //if (missingMailIds.Count > TAKE_COUNT)
-                //{
-                //    missingMailIds = new UniqueIdSet(missingMailIds.TakeLast(TAKE_COUNT));
-                //}
+                if (missingMailIds.Count > InitialMessageDownloadCountPerFolder)
+                {
+                    missingMailIds = new UniqueIdSet(missingMailIds.TakeLast((int)InitialMessageDownloadCountPerFolder));
+                }
 
                 // In case of the high input, we'll batch them by 50 to reflect changes quickly.
                 var batchedMissingMailIds = missingMailIds.Batch(50).Select(a => new UniqueIdSet(a, SortOrder.Descending));
 
                 foreach (var batchMissingMailIds in batchedMissingMailIds)
                 {
-                    var summaries = await imapFolder.FetchAsync(batchMissingMailIds, mailSynchronizationFlags, cancellationToken);
+                    var summaries = await imapFolder.FetchAsync(batchMissingMailIds, mailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
 
                     foreach (var summary in summaries)
                     {
@@ -837,7 +936,7 @@ namespace Wino.Core.Synchronizers
 
                         foreach (var mailPackage in createdMailPackages)
                         {
-                            await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage);
+                            await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage).ConfigureAwait(false);
                         }
                     }
                 }
@@ -845,19 +944,19 @@ namespace Wino.Core.Synchronizers
                 if (folder.HighestModeSeq != (long)imapFolder.HighestModSeq)
                 {
                     folder.HighestModeSeq = (long)imapFolder.HighestModSeq;
-                    await _imapChangeProcessor.InsertFolderAsync(folder);
+
+                    await _imapChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
                 }
 
-                // Update last synchronization identifier.
-                // This will update last sync date for the folder.
+                // Update last synchronization date for the folder..
 
-                await _imapChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, string.Empty).ConfigureAwait(false);
+                await _imapChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
 
                 return downloadedMessageIds;
             }
             catch (FolderNotFoundException)
             {
-                await _imapChangeProcessor.DeleteFolderAsync(Account.Id, folder.RemoteFolderId);
+                await _imapChangeProcessor.DeleteFolderAsync(Account.Id, folder.RemoteFolderId).ConfigureAwait(false);
 
                 return default;
             }

@@ -18,7 +18,6 @@
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:selectors="using:Wino.Selectors"
     muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
-    Loaded="OnShellLoaded"
     mc:Ignorable="d">
 
     <Page.Resources>

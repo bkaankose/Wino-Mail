@@ -24,13 +24,16 @@ namespace Wino.Mail.ViewModels
         private readonly IFolderService _folderService;
 
         public MailAccount Account { get; set; }
-        public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = new ObservableCollection<IMailItemFolder>();
+        public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
 
         [ObservableProperty]
         private bool isFocusedInboxEnabled;
 
         [ObservableProperty]
         private bool areNotificationsEnabled;
+
+        [ObservableProperty]
+        private bool isSignatureEnabled;
 
         [ObservableProperty]
         private bool isAppendMessageSettingVisible;
@@ -116,6 +119,7 @@ namespace Wino.Mail.ViewModels
 
                 IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
                 AreNotificationsEnabled = Account.Preferences.IsNotificationsEnabled;
+                IsSignatureEnabled = Account.Preferences.IsSignatureEnabled;
 
                 IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
                 IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
@@ -135,23 +139,24 @@ namespace Wino.Mail.ViewModels
         {
             base.OnPropertyChanged(e);
 
-            if (e.PropertyName == nameof(IsFocusedInboxEnabled) && IsFocusedInboxSupportedForAccount)
+            switch (e.PropertyName)
             {
-                Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
-
-                await _accountService.UpdateAccountAsync(Account);
-            }
-            else if (e.PropertyName == nameof(AreNotificationsEnabled))
-            {
-                Account.Preferences.IsNotificationsEnabled = AreNotificationsEnabled;
-
-                await _accountService.UpdateAccountAsync(Account);
-            }
-            else if (e.PropertyName == nameof(IsAppendMessageSettinEnabled))
-            {
-                Account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;
-
-                await _accountService.UpdateAccountAsync(Account);
+                case nameof(IsFocusedInboxEnabled) when IsFocusedInboxSupportedForAccount:
+                    Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(AreNotificationsEnabled):
+                    Account.Preferences.IsNotificationsEnabled = AreNotificationsEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(IsAppendMessageSettinEnabled):
+                    Account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(IsSignatureEnabled):
+                    Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
             }
         }
     }

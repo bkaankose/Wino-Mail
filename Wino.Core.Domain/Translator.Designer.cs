@@ -76,6 +76,18 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
+		/// Sender Display Name
+		/// </summary>
+		public static string AccountSettingsDialog_AccountName => Resources.GetTranslatedString(@"AccountSettingsDialog_AccountName");	
+	
+
+        /// <summary>
+		/// eg. John Doe
+		/// </summary>
+		public static string AccountSettingsDialog_AccountNamePlaceholder => Resources.GetTranslatedString(@"AccountSettingsDialog_AccountNamePlaceholder");	
+	
+
+        /// <summary>
 		/// Add
 		/// </summary>
 		public static string AddHyperlink => Resources.GetTranslatedString(@"AddHyperlink");	
@@ -190,9 +202,21 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
+		/// Copy
+		/// </summary>
+		public static string Buttons_Copy => Resources.GetTranslatedString(@"Buttons_Copy");	
+	
+
+        /// <summary>
 		/// Delete
 		/// </summary>
 		public static string Buttons_Delete => Resources.GetTranslatedString(@"Buttons_Delete");	
+	
+
+        /// <summary>
+		/// Edit
+		/// </summary>
+		public static string Buttons_Edit => Resources.GetTranslatedString(@"Buttons_Edit");	
 	
 
         /// <summary>
@@ -253,6 +277,12 @@ namespace Wino.Core.Domain
 		/// Sign In
 		/// </summary>
 		public static string Buttons_SignIn => Resources.GetTranslatedString(@"Buttons_SignIn");	
+	
+
+        /// <summary>
+		/// Try Again
+		/// </summary>
+		public static string Buttons_TryAgain => Resources.GetTranslatedString(@"Buttons_TryAgain");	
 	
 
         /// <summary>
@@ -508,18 +538,6 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
-		/// Rename Folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderTitle => Resources.GetTranslatedString(@"DialogMessage_RenameFolderTitle");	
-	
-
-        /// <summary>
-		/// Enter new name for this folder
-		/// </summary>
-		public static string DialogMessage_RenameFolderMessage => Resources.GetTranslatedString(@"DialogMessage_RenameFolderMessage");	
-	
-
-        /// <summary>
 		/// Unsubscribe
 		/// </summary>
 		public static string DialogMessage_UnsubscribeConfirmationTitle => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationTitle");	
@@ -625,6 +643,12 @@ namespace Wino.Core.Domain
 		/// Emoji
 		/// </summary>
 		public static string Emoji => Resources.GetTranslatedString(@"Emoji");	
+	
+
+        /// <summary>
+		/// Couldn't find mailbox settings.
+		/// </summary>
+		public static string Exception_ImapAutoDiscoveryFailed => Resources.GetTranslatedString(@"Exception_ImapAutoDiscoveryFailed");	
 	
 
         /// <summary>
@@ -1045,6 +1069,18 @@ namespace Wino.Core.Domain
 		/// johndoe, johndoe@fabrikam.com, domain/johndoe
 		/// </summary>
 		public static string IMAPSetupDialog_UsernamePlaceholder => Resources.GetTranslatedString(@"IMAPSetupDialog_UsernamePlaceholder");	
+	
+
+        /// <summary>
+		/// Connection Failed
+		/// </summary>
+		public static string IMAPSetupDialog_ConnectionFailedTitle => Resources.GetTranslatedString(@"IMAPSetupDialog_ConnectionFailedTitle");	
+	
+
+        /// <summary>
+		/// IMAP connection failed.
+		/// </summary>
+		public static string IMAPSetupDialog_ConnectionFailedMessage => Resources.GetTranslatedString(@"IMAPSetupDialog_ConnectionFailedMessage");	
 	
 
         /// <summary>
@@ -1972,6 +2008,12 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
+		/// Protocol logs are available for diagnostics.
+		/// </summary>
+		public static string ProtocolLogAvailable_Message => Resources.GetTranslatedString(@"ProtocolLogAvailable_Message");	
+	
+
+        /// <summary>
 		/// Results
 		/// </summary>
 		public static string Results => Resources.GetTranslatedString(@"Results");	
@@ -2482,6 +2524,18 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
+		/// Reorder Accounts
+		/// </summary>
+		public static string SettingsReorderAccounts_Title => Resources.GetTranslatedString(@"SettingsReorderAccounts_Title");	
+	
+
+        /// <summary>
+		/// Change the order of accounts in the account list.
+		/// </summary>
+		public static string SettingsReorderAccounts_Description => Resources.GetTranslatedString(@"SettingsReorderAccounts_Description");	
+	
+
+        /// <summary>
 		/// Move items to add new link or remove existing link.
 		/// </summary>
 		public static string SettingsManageLink_Description => Resources.GetTranslatedString(@"SettingsManageLink_Description");	
@@ -2740,7 +2794,7 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
-		/// Edit or remove account signature
+		/// Manage account signatures
 		/// </summary>
 		public static string SettingsSignature_Description => Resources.GetTranslatedString(@"SettingsSignature_Description");	
 	
@@ -3001,6 +3055,96 @@ namespace Wino.Core.Domain
 		/// Yesterday
 		/// </summary>
 		public static string Yesterday => Resources.GetTranslatedString(@"Yesterday");	
+	
+
+        /// <summary>
+		/// Signature Editor
+		/// </summary>
+		public static string SignatureEditorDialog_Title => Resources.GetTranslatedString(@"SignatureEditorDialog_Title");	
+	
+
+        /// <summary>
+		/// Name your signature
+		/// </summary>
+		public static string SignatureEditorDialog_SignatureName_Placeholder => Resources.GetTranslatedString(@"SignatureEditorDialog_SignatureName_Placeholder");	
+	
+
+        /// <summary>
+		/// Signature name
+		/// </summary>
+		public static string SignatureEditorDialog_SignatureName_TitleNew => Resources.GetTranslatedString(@"SignatureEditorDialog_SignatureName_TitleNew");	
+	
+
+        /// <summary>
+		/// Current signature name: {0}
+		/// </summary>
+		public static string SignatureEditorDialog_SignatureName_TitleEdit => Resources.GetTranslatedString(@"SignatureEditorDialog_SignatureName_TitleEdit");	
+	
+
+        /// <summary>
+		/// Delete signature
+		/// </summary>
+		public static string SignatureDeleteDialog_Title => Resources.GetTranslatedString(@"SignatureDeleteDialog_Title");	
+	
+
+        /// <summary>
+		/// Are you sure you want to delete "{0}" signature?
+		/// </summary>
+		public static string SignatureDeleteDialog_Message => Resources.GetTranslatedString(@"SignatureDeleteDialog_Message");	
+	
+
+        /// <summary>
+		/// For New Messages
+		/// </summary>
+		public static string SettingsSignature_ForNewMessages_Title => Resources.GetTranslatedString(@"SettingsSignature_ForNewMessages_Title");	
+	
+
+        /// <summary>
+		/// For Replies/Forwards
+		/// </summary>
+		public static string SettingsSignature_ForFollowingMessages_Title => Resources.GetTranslatedString(@"SettingsSignature_ForFollowingMessages_Title");	
+	
+
+        /// <summary>
+		/// Signature defaults
+		/// </summary>
+		public static string SettingsSignature_SignatureDefaults => Resources.GetTranslatedString(@"SettingsSignature_SignatureDefaults");	
+	
+
+        /// <summary>
+		/// Signatures
+		/// </summary>
+		public static string SettingsSignature_Signatures => Resources.GetTranslatedString(@"SettingsSignature_Signatures");	
+	
+
+        /// <summary>
+		/// Add custom signature
+		/// </summary>
+		public static string SettingsSignature_AddCustomSignature_Title => Resources.GetTranslatedString(@"SettingsSignature_AddCustomSignature_Title");	
+	
+
+        /// <summary>
+		/// Add signature
+		/// </summary>
+		public static string SettingsSignature_AddCustomSignature_Button => Resources.GetTranslatedString(@"SettingsSignature_AddCustomSignature_Button");	
+	
+
+        /// <summary>
+		/// Edit signature
+		/// </summary>
+		public static string SettingsSignature_EditSignature_Title => Resources.GetTranslatedString(@"SettingsSignature_EditSignature_Title");	
+	
+
+        /// <summary>
+		/// Delete signature
+		/// </summary>
+		public static string SettingsSignature_DeleteSignature_Title => Resources.GetTranslatedString(@"SettingsSignature_DeleteSignature_Title");	
+	
+
+        /// <summary>
+		/// None
+		/// </summary>
+		public static string SettingsSignature_NoneSignatureName => Resources.GetTranslatedString(@"SettingsSignature_NoneSignatureName");	
 	
 }
 }

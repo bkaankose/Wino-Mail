@@ -215,7 +215,7 @@ namespace Wino.Core.Services
 
         public async Task<List<MailAccount>> GetAccountsAsync()
         {
-            var accounts = await Connection.Table<MailAccount>().ToListAsync();
+            var accounts = await Connection.Table<MailAccount>().OrderBy(a => a.Order).ToListAsync();
 
             foreach (var account in accounts)
             {
@@ -244,9 +244,7 @@ namespace Wino.Core.Services
 
             await Connection.Table<TokenInformation>().Where(a => a.AccountId == account.Id).DeleteAsync();
             await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
-
-            if (account.SignatureId != null)
-                await Connection.Table<AccountSignature>().DeleteAsync(a => a.Id == account.SignatureId);
+            await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
 
             // Account belongs to a merged inbox.
             // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.
@@ -301,12 +299,21 @@ namespace Wino.Core.Services
         {
             var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
 
-            if (account?.ProviderType == MailProviderType.IMAP4)
-                account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
+            if (account == null)
+            {
+                _logger.Error("Could not find account with id {AccountId}", accountId);
+            }
+            else
+            {
+                if (account.ProviderType == MailProviderType.IMAP4)
+                    account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
 
-            account.Preferences = await GetAccountPreferencesAsync(account.Id);
+                account.Preferences = await GetAccountPreferencesAsync(account.Id);
 
-            return account;
+                return account;
+            }
+
+            return null;
         }
 
         public Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId)
@@ -336,6 +343,12 @@ namespace Wino.Core.Services
             {
                 _preferencesService.StartupEntityId = account.Id;
             }
+            else
+            {
+                // Set the order of the account.
+                // This can be changed by the user later in manage accounts page.
+                account.Order = accountCount;
+            }
 
             await Connection.InsertAsync(account);
 
@@ -352,15 +365,19 @@ namespace Wino.Core.Services
             // Outlook & Office 365 supports Focused inbox. Enabled by default.
             bool isMicrosoftProvider = account.ProviderType == MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365;
 
+            // TODO: This should come from account settings API.
+            // Wino doesn't have MailboxSettings yet.
             if (isMicrosoftProvider)
                 account.Preferences.IsFocusedInboxEnabled = true;
 
-            await Connection.InsertAsync(preferences);
-
-            // Create default signature.
+            // Setup default signature.
             var defaultSignature = await _signatureService.CreateDefaultSignatureAsync(account.Id);
 
-            account.SignatureId = defaultSignature.Id;
+            account.Preferences.SignatureIdForNewMessages = defaultSignature.Id;
+            account.Preferences.SignatureIdForFollowingMessages = defaultSignature.Id;
+            account.Preferences.IsSignatureEnabled = true;
+
+            await Connection.InsertAsync(preferences);
 
             if (customServerInformation != null)
                 await Connection.InsertAsync(customServerInformation);
@@ -398,6 +415,24 @@ namespace Wino.Core.Services
             return account.SynchronizationDeltaIdentifier;
         }
 
+        public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)
+        {
+            foreach (var pair in accountIdOrderPair)
+            {
+                var account = await GetAccountAsync(pair.Key);
 
+                if (account == null)
+                {
+                    _logger.Information("Could not find account with id {Key} for reordering. It may be a linked account.", pair.Key);
+                    continue;
+                }
+
+                account.Order = pair.Value;
+
+                await Connection.UpdateAsync(account);
+            }
+
+            Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
+        }
     }
 }

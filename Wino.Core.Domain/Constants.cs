@@ -9,6 +9,7 @@
         public const string LocalDraftStartPrefix = "localDraft_";
 
         public const string ToastMailItemIdKey = nameof(ToastMailItemIdKey);
+        public const string ToastMailItemRemoteFolderIdKey = nameof(ToastMailItemRemoteFolderIdKey);
         public const string ToastActionKey = nameof(ToastActionKey);
     }
 }

@@ -1,7 +1,6 @@
 ﻿using Microsoft.Toolkit.Uwp.Notifications;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Background;
-using Wino.Core.Domain;
 
 namespace Wino.BackgroundTasks
 {
@@ -23,8 +22,9 @@ namespace Wino.BackgroundTasks
 
             var versionText = string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
 
-            builder.AddText(Translator.Notifications_WinoUpdatedTitle);
-            builder.AddText(string.Format(Translator.Notifications_WinoUpdatedMessage, versionText));
+            // TODO: Handle with Translator, but it's not initialized here yet.
+            builder.AddText("Wino Mail is updated!");
+            builder.AddText(string.Format("New version {0} is ready.", versionText));
 
             builder.Show();
 

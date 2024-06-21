@@ -14,7 +14,7 @@ namespace Wino.Core.Services
 
     public class DatabaseService : IDatabaseService
     {
-        private string DatabaseName => "Wino170.db";
+        private string DatabaseName => "Wino172.db";
 
         private bool _isInitialized = false;
         private readonly IAppInitializerService _appInitializerService;

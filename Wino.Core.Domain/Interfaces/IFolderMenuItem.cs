@@ -8,6 +8,7 @@ namespace Wino.Core.Domain.Interfaces
     public interface IFolderMenuItem : IBaseFolderMenuItem
     {
         MailAccount ParentAccount { get; }
+        void UpdateParentAccounnt(MailAccount account);
     }
 
     public interface IMergedAccountFolderMenuItem : IBaseFolderMenuItem { }

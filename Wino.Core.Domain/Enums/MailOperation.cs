@@ -14,6 +14,8 @@
         RenameFolder,
         EmptyFolder,
         MarkFolderRead,
+        RenameFolder,
+        Archive
     }
 
     // UI requests
@@ -46,6 +48,7 @@
         DarkEditor,
         LightEditor,
         Print,
+        DiscardLocalDraft,
         Navigate // For toast activation
     }
 }

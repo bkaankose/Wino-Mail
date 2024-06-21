@@ -37,8 +37,9 @@ namespace Wino.Core
         private readonly ISignatureService _signatureService;
         private readonly IDatabaseService _databaseService;
         private readonly IMimeFileService _mimeFileService;
-        private readonly IDefaultChangeProcessor _defaultChangeProcessor;
         private readonly IOutlookChangeProcessor _outlookChangeProcessor;
+        private readonly IGmailChangeProcessor _gmailChangeProcessor;
+        private readonly IImapChangeProcessor _imapChangeProcessor;
 
         public WinoSynchronizerFactory(INativeAppService nativeAppService,
                                      ITokenService tokenService,
@@ -49,8 +50,9 @@ namespace Wino.Core
                                      ISignatureService signatureService,
                                      IDatabaseService databaseService,
                                      IMimeFileService mimeFileService,
-                                     IDefaultChangeProcessor defaultChangeProcessor,
-                                     IOutlookChangeProcessor outlookChangeProcessor)
+                                     IOutlookChangeProcessor outlookChangeProcessor,
+                                     IGmailChangeProcessor gmailChangeProcessor,
+                                     IImapChangeProcessor imapChangeProcessor)
         {
             _contactService = contactService;
             _notificationBuilder = notificationBuilder;
@@ -61,8 +63,9 @@ namespace Wino.Core
             _signatureService = signatureService;
             _databaseService = databaseService;
             _mimeFileService = mimeFileService;
-            _defaultChangeProcessor = defaultChangeProcessor;
             _outlookChangeProcessor = outlookChangeProcessor;
+            _gmailChangeProcessor = gmailChangeProcessor;
+            _imapChangeProcessor = imapChangeProcessor;
         }
 
         public IBaseSynchronizer GetAccountSynchronizer(Guid accountId)
@@ -80,13 +83,13 @@ namespace Wino.Core
                 case Domain.Enums.MailProviderType.Gmail:
                     var gmailAuthenticator = new GmailAuthenticator(_tokenService, _nativeAppService);
 
-                    return new GmailSynchronizer(mailAccount, gmailAuthenticator, _defaultChangeProcessor);
+                    return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor);
                 case Domain.Enums.MailProviderType.Office365:
                     break;
                 case Domain.Enums.MailProviderType.Yahoo:
                     break;
                 case Domain.Enums.MailProviderType.IMAP4:
-                    return new ImapSynchronizer(mailAccount, _defaultChangeProcessor);
+                    return new ImapSynchronizer(mailAccount, _imapChangeProcessor);
                 default:
                     break;
             }

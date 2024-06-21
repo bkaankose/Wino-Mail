@@ -152,10 +152,7 @@
                             <controls:WinoFontIcon Icon="Delete" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton
-                        Label="Send"
-                        IsEnabled="{x:Bind ViewModel.CanSendMail, Mode=OneWay}"
-                        Command="{x:Bind ViewModel.SendCommand}">
+                    <AppBarButton Label="Send" Command="{x:Bind ViewModel.SendCommand}">
                         <AppBarButton.Icon>
                             <controls:WinoFontIcon Icon="Send" />
                         </AppBarButton.Icon>

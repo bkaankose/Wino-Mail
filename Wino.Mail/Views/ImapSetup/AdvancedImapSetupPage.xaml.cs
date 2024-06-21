@@ -9,7 +9,6 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Messages.Mails;
-using Wino.Extensions;
 
 
 namespace Wino.Views.ImapSetup
@@ -76,6 +75,8 @@ namespace Wino.Views.ImapSetup
         {
             base.OnNavigatedTo(e);
 
+            // ProtocolLogGrid.Visibility = Visibility.Collapsed;
+
             // Connection is succesfull but error occurred.
             // Imap and Smptp settings exists here at this point.
 
@@ -93,12 +94,8 @@ namespace Wino.Views.ImapSetup
                 IncomingServerBox.Text = serverInfo.IncomingServer;
                 IncomingServerPortBox.Text = serverInfo.IncomingServerPort;
 
-
                 OutgoingPasswordBox.Password = serverInfo.OutgoingServerPassword;
-
-                OutgoingServerBox.Text = serverInfo.OutgoingServer;
                 OutgoingServerPort.Text = serverInfo.OutgoingServerPort;
-
                 OutgoingUsernameBox.Text = serverInfo.OutgoingServerUsername;
 
                 UseSameCredentialsForSending = OutgoingUsernameBox.Text == UsernameBox.Text;
@@ -111,12 +108,6 @@ namespace Wino.Views.ImapSetup
                 AddressBox.Text = autoDiscoveryMinimalSettings.Email;
                 DisplayNameBox.Text = autoDiscoveryMinimalSettings.DisplayName;
                 PasswordBox.Password = autoDiscoveryMinimalSettings.Password;
-            }
-            else if (e.Parameter is AutoDiscoveryConnectionTestFailedPackage failedPackage)
-            {
-                ErrorMessage.Text = failedPackage.Error.Message;
-
-                MainScrollviewer.ScrollToElement(ErrorMessage);
             }
         }
 
@@ -136,8 +127,6 @@ namespace Wino.Views.ImapSetup
 
         private void SignInClicked(object sender, RoutedEventArgs e)
         {
-            ErrorMessage.Text = string.Empty;
-
             var info = new CustomServerInformation()
             {
                 IncomingServer = GetServerWithoutPort(IncomingServerBox.Text),
@@ -160,7 +149,8 @@ namespace Wino.Views.ImapSetup
                 ProxyServer = ProxyServerBox.Text,
                 ProxyServerPort = ProxyServerPortBox.Text,
                 Address = AddressBox.Text,
-                DisplayName = DisplayNameBox.Text
+                DisplayName = DisplayNameBox.Text,
+                MaxConcurrentClients = 5
             };
 
             if (UseSameCredentialsForSending)

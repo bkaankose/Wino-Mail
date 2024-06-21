@@ -21,7 +21,7 @@ namespace Wino.Core.Services
 {
     public class MailService : BaseDatabaseService, IMailService
     {
-        private const int ItemLoadCount = 20;
+        private const int ItemLoadCount = 100;
 
         private readonly IFolderService _folderService;
         private readonly IContactService _contactService;
@@ -58,14 +58,7 @@ namespace Wino.Core.Services
 
             string fromName;
 
-            if (isImapAccount)
-                fromName = composerAccount.ServerInformation.DisplayName;
-            else
-            {
-                var composerContact = await _contactService.GetAddressInformationByAddressAsync(composerAccount.Address);
-
-                fromName = composerContact?.Name ?? composerAccount.Address;
-            }
+            fromName = composerAccount.SenderName;
 
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -422,6 +415,14 @@ namespace Wino.Core.Services
 
             await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
 
+            // If there are no more copies exists of the same mail, delete the MIME file as well.
+            var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
+
+            if (!isMailExists)
+            {
+                await _mimeFileService.DeleteMimeMessageAsync(mailCopy.AssignedAccount.Id, mailCopy.FileId).ConfigureAwait(false);
+            }
+
             ReportUIChange(new MailRemovedMessage(mailCopy));
         }
 
@@ -629,19 +630,7 @@ namespace Wino.Core.Services
             var reason = draftCreationOptions.Reason;
             var referenceMessage = draftCreationOptions.ReferenceMimeMessage;
 
-            // For API synchronizers we should get this from contacts.
-            if (account.ServerInformation == null)
-            {
-                var fromContact = await _contactService.GetAddressInformationByAddressAsync(account.Address).ConfigureAwait(false)
-                ?? new AddressInformation() { Name = account.Address, Address = account.Address };
-
-                message.From.Add(new MailboxAddress(fromContact.Name, fromContact.Address));
-            }
-            else
-            {
-                // For IMAP synchronizer, we have already Display Name in the settings.
-                message.From.Add(new MailboxAddress(account.ServerInformation.DisplayName, account.ServerInformation.Address));
-            }
+            message.From.Add(new MailboxAddress(account.SenderName, account.Address));
 
             // Manage "To"
             if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
@@ -692,16 +681,26 @@ namespace Wino.Core.Services
 
                 builder.HtmlBody = visitor.HtmlBody;
             }
-            else
+
+            // Append signatures if needed.
+            if (account.Preferences.IsSignatureEnabled)
             {
-                // Add signature if any.
-                var accountSignature = await _signatureService.GetAccountSignatureAsync(account.Id);
+                var signatureId = reason == DraftCreationReason.Empty ?
+                    account.Preferences.SignatureIdForNewMessages :
+                    account.Preferences.SignatureIdForFollowingMessages;
 
-                if (accountSignature != null)
+                if (signatureId != null)
                 {
-                    // Leave some space for new mail content.
+                    var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
 
-                    builder.HtmlBody = @$"<html><br><br>{accountSignature.HtmlBody}</html>";
+                    if (string.IsNullOrWhiteSpace(builder.HtmlBody))
+                    {
+                        builder.HtmlBody = @$"<html><br><br>{signature.HtmlBody}</html>";
+                    }
+                    else
+                    {
+                        builder.HtmlBody += @$"{signature.HtmlBody}";
+                    }
                 }
             }
 
@@ -745,7 +744,7 @@ namespace Wino.Core.Services
                     message.Body = builder.ToMessageBody();
                 }
 
-                InternetAddressList ExtractRecipients(string parameterValue)
+                static InternetAddressList ExtractRecipients(string parameterValue)
                 {
                     var list = new InternetAddressList();
 

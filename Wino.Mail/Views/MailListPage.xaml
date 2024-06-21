@@ -379,31 +379,42 @@
     </Page.Resources>
 
     <wino:BasePage.ShellContent>
-        <AutoSuggestBox
-            x:Name="SearchBar"
-            Margin="0,0,8,0"
-            VerticalAlignment="Center"
-            BorderBrush="Transparent"
-            GotFocus="SearchBoxFocused"
-            IsFocusEngagementEnabled="False"
-            IsTabStop="False"
-            LostFocus="SearchBarUnfocused"
-            PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
-            QueryIcon="Find"
-            TabIndex="1000"
-            TextChanged="SearchBar_TextChanged"
-            Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}">
-            <i:Interaction.Behaviors>
-                <ic:EventTriggerBehavior EventName="QuerySubmitted">
-                    <ic:InvokeCommandAction Command="{x:Bind ViewModel.PerformSearchCommand}" />
-                </ic:EventTriggerBehavior>
-            </i:Interaction.Behaviors>
-        </AutoSuggestBox>
+        <Grid>
+            <!--  Hidden focus receiver...  -->
+            <TextBox
+                Visibility="Collapsed"
+                Opacity="0"
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Right" />
+
+            <AutoSuggestBox
+                x:Name="SearchBar"
+                Margin="0,0,8,0"
+                VerticalAlignment="Center"
+                BorderBrush="Transparent"
+                GotFocus="SearchBoxFocused"
+                LostFocus="SearchBarUnfocused"
+                PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                QueryIcon="Find"
+                TextChanged="SearchBar_TextChanged"
+                Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}">
+                <i:Interaction.Behaviors>
+                    <ic:EventTriggerBehavior EventName="QuerySubmitted">
+                        <ic:InvokeCommandAction Command="{x:Bind ViewModel.PerformSearchCommand}" />
+                    </ic:EventTriggerBehavior>
+                </i:Interaction.Behaviors>
+            </AutoSuggestBox>
+        </Grid>
+
     </wino:BasePage.ShellContent>
 
     <Grid x:Name="RootGrid">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="ReaderColumn" Width="*" MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}"/>
+            <ColumnDefinition
+                x:Name="ReaderColumn"
+                Width="*"
+                MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}" />
             <ColumnDefinition x:Name="RendererColumn" Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -800,6 +811,9 @@
             x:Name="RenderingFrame"
             Grid.Column="1"
             IsNavigationStackEnabled="False" />
+
+
+
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="AdaptiveStates" CurrentStateChanged="AdaptivenessChanged">

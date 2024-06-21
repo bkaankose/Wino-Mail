@@ -42,6 +42,7 @@ namespace Wino.Mail.ViewModels
         public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
         public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
         public bool HasAccountsDefined => Accounts != null && Accounts.Any();
+        public bool CanReorderAccounts => Accounts?.Sum(a => a.HoldingAccountCount) > 1;
 
         public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, Accounts.Count, FREE_ACCOUNT_COUNT);
 
@@ -146,23 +147,22 @@ namespace Wino.Mail.ViewModels
                 var providers = _providerService.GetProviderDetails();
 
                 // Select provider.
-                var accountInformationTuple = await _dialogService.ShowNewAccountMailProviderDialogAsync(providers);
+                var accountCreationDialogResult = await _dialogService.ShowNewAccountMailProviderDialogAsync(providers);
 
-                if (accountInformationTuple != null)
+                if (accountCreationDialogResult != null)
                 {
-                    creationDialog = _dialogService.GetAccountCreationDialog(accountInformationTuple.Item2);
+                    creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
-                    var accountName = accountInformationTuple.Item1;
-                    var providerType = accountInformationTuple.Item2;
-
-                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(providerType);
+                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
 
                     CustomServerInformation customServerInformation = null;
 
                     createdAccount = new MailAccount()
                     {
-                        ProviderType = providerType,
-                        Name = accountName,
+                        ProviderType = accountCreationDialogResult.ProviderType,
+                        Name = accountCreationDialogResult.AccountName,
+                        SenderName = accountCreationDialogResult.SenderName,
+                        AccountColorHex = accountCreationDialogResult.AccountColorHex,
                         Id = Guid.NewGuid()
                     };
 
@@ -174,6 +174,9 @@ namespace Wino.Mail.ViewModels
                     // Custom server implementation requires more async waiting.
                     if (creationDialog is ICustomServerAccountCreationDialog customServerDialog)
                     {
+                        // Pass along the account properties and perform initial navigation on the imap frame.
+                        customServerDialog.StartImapConnectionSetup(createdAccount);
+
                         customServerInformation = await customServerDialog.GetCustomServerInformationAsync()
                             ?? throw new AccountSetupCanceledException();
 
@@ -184,6 +187,7 @@ namespace Wino.Mail.ViewModels
 
                         createdAccount.Address = customServerInformation.Address;
                         createdAccount.ServerInformation = customServerInformation;
+                        createdAccount.SenderName = customServerInformation.DisplayName;
                     }
                     else
                     {
@@ -263,6 +267,9 @@ namespace Wino.Mail.ViewModels
                                                  mergedAccountProviderDetailViewModel));
         }
 
+        [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
+        private Task ReorderAccountsAsync() => DialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
+
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
@@ -276,6 +283,9 @@ namespace Wino.Mail.ViewModels
         {
             OnPropertyChanged(nameof(HasAccountsDefined));
             OnPropertyChanged(nameof(UsedAccountsString));
+            OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
+
+            ReorderAccountsCommand.NotifyCanExecuteChanged();
         }
 
         private void PagePropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)

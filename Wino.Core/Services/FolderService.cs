@@ -64,8 +64,7 @@ namespace Wino.Core.Services
             }
 
             // Draft and Junk folders are not counted as unread. They must return the item count instead.
-
-            if (folder.SpecialFolderType != SpecialFolderType.Draft || folder.SpecialFolderType != SpecialFolderType.Junk)
+            if (folder.SpecialFolderType != SpecialFolderType.Draft && folder.SpecialFolderType != SpecialFolderType.Junk)
             {
                 query.Where("IsRead", 0);
             }
@@ -273,7 +272,8 @@ namespace Wino.Core.Services
             await Task.WhenAll(UpdateSystemFolderInternalAsync(configuration.SentFolder, SpecialFolderType.Sent),
                                UpdateSystemFolderInternalAsync(configuration.DraftFolder, SpecialFolderType.Draft),
                                UpdateSystemFolderInternalAsync(configuration.JunkFolder, SpecialFolderType.Junk),
-                               UpdateSystemFolderInternalAsync(configuration.TrashFolder, SpecialFolderType.Deleted));
+                               UpdateSystemFolderInternalAsync(configuration.TrashFolder, SpecialFolderType.Deleted),
+                               UpdateSystemFolderInternalAsync(configuration.ArchiveFolder, SpecialFolderType.Archive));
 
             await _accountService.UpdateAccountAsync(account);
 
@@ -358,7 +358,7 @@ namespace Wino.Core.Services
             }
         }
 
-        private async Task UpdateFolderAsync(MailItemFolder folder)
+        public async Task UpdateFolderAsync(MailItemFolder folder)
         {
             if (folder == null)
             {
@@ -489,7 +489,11 @@ namespace Wino.Core.Services
                     .Where(a => a.MailAccountId == options.AccountId && a.IsSynchronizationEnabled && options.SynchronizationFolderIds.Contains(a.Id))
                     .ToListAsync();
 
-                folders.AddRange(synchronizationFolders);
+                // Order is important for moving.
+                // By implementation, removing mail folders must be synchronized first. Requests are made in that order for custom sync.
+                // eg. Moving item from Folder A to Folder B. If we start syncing Folder B first, we might miss adding assignment for Folder A.
+
+                folders.AddRange(synchronizationFolders.OrderBy(a => options.SynchronizationFolderIds.IndexOf(a.Id)));
             }
 
             return folders;
@@ -555,18 +559,7 @@ namespace Wino.Core.Services
             }
         }
 
-        public async Task<string> UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
-        {
-            var folder = await GetFolderAsync(folderId).ConfigureAwait(false);
 
-            if (folder == null)
-            {
-                _logger.Warning("Folder with id {FolderId} does not exist.", folderId);
-
-                return string.Empty;
-            }
-
-            folder.DeltaToken = synchronizationIdentifier;
 
             // No need to trigger UI change for this.
             // Directly update the database.
@@ -633,5 +626,8 @@ namespace Wino.Core.Services
             => (await Connection.Table<MailItemFolder>()
             .Where(a => a.SpecialFolderType == SpecialFolderType.Inbox && a.MailAccountId == accountId)
             .CountAsync()) == 1;
+
+        public Task UpdateFolderLastSyncDateAsync(Guid folderId)
+            => Connection.ExecuteAsync("UPDATE MailItemFolder SET LastSynchronizedDate = ? WHERE Id = ?", DateTime.UtcNow, folderId);
     }
 }

@@ -30,9 +30,6 @@ namespace Wino.Core.Domain.Models.AutoDiscovery
 
             if (imapSettings == null || smtpSettings == null) return null;
 
-            bool imapRequiresSSL = imapSettings.Secure == "SSL";
-            bool smtpRequiresSSL = smtpSettings.Secure == "SSL";
-
             string imapUrl = imapSettings.Address;
             string smtpUrl = smtpSettings.Address;
 
@@ -49,15 +46,18 @@ namespace Wino.Core.Domain.Models.AutoDiscovery
                 Address = UserMinimalSettings.Email,
                 IncomingServerPassword = UserMinimalSettings.Password,
                 OutgoingServerPassword = UserMinimalSettings.Password,
-                IncomingRequiresSSL = imapRequiresSSL,
-                OutgoingRequresSSL = smtpRequiresSSL,
+                IncomingAuthenticationMethod = Enums.ImapAuthenticationMethod.Auto,
+                OutgoingAuthenticationMethod = Enums.ImapAuthenticationMethod.Auto,
+                OutgoingServerSocketOption = Enums.ImapConnectionSecurity.Auto,
+                IncomingServerSocketOption = Enums.ImapConnectionSecurity.Auto,
                 IncomingServer = imapUrl,
                 OutgoingServer = smtpUrl,
                 IncomingServerPort = imapPort.ToString(),
                 OutgoingServerPort = smtpPort.ToString(),
                 IncomingServerType = Enums.CustomIncomingServerType.IMAP4,
                 IncomingServerUsername = imapUsername,
-                OutgoingServerUsername = smtpUsername
+                OutgoingServerUsername = smtpUsername,
+                MaxConcurrentClients = 5
             };
 
             return serverInfo;

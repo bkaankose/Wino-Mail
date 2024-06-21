@@ -21,17 +21,22 @@ namespace Wino.Core.UWP.Services
         private readonly IUnderlyingThemeService _underlyingThemeService;
         private readonly IAccountService _accountService;
         private readonly IFolderService _folderService;
+        private readonly IMailService _mailService;
 
-        public NotificationBuilder(IUnderlyingThemeService underlyingThemeService, IAccountService accountService, IFolderService folderService)
+        public NotificationBuilder(IUnderlyingThemeService underlyingThemeService,
+                                   IAccountService accountService,
+                                   IFolderService folderService,
+                                   IMailService mailService)
         {
             _underlyingThemeService = underlyingThemeService;
             _accountService = accountService;
             _folderService = folderService;
+            _mailService = mailService;
         }
 
-        public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> newMailItems)
+        public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
         {
-            var mailCount = newMailItems.Count();
+            var mailCount = downloadedMailItems.Count();
 
             // If there are more than 3 mails, just display 1 general toast.
             if (mailCount > 3)
@@ -40,7 +45,7 @@ namespace Wino.Core.UWP.Services
                 builder.SetToastScenario(ToastScenario.Default);
 
                 builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
-                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsTitle, mailCount));
+                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
 
                 builder.AddButton(GetDismissButton());
 
@@ -48,7 +53,22 @@ namespace Wino.Core.UWP.Services
             }
             else
             {
-                foreach (var mailItem in newMailItems)
+                var validItems = new List<IMailItem>();
+
+                // Fetch mails again to fill up assigned folder data and latest statuses.
+                // They've been marked as read by executing synchronizer tasks until inital sync finishes.
+
+                foreach (var item in downloadedMailItems)
+                {
+                    var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
+
+                    if (mailItem != null && mailItem.AssignedFolder != null)
+                    {
+                        validItems.Add(mailItem);
+                    }
+                }
+
+                foreach (var mailItem in validItems)
                 {
                     if (mailItem.IsRead)
                         continue;
@@ -87,8 +107,8 @@ namespace Wino.Core.UWP.Services
                     builder.AddArgument(Constants.ToastMailItemIdKey, mailItem.UniqueId.ToString());
                     builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
 
-                    builder.AddButton(GetMarkedAsRead(mailItem.Id));
-                    builder.AddButton(GetDeleteButton(mailItem.Id));
+                    builder.AddButton(GetMarkedAsRead(mailItem.Id, mailItem.AssignedFolder.RemoteFolderId));
+                    builder.AddButton(GetDeleteButton(mailItem.Id, mailItem.AssignedFolder.RemoteFolderId));
                     builder.AddButton(GetDismissButton());
 
                     builder.Show();
@@ -103,19 +123,21 @@ namespace Wino.Core.UWP.Services
             .SetDismissActivation()
             .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/dismiss.png"));
 
-        private ToastButton GetDeleteButton(string mailCopyId)
+        private ToastButton GetDeleteButton(string mailCopyId, string remoteFolderId)
             => new ToastButton()
             .SetContent(Translator.MailOperation_Delete)
             .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/delete.png"))
             .AddArgument(Constants.ToastMailItemIdKey, mailCopyId)
+            .AddArgument(Constants.ToastMailItemRemoteFolderIdKey, remoteFolderId)
             .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
             .SetBackgroundActivation();
 
-        private ToastButton GetMarkedAsRead(string mailCopyId)
+        private ToastButton GetMarkedAsRead(string mailCopyId, string remoteFolderId)
             => new ToastButton()
             .SetContent(Translator.MailOperation_MarkAsRead)
             .SetImageUri(new System.Uri("ms-appx:///Assets/NotificationIcons/markread.png"))
             .AddArgument(Constants.ToastMailItemIdKey, mailCopyId)
+            .AddArgument(Constants.ToastMailItemRemoteFolderIdKey, remoteFolderId)
             .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
             .SetBackgroundActivation();
 
