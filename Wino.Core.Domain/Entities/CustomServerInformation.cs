@@ -43,5 +43,11 @@ namespace Wino.Core.Domain.Entities
 
         public string ProxyServer { get; set; }
         public string ProxyServerPort { get; set; }
+
+        /// <summary>
+        /// Number of concurrent clients that can connect to the server.
+        /// Default is 5.
+        /// </summary>
+        public int MaxConcurrentClients { get; set; }
     }
 }
