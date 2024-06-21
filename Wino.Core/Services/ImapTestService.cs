@@ -45,8 +45,7 @@ namespace Wino.Core.Services
                 // This call will make sure that everything is authenticated + connected successfully.
                 var client = await clientPool.GetClientAsync();
 
-                await client.DisconnectAsync(true);
-                client.Dispose();
+                clientPool.Release(client);
             }
         }
     }
