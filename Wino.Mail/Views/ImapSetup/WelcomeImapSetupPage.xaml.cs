@@ -17,7 +17,6 @@ namespace Wino.Views.ImapSetup
 {
     public sealed partial class WelcomeImapSetupPage : Page
     {
-        private ImapConnectionFailedPackage failedPackage;
         private readonly IAutoDiscoveryService _autoDiscoveryService = App.Current.Services.GetService<IAutoDiscoveryService>();
 
         public WelcomeImapSetupPage()
@@ -85,20 +84,8 @@ namespace Wino.Views.ImapSetup
                 Email = AddressBox.Text
             };
 
-            if (failedPackage != null)
-            {
-                // Go to advanced settings with updated minimal settings.
 
-                failedPackage.Settings.UserMinimalSettings = latestMinimalSettings;
-
-                WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(AdvancedImapSetupPage), failedPackage.Settings));
-            }
-            else
-            {
-                // Go to advanced page.
-
-                WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(AdvancedImapSetupPage), latestMinimalSettings));
-            }
+            WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(AdvancedImapSetupPage), latestMinimalSettings));
         }
     }
 }

@@ -15,8 +15,6 @@ namespace Wino.Views.ImapSetup
 {
     public sealed partial class AdvancedImapSetupPage : Page
     {
-        private string _protocolLog;
-
         public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } = new List<ImapAuthenticationMethodModel>()
         {
             new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
