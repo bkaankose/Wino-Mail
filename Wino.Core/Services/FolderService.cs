@@ -476,7 +476,11 @@ namespace Wino.Core.Services
                     .Where(a => a.MailAccountId == options.AccountId && a.IsSynchronizationEnabled && options.SynchronizationFolderIds.Contains(a.Id))
                     .ToListAsync();
 
-                folders.AddRange(synchronizationFolders);
+                // Order is important for moving.
+                // By implementation, removing mail folders must be synchronized first. Requests are made in that order for custom sync.
+                // eg. Moving item from Folder A to Folder B. If we start syncing Folder B first, we might miss adding assignment for Folder A.
+
+                folders.AddRange(synchronizationFolders.OrderBy(a => options.SynchronizationFolderIds.IndexOf(a.Id)));
             }
 
             return folders;

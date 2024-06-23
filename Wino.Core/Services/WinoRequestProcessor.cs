@@ -160,19 +160,36 @@ namespace Wino.Core.Services
             }
             else if (action == MailOperation.Archive)
             {
-                // Validate archive folder exists.
+                // For IMAP and Outlook: Validate archive folder exists.
+                // Gmail doesn't need archive folder existence.
 
-                var archiveFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Archive)
+                MailItemFolder archiveFolder = null;
+
+                bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType == MailProviderType.Outlook
+                                                  || mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4
+                                                  || mailItem.AssignedAccount.ProviderType == MailProviderType.Office365;
+
+                if (shouldRequireArchiveFolder)
+                {
+                    archiveFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Archive)
                     ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Archive, mailItem.AssignedAccount.Id);
+                }
 
-                return new MoveRequest(mailItem, mailItem.AssignedFolder, archiveFolder);
+                return new ArchiveRequest(true, mailItem, mailItem.AssignedFolder, archiveFolder);
             }
-            else if (action == MailOperation.UnArchive || action == MailOperation.MarkAsNotJunk)
+            else if (action == MailOperation.MarkAsNotJunk)
             {
                 var inboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Inbox)
                     ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Inbox, mailItem.AssignedAccount.Id);
 
                 return new MoveRequest(mailItem, mailItem.AssignedFolder, inboxFolder);
+            }
+            else if (action == MailOperation.UnArchive)
+            {
+                var inboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Inbox)
+                    ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Inbox, mailItem.AssignedAccount.Id);
+
+                return new ArchiveRequest(false, mailItem, mailItem.AssignedFolder, inboxFolder);
             }
             else if (action == MailOperation.SoftDelete)
             {

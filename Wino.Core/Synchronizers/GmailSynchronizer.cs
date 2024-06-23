@@ -635,6 +635,28 @@ namespace Wino.Core.Synchronizers
             });
         }
 
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> Archive(BatchArchiveRequest request)
+        {
+            return CreateBatchedHttpBundleFromGroup(request, (items) =>
+            {
+                var batchModifyRequest = new BatchModifyMessagesRequest
+                {
+                    Ids = items.Select(a => a.Item.Id.ToString()).ToList()
+                };
+
+                if (request.IsArchiving)
+                {
+                    batchModifyRequest.RemoveLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
+                }
+                else
+                {
+                    batchModifyRequest.AddLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
+                }
+
+                return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+            });
+        }
+
         public override IEnumerable<IRequestBundle<IClientServiceRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {
             return CreateHttpBundle(request, (item) =>
