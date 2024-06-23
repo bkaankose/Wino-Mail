@@ -31,7 +31,7 @@ namespace Wino.Core.Services
             if (_isInitialized)
                 return;
 
-            var applicationData = _appInitializerService.GetApplicationDataFolder();
+            var applicationData = _appInitializerService.GetPublisherSharedFolder();
             var databaseFileName = Path.Combine(applicationData, DatabaseName);
 
             Connection = new SQLiteAsyncConnection(databaseFileName)

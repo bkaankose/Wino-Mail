@@ -14,10 +14,8 @@ namespace Wino.Core.UWP.Services
             _backgroundTaskService = backgroundTaskService;
         }
 
-        public string GetApplicationDataFolder() => ApplicationData.Current.GetPublisherCacheFolder("WinoShared").Path;
-
-        // TODO: Pre 1.7.0 for Wino Calendar...
-        //public string GetApplicationDataFolder() => ApplicationData.Current.LocalFolder.Path;
+        public string GetPublisherSharedFolder() => ApplicationData.Current.GetPublisherCacheFolder("WinoShared").Path;
+        public string GetApplicationDataFolder() => ApplicationData.Current.LocalFolder.Path;
 
         public Task MigrateAsync()
         {
