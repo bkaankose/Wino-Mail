@@ -31,7 +31,7 @@ namespace Wino.Core.Extensions
 
         private static MenuItemBase<IMailItemFolder, FolderMenuItem> GetMenuItemByFolderRecursive(IMailItemFolder structure, AccountMenuItem parentAccountMenuItem, IMenuItem parentFolderItem)
         {
-            MenuItemBase<IMailItemFolder, FolderMenuItem> parentMenuItem = new FolderMenuItem(structure, parentAccountMenuItem.Parameter, parentAccountMenuItem);
+            MenuItemBase<IMailItemFolder, FolderMenuItem> parentMenuItem = new FolderMenuItem(structure, parentAccountMenuItem.Parameter, parentFolderItem);
 
             var childStructures = structure.ChildFolders;
 

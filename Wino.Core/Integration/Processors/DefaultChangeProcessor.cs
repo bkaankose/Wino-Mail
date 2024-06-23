@@ -28,14 +28,15 @@ namespace Wino.Core.Integration.Processors
         Task DeleteMailAsync(Guid accountId, string mailId);
         Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds);
         Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
-        Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
         Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
-        Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
         Task InsertFolderAsync(MailItemFolder folder);
+        Task UpdateFolderAsync(MailItemFolder folder);
+
+        Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
+
         Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
 
-        Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
         Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
     }
 
@@ -120,8 +121,10 @@ namespace Wino.Core.Integration.Processors
             => MailService.CreateMailAsync(accountId, package);
 
         // Folder methods
-        public Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
-            => FolderService.BulkUpdateFolderStructureAsync(accountId, allFolders);
+        //public Task UpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
+        //    => FolderService.BulkUpdateFolderStructureAsync(accountId, allFolders);
+
+
 
         public Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId)
             => FolderService.GetFoldersAsync(accountId);
@@ -139,6 +142,9 @@ namespace Wino.Core.Integration.Processors
 
         public Task InsertFolderAsync(MailItemFolder folder)
             => FolderService.InsertFolderAsync(folder);
+
+        public Task UpdateFolderAsync(MailItemFolder folder)
+            => FolderService.UpdateFolderAsync(folder);
 
         public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
             => MailService.GetDownloadedUnreadMailsAsync(accountId, downloadedMailCopyIds);

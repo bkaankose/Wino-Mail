@@ -21,8 +21,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-
-
         <DataTemplate x:Key="SeperatorTemplate">
             <muxc:NavigationViewItemSeparator Margin="-20,0" />
         </DataTemplate>

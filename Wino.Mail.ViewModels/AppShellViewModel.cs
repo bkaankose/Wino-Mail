@@ -181,7 +181,10 @@ namespace Wino.Mail.ViewModels
 
                 if (latestSelectedAccountMenuItem != null)
                 {
-                    latestSelectedAccountMenuItem.IsSelected = true;
+                    await ExecuteUIThread(() =>
+                    {
+                        latestSelectedAccountMenuItem.IsSelected = true;
+                    });
                 }
             }
         }
@@ -213,14 +216,27 @@ namespace Wino.Mail.ViewModels
         {
             base.OnFolderAdded(addedFolder, account);
 
-            // TODO
+            // TODO: Account creation triggers this...
+
+            // TODO: Not ideal. We should be able to add the folder to the correct place in the menu.
+            // But this requires a good amount of refactoring. For now, just recreate the menu items.
+
+            Messenger.Send(new AccountsMenuRefreshRequested(true));
         }
 
-        protected override void OnFolderRemoved(MailItemFolder removedFolder, MailAccount account)
+        protected override async void OnFolderRemoved(MailItemFolder removedFolder, MailAccount account)
         {
             base.OnFolderRemoved(removedFolder, account);
 
-            // TODO
+            var allFolderItems = MenuItems.GetFolderMenuItems(removedFolder.Id);
+
+            foreach (var folder in allFolderItems)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    MenuItems.RemoveFolderMenuItem(folder);
+                });
+            }
         }
 
         private async Task CreateMergedInboxMenuItemAsync(IEnumerable<MailAccount> accounts)

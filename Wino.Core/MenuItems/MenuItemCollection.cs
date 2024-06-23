@@ -118,6 +118,53 @@ namespace Wino.Core.MenuItems
             return value != null;
         }
 
+        // Pattern: Find all the folder menu items including merged account menu items and root account menu items for the given FolderId.
+        public IEnumerable<IBaseFolderMenuItem> GetFolderMenuItems(Guid folderId)
+        {
+            var rootItems = this.OfType<AccountMenuItem>()
+                    .SelectMany(a => a.FlattenedFolderHierarchy)
+                    .Where(a => a.Parameter?.Id == folderId)
+                    .Cast<IBaseFolderMenuItem>();
+
+            var mergedItems = this.OfType<MergedAccountMenuItem>()
+                .SelectMany(a => a.SubMenuItems.OfType<MergedAccountFolderMenuItem>()
+                .Where(a => a.Parameter.Any(b => b.Id == folderId)))
+                .Cast<IBaseFolderMenuItem>();
+
+            var mergedAccountItems = this.OfType<MergedAccountMenuItem>()
+                .SelectMany(a => a.SubMenuItems.OfType<AccountMenuItem>()
+                               .SelectMany(a => a.FlattenedFolderHierarchy)
+                                              .Where(a => a.Parameter?.Id == folderId))
+                .Cast<IBaseFolderMenuItem>();
+
+            return rootItems.Concat(mergedItems).Concat(mergedAccountItems);
+        }
+
+        public void RemoveFolderMenuItem(IBaseFolderMenuItem baseFolderMenuItem)
+        {
+            if (baseFolderMenuItem is FolderMenuItem rootFolderItem)
+            {
+                if (rootFolderItem.ParentMenuItem == null)
+                    Remove(rootFolderItem);
+                else if (rootFolderItem.ParentMenuItem is FolderMenuItem parentFolderMenuItem)
+                    parentFolderMenuItem.SubMenuItems.Remove(rootFolderItem);
+                else if (rootFolderItem.ParentMenuItem is AccountMenuItem parentAccountMenuItem)
+                {
+                    bool removed = parentAccountMenuItem.SubMenuItems.Remove(rootFolderItem);
+
+                    // Might be in More menu item.
+                    if (!removed)
+                    {
+
+                    }
+                }
+
+                else if (rootFolderItem.ParentMenuItem is MergedAccountMenuItem parentMergedAccountMenuItem)
+                    parentMergedAccountMenuItem.SubMenuItems.Remove(rootFolderItem);
+            }
+        }
+
+
         /// <summary>
         /// Skips the merged account menu item, but directly returns the Account menu item inside the merged account menu item.
         /// </summary>
@@ -167,7 +214,11 @@ namespace Wino.Core.MenuItems
                     item.IsSelected = false;
                     item.IsExpanded = false;
 
-                    Remove(item);
+                    try
+                    {
+                        Remove(item);
+                    }
+                    catch (Exception) { }
                 }
             }
         }

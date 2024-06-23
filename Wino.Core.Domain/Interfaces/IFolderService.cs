@@ -42,14 +42,6 @@ namespace Wino.Core.Domain.Interfaces
         // v2
 
         /// <summary>
-        /// Performs bulk update for the given folders.
-        /// Used in Gmail.
-        /// </summary>
-        /// <param name="accountId">Account that folders belong to.</param>
-        /// <param name="allFolders">Folders to update.</param>
-        Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
-
-        /// <summary>
         /// Deletes the folder for the given account by remote folder id.
         /// </summary>
         /// <param name="accountId">Account to remove from.</param>
