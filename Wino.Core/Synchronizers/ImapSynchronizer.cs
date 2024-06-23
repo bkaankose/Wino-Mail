@@ -512,8 +512,15 @@ namespace Wino.Core.Synchronizers
         /// <param name="localFolder">Assigning local folder.</param>
         private void AssignSpecialFolderType(ImapClient executorClient, IMailFolder remoteFolder, MailItemFolder localFolder)
         {
-            bool isSpecialFoldersSupported = executorClient.Capabilities.HasFlag(ImapCapabilities.SpecialUse) || executorClient.Capabilities.HasFlag(ImapCapabilities.XList);
+            // Inbox is awlawys available. Don't miss it for assignment even though XList or SpecialUser is not supported.
+            if (executorClient.Inbox == remoteFolder)
+            {
+                localFolder.SpecialFolderType = SpecialFolderType.Inbox;
+                return;
 
+            }
+
+            bool isSpecialFoldersSupported = executorClient.Capabilities.HasFlag(ImapCapabilities.SpecialUse) || executorClient.Capabilities.HasFlag(ImapCapabilities.XList);
 
             if (!isSpecialFoldersSupported)
             {
@@ -572,8 +579,6 @@ namespace Wino.Core.Synchronizers
 
                 foreach (var localFolder in localFolders)
                 {
-                    if (!localFolder.IsSynchronizationEnabled) continue;
-
                     IMailFolder remoteFolder = null;
 
                     try
