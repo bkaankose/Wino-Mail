@@ -209,6 +209,12 @@
                     <Style TargetType="ScrollViewer">
                         <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
                     </Style>
+
+                    <!--  Remove border/backgroud of command bar  -->
+                    <SolidColorBrush x:Key="CommandBarBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="CommandBarBackgroundOpen" Color="Transparent" />
+                    <SolidColorBrush x:Key="CommandBarBorderBrushOpen" Color="Transparent" />
+                    <Thickness x:Key="CommandBarBorderThicknessOpen">0</Thickness>
                 </ResourceDictionary>
 
                 <!--  Last item must always be the default theme.  -->

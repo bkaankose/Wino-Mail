@@ -185,7 +185,7 @@
                             PrimaryCommands="{x:Bind ViewModel.MenuItems, Mode=OneWay}" />
                     </interactivity:Interaction.Behaviors>
                     <CommandBar.Content>
-                        <Grid Margin="0,6" RowSpacing="4">
+                        <Grid Padding="0,5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -366,8 +366,8 @@
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="10">
-            <Grid Padding="0">
+            CornerRadius="7">
+            <Grid Margin="1" CornerRadius="7">
 
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
