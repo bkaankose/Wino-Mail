@@ -1,7 +1,7 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:xaml="using:Windows.UI.Xaml"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:xaml="using:Windows.UI.Xaml">
 
     <x:String x:Key="ThemeName">Custom</x:String>
     <x:String x:Key="ThemeBackgroundImage">ms-appdata:///local/CustomWallpaper.jpg</x:String>
@@ -9,11 +9,8 @@
 
     <ImageBrush
         x:Key="WinoApplicationBackgroundColor"
-        Stretch="UniformToFill"
-        ImageSource="{StaticResource ThemeBackgroundImage}" />
-
-    <Thickness x:Key="RendererGridMargin">0,0,0,0</Thickness>
-    <xaml:CornerRadius x:Key="MailListGridCornerRadius">0,6,6,0</xaml:CornerRadius>
+        ImageSource="{StaticResource ThemeBackgroundImage}"
+        Stretch="UniformToFill" />
 
     <!--  Navigation View Settings  -->
     <xaml:CornerRadius x:Key="NavigationViewContentGridCornerRadius">0,0,0,0</xaml:CornerRadius>
@@ -26,9 +23,6 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
             <Color x:Key="MainCustomThemeColor">#D9FFFFFF</Color>
-
-            <!--  Reading Pane Background  -->
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush" Color="{StaticResource MainCustomThemeColor}" />
 
             <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />

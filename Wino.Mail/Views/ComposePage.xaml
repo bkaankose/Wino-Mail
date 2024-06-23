@@ -107,7 +107,12 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Padding="7,0,7,7">
+    <Grid
+        Padding="7,0,7,7"
+        AllowDrop="True"
+        DragLeave="OnComposeGridDragLeave"
+        DragOver="OnComposeGridDragOver"
+        RowSpacing="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -115,17 +120,11 @@
 
         <Border
             Grid.Row="0"
-            Margin="0,0,0,7"
-            Background="{ThemeResource WorkZoneBackground}"
+            Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="7">
-            <Grid
-                Grid.Row="0"
-                AllowDrop="True"
-                Background="{ThemeResource AppBarBackgroundColor}"
-                DragLeave="OnComposeGridDragLeave"
-                DragOver="OnComposeGridDragOver">
+            <Grid>
                 <Grid.Resources>
                     <SolidColorBrush x:Key="AutoSuggestBoxBorderThemeBrush">Transparent</SolidColorBrush>
                 </Grid.Resources>
@@ -467,11 +466,10 @@
                 <!--  Mime Info  -->
                 <Grid
                     Grid.Row="2"
-                    Padding="16,0"
+                    Padding="16,0,16,10"
                     ColumnSpacing="12"
                     RowSpacing="3">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -509,14 +507,14 @@
 
                     <!--  To  -->
                     <TextBlock
-                        Grid.Row="2"
+                        Grid.Row="1"
                         Margin="0,4,0,0"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="{x:Bind domain:Translator.ComposerTo}" />
 
                     <Grid
-                        Grid.Row="2"
+                        Grid.Row="1"
                         Grid.Column="1"
                         VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
@@ -559,7 +557,7 @@
                     <!--  CC BCC  -->
                     <TextBlock
                         x:Name="CCTextBlock"
-                        Grid.Row="3"
+                        Grid.Row="2"
                         Margin="0,4,0,0"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
@@ -568,7 +566,7 @@
 
                     <controls1:TokenizingTextBox
                         x:Name="CCBox"
-                        Grid.Row="3"
+                        Grid.Row="2"
                         Grid.Column="1"
                         VerticalAlignment="Center"
                         LostFocus="AddressBoxLostFocus"
@@ -582,7 +580,7 @@
 
                     <TextBlock
                         x:Name="BccTextBlock"
-                        Grid.Row="4"
+                        Grid.Row="3"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="Bcc: "
@@ -590,7 +588,7 @@
 
                     <controls1:TokenizingTextBox
                         x:Name="BccBox"
-                        Grid.Row="4"
+                        Grid.Row="3"
                         Grid.Column="1"
                         VerticalAlignment="Center"
                         LostFocus="AddressBoxLostFocus"
@@ -604,14 +602,14 @@
 
                     <!--  Subject  -->
                     <TextBlock
-                        Grid.Row="5"
+                        Grid.Row="4"
                         Margin="0,4,0,0"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="{x:Bind domain:Translator.ComposerSubject}" />
 
                     <TextBox
-                        Grid.Row="5"
+                        Grid.Row="4"
                         Grid.Column="1"
                         Margin="0,4,0,0"
                         BorderThickness="0"
@@ -620,7 +618,7 @@
                     <!--  Attachments  -->
                     <ListView
                         x:Name="AttachmentsListView"
-                        Grid.Row="6"
+                        Grid.Row="5"
                         Grid.ColumnSpan="2"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
                         IsItemClickEnabled="True"
@@ -645,10 +643,7 @@
                     DragOver="OnFileDropGridDragOver"
                     Drop="OnFileDropGridFileDropped"
                     Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}">
-                    <Grid
-                        Margin="0,7,5,0"
-                        Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
-                        CornerRadius="9">
+                    <Grid Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9">
                         <Rectangle
                             x:Name="DropZoneBorder"
                             Fill="Transparent"
@@ -704,7 +699,7 @@
         </Border>
         <Border
             Grid.Row="1"
-            Background="{ThemeResource WorkZoneBackground}"
+            Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="10">

@@ -13,13 +13,13 @@
         <ResourceDictionary x:Name="Light">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#636e72</SolidColorBrush>
-            <SolidColorBrush x:Key="WorkZoneBackground" Color="White" />
+            <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="White" />
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#2d3436</SolidColorBrush>
             <local:AcrylicBrush
-                x:Key="WorkZoneBackground"
+                x:Key="WinoContentZoneBackgroud"
                 BackgroundSource="Backdrop"
                 FallbackColor="#2C2C2C"
                 TintColor="#2C2C2C"
