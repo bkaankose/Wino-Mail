@@ -149,15 +149,16 @@
     </Page.Resources>
 
     <!--  Attachments and WebView2  -->
-    <Grid x:Name="RendererGridFrame" Padding="7,0,7,7">
+    <Grid
+        x:Name="RendererGridFrame"
+        Padding="7,0"
+        RowSpacing="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Border
-            Grid.Row="0"
-            Margin="0,0,0,7"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -171,7 +172,6 @@
                 </Grid.RowDefinitions>
                 <CommandBar
                     x:Name="RendererBar"
-                    Grid.Row="0"
                     Margin="8,6,0,0"
                     HorizontalContentAlignment="Stretch"
                     DefaultLabelPosition="Right"
