@@ -1,4 +1,7 @@
-﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Microsoft.UI.Xaml.Media">
 
     <SolidColorBrush x:Key="FlaggedBrush">#e74c3c</SolidColorBrush>
     <SolidColorBrush x:Key="DeleteBrush">#e74c3c</SolidColorBrush>
@@ -10,10 +13,17 @@
         <ResourceDictionary x:Name="Light">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#636e72</SolidColorBrush>
+            <SolidColorBrush x:Key="WorkZoneBackground" Color="White" />
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#2d3436</SolidColorBrush>
+            <local:AcrylicBrush
+                x:Key="WorkZoneBackground"
+                BackgroundSource="Backdrop"
+                FallbackColor="#2C2C2C"
+                TintColor="#2C2C2C"
+                TintOpacity="0.30" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

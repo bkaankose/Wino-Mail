@@ -153,6 +153,7 @@ namespace Wino.Views
 
         private void UpdateAdaptiveness()
         {
+            ReaderGridContainer.Visibility = !(StatePersistanceService.IsReadingMail && StatePersistanceService.IsReaderNarrowed) ? Visibility.Visible : Visibility.Collapsed;
             ReaderGrid.Visibility = !(StatePersistanceService.IsReadingMail && StatePersistanceService.IsReaderNarrowed) ? Visibility.Visible : Visibility.Collapsed;
             RenderingFrame.Visibility = StatePersistanceService.IsReadingMail ? Visibility.Visible : (StatePersistanceService.IsReaderNarrowed ? Visibility.Collapsed : Visibility.Visible);
 
@@ -536,7 +537,7 @@ namespace Wino.Views
 
         private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
         {
-            if(args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && string.IsNullOrWhiteSpace(sender.Text))
+            if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && string.IsNullOrWhiteSpace(sender.Text))
             {
                 await ViewModel.PerformSearchAsync();
             }
