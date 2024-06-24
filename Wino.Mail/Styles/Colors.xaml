@@ -18,12 +18,7 @@
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#2d3436</SolidColorBrush>
-            <local:AcrylicBrush
-                x:Key="WinoContentZoneBackgroud"
-                BackgroundSource="Backdrop"
-                FallbackColor="#2C2C2C"
-                TintColor="#2C2C2C"
-                TintOpacity="0.30" />
+            <StaticResource x:Key="WinoContentZoneBackgroud" ResourceKey="LayerFillColorDefaultBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

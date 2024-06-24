@@ -1,28 +1,35 @@
 ﻿<abstract:WelcomePageAbstract
-    xmlns:abstract="using:Wino.Views.Abstract"
     x:Class="Wino.Views.WelcomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Wino.Views"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Microsoft.Toolkit.Uwp.UI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:Wino.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="24">
-        <ScrollViewer>
-            <controls:MarkdownTextBlock
-                x:Name="MarkdownControl"
-                LinkClicked="HyperlinkClicked"
-                Background="Transparent"
-                ImageStretch="UniformToFill"
-                Text="{x:Bind ViewModel.CurrentVersionNotes, Mode=OneWay}"
-                ListBulletSpacing="10"
-                Header1FontSize="30"
-                CharacterSpacing="12"
-                FontSize="16"
-                Header2FontSize="22" />
-        </ScrollViewer>
-    </Grid>
+    <Border
+        Margin="0,0,7,7"
+        Background="{ThemeResource WinoContentZoneBackgroud}"
+        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="7">
+        <Grid Padding="24">
+            <ScrollViewer>
+                <controls:MarkdownTextBlock
+                    x:Name="MarkdownControl"
+                    Background="Transparent"
+                    CharacterSpacing="12"
+                    FontSize="16"
+                    Header1FontSize="30"
+                    Header2FontSize="22"
+                    ImageStretch="UniformToFill"
+                    LinkClicked="HyperlinkClicked"
+                    ListBulletSpacing="10"
+                    Text="{x:Bind ViewModel.CurrentVersionNotes, Mode=OneWay}" />
+            </ScrollViewer>
+        </Grid>
+    </Border>
 
 </abstract:WelcomePageAbstract>
