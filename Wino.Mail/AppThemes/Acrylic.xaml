@@ -1,43 +1,37 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Microsoft.UI.Xaml.Media"
-    xmlns:xaml="using:Windows.UI.Xaml"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:xaml="using:Windows.UI.Xaml">
 
     <x:String x:Key="ThemeName">Acrylic</x:String>
     <x:Boolean x:Key="UseMica">False</x:Boolean>
 
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
-    <Thickness x:Key="RendererGridMargin">0,0,4,0</Thickness>
-    <xaml:CornerRadius x:Key="MailListGridCornerRadius">6,6,6,6</xaml:CornerRadius>
 
     <!--  Acrylic Template  -->
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
-            <!--  Reading Pane Background  -->
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">white</SolidColorBrush>
-
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
             <local:AcrylicBrush
                 x:Key="WinoApplicationBackgroundColor"
-                TintColor="#FCFCFC"
-                TintOpacity="0.75"
+                BackgroundSource="HostBackdrop"
                 FallbackColor="#F9F9F9"
-                BackgroundSource="HostBackdrop" />
+                TintColor="#FCFCFC"
+                TintOpacity="0.75" />
         </ResourceDictionary>
 
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#2C2C2C</SolidColorBrush>
 
             <local:AcrylicBrush
                 x:Key="WinoApplicationBackgroundColor"
-                TintColor="#2C2C2C"
-                TintOpacity="0.30"
+                BackgroundSource="HostBackdrop"
                 FallbackColor="#2C2C2C"
-                BackgroundSource="HostBackdrop" />
+                TintColor="#2C2C2C"
+                TintOpacity="0.30" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>
