@@ -4,44 +4,51 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:winuiControls="using:Microsoft.UI.Xaml.Controls"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    xmlns:winuiControls="using:Microsoft.UI.Xaml.Controls"
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
-    <Grid
-        MaxWidth="900"
-        Padding="20"
-        HorizontalAlignment="Stretch"
-        RowSpacing="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Border
+        Margin="0,0,7,7"
+        Background="{ThemeResource WinoContentZoneBackgroud}"
+        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="7">
+        <Grid
+            MaxWidth="900"
+            Padding="20"
+            HorizontalAlignment="Stretch"
+            RowSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-        <winuiControls:BreadcrumbBar
-            x:Name="Breadcrumb"
-            ItemsSource="{x:Bind PageHistory, Mode=OneWay}"
-            ItemClicked="BreadItemClicked">
-            <winuiControls:BreadcrumbBar.ItemTemplate>
-                <DataTemplate>
-                    <winuiControls:BreadcrumbBarItem Margin="0,0,8,0">
-                        <winuiControls:BreadcrumbBarItem.ContentTemplate>
-                            <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
-                                <TextBlock
-                                    Margin="0,0,8,10"
-                                    Text="{Binding Title}"
-                                    FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
-                                    Style="{StaticResource TitleTextBlockStyle}" />
-                            </DataTemplate>
-                        </winuiControls:BreadcrumbBarItem.ContentTemplate>
-                    </winuiControls:BreadcrumbBarItem>
-                </DataTemplate>
-            </winuiControls:BreadcrumbBar.ItemTemplate>
-        </winuiControls:BreadcrumbBar>
+            <winuiControls:BreadcrumbBar
+                x:Name="Breadcrumb"
+                ItemClicked="BreadItemClicked"
+                ItemsSource="{x:Bind PageHistory, Mode=OneWay}">
+                <winuiControls:BreadcrumbBar.ItemTemplate>
+                    <DataTemplate>
+                        <winuiControls:BreadcrumbBarItem Margin="0,0,8,0">
+                            <winuiControls:BreadcrumbBarItem.ContentTemplate>
+                                <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
+                                    <TextBlock
+                                        Margin="0,0,8,10"
+                                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
+                                        Style="{StaticResource TitleTextBlockStyle}"
+                                        Text="{Binding Title}" />
+                                </DataTemplate>
+                            </winuiControls:BreadcrumbBarItem.ContentTemplate>
+                        </winuiControls:BreadcrumbBarItem>
+                    </DataTemplate>
+                </winuiControls:BreadcrumbBar.ItemTemplate>
+            </winuiControls:BreadcrumbBar>
 
-        <Frame x:Name="SettingsFrame" Grid.Row="1" />
-    </Grid>
+            <Frame x:Name="SettingsFrame" Grid.Row="1" />
+        </Grid>
+    </Border>
 </abstract:SettingsPageAbstract>

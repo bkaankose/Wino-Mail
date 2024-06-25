@@ -2,26 +2,29 @@
     x:Class="Wino.Views.AppShell"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    x:Name="Root"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:advanced="using:Wino.Controls.Advanced"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
+    xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
-    xmlns:domain="using:Wino.Core.Domain"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:menu="using:Wino.Core.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:selectors="using:Wino.Selectors"
+    x:Name="Root"
     muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     mc:Ignorable="d">
 
     <Page.Resources>
 
+        <!--  Removes default styles for content of navigation view  -->
+        <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+        <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
 
         <DataTemplate x:Key="SeperatorTemplate">
             <muxc:NavigationViewItemSeparator Margin="-20,0" />
@@ -110,15 +113,15 @@
         <!--  Clickable New Style Account Template  -->
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
             <controls:AccountNavigationItem
-                Style="{StaticResource SingleAccountNavigationViewItemTemplate}"
                 x:Name="AccountItem"
-                IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                DataContext="{x:Bind}"
+                IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsChildSelected="{x:Bind IsChildSelected, Mode=TwoWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
-                DataContext="{x:Bind}"
-                SelectsOnInvoked="False">
+                SelectsOnInvoked="False"
+                Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
                 <controls:WinoNavigationViewItem.ContentTransitions>
                     <TransitionCollection>
                         <EdgeUIThemeTransition Edge="Top" />
@@ -159,8 +162,8 @@
 
                         <TextBlock
                             FontSize="13"
-                            MaxLines="1"
                             FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                            MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind Parameter.Address, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
@@ -239,8 +242,8 @@
         <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
             <controls:WinoNavigationViewItem
                 Height="50"
-                SelectsOnInvoked="False"
-                DataContext="{x:Bind}">
+                DataContext="{x:Bind}"
+                SelectsOnInvoked="False">
                 <muxc:NavigationViewItem.Icon>
                     <controls:WinoFontIcon Icon="NewMail" />
                 </muxc:NavigationViewItem.Icon>
@@ -258,16 +261,16 @@
                 MinHeight="30"
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
+                DataContext="{x:Bind}"
                 DragEnter="ItemDragEnterOnFolder"
                 DragLeave="ItemDragLeaveFromFolder"
                 Drop="ItemDroppedOnFolder"
-                DataContext="{x:Bind}"
                 FontSize="50"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
-                SelectsOnInvoked="{x:Bind IsMoveTarget, Mode=OneWay}"
-                MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}">
+                MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
+                SelectsOnInvoked="{x:Bind IsMoveTarget, Mode=OneWay}">
                 <animations:Implicit.Animations>
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
@@ -329,8 +332,8 @@
                 IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsChildSelected="{x:Bind IsChildSelected, Mode=TwoWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
-                Style="{StaticResource SingleAccountNavigationViewItemTemplate}"
-                SelectsOnInvoked="False">
+                SelectsOnInvoked="False"
+                Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
@@ -376,9 +379,9 @@
                 MinHeight="30"
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
+                DataContext="{x:Bind}"
                 DragEnter="ItemDragEnterOnFolder"
                 DragLeave="ItemDragLeaveFromFolder"
-                DataContext="{x:Bind}"
                 Drop="ItemDroppedOnFolder"
                 FontSize="50"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
@@ -421,10 +424,10 @@
         <DataTemplate x:Key="MergedAccountMoreFolderItemTemplate" x:DataType="menu:MergedAccountMoreFolderMenuItem">
             <controls:WinoNavigationViewItem
                 MinHeight="30"
+                Content="{x:Bind domain:Translator.More}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
-                Content="{x:Bind domain:Translator.More}"
                 MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
                 SelectsOnInvoked="True">
                 <animations:Implicit.Animations>
@@ -469,15 +472,15 @@
 
         <selectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
-            MergedAccountMoreExpansionItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
-            ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
             AccountManagementTemplate="{StaticResource ManageAccountsTemplate}"
-            NestedAccountMenuTemplate="{StaticResource NestedAccountMenuTemplate}"
+            ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfig}"
             FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
             MergedAccountFolderTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
+            MergedAccountMoreExpansionItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
             MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+            NestedAccountMenuTemplate="{StaticResource NestedAccountMenuTemplate}"
             NewMailTemplate="{StaticResource CreateNewMailTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
@@ -507,7 +510,6 @@
             IsHitTestVisible="False" />
 
         <muxc:NavigationView
-            IsTabStop="True"
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
@@ -519,6 +521,7 @@
             IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
             IsPaneToggleButtonVisible="False"
             IsSettingsVisible="False"
+            IsTabStop="True"
             IsTitleBarAutoPaddingEnabled="False"
             ItemInvoked="NavigationViewItemInvoked"
             MenuItemTemplateSelector="{StaticResource NavigationMenuTemplateSelector}"
@@ -579,19 +582,19 @@
                     x:Name="ShellInfoBar"
                     Grid.Column="1"
                     MaxWidth="700"
-                    IsOpen="False"
                     Margin="0,60,25,0"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
-                    IsClosable="False" />
+                    IsClosable="False"
+                    IsOpen="False" />
 
                 <!--  Teaching Tip  -->
                 <muxc:TeachingTip
                     x:Name="ShellTip"
-                    Target="{x:Bind ShellInfoBar}"
                     Grid.Column="1"
                     IsOpen="False"
-                    PreferredPlacement="Bottom" />
+                    PreferredPlacement="Bottom"
+                    Target="{x:Bind ShellInfoBar}" />
             </Grid>
         </muxc:NavigationView>
 
