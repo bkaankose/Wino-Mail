@@ -261,54 +261,63 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="To:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}" />
-                        <ItemsControl
-                            ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <ItemsStackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                    <StackPanel
+                        x:Name="ToFromInformationPanel"
+                        Orientation="Vertical"
+                        Spacing="6">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ComposerTo}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}" />
+                            <ItemsControl
+                                ItemTemplate="{StaticResource InternetAddressTemplate}"
+                                ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsStackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
 
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="Cc:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}" />
-                        <ItemsControl
-                            ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.CCItemsItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <ItemsStackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="Cc:"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}" />
+                            <ItemsControl
+                                ItemTemplate="{StaticResource InternetAddressTemplate}"
+                                ItemsSource="{x:Bind ViewModel.CCItemsItems, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsStackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
 
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="Bcc:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}" />
-                        <ItemsControl
-                            ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <ItemsStackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="Bcc:"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}" />
+                            <ItemsControl
+                                ItemTemplate="{StaticResource InternetAddressTemplate}"
+                                ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsStackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
 
@@ -362,7 +371,7 @@
             Grid.Row="1"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1"
+            BorderThickness="0"
             CornerRadius="7">
             <Grid Margin="1" CornerRadius="7">
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
@@ -380,6 +389,18 @@
                     IsActive="{x:Bind ViewModel.ShouldDisplayDownloadProgress, Mode=OneWay}" />
             </Grid>
         </Border>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="AdaptiveStates">
+                <VisualState x:Name="NarrowedState">
+                    <VisualState.Setters>
+                        <Setter Target="ToFromInformationPanel.Orientation" Value="Horizontal" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1200" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
     </Grid>
 
 </abstract:MailRenderingPageAbstract>
