@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Mails;
+using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -38,7 +39,8 @@ namespace Wino.Mail.ViewModels
         IRecipient<MailItemSelectionRemovedEvent>,
         IRecipient<AccountSynchronizationCompleted>,
         IRecipient<NewSynchronizationRequested>,
-        IRecipient<AccountSynchronizerStateChanged>
+        IRecipient<AccountSynchronizerStateChanged>,
+        IRecipient<SelectedMailItemsChanged>
     {
         private bool isChangingFolder = false;
 
@@ -92,6 +94,9 @@ namespace Wino.Mail.ViewModels
         ];
 
         private FolderPivotViewModel _selectedFolderPivot;
+
+        [ObservableProperty]
+        private bool isMultiSelectionModeEnabled;
 
         [ObservableProperty]
         private string searchQuery;
@@ -207,9 +212,11 @@ namespace Wino.Mail.ViewModels
         public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
         public int SelectedItemCount => SelectedItems.Count;
         public bool HasMultipleItemSelections => SelectedItemCount > 1;
+        public bool HasSingleItemSelection => SelectedItemCount == 1;
         public bool HasSelectedItems => SelectedItems.Any();
         public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
 
+        public string SelectedMessageText => HasSelectedItems ? string.Format(Translator.MailsSelected, SelectedItemCount) : Translator.NoMailSelected;
         /// <summary>
         /// Indicates current state of the mail list. Doesn't matter it's loading or no.
         /// </summary>
@@ -231,14 +238,21 @@ namespace Wino.Mail.ViewModels
         {
             if (_activeMailItem == selectedMailItemViewModel) return;
 
-            // Don't update active mail item if Ctrl key is pressed.
+            // Don't update active mail item if Ctrl key is pressed or multi selection is ennabled.
             // User is probably trying to select multiple items.
             // This is not the same behavior in Windows Mail,
             // but it's a trash behavior.
 
             var isCtrlKeyPressed = _keyPressService.IsCtrlKeyPressed();
 
-            if (isCtrlKeyPressed) return;
+            bool isMultiSelecting = isCtrlKeyPressed || IsMultiSelectionModeEnabled;
+
+            if (isMultiSelecting ? StatePersistanceService.IsReaderNarrowed : false)
+            {
+                // Don't change the active mail item if the reader is narrowed, but just update the shell.
+                Messenger.Send(new ShellStateUpdated());
+                return;
+            }
 
             _activeMailItem = selectedMailItemViewModel;
 
@@ -271,6 +285,8 @@ namespace Wino.Mail.ViewModels
 
         public void NotifyItemSelected()
         {
+            OnPropertyChanged(nameof(SelectedMessageText));
+            OnPropertyChanged(nameof(HasSingleItemSelection));
             OnPropertyChanged(nameof(HasSelectedItems));
             OnPropertyChanged(nameof(SelectedItemCount));
             OnPropertyChanged(nameof(HasMultipleItemSelections));
@@ -812,14 +828,21 @@ namespace Wino.Mail.ViewModels
         }
 
         #region Receivers
+
         void IRecipient<MailItemSelectedEvent>.Receive(MailItemSelectedEvent message)
-            => SelectedItems.Add(message.SelectedMailItem);
+        {
+            if (!SelectedItems.Contains(message.SelectedMailItem)) SelectedItems.Add(message.SelectedMailItem);
+        }
 
         void IRecipient<MailItemSelectionRemovedEvent>.Receive(MailItemSelectionRemovedEvent message)
-            => SelectedItems.Remove(message.RemovedMailItem);
+        {
+            if (SelectedItems.Contains(message.RemovedMailItem)) SelectedItems.Remove(message.RemovedMailItem);
+        }
 
         async void IRecipient<ActiveMailFolderChangedEvent>.Receive(ActiveMailFolderChangedEvent message)
         {
+            NotifyItemSelected();
+
             isChangingFolder = true;
 
             ActiveFolder = message.BaseFolderMenuItem;
@@ -963,5 +986,7 @@ namespace Wino.Mail.ViewModels
 
             await ExecuteUIThread(() => { IsAccountSynchronizerInSynchronization = isAnyAccountSynchronizing; });
         }
+
+        public void Receive(SelectedMailItemsChanged message) => NotifyItemSelected();
     }
 }

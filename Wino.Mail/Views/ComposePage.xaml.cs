@@ -46,8 +46,6 @@ namespace Wino.Views
         }
 
         public static readonly DependencyProperty IsComposerDarkModeProperty = DependencyProperty.Register(nameof(IsComposerDarkMode), typeof(bool), typeof(ComposePage), new PropertyMetadata(false, OnIsComposerDarkModeChanged));
-
-
         public WebView2 GetWebView() => Chromium;
 
         private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
@@ -336,6 +334,12 @@ namespace Wino.Views
             base.OnNavigatingFrom(e);
 
             DisposeDisposables();
+            DisposeWebView2();
+        }
+
+        private void DisposeWebView2()
+        {
+            if (Chromium == null) return;
 
             Chromium.CoreWebView2Initialized -= ChromiumInitialized;
 
@@ -344,6 +348,9 @@ namespace Wino.Views
                 Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
                 Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageRecieved;
             }
+
+            Chromium.Close();
+            GC.Collect();
         }
 
         private void DisposeDisposables()

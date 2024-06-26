@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -18,6 +19,14 @@ namespace Wino.Services
 {
     public class WinoNavigationService : IWinoNavigationService
     {
+        private readonly IStatePersistanceService _statePersistanceService;
+
+        private WinoPage[] _renderingPageTypes = new WinoPage[]
+        {
+            WinoPage.MailRenderingPage,
+            WinoPage.ComposePage
+        };
+
         private Frame GetCoreFrame(NavigationReferenceFrame frameType)
         {
             if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
@@ -34,6 +43,11 @@ namespace Wino.Services
             {
                 return null;
             }
+        }
+
+        public WinoNavigationService(IStatePersistanceService statePersistanceService)
+        {
+            _statePersistanceService = statePersistanceService;
         }
 
         private Type GetPageType(WinoPage winoPage)
@@ -84,6 +98,8 @@ namespace Wino.Services
         {
             var pageType = GetPageType(page);
             Frame shellFrame = GetCoreFrame(NavigationReferenceFrame.ShellFrame);
+
+            _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
 
             if (shellFrame != null)
             {

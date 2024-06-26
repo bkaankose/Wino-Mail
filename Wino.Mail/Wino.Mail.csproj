@@ -246,6 +246,7 @@
     <Compile Include="Controls\WinoFontIconSource.cs" />
     <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoSwipeControlItems.cs" />
+    <Compile Include="Converters\ReverseVisibilityConverter.cs" />
     <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
       <DependentUpon>AccountEditDialog.xaml</DependentUpon>
     </Compile>
@@ -588,8 +589,8 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\IdlePage.xaml">
-      <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\ImapSetup\AdvancedImapSetupPage.xaml">
       <SubType>Designer</SubType>
