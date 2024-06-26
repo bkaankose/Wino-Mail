@@ -286,8 +286,6 @@ namespace Wino.Views
             if (message.SelectedMailItemViewModel == null)
             {
                 WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
-
-                ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.None);
             }
             else
             {
@@ -320,7 +318,6 @@ namespace Wino.Views
                     // Find the MIME and go to rendering page.
 
                     if (message.SelectedMailItemViewModel == null) return;
-
 
                     if (IsComposingPageActive())
                     {
