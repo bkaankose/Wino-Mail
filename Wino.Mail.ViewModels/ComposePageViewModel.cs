@@ -225,7 +225,14 @@ namespace Wino.Mail.ViewModels
         private async Task SaveBodyAsync()
         {
             if (GetHTMLBodyFunction != null)
-                bodyBuilder.HtmlBody = Regex.Unescape(await GetHTMLBodyFunction());
+            {
+                var htmlBody = await GetHTMLBodyFunction();
+
+                if (!string.IsNullOrEmpty(htmlBody))
+                {
+                    bodyBuilder.HtmlBody = Regex.Unescape(htmlBody);
+                }
+            }
 
             if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
                 bodyBuilder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(bodyBuilder.HtmlBody);
