@@ -225,7 +225,14 @@ namespace Wino.Mail.ViewModels
         private async Task SaveBodyAsync()
         {
             if (GetHTMLBodyFunction != null)
-                bodyBuilder.HtmlBody = Regex.Unescape(await GetHTMLBodyFunction());
+            {
+                var htmlBody = await GetHTMLBodyFunction();
+
+                if (!string.IsNullOrEmpty(htmlBody))
+                {
+                    bodyBuilder.HtmlBody = Regex.Unescape(htmlBody);
+                }
+            }
 
             if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
                 bodyBuilder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(bodyBuilder.HtmlBody);
@@ -269,8 +276,6 @@ namespace Wino.Mail.ViewModels
             base.OnNavigatedFrom(mode, parameters);
 
             await UpdateMimeChangesAsync().ConfigureAwait(false);
-
-            await ExecuteUIThread(() => { _statePersistanceService.IsReadingMail = false; });
         }
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -288,8 +293,6 @@ namespace Wino.Mail.ViewModels
 
             ToItems.CollectionChanged -= ContactListCollectionChanged;
             ToItems.CollectionChanged += ContactListCollectionChanged;
-
-            _statePersistanceService.IsReadingMail = true;
 
             // Check if there is any delivering mail address from protocol launch.
 
@@ -388,6 +391,11 @@ namespace Wino.Mail.ViewModels
 
                 return;
             }
+            catch (IOException)
+            {
+                DialogService.InfoBarMessage("Busy", "Mail is being processed. Please wait a moment and try again.", InfoBarMessageType.Warning);
+            }
+
             catch (ComposerMimeNotFoundException)
             {
                 DialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);

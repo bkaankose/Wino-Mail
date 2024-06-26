@@ -8,20 +8,14 @@
 
     <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
-    <Thickness x:Key="RendererGridMargin">0,0,4,0</Thickness>
-    <xaml:CornerRadius x:Key="MailListGridCornerRadius">6,6,6,6</xaml:CornerRadius>
 
     <!--  Mica Template  -->
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
-            <!--  Reading Pane Background  -->
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">white</SolidColorBrush>
-
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">Transparent</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>

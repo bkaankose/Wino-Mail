@@ -1,7 +1,7 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:xaml="using:Windows.UI.Xaml"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:xaml="using:Windows.UI.Xaml">
 
     <x:String x:Key="ThemeName">Forest</x:String>
     <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/Forest.jpg</x:String>
@@ -9,18 +9,12 @@
 
     <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
-    <Thickness x:Key="RendererGridMargin">4,0,4,0</Thickness>
-    <xaml:CornerRadius x:Key="MailListGridCornerRadius">6,6,6,6</xaml:CornerRadius>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
-            <!--  Brushes  -->
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">#2900F00A</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#A800D608</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
-            <!--  Brushes  -->
-            <SolidColorBrush x:Key="ReadingPaneBackgroundColorBrush">#A3262626</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#59001C01</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>

@@ -9,22 +9,7 @@
     xmlns:controls="using:Wino.Controls"
     mc:Ignorable="d">
 
-    <!--  Empty Page for Mail Rendering Sub Frame.  -->
-    <Grid>
-        <StackPanel
-            Opacity="0.5"
-            Spacing="6"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center">
+    <!--  Empty page for disposing composer or renderer page.  -->
+    <Grid />
 
-            <controls:WinoFontIcon Icon="Mail" FontSize="80" />
-
-            <TextBlock
-                HorizontalAlignment="Center"
-                FontSize="31"
-                Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}"
-                Style="{StaticResource SubheaderTextBlockStyle}"
-                x:Name="CountTextBlock" />
-        </StackPanel>
-    </Grid>
 </abstract:IdlePageAbstract>
