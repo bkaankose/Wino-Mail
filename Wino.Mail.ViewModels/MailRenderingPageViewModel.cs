@@ -460,8 +460,13 @@ namespace Wino.Mail.ViewModels
             initializedMailItemViewModel = null;
             initializedMimeMessageInformation = null;
 
-            StatePersistanceService.IsReadingMail = false;
             forceImageLoading = false;
+
+            ToItems.Clear();
+            CCItemsItems.Clear();
+            BCCItems.Clear();
+            Attachments.Clear();
+            MenuItems.Clear();
         }
 
         private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)
