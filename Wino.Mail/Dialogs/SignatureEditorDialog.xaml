@@ -267,14 +267,18 @@
                     </AppBarButton.Icon>
                 </AppBarButton>
             </CommandBar>
-            <Grid
+            <Border
                 Grid.Row="1"
                 Margin="0,6,0,0"
+                BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
                 CornerRadius="3">
-                <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+                <Grid CornerRadius="3">
+                    <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <muxc:WebView2 x:Name="Chromium" />
-            </Grid>
+                    <muxc:WebView2 x:Name="Chromium" />
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </ContentDialog>
