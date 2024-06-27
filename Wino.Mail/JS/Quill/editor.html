@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="language" content="english">
+    <script src="./libs/quill.js"></script>
+    <script src="./libs/darkreader.js"></script>
+    <link rel="stylesheet" href="./libs/quill.snow.css" />
+    <link rel="stylesheet" href="./global.css" />
+
+    <style>
+        #editor {
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <meta name="color-scheme" content="dark light">
+    <!-- Hidden toolbar. It used to provide events to the host -->
+    <div id="toolbar-container" style="display: none;">
+        <span class="ql-formats">
+            <select class="ql-font"></select>
+            <select class="ql-size"></select>
+        </span>
+        <span class="ql-formats">
+            <button id="boldButton" class="ql-bold"></button>
+            <button id="italicButton" class="ql-italic"></button>
+            <button id="underlineButton" class="ql-underline"></button>
+            <button id="strikeButton" class="ql-strike"></button>
+        </span>
+        <span class="ql-formats">
+            <select class="ql-color"></select>
+            <select class="ql-background"></select>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-script" value="sub"></button>
+            <button class="ql-script" value="super"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-header" value="1"></button>
+            <button class="ql-header" value="2"></button>
+            <button class="ql-blockquote"></button>
+            <button class="ql-code-block"></button>
+        </span>
+        <span class="ql-formats">
+            <button id="orderedListButton" class="ql-list" value="ordered"></button>
+            <button id="bulletListButton" class="ql-list" value="bullet"></button>
+            <button id="decreaseIndentButton" class="ql-indent" value="-1"></button>
+            <button id="increaseIndentButton" class="ql-indent" value="+1"></button>
+        </span>
+        <span class="ql-formats">
+            <button id="directionButton" class="ql-direction" value="rtl"></button>
+            <button id="ql-align-left" class="ql-align" value=""></button>
+            <button id="ql-align-center" class="ql-align" value="center"></button>
+            <button id="ql-align-right" class="ql-align" value="right"></button>
+            <button id="ql-align-justify" class="ql-align" value="justify"></button>
+            <!--<select id="alignmentButton" class="ql-align"></select>-->
+        </span>
+        <span class="ql-formats">
+            <button class="ql-link"></button>
+            <button id=addImageButton class="ql-image"></button>
+            <button class="ql-video"></button>
+            <button class="ql-formula"></button>
+        </span>
+        <span class="ql-formats">
+            <button class="ql-clean"></button>
+        </span>
+    </div>
+
+    <div id="editor"></div>
+    <script src="/editor.js"></script>
+</body>
+
+</html>

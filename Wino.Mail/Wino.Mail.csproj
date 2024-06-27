@@ -754,21 +754,13 @@
     <Content Include="BackgroundImages\Mica.jpg" />
     <Content Include="BackgroundImages\Nighty.jpg" />
     <Content Include="BackgroundImages\Snowflake.jpg" />
-    <Content Include="JS\Quill\darkreader.js" />
-    <Content Include="JS\Quill\full.html" />
+    <Content Include="JS\Quill\libs\darkreader.js" />
+    <Content Include="JS\Quill\editor.html" />
+    <Content Include="JS\Quill\editor.js" />
     <Content Include="JS\Quill\global.css" />
-    <Content Include="JS\Quill\highlight.min.js" />
-    <Content Include="JS\Quill\image-resize.min.js" />
-    <Content Include="JS\Quill\katex.min.css" />
-    <Content Include="JS\Quill\katex.min.js" />
-    <Content Include="JS\Quill\monokai-sublime.min.css" />
-    <Content Include="JS\Quill\quill.core.css" />
-    <Content Include="JS\Quill\quill.core.js" />
-    <Content Include="JS\Quill\quill.js" />
-    <Content Include="JS\Quill\quill.min.js" />
-    <Content Include="JS\Quill\quill.snow.css" />
+    <Content Include="JS\Quill\libs\quill.js" />
     <Content Include="Assets\WinoIcons.ttf" />
-    <Content Include="JS\Quill\reader.css" />
+    <Content Include="JS\Quill\libs\quill.snow.css" />
     <Content Include="JS\Quill\reader.html" />
     <Content Include="Assets\ReleaseNotes\172.md" />
     <None Include="Package.StoreAssociation.xml" />
@@ -782,7 +774,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Thumbnails\uber.com.png" />
-    <None Include="JS\Quill\quill.min.js.map" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">

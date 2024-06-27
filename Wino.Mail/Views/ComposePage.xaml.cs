@@ -391,10 +391,10 @@ namespace Wino.Views
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
         {
-            var editorBundlePath = (await ViewModel.NativeAppService.GetQuillEditorBundlePathAsync()).Replace("full.html", string.Empty);
+            var editorBundlePath = (await ViewModel.NativeAppService.GetQuillEditorBundlePathAsync()).Replace("editor.html", string.Empty);
 
-            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.example", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
-            Chromium.Source = new Uri("https://app.example/full.html");
+            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
+            Chromium.Source = new Uri("https://app.editor/editor.html");
 
             Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
             Chromium.CoreWebView2.DOMContentLoaded += DOMLoaded;

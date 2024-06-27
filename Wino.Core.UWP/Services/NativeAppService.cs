@@ -81,7 +81,7 @@ namespace Wino.Services
         {
             if (string.IsNullOrEmpty(_editorBundlePath))
             {
-                var editorFileFromBundle = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///JS/Quill/full.html"))
+                var editorFileFromBundle = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///JS/Quill/editor.html"))
                     .AsTask()
                     .ConfigureAwait(false);
 
