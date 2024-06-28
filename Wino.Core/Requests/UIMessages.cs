@@ -9,10 +9,6 @@ namespace Wino.Core.Requests
     public record MailUpdatedMessage(MailCopy UpdatedMail) : IUIMessage;
     public record MailDownloadedMessage(MailCopy DownloadedMail) : IUIMessage;
 
-    public record FolderAddedMessage(MailItemFolder AddedFolder, MailAccount Account) : IUIMessage;
-    public record FolderRemovedMessage(MailItemFolder RemovedFolder, MailAccount Account) : IUIMessage;
-    public record FolderUpdatedMessage(MailItemFolder UpdatedFolder, MailAccount Account) : IUIMessage;
-
     public record AccountCreatedMessage(MailAccount Account) : IUIMessage;
     public record AccountRemovedMessage(MailAccount Account) : IUIMessage;
     public record AccountUpdatedMessage(MailAccount Account) : IUIMessage;

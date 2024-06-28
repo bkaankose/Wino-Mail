@@ -15,9 +15,6 @@ namespace Wino.Mail.ViewModels
         IRecipient<AccountCreatedMessage>,
         IRecipient<AccountRemovedMessage>,
         IRecipient<AccountUpdatedMessage>,
-        IRecipient<FolderAddedMessage>,
-        IRecipient<FolderUpdatedMessage>,
-        IRecipient<FolderRemovedMessage>,
         IRecipient<MailAddedMessage>,
         IRecipient<MailRemovedMessage>,
         IRecipient<MailUpdatedMessage>,
@@ -65,9 +62,6 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnAccountRemoved(MailAccount removedAccount) { }
         protected virtual void OnAccountUpdated(MailAccount updatedAccount) { }
 
-        protected virtual void OnFolderAdded(MailItemFolder addedFolder, MailAccount account) { }
-        protected virtual void OnFolderRemoved(MailItemFolder removedFolder, MailAccount account) { }
-        protected virtual void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account) { }
 
         protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
         protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
@@ -80,9 +74,6 @@ namespace Wino.Mail.ViewModels
         void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message) => OnAccountRemoved(message.Account);
         void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message) => OnAccountUpdated(message.Account);
 
-        void IRecipient<FolderAddedMessage>.Receive(FolderAddedMessage message) => OnFolderAdded(message.AddedFolder, message.Account);
-        void IRecipient<FolderUpdatedMessage>.Receive(FolderUpdatedMessage message) => OnFolderUpdated(message.UpdatedFolder, message.Account);
-        void IRecipient<FolderRemovedMessage>.Receive(FolderRemovedMessage message) => OnFolderRemoved(message.RemovedFolder, message.Account);
 
         void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
         void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);

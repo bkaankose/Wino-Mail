@@ -575,6 +575,8 @@ namespace Wino.Core.Synchronizers
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
             => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
 
+
+
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
                                                                MailKit.ITransferProgress transferProgress = null,
                                                                CancellationToken cancellationToken = default)

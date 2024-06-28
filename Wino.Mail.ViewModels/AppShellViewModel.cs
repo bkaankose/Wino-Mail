@@ -148,7 +148,7 @@ namespace Wino.Mail.ViewModels
 
         private async Task LoadAccountsAsync()
         {
-            var accounts = await _accountService.GetAccountsAsync();
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
             // Group accounts by merged account.
             var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId);
@@ -186,56 +186,6 @@ namespace Wino.Mail.ViewModels
                         latestSelectedAccountMenuItem.IsSelected = true;
                     });
                 }
-            }
-        }
-
-        protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
-        {
-            base.OnFolderUpdated(updatedFolder, account);
-
-            if (updatedFolder == null) return;
-
-            var folderMenuItemsToUpdate = MenuItems.GetFolderItems(updatedFolder.Id);
-
-            foreach (var item in folderMenuItemsToUpdate)
-            {
-                await ExecuteUIThread(() =>
-                {
-                    item.UpdateFolder(updatedFolder);
-
-                    // If the current folder is updated, update the window title.
-                    if (SelectedMenuItem is IBaseFolderMenuItem selectedFolderMenuItem && selectedFolderMenuItem.EntityId.GetValueOrDefault() == updatedFolder.Id)
-                    {
-                        UpdateWindowTitleForFolder(selectedFolderMenuItem);
-                    }
-                });
-            }
-        }
-
-        protected override void OnFolderAdded(MailItemFolder addedFolder, MailAccount account)
-        {
-            base.OnFolderAdded(addedFolder, account);
-
-            // TODO: Account creation triggers this...
-
-            // TODO: Not ideal. We should be able to add the folder to the correct place in the menu.
-            // But this requires a good amount of refactoring. For now, just recreate the menu items.
-
-            Messenger.Send(new AccountsMenuRefreshRequested(true));
-        }
-
-        protected override async void OnFolderRemoved(MailItemFolder removedFolder, MailAccount account)
-        {
-            base.OnFolderRemoved(removedFolder, account);
-
-            var allFolderItems = MenuItems.GetFolderMenuItems(removedFolder.Id);
-
-            foreach (var folder in allFolderItems)
-            {
-                await ExecuteUIThread(() =>
-                {
-                    MenuItems.RemoveFolderMenuItem(folder);
-                });
             }
         }
 

@@ -309,21 +309,24 @@ namespace Wino.Mail.ViewModels
             MailCollection.CoreDispatcher = Dispatcher;
         }
 
-        protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
-        {
-            base.OnFolderUpdated(updatedFolder, account);
+        //protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
+        //{
+        //    base.OnFolderUpdated(updatedFolder, account);
 
-            // Don't need to update if the folder update does not belong to the current folder menu item.
-            if (ActiveFolder == null || updatedFolder == null || !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedFolder.Id)) return;
+        //    // Don't need to update if the folder update does not belong to the current folder menu item.
+        //    if (ActiveFolder == null || updatedFolder == null || !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedFolder.Id)) return;
 
-            await ExecuteUIThread(() =>
-            {
-                ActiveFolder.UpdateFolder(updatedFolder);
+        //    await ExecuteUIThread(() =>
+        //    {
+        //        ActiveFolder.UpdateFolder(updatedFolder);
 
-                OnPropertyChanged(nameof(CanSynchronize));
-                OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            });
-        }
+        //        OnPropertyChanged(nameof(CanSynchronize));
+        //        OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
+        //    });
+
+        //    // Force synchronization after enabling the folder.
+        //    SyncFolder();
+        //}
 
         private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
         {

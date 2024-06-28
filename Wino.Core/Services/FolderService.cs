@@ -337,8 +337,6 @@ namespace Wino.Core.Services
                 _logger.Debug("Inserting folder {Id} - {FolderName}", folder.Id, folder.FolderName, folder.MailAccountId);
 
                 await Connection.InsertAsync(folder).ConfigureAwait(false);
-
-                ReportUIChange(new FolderAddedMessage(folder, account));
             }
             else
             {
@@ -374,13 +372,9 @@ namespace Wino.Core.Services
                 return;
             }
 
-#if !DEBUG // Annoying
             _logger.Debug("Updating folder {FolderName}", folder.Id, folder.FolderName);
-#endif
 
             await Connection.UpdateAsync(folder).ConfigureAwait(false);
-
-            ReportUIChange(new FolderUpdatedMessage(folder, account));
         }
 
         private async Task DeleteFolderAsync(MailItemFolder folder)
@@ -407,8 +401,6 @@ namespace Wino.Core.Services
             await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", folder.Id);
 
             // TODO: Delete MIME messages from the disk.
-
-            ReportUIChange(new FolderRemovedMessage(folder, account));
         }
 
         #endregion
