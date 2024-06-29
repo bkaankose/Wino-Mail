@@ -419,18 +419,18 @@ namespace Wino.Core.Synchronizers
 
             if (options.Type != SynchronizationType.FoldersOnly)
             {
-                //var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+                var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
-                //for (int i = 0; i < synchronizationFolders.Count; i++)
-                //{
-                //    var folder = synchronizationFolders[i];
-                //    var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
+                for (int i = 0; i < synchronizationFolders.Count; i++)
+                {
+                    var folder = synchronizationFolders[i];
+                    var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                //    options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                    options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
 
-                //    var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
-                //    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
-                //}
+                    var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
+                    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                }
             }
 
             options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
@@ -552,21 +552,11 @@ namespace Wino.Core.Synchronizers
                 localFolder.SpecialFolderType = SpecialFolderType.Starred;
         }
 
-        /// <summary>
-        /// Whether the local folder should be updated with the remote folder.
-        /// </summary>
-        /// <param name="remoteFolder">Remote folder</param>
-        /// <param name="localFolder">Local folder.</param>
-        private bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
-        {
-            return remoteFolder.Name != localFolder.FolderName;
-        }
-
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
             // https://www.rfc-editor.org/rfc/rfc4549#section-1.1
 
-            var localFolders = await _imapChangeProcessor.GetLocalIMAPFoldersAsync(Account.Id).ConfigureAwait(false);
+            var localFolders = await _imapChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
             ImapClient executorClient = null;
 
@@ -696,7 +686,7 @@ namespace Wino.Core.Synchronizers
                     {
                         // Update existing folder. Right now we only update the name.
 
-                        // TODO: Moving servers around different parents. This is not supported right now.
+                        // TODO: Moving folders around different parents. This is not supported right now.
                         // We will need more comphrensive folder update mechanism to support this.
 
                         if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
@@ -738,6 +728,8 @@ namespace Wino.Core.Synchronizers
                 }
             }
         }
+
+
 
         private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
         {
@@ -988,5 +980,14 @@ namespace Wino.Core.Synchronizers
                 _clientPool.Release(_synchronizationClient);
             }
         }
+
+
+        /// <summary>
+        /// Whether the local folder should be updated with the remote folder.
+        /// IMAP only compares folder name for now.
+        /// </summary>
+        /// <param name="remoteFolder">Remote folder</param>
+        /// <param name="localFolder">Local folder.</param>
+        public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder) => remoteFolder.Name != localFolder.FolderName;
     }
 }

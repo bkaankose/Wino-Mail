@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
+using Wino.Core.MenuItems;
 using Wino.Core.Requests;
 
 namespace Wino.Core.Services
@@ -168,6 +169,108 @@ namespace Wino.Core.Services
             return accountTree;
         }
 
+
+        public Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem)
+        {
+            if (accountMenuItem is IMergedAccountFolderMenuItem mergedAccountFolderMenuItem)
+            {
+                return GetMergedAccountFolderMenuItemsAsync(mergedAccountFolderMenuItem);
+            }
+            else
+            {
+                return GetSingleAccountFolderMenuItemsAsync(accountMenuItem);
+            }
+        }
+
+        private async Task<IEnumerable<IMenuItem>> GetSingleAccountFolderMenuItemsAsync(IAccountMenuItem accountMenuItem)
+        {
+            var accountId = accountMenuItem.EntityId.Value;
+            var preparedFolderMenuItems = new List<IMenuItem>();
+
+            // Get all folders for the account. Excluding hidden folders.
+            var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+
+            if (!folders.Any()) return preparedFolderMenuItems;
+
+            var mailAccount = accountMenuItem.HoldingAccounts.First();
+
+            var listingFolders = folders.OrderBy(a => a.SpecialFolderType);
+
+            var moreFolder = MailItemFolder.CreateMoreFolder();
+            var categoryFolder = MailItemFolder.CreateCategoriesFolder();
+
+            var moreFolderMenuItem = new FolderMenuItem(moreFolder, mailAccount, accountMenuItem);
+            var categoryFolderMenuItem = new FolderMenuItem(categoryFolder, mailAccount, accountMenuItem);
+
+            foreach (var item in listingFolders)
+            {
+                // Category type folders should be skipped. They will be categorized under virtual category folder.
+                if (GoogleIntegratorExtensions.SubCategoryFolderLabelIds.Contains(item.RemoteFolderId)) continue;
+
+                if (!string.IsNullOrEmpty(item.ParentRemoteFolderId)) continue;
+
+                // Sticky items belong to account menu item directly. Rest goes to More folder.
+                IMenuItem parentFolderMenuItem = item.IsSticky ? accountMenuItem : (GoogleIntegratorExtensions.SubCategoryFolderLabelIds.Contains(item.FolderName.ToUpper()) ? categoryFolderMenuItem : moreFolderMenuItem);
+
+                var preparedItem = await GetPreparedFolderMenuItemRecursiveAsync(mailAccount, item, parentFolderMenuItem).ConfigureAwait(false);
+
+                // Don't add menu items that are prepared for More folder. They've been included in More virtual folder already.
+                // We'll add More folder later on at the end of the list.
+
+                if (preparedItem == null) continue;
+
+                if (item.IsSticky)
+                {
+                    preparedFolderMenuItems.Add(preparedItem);
+                }
+                else if (parentFolderMenuItem is FolderMenuItem baseParentFolderMenuItem)
+                {
+                    baseParentFolderMenuItem.SubMenuItems.Add(preparedItem);
+                }
+            }
+
+            // Only add category folder if it's Gmail.
+            if (mailAccount.ProviderType == MailProviderType.Gmail) preparedFolderMenuItems.Add(categoryFolderMenuItem);
+
+            // Only add More folder if there are any items in it.
+            if (moreFolderMenuItem.SubMenuItems.Any()) preparedFolderMenuItems.Add(moreFolderMenuItem);
+
+            return preparedFolderMenuItems;
+        }
+
+        private async Task<FolderMenuItem> GetPreparedFolderMenuItemRecursiveAsync(MailAccount account, MailItemFolder parentFolder, IMenuItem parentMenuItem)
+        {
+            // Localize category folder name.
+            if (parentFolder.SpecialFolderType == SpecialFolderType.Category) parentFolder.FolderName = Translator.CategoriesFolderNameOverride;
+
+            var query = new Query(nameof(MailItemFolder))
+                        .Where(nameof(MailItemFolder.ParentRemoteFolderId), parentFolder.RemoteFolderId)
+                        .Where(nameof(MailItemFolder.MailAccountId), parentFolder.MailAccountId);
+
+            var preparedFolder = new FolderMenuItem(parentFolder, account, parentMenuItem);
+
+            var childFolders = await Connection.QueryAsync<MailItemFolder>(query.GetRawQuery()).ConfigureAwait(false);
+
+            if (childFolders.Any())
+            {
+                foreach (var subChildFolder in childFolders)
+                {
+                    var preparedChild = await GetPreparedFolderMenuItemRecursiveAsync(account, subChildFolder, preparedFolder);
+
+                    if (preparedChild == null) continue;
+
+                    preparedFolder.SubMenuItems.Add(preparedChild);
+                }
+            }
+
+            return preparedFolder;
+        }
+
+        private async Task<IEnumerable<IMenuItem>> GetMergedAccountFolderMenuItemsAsync(IMergedAccountFolderMenuItem mergedAccountFolderMenuItem)
+        {
+            return default;
+        }
+
         private async Task<MailItemFolder> GetChildFolderItemsRecursiveAsync(Guid folderId, Guid accountId)
         {
             var folder = await Connection.Table<MailItemFolder>().Where(a => a.Id == folderId && a.MailAccountId == accountId).FirstOrDefaultAsync();
@@ -198,7 +301,23 @@ namespace Wino.Core.Services
             => Connection.Table<MailCopy>().Where(a => a.FolderId == folderId).CountAsync();
 
         public Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
-            => Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == accountId).ToListAsync();
+        {
+            var query = new Query(nameof(MailItemFolder))
+                        .Where(nameof(MailItemFolder.MailAccountId), accountId)
+                        .OrderBy(nameof(MailItemFolder.SpecialFolderType));
+
+            return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+        }
+
+        public Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
+        {
+            var query = new Query(nameof(MailItemFolder))
+                        .Where(nameof(MailItemFolder.MailAccountId), accountId)
+                        .Where(nameof(MailItemFolder.IsHidden), false)
+                        .OrderBy(nameof(MailItemFolder.SpecialFolderType));
+
+            return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+        }
 
         public async Task UpdateCustomServerMailListAsync(Guid accountId, List<MailItemFolder> folders)
         {

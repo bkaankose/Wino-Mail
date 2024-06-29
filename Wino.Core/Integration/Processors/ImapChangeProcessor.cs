@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 
@@ -17,13 +16,6 @@ namespace Wino.Core.Integration.Processors
         {
         }
 
-        public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
-            => FolderService.GetKnownUidsForFolderAsync(folderId);
-
-        public Task<List<MailItemFolder>> GetLocalIMAPFoldersAsync(Guid accountId)
-            => FolderService.GetFoldersAsync(accountId);
-
-        public Task UpdateFolderAsync(MailItemFolder folder)
-            => FolderService.UpdateFolderAsync(folder);
+        public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId) => FolderService.GetKnownUidsForFolderAsync(folderId);
     }
 }
