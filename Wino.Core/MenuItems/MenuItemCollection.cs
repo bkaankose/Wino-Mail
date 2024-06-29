@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using MoreLinq.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
@@ -8,6 +10,16 @@ namespace Wino.Core.MenuItems
 {
     public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     {
+        // Which types to remove from the list when folders are changing due to selection of new account.
+        // We don't clear the whole list since we want to keep the New Mail button and account menu items.
+        private readonly Type[] _clearingTypesForFolderArea = new Type[] { typeof(SeperatorItem), typeof(IBaseFolderMenuItem), typeof(MergedAccountMoreFolderMenuItem) };
+        private readonly IDispatcher _dispatcher;
+
+        public MenuItemCollection(IDispatcher dispatcher)
+        {
+            _dispatcher = dispatcher;
+        }
+
         public IEnumerable<IBaseFolderMenuItem> GetFolderItems(Guid folderId)
         {
             var rootItems = this.OfType<AccountMenuItem>()
@@ -185,12 +197,15 @@ namespace Wino.Core.MenuItems
             return accountMenuItem;
         }
 
-        public void ReplaceFolders(IEnumerable<IMenuItem> folders)
+        public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
         {
-            ClearFolderAreaMenuItems();
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                ClearFolderAreaMenuItems();
 
-            Items.Add(new SeperatorItem());
-            AddRange(folders);
+                Items.Add(new SeperatorItem());
+                AddRange(folders);
+            });
         }
 
         public void AddAccountMenuItem(IAccountMenuItem accountMenuItem)
@@ -205,22 +220,34 @@ namespace Wino.Core.MenuItems
 
         private void ClearFolderAreaMenuItems()
         {
-            var cloneItems = Items.ToList();
+            var itemsToRemove = this.Where(a => _clearingTypesForFolderArea.Contains(a.GetType())).ToList();
 
-            foreach (var item in cloneItems)
+            itemsToRemove.ForEach(item =>
             {
-                if (item is SeperatorItem || item is IBaseFolderMenuItem || item is MergedAccountMoreFolderMenuItem)
-                {
-                    item.IsSelected = false;
-                    item.IsExpanded = false;
+                item.IsExpanded = false;
+                item.IsSelected = false;
+            });
 
-                    try
-                    {
-                        Remove(item);
-                    }
-                    catch (Exception) { }
-                }
-            }
+            RemoveRange(itemsToRemove);
+
+            // RemoveRange();
+
+            //var cloneItems = Items.ToList();
+
+            //foreach (var item in cloneItems)
+            //{
+            //    if (item is SeperatorItem || item is IBaseFolderMenuItem || item is MergedAccountMoreFolderMenuItem)
+            //    {
+            //        item.IsSelected = false;
+            //        item.IsExpanded = false;
+
+            //        try
+            //        {
+            //            Remove(item);
+            //        }
+            //        catch (Exception) { }
+            //    }
+            //}
         }
     }
 }

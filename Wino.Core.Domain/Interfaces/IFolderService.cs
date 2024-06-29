@@ -83,5 +83,11 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="folder">Folder to update.</param>
         Task UpdateFolderAsync(MailItemFolder folder);
+
+        /// <summary>
+        /// Returns the active folder menu items for the given account for UI.
+        /// </summary>
+        /// <param name="accountMenuItem">Account to get folder menu items for.</param>
+        Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
     }
 }
