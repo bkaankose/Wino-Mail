@@ -24,10 +24,12 @@ using Wino.Core.Extensions;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Messages;
 
 namespace Wino.Mail.ViewModels
 {
     public partial class MailRenderingPageViewModel : BaseViewModel,
+        IRecipient<NewMailItemRenderingRequestedEvent>,
         ITransferProgress // For listening IMAP message download progress.
     {
         private readonly IUnderlyingThemeService _underlyingThemeService;
@@ -384,8 +386,7 @@ namespace Wino.Mail.ViewModels
             // Find the MIME for this item and render it.
             var mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(mailItemViewModel.MailCopy.FileId,
                                                                                                mailItemViewModel.AssignedAccount.Id,
-                                                                                               cancellationToken)
-                                                               .ConfigureAwait(false);
+                                                                                               cancellationToken).ConfigureAwait(false);
 
             if (mimeMessageInformation == null)
             {
@@ -660,5 +661,7 @@ namespace Wino.Mail.ViewModels
 
         // For upload.
         void ITransferProgress.Report(long bytesTransferred) { }
+
+        public async void Receive(NewMailItemRenderingRequestedEvent message) => await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
     }
 }

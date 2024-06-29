@@ -22,7 +22,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Messages.Accounts;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
@@ -430,6 +430,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private void SyncFolder()
         {
+            Messenger.Send(new AccountsMenuRefreshRequested());
             if (!CanSynchronize) return;
 
             // Only synchronize listed folders.
@@ -437,21 +438,21 @@ namespace Wino.Mail.ViewModels
             // When doing linked inbox sync, we need to save the sync id to report progress back only once.
             // Otherwise, we will report progress for each folder and that's what we don't want.
 
-            trackingSynchronizationId = Guid.NewGuid();
-            completedTrackingSynchronizationCount = 0;
+            //trackingSynchronizationId = Guid.NewGuid();
+            //completedTrackingSynchronizationCount = 0;
 
-            foreach (var folder in ActiveFolder.HandlingFolders)
-            {
-                var options = new SynchronizationOptions()
-                {
-                    AccountId = folder.MailAccountId,
-                    Type = SynchronizationType.Custom,
-                    SynchronizationFolderIds = [folder.Id],
-                    GroupedSynchronizationTrackingId = trackingSynchronizationId
-                };
+            //foreach (var folder in ActiveFolder.HandlingFolders)
+            //{
+            //    var options = new SynchronizationOptions()
+            //    {
+            //        AccountId = folder.MailAccountId,
+            //        Type = SynchronizationType.Custom,
+            //        SynchronizationFolderIds = [folder.Id],
+            //        GroupedSynchronizationTrackingId = trackingSynchronizationId
+            //    };
 
-                Messenger.Send(new NewSynchronizationRequested(options));
-            }
+            //    Messenger.Send(new NewSynchronizationRequested(options));
+            //}
         }
 
         [RelayCommand]
@@ -651,6 +652,8 @@ namespace Wino.Mail.ViewModels
         protected override async void OnMailRemoved(MailCopy removedMail)
         {
             base.OnMailRemoved(removedMail);
+
+            if (removedMail.AssignedAccount == null || removedMail.AssignedFolder == null) return;
 
             // We should delete the items only if:
             // 1. They are deleted from the active folder.

@@ -12,7 +12,7 @@ namespace Wino.Core.MenuItems
     {
         // Which types to remove from the list when folders are changing due to selection of new account.
         // We don't clear the whole list since we want to keep the New Mail button and account menu items.
-        private readonly Type[] _clearingTypesForFolderArea = new Type[] { typeof(SeperatorItem), typeof(IBaseFolderMenuItem), typeof(MergedAccountMoreFolderMenuItem) };
+        private readonly Type[] _preservingTypesForFolderArea = [typeof(AccountMenuItem), typeof(NewMailMenuItem), typeof(MergedAccountMenuItem)];
         private readonly IDispatcher _dispatcher;
 
         public MenuItemCollection(IDispatcher dispatcher)
@@ -64,7 +64,7 @@ namespace Wino.Core.MenuItems
         // Pattern: Look for root account menu item only. Don't search inside the merged account menu item.
         public bool TryGetRootAccountMenuItem(Guid accountId, out IAccountMenuItem value)
         {
-            value = this.OfType<IAccountMenuItem>().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId));
+            value = this.OfType<IAccountMenuItem>().FirstOrDefault(a => a.HoldingAccounts != null && a.HoldingAccounts.Any(b => b.Id == accountId));
 
             value ??= this.OfType<MergedAccountMenuItem>().FirstOrDefault(a => a.EntityId == accountId);
 
@@ -208,6 +208,20 @@ namespace Wino.Core.MenuItems
             });
         }
 
+        /// <summary>
+        /// Enables/disables account menu items in the list.
+        /// </summary>
+        /// <param name="isEnabled">Whether menu items should be enabled or disabled.</param>
+        public async Task SetAccountMenuItemEnabledStatusAsync(bool isEnabled)
+        {
+            var accountItems = this.Where(a => a is IAccountMenuItem).Cast<IAccountMenuItem>();
+
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                accountItems.ForEach(a => a.IsEnabled = isEnabled);
+            });
+        }
+
         public void AddAccountMenuItem(IAccountMenuItem accountMenuItem)
         {
             var lastAccount = Items.OfType<IAccountMenuItem>().LastOrDefault();
@@ -220,7 +234,7 @@ namespace Wino.Core.MenuItems
 
         private void ClearFolderAreaMenuItems()
         {
-            var itemsToRemove = this.Where(a => _clearingTypesForFolderArea.Contains(a.GetType())).ToList();
+            var itemsToRemove = this.Where(a => !_preservingTypesForFolderArea.Contains(a.GetType())).ToList();
 
             itemsToRemove.ForEach(item =>
             {

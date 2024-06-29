@@ -331,7 +331,8 @@
                 DataContext="{x:Bind}"
                 IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsChildSelected="{x:Bind IsChildSelected, Mode=TwoWay}"
-                IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                IsExpanded="True"
+                MenuItemsSource="{x:Bind SubMenuItems}"
                 SelectsOnInvoked="False"
                 Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
                 <muxc:NavigationViewItem.InfoBadge>

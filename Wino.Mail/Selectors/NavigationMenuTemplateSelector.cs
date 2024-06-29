@@ -34,7 +34,7 @@ namespace Wino.Selectors
                 return SeperatorTemplate;
             else if (item is AccountMenuItem accountMenuItem)
                 // Merged inbox account menu items must be nested.
-                return accountMenuItem.Parameter.MergedInboxId != null ? NestedAccountMenuTemplate : ClickableAccountMenuTemplate;
+                return ClickableAccountMenuTemplate;
             else if (item is ManageAccountsMenuItem)
                 return AccountManagementTemplate;
             else if (item is RateMenuItem)

@@ -125,7 +125,16 @@ namespace Wino.Services
 
                     if (listingFrame == null) return false;
 
-                    listingFrame.Navigate(pageType, parameter, transitionInfo);
+                    // Active page is mail list page and we are opening a mail item.
+                    // No navigation needed, just refresh the rendered mail item.
+                    if (listingFrame.Content != null && listingFrame.Content.GetType() == GetPageType(WinoPage.MailRenderingPage) && parameter is MailItemViewModel mailItemViewModel)
+                    {
+                        WeakReferenceMessenger.Default.Send(new NewMailItemRenderingRequestedEvent(mailItemViewModel));
+                    }
+                    else
+                    {
+                        listingFrame.Navigate(pageType, parameter, transitionInfo);
+                    }
 
                     return true;
                 }

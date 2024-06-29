@@ -187,10 +187,16 @@ namespace Wino.Mail.ViewModels
                 {
                     // Merged accounts.
                     var mergedInbox = group.First().MergedInbox;
+                    var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, group, null);
+
+                    foreach (var accountItem in group)
+                    {
+                        mergedAccountMenuItem.SubMenuItems.Add(new AccountMenuItem(accountItem, mergedAccountMenuItem));
+                    }
 
                     await ExecuteUIThread(() =>
                     {
-                        MenuItems.Add(new MergedAccountMenuItem(mergedInbox, null));
+                        MenuItems.Add(mergedAccountMenuItem);
                     });
                 }
             }
@@ -215,7 +221,7 @@ namespace Wino.Mail.ViewModels
         private async Task CreateMergedInboxMenuItemAsync(IEnumerable<MailAccount> accounts)
         {
             var mergedInbox = accounts.First().MergedInbox;
-            var mergedInboxMenuItem = new MergedAccountMenuItem(mergedInbox, null); // Merged accounts are parentless.
+            var mergedInboxMenuItem = new MergedAccountMenuItem(mergedInbox, accounts, null); // Merged accounts are parentless.
 
             // Store common special type folders.
             var commonFolderList = new Dictionary<MailAccount, IMailItemFolder>();
@@ -671,8 +677,13 @@ namespace Wino.Mail.ViewModels
             // User clicked an account in Windows Mail style menu.
             // List folders for this account and select Inbox.
 
+            await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
+
             await ExecuteUIThread(() =>
             {
+
+                clickedBaseAccountMenuItem.IsEnabled = false;
+
                 if (latestSelectedAccountMenuItem != null)
                 {
                     latestSelectedAccountMenuItem.IsSelected = false;
@@ -683,19 +694,11 @@ namespace Wino.Mail.ViewModels
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
             });
 
-
             // Load account folder structure and replace the visible folders.
+            var menuItems = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
 
-            if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
-            {
-                var menuItems = await _folderService.GetAccountFoldersForDisplayAsync(accountMenuItem);
-
-                await MenuItems.ReplaceFoldersAsync(menuItems);
-            }
-            else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
-            {
-                await MenuItems.ReplaceFoldersAsync(mergedAccountMenuItem.SubMenuItems);
-            }
+            await MenuItems.ReplaceFoldersAsync(menuItems);
+            await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
 
             if (navigateInbox)
             {
@@ -943,23 +946,23 @@ namespace Wino.Mail.ViewModels
                 // Merged account.
                 // Root account should include all parent accounts' unread item count.
 
-                int totalUnreadCount = 0;
+                //int totalUnreadCount = 0;
 
-                var individualAccountMenuItems = mergedAccountMenuItem.GetAccountMenuItems();
+                //var individualAccountMenuItems = mergedAccountMenuItem.GetAccountMenuItems();
 
-                foreach (var singleMenuItem in individualAccountMenuItems)
-                {
-                    totalUnreadCount += await UpdateSingleAccountMenuItemUnreadCountAsync(singleMenuItem);
-                }
+                //foreach (var singleMenuItem in individualAccountMenuItems)
+                //{
+                //    totalUnreadCount += await UpdateSingleAccountMenuItemUnreadCountAsync(singleMenuItem);
+                //}
 
-                // At this point all single accounts are calculated.
-                // Merge account folder's menu items can be calculated from those values for precision.
+                //// At this point all single accounts are calculated.
+                //// Merge account folder's menu items can be calculated from those values for precision.
 
-                await ExecuteUIThread(() =>
-                {
-                    mergedAccountMenuItem.RefreshFolderItemCount();
-                    mergedAccountMenuItem.UnreadItemCount = totalUnreadCount;
-                });
+                //await ExecuteUIThread(() =>
+                //{
+                //    mergedAccountMenuItem.RefreshFolderItemCount();
+                //    mergedAccountMenuItem.UnreadItemCount = totalUnreadCount;
+                //});
             }
 
             await ExecuteUIThread(async () => { await _notificationBuilder.UpdateTaskbarIconBadgeAsync(); });

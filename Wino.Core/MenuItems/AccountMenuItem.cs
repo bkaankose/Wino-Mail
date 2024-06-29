@@ -20,6 +20,9 @@ namespace Wino.Core.MenuItems
         [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible))]
         private double synchronizationProgress;
 
+        [ObservableProperty]
+        private bool _isEnabled = true;
+
         public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
         public bool IsSynchronizationProgressVisible => SynchronizationProgress > 0 && SynchronizationProgress < 100;
         public Guid AccountId => Parameter.Id;

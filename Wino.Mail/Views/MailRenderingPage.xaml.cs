@@ -186,10 +186,6 @@ namespace Wino.Views
 
             var editorBundlePath = (await ViewModel.NativeAppService.GetQuillEditorBundlePathAsync()).Replace("full.html", string.Empty);
 
-            // Disable JS execution.
-
-
-
             Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.reader", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
 
             Chromium.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
@@ -199,8 +195,6 @@ namespace Wino.Views
             Chromium.CoreWebView2.NewWindowRequested += WindowRequested;
 
             Chromium.Source = new Uri("https://app.reader/reader.html");
-
-            sender.CoreWebView2.Settings.IsScriptEnabled = false;
         }
 
 
