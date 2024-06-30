@@ -758,9 +758,9 @@
     <Content Include="JS\Quill\editor.html" />
     <Content Include="JS\Quill\editor.js" />
     <Content Include="JS\Quill\global.css" />
-    <Content Include="JS\Quill\libs\quill.js" />
     <Content Include="Assets\WinoIcons.ttf" />
-    <Content Include="JS\Quill\libs\quill.snow.css" />
+    <Content Include="JS\Quill\libs\jodit.min.css" />
+    <Content Include="JS\Quill\libs\jodit.min.js" />
     <Content Include="JS\Quill\reader.html" />
     <Content Include="Assets\ReleaseNotes\172.md" />
     <None Include="Package.StoreAssociation.xml" />

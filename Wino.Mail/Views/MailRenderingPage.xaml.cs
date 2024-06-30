@@ -184,7 +184,7 @@ namespace Wino.Views
         {
             if (Chromium.CoreWebView2 == null) return;
 
-            var editorBundlePath = (await ViewModel.NativeAppService.GetQuillEditorBundlePathAsync()).Replace("editor.html", string.Empty);
+            var editorBundlePath = (await ViewModel.NativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
 
             Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.reader", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
 

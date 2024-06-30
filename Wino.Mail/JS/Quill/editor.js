@@ -1,85 +1,79 @@
-const quill = new Quill('#editor', {
-    modules: {
-        toolbar: '#toolbar-container'
-    },
-    placeholder: '',
-    theme: 'snow'
+const editor = Jodit.make("#editor", {
+    "useSearch": false,
+    "toolbar": true,
+    "buttons": "bold,italic,underline,strikethrough,eraser,ul,ol,font,fontsize,paragraph,indent,outdent,left,brush",
+    "inline": true,
+    "toolbarInlineForSelection": false,
+    "showCharsCounter": false,
+    "showWordsCounter": false,
+    "showXPathInStatusbar": false,
+    "disablePlugins": "add-new-line",
+    "showPlaceholder": false,
+    "uploader": {
+        "insertImageAsBase64URI": true
+    }
 });
 
-var boldButton = document.getElementById('boldButton');
-var italicButton = document.getElementById('italicButton');
-var underlineButton = document.getElementById('underlineButton');
-var strikeButton = document.getElementById('strikeButton');
+// Handle the image input change event
+imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const base64Image = event.target.result;
+            editor.selection.insertHTML(`<img src="${base64Image}" alt="Embedded Image">`);
+        };
+        reader.readAsDataURL(file);
+    }
+});
 
-var orderedListButton = document.getElementById('orderedListButton');
-var bulletListButton = document.getElementById('bulletListButton');
+const disabledButtons = ["indent", "outdent"];
+const ariaPressedButtons = ["bold", "italic", "underline", "strikethrough", "ul", "ol"];
 
-var directionButton = document.getElementById('directionButton');
+const alignmentButton = document.querySelector(`[ref='left']`).firstChild.firstChild;
+const alignmentObserver = new MutationObserver(function () {
+    const value = alignmentButton.firstChild.getAttribute('class').split(' ')[0];
+    window.chrome.webview.postMessage({ type: 'alignment', value: value });
+});
+alignmentObserver.observe(alignmentButton, { childList: true, attributes: true, attributeFilter: ["class"] });
 
-var alignLeftButton = document.getElementById('ql-align-left');
-var alignCenterButton = document.getElementById('ql-align-center');
-var alignRightButton = document.getElementById('ql-align-right');
-var alignJustifyButton = document.getElementById('ql-align-justify');
+const ariaObservers = ariaPressedButtons.map(button => {
+    const buttonContainer = document.querySelector(`[ref='${button}']`);
+    const observer = new MutationObserver(function () { pressedChanged(buttonContainer) });
+    observer.observe(buttonContainer.firstChild, { attributes: true, attributeFilter: ["aria-pressed"] });
 
-// The mutation observer
-var boldObserver = new MutationObserver(function () { classChanged(boldButton); });
-boldObserver.observe(boldButton, { attributes: true, attributeFilter: ["class"] });
+    return observer;
+});
 
-var italicObserver = new MutationObserver(function () { classChanged(italicButton); });
-italicObserver.observe(italicButton, { attributes: true, attributeFilter: ["class"] });
+const disabledObservers = disabledButtons.map(button => {
+    const buttonContainer = document.querySelector(`[ref='${button}']`);
+    const observer = new MutationObserver(function () { disabledButtonChanged(buttonContainer) });
+    observer.observe(buttonContainer.firstChild, { attributes: true, attributeFilter: ["disabled"] });
 
-var underlineObserver = new MutationObserver(function () { classChanged(underlineButton); });
-underlineObserver.observe(underlineButton, { attributes: true, attributeFilter: ["class"] });
+    return observer;
+});
 
-var strikeObserver = new MutationObserver(function () { classChanged(strikeButton); });
-strikeObserver.observe(strikeButton, { attributes: true, attributeFilter: ["class"] });
-
-var orderedListObserver = new MutationObserver(function () { classAndValueChanged(orderedListButton); });
-orderedListObserver.observe(orderedListButton, { attributes: true, attributeFilter: ["class"] });
-
-var bulletListObserver = new MutationObserver(function () { classAndValueChanged(bulletListButton); });
-bulletListObserver.observe(bulletListButton, { attributes: true, attributeFilter: ["class"] });
-
-var directionObserver = new MutationObserver(function () { classChanged(directionButton); });
-directionObserver.observe(directionButton, { attributes: true, attributeFilter: ["class"] });
-
-var alignmentObserver = new MutationObserver(function () { alignmentDataValueChanged(alignLeftButton); });
-alignmentObserver.observe(alignLeftButton, { attributes: true, attributeFilter: ["class"] });
-
-var alignmentObserverCenter = new MutationObserver(function () { alignmentDataValueChanged(alignCenterButton); });
-alignmentObserverCenter.observe(alignCenterButton, { attributes: true, attributeFilter: ["class"] });
-
-var alignmentObserverRight = new MutationObserver(function () { alignmentDataValueChanged(alignRightButton); });
-alignmentObserverRight.observe(alignRightButton, { attributes: true, attributeFilter: ["class"] });
-
-var alignmentObserverJustify = new MutationObserver(function () { alignmentDataValueChanged(alignJustifyButton); });
-alignmentObserverJustify.observe(alignJustifyButton, { attributes: true, attributeFilter: ["class"] });
-
-function classChanged(button) {
-    window.chrome.webview.postMessage(`${button.className}`);
+function pressedChanged(buttonContainer) {
+    const ref = buttonContainer.getAttribute('ref');
+    const value = buttonContainer.firstChild.getAttribute('aria-pressed');
+    window.chrome.webview.postMessage({ type: ref, value: value });
 }
 
-function classAndValueChanged(button) {
-    window.chrome.webview.postMessage(`${button.id} ${button.className}`);
+function disabledButtonChanged(buttonContainer) {
+    const ref = buttonContainer.getAttribute('ref');
+    const value = buttonContainer.firstChild.getAttribute('disabled');
+    console.log(buttonContainer, ref, value);
+    window.chrome.webview.postMessage({ type: ref, value: value });
 }
 
-function alignmentDataValueChanged(button) {
-    if (button.className.endsWith('ql-active'))
-        window.chrome.webview.postMessage(`${button.id}`);
-}
 
 function RenderHTML(htmlString) {
-    const delta = quill.clipboard.convert({html: htmlString})
-
-    quill.setContents(delta, 'silent');
+    editor.s.insertHTML(htmlString);
+    editor.synchronizeValues();
 }
 
 function GetHTMLContent() {
-    return quill.root.innerHTML;
-}
-
-function GetTextContent() {
-    return quill.getText();
+    return editor.value;
 }
 
 function SetLightEditor() {
@@ -90,23 +84,23 @@ function SetDarkEditor() {
     DarkReader.enable();
 }
 
-function getSelectedText() {
-    var range = quill.getSelection();
-    if (range) {
-        if (range.length == 0) {
+//function getSelectedText() {
+//    var range = quill.getSelection();
+//    if (range) {
+//        if (range.length == 0) {
 
-        }
-        else {
-            return quill.getText(range.index, range.length);
-        }
-    }
-}
+//        }
+//        else {
+//            return quill.getText(range.index, range.length);
+//        }
+//    }
+//}
 
-function addHyperlink(url) {
-    var range = quill.getSelection();
+//function addHyperlink(url) {
+//    var range = quill.getSelection();
 
-    if (range) {
-        quill.formatText(range.index, range.length, 'link', url);
-        quill.setSelection(0, 0);
-    }
-}
+//    if (range) {
+//        quill.formatText(range.index, range.length, 'link', url);
+//        quill.setSelection(0, 0);
+//    }
+//}
