@@ -754,14 +754,14 @@
     <Content Include="BackgroundImages\Mica.jpg" />
     <Content Include="BackgroundImages\Nighty.jpg" />
     <Content Include="BackgroundImages\Snowflake.jpg" />
-    <Content Include="JS\Quill\libs\darkreader.js" />
-    <Content Include="JS\Quill\editor.html" />
-    <Content Include="JS\Quill\editor.js" />
-    <Content Include="JS\Quill\global.css" />
+    <Content Include="JS\libs\darkreader.js" />
+    <Content Include="JS\editor.html" />
+    <Content Include="JS\editor.js" />
+    <Content Include="JS\global.css" />
     <Content Include="Assets\WinoIcons.ttf" />
-    <Content Include="JS\Quill\libs\jodit.min.css" />
-    <Content Include="JS\Quill\libs\jodit.min.js" />
-    <Content Include="JS\Quill\reader.html" />
+    <Content Include="JS\libs\jodit.min.css" />
+    <Content Include="JS\libs\jodit.min.js" />
+    <Content Include="JS\reader.html" />
     <Content Include="Assets\ReleaseNotes\172.md" />
     <None Include="Package.StoreAssociation.xml" />
     <Content Include="Properties\Default.rd.xml" />
@@ -808,9 +808,7 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="JS\Quill\Fonts\" />
-  </ItemGroup>
+  <ItemGroup />
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
