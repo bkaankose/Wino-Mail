@@ -11,7 +11,7 @@ namespace Wino.Core.MenuItems
 {
     public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IMailItemFolder, FolderMenuItem>>, IAccountMenuItem
     {
-        public List<FolderMenuItem> FlattenedFolderHierarchy { get; set; }
+        // public List<FolderMenuItem> FlattenedFolderHierarchy { get; set; }
 
         [ObservableProperty]
         private int unreadItemCount;
@@ -92,7 +92,7 @@ namespace Wino.Core.MenuItems
             }
         }
 
-        public int GetUnreadItemCountByFolderType(SpecialFolderType specialFolderType)
-            => FlattenedFolderHierarchy?.Where(a => a.SpecialFolderType == specialFolderType).Sum(a => a.UnreadItemCount) ?? 0;
+        //public int GetUnreadItemCountByFolderType(SpecialFolderType specialFolderType)
+        //    => FlattenedFolderHierarchy?.Where(a => a.SpecialFolderType == specialFolderType).Sum(a => a.UnreadItemCount) ?? 0;
     }
 }

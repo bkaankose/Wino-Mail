@@ -32,14 +32,7 @@ namespace Wino.Core.MenuItems
 
         public void RefreshFolderItemCount()
         {
-            //UnreadItemCount = GetAccountMenuItems().Select(a => a.GetUnreadItemCountByFolderType(SpecialFolderType.Inbox)).Sum();
-
-            //var unreadUpdateFolders = SubMenuItems.OfType<IBaseFolderMenuItem>().Where(a => a.ShowUnreadCount);
-
-            //foreach (var folder in unreadUpdateFolders)
-            //{
-            //    folder.UnreadItemCount = GetAccountMenuItems().Select(a => a.GetUnreadItemCountByFolderType(folder.SpecialFolderType)).Sum();
-            //}
+            UnreadItemCount = SubMenuItems.OfType<IAccountMenuItem>().Sum(a => a.UnreadItemCount);
         }
 
         public void UpdateAccount(MailAccount account)

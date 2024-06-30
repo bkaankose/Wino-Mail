@@ -124,7 +124,7 @@
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ContentAlignment="Vertical">
-                        <Grid Height="160" RowSpacing="6">
+                        <Grid MinHeight="160" RowSpacing="6">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />

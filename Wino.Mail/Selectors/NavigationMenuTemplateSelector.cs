@@ -8,7 +8,6 @@ namespace Wino.Selectors
     {
         public DataTemplate MenuItemTemplate { get; set; }
         public DataTemplate AccountManagementTemplate { get; set; }
-        public DataTemplate NestedAccountMenuTemplate { get; set; }
         public DataTemplate ClickableAccountMenuTemplate { get; set; }
         public DataTemplate MergedAccountTemplate { get; set; }
         public DataTemplate MergedAccountFolderTemplate { get; set; }

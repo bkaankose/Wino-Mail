@@ -9,12 +9,12 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
-using Wino.Core.Requests;
 
 namespace Wino.Core.Services
 {
@@ -218,7 +218,7 @@ namespace Wino.Core.Services
             // Get all folders for the account. Excluding hidden folders.
             var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
 
-            if (!folders.Any()) return preparedFolderMenuItems;
+            if (!folders.Any()) return new List<IMenuItem>();
 
             var mailAccount = accountMenuItem.HoldingAccounts.First();
 
@@ -294,7 +294,6 @@ namespace Wino.Core.Services
             foreach (var commonFolderType in commonFolders)
             {
                 var folderItems = allAccountFolders.SelectMany(a => a.Where(b => b.SpecialFolderType == commonFolderType)).Cast<IMailItemFolder>().ToList();
-
                 var menuItem = new MergedAccountFolderMenuItem(folderItems, null, mergedAccountFolderMenuItem.Parameter);
 
                 preparedFolderMenuItems.Add(menuItem);
@@ -376,49 +375,6 @@ namespace Wino.Core.Services
                         .OrderBy(nameof(MailItemFolder.SpecialFolderType));
 
             return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
-        }
-
-        public async Task UpdateCustomServerMailListAsync(Guid accountId, List<MailItemFolder> folders)
-        {
-            var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
-
-            if (account == null)
-                return;
-
-            // IMAP servers don't have unique identifier for folders all the time.
-            // We'll map them with parent-name relation.
-
-            var currentFolders = await GetFoldersAsync(accountId);
-
-            // These folders don't exist anymore. Remove them.
-            var localRemoveFolders = currentFolders.ExceptBy(folders, a => a.RemoteFolderId);
-
-            foreach (var currentFolder in currentFolders)
-            {
-                // Check if we have this folder locally.
-                var remotelyExistFolder = folders.FirstOrDefault(a => a.RemoteFolderId == currentFolder.RemoteFolderId
-                && a.ParentRemoteFolderId == currentFolder.ParentRemoteFolderId);
-
-                if (remotelyExistFolder == null)
-                {
-                    // This folder is removed.
-                    // Remove everything for this folder.
-
-                }
-            }
-
-            foreach (var folder in folders)
-            {
-                var currentFolder = await Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == folder.RemoteFolderId);
-
-                // Nothing is changed, it's still the same folder.
-                // Just update Id of the folder.
-
-                if (currentFolder != null)
-                    folder.Id = currentFolder.Id;
-
-                await Connection.InsertOrReplaceAsync(folder);
-            }
         }
 
         public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
@@ -609,8 +565,6 @@ namespace Wino.Core.Services
         public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)
             => GetMailFolderPairMetadatasAsync(new List<string>() { mailCopyId });
 
-        public async Task SetSpecialFolderAsync(Guid folderId, SpecialFolderType type)
-            => await Connection.ExecuteAsync("UPDATE MailItemFolder SET SpecialFolderType = ? WHERE Id = ?", type, folderId);
 
         public async Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
         {
@@ -698,33 +652,6 @@ namespace Wino.Core.Services
             }
         }
 
-        // Inbox folder is always included for account menu item unread count.
-        public Task<List<MailItemFolder>> GetUnreadUpdateFoldersAsync(Guid accountId)
-            => Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == accountId && (a.ShowUnreadCount || a.SpecialFolderType == SpecialFolderType.Inbox)).ToListAsync();
-
-        public async Task TestAsync()
-        {
-            var account = new MailAccount()
-            {
-                Address = "test@test.com",
-                ProviderType = MailProviderType.Gmail,
-                Name = "Test Account",
-                Id = Guid.NewGuid()
-            };
-
-            await Connection.InsertAsync(account);
-
-            var pref = new MailAccountPreferences
-            {
-                Id = Guid.NewGuid(),
-                AccountId = account.Id
-            };
-
-            await Connection.InsertAsync(pref);
-
-            ReportUIChange(new AccountCreatedMessage(account));
-        }
-
         public async Task<bool> IsInboxAvailableForAccountAsync(Guid accountId)
             => (await Connection.Table<MailItemFolder>()
             .Where(a => a.SpecialFolderType == SpecialFolderType.Inbox && a.MailAccountId == accountId)
@@ -732,5 +659,18 @@ namespace Wino.Core.Services
 
         public Task UpdateFolderLastSyncDateAsync(Guid folderId)
             => Connection.ExecuteAsync("UPDATE MailItemFolder SET LastSynchronizedDate = ? WHERE Id = ?", DateTime.UtcNow, folderId);
+
+        public Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds)
+        {
+            var query = new Query(nameof(MailCopy))
+                        .Join(nameof(MailItemFolder), $"{nameof(MailCopy)}.FolderId", $"{nameof(MailItemFolder)}.Id")
+                        .WhereIn($"{nameof(MailItemFolder)}.MailAccountId", accountIds)
+                        .Where($"{nameof(MailCopy)}.IsRead", 0)
+                        .Where($"{nameof(MailItemFolder)}.ShowUnreadCount", 1)
+                        .SelectRaw($"{nameof(MailItemFolder)}.Id as FolderId, {nameof(MailItemFolder)}.SpecialFolderType as SpecialFolderType, count (DISTINCT {nameof(MailCopy)}.Id) as UnreadItemCount, {nameof(MailItemFolder)}.MailAccountId as AccountId")
+                        .GroupBy($"{nameof(MailItemFolder)}.Id");
+
+            return Connection.QueryAsync<UnreadItemCountResult>(query.GetRawQuery());
+        }
     }
 }

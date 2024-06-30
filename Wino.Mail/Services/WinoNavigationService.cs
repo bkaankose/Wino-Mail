@@ -127,7 +127,10 @@ namespace Wino.Services
 
                     // Active page is mail list page and we are opening a mail item.
                     // No navigation needed, just refresh the rendered mail item.
-                    if (listingFrame.Content != null && listingFrame.Content.GetType() == GetPageType(WinoPage.MailRenderingPage) && parameter is MailItemViewModel mailItemViewModel)
+                    if (listingFrame.Content != null
+                        && listingFrame.Content.GetType() == GetPageType(WinoPage.MailRenderingPage)
+                        && parameter is MailItemViewModel mailItemViewModel
+                        && page != WinoPage.ComposePage)
                     {
                         WeakReferenceMessenger.Default.Send(new NewMailItemRenderingRequestedEvent(mailItemViewModel));
                     }
@@ -177,10 +180,6 @@ namespace Wino.Services
             else
                 throw new ArgumentException("MailItem must be of type MailItemViewModel.");
         }
-
-        public void NavigateWelcomePage() => Navigate(WinoPage.WelcomePage);
-
-        public void NavigateManageAccounts() => Navigate(WinoPage.AccountManagementPage);
 
         public void NavigateFolder(NavigateMailFolderEventArgs args)
             => Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.ShellFrame);

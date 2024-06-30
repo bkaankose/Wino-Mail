@@ -37,7 +37,8 @@ namespace Wino.Views
         IRecipient<ActiveMailItemChangedEvent>,
         IRecipient<ActiveMailFolderChangedEvent>,
         IRecipient<SelectMailItemContainerEvent>,
-        IRecipient<ShellStateUpdated>
+        IRecipient<ShellStateUpdated>,
+        IRecipient<DisposeRenderingFrameRequested>
     {
         private const string NarrowVisualStateKey = "NarrowState";
         private const string AdaptivenessStatesKey = "AdaptiveStates";
@@ -561,6 +562,11 @@ namespace Wino.Views
             {
                 await ViewModel.PerformSearchAsync();
             }
+        }
+
+        public void Receive(DisposeRenderingFrameRequested message)
+        {
+            ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         }
     }
 }

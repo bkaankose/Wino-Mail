@@ -342,10 +342,6 @@ namespace Wino.Mail.ViewModels
                 Crashes.TrackError(ex);
                 Log.Error(ex, "Render Failed");
             }
-            finally
-            {
-                StatePersistanceService.IsReadingMail = true;
-            }
         }
 
 
@@ -448,6 +444,8 @@ namespace Wino.Mail.ViewModels
                 }
 
                 OnPropertyChanged(nameof(IsImageRenderingDisabled));
+
+                StatePersistanceService.IsReadingMail = true;
             });
         }
 
@@ -468,10 +466,14 @@ namespace Wino.Mail.ViewModels
             BCCItems.Clear();
             Attachments.Clear();
             MenuItems.Clear();
+
+            StatePersistanceService.IsReadingMail = false;
         }
 
         private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)
         {
+            collection.Clear();
+
             foreach (var item in list)
             {
                 if (item is MailboxAddress mailboxAddress)

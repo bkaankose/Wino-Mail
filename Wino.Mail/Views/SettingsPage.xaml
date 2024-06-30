@@ -11,12 +11,7 @@
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
-    <Border
-        Margin="0,0,7,7"
-        Background="{ThemeResource WinoContentZoneBackgroud}"
-        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
-        BorderThickness="1"
-        CornerRadius="7">
+    <Border Style="{StaticResource PageRootBorderStyle}">
         <Grid
             MaxWidth="900"
             Padding="20"
