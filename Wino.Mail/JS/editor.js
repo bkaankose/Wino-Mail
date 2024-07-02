@@ -12,7 +12,8 @@ const editor = Jodit.make("#editor", {
     "showPlaceholder": false,
     "uploader": {
         "insertImageAsBase64URI": true
-    }
+    },
+    "enter": "DIV",
 });
 
 // Handle the image input change event

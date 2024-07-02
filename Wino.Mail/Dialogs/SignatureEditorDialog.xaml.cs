@@ -170,11 +170,6 @@ namespace Wino.Dialogs
             await InvokeScriptSafeAsync("editor.execCommand('outdent')");
         }
 
-        private async void DirectionButtonClicked(object sender, RoutedEventArgs e)
-        {
-            await InvokeScriptSafeAsync("document.getElementById('directionButton').click();");
-        }
-
         private async void AlignmentChanged(object sender, SelectionChangedEventArgs e)
         {
             var selectedItem = AlignmentListView.SelectedItem as ComboBoxItem;

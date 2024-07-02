@@ -137,6 +137,9 @@
                         <PathIcon Data="{StaticResource OrderedListPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
+
+                <AppBarSeparator />
+
                 <AppBarButton
                     x:Name="DecreaseIndentButton"
                     Width="48"
@@ -157,18 +160,6 @@
                         <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarSeparator />
-
-                <AppBarToggleButton
-                    x:Name="DirectionButton"
-                    Width="48"
-                    Click="DirectionButtonClicked"
-                    Label="Direction"
-                    ToolTipService.ToolTip="Direction">
-                    <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource ParagraphPathIcon}" />
-                    </AppBarToggleButton.Icon>
-                </AppBarToggleButton>
 
                 <AppBarElementContainer VerticalAlignment="Center">
                     <ComboBox x:Name="AlignmentListView" SelectionChanged="AlignmentChanged">

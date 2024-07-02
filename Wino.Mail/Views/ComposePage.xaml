@@ -263,6 +263,8 @@
                                     </ToggleButton.Content>
                                 </ToggleButton>
 
+                                <AppBarSeparator />
+
                                 <Button
                                     x:Name="DecreaseIndentButton"
                                     Height="32"
@@ -284,19 +286,6 @@
                                         </Viewbox>
                                     </Button.Content>
                                 </Button>
-
-                                <AppBarSeparator />
-
-                                <ToggleButton
-                                    x:Name="DirectionButton"
-                                    Height="32"
-                                    Click="DirectionButtonClicked">
-                                    <ToggleButton.Content>
-                                        <Viewbox Width="16">
-                                            <PathIcon Data="{StaticResource ParagraphPathIcon}" />
-                                        </Viewbox>
-                                    </ToggleButton.Content>
-                                </ToggleButton>
 
                                 <ComboBox
                                     x:Name="AlignmentListView"
