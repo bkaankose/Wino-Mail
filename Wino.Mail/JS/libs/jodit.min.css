@@ -4720,7 +4720,7 @@ html.jodit_fullsize-box_true {
     color: var(--jd-color-error)
 }
 
-.jodit-context table, .jodit-wysiwyg table {
+/*.jodit-context table, .jodit-wysiwyg table {
     border: none;
     border-collapse: collapse;
     empty-cells: show;
@@ -4739,7 +4739,7 @@ html.jodit_fullsize-box_true {
             padding: .4em;
             user-select: text;
             vertical-align: middle
-        }
+        }*/
 
 .jodit-form__inserter {
     --jd-color-table-cell-background-hover: var(--jd-color-button-background-hover)
