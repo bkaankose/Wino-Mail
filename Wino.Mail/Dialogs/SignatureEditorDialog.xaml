@@ -162,7 +162,11 @@
                 </AppBarButton>
 
                 <AppBarElementContainer VerticalAlignment="Center">
-                    <ComboBox x:Name="AlignmentListView" SelectionChanged="AlignmentChanged">
+                    <ComboBox
+                        x:Name="AlignmentListView"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        SelectionChanged="AlignmentChanged">
                         <ComboBoxItem Tag="left">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Viewbox Width="16">
@@ -229,34 +233,17 @@
                         <PathIcon Data="{StaticResource EmojiPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarButton
-                    x:Name="LinkButton"
+
+                <AppBarToggleButton
+                    x:Name="WebviewToolBarButton"
                     Width="48"
-                    Click="LinkButtonClicked"
-                    FrameworkElement.AllowFocusOnInteraction="True"
-                    Label="Add HyperLink"
-                    ToolTipService.ToolTip="Add HyperLink">
-                    <AppBarButton.Flyout>
-                        <Flyout x:Name="HyperlinkFlyout">
-                            <StackPanel Width="250" Spacing="6">
-                                <TextBox x:Name="HyperlinkTextBox" Header="Text" />
-                                <TextBox
-                                    x:Name="LinkUrlTextBox"
-                                    Header="Link"
-                                    PlaceholderText="https://" />
-                                <Button
-                                    x:Name="AddHyperlinkButton"
-                                    Margin="0,6"
-                                    HorizontalAlignment="Stretch"
-                                    Click="HyperlinkAddClicked"
-                                    Content="{x:Bind domain:Translator.AddHyperlink}" />
-                            </StackPanel>
-                        </Flyout>
-                    </AppBarButton.Flyout>
-                    <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+                    Click="WebViewToggleButtonClicked"
+                    Label="Webview ToolBar"
+                    ToolTipService.ToolTip="Webview ToolBar">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
             </CommandBar>
             <Border
                 Grid.Row="1"

@@ -1,7 +1,7 @@
 const editor = Jodit.make("#editor", {
     "useSearch": false,
     "toolbar": true,
-    "buttons": "bold,italic,underline,strikethrough,eraser,ul,ol,font,fontsize,paragraph,indent,outdent,left,brush",
+    "buttons": "bold,italic,underline,strikethrough,brush,ul,ol,font,fontsize,paragraph,image,link,indent,outdent,left",
     "inline": true,
     "toolbarAdaptive": false,
     "toolbarInlineForSelection": false,
@@ -14,6 +14,7 @@ const editor = Jodit.make("#editor", {
         "insertImageAsBase64URI": true
     },
     "enter": "DIV",
+    "minHeight": 200
 });
 
 // Handle the image input change event
@@ -86,23 +87,12 @@ function SetDarkEditor() {
     DarkReader.enable();
 }
 
-//function getSelectedText() {
-//    var range = quill.getSelection();
-//    if (range) {
-//        if (range.length == 0) {
-
-//        }
-//        else {
-//            return quill.getText(range.index, range.length);
-//        }
-//    }
-//}
-
-//function addHyperlink(url) {
-//    var range = quill.getSelection();
-
-//    if (range) {
-//        quill.formatText(range.index, range.length, 'link', url);
-//        quill.setSelection(0, 0);
-//    }
-//}
+function toggleToolbar(enable) {
+    const toolbar = document.querySelector('.jodit-toolbar__box');
+    if (enable == 'true') {
+        toolbar.style.display = 'flex';
+    }
+    else {
+        toolbar.style.display = 'none';
+    }
+}

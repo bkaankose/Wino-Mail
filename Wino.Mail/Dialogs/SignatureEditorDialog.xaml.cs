@@ -122,14 +122,6 @@ namespace Wino.Dialogs
             Hide();
         }
 
-        private async void HyperlinkAddClicked(object sender, RoutedEventArgs e)
-        {
-            await InvokeScriptSafeAsync($"addHyperlink('{LinkUrlTextBox.Text}')");
-
-            LinkUrlTextBox.Text = string.Empty;
-            HyperlinkFlyout.Hide();
-        }
-
         private async void BoldButtonClicked(object sender, RoutedEventArgs e)
         {
             await InvokeScriptSafeAsync("editor.execCommand('bold')");
@@ -253,13 +245,6 @@ namespace Wino.Dialogs
             return string.Empty;
         }
 
-        private async void LinkButtonClicked(object sender, RoutedEventArgs e)
-        {
-            HyperlinkTextBox.Text = await TryGetSelectedTextAsync();
-
-            HyperlinkFlyout.ShowAt(LinkButton);
-        }
-
         private async Task UpdateEditorThemeAsync()
         {
             await _domLoadedTask.Task;
@@ -373,5 +358,11 @@ namespace Wino.Dialogs
         private void SignatureNameTextBoxTextChanged(object sender, TextChangedEventArgs e) => IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(SignatureNameTextBox.Text);
 
         private void InvertComposerThemeClicked(object sender, RoutedEventArgs e) => IsComposerDarkMode = !IsComposerDarkMode;
+
+        private async void WebViewToggleButtonClicked(object sender, RoutedEventArgs e)
+        {
+            var enable = WebviewToolBarButton.IsChecked == true ? "true" : "false";
+            await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
+        }
     }
 }
