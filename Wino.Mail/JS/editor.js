@@ -1,7 +1,7 @@
 const editor = Jodit.make("#editor", {
     "useSearch": false,
     "toolbar": true,
-    "buttons": "bold,italic,underline,strikethrough,brush,ul,ol,font,fontsize,paragraph,image,link,indent,outdent,left",
+    "buttons": "bold,italic,underline,strikethrough,brush,ul,ol,font,fontsize,paragraph,image,link,indent,outdent,align",
     "inline": true,
     "toolbarAdaptive": false,
     "toolbarInlineForSelection": false,

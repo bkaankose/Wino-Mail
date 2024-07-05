@@ -245,6 +245,12 @@ namespace Wino.Dialogs
             return string.Empty;
         }
 
+        private async void WebViewToggleButtonClicked(object sender, RoutedEventArgs e)
+        {
+            var enable = WebviewToolBarButton.IsChecked == true ? "true" : "false";
+            await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
+        }
+
         private async Task UpdateEditorThemeAsync()
         {
             await _domLoadedTask.Task;
@@ -358,11 +364,5 @@ namespace Wino.Dialogs
         private void SignatureNameTextBoxTextChanged(object sender, TextChangedEventArgs e) => IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(SignatureNameTextBox.Text);
 
         private void InvertComposerThemeClicked(object sender, RoutedEventArgs e) => IsComposerDarkMode = !IsComposerDarkMode;
-
-        private async void WebViewToggleButtonClicked(object sender, RoutedEventArgs e)
-        {
-            var enable = WebviewToolBarButton.IsChecked == true ? "true" : "false";
-            await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
-        }
     }
 }

@@ -228,6 +228,12 @@ namespace Wino.Views
             }
         }
 
+        private async void WebViewToggleButtonClicked(object sender, RoutedEventArgs e)
+        {
+            var enable = WebviewToolBarButton.IsChecked == true ? "true" : "false";
+            await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
+        }
+
         public async Task<string> ExecuteScriptFunctionAsync(string functionName, params object[] parameters)
         {
             string script = functionName + "(";
@@ -287,11 +293,6 @@ namespace Wino.Views
             catch (Exception) { }
 
             return string.Empty;
-        }
-
-        private async void LinkButtonClicked(object sender, RoutedEventArgs e)
-        {
-            HyperlinkTextBox.Text = await TryGetSelectedTextAsync();
         }
 
         public async Task UpdateEditorThemeAsync()
@@ -465,14 +466,6 @@ namespace Wino.Views
         async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
         {
             await RenderInternalAsync(message.RenderModel.RenderHtml);
-        }
-
-        private async void HyperlinkAddClicked(object sender, RoutedEventArgs e)
-        {
-            await InvokeScriptSafeAsync($"addHyperlink('{LinkUrlTextBox.Text}')");
-
-            LinkUrlTextBox.Text = string.Empty;
-            HyperlinkFlyout.Hide();
         }
 
         private void BarDynamicOverflowChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
