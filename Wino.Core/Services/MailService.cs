@@ -799,7 +799,7 @@ namespace Wino.Core.Services
 
             static string ParticipantsToHtml(InternetAddressList internetAddresses) =>
                 string.Join("; ", internetAddresses.Mailboxes
-                                            .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;{x.Address ?? Translator.UnknownAddress}&gt;"));
+                                            .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;<a href=\"mailto:{x.Address ?? Translator.UnknownAddress}\">{x.Address ?? Translator.UnknownAddress}</a>&gt;"));
         }
 
         public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
