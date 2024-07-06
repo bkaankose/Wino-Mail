@@ -151,13 +151,25 @@
                         OverflowButtonVisibility="Collapsed">
                         <CommandBar.PrimaryCommands>
                             <AppBarButton
-                                x:Name="ComposerThemeToggleButton"
                                 Click="InvertComposerThemeClicked"
-                                LabelPosition="Collapsed">
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="Light Theme"
+                                Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <controls:WinoFontIcon Icon="LightEditor" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
+                            <AppBarButton
+                                Click="InvertComposerThemeClicked"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="Dark Theme"
+                                Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
                                 <AppBarButton.Icon>
                                     <controls:WinoFontIcon Icon="DarkEditor" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+
                             <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="Discard">
                                 <AppBarButton.Icon>
                                     <controls:WinoFontIcon Icon="Delete" />
@@ -603,23 +615,6 @@
                 </Grid>
 
                 <VisualStateManager.VisualStateGroups>
-                    <VisualStateGroup x:Name="ComposerThemeToggleButtonStates">
-                        <VisualState x:Name="DarkMode">
-                            <VisualState.StateTriggers>
-                                <StateTrigger IsActive="{x:Bind IsComposerDarkMode, Mode=OneWay}" />
-                            </VisualState.StateTriggers>
-                            <VisualState.Setters>
-                                <Setter Target="ComposerThemeToggleButton.Label" Value="Light Reader" />
-                                <Setter Target="ComposerThemeToggleButton.Icon">
-                                    <Setter.Value>
-                                        <controls:WinoFontIcon Icon="LightEditor" />
-                                    </Setter.Value>
-                                </Setter>
-                            </VisualState.Setters>
-                        </VisualState>
-
-                        <VisualState x:Name="LightMode" />
-                    </VisualStateGroup>
                     <VisualStateGroup x:Name="DropZoneState">
                         <VisualState x:Name="Hovered">
                             <VisualState.StateTriggers>
