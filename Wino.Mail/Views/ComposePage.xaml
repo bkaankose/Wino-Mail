@@ -595,7 +595,7 @@
                     Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}">
                     <Grid Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9">
                         <Rectangle
-                            x:Name="DropZoneBorder"
+                            x:Name="FilesDropZoneBorder"
                             Fill="Transparent"
                             Opacity="0.5"
                             RadiusX="9"
@@ -604,7 +604,7 @@
                             StrokeDashArray="3,4"
                             StrokeThickness="2" />
                         <TextBlock
-                            x:Name="DropZoneText"
+                            x:Name="FilesDropZoneText"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             FontSize="20"
@@ -613,21 +613,6 @@
                             Text="{x:Bind domain:Translator.ComposerAttachmentsDropZone_Message}" />
                     </Grid>
                 </Grid>
-
-                <VisualStateManager.VisualStateGroups>
-                    <VisualStateGroup x:Name="DropZoneState">
-                        <VisualState x:Name="Hovered">
-                            <VisualState.StateTriggers>
-                                <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverDropZone, Mode=OneWay}" />
-                            </VisualState.StateTriggers>
-                            <VisualState.Setters>
-                                <Setter Target="DropZoneText.Opacity" Value="1" />
-                                <Setter Target="DropZoneBorder.Opacity" Value="1" />
-                            </VisualState.Setters>
-                        </VisualState>
-                        <VisualState x:Name="NotHovered" />
-                    </VisualStateGroup>
-                </VisualStateManager.VisualStateGroups>
             </Grid>
         </Border>
         <Border
@@ -635,13 +620,67 @@
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="10">
-            <Grid>
+            CornerRadius="7">
+            <Grid Margin="1" CornerRadius="7">
                 <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
                 <muxc:WebView2 x:Name="Chromium" />
+
+                <!--  Dropzone for images  -->
+                <Grid
+                    AllowDrop="True"
+                    DragEnter="OnImageDropGridDragEnter"
+                    DragLeave="OnImageDropGridDragLeave"
+                    Drop="OnImageDropGridImageDropped"
+                    Visibility="{x:Bind ViewModel.IsDraggingOverComposerGrid, Mode=OneWay}">
+                    <Grid Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" CornerRadius="9">
+                        <Rectangle
+                            x:Name="ImagesDropZoneBorder"
+                            Fill="Transparent"
+                            Opacity="0.5"
+                            RadiusX="9"
+                            RadiusY="9"
+                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                            StrokeDashArray="3,4"
+                            StrokeThickness="2" />
+                        <TextBlock
+                            x:Name="ImagesDropZoneText"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="20"
+                            FontWeight="SemiBold"
+                            Opacity="0.5"
+                            Text="{x:Bind domain:Translator.ComposerImagesDropZone_Message}" />
+                    </Grid>
+                </Grid>
             </Grid>
         </Border>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="FilesDropZoneState">
+                <VisualState x:Name="FilesDropZoneHovered">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverFilesDropZone, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="FilesDropZoneText.Opacity" Value="1" />
+                        <Setter Target="FilesDropZoneBorder.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="FilesDropZoneNotHovered" />
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="ImagesDropZoneState">
+                <VisualState x:Name="ImagesDropZoneHovered">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsDraggingOverImagesDropZone, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ImagesDropZoneText.Opacity" Value="1" />
+                        <Setter Target="ImagesDropZoneBorder.Opacity" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="ImagesDropZoneNotHovered" />
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
     </Grid>
 
 

@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
@@ -122,7 +123,7 @@ namespace Wino.Views
 
         private void OnFileDropGridDragOver(object sender, DragEventArgs e)
         {
-            ViewModel.IsDraggingOverDropZone = true;
+            ViewModel.IsDraggingOverFilesDropZone = true;
 
             e.AcceptedOperation = DataPackageOperation.Copy;
             e.DragUIOverride.Caption = Translator.ComposerAttachmentsDragDropAttach_Message;
@@ -133,21 +134,94 @@ namespace Wino.Views
 
         private void OnFileDropGridDragLeave(object sender, DragEventArgs e)
         {
-            ViewModel.IsDraggingOverDropZone = false;
+            ViewModel.IsDraggingOverFilesDropZone = false;
         }
 
         private async void OnFileDropGridFileDropped(object sender, DragEventArgs e)
         {
+            try
+            {
+                if (e.DataView.Contains(StandardDataFormats.StorageItems))
+                {
+                    var storageItems = await e.DataView.GetStorageItemsAsync();
+                    var files = storageItems.OfType<StorageFile>();
+
+                    await AttachFiles(files);
+                }
+            }
+            // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
+            finally
+            {
+                ViewModel.IsDraggingOverComposerGrid = false;
+                ViewModel.IsDraggingOverFilesDropZone = false;
+            }
+        }
+        private void OnImageDropGridDragEnter(object sender, DragEventArgs e)
+        {
+            bool isValid = false;
             if (e.DataView.Contains(StandardDataFormats.StorageItems))
             {
-                var storageItems = await e.DataView.GetStorageItemsAsync();
-                var files = storageItems.OfType<StorageFile>();
+                // We can't use async/await here because DragUIOverride becomes inaccessible.
+                // https://github.com/microsoft/microsoft-ui-xaml/issues/9296
+                var files = e.DataView.GetStorageItemsAsync().GetAwaiter().GetResult().OfType<StorageFile>();
 
-                await AttachFiles(files);
+                foreach (var file in files)
+                {
+                    if (ValidateImageFile(file))
+                    {
+                        isValid = true;
+                    }
+                }
             }
 
-            ViewModel.IsDraggingOverComposerGrid = false;
-            ViewModel.IsDraggingOverDropZone = false;
+            e.AcceptedOperation = isValid ? DataPackageOperation.Copy : DataPackageOperation.None;
+
+            if (isValid)
+            {
+                ViewModel.IsDraggingOverImagesDropZone = true;
+                e.DragUIOverride.Caption = Translator.ComposerAttachmentsDragDropAttach_Message;
+                e.DragUIOverride.IsCaptionVisible = true;
+                e.DragUIOverride.IsGlyphVisible = true;
+                e.DragUIOverride.IsContentVisible = true;
+            }
+        }
+
+        private void OnImageDropGridDragLeave(object sender, DragEventArgs e)
+        {
+            ViewModel.IsDraggingOverImagesDropZone = false;
+        }
+
+        private async void OnImageDropGridImageDropped(object sender, DragEventArgs e)
+        {
+            try
+            {
+                if (e.DataView.Contains(StandardDataFormats.StorageItems))
+                {
+                    var storageItems = await e.DataView.GetStorageItemsAsync();
+                    var files = storageItems.OfType<StorageFile>();
+
+                    var imageDataURLs = new List<string>();
+
+                    foreach (var file in files)
+                    {
+                        if (ValidateImageFile(file))
+                            imageDataURLs.Add(await GetDataURL(file));
+                    }
+
+                    await InvokeScriptSafeAsync($"insertImages({JsonConvert.SerializeObject(imageDataURLs)});");
+                }
+            }
+            // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
+            finally
+            {
+                ViewModel.IsDraggingOverComposerGrid = false;
+                ViewModel.IsDraggingOverImagesDropZone = false;
+            }
+
+            static async Task<string> GetDataURL(StorageFile file)
+            {
+                return $"data:image/{file.FileType.Replace(".", "")};base64,{Convert.ToBase64String(await file.ReadBytesAsync())}";
+            }
         }
 
         private async Task AttachFiles(IEnumerable<StorageFile> files)
@@ -164,6 +238,14 @@ namespace Wino.Views
                     ViewModel.IncludedAttachments.Add(attachmentViewModel);
                 }
             }
+        }
+
+        private bool ValidateImageFile(StorageFile file)
+        {
+            string[] allowedTypes = new string[] { ".jpg", ".jpeg", ".png" };
+            var fileType = file.FileType.ToLower();
+
+            return allowedTypes.Contains(fileType);
         }
 
         private async void BoldButtonClicked(object sender, RoutedEventArgs e)
@@ -254,7 +336,7 @@ namespace Wino.Views
         {
             try
             {
-                return await Chromium.ExecuteScriptAsync(function);
+                return await Chromium?.ExecuteScriptAsync(function);
             }
             catch (Exception ex)
             {
@@ -282,17 +364,6 @@ namespace Wino.Views
             CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
 
             await FocusEditorAsync();
-        }
-
-        private async Task<string> TryGetSelectedTextAsync()
-        {
-            try
-            {
-                return await Chromium.ExecuteScriptAsync("getSelectedText();");
-            }
-            catch (Exception) { }
-
-            return string.Empty;
         }
 
         public async Task UpdateEditorThemeAsync()

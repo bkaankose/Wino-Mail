@@ -24,7 +24,7 @@ imageInput.addEventListener('change', () => {
         const reader = new FileReader();
         reader.onload = function (event) {
             const base64Image = event.target.result;
-            editor.selection.insertHTML(`<img src="${base64Image}" alt="Embedded Image">`);
+            insertImages([base64Image]);
         };
         reader.readAsDataURL(file);
     }
@@ -96,3 +96,9 @@ function toggleToolbar(enable) {
         toolbar.style.display = 'none';
     }
 }
+
+function insertImages(images) {
+    images.forEach(image => {
+        editor.selection.insertHTML(`<img src="${image}" alt="Embedded Image">`);
+    });
+};
