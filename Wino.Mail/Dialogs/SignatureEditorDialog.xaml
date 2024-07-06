@@ -167,7 +167,7 @@
                         Background="Transparent"
                         BorderBrush="Transparent"
                         SelectionChanged="AlignmentChanged">
-                        <ComboBoxItem Tag="left">
+                        <ComboBoxItem IsSelected="True" Tag="left">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Viewbox Width="16">
                                     <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
