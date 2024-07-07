@@ -10,6 +10,7 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Views.Settings;
 
 namespace Wino.Dialogs
@@ -71,9 +72,9 @@ namespace Wino.Dialogs
 
             _getHTMLBodyFunction = new Func<Task<string>>(async () =>
             {
-                var quillContent = await InvokeScriptSafeAsync("GetHTMLContent();");
+                var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonConvert.DeserializeObject<string>(quillContent);
+                return JsonConvert.DeserializeObject<string>(editorContent);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -121,57 +122,44 @@ namespace Wino.Dialogs
             Hide();
         }
 
-        private async void HyperlinkAddClicked(object sender, RoutedEventArgs e)
-        {
-            await InvokeScriptSafeAsync($"addHyperlink('{LinkUrlTextBox.Text}')");
-
-            LinkUrlTextBox.Text = string.Empty;
-            HyperlinkFlyout.Hide();
-        }
-
         private async void BoldButtonClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('boldButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('bold')");
         }
 
         private async void ItalicButtonClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('italicButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('italic')");
         }
 
         private async void UnderlineButtonClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('underlineButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('underline')");
         }
 
         private async void StrokeButtonClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('strikeButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('strikethrough')");
         }
 
         private async void BulletListButtonClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('bulletListButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('insertunorderedlist')");
         }
 
         private async void OrderedListButtonClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('orderedListButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('insertorderedlist')");
         }
 
         private async void IncreaseIndentClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('increaseIndentButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('indent')");
         }
 
         private async void DecreaseIndentClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('decreaseIndentButton').click();");
-        }
-
-        private async void DirectionButtonClicked(object sender, RoutedEventArgs e)
-        {
-            await InvokeScriptSafeAsync("document.getElementById('directionButton').click();");
+            await InvokeScriptSafeAsync("editor.execCommand('outdent')");
         }
 
         private async void AlignmentChanged(object sender, SelectionChangedEventArgs e)
@@ -182,16 +170,16 @@ namespace Wino.Dialogs
             switch (alignment)
             {
                 case "left":
-                    await InvokeScriptSafeAsync("document.getElementById('ql-align-left').click();");
+                    await InvokeScriptSafeAsync("editor.execCommand('justifyleft')");
                     break;
                 case "center":
-                    await InvokeScriptSafeAsync("document.getElementById('ql-align-center').click();");
+                    await InvokeScriptSafeAsync("editor.execCommand('justifycenter')");
                     break;
                 case "right":
-                    await InvokeScriptSafeAsync("document.getElementById('ql-align-right').click();");
+                    await InvokeScriptSafeAsync("editor.execCommand('justifyright')");
                     break;
                 case "justify":
-                    await InvokeScriptSafeAsync("document.getElementById('ql-align-justify').click();");
+                    await InvokeScriptSafeAsync("editor.execCommand('justifyfull')");
                     break;
             }
         }
@@ -218,19 +206,22 @@ namespace Wino.Dialogs
             {
                 return await Chromium.ExecuteScriptAsync(function);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
 
             return string.Empty;
         }
 
         private async void AddImageClicked(object sender, RoutedEventArgs e)
         {
-            await InvokeScriptSafeAsync("document.getElementById('addImageButton').click();");
+            await InvokeScriptSafeAsync("imageInput.click();");
         }
 
         private async Task FocusEditorAsync()
         {
-            await InvokeScriptSafeAsync("quill.focus();");
+            await InvokeScriptSafeAsync("editor.selection.focus();");
 
             Chromium.Focus(FocusState.Keyboard);
             Chromium.Focus(FocusState.Programmatic);
@@ -254,12 +245,10 @@ namespace Wino.Dialogs
             return string.Empty;
         }
 
-        private async void LinkButtonClicked(object sender, RoutedEventArgs e)
+        private async void WebViewToggleButtonClicked(object sender, RoutedEventArgs e)
         {
-            // Get selected text from Quill.
-            HyperlinkTextBox.Text = await TryGetSelectedTextAsync();
-
-            HyperlinkFlyout.ShowAt(LinkButton);
+            var enable = WebviewToolBarButton.IsChecked == true ? "true" : "false";
+            await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
         }
 
         private async Task UpdateEditorThemeAsync()
@@ -298,10 +287,10 @@ namespace Wino.Dialogs
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
         {
-            var editorBundlePath = (await _nativeAppService.GetQuillEditorBundlePathAsync()).Replace("full.html", string.Empty);
+            var editorBundlePath = (await _nativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
 
-            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.example", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
-            Chromium.Source = new Uri("https://app.example/full.html");
+            Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
+            Chromium.Source = new Uri("https://app.editor/editor.html");
 
             Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
             Chromium.CoreWebView2.DOMContentLoaded += DOMLoaded;
@@ -320,46 +309,52 @@ namespace Wino.Dialogs
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonConvert.DeserializeObject<string>(args.WebMessageAsJson);
+            var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
 
-            bool isEnabled = change.EndsWith("ql-active");
-
-            if (change.StartsWith("ql-bold"))
-                BoldButton.IsChecked = isEnabled;
-            else if (change.StartsWith("ql-italic"))
-                ItalicButton.IsChecked = isEnabled;
-            else if (change.StartsWith("ql-underline"))
-                UnderlineButton.IsChecked = isEnabled;
-            else if (change.StartsWith("ql-strike"))
-                StrokeButton.IsChecked = isEnabled;
-            else if (change.StartsWith("orderedListButton"))
-                OrderedListButton.IsChecked = isEnabled;
-            else if (change.StartsWith("bulletListButton"))
-                BulletListButton.IsChecked = isEnabled;
-            else if (change.StartsWith("ql-direction"))
-                DirectionButton.IsChecked = isEnabled;
-            else if (change.StartsWith("ql-align-left"))
+            if (change.type == "bold")
             {
-                AlignmentListView.SelectionChanged -= AlignmentChanged;
-                AlignmentListView.SelectedIndex = 0;
-                AlignmentListView.SelectionChanged += AlignmentChanged;
+                BoldButton.IsChecked = change.value == "true";
             }
-            else if (change.StartsWith("ql-align-center"))
+            else if (change.type == "italic")
             {
-                AlignmentListView.SelectionChanged -= AlignmentChanged;
-                AlignmentListView.SelectedIndex = 1;
-                AlignmentListView.SelectionChanged += AlignmentChanged;
+                ItalicButton.IsChecked = change.value == "true";
             }
-            else if (change.StartsWith("ql-align-right"))
+            else if (change.type == "underline")
             {
-                AlignmentListView.SelectionChanged -= AlignmentChanged;
-                AlignmentListView.SelectedIndex = 2;
-                AlignmentListView.SelectionChanged += AlignmentChanged;
+                UnderlineButton.IsChecked = change.value == "true";
             }
-            else if (change.StartsWith("ql-align-justify"))
+            else if (change.type == "strikethrough")
             {
+                StrokeButton.IsChecked = change.value == "true";
+            }
+            else if (change.type == "ol")
+            {
+                OrderedListButton.IsChecked = change.value == "true";
+            }
+            else if (change.type == "ul")
+            {
+                BulletListButton.IsChecked = change.value == "true";
+            }
+            else if (change.type == "indent")
+            {
+                IncreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+            }
+            else if (change.type == "outdent")
+            {
+                DecreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+            }
+            else if (change.type == "alignment")
+            {
+                var parsedValue = change.value switch
+                {
+                    "jodit-icon_left" => 0,
+                    "jodit-icon_center" => 1,
+                    "jodit-icon_right" => 2,
+                    "jodit-icon_justify" => 3,
+                    _ => 0
+                };
                 AlignmentListView.SelectionChanged -= AlignmentChanged;
-                AlignmentListView.SelectedIndex = 3;
+                AlignmentListView.SelectedIndex = parsedValue;
                 AlignmentListView.SelectionChanged += AlignmentChanged;
             }
         }

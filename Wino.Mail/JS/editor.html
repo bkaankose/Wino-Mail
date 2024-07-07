@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="language" content="english">
+    <script src="./libs/jodit.min.js"></script>
+    <script src="./libs/darkreader.js"></script>
+    <link rel="stylesheet" href="./libs/jodit.min.css" />
+    <link rel="stylesheet" href="./global.css" />
+
+    <style>
+        .jodit-toolbar-button__trigger svg > path {
+            fill: black;
+        }
+
+        #editor {
+            height: 100%;
+        }
+
+        .jodit-container:not(.jodit_inline) {
+            background-color: transparent;
+            border: none;
+            border-radius: initial;
+        }
+
+        .jodit-wysiwyg {
+            min-height: 200px
+        }
+
+        /* Hide taskbar in css. Should not be hidden from configuration, because it's used to sync state with native buttons. */
+        .jodit-toolbar__box {
+            display: none;
+        }
+
+        body {
+            margin: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <meta name="color-scheme" content="dark light">
+    <textarea id="editor" name="editor"></textarea>
+
+    <!-- hidden input to handle image uploads -->
+    <input type="file" id="imageInput" style="display:none;">
+    <script src="/editor.js"></script>
+</body>
+
+</html>

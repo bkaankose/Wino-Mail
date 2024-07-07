@@ -371,7 +371,7 @@
             Grid.Row="1"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
-            BorderThickness="0"
+            BorderThickness="1"
             CornerRadius="7">
             <Grid Margin="1" CornerRadius="7">
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />

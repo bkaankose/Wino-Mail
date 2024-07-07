@@ -8,7 +8,7 @@ namespace Wino.Core.Domain.Interfaces
     {
         string GetWebAuthenticationBrokerUri();
         Task<string> GetMimeMessageStoragePath();
-        Task<string> GetQuillEditorBundlePathAsync();
+        Task<string> GetEditorBundlePathAsync();
         Task LaunchFileAsync(string filePath);
         Task LaunchUriAsync(Uri uri);
         bool IsAppRunning();

@@ -137,6 +137,9 @@
                         <PathIcon Data="{StaticResource OrderedListPathIcon}" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
+
+                <AppBarSeparator />
+
                 <AppBarButton
                     x:Name="DecreaseIndentButton"
                     Width="48"
@@ -157,22 +160,14 @@
                         <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarSeparator />
-
-                <AppBarToggleButton
-                    x:Name="DirectionButton"
-                    Width="48"
-                    Click="DirectionButtonClicked"
-                    Label="Direction"
-                    ToolTipService.ToolTip="Direction">
-                    <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource ParagraphPathIcon}" />
-                    </AppBarToggleButton.Icon>
-                </AppBarToggleButton>
 
                 <AppBarElementContainer VerticalAlignment="Center">
-                    <ComboBox x:Name="AlignmentListView" SelectionChanged="AlignmentChanged">
-                        <ComboBoxItem Tag="left">
+                    <ComboBox
+                        x:Name="AlignmentListView"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        SelectionChanged="AlignmentChanged">
+                        <ComboBoxItem IsSelected="True" Tag="left">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Viewbox Width="16">
                                     <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
@@ -238,43 +233,30 @@
                         <PathIcon Data="{StaticResource EmojiPathIcon}" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarButton
-                    x:Name="LinkButton"
+
+                <AppBarToggleButton
+                    x:Name="WebviewToolBarButton"
                     Width="48"
-                    Click="LinkButtonClicked"
-                    FrameworkElement.AllowFocusOnInteraction="True"
-                    Label="Add HyperLink"
-                    ToolTipService.ToolTip="Add HyperLink">
-                    <AppBarButton.Flyout>
-                        <Flyout x:Name="HyperlinkFlyout">
-                            <StackPanel Width="250" Spacing="6">
-                                <TextBox x:Name="HyperlinkTextBox" Header="Text" />
-                                <TextBox
-                                    x:Name="LinkUrlTextBox"
-                                    Header="Link"
-                                    PlaceholderText="https://" />
-                                <Button
-                                    x:Name="AddHyperlinkButton"
-                                    Margin="0,6"
-                                    HorizontalAlignment="Stretch"
-                                    Click="HyperlinkAddClicked"
-                                    Content="{x:Bind domain:Translator.AddHyperlink}" />
-                            </StackPanel>
-                        </Flyout>
-                    </AppBarButton.Flyout>
-                    <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+                    Click="WebViewToggleButtonClicked"
+                    Label="Webview ToolBar"
+                    ToolTipService.ToolTip="Webview ToolBar">
+                    <AppBarToggleButton.Icon>
+                        <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
+                    </AppBarToggleButton.Icon>
+                </AppBarToggleButton>
             </CommandBar>
-            <Grid
+            <Border
                 Grid.Row="1"
                 Margin="0,6,0,0"
+                BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
                 CornerRadius="3">
-                <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+                <Grid CornerRadius="3">
+                    <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <muxc:WebView2 x:Name="Chromium" />
-            </Grid>
+                    <muxc:WebView2 x:Name="Chromium" />
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </ContentDialog>
