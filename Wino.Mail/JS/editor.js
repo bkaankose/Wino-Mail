@@ -6,6 +6,7 @@ const editor = Jodit.make("#editor", {
     "toolbarAdaptive": false,
     "toolbarInlineForSelection": false,
     "showCharsCounter": false,
+    style: { font: "14px Arial" },
     "showWordsCounter": false,
     "showXPathInStatusbar": false,
     "disablePlugins": "add-new-line",
