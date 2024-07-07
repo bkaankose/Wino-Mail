@@ -25,6 +25,7 @@ I'm a big fan of Windows Mail & Calendars due to its simplicity. Personally, I f
 - API integration for Outlook and Gmail
 - IMAP/SMTP support for custom mail servers
 - Send, receive, mark as (read,important,spam etc), move mails.
+- Linked/Merged Accounts
 - Toast notifications with background sync.
 - Instant startup performance
 - Offline use / search.
@@ -43,7 +44,7 @@ Download latest version of Wino Mail from Microsoft Store for free.
 
 ## Beta Releases
 
-Stable releases will always be distributed on Microsoft Store. However, beta releases will be distributed in [GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases). Please keep in mind that beta releases might not be for daily use, only for testing purposes and recommended for experienced users or developers.
+Stable releases will always be distributed on Microsoft Store. However, beta releases will be distributed in [GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases). Please keep in mind that beta releases might not be for daily use, only for testing purposes and recommended for experienced users or developers. Beta releases are also managed manually. Therefore, code in the repository might be ahead of the released Beta version at the moment. Make sure to compare versions before tryout out the Beta version.
 
 These releases are distributed as side-loaded packages. To install them, download the **.msixbundle** file in GitHub releases and [follow the steps explained here.](https://learn.microsoft.com/en-us/windows/application-management/sideload-apps-in-windows)
 
@@ -51,10 +52,6 @@ These releases are distributed as side-loaded packages. To install them, downloa
 ## Contributing
 
 Check out the [contribution guidelines](/CONTRIBUTING.md) before diving into the source code or opening an issue. There are multiple ways to contribute and all of them are explained in detail there.
-
-#### Attention
-
-Sources here **does not belong to the Store version of Wino Mail. It belongs to beta release as of April 17 2024.** I've been working on a big patch for couple months already and the code here includes those changes, but these changes are not yet released to Microsoft Store. Therefore, if you'd like to contribute, please validate the bug before in beta version and start working on it. I will delete this text from here once this big patch goes alive in the Store, so everything will be aligned then.
 
 ## Donate
 

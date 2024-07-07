@@ -670,16 +670,13 @@ namespace Wino.Core.Services
                 }
 
                 message.Headers.Add("Thread-Topic", referenceMessage.Subject);
-            }
 
-            var previewer = new HtmlTextPreviewer();
+                builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
+            }
 
             if (reason == DraftCreationReason.Forward)
             {
-                var visitor = _mimeFileService.CreateHTMLPreviewVisitor(referenceMessage, string.Empty);
-                visitor.Visit(referenceMessage);
-
-                builder.HtmlBody = visitor.HtmlBody;
+                builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
             }
 
             // Append signatures if needed.
@@ -695,11 +692,11 @@ namespace Wino.Core.Services
 
                     if (string.IsNullOrWhiteSpace(builder.HtmlBody))
                     {
-                        builder.HtmlBody = @$"<html><br><br>{signature.HtmlBody}</html>";
+                        builder.HtmlBody = $"<br><br><br>{signature.HtmlBody}";
                     }
                     else
                     {
-                        builder.HtmlBody += @$"{signature.HtmlBody}";
+                        builder.HtmlBody = $"<br><br><br>{signature.HtmlBody}" + builder.HtmlBody;
                     }
                 }
             }
@@ -772,6 +769,37 @@ namespace Wino.Core.Services
             }
 
             return message;
+
+            // Generates html representation of To/Cc/From/Time and so on from referenced message.
+            string CreateHtmlForReferencingMessage(MimeMessage referenceMessage)
+            {
+                var htmlMimeInfo = string.Empty;
+                // Separation Line
+                htmlMimeInfo += "<br><br><hr style='display:inline-block;width:100%' tabindex='-1'>";
+
+                var visitor = _mimeFileService.CreateHTMLPreviewVisitor(referenceMessage, string.Empty);
+                visitor.Visit(referenceMessage);
+
+                htmlMimeInfo += $"""
+                        <div id="divRplyFwdMsg" dir="ltr">
+                          <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
+                            <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
+                            <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
+                            <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
+                            {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
+                            <b>Subject:</b> {referenceMessage.Subject}
+                          </font>
+                          <div>&nbsp;</div>
+                          {visitor.HtmlBody}
+                        </div>
+                        """;
+
+                return htmlMimeInfo;
+            }
+
+            static string ParticipantsToHtml(InternetAddressList internetAddresses) =>
+                string.Join("; ", internetAddresses.Mailboxes
+                                            .Select(x => $"{x.Name ?? Translator.UnknownSender} &lt;<a href=\"mailto:{x.Address ?? Translator.UnknownAddress}\">{x.Address ?? Translator.UnknownAddress}</a>&gt;"));
         }
 
         public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)

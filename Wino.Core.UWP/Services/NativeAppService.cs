@@ -77,11 +77,11 @@ namespace Wino.Services
             return new GoogleAuthorizationRequest(state, code_verifier, code_challenge);
         }
 
-        public async Task<string> GetQuillEditorBundlePathAsync()
+        public async Task<string> GetEditorBundlePathAsync()
         {
             if (string.IsNullOrEmpty(_editorBundlePath))
             {
-                var editorFileFromBundle = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///JS/Quill/full.html"))
+                var editorFileFromBundle = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///JS/editor.html"))
                     .AsTask()
                     .ConfigureAwait(false);
 

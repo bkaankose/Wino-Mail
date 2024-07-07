@@ -1,18 +1,5 @@
 ﻿
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 namespace Wino.Core.Domain
 {
 	public class Translator
@@ -352,6 +339,12 @@ namespace Wino.Core.Domain
 	
 
         /// <summary>
+		/// Drop your images here
+		/// </summary>
+		public static string ComposerImagesDropZone_Message => Resources.GetTranslatedString(@"ComposerImagesDropZone_Message");	
+	
+
+        /// <summary>
 		/// Attach
 		/// </summary>
 		public static string ComposerAttachmentsDragDropAttach_Message => Resources.GetTranslatedString(@"ComposerAttachmentsDragDropAttach_Message");	
@@ -631,6 +624,12 @@ namespace Wino.Core.Domain
 		/// Options
 		/// </summary>
 		public static string EditorToolbarOption_Options => Resources.GetTranslatedString(@"EditorToolbarOption_Options");	
+	
+
+        /// <summary>
+		/// Use web view editor
+		/// </summary>
+		public static string EditorTooltip_WebViewEditor => Resources.GetTranslatedString(@"EditorTooltip_WebViewEditor");	
 	
 
         /// <summary>

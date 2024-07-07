@@ -72,7 +72,10 @@ namespace Wino.Mail.ViewModels
         private bool isDraggingOverComposerGrid;
 
         [ObservableProperty]
-        private bool isDraggingOverDropZone;
+        private bool isDraggingOverFilesDropZone;
+
+        [ObservableProperty]
+        private bool isDraggingOverImagesDropZone;
 
         public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
 

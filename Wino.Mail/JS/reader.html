@@ -1,8 +1,25 @@
 <html>
-<body style="padding-left:12px; padding-right:12px; padding-top:8px; padding-bottom: 8px; margin: 0px; border-radius: 8px;">
-    <meta name="color-scheme" content="dark light">
-    <script src="https://app.reader/darkreader.js"></script>
+<head>
+    <link rel="stylesheet" href="./global.css" />
+    <script src="./libs/darkreader.js"></script>
+    <style>
+        body {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            margin: 0px;
+            border-radius: 8px;
+        }
 
+        #readerDiv {
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: transparent !important;
+        }
+    </style>
+</head>
+<body>
+    <meta name="color-scheme" content="dark light">
     <script>
         function RenderHTML(htmlString) {
             var containerDiv = document.getElementById("readerDiv");
@@ -29,10 +46,6 @@
             DarkReader.enable();
         }
     </script>
-
-    <link rel="stylesheet" href="https://app.reader/reader.css" />
-    <div id="readerDiv">
-    </div>
-    <link rel="stylesheet" href="https://app.reader/global.css" />
+    <div id="readerDiv"></div>
 </body>
 </html>
