@@ -236,7 +236,7 @@ namespace Wino.Core.Services
 
                     if (!string.IsNullOrEmpty(newFolderName))
                     {
-                        change = new RenameFolderRequest(folder, newFolderName);
+                        change = new RenameFolderRequest(folder, folder.FolderName, newFolderName);
                     }
 
                     break;

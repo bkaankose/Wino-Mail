@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Requests;
@@ -21,7 +22,8 @@ namespace Wino.Mail.ViewModels
         IRecipient<MailDownloadedMessage>,
         IRecipient<DraftCreated>,
         IRecipient<DraftFailed>,
-        IRecipient<DraftMapped>
+        IRecipient<DraftMapped>,
+        IRecipient<FolderRenamed>
     {
         private IDispatcher _dispatcher;
         public IDispatcher Dispatcher
@@ -66,6 +68,7 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
         protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
         protected virtual void OnDraftMapped(string localDraftCopyId, string remoteDraftCopyId) { }
+        protected virtual void OnFolderRenamed(IMailItemFolder mailItemFolder) { }
 
         public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
             => Messenger.Send(message);
@@ -79,8 +82,11 @@ namespace Wino.Mail.ViewModels
         void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);
         void IRecipient<MailUpdatedMessage>.Receive(MailUpdatedMessage message) => OnMailUpdated(message.UpdatedMail);
         void IRecipient<MailDownloadedMessage>.Receive(MailDownloadedMessage message) => OnMailDownloaded(message.DownloadedMail);
+
         void IRecipient<DraftMapped>.Receive(DraftMapped message) => OnDraftMapped(message.LocalDraftCopyId, message.RemoteDraftCopyId);
         void IRecipient<DraftFailed>.Receive(DraftFailed message) => OnDraftFailed(message.DraftMail, message.Account);
         void IRecipient<DraftCreated>.Receive(DraftCreated message) => OnDraftCreated(message.DraftMail, message.Account);
+
+        void IRecipient<FolderRenamed>.Receive(FolderRenamed message) => OnFolderRenamed(message.MailItemFolder);
     }
 }

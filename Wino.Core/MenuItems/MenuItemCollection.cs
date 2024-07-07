@@ -38,6 +38,31 @@ namespace Wino.Core.MenuItems
             }
         }
 
+        public IEnumerable<IBaseFolderMenuItem> GetAllFolderMenuItems(Guid folderId)
+        {
+            foreach (var item in this)
+            {
+                if (item is IBaseFolderMenuItem folderMenuItem)
+                {
+                    if (folderMenuItem.HandlingFolders.Any(a => a.Id == folderId))
+                    {
+                        yield return folderMenuItem;
+                    }
+                    else if (folderMenuItem.SubMenuItems.Any())
+                    {
+                        foreach (var subItem in folderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>())
+                        {
+                            if (subItem.HandlingFolders.Any(a => a.Id == folderId))
+                            {
+                                yield return subItem;
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+
         public bool TryGetAccountMenuItem(Guid accountId, out IAccountMenuItem value)
         {
             value = this.OfType<AccountMenuItem>().FirstOrDefault(a => a.AccountId == accountId);

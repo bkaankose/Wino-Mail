@@ -52,6 +52,8 @@ namespace Wino.Core.MenuItems
 
         public bool ShowUnreadCount => Parameter.ShowUnreadCount;
 
+        IEnumerable<IMenuItem> IBaseFolderMenuItem.SubMenuItems => SubMenuItems;
+
         public FolderMenuItem(IMailItemFolder folderStructure, MailAccount parentAccount, IMenuItem parentMenuItem) : base(folderStructure, folderStructure.Id, parentMenuItem)
         {
             ParentAccount = parentAccount;

@@ -37,6 +37,8 @@ namespace Wino.Core.MenuItems
 
         public bool ShowUnreadCount => HandlingFolders?.Any(a => a.ShowUnreadCount) ?? false;
 
+        public IEnumerable<IMenuItem> SubMenuItems => SubMenuItems;
+
         [ObservableProperty]
         private int unreadItemCount;
 

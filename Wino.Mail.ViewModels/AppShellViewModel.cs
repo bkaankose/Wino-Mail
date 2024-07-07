@@ -221,7 +221,7 @@ namespace Wino.Mail.ViewModels
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
-            //await ForceAllAccountSynchronizationsAsync();
+            // await ForceAllAccountSynchronizationsAsync();
             await ConfigureBackgroundTasksAsync();
         }
 
@@ -968,5 +968,23 @@ namespace Wino.Mail.ViewModels
         }
 
         public void Receive(AccountMenuItemsReordered message) => ReorderAccountMenuItems(message.newOrderDictionary);
+
+        protected override async void OnFolderRenamed(IMailItemFolder mailItemFolder)
+        {
+            base.OnFolderRenamed(mailItemFolder);
+
+            var menuItem = MenuItems.GetAllFolderMenuItems(mailItemFolder.Id);
+
+            if (!menuItem.Any()) return;
+
+            foreach (var item in menuItem)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    item.UpdateFolder(mailItemFolder);
+                });
+
+            }
+        }
     }
 }

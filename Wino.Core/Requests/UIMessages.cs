@@ -1,5 +1,6 @@
 ﻿using System;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Requests;
 
 namespace Wino.Core.Requests
@@ -18,4 +19,6 @@ namespace Wino.Core.Requests
     public record DraftMapped(string LocalDraftCopyId, string RemoteDraftCopyId) : IUIMessage;
 
     public record MergedInboxRenamed(Guid MergedInboxId, string NewName) : IUIMessage;
+
+    public record FolderRenamed(IMailItemFolder MailItemFolder) : IUIMessage;
 }
