@@ -334,9 +334,11 @@ namespace Wino.Views
 
         private async Task<string> InvokeScriptSafeAsync(string function)
         {
+            if (Chromium == null) return string.Empty;
+
             try
             {
-                return await Chromium?.ExecuteScriptAsync(function);
+                return await Chromium.ExecuteScriptAsync(function);
             }
             catch (Exception ex)
             {
