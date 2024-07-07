@@ -331,8 +331,8 @@
                         <AppBarToggleButton
                             x:Name="WebviewToolBarButton"
                             Click="WebViewToggleButtonClicked"
-                            Label="Webview ToolBar"
-                            ToolTipService.ToolTip="Webview ToolBar">
+                            Label="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}">
                             <AppBarToggleButton.Icon>
                                 <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
                             </AppBarToggleButton.Icon>

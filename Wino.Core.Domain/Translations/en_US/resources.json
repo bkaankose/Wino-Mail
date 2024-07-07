@@ -98,6 +98,7 @@
     "EditorToolbarOption_Insert": "Insert",
     "EditorToolbarOption_None": "None",
     "EditorToolbarOption_Options": "Options",
+    "EditorTooltip_WebViewEditor":  "Use web view editor",
     "ElementTheme_Dark": "Dark mode",
     "ElementTheme_Default": "Use system setting",
     "ElementTheme_Light": "Light mode",
