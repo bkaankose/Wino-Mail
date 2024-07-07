@@ -81,7 +81,7 @@ namespace Wino.Core.Integration
                         {
                             await client.IdentifyAsync(_implementation);
                         }
-                        catch (ImapCommandException commandException) when (commandException.Response == ImapCommandResponse.No)
+                        catch (ImapCommandException commandException) when (commandException.Response == ImapCommandResponse.No || commandException.Response == ImapCommandResponse.Bad)
                         {
                             mustDoPostAuthIdentification = true;
                         }
