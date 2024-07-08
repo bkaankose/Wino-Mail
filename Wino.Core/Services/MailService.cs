@@ -785,7 +785,7 @@ namespace Wino.Core.Services
                           <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
                             <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
                             <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
-                            {(referenceMessage.To.Count > 0 ? $"<b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>" : string.Empty)}
+                            {(referenceMessage.To.Mailboxes.Any() ? $"<b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>" : string.Empty)}
                             {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
                             <b>Subject:</b> {referenceMessage.Subject}
                           </font>
