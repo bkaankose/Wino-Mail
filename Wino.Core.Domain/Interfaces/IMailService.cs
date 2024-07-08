@@ -14,10 +14,6 @@ namespace Wino.Core.Domain.Interfaces
         Task<MailCopy> CreateDraftAsync(MailAccount composerAccount, MimeMessage generatedReplyMime, MimeMessage replyingMimeMessage = null, IMailItem replyingMailItem = null);
         Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options);
 
-        Task<List<string>> GetMailIdsByFolderIdAsync(Guid folderId);
-
-        // v2
-
         /// <summary>
         /// Deletes all mail copies for all folders.
         /// </summary>
@@ -84,5 +80,17 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="mailCopyId">Native mail id of the message.</param>
         Task<bool> IsMailExistsAsync(string mailCopyId);
+
+        /// <summary>
+        /// Returns all mails for given folder id.
+        /// </summary>
+        /// <param name="folderId">Folder id to get mails for</param>
+        Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId);
+
+        /// <summary>
+        /// Returns all unread mails for given folder id.
+        /// </summary>
+        /// <param name="folderId">Folder id to get unread mails for.</param>
+        Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId);
     }
 }

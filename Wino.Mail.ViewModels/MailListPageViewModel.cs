@@ -19,10 +19,11 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Messages.Accounts;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
@@ -430,7 +431,6 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private void SyncFolder()
         {
-            Messenger.Send(new AccountsMenuRefreshRequested());
             if (!CanSynchronize) return;
 
             // Only synchronize listed folders.
@@ -438,21 +438,21 @@ namespace Wino.Mail.ViewModels
             // When doing linked inbox sync, we need to save the sync id to report progress back only once.
             // Otherwise, we will report progress for each folder and that's what we don't want.
 
-            //trackingSynchronizationId = Guid.NewGuid();
-            //completedTrackingSynchronizationCount = 0;
+            trackingSynchronizationId = Guid.NewGuid();
+            completedTrackingSynchronizationCount = 0;
 
-            //foreach (var folder in ActiveFolder.HandlingFolders)
-            //{
-            //    var options = new SynchronizationOptions()
-            //    {
-            //        AccountId = folder.MailAccountId,
-            //        Type = SynchronizationType.Custom,
-            //        SynchronizationFolderIds = [folder.Id],
-            //        GroupedSynchronizationTrackingId = trackingSynchronizationId
-            //    };
+            foreach (var folder in ActiveFolder.HandlingFolders)
+            {
+                var options = new SynchronizationOptions()
+                {
+                    AccountId = folder.MailAccountId,
+                    Type = SynchronizationType.Custom,
+                    SynchronizationFolderIds = [folder.Id],
+                    GroupedSynchronizationTrackingId = trackingSynchronizationId
+                };
 
-            //    Messenger.Send(new NewSynchronizationRequested(options));
-            //}
+                Messenger.Send(new NewSynchronizationRequested(options));
+            }
         }
 
         [RelayCommand]
@@ -524,14 +524,6 @@ namespace Wino.Mail.ViewModels
             {
                 await _folderService.ChangeFolderSynchronizationStateAsync(folder.Id, true);
             }
-
-            // TODO
-            //ActiveFolder.IsSynchronizationEnabled = true;
-
-            //OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            //OnPropertyChanged(nameof(CanSynchronize));
-
-            //SyncFolderCommand?.Execute(null);
         }
 
         [RelayCommand]
@@ -956,6 +948,21 @@ namespace Wino.Mail.ViewModels
 
         public async void Receive(NewSynchronizationRequested message)
             => await ExecuteUIThread(() => { OnPropertyChanged(nameof(CanSynchronize)); });
+
+        protected override async void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
+        {
+            if (ActiveFolder?.EntityId != mailItemFolder.Id) return;
+
+            await ExecuteUIThread(() =>
+            {
+                ActiveFolder.UpdateFolder(mailItemFolder);
+
+                OnPropertyChanged(nameof(CanSynchronize));
+                OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
+            });
+
+            SyncFolderCommand?.Execute(null);
+        }
 
         public async void Receive(AccountSynchronizerStateChanged message)
             => await CheckIfAccountIsSynchronizingAsync();

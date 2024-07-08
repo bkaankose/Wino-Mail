@@ -710,7 +710,11 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
         {
-            return base.EmptyFolder(request);
+            // Create batch delete request.
+
+            var deleteRequests = request.MailsToDelete.Select(a => new DeleteRequest(a));
+
+            return Delete(new BatchDeleteRequest(deleteRequests));
         }
 
         #endregion

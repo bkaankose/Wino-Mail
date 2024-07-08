@@ -105,6 +105,24 @@ namespace Wino.Core.MenuItems
             return value != null;
         }
 
+        public void UpdateUnreadItemCountsToZero()
+        {
+            // Handle the root folders.
+            this.OfType<IBaseFolderMenuItem>().ForEach(a => RecursivelyResetUnreadItemCount(a));
+        }
+
+        private void RecursivelyResetUnreadItemCount(IBaseFolderMenuItem baseFolderMenuItem)
+        {
+            baseFolderMenuItem.UnreadItemCount = 0;
+
+            if (baseFolderMenuItem.SubMenuItems == null) return;
+
+            foreach (var subMenuItem in baseFolderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>())
+            {
+                RecursivelyResetUnreadItemCount(subMenuItem);
+            }
+        }
+
         public bool TryGetSpecialFolderMenuItem(Guid accountId, SpecialFolderType specialFolderType, out FolderMenuItem value)
         {
             value = this.OfType<IBaseFolderMenuItem>()

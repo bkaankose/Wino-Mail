@@ -408,6 +408,8 @@ namespace Wino.Mail.ViewModels
 
             await ExecuteUIThread(() =>
             {
+                Attachments.Clear();
+
                 Subject = message.Subject;
 
                 // TODO: FromName and FromAddress is probably not correct here for mail lists.

@@ -21,4 +21,5 @@ namespace Wino.Core.Requests
     public record MergedInboxRenamed(Guid MergedInboxId, string NewName) : IUIMessage;
 
     public record FolderRenamed(IMailItemFolder MailItemFolder) : IUIMessage;
+    public record FolderSynchronizationEnabled(IMailItemFolder MailItemFolder) : IUIMessage;
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
 using Serilog;
 using SqlKata;
@@ -15,6 +16,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
+using Wino.Core.Requests;
 
 namespace Wino.Core.Services
 {
@@ -435,6 +437,8 @@ namespace Wino.Core.Services
                 localFolder.IsSynchronizationEnabled = isSynchronizationEnabled;
 
                 await UpdateFolderAsync(localFolder).ConfigureAwait(false);
+
+                Messenger.Send(new FolderSynchronizationEnabled(localFolder));
             }
         }
 

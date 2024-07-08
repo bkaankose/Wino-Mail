@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
-using MimeKit.Text;
 using MoreLinq;
 using Serilog;
 using SqlKata;
@@ -111,9 +110,29 @@ namespace Wino.Core.Services
             return copy;
         }
 
-        public Task<List<string>> GetMailIdsByFolderIdAsync(Guid folderId)
-            => Connection.QueryScalarsAsync<string>("SELECT Id FROM MailCopy WHERE FolderId = ?", folderId);
+        public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
+        {
+            var mails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ?", folderId);
 
+            foreach (var mail in mails)
+            {
+                await LoadAssignedPropertiesAsync(mail).ConfigureAwait(false);
+            }
+
+            return mails;
+        }
+
+        public async Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId)
+        {
+            var unreadMails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ? AND IsRead = 0", folderId);
+
+            foreach (var mail in unreadMails)
+            {
+                await LoadAssignedPropertiesAsync(mail).ConfigureAwait(false);
+            }
+
+            return unreadMails;
+        }
 
         private string BuildMailFetchQuery(MailListInitializationOptions options)
         {

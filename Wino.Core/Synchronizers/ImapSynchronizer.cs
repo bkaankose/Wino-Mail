@@ -273,7 +273,10 @@ namespace Wino.Core.Synchronizers
         }
 
         public override IEnumerable<IRequestBundle<ImapRequest>> Archive(BatchArchiveRequest request)
-           => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+            => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+
+        public override IEnumerable<IRequestBundle<ImapRequest>> EmptyFolder(EmptyFolderRequest request)
+            => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
 
         public override IEnumerable<IRequestBundle<ImapRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {

@@ -283,7 +283,9 @@ namespace Wino.Core.Synchronizers
                         case MailSynchronizerOperation.EmptyFolder:
                             yield return EmptyFolder((EmptyFolderRequest)item);
                             break;
-
+                        case MailSynchronizerOperation.MarkFolderRead:
+                            yield return MarkFolderAsRead((MarkFolderAsReadRequest)item);
+                            break;
                         case MailSynchronizerOperation.Archive:
                             yield return Archive((BatchArchiveRequest)item);
                             break;
@@ -341,6 +343,7 @@ namespace Wino.Core.Synchronizers
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> SendDraft(BatchSendDraftRequestRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual IEnumerable<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> Archive(BatchArchiveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
         /// <summary>

@@ -613,6 +613,14 @@ namespace Wino.Mail.ViewModels
             var accountIds = accountMenuItems.OfType<AccountMenuItem>().Select(a => a.AccountId);
             var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(accountIds).ConfigureAwait(false);
 
+            // Recursively update all folders' unread counts to 0.
+            // Query above only returns unread counts that exists. We need to reset the rest to 0 first.
+
+            await ExecuteUIThread(() =>
+            {
+                MenuItems.UpdateUnreadItemCountsToZero();
+            });
+
             foreach (var accountMenuItem in accountMenuItems)
             {
                 if (accountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
@@ -626,7 +634,9 @@ namespace Wino.Mail.ViewModels
                 {
                     await ExecuteUIThread(() =>
                     {
-                        accountMenuItem.UnreadItemCount = unreadCountResult.Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id && a.SpecialFolderType == SpecialFolderType.Inbox).Sum(a => a.UnreadItemCount);
+                        accountMenuItem.UnreadItemCount = unreadCountResult
+                        .Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id && a.SpecialFolderType == SpecialFolderType.Inbox)
+                        .Sum(a => a.UnreadItemCount);
                     });
                 }
             }
@@ -969,11 +979,9 @@ namespace Wino.Mail.ViewModels
 
         public void Receive(AccountMenuItemsReordered message) => ReorderAccountMenuItems(message.newOrderDictionary);
 
-        protected override async void OnFolderRenamed(IMailItemFolder mailItemFolder)
+        private async void UpdateFolderCollection(IMailItemFolder updatedMailItemFolder)
         {
-            base.OnFolderRenamed(mailItemFolder);
-
-            var menuItem = MenuItems.GetAllFolderMenuItems(mailItemFolder.Id);
+            var menuItem = MenuItems.GetAllFolderMenuItems(updatedMailItemFolder.Id);
 
             if (!menuItem.Any()) return;
 
@@ -981,10 +989,23 @@ namespace Wino.Mail.ViewModels
             {
                 await ExecuteUIThread(() =>
                 {
-                    item.UpdateFolder(mailItemFolder);
+                    item.UpdateFolder(updatedMailItemFolder);
                 });
-
             }
+        }
+
+        protected override void OnFolderRenamed(IMailItemFolder mailItemFolder)
+        {
+            base.OnFolderRenamed(mailItemFolder);
+
+            UpdateFolderCollection(mailItemFolder);
+        }
+
+        protected override void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
+        {
+            base.OnFolderSynchronizationEnabled(mailItemFolder);
+
+            UpdateFolderCollection(mailItemFolder);
         }
     }
 }

@@ -241,26 +241,19 @@ namespace Wino.Core.Services
 
                     break;
                 case FolderOperation.Empty:
-                    change = new EmptyFolderRequest(folder);
+                    var mailsToDelete = await _mailService.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
+
+                    change = new EmptyFolderRequest(folder, mailsToDelete);
+
                     break;
-                    //case FolderOperation.MarkAllAsRead:
-                    //    // Get all mails in the folder.
+                case FolderOperation.MarkAllAsRead:
 
-                    //    var mailItems = await _folderService.GetAllUnreadItemsByFolderIdAsync(accountId, folderStructure.RemoteFolderId).ConfigureAwait(false);
+                    var unreadItems = await _mailService.GetUnreadMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
 
-                    //    if (mailItems.Any())
-                    //        change = new FolderMarkAsReadRequest(accountId, mailItems.Select(a => a.Id).Distinct(), folderStructure.RemoteFolderId, folderStructure.FolderId);
+                    if (unreadItems.Any())
+                        change = new MarkFolderAsReadRequest(folder, unreadItems);
 
-                    //    break;
-                    //case FolderOperation.Empty:
-                    //    // Get all mails in the folder.
-
-                    //    var mailsToDelete = await _folderService.GetMailByFolderIdAsync(folderStructure.FolderId).ConfigureAwait(false);
-
-                    //    if (mailsToDelete.Any())
-                    //        change = new FolderEmptyRequest(accountId, mailsToDelete.Select(a => a.Id).Distinct(), folderStructure.RemoteFolderId, folderStructure.FolderId);
-
-                    //    break;
+                    break;
                     //case FolderOperation.Delete:
                     //    var isConfirmed = await _dialogService.ShowConfirmationDialogAsync($"'{folderStructure.FolderName}' is going to be deleted. Do you want to continue?", "Are you sure?", "Yes delete.");
 

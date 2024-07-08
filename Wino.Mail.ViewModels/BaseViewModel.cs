@@ -23,7 +23,8 @@ namespace Wino.Mail.ViewModels
         IRecipient<DraftCreated>,
         IRecipient<DraftFailed>,
         IRecipient<DraftMapped>,
-        IRecipient<FolderRenamed>
+        IRecipient<FolderRenamed>,
+        IRecipient<FolderSynchronizationEnabled>
     {
         private IDispatcher _dispatcher;
         public IDispatcher Dispatcher
@@ -69,6 +70,7 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
         protected virtual void OnDraftMapped(string localDraftCopyId, string remoteDraftCopyId) { }
         protected virtual void OnFolderRenamed(IMailItemFolder mailItemFolder) { }
+        protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
 
         public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
             => Messenger.Send(message);
@@ -88,5 +90,6 @@ namespace Wino.Mail.ViewModels
         void IRecipient<DraftCreated>.Receive(DraftCreated message) => OnDraftCreated(message.DraftMail, message.Account);
 
         void IRecipient<FolderRenamed>.Receive(FolderRenamed message) => OnFolderRenamed(message.MailItemFolder);
+        void IRecipient<FolderSynchronizationEnabled>.Receive(FolderSynchronizationEnabled message) => OnFolderSynchronizationEnabled(message.MailItemFolder);
     }
 }
