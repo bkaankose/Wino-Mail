@@ -40,6 +40,15 @@ namespace Wino.Core.Domain.Interfaces
         /// Reverts the UI changes applied by <see cref="ApplyUIChanges"/> if the request fails.
         /// </summary>
         void RevertUIChanges();
+
+        /// <summary>
+        /// Whether synchronizations should be delayed after executing this request.
+        /// Specially Outlook sometimes don't report changes back immidiately after sending the API request.
+        /// This results following synchronization to miss the changes.
+        /// We add small delay for the following synchronization after executing current requests to overcome this issue.
+        /// Default is false.
+        /// </summary>
+        bool DelayExecution { get; }
     }
 
     public interface IRequest : IRequestBase

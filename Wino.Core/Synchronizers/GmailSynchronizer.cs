@@ -717,6 +717,9 @@ namespace Wino.Core.Synchronizers
             return Delete(new BatchDeleteRequest(deleteRequests));
         }
 
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
+
         #endregion
 
         #region Request Execution

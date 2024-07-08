@@ -55,5 +55,7 @@ namespace Wino.Core.Requests
         {
             Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
+
+        public override bool DelayExecution => true;
     }
 }

@@ -11,17 +11,23 @@ namespace Wino.Core.Domain.Models.Requests
         public abstract IBatchChangeRequest CreateBatch(IEnumerable<IRequest> requests);
         public abstract void ApplyUIChanges();
         public abstract void RevertUIChanges();
+
+        public virtual bool DelayExecution => false;
     }
 
     public abstract record FolderRequestBase(MailItemFolder Folder, MailSynchronizerOperation Operation) : IFolderRequest
     {
         public abstract void ApplyUIChanges();
         public abstract void RevertUIChanges();
+
+        public virtual bool DelayExecution => false;
     }
 
     public abstract record BatchRequestBase(IEnumerable<IRequest> Items, MailSynchronizerOperation Operation) : IBatchChangeRequest
     {
         public abstract void ApplyUIChanges();
         public abstract void RevertUIChanges();
+
+        public virtual bool DelayExecution => false;
     }
 }

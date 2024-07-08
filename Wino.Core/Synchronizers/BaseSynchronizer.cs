@@ -149,11 +149,10 @@ namespace Wino.Core.Synchronizers
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
-                // TODO: Outlook sends back the deleted Draft. Might be a bug in the graph API or in Wino.
 
-                var hasSendDraftRequest = batches.Any(a => a is BatchSendDraftRequestRequest);
+                bool shouldDelayExecution = batches.Any(a => a.DelayExecution);
 
-                if (hasSendDraftRequest && DelaySendOperationSynchronization())
+                if (shouldDelayExecution)
                 {
                     await Task.Delay(2000);
                 }
@@ -301,12 +300,9 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
-        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> batches)
+        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> requests)
         {
-            // TODO: Check folders only.
-            var batchItems = batches.Where(a => a is IBatchChangeRequest).Cast<IBatchChangeRequest>();
-
-            var requests = batchItems.SelectMany(a => a.Items);
+            bool isAllCustomSynchronizationRequests = requests.All(a => a is ICustomFolderSynchronizationRequest);
 
             var options = new SynchronizationOptions()
             {
@@ -314,9 +310,9 @@ namespace Wino.Core.Synchronizers
                 Type = SynchronizationType.FoldersOnly
             };
 
-            bool isCustomSynchronization = requests.All(a => a is ICustomFolderSynchronizationRequest);
+            //bool isCustomSynchronization = requests.All(a => a is ICustomFolderSynchronizationRequest);
 
-            if (isCustomSynchronization)
+            if (isAllCustomSynchronizationRequests)
             {
                 // Gather FolderIds to synchronize.
 

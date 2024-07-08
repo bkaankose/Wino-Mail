@@ -278,6 +278,9 @@ namespace Wino.Core.Synchronizers
         public override IEnumerable<IRequestBundle<ImapRequest>> EmptyFolder(EmptyFolderRequest request)
             => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
 
+        public override IEnumerable<IRequestBundle<ImapRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
+
         public override IEnumerable<IRequestBundle<ImapRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {
             return CreateTaskBundle(async (ImapClient client) =>

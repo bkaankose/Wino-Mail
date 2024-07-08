@@ -62,6 +62,8 @@ namespace Wino.Core.Synchronizers
             "InternetMessageId",
         ];
 
+        private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
+
         private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
         private readonly IOutlookChangeProcessor _outlookChangeProcessor;
         private readonly GraphServiceClient _graphClient;
@@ -184,7 +186,21 @@ namespace Wino.Core.Synchronizers
 
             var messageIteratorAsync = PageIterator<Message, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, async (item) =>
             {
-                return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
+                try
+                {
+                    await _handleItemRetrievalSemaphore.WaitAsync();
+                    return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error occurred while handling item {Id} for folder {FolderName}", item.Id, folder.FolderName);
+                }
+                finally
+                {
+                    _handleItemRetrievalSemaphore.Release();
+                }
+
+                return true;
             });
 
             await messageIteratorAsync
@@ -603,6 +619,9 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<RequestInformation>> EmptyFolder(EmptyFolderRequest request)
             => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
+
+        public override IEnumerable<IRequestBundle<RequestInformation>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
 
         #endregion
 
