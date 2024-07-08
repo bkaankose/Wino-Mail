@@ -20,6 +20,7 @@ namespace Wino.Core.Domain.Interfaces
         int UnreadItemCount { get; set; }
         SpecialFolderType SpecialFolderType { get; }
         IEnumerable<IMailItemFolder> HandlingFolders { get; }
+        IEnumerable<IMenuItem> SubMenuItems { get; }
         bool IsMoveTarget { get; }
         bool IsSticky { get; }
         bool IsSystemFolder { get; }

@@ -11,14 +11,15 @@ namespace Wino.Core.MenuItems
 {
     public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IMailItemFolder, FolderMenuItem>>, IAccountMenuItem
     {
-        public List<FolderMenuItem> FlattenedFolderHierarchy { get; set; }
-
         [ObservableProperty]
         private int unreadItemCount;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible))]
         private double synchronizationProgress;
+
+        [ObservableProperty]
+        private bool _isEnabled = true;
 
         public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
         public bool IsSynchronizationProgressVisible => SynchronizationProgress > 0 && SynchronizationProgress < 100;
@@ -88,8 +89,5 @@ namespace Wino.Core.MenuItems
                 }
             }
         }
-
-        public int GetUnreadItemCountByFolderType(SpecialFolderType specialFolderType)
-            => FlattenedFolderHierarchy?.Where(a => a.SpecialFolderType == specialFolderType).Sum(a => a.UnreadItemCount) ?? 0;
     }
 }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Gmail.v1;
@@ -245,110 +244,96 @@ namespace Wino.Core.Synchronizers
 
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
-            var folderRequest = _gmailService.Users.Labels.List("me");
-
-            var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-
-            if (labelsResponse.Labels == null)
+            try
             {
-                _logger.Warning("No folders found for {Name}", Account.Name);
-                return;
-            }
+                var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+                var folderRequest = _gmailService.Users.Labels.List("me");
 
-            _logger.Debug($"Gmail folders found: {string.Join(",", labelsResponse.Labels.Select(a => a.Name))}");
+                var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
-            // Gmail has special Categories parent folder.
-            var categoriesFolder = new MailItemFolder()
-            {
-                SpecialFolderType = SpecialFolderType.Category,
-                MailAccountId = Account.Id,
-                FolderName = "Categories",
-                IsSynchronizationEnabled = false,
-                IsSticky = true,
-                Id = Guid.NewGuid(),
-                RemoteFolderId = "Categories"
-            };
-
-            var initializedFolders = new List<MailItemFolder>() { categoriesFolder };
-
-            foreach (var label in labelsResponse.Labels)
-            {
-                var localFolder = label.GetLocalFolder(Account.Id);
-
-                localFolder.MailAccountId = Account.Id;
-
-                initializedFolders.Add(localFolder);
-            }
-
-            // 1. Create parent-child relations but first order by name desc to be able to not mess up FolderNames in memory.
-            // 2. Mark special folder types that belong to categories folder.
-
-            var ordered = initializedFolders.OrderByDescending(a => a.FolderName);
-
-            // TODO: This can be refactored better.
-            foreach (var label in ordered)
-            {
-                // Gmail categorizes sub-labels by '/' For example:
-                // ParentTest/SubTest in the name of label means
-                // SubTest is a sub-label of ParentTest label.
-
-                if (label.SpecialFolderType == SpecialFolderType.Promotions ||
-                    label.SpecialFolderType == SpecialFolderType.Updates ||
-                    label.SpecialFolderType == SpecialFolderType.Social ||
-                    label.SpecialFolderType == SpecialFolderType.Forums ||
-                    label.SpecialFolderType == SpecialFolderType.Personal)
+                if (labelsResponse.Labels == null)
                 {
-                    label.ParentRemoteFolderId = categoriesFolder.RemoteFolderId;
-
-                    // These folders can not be a sub folder.
-                    continue;
+                    _logger.Warning("No folders found for {Name}", Account.Name);
+                    return;
                 }
 
-                var isSubFolder = label.FolderName.Contains("/");
+                List<MailItemFolder> insertedFolders = new();
+                List<MailItemFolder> updatedFolders = new();
+                List<MailItemFolder> deletedFolders = new();
 
-                if (isSubFolder)
+                // 1. Handle deleted labels.
+
+                foreach (var localFolder in localFolders)
                 {
-                    var splittedFolderName = label.FolderName.Split('/');
-                    var partCount = splittedFolderName.Length;
+                    // Category folder is virtual folder for Wino. Skip it.
+                    if (localFolder.SpecialFolderType == SpecialFolderType.Category) continue;
 
-                    if (partCount > 1)
+                    var remoteFolder = labelsResponse.Labels.FirstOrDefault(a => a.Id == localFolder.RemoteFolderId);
+
+                    if (remoteFolder == null)
                     {
-                        // Only make the last part connection since other relations will build up in the loop.
+                        // Local folder doesn't exists remotely. Delete local copy.
+                        await _gmailChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
 
-                        var realChildFolderName = splittedFolderName[splittedFolderName.Length - 1];
+                        deletedFolders.Add(localFolder);
+                    }
+                }
 
-                        var childFolder = initializedFolders.Find(a => a.FolderName.EndsWith(realChildFolderName));
+                // Delete the deleted folders from local list.
+                deletedFolders.ForEach(a => localFolders.Remove(a));
 
-                        string GetParentFolderName(string[] parts)
+                // 2. Handle update/insert based on remote folders.
+                foreach (var remoteFolder in labelsResponse.Labels)
+                {
+                    var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.Id);
+
+                    if (existingLocalFolder == null)
+                    {
+                        // Insert new folder.
+                        var localFolder = remoteFolder.GetLocalFolder(labelsResponse, Account.Id);
+
+                        insertedFolders.Add(localFolder);
+                    }
+                    else
+                    {
+                        // Update existing folder. Right now we only update the name.
+
+                        // TODO: Moving folders around different parents. This is not supported right now.
+                        // We will need more comphrensive folder update mechanism to support this.
+
+                        if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
                         {
-                            var builder = new StringBuilder();
-
-                            for (int i = 0; i < parts.Length - 1; i++)
-                            {
-                                builder.Append(parts[i]);
-
-                                if (i != parts.Length - 2)
-                                    builder.Append("/");
-                            }
-
-                            return builder.ToString();
+                            existingLocalFolder.FolderName = remoteFolder.Name;
+                            updatedFolders.Add(existingLocalFolder);
                         }
-
-                        var parentFolderName = GetParentFolderName(splittedFolderName);
-
-                        var parentFolder = initializedFolders.Find(a => a.FolderName == parentFolderName);
-
-                        if (childFolder != null && parentFolder != null)
+                        else
                         {
-                            childFolder.FolderName = realChildFolderName;
-                            childFolder.ParentRemoteFolderId = parentFolder.RemoteFolderId;
+                            // Remove it from the local folder list to skip additional folder updates.
+                            localFolders.Remove(existingLocalFolder);
                         }
                     }
                 }
-            }
 
-            await _gmailChangeProcessor.UpdateFolderStructureAsync(Account.Id, initializedFolders).ConfigureAwait(false);
+                // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
+
+                foreach (var folder in insertedFolders)
+                {
+                    await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
+                }
+
+                foreach (var folder in updatedFolders)
+                {
+                    await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
+                }
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
+
+        private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)
+            => existingLocalFolder.FolderName.Equals(GoogleIntegratorExtensions.GetFolderName(remoteFolder), StringComparison.OrdinalIgnoreCase) == false;
 
         /// <summary>
         /// Returns a single get request to retrieve the raw message with the given id
@@ -705,6 +690,34 @@ namespace Wino.Core.Synchronizers
 
             await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
+
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
+        {
+            return CreateHttpBundleWithResponse<Label>(request, (item) =>
+            {
+                if (item is not RenameFolderRequest renameFolderRequest)
+                    throw new ArgumentException($"Renaming folder must be handled with '{nameof(RenameFolderRequest)}'");
+
+                var label = new Label()
+                {
+                    Name = renameFolderRequest.NewFolderName
+                };
+
+                return _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
+            });
+        }
+
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
+        {
+            // Create batch delete request.
+
+            var deleteRequests = request.MailsToDelete.Select(a => new DeleteRequest(a));
+
+            return Delete(new BatchDeleteRequest(deleteRequests));
+        }
+
+        public override IEnumerable<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
 
         #endregion
 

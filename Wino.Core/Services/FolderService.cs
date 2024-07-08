@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
 using Serilog;
 using SqlKata;
@@ -9,10 +10,12 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
+using Wino.Core.MenuItems;
 using Wino.Core.Requests;
 
 namespace Wino.Core.Services
@@ -168,6 +171,155 @@ namespace Wino.Core.Services
             return accountTree;
         }
 
+
+        public Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem)
+        {
+            if (accountMenuItem is IMergedAccountMenuItem mergedAccountFolderMenuItem)
+            {
+                return GetMergedAccountFolderMenuItemsAsync(mergedAccountFolderMenuItem);
+            }
+            else
+            {
+                return GetSingleAccountFolderMenuItemsAsync(accountMenuItem);
+            }
+        }
+
+        private async Task<FolderMenuItem> GetPreparedFolderMenuItemRecursiveAsync(MailAccount account, MailItemFolder parentFolder, IMenuItem parentMenuItem)
+        {
+            // Localize category folder name.
+            if (parentFolder.SpecialFolderType == SpecialFolderType.Category) parentFolder.FolderName = Translator.CategoriesFolderNameOverride;
+
+            var query = new Query(nameof(MailItemFolder))
+                        .Where(nameof(MailItemFolder.ParentRemoteFolderId), parentFolder.RemoteFolderId)
+                        .Where(nameof(MailItemFolder.MailAccountId), parentFolder.MailAccountId);
+
+            var preparedFolder = new FolderMenuItem(parentFolder, account, parentMenuItem);
+
+            var childFolders = await Connection.QueryAsync<MailItemFolder>(query.GetRawQuery()).ConfigureAwait(false);
+
+            if (childFolders.Any())
+            {
+                foreach (var subChildFolder in childFolders)
+                {
+                    var preparedChild = await GetPreparedFolderMenuItemRecursiveAsync(account, subChildFolder, preparedFolder);
+
+                    if (preparedChild == null) continue;
+
+                    preparedFolder.SubMenuItems.Add(preparedChild);
+                }
+            }
+
+            return preparedFolder;
+        }
+
+        private async Task<IEnumerable<IMenuItem>> GetSingleAccountFolderMenuItemsAsync(IAccountMenuItem accountMenuItem)
+        {
+            var accountId = accountMenuItem.EntityId.Value;
+            var preparedFolderMenuItems = new List<IMenuItem>();
+
+            // Get all folders for the account. Excluding hidden folders.
+            var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+
+            if (!folders.Any()) return new List<IMenuItem>();
+
+            var mailAccount = accountMenuItem.HoldingAccounts.First();
+
+            var listingFolders = folders.OrderBy(a => a.SpecialFolderType);
+
+            var moreFolder = MailItemFolder.CreateMoreFolder();
+            var categoryFolder = MailItemFolder.CreateCategoriesFolder();
+
+            var moreFolderMenuItem = new FolderMenuItem(moreFolder, mailAccount, accountMenuItem);
+            var categoryFolderMenuItem = new FolderMenuItem(categoryFolder, mailAccount, accountMenuItem);
+
+            foreach (var item in listingFolders)
+            {
+                // Category type folders should be skipped. They will be categorized under virtual category folder.
+                if (GoogleIntegratorExtensions.SubCategoryFolderLabelIds.Contains(item.RemoteFolderId)) continue;
+
+                bool skipEmptyParentRemoteFolders = mailAccount.ProviderType == MailProviderType.Gmail;
+
+                if (skipEmptyParentRemoteFolders && !string.IsNullOrEmpty(item.ParentRemoteFolderId)) continue;
+
+                // Sticky items belong to account menu item directly. Rest goes to More folder.
+                IMenuItem parentFolderMenuItem = item.IsSticky ? accountMenuItem : (GoogleIntegratorExtensions.SubCategoryFolderLabelIds.Contains(item.FolderName.ToUpper()) ? categoryFolderMenuItem : moreFolderMenuItem);
+
+                var preparedItem = await GetPreparedFolderMenuItemRecursiveAsync(mailAccount, item, parentFolderMenuItem).ConfigureAwait(false);
+
+                // Don't add menu items that are prepared for More folder. They've been included in More virtual folder already.
+                // We'll add More folder later on at the end of the list.
+
+                if (preparedItem == null) continue;
+
+                if (item.IsSticky)
+                {
+                    preparedFolderMenuItems.Add(preparedItem);
+                }
+                else if (parentFolderMenuItem is FolderMenuItem baseParentFolderMenuItem)
+                {
+                    baseParentFolderMenuItem.SubMenuItems.Add(preparedItem);
+                }
+            }
+
+            // Only add category folder if it's Gmail.
+            if (mailAccount.ProviderType == MailProviderType.Gmail) preparedFolderMenuItems.Add(categoryFolderMenuItem);
+
+            // Only add More folder if there are any items in it.
+            if (moreFolderMenuItem.SubMenuItems.Any()) preparedFolderMenuItems.Add(moreFolderMenuItem);
+
+            return preparedFolderMenuItems;
+        }
+
+        private async Task<IEnumerable<IMenuItem>> GetMergedAccountFolderMenuItemsAsync(IMergedAccountMenuItem mergedAccountFolderMenuItem)
+        {
+            var holdingAccounts = mergedAccountFolderMenuItem.HoldingAccounts;
+
+            if (holdingAccounts == null || !holdingAccounts.Any()) return [];
+
+            var preparedFolderMenuItems = new List<IMenuItem>();
+
+            // First gather all account folders.
+            // Prepare single menu items for both of them.
+
+            var allAccountFolders = new List<List<MailItemFolder>>();
+
+            foreach (var account in holdingAccounts)
+            {
+                var accountFolders = await GetVisibleFoldersAsync(account.Id).ConfigureAwait(false);
+
+                allAccountFolders.Add(accountFolders);
+            }
+
+            var commonFolders = FindCommonFolders(allAccountFolders);
+
+            // Prepare menu items for common folders.
+            foreach (var commonFolderType in commonFolders)
+            {
+                var folderItems = allAccountFolders.SelectMany(a => a.Where(b => b.SpecialFolderType == commonFolderType)).Cast<IMailItemFolder>().ToList();
+                var menuItem = new MergedAccountFolderMenuItem(folderItems, null, mergedAccountFolderMenuItem.Parameter);
+
+                preparedFolderMenuItems.Add(menuItem);
+            }
+
+            return preparedFolderMenuItems;
+        }
+
+        private HashSet<SpecialFolderType> FindCommonFolders(List<List<MailItemFolder>> lists)
+        {
+            var allSpecialTypesExceptOther = Enum.GetValues(typeof(SpecialFolderType)).Cast<SpecialFolderType>().Where(a => a != SpecialFolderType.Other).ToList();
+
+            // Start with all special folder types from the first list
+            var commonSpecialFolderTypes = new HashSet<SpecialFolderType>(allSpecialTypesExceptOther);
+
+            // Intersect with special folder types from all lists
+            foreach (var list in lists)
+            {
+                commonSpecialFolderTypes.IntersectWith(list.Select(f => f.SpecialFolderType));
+            }
+
+            return commonSpecialFolderTypes;
+        }
+
         private async Task<MailItemFolder> GetChildFolderItemsRecursiveAsync(Guid folderId, Guid accountId)
         {
             var folder = await Connection.Table<MailItemFolder>().Where(a => a.Id == folderId && a.MailAccountId == accountId).FirstOrDefaultAsync();
@@ -198,49 +350,22 @@ namespace Wino.Core.Services
             => Connection.Table<MailCopy>().Where(a => a.FolderId == folderId).CountAsync();
 
         public Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
-            => Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == accountId).ToListAsync();
-
-        public async Task UpdateCustomServerMailListAsync(Guid accountId, List<MailItemFolder> folders)
         {
-            var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
+            var query = new Query(nameof(MailItemFolder))
+                        .Where(nameof(MailItemFolder.MailAccountId), accountId)
+                        .OrderBy(nameof(MailItemFolder.SpecialFolderType));
 
-            if (account == null)
-                return;
+            return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+        }
 
-            // IMAP servers don't have unique identifier for folders all the time.
-            // We'll map them with parent-name relation.
+        public Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
+        {
+            var query = new Query(nameof(MailItemFolder))
+                        .Where(nameof(MailItemFolder.MailAccountId), accountId)
+                        .Where(nameof(MailItemFolder.IsHidden), false)
+                        .OrderBy(nameof(MailItemFolder.SpecialFolderType));
 
-            var currentFolders = await GetFoldersAsync(accountId);
-
-            // These folders don't exist anymore. Remove them.
-            var localRemoveFolders = currentFolders.ExceptBy(folders, a => a.RemoteFolderId);
-
-            foreach (var currentFolder in currentFolders)
-            {
-                // Check if we have this folder locally.
-                var remotelyExistFolder = folders.FirstOrDefault(a => a.RemoteFolderId == currentFolder.RemoteFolderId
-                && a.ParentRemoteFolderId == currentFolder.ParentRemoteFolderId);
-
-                if (remotelyExistFolder == null)
-                {
-                    // This folder is removed.
-                    // Remove everything for this folder.
-
-                }
-            }
-
-            foreach (var folder in folders)
-            {
-                var currentFolder = await Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == folder.RemoteFolderId);
-
-                // Nothing is changed, it's still the same folder.
-                // Just update Id of the folder.
-
-                if (currentFolder != null)
-                    folder.Id = currentFolder.Id;
-
-                await Connection.InsertOrReplaceAsync(folder);
-            }
+            return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
         }
 
         public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
@@ -301,6 +426,8 @@ namespace Wino.Core.Services
                 localFolder.IsSynchronizationEnabled = isSynchronizationEnabled;
 
                 await UpdateFolderAsync(localFolder).ConfigureAwait(false);
+
+                Messenger.Send(new FolderSynchronizationEnabled(localFolder));
             }
         }
 
@@ -337,11 +464,19 @@ namespace Wino.Core.Services
                 _logger.Debug("Inserting folder {Id} - {FolderName}", folder.Id, folder.FolderName, folder.MailAccountId);
 
                 await Connection.InsertAsync(folder).ConfigureAwait(false);
-
-                ReportUIChange(new FolderAddedMessage(folder, account));
             }
             else
             {
+                // TODO: This is not alright. We should've updated the folder instead of inserting.
+                // Now we need to match the properties that user might've set locally.
+
+                folder.Id = existingFolder.Id;
+                folder.IsSticky = existingFolder.IsSticky;
+                folder.SpecialFolderType = existingFolder.SpecialFolderType;
+                folder.ShowUnreadCount = existingFolder.ShowUnreadCount;
+                folder.TextColorHex = existingFolder.TextColorHex;
+                folder.BackgroundColorHex = existingFolder.BackgroundColorHex;
+
                 _logger.Debug("Folder {Id} - {FolderName} already exists. Updating.", folder.Id, folder.FolderName);
 
                 await UpdateFolderAsync(folder).ConfigureAwait(false);
@@ -364,13 +499,9 @@ namespace Wino.Core.Services
                 return;
             }
 
-#if !DEBUG // Annoying
             _logger.Debug("Updating folder {FolderName}", folder.Id, folder.FolderName);
-#endif
 
             await Connection.UpdateAsync(folder).ConfigureAwait(false);
-
-            ReportUIChange(new FolderUpdatedMessage(folder, account));
         }
 
         private async Task DeleteFolderAsync(MailItemFolder folder)
@@ -393,9 +524,10 @@ namespace Wino.Core.Services
 
             await Connection.DeleteAsync(folder).ConfigureAwait(false);
 
-            // TODO: Delete all mail copies for this folder.
+            // Delete all existing mails from this folder.
+            await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", folder.Id);
 
-            ReportUIChange(new FolderRemovedMessage(folder, account));
+            // TODO: Delete MIME messages from the disk.
         }
 
         #endregion
@@ -426,8 +558,6 @@ namespace Wino.Core.Services
         public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)
             => GetMailFolderPairMetadatasAsync(new List<string>() { mailCopyId });
 
-        public async Task SetSpecialFolderAsync(Guid folderId, SpecialFolderType type)
-            => await Connection.ExecuteAsync("UPDATE MailItemFolder SET SpecialFolderType = ? WHERE Id = ?", type, folderId);
 
         public async Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
         {
@@ -489,38 +619,6 @@ namespace Wino.Core.Services
         public Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId)
             => Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == remoteFolderId);
 
-        // v2
-        public async Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders)
-        {
-            var existingFolders = await GetFoldersAsync(accountId).ConfigureAwait(false);
-
-            var foldersToInsert = allFolders.ExceptBy(existingFolders, a => a.RemoteFolderId);
-            var foldersToDelete = existingFolders.ExceptBy(allFolders, a => a.RemoteFolderId);
-            var foldersToUpdate = allFolders.Except(foldersToInsert).Except(foldersToDelete);
-
-            _logger.Debug("Found {0} folders to insert, {1} folders to update and {2} folders to delete.",
-                          foldersToInsert.Count(),
-                          foldersToUpdate.Count(),
-                          foldersToDelete.Count());
-
-            foreach (var folder in foldersToInsert)
-            {
-                await InsertFolderAsync(folder).ConfigureAwait(false);
-            }
-
-            foreach (var folder in foldersToUpdate)
-            {
-                await UpdateFolderAsync(folder).ConfigureAwait(false);
-            }
-
-            foreach (var folder in foldersToDelete)
-            {
-                await DeleteFolderAsync(folder).ConfigureAwait(false);
-            }
-        }
-
-
-
         public async Task DeleteFolderAsync(Guid accountId, string remoteFolderId)
         {
             var folder = await GetFolderAsync(accountId, remoteFolderId);
@@ -547,33 +645,6 @@ namespace Wino.Core.Services
             }
         }
 
-        // Inbox folder is always included for account menu item unread count.
-        public Task<List<MailItemFolder>> GetUnreadUpdateFoldersAsync(Guid accountId)
-            => Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == accountId && (a.ShowUnreadCount || a.SpecialFolderType == SpecialFolderType.Inbox)).ToListAsync();
-
-        public async Task TestAsync()
-        {
-            var account = new MailAccount()
-            {
-                Address = "test@test.com",
-                ProviderType = MailProviderType.Gmail,
-                Name = "Test Account",
-                Id = Guid.NewGuid()
-            };
-
-            await Connection.InsertAsync(account);
-
-            var pref = new MailAccountPreferences
-            {
-                Id = Guid.NewGuid(),
-                AccountId = account.Id
-            };
-
-            await Connection.InsertAsync(pref);
-
-            ReportUIChange(new AccountCreatedMessage(account));
-        }
-
         public async Task<bool> IsInboxAvailableForAccountAsync(Guid accountId)
             => (await Connection.Table<MailItemFolder>()
             .Where(a => a.SpecialFolderType == SpecialFolderType.Inbox && a.MailAccountId == accountId)
@@ -581,5 +652,18 @@ namespace Wino.Core.Services
 
         public Task UpdateFolderLastSyncDateAsync(Guid folderId)
             => Connection.ExecuteAsync("UPDATE MailItemFolder SET LastSynchronizedDate = ? WHERE Id = ?", DateTime.UtcNow, folderId);
+
+        public Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds)
+        {
+            var query = new Query(nameof(MailCopy))
+                        .Join(nameof(MailItemFolder), $"{nameof(MailCopy)}.FolderId", $"{nameof(MailItemFolder)}.Id")
+                        .WhereIn($"{nameof(MailItemFolder)}.MailAccountId", accountIds)
+                        .Where($"{nameof(MailCopy)}.IsRead", 0)
+                        .Where($"{nameof(MailItemFolder)}.ShowUnreadCount", 1)
+                        .SelectRaw($"{nameof(MailItemFolder)}.Id as FolderId, {nameof(MailItemFolder)}.SpecialFolderType as SpecialFolderType, count (DISTINCT {nameof(MailCopy)}.Id) as UnreadItemCount, {nameof(MailItemFolder)}.MailAccountId as AccountId")
+                        .GroupBy($"{nameof(MailItemFolder)}.Id");
+
+            return Connection.QueryAsync<UnreadItemCountResult>(query.GetRawQuery());
+        }
     }
 }

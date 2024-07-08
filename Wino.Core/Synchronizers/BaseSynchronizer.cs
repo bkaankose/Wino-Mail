@@ -149,11 +149,10 @@ namespace Wino.Core.Synchronizers
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
-                // TODO: Outlook sends back the deleted Draft. Might be a bug in the graph API or in Wino.
 
-                var hasSendDraftRequest = batches.Any(a => a is BatchSendDraftRequestRequest);
+                bool shouldDelayExecution = batches.Any(a => a.DelayExecution);
 
-                if (hasSendDraftRequest && DelaySendOperationSynchronization())
+                if (shouldDelayExecution)
                 {
                     await Task.Delay(2000);
                 }
@@ -227,8 +226,13 @@ namespace Wino.Core.Synchronizers
                             changeRequestQueue.TryTake(out _);
                         }
                     }
-                    else
+                    else if (changeRequestQueue.TryTake(out request))
+                    {
+                        // This is a folder operation.
+                        // There is no need to batch them since Users can't do folder ops in bulk.
+
                         batchList.Add(request);
+                    }
                 }
             }
 
@@ -272,6 +276,15 @@ namespace Wino.Core.Synchronizers
                         case MailSynchronizerOperation.CreateDraft:
                             yield return CreateDraft((BatchCreateDraftRequest)item);
                             break;
+                        case MailSynchronizerOperation.RenameFolder:
+                            yield return RenameFolder((RenameFolderRequest)item);
+                            break;
+                        case MailSynchronizerOperation.EmptyFolder:
+                            yield return EmptyFolder((EmptyFolderRequest)item);
+                            break;
+                        case MailSynchronizerOperation.MarkFolderRead:
+                            yield return MarkFolderAsRead((MarkFolderAsReadRequest)item);
+                            break;
                         case MailSynchronizerOperation.Archive:
                             yield return Archive((BatchArchiveRequest)item);
                             break;
@@ -287,12 +300,9 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
-        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> batches)
+        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> requests)
         {
-            // TODO: Check folders only.
-            var batchItems = batches.Where(a => a is IBatchChangeRequest).Cast<IBatchChangeRequest>();
-
-            var requests = batchItems.SelectMany(a => a.Items);
+            bool isAllCustomSynchronizationRequests = requests.All(a => a is ICustomFolderSynchronizationRequest);
 
             var options = new SynchronizationOptions()
             {
@@ -300,9 +310,7 @@ namespace Wino.Core.Synchronizers
                 Type = SynchronizationType.FoldersOnly
             };
 
-            bool isCustomSynchronization = requests.All(a => a is ICustomFolderSynchronizationRequest);
-
-            if (isCustomSynchronization)
+            if (isAllCustomSynchronizationRequests)
             {
                 // Gather FolderIds to synchronize.
 
@@ -327,6 +335,9 @@ namespace Wino.Core.Synchronizers
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> MoveToFocused(BatchMoveToFocusedRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> CreateDraft(BatchCreateDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> SendDraft(BatchSendDraftRequestRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual IEnumerable<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual IEnumerable<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual IEnumerable<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual IEnumerable<IRequestBundle<TBaseRequest>> Archive(BatchArchiveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
         /// <summary>

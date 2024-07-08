@@ -273,7 +273,13 @@ namespace Wino.Core.Synchronizers
         }
 
         public override IEnumerable<IRequestBundle<ImapRequest>> Archive(BatchArchiveRequest request)
-           => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+            => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+
+        public override IEnumerable<IRequestBundle<ImapRequest>> EmptyFolder(EmptyFolderRequest request)
+            => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
+
+        public override IEnumerable<IRequestBundle<ImapRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
 
         public override IEnumerable<IRequestBundle<ImapRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {
@@ -351,6 +357,15 @@ namespace Wino.Core.Synchronizers
             _clientPool.Release(client);
         }
 
+        public override IEnumerable<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
+        {
+            return CreateTaskBundle(async (ImapClient client) =>
+            {
+                var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
+                await folder.RenameAsync(folder.ParentFolder, request.NewFolderName).ConfigureAwait(false);
+            }, request);
+        }
+
         #endregion
 
         public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(ImapMessageCreationPackage message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
@@ -406,10 +421,7 @@ namespace Wino.Core.Synchronizers
             // Therefore this should be avoided as many times as possible.
 
             // This may create some inconsistencies, but nothing we can do...
-            if (options.Type == SynchronizationType.FoldersOnly || options.Type == SynchronizationType.Full)
-            {
-                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-            }
+            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
             if (options.Type != SynchronizationType.FoldersOnly)
             {
@@ -492,7 +504,7 @@ namespace Wino.Core.Synchronizers
                 }
                 catch (Exception)
                 {
-
+                    item.Request.RevertUIChanges();
                     throw;
                 }
                 finally
@@ -546,26 +558,20 @@ namespace Wino.Core.Synchronizers
                 localFolder.SpecialFolderType = SpecialFolderType.Starred;
         }
 
-        /// <summary>
-        /// Whether the local folder should be updated with the remote folder.
-        /// </summary>
-        /// <param name="remoteFolder">Remote folder</param>
-        /// <param name="localFolder">Local folder.</param>
-        private bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
-        {
-            return remoteFolder.Name != localFolder.FolderName;
-        }
-
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
             // https://www.rfc-editor.org/rfc/rfc4549#section-1.1
 
-            var localFolders = await _imapChangeProcessor.GetLocalIMAPFoldersAsync(Account.Id).ConfigureAwait(false);
+            var localFolders = await _imapChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
             ImapClient executorClient = null;
 
             try
             {
+                List<MailItemFolder> insertedFolders = new();
+                List<MailItemFolder> updatedFolders = new();
+                List<MailItemFolder> deletedFolders = new();
+
                 executorClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
                 var remoteFolders = (await executorClient.GetFoldersAsync(executorClient.PersonalNamespaces[0], cancellationToken: cancellationToken)).ToList();
@@ -574,8 +580,6 @@ namespace Wino.Core.Synchronizers
 
                 // 1.a If local folder doesn't exists remotely, delete it.
                 // 1.b If local folder exists remotely, check if it is still a valid folder. If UidValidity is changed, delete it.
-
-                List<MailItemFolder> deletedFolders = new();
 
                 foreach (var localFolder in localFolders)
                 {
@@ -627,8 +631,6 @@ namespace Wino.Core.Synchronizers
                 // 2. Get all remote folders and insert/update each of them.
 
                 var nameSpace = executorClient.PersonalNamespaces[0];
-
-                // var remoteFolders = (await executorClient.GetFoldersAsync(nameSpace, cancellationToken: cancellationToken)).ToList();
 
                 IMailFolder inbox = executorClient.Inbox;
 
@@ -684,18 +686,19 @@ namespace Wino.Core.Synchronizers
 
                         await remoteFolder.CloseAsync(cancellationToken: cancellationToken);
 
-                        localFolders.Add(localFolder);
+                        insertedFolders.Add(localFolder);
                     }
                     else
                     {
                         // Update existing folder. Right now we only update the name.
 
-                        // TODO: Moving servers around different parents. This is not supported right now.
+                        // TODO: Moving folders around different parents. This is not supported right now.
                         // We will need more comphrensive folder update mechanism to support this.
 
                         if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
                         {
                             existingLocalFolder.FolderName = remoteFolder.Name;
+                            updatedFolders.Add(existingLocalFolder);
                         }
                         else
                         {
@@ -705,13 +708,16 @@ namespace Wino.Core.Synchronizers
                     }
                 }
 
-                if (localFolders.Any())
+                // Process changes in order-> Insert, Update. Deleted ones are already processed.
+
+                foreach (var folder in insertedFolders)
                 {
-                    await _imapChangeProcessor.UpdateFolderStructureAsync(Account.Id, localFolders);
+                    await _imapChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
                 }
-                else
+
+                foreach (var folder in updatedFolders)
                 {
-                    _logger.Information("No update is needed for imap folders.");
+                    await _imapChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -728,6 +734,8 @@ namespace Wino.Core.Synchronizers
                 }
             }
         }
+
+
 
         private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
         {
@@ -978,5 +986,14 @@ namespace Wino.Core.Synchronizers
                 _clientPool.Release(_synchronizationClient);
             }
         }
+
+
+        /// <summary>
+        /// Whether the local folder should be updated with the remote folder.
+        /// IMAP only compares folder name for now.
+        /// </summary>
+        /// <param name="remoteFolder">Remote folder</param>
+        /// <param name="localFolder">Local folder.</param>
+        public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder) => remoteFolder.Name != localFolder.FolderName;
     }
 }

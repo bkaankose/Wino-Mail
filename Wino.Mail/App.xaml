@@ -40,6 +40,15 @@
                         </Setter>
                     </Style>
 
+                    <!--  Border style for each page's root border for separation of zones.  -->
+                    <Style TargetType="Border" x:Key="PageRootBorderStyle">
+                        <Setter Property="Margin" Value="7,0,7,7" />
+                        <Setter Property="Background" Value="{ThemeResource WinoContentZoneBackgroud}" />
+                        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeColorDefaultBrush}" />
+                        <Setter Property="CornerRadius" Value="7" />
+                        <Setter Property="BorderThickness" Value="1" />
+                    </Style>
+
                     <!--  Default StackPanel animation.  -->
                     <Style TargetType="StackPanel">
                         <Setter Property="ChildrenTransitions">

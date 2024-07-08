@@ -32,7 +32,7 @@
             <StackPanel
                 x:Name="LeftMenuStackPanel"
                 Orientation="Horizontal"
-                SizeChanged="asd">
+                SizeChanged="TitlebarSizeChanged">
                 <Button
                     x:Name="PaneButton"
                     Width="48"

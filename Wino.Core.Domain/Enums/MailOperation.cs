@@ -11,8 +11,10 @@
         ChangeFlag,
         AlwaysMoveTo,
         MoveToFocused,
+        Archive,
         RenameFolder,
-        Archive
+        EmptyFolder,
+        MarkFolderRead,
     }
 
     // UI requests

@@ -151,7 +151,7 @@ namespace Wino.Services
         public void InfoBarMessage(string title, string message, InfoBarMessageType messageType, string actionButtonText, Action action)
             => WeakReferenceMessenger.Default.Send(new InfoBarMessageRequested(messageType, title, message, actionButtonText, action));
 
-        public async Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription)
+        public async Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription, string primaryButtonText)
         {
             var inputDialog = new TextInputDialog()
             {
@@ -161,6 +161,7 @@ namespace Wino.Services
             };
 
             inputDialog.SetDescription(dialogDescription);
+            inputDialog.SetPrimaryButtonText(primaryButtonText);
 
             await HandleDialogPresentationAsync(inputDialog);
 

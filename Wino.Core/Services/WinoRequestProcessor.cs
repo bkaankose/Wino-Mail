@@ -215,45 +215,45 @@ namespace Wino.Core.Services
             return null;
         }
 
-        public async Task<IRequest> PrepareFolderRequestAsync(FolderOperation operation, IMailItemFolder mailItemFolder)
+        public async Task<IRequestBase> PrepareFolderRequestAsync(FolderOperationPreperationRequest request)
         {
-            if (mailItemFolder == null) return default;
+            if (request == null || request.Folder == null) return default;
 
-            var accountId = mailItemFolder.MailAccountId;
+            IRequestBase change = null;
 
-            IRequest change = null;
+            var folder = request.Folder;
+            var operation = request.Action;
 
-            switch (operation)
+            switch (request.Action)
             {
                 case FolderOperation.Pin:
                 case FolderOperation.Unpin:
-                    await _folderService.ChangeStickyStatusAsync(mailItemFolder.Id, operation == FolderOperation.Pin);
+                    await _folderService.ChangeStickyStatusAsync(folder.Id, operation == FolderOperation.Pin);
                     break;
-                    //case FolderOperation.MarkAllAsRead:
-                    //    // Get all mails in the folder.
 
-                    //    var mailItems = await _folderService.GetAllUnreadItemsByFolderIdAsync(accountId, folderStructure.RemoteFolderId).ConfigureAwait(false);
+                case FolderOperation.Rename:
+                    var newFolderName = await _dialogService.ShowTextInputDialogAsync(folder.FolderName, Translator.DialogMessage_RenameFolderTitle, Translator.DialogMessage_RenameFolderMessage, Translator.FolderOperation_Rename);
 
-                    //    if (mailItems.Any())
-                    //        change = new FolderMarkAsReadRequest(accountId, mailItems.Select(a => a.Id).Distinct(), folderStructure.RemoteFolderId, folderStructure.FolderId);
+                    if (!string.IsNullOrEmpty(newFolderName))
+                    {
+                        change = new RenameFolderRequest(folder, folder.FolderName, newFolderName);
+                    }
 
-                    //    break;
-                    //case FolderOperation.Empty:
-                    //    // Get all mails in the folder.
+                    break;
+                case FolderOperation.Empty:
+                    var mailsToDelete = await _mailService.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
 
-                    //    var mailsToDelete = await _folderService.GetMailByFolderIdAsync(folderStructure.FolderId).ConfigureAwait(false);
+                    change = new EmptyFolderRequest(folder, mailsToDelete);
 
-                    //    if (mailsToDelete.Any())
-                    //        change = new FolderEmptyRequest(accountId, mailsToDelete.Select(a => a.Id).Distinct(), folderStructure.RemoteFolderId, folderStructure.FolderId);
+                    break;
+                case FolderOperation.MarkAllAsRead:
 
-                    //    break;
-                    //case FolderOperation.Rename:
-                    //    var newFolderName = await _dialogService.ShowRenameFolderDialogAsync(folderStructure.FolderName);
+                    var unreadItems = await _mailService.GetUnreadMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
 
-                    //    if (!string.IsNullOrEmpty(newFolderName))
-                    //        change = new RenameFolderRequest(accountId, folderStructure.RemoteFolderId, folderStructure.FolderId, newFolderName, folderStructure.FolderName);
+                    if (unreadItems.Any())
+                        change = new MarkFolderAsReadRequest(folder, unreadItems);
 
-                    //    break;
+                    break;
                     //case FolderOperation.Delete:
                     //    var isConfirmed = await _dialogService.ShowConfirmationDialogAsync($"'{folderStructure.FolderName}' is going to be deleted. Do you want to continue?", "Are you sure?", "Yes delete.");
 

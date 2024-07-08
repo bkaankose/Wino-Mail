@@ -62,6 +62,8 @@ namespace Wino.Core.Synchronizers
             "InternetMessageId",
         ];
 
+        private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
+
         private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
         private readonly IOutlookChangeProcessor _outlookChangeProcessor;
         private readonly GraphServiceClient _graphClient;
@@ -184,7 +186,21 @@ namespace Wino.Core.Synchronizers
 
             var messageIteratorAsync = PageIterator<Message, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, async (item) =>
             {
-                return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
+                try
+                {
+                    await _handleItemRetrievalSemaphore.WaitAsync();
+                    return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error occurred while handling item {Id} for folder {FolderName}", item.Id, folder.FolderName);
+                }
+                finally
+                {
+                    _handleItemRetrievalSemaphore.Release();
+                }
+
+                return true;
             });
 
             await messageIteratorAsync
@@ -368,7 +384,7 @@ namespace Wino.Core.Synchronizers
 
                 graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -380,7 +396,7 @@ namespace Wino.Core.Synchronizers
                 deltaRequest.QueryParameters.Add("%24deltaToken", currentDeltaLink);
                 graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
             var iterator = PageIterator<MailFolder, Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, graphFolders, (folder) =>
@@ -575,6 +591,8 @@ namespace Wino.Core.Synchronizers
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
             => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
 
+
+
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
                                                                MailKit.ITransferProgress transferProgress = null,
                                                                CancellationToken cancellationToken = default)
@@ -582,6 +600,28 @@ namespace Wino.Core.Synchronizers
             var mimeMessage = await DownloadMimeMessageAsync(mailItem.Id, cancellationToken).ConfigureAwait(false);
             await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
+
+        public override IEnumerable<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
+        {
+            return CreateHttpBundleWithResponse<MailFolder>(request, (item) =>
+            {
+                if (item is not RenameFolderRequest renameFolderRequest)
+                    throw new ArgumentException($"Renaming folder must be handled with '{nameof(RenameFolderRequest)}'");
+
+                var requestBody = new MailFolder
+                {
+                    DisplayName = request.NewFolderName,
+                };
+
+                return _graphClient.Me.MailFolders[request.Folder.RemoteFolderId].ToPatchRequestInformation(requestBody);
+            });
+        }
+
+        public override IEnumerable<IRequestBundle<RequestInformation>> EmptyFolder(EmptyFolderRequest request)
+            => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
+
+        public override IEnumerable<IRequestBundle<RequestInformation>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
 
         #endregion
 
@@ -646,7 +686,11 @@ namespace Wino.Core.Synchronizers
                                                                    HttpResponseMessage httpResponseMessage,
                                                                    CancellationToken cancellationToken = default)
         {
-            if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
+            if (!httpResponseMessage.IsSuccessStatusCode)
+            {
+                throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));
+            }
+            else if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
             {
                 var outlookMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken);
 
@@ -665,11 +709,6 @@ namespace Wino.Core.Synchronizers
             else if (bundle is HttpRequestBundle<RequestInformation, MimeMessage> mimeBundle)
             {
                 // TODO: Handle mime retrieve message.
-            }
-            else if (!httpResponseMessage.IsSuccessStatusCode)
-            {
-                // TODO: Should we even handle this?
-                throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));
             }
         }
 

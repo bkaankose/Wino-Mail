@@ -811,7 +811,7 @@
 
         <Grid Grid.Column="1" x:Name="RenderingGrid">
             <!--  Mail Rendering Frame  -->
-            <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False"  />
+            <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
 
             <!--  No Mail Selected Message  -->
             <StackPanel

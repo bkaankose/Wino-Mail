@@ -161,9 +161,6 @@ namespace Wino.Controls.Advanced
             IsNavigationPaneOpen = !IsNavigationPaneOpen;
         }
 
-        private void asd(object sender, SizeChangedEventArgs e)
-        {
-            DrawTitleBar();
-        }
+        private void TitlebarSizeChanged(object sender, SizeChangedEventArgs e) => DrawTitleBar();
     }
 }

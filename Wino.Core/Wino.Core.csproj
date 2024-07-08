@@ -21,7 +21,7 @@
      <PackageReference Include="MailKit" Version="4.6.0" />
      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
      <PackageReference Include="Microsoft.Graph" Version="5.55.0" />
-     <PackageReference Include="Microsoft.Identity.Client" Version="4.60.3" />
+     <PackageReference Include="Microsoft.Identity.Client" Version="4.47.2" />
      <PackageReference Include="MimeKit" Version="4.6.0" />
      <PackageReference Include="morelinq" Version="4.1.0" />
      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />

@@ -67,6 +67,9 @@ namespace Wino.Core.Domain.Entities
             return false;
         }
 
+        public static MailItemFolder CreateMoreFolder() => new MailItemFolder() { IsSticky = true, SpecialFolderType = SpecialFolderType.More, FolderName = Translator.MoreFolderNameOverride };
+        public static MailItemFolder CreateCategoriesFolder() => new MailItemFolder() { IsSticky = true, SpecialFolderType = SpecialFolderType.Category, FolderName = Translator.CategoriesFolderNameOverride };
+
         public override string ToString() => FolderName;
     }
 }

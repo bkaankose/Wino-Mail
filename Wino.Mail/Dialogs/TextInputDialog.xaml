@@ -7,7 +7,6 @@
     Style="{StaticResource WinoDialogStyle}"
     DefaultButton="Primary"
     HorizontalContentAlignment="Stretch"
-    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Create}"
     xmlns:domain="using:Wino.Core.Domain"
     PrimaryButtonClick="UpdateOrCreateClicked"
     SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"

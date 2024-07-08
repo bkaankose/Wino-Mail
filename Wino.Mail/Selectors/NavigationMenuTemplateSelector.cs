@@ -8,7 +8,6 @@ namespace Wino.Selectors
     {
         public DataTemplate MenuItemTemplate { get; set; }
         public DataTemplate AccountManagementTemplate { get; set; }
-        public DataTemplate NestedAccountMenuTemplate { get; set; }
         public DataTemplate ClickableAccountMenuTemplate { get; set; }
         public DataTemplate MergedAccountTemplate { get; set; }
         public DataTemplate MergedAccountFolderTemplate { get; set; }
@@ -34,7 +33,7 @@ namespace Wino.Selectors
                 return SeperatorTemplate;
             else if (item is AccountMenuItem accountMenuItem)
                 // Merged inbox account menu items must be nested.
-                return accountMenuItem.Parameter.MergedInboxId != null ? NestedAccountMenuTemplate : ClickableAccountMenuTemplate;
+                return ClickableAccountMenuTemplate;
             else if (item is ManageAccountsMenuItem)
                 return AccountManagementTemplate;
             else if (item is RateMenuItem)

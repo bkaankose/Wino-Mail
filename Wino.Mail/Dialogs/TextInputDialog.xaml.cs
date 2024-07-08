@@ -25,6 +25,11 @@ namespace Wino.Dialogs
             DialogDescription.Text = description;
         }
 
+        public void SetPrimaryButtonText(string text)
+        {
+            PrimaryButtonText = text;
+        }
+
         private void CancelClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
             Hide();

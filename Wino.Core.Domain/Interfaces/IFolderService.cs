@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -15,13 +16,10 @@ namespace Wino.Core.Domain.Interfaces
         Task<MailItemFolder> GetFolderAsync(Guid folderId);
         Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId);
         Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId);
-        Task<List<MailItemFolder>> GetUnreadUpdateFoldersAsync(Guid accountId);
-        Task SetSpecialFolderAsync(Guid folderId, SpecialFolderType type);
         Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type);
         Task<int> GetCurrentItemCountForFolder(Guid folderId);
         Task<int> GetFolderNotificationBadgeAsync(Guid folderId);
         Task ChangeStickyStatusAsync(Guid folderId, bool isSticky);
-        Task UpdateCustomServerMailListAsync(Guid accountId, List<MailItemFolder> folders);
 
         Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration);
         Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
@@ -38,16 +36,6 @@ namespace Wino.Core.Domain.Interfaces
         /// Returns the folder - mail mapping for the given mail copy id.
         /// </summary>
         Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId);
-
-        // v2
-
-        /// <summary>
-        /// Performs bulk update for the given folders.
-        /// Used in Gmail.
-        /// </summary>
-        /// <param name="accountId">Account that folders belong to.</param>
-        /// <param name="allFolders">Folders to update.</param>
-        Task BulkUpdateFolderStructureAsync(Guid accountId, List<MailItemFolder> allFolders);
 
         /// <summary>
         /// Deletes the folder for the given account by remote folder id.
@@ -84,12 +72,23 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="folderId">Folder to update.</param>
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
 
-        Task TestAsync();
-
         /// <summary>
         /// Updates the given folder.
         /// </summary>
         /// <param name="folder">Folder to update.</param>
         Task UpdateFolderAsync(MailItemFolder folder);
+
+        /// <summary>
+        /// Returns the active folder menu items for the given account for UI.
+        /// </summary>
+        /// <param name="accountMenuItem">Account to get folder menu items for.</param>
+        Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
+
+        /// <summary>
+        /// Returns a list of unread item counts for the given account ids.
+        /// Every folder that is marked as show unread badge is included.
+        /// </summary>
+        /// <param name="accountIds">Account ids to get unread folder counts for.</param>
+        Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds);
     }
 }

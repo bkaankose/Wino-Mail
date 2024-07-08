@@ -140,20 +140,21 @@ namespace Wino.Views
             {
                 if (message.FolderId == default) return;
 
-                var menuItem = ViewModel.MenuItems.GetFolderItem(message.FolderId);
+                if (ViewModel.MenuItems.TryGetFolderMenuItem(message.FolderId, out IBaseFolderMenuItem foundMenuItem))
+                {
+                    if (foundMenuItem == null) return;
 
-                if (menuItem == null) return;
+                    foundMenuItem.Expand();
 
-                menuItem.Expand();
+                    await ViewModel.NavigateFolderAsync(foundMenuItem);
 
-                await ViewModel.NavigateFolderAsync(menuItem);
+                    navigationView.SelectedItem = foundMenuItem;
 
-                navigationView.SelectedItem = menuItem;
+                    if (message.NavigateMailItem == null) return;
 
-                if (message.NavigateMailItem == null) return;
-
-                // At this point folder is navigated and items are loaded.
-                WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(message.NavigateMailItem.UniqueId));
+                    // At this point folder is navigated and items are loaded.
+                    WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(message.NavigateMailItem.UniqueId));
+                }
             });
         }
 
@@ -205,6 +206,9 @@ namespace Wino.Views
         private void BackButtonClicked(Controls.Advanced.WinoAppTitleBar sender, RoutedEventArgs args)
         {
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+            WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+            WeakReferenceMessenger.Default.Send(new ShellStateUpdated());
+
         }
 
         private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)

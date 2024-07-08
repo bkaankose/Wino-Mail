@@ -19,6 +19,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
@@ -309,24 +310,24 @@ namespace Wino.Mail.ViewModels
             MailCollection.CoreDispatcher = Dispatcher;
         }
 
-        protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
-        {
-            base.OnFolderUpdated(updatedFolder, account);
+        //protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
+        //{
+        //    base.OnFolderUpdated(updatedFolder, account);
 
-            // Don't need to update if the folder update does not belong to the current folder menu item.
-            if (ActiveFolder == null || updatedFolder == null || !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedFolder.Id)) return;
+        //    // Don't need to update if the folder update does not belong to the current folder menu item.
+        //    if (ActiveFolder == null || updatedFolder == null || !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedFolder.Id)) return;
 
-            await ExecuteUIThread(() =>
-            {
-                ActiveFolder.UpdateFolder(updatedFolder);
+        //    await ExecuteUIThread(() =>
+        //    {
+        //        ActiveFolder.UpdateFolder(updatedFolder);
 
-                OnPropertyChanged(nameof(CanSynchronize));
-                OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            });
+        //        OnPropertyChanged(nameof(CanSynchronize));
+        //        OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
+        //    });
 
-            // Force synchronization after enabling the folder.
-            SyncFolder();
-        }
+        //    // Force synchronization after enabling the folder.
+        //    SyncFolder();
+        //}
 
         private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
         {
@@ -523,14 +524,6 @@ namespace Wino.Mail.ViewModels
             {
                 await _folderService.ChangeFolderSynchronizationStateAsync(folder.Id, true);
             }
-
-            // TODO
-            //ActiveFolder.IsSynchronizationEnabled = true;
-
-            //OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-            //OnPropertyChanged(nameof(CanSynchronize));
-
-            //SyncFolderCommand?.Execute(null);
         }
 
         [RelayCommand]
@@ -651,6 +644,8 @@ namespace Wino.Mail.ViewModels
         protected override async void OnMailRemoved(MailCopy removedMail)
         {
             base.OnMailRemoved(removedMail);
+
+            if (removedMail.AssignedAccount == null || removedMail.AssignedFolder == null) return;
 
             // We should delete the items only if:
             // 1. They are deleted from the active folder.
@@ -953,6 +948,21 @@ namespace Wino.Mail.ViewModels
 
         public async void Receive(NewSynchronizationRequested message)
             => await ExecuteUIThread(() => { OnPropertyChanged(nameof(CanSynchronize)); });
+
+        protected override async void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
+        {
+            if (ActiveFolder?.EntityId != mailItemFolder.Id) return;
+
+            await ExecuteUIThread(() =>
+            {
+                ActiveFolder.UpdateFolder(mailItemFolder);
+
+                OnPropertyChanged(nameof(CanSynchronize));
+                OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
+            });
+
+            SyncFolderCommand?.Execute(null);
+        }
 
         public async void Receive(AccountSynchronizerStateChanged message)
             => await CheckIfAccountIsSynchronizingAsync();

@@ -19,7 +19,6 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
 using Wino.Core.Messages.Accounts;
 using Wino.Core.Messages.Mails;
@@ -49,8 +48,8 @@ namespace Wino.Mail.ViewModels
 
         private IAccountMenuItem latestSelectedAccountMenuItem;
 
-        public MenuItemCollection FooterItems { get; set; } = [];
-        public MenuItemCollection MenuItems { get; set; } = [];
+        public MenuItemCollection FooterItems { get; set; }
+        public MenuItemCollection MenuItems { get; set; }
 
         private readonly SettingsItem SettingsItem = new SettingsItem();
 
@@ -118,6 +117,14 @@ namespace Wino.Mail.ViewModels
             _winoRequestDelegator = winoRequestDelegator;
         }
 
+        protected override void OnDispatcherAssigned()
+        {
+            base.OnDispatcherAssigned();
+
+            MenuItems = new MenuItemCollection(Dispatcher);
+            FooterItems = new MenuItemCollection(Dispatcher);
+        }
+
         public IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder)
         {
             if (folder == null || folder.SpecialFolderType == SpecialFolderType.Category || folder.SpecialFolderType == SpecialFolderType.More)
@@ -148,181 +155,61 @@ namespace Wino.Mail.ViewModels
 
         private async Task LoadAccountsAsync()
         {
-            var accounts = await _accountService.GetAccountsAsync();
+            // First clear all account menu items.
+            MenuItems.RemoveRange(MenuItems.Where(a => a is IAccountMenuItem));
+
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
             // Group accounts by merged account.
-            var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId);
+            var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId).OrderBy(a => a.Key != null);
 
-            foreach (var accountGroup in groupedAccounts)
+            foreach (var group in groupedAccounts)
             {
-                var mergedInbox = accountGroup.Key;
+                var mergedInboxId = group.Key;
 
-                if (mergedInbox == null)
+                if (mergedInboxId == null)
                 {
-                    // This account is not merged. Create menu item for each account.
-                    foreach (var account in accountGroup)
+                    // Single accounts.
+                    // Preserve the order while listing.
+
+                    var orderedGroup = group.OrderBy(a => a.Order);
+
+                    foreach (var account in orderedGroup)
                     {
-                        await CreateNestedAccountMenuItem(account);
+                        await ExecuteUIThread(() =>
+                        {
+                            MenuItems.Add(new AccountMenuItem(account, null));
+                        });
                     }
                 }
                 else
                 {
-                    // Accounts are merged. Create menu item for merged inbox.
-                    await CreateMergedInboxMenuItemAsync(accountGroup);
+                    // Merged accounts.
+                    var mergedInbox = group.First().MergedInbox;
+                    var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, group, null);
+
+                    foreach (var accountItem in group)
+                    {
+                        mergedAccountMenuItem.SubMenuItems.Add(new AccountMenuItem(accountItem, mergedAccountMenuItem));
+                    }
+
+                    await ExecuteUIThread(() =>
+                    {
+                        MenuItems.Add(mergedAccountMenuItem);
+                    });
                 }
             }
 
             // Re-assign latest selected account menu item for containers to reflect changes better.
             // Also , this will ensure that the latest selected account is still selected after re-creation.
 
-            if (latestSelectedAccountMenuItem != null)
-            {
-                latestSelectedAccountMenuItem = MenuItems.GetAccountMenuItem(latestSelectedAccountMenuItem.EntityId.GetValueOrDefault());
-
-                if (latestSelectedAccountMenuItem != null)
-                {
-                    latestSelectedAccountMenuItem.IsSelected = true;
-                }
-            }
-        }
-
-        protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
-        {
-            base.OnFolderUpdated(updatedFolder, account);
-
-            if (updatedFolder == null) return;
-
-            var folderMenuItemsToUpdate = MenuItems.GetFolderItems(updatedFolder.Id);
-
-            foreach (var item in folderMenuItemsToUpdate)
+            if (latestSelectedAccountMenuItem != null && MenuItems.TryGetAccountMenuItem(latestSelectedAccountMenuItem.EntityId.GetValueOrDefault(), out IAccountMenuItem foundLatestSelectedAccountMenuItem))
             {
                 await ExecuteUIThread(() =>
                 {
-                    item.UpdateFolder(updatedFolder);
+                    foundLatestSelectedAccountMenuItem.IsSelected = true;
                 });
             }
-        }
-
-        private async Task CreateMergedInboxMenuItemAsync(IEnumerable<MailAccount> accounts)
-        {
-            var mergedInbox = accounts.First().MergedInbox;
-            var mergedInboxMenuItem = new MergedAccountMenuItem(mergedInbox, null); // Merged accounts are parentless.
-
-            // Store common special type folders.
-            var commonFolderList = new Dictionary<MailAccount, IMailItemFolder>();
-
-            // Map special folder types for each account.
-            var accountTreeList = new List<AccountFolderTree>();
-
-            foreach (var account in accounts)
-            {
-                var accountStructure = await _folderService.GetFolderStructureForAccountAsync(account.Id, includeHiddenFolders: true);
-                accountTreeList.Add(accountStructure);
-            }
-
-            var allFolders = accountTreeList.SelectMany(a => a.Folders);
-
-            // 1. Group sticky folders by special folder type.
-            // 2. Merge all folders that are sticky and have the same special folder type.
-            // 3. Add merged folder menu items to the merged inbox menu item.
-            // 4. Add remaining sticky folders that doesn't exist in all accounts as plain folder menu items.
-
-            var stickyFolders = allFolders.Where(a => a.IsSticky);
-
-            var grouped = stickyFolders
-                          .GroupBy(a => a.SpecialFolderType)
-                          .Where(a => accountTreeList.All(b => b.HasSpecialTypeFolder(a.Key)));
-
-            var mergedInboxItems = grouped.Select(a => new MergedAccountFolderMenuItem(a.ToList(), mergedInboxMenuItem, mergedInbox));
-
-            // Shared common folders.
-            foreach (var mergedInboxFolder in mergedInboxItems)
-            {
-                mergedInboxMenuItem.SubMenuItems.Add(mergedInboxFolder);
-            }
-
-            var usedFolderIds = mergedInboxItems.SelectMany(a => a.Parameter.Select(a => a.Id));
-            var remainingStickyFolders = stickyFolders.Where(a => !usedFolderIds.Contains(a.Id));
-
-            // Marked as sticky, but doesn't exist in all accounts. Add as plain folder menu item.
-            foreach (var remainingStickyFolder in remainingStickyFolders)
-            {
-                var account = accounts.FirstOrDefault(a => a.Id == remainingStickyFolder.MailAccountId);
-                mergedInboxMenuItem.SubMenuItems.Add(new FolderMenuItem(remainingStickyFolder, account, mergedInboxMenuItem));
-            }
-
-
-            var mergedMoreItem = new MergedAccountMoreFolderMenuItem(null, null, mergedInboxMenuItem);
-
-            // 2. Sticky folder preparation is done. Continue with regular account menu items.
-
-            foreach (var accountTree in accountTreeList)
-            {
-                var tree = accountTree.GetAccountMenuTree(mergedInboxMenuItem);
-
-                mergedMoreItem.SubMenuItems.Add(tree);
-            }
-
-            mergedInboxMenuItem.SubMenuItems.Add(mergedMoreItem);
-
-            MenuItems.Add(mergedInboxMenuItem);
-
-            // Instead of refreshing all accounts, refresh the merged account only.
-            // Receiver will handle it.
-
-            Messenger.Send(new RefreshUnreadCountsMessage(mergedInbox.Id));
-        }
-
-        private async Task<IAccountMenuItem> CreateNestedAccountMenuItem(MailAccount account)
-        {
-            try
-            {
-                await accountInitFolderUpdateSlim.WaitAsync();
-
-                // Don't remove but replace existing record.
-                int existingIndex = -1;
-
-                var existingAccountMenuItem = MenuItems.FirstOrDefault(a => a is AccountMenuItem accountMenuItem && accountMenuItem.Parameter.Id == account.Id);
-
-                if (existingAccountMenuItem != null)
-                {
-                    existingIndex = MenuItems.IndexOf(existingAccountMenuItem);
-                }
-
-                // Create account structure with integrator for this menu item.
-                var accountStructure = await _folderService.GetFolderStructureForAccountAsync(account.Id, includeHiddenFolders: false);
-
-                var createdMenuItem = accountStructure.GetAccountMenuTree();
-
-                await ExecuteUIThread(() =>
-                {
-                    if (existingIndex >= 0)
-                    {
-                        createdMenuItem.IsExpanded = existingAccountMenuItem.IsExpanded;
-
-                        MenuItems.RemoveAt(existingIndex);
-                        MenuItems.Insert(existingIndex, createdMenuItem);
-                    }
-                    else
-                    {
-                        MenuItems.AddAccountMenuItem(createdMenuItem);
-                    }
-                });
-
-                Messenger.Send(new RefreshUnreadCountsMessage(account.Id));
-
-                return createdMenuItem;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, WinoErrors.AccountStructureRender);
-            }
-            finally
-            {
-                accountInitFolderUpdateSlim.Release();
-            }
-
-            return null;
         }
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -371,7 +258,6 @@ namespace Wino.Mail.ViewModels
                     Type = SynchronizationType.Inbox
                 };
 
-
                 Messenger.Send(new NewSynchronizationRequested(options));
             }
         }
@@ -392,9 +278,9 @@ namespace Wino.Mail.ViewModels
                         // Find the account that this folder and mail belongs to.
                         var account = await _mailService.GetMailAccountByUniqueIdAsync(accountExtendedMessage.NavigateMailItem.UniqueId).ConfigureAwait(false);
 
-                        if (account != null && MenuItems.GetAccountMenuItem(account.Id) is IAccountMenuItem accountMenuItem)
+                        if (account != null && MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem))
                         {
-                            ChangeLoadedAccount(accountMenuItem);
+                            await ChangeLoadedAccountAsync(accountMenuItem);
 
                             WeakReferenceMessenger.Default.Send(accountExtendedMessage);
 
@@ -402,7 +288,7 @@ namespace Wino.Mail.ViewModels
                         }
                         else
                         {
-                            ProcessLaunchDefault();
+                            await ProcessLaunchDefaultAsync();
                         }
                     }
                 }
@@ -419,7 +305,7 @@ namespace Wino.Mail.ViewModels
                     else
                     {
                         // Use default startup extending.
-                        ProcessLaunchDefault();
+                        await ProcessLaunchDefaultAsync();
                     }
                 }
             }
@@ -429,7 +315,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void ProcessLaunchDefault()
+        private async Task ProcessLaunchDefaultAsync()
         {
             if (PreferencesService.StartupEntityId == null)
             {
@@ -452,7 +338,7 @@ namespace Wino.Mail.ViewModels
 
                     if (startupEntityMenuItem is IAccountMenuItem startupAccountMenuItem)
                     {
-                        ChangeLoadedAccount(startupAccountMenuItem);
+                        await ChangeLoadedAccountAsync(startupAccountMenuItem);
                     }
                 }
             }
@@ -470,10 +356,16 @@ namespace Wino.Mail.ViewModels
             var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, mailInitCompletionSource);
 
             NavigationService.NavigateFolder(args);
-            StatePersistenceService.CoreWindowTitle = $"{baseFolderMenuItem.AssignedAccountName} - {baseFolderMenuItem.FolderName}";
+
+            UpdateWindowTitleForFolder(baseFolderMenuItem);
 
             // Wait until mail list page picks up the event and finish initialization of the mails.
             await mailInitCompletionSource.Task;
+        }
+
+        private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
+        {
+            StatePersistenceService.CoreWindowTitle = $"{folder.AssignedAccountName} - {folder.FolderName}";
         }
 
         private async Task NavigateSpecialFolderAsync(MailAccount account, SpecialFolderType specialFolderType, bool extendAccountMenu)
@@ -482,18 +374,31 @@ namespace Wino.Mail.ViewModels
             {
                 if (account == null) return;
 
-                // If the account is inside a merged account, expand the merged account and navigate to shared folder.
-                if (MenuItems.TryGetMergedAccountRootFolderMenuItemByAccountId(account.Id, specialFolderType, out MergedAccountFolderMenuItem mergedFolderItem))
-                {
-                    mergedFolderItem.Expand();
-                    await NavigateFolderAsync(mergedFolderItem);
-                }
-                else if (MenuItems.TryGetRootSpecialFolderMenuItem(account.Id, specialFolderType, out FolderMenuItem rootFolderMenuItem))
-                {
-                    // Account is not in merged account. Navigate to root folder.
+                if (!MenuItems.TryGetAccountMenuItem(account.Id, out IAccountMenuItem accountMenuItem)) return;
 
-                    rootFolderMenuItem.Expand();
-                    await NavigateFolderAsync(rootFolderMenuItem);
+                // First make sure to navigate to the given accounnt.
+
+                if (latestSelectedAccountMenuItem != accountMenuItem)
+                {
+                    await ChangeLoadedAccountAsync(accountMenuItem, false);
+                }
+
+                // Account folders are already initialized.
+                // Try to find the special folder menu item and navigate to it.
+
+                if (latestSelectedAccountMenuItem is IMergedAccountMenuItem latestMergedAccountMenuItem)
+                {
+                    if (MenuItems.TryGetMergedAccountSpecialFolderMenuItem(latestSelectedAccountMenuItem.EntityId.Value, specialFolderType, out IBaseFolderMenuItem mergedFolderMenuItem))
+                    {
+                        await NavigateFolderAsync(mergedFolderMenuItem);
+                    }
+                }
+                else if (latestSelectedAccountMenuItem is IAccountMenuItem latestAccountMenuItem)
+                {
+                    if (MenuItems.TryGetSpecialFolderMenuItem(account.Id, specialFolderType, out FolderMenuItem rootFolderMenuItem))
+                    {
+                        await NavigateFolderAsync(rootFolderMenuItem);
+                    }
                 }
             }
             catch (Exception ex)
@@ -566,7 +471,12 @@ namespace Wino.Mail.ViewModels
 
             foreach (var folder in folderMenuItem.HandlingFolders)
             {
-                await _winoRequestDelegator.ExecuteAsync(operation, folder);
+                if (folder is MailItemFolder realFolder)
+                {
+                    var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder);
+
+                    await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+                }
             }
 
             // Refresh the pins.
@@ -632,6 +542,11 @@ namespace Wino.Mail.ViewModels
 
                 await NavigateFolderAsync(baseFolderMenuItem);
             }
+            else if (clickedMenuItem is MergedAccountMenuItem clickedMergedAccountMenuItem && latestSelectedAccountMenuItem != clickedMenuItem)
+            {
+                // Don't navigate to merged account if it's already selected. Preserve user's already selected folder.
+                await ChangeLoadedAccountAsync(clickedMergedAccountMenuItem, true);
+            }
             else if (clickedMenuItem is SettingsItem)
             {
                 NavigationService.Navigate(WinoPage.SettingsPage);
@@ -642,19 +557,23 @@ namespace Wino.Mail.ViewModels
             }
             else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem && latestSelectedAccountMenuItem != clickedAccountMenuItem)
             {
-                ChangeLoadedAccount(clickedAccountMenuItem);
+                await ChangeLoadedAccountAsync(clickedAccountMenuItem);
             }
         }
 
-        private async void ChangeLoadedAccount(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
+        private async Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
         {
             if (clickedBaseAccountMenuItem == null) return;
 
             // User clicked an account in Windows Mail style menu.
             // List folders for this account and select Inbox.
 
+            await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
+
             await ExecuteUIThread(() =>
             {
+                clickedBaseAccountMenuItem.IsEnabled = false;
+
                 if (latestSelectedAccountMenuItem != null)
                 {
                     latestSelectedAccountMenuItem.IsSelected = false;
@@ -662,19 +581,17 @@ namespace Wino.Mail.ViewModels
 
                 clickedBaseAccountMenuItem.IsSelected = true;
 
-
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
-
-
-                if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
-                {
-                    MenuItems.ReplaceFolders(accountMenuItem.SubMenuItems);
-                }
-                else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
-                {
-                    MenuItems.ReplaceFolders(mergedAccountMenuItem.SubMenuItems);
-                }
             });
+
+            // Load account folder structure and replace the visible folders.
+            var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+
+            // var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(clickedBaseAccountMenuItem.HoldingAccounts.Select(a => a.Id)).ConfigureAwait(false);
+
+            await MenuItems.ReplaceFoldersAsync(folders);
+            await UpdateUnreadItemCountAsync();
+            await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
 
             if (navigateInbox)
             {
@@ -684,6 +601,67 @@ namespace Wino.Mail.ViewModels
                 {
                     NavigateInbox(clickedBaseAccountMenuItem);
                 });
+            }
+        }
+
+        private async Task UpdateUnreadItemCountAsync()
+        {
+            // Get visible account menu items, ordered by merged accounts at the last.
+            // We will update the unread counts for all single accounts and trigger UI refresh for merged menu items.
+            var accountMenuItems = MenuItems.GetAllAccountMenuItems().OrderBy(a => a.HoldingAccounts.Count());
+
+            // Individually get all single accounts' unread counts.
+            var accountIds = accountMenuItems.OfType<AccountMenuItem>().Select(a => a.AccountId);
+            var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(accountIds).ConfigureAwait(false);
+
+            // Recursively update all folders' unread counts to 0.
+            // Query above only returns unread counts that exists. We need to reset the rest to 0 first.
+
+            await ExecuteUIThread(() =>
+            {
+                MenuItems.UpdateUnreadItemCountsToZero();
+            });
+
+            foreach (var accountMenuItem in accountMenuItems)
+            {
+                if (accountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        mergedAccountMenuItem.RefreshFolderItemCount();
+                    });
+                }
+                else
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        accountMenuItem.UnreadItemCount = unreadCountResult
+                        .Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id && a.SpecialFolderType == SpecialFolderType.Inbox)
+                        .Sum(a => a.UnreadItemCount);
+                    });
+                }
+            }
+
+            // Try to update unread counts for all folders.
+            foreach (var unreadCount in unreadCountResult)
+            {
+                if (MenuItems.TryGetFolderMenuItem(unreadCount.FolderId, out IBaseFolderMenuItem folderMenuItem))
+                {
+                    if (folderMenuItem is IMergedAccountFolderMenuItem mergedAccountFolderMenuItem)
+                    {
+                        await ExecuteUIThread(() =>
+                        {
+                            folderMenuItem.UnreadItemCount = unreadCountResult.Where(a => a.SpecialFolderType == unreadCount.SpecialFolderType && mergedAccountFolderMenuItem.HandlingFolders.Select(b => b.Id).Contains(a.FolderId)).Sum(a => a.UnreadItemCount);
+                        });
+                    }
+                    else
+                    {
+                        await ExecuteUIThread(() =>
+                        {
+                            folderMenuItem.UnreadItemCount = unreadCount.UnreadItemCount;
+                        });
+                    }
+                }
             }
         }
 
@@ -741,7 +719,16 @@ namespace Wino.Mail.ViewModels
                 else
                 {
                     // There are multiple accounts and there is no selection.
-                    Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(accounts));
+                    // Don't list all accounts, but only accounts that belong to Merged Inbox.
+
+                    if (latestSelectedAccountMenuItem is MergedAccountMenuItem selectedMergedAccountMenuItem)
+                    {
+                        var mergedAccounts = accounts.Where(a => a.MergedInboxId == selectedMergedAccountMenuItem.EntityId);
+
+                        if (!mergedAccounts.Any()) return;
+
+                        Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(mergedAccounts.ToList()));
+                    }
                 }
             }
 
@@ -851,18 +838,26 @@ namespace Wino.Mail.ViewModels
 
 
         protected override async void OnAccountUpdated(MailAccount updatedAccount)
-            => await ExecuteUIThread(() => { MenuItems.GetAccountMenuItem(updatedAccount.Id)?.UpdateAccount(updatedAccount); });
+        {
+            await ExecuteUIThread(() =>
+            {
+                if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
+                {
+                    foundAccountMenuItem.UpdateAccount(updatedAccount);
+                }
+            });
+        }
 
         protected override void OnAccountRemoved(MailAccount removedAccount)
             => Messenger.Send(new AccountsMenuRefreshRequested(true));
 
         protected override async void OnAccountCreated(MailAccount createdAccount)
         {
-            var createdMenuItem = await CreateNestedAccountMenuItem(createdAccount);
+            await RecreateMenuItemsAsync();
 
-            if (createdMenuItem == null) return;
+            if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
 
-            ChangeLoadedAccount(createdMenuItem);
+            await ChangeLoadedAccountAsync(createdMenuItem);
 
             // Each created account should start a new synchronization automatically.
             var options = new SynchronizationOptions()
@@ -876,96 +871,9 @@ namespace Wino.Mail.ViewModels
             await _nativeAppService.PinAppToTaskbarAsync();
         }
 
-        /// <summary>
-        /// Updates given single account menu item's unread count for all folders.
-        /// </summary>
-        /// <param name="accountMenuItem">Menu item to update unread count for.</param>
-        /// <returns>Unread item count for Inbox only.</returns>
-        private async Task<int> UpdateSingleAccountMenuItemUnreadCountAsync(AccountMenuItem accountMenuItem)
-        {
-            var accountId = accountMenuItem.AccountId;
-            int inboxItemCount = 0;
-
-            // Get the folders needed to be refreshed.
-            var allFolders = await _folderService.GetUnreadUpdateFoldersAsync(accountId);
-
-            foreach (var folder in allFolders)
-            {
-                var unreadItemCount = await UpdateAccountFolderUnreadItemCountAsync(accountMenuItem, folder.Id);
-
-                if (folder.SpecialFolderType == SpecialFolderType.Inbox)
-                {
-                    inboxItemCount = unreadItemCount;
-
-                    await ExecuteUIThread(() => { accountMenuItem.UnreadItemCount = unreadItemCount; });
-                }
-            }
-
-            return inboxItemCount;
-        }
-
-        private async Task RefreshUnreadCountsForAccountAsync(Guid accountId)
-        {
-            // TODO: Merged accounts unread item count.
-
-            var accountMenuItem = MenuItems.GetAccountMenuItem(accountId);
-
-            if (accountMenuItem == null) return;
-
-            if (accountMenuItem is AccountMenuItem singleAccountMenuItem)
-            {
-                await UpdateSingleAccountMenuItemUnreadCountAsync(singleAccountMenuItem);
-
-            }
-            else if (accountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
-            {
-                // Merged account.
-                // Root account should include all parent accounts' unread item count.
-
-                int totalUnreadCount = 0;
-
-                var individualAccountMenuItems = mergedAccountMenuItem.GetAccountMenuItems();
-
-                foreach (var singleMenuItem in individualAccountMenuItems)
-                {
-                    totalUnreadCount += await UpdateSingleAccountMenuItemUnreadCountAsync(singleMenuItem);
-                }
-
-                // At this point all single accounts are calculated.
-                // Merge account folder's menu items can be calculated from those values for precision.
-
-                await ExecuteUIThread(() =>
-                {
-                    mergedAccountMenuItem.RefreshFolderItemCount();
-                    mergedAccountMenuItem.UnreadItemCount = totalUnreadCount;
-                });
-            }
-
-            await ExecuteUIThread(async () => { await _notificationBuilder.UpdateTaskbarIconBadgeAsync(); });
-        }
-
-        private async Task<int> UpdateAccountFolderUnreadItemCountAsync(AccountMenuItem accountMenuItem, Guid folderId)
-        {
-            if (accountMenuItem == null) return 0;
-
-            var folder = accountMenuItem.FlattenedFolderHierarchy.Find(a => a.Parameter?.Id == folderId);
-
-            if (folder == null) return 0;
-
-            int folderUnreadItemCount = 0;
-
-            folderUnreadItemCount = await _folderService.GetFolderNotificationBadgeAsync(folder.Parameter.Id).ConfigureAwait(false);
-
-            await ExecuteUIThread(() => { folder.UnreadItemCount = folderUnreadItemCount; });
-
-            return folderUnreadItemCount;
-        }
-
         private async Task SetAccountAttentionAsync(Guid accountId, AccountAttentionReason reason)
         {
-            var accountMenuItem = MenuItems.GetAccountMenuItem(accountId);
-
-            if (accountMenuItem == null) return;
+            if (!MenuItems.TryGetAccountMenuItem(accountId, out IAccountMenuItem accountMenuItem)) return;
 
             var accountModel = accountMenuItem.HoldingAccounts.First(a => a.Id == accountId);
 
@@ -1025,7 +933,7 @@ namespace Wino.Mail.ViewModels
         }
 
         public async void Receive(RefreshUnreadCountsMessage message)
-            => await RefreshUnreadCountsForAccountAsync(message.AccountId);
+            => await UpdateUnreadItemCountAsync();
 
         public async void Receive(AccountsMenuRefreshRequested message)
         {
@@ -1035,7 +943,7 @@ namespace Wino.Mail.ViewModels
             {
                 if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
                 {
-                    ChangeLoadedAccount(firstAccount);
+                    await ChangeLoadedAccountAsync(firstAccount);
                 }
             }
         }
@@ -1057,21 +965,48 @@ namespace Wino.Mail.ViewModels
             await CreateFooterItemsAsync();
             await RecreateMenuItemsAsync();
 
-            ChangeLoadedAccount(latestSelectedAccountMenuItem, navigateInbox: false);
+            await ChangeLoadedAccountAsync(latestSelectedAccountMenuItem, navigateInbox: false);
         }
 
         private void ReorderAccountMenuItems(Dictionary<Guid, int> newAccountOrder)
         {
             foreach (var item in newAccountOrder)
             {
-                var menuItem = MenuItems.GetAccountMenuItem(item.Key);
-
-                if (menuItem == null) continue;
+                if (!MenuItems.TryGetAccountMenuItem(item.Key, out IAccountMenuItem menuItem)) return;
 
                 MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value);
             }
         }
 
         public void Receive(AccountMenuItemsReordered message) => ReorderAccountMenuItems(message.newOrderDictionary);
+
+        private async void UpdateFolderCollection(IMailItemFolder updatedMailItemFolder)
+        {
+            var menuItem = MenuItems.GetAllFolderMenuItems(updatedMailItemFolder.Id);
+
+            if (!menuItem.Any()) return;
+
+            foreach (var item in menuItem)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    item.UpdateFolder(updatedMailItemFolder);
+                });
+            }
+        }
+
+        protected override void OnFolderRenamed(IMailItemFolder mailItemFolder)
+        {
+            base.OnFolderRenamed(mailItemFolder);
+
+            UpdateFolderCollection(mailItemFolder);
+        }
+
+        protected override void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
+        {
+            base.OnFolderSynchronizationEnabled(mailItemFolder);
+
+            UpdateFolderCollection(mailItemFolder);
+        }
     }
 }

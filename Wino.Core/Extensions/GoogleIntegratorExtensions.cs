@@ -18,57 +18,114 @@ namespace Wino.Core.Extensions
         public const string STARRED_LABEL_ID = "STARRED";
         public const string DRAFT_LABEL_ID = "DRAFT";
         public const string SENT_LABEL_ID = "SENT";
+        public const string SPAM_LABEL_ID = "SPAM";
+        public const string CHAT_LABEL_ID = "CHAT";
+        public const string TRASH_LABEL_ID = "TRASH";
 
+        // Category labels.
+        public const string FORUMS_LABEL_ID = "FORUMS";
+        public const string UPDATES_LABEL_ID = "UPDATES";
+        public const string PROMOTIONS_LABEL_ID = "PROMOTIONS";
+        public const string SOCIAL_LABEL_ID = "SOCIAL";
+        public const string PERSONAL_LABEL_ID = "PERSONAL";
+
+        // Label visibility identifiers.
         private const string SYSTEM_FOLDER_IDENTIFIER = "system";
         private const string FOLDER_HIDE_IDENTIFIER = "labelHide";
 
-        private static Dictionary<string, SpecialFolderType> KnownFolderDictioanry = new Dictionary<string, SpecialFolderType>()
+        private const string CATEGORY_PREFIX = "CATEGORY_";
+        private const string FOLDER_SEPERATOR_STRING = "/";
+        private const char FOLDER_SEPERATOR_CHAR = '/';
+
+        private static Dictionary<string, SpecialFolderType> KnownFolderDictionary = new Dictionary<string, SpecialFolderType>()
         {
             { INBOX_LABEL_ID, SpecialFolderType.Inbox },
-            { "CHAT", SpecialFolderType.Chat },
+            { CHAT_LABEL_ID, SpecialFolderType.Chat },
             { IMPORTANT_LABEL_ID, SpecialFolderType.Important },
-            { "TRASH", SpecialFolderType.Deleted },
+            { TRASH_LABEL_ID, SpecialFolderType.Deleted },
             { DRAFT_LABEL_ID, SpecialFolderType.Draft },
             { SENT_LABEL_ID, SpecialFolderType.Sent },
-            { "SPAM", SpecialFolderType.Junk },
+            { SPAM_LABEL_ID, SpecialFolderType.Junk },
             { STARRED_LABEL_ID, SpecialFolderType.Starred },
             { UNREAD_LABEL_ID, SpecialFolderType.Unread },
-            { "FORUMS", SpecialFolderType.Forums },
-            { "UPDATES", SpecialFolderType.Updates },
-            { "PROMOTIONS", SpecialFolderType.Promotions },
-            { "SOCIAL", SpecialFolderType.Social},
-            { "PERSONAL", SpecialFolderType.Personal},
+            { FORUMS_LABEL_ID, SpecialFolderType.Forums },
+            { UPDATES_LABEL_ID, SpecialFolderType.Updates },
+            { PROMOTIONS_LABEL_ID, SpecialFolderType.Promotions },
+            { SOCIAL_LABEL_ID, SpecialFolderType.Social},
+            { PERSONAL_LABEL_ID, SpecialFolderType.Personal},
         };
 
-        public static MailItemFolder GetLocalFolder(this Label label, Guid accountId)
+        public static string[] SubCategoryFolderLabelIds =
+        [
+            FORUMS_LABEL_ID,
+            UPDATES_LABEL_ID,
+            PROMOTIONS_LABEL_ID,
+            SOCIAL_LABEL_ID,
+            PERSONAL_LABEL_ID
+        ];
+
+        private static string GetNormalizedLabelName(string labelName)
         {
-            var unchangedFolderName = label.Name;
+            // 1. Remove CATEGORY_ prefix.
+            var normalizedLabelName = labelName.Replace(CATEGORY_PREFIX, string.Empty);
 
-            if (label.Name.StartsWith("CATEGORY_"))
-                label.Name = label.Name.Replace("CATEGORY_", "");
+            // 2. Normalize label name by capitalizing first letter.
+            normalizedLabelName = char.ToUpper(normalizedLabelName[0]) + normalizedLabelName.Substring(1).ToLower();
 
-            bool isSpecialFolder = KnownFolderDictioanry.ContainsKey(label.Name);
+            return normalizedLabelName;
+        }
+
+        public static MailItemFolder GetLocalFolder(this Label label, ListLabelsResponse labelsResponse, Guid accountId)
+        {
             bool isAllCapital = label.Name.All(a => char.IsUpper(a));
 
-            var specialFolderType = isSpecialFolder ? KnownFolderDictioanry[label.Name] : SpecialFolderType.Other;
+            var normalizedLabelName = GetFolderName(label);
 
-            return new MailItemFolder()
+            // Even though we normalize the label name, check is done by capitalizing the label name.
+            var capitalNormalizedLabelName = normalizedLabelName.ToUpper();
+
+            bool isSpecialFolder = KnownFolderDictionary.ContainsKey(capitalNormalizedLabelName);
+
+            var specialFolderType = isSpecialFolder ? KnownFolderDictionary[capitalNormalizedLabelName] : SpecialFolderType.Other;
+
+            // We used to support FOLDER_HIDE_IDENTIFIER to hide invisible folders.
+            // However, a lot of people complained that they don't see their folders after the initial sync
+            // without realizing that they are hidden in Gmail settings. Therefore, it makes more sense to ignore Gmail's configuration
+            // since Wino allows folder visibility configuration separately.
+
+            // Overridden hidden labels are shown in the UI, but they have their synchronization disabled.
+            // This is mainly because 'All Mails' label is hidden by default in Gmail, but there is no point to download all mails.
+
+            bool shouldEnableSynchronization = label.LabelListVisibility != FOLDER_HIDE_IDENTIFIER;
+            bool isHidden = false;
+
+            bool isChildOfCategoryFolder = label.Name.StartsWith(CATEGORY_PREFIX);
+            bool isSticky = isSpecialFolder && specialFolderType != SpecialFolderType.Category && !isChildOfCategoryFolder;
+
+            // By default, all special folders update unread count in the UI except Trash.
+            bool shouldShowUnreadCount = specialFolderType != SpecialFolderType.Deleted || specialFolderType != SpecialFolderType.Other;
+
+            bool isSystemFolder = label.Type == SYSTEM_FOLDER_IDENTIFIER;
+
+            var localFolder = new MailItemFolder()
             {
                 TextColorHex = label.Color?.TextColor,
                 BackgroundColorHex = label.Color?.BackgroundColor,
-                FolderName = isAllCapital ? char.ToUpper(label.Name[0]) + label.Name.Substring(1).ToLower() : label.Name, // Capitilize only first letter.
+                FolderName = normalizedLabelName,
                 RemoteFolderId = label.Id,
                 Id = Guid.NewGuid(),
                 MailAccountId = accountId,
-                IsSynchronizationEnabled = true,
+                IsSynchronizationEnabled = shouldEnableSynchronization,
                 SpecialFolderType = specialFolderType,
-                IsSystemFolder = label.Type == SYSTEM_FOLDER_IDENTIFIER,
-                IsSticky = isSpecialFolder && specialFolderType != SpecialFolderType.Category && !unchangedFolderName.StartsWith("CATEGORY"),
-                IsHidden = label.LabelListVisibility == FOLDER_HIDE_IDENTIFIER,
-
-                // By default, all special folders update unread count in the UI except Trash.
-                ShowUnreadCount = specialFolderType != SpecialFolderType.Deleted || specialFolderType != SpecialFolderType.Other
+                IsSystemFolder = isSystemFolder,
+                IsSticky = isSticky,
+                IsHidden = isHidden,
+                ShowUnreadCount = shouldShowUnreadCount,
             };
+
+            localFolder.ParentRemoteFolderId = isChildOfCategoryFolder ? string.Empty : GetParentFolderRemoteId(label.Name, labelsResponse);
+
+            return localFolder;
         }
 
         public static bool GetIsDraft(this Message message)
@@ -82,6 +139,36 @@ namespace Wino.Core.Extensions
 
         public static bool GetIsFlagged(this Message message)
             => message?.LabelIds?.Any(a => a == STARRED_LABEL_ID) ?? false;
+
+        private static string GetParentFolderRemoteId(string fullLabelName, ListLabelsResponse labelsResponse)
+        {
+            if (string.IsNullOrEmpty(fullLabelName)) return string.Empty;
+
+            // Find the last index of '/'
+            int lastIndex = fullLabelName.LastIndexOf('/');
+
+            // If '/' not found or it's at the start, return the empty string.
+            if (lastIndex <= 0) return string.Empty;
+
+            // Extract the parent label
+            var parentLabelName = fullLabelName.Substring(0, lastIndex);
+
+            return labelsResponse.Labels.FirstOrDefault(a => a.Name == parentLabelName)?.Id ?? string.Empty;
+        }
+
+        public static string GetFolderName(Label label)
+        {
+            if (string.IsNullOrEmpty(label.Name)) return string.Empty;
+
+            // Folders with "//" at the end has "/" as the name.
+            if (label.Name.EndsWith(FOLDER_SEPERATOR_STRING)) return FOLDER_SEPERATOR_STRING;
+
+            string[] parts = label.Name.Split(FOLDER_SEPERATOR_CHAR);
+
+            var lastPart = parts[parts.Length - 1];
+
+            return GetNormalizedLabelName(lastPart);
+        }
 
         /// <summary>
         /// Returns MailCopy out of native Gmail message and converted MimeMessage of that native messaage.
@@ -157,6 +244,5 @@ namespace Wino.Core.Extensions
 
             return new Tuple<MailCopy, MimeMessage, IEnumerable<string>>(mailCopy, mimeMessage, message.LabelIds);
         }
-
     }
 }

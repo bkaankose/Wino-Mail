@@ -84,6 +84,8 @@
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Unlink Accounts",
     "DialogMessage_EmptySubjectConfirmation": "Missin Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Message has no subject. Do you want to continue?",
+    "DialogMessage_RenameFolderTitle": "Rename Folder",
+    "DialogMessage_RenameFolderMessage": "Enter new name for this folder",
     "DialogMessage_UnsubscribeConfirmationTitle": "Unsubscribe",
     "DialogMessage_UnsubscribeConfirmationOneClickMessage": "Do you want to stop getting messages from {0}?",
     "DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage": "To stop getting messages from {0}, go to their website to unsubscribe.",

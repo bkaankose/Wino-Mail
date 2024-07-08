@@ -89,7 +89,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task CreateMergedAccountAsync()
         {
-            var linkName = await DialogService.ShowTextInputDialogAsync(string.Empty, Translator.DialogMessage_CreateLinkedAccountTitle, Translator.DialogMessage_CreateLinkedAccountMessage);
+            var linkName = await DialogService.ShowTextInputDialogAsync(string.Empty, Translator.DialogMessage_CreateLinkedAccountTitle, Translator.DialogMessage_CreateLinkedAccountMessage, Translator.Buttons_Create);
 
             if (string.IsNullOrEmpty(linkName)) return;
 

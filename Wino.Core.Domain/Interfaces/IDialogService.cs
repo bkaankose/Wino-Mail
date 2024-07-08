@@ -29,7 +29,7 @@ namespace Wino.Core.Domain.Interfaces
         Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
         Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders);
         IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
-        Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription);
+        Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription, string primaryButtonText);
         Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);
         Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
 

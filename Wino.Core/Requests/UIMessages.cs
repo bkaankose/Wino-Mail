@@ -1,5 +1,6 @@
 ﻿using System;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Requests;
 
 namespace Wino.Core.Requests
@@ -8,10 +9,6 @@ namespace Wino.Core.Requests
     public record MailRemovedMessage(MailCopy RemovedMail) : IUIMessage;
     public record MailUpdatedMessage(MailCopy UpdatedMail) : IUIMessage;
     public record MailDownloadedMessage(MailCopy DownloadedMail) : IUIMessage;
-
-    public record FolderAddedMessage(MailItemFolder AddedFolder, MailAccount Account) : IUIMessage;
-    public record FolderRemovedMessage(MailItemFolder RemovedFolder, MailAccount Account) : IUIMessage;
-    public record FolderUpdatedMessage(MailItemFolder UpdatedFolder, MailAccount Account) : IUIMessage;
 
     public record AccountCreatedMessage(MailAccount Account) : IUIMessage;
     public record AccountRemovedMessage(MailAccount Account) : IUIMessage;
@@ -22,4 +19,7 @@ namespace Wino.Core.Requests
     public record DraftMapped(string LocalDraftCopyId, string RemoteDraftCopyId) : IUIMessage;
 
     public record MergedInboxRenamed(Guid MergedInboxId, string NewName) : IUIMessage;
+
+    public record FolderRenamed(IMailItemFolder MailItemFolder) : IUIMessage;
+    public record FolderSynchronizationEnabled(IMailItemFolder MailItemFolder) : IUIMessage;
 }

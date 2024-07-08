@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using MoreLinq.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
@@ -8,64 +10,63 @@ namespace Wino.Core.MenuItems
 {
     public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
     {
-        public IEnumerable<IBaseFolderMenuItem> GetFolderItems(Guid folderId)
+        // Which types to remove from the list when folders are changing due to selection of new account.
+        // We don't clear the whole list since we want to keep the New Mail button and account menu items.
+        private readonly Type[] _preservingTypesForFolderArea = [typeof(AccountMenuItem), typeof(NewMailMenuItem), typeof(MergedAccountMenuItem)];
+        private readonly IDispatcher _dispatcher;
+
+        public MenuItemCollection(IDispatcher dispatcher)
         {
-            var rootItems = this.OfType<AccountMenuItem>()
-                    .SelectMany(a => a.FlattenedFolderHierarchy)
-                    .Where(a => a.Parameter?.Id == folderId)
-                    .Cast<IBaseFolderMenuItem>();
-
-            // Accounts that are merged can't exist in the root items.
-            // Therefore if the folder is found in root items, return it without searching inside merged accounts.
-
-            if (rootItems.Any()) return rootItems;
-
-            var mergedItems = this.OfType<MergedAccountMenuItem>()
-                .SelectMany(a => a.SubMenuItems.OfType<MergedAccountFolderMenuItem>()
-                .Where(a => a.Parameter.Any(b => b.Id == folderId)))
-                .Cast<IBaseFolderMenuItem>();
-
-            // Folder is found in the MergedInbox shared folders.
-            if (mergedItems.Any()) return mergedItems;
-
-            // Folder is not in any of the above. Looks inside the individual accounts in merged inbox account menu item.
-            var mergedAccountItems = this.OfType<MergedAccountMenuItem>()
-                .SelectMany(a => a.SubMenuItems.OfType<AccountMenuItem>()
-                               .SelectMany(a => a.FlattenedFolderHierarchy)
-                                              .Where(a => a.Parameter?.Id == folderId))
-                .Cast<IBaseFolderMenuItem>();
-
-            return mergedAccountItems;
+            _dispatcher = dispatcher;
         }
 
-        public IBaseFolderMenuItem GetFolderItem(Guid folderId) => GetFolderItems(folderId).FirstOrDefault();
-
-        public IAccountMenuItem GetAccountMenuItem(Guid accountId)
+        public IEnumerable<IAccountMenuItem> GetAllAccountMenuItems()
         {
-            if (accountId == null) return null;
+            foreach (var item in this)
+            {
+                if (item is MergedAccountMenuItem mergedAccountMenuItem)
+                {
+                    foreach (var singleItem in mergedAccountMenuItem.SubMenuItems.OfType<IAccountMenuItem>())
+                    {
+                        yield return singleItem;
+                    }
 
-            if (TryGetRootAccountMenuItem(accountId, out IAccountMenuItem rootAccountMenuItem)) return rootAccountMenuItem;
-
-            return null;
+                    yield return mergedAccountMenuItem;
+                }
+                else if (item is IAccountMenuItem accountMenuItem)
+                    yield return accountMenuItem;
+            }
         }
 
-        // Pattern: Look for root account menu item only. Don't search inside the merged account menu item.
-        public bool TryGetRootAccountMenuItem(Guid accountId, out IAccountMenuItem value)
+        public IEnumerable<IBaseFolderMenuItem> GetAllFolderMenuItems(Guid folderId)
         {
-            value = this.OfType<IAccountMenuItem>().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId));
+            foreach (var item in this)
+            {
+                if (item is IBaseFolderMenuItem folderMenuItem)
+                {
+                    if (folderMenuItem.HandlingFolders.Any(a => a.Id == folderId))
+                    {
+                        yield return folderMenuItem;
+                    }
+                    else if (folderMenuItem.SubMenuItems.Any())
+                    {
+                        foreach (var subItem in folderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>())
+                        {
+                            if (subItem.HandlingFolders.Any(a => a.Id == folderId))
+                            {
+                                yield return subItem;
+                            }
+                        }
 
-            value ??= this.OfType<MergedAccountMenuItem>().FirstOrDefault(a => a.EntityId == accountId);
-
-            return value != null;
+                    }
+                }
+            }
         }
 
-        // Pattern: Look for root account menu item only and return the folder menu item inside the account menu item that has specific special folder type.
-        public bool TryGetRootSpecialFolderMenuItem(Guid accountId, SpecialFolderType specialFolderType, out FolderMenuItem value)
+        public bool TryGetAccountMenuItem(Guid accountId, out IAccountMenuItem value)
         {
-            value = this.OfType<AccountMenuItem>()
-                    .Where(a => a.HoldingAccounts.Any(b => b.Id == accountId))
-                    .SelectMany(a => a.FlattenedFolderHierarchy)
-                    .FirstOrDefault(a => a.Parameter?.SpecialFolderType == specialFolderType);
+            value = this.OfType<AccountMenuItem>().FirstOrDefault(a => a.AccountId == accountId);
+            value ??= this.OfType<MergedAccountMenuItem>().FirstOrDefault(a => a.SubMenuItems.OfType<AccountMenuItem>().Where(b => b.AccountId == accountId) != null);
 
             return value != null;
         }
@@ -83,37 +84,49 @@ namespace Wino.Core.MenuItems
         // This will not look for the folders inside individual account menu items inside merged account menu item.
         public bool TryGetMergedAccountSpecialFolderMenuItem(Guid mergedInboxId, SpecialFolderType specialFolderType, out IBaseFolderMenuItem value)
         {
-            value = this.OfType<MergedAccountMenuItem>()
-                    .Where(a => a.EntityId == mergedInboxId)
-                    .SelectMany(a => a.SubMenuItems)
-                    .OfType<MergedAccountFolderMenuItem>()
+            value = this.OfType<MergedAccountFolderMenuItem>()
+                    .Where(a => a.MergedInbox.Id == mergedInboxId)
                     .FirstOrDefault(a => a.SpecialFolderType == specialFolderType);
 
             return value != null;
         }
 
-        // Pattern: Find the child account menu item inside the merged account menu item, locate the special folder menu item inside the child account menu item.
-        public bool TryGetMergedAccountFolderMenuItemByAccountId(Guid accountId, SpecialFolderType specialFolderType, out FolderMenuItem value)
+        public bool TryGetFolderMenuItem(Guid folderId, out IBaseFolderMenuItem value)
         {
-            value = this.OfType<MergedAccountMenuItem>()
-                    .SelectMany(a => a.SubMenuItems)
-                    .OfType<AccountMenuItem>()
-                    .FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId))
-                    ?.FlattenedFolderHierarchy
-                    .OfType<FolderMenuItem>()
-                    .FirstOrDefault(a => a.Parameter?.SpecialFolderType == specialFolderType);
+            // Root folders
+            value = this.OfType<IBaseFolderMenuItem>()
+                    .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
+
+            value ??= this.OfType<FolderMenuItem>()
+                .SelectMany(a => a.SubMenuItems)
+                    .OfType<IBaseFolderMenuItem>()
+                    .FirstOrDefault(a => a.HandlingFolders.Any(b => b.Id == folderId));
 
             return value != null;
         }
 
-        // Pattern: Find the common folder menu item with special folder type inside the merged account menu item for the given AccountId.
-        public bool TryGetMergedAccountRootFolderMenuItemByAccountId(Guid accountId, SpecialFolderType specialFolderType, out MergedAccountFolderMenuItem value)
+        public void UpdateUnreadItemCountsToZero()
         {
-            value = this.OfType<MergedAccountMenuItem>()
-                    .Where(a => a.HoldingAccounts.Any(b => b.Id == accountId))
-                    .SelectMany(a => a.SubMenuItems)
-                    .OfType<MergedAccountFolderMenuItem>()
-                    .FirstOrDefault(a => a.SpecialFolderType == specialFolderType);
+            // Handle the root folders.
+            this.OfType<IBaseFolderMenuItem>().ForEach(a => RecursivelyResetUnreadItemCount(a));
+        }
+
+        private void RecursivelyResetUnreadItemCount(IBaseFolderMenuItem baseFolderMenuItem)
+        {
+            baseFolderMenuItem.UnreadItemCount = 0;
+
+            if (baseFolderMenuItem.SubMenuItems == null) return;
+
+            foreach (var subMenuItem in baseFolderMenuItem.SubMenuItems.OfType<IBaseFolderMenuItem>())
+            {
+                RecursivelyResetUnreadItemCount(subMenuItem);
+            }
+        }
+
+        public bool TryGetSpecialFolderMenuItem(Guid accountId, SpecialFolderType specialFolderType, out FolderMenuItem value)
+        {
+            value = this.OfType<IBaseFolderMenuItem>()
+                    .FirstOrDefault(a => a.HandlingFolders.Any(b => b.MailAccountId == accountId && b.SpecialFolderType == specialFolderType)) as FolderMenuItem;
 
             return value != null;
         }
@@ -138,12 +151,29 @@ namespace Wino.Core.MenuItems
             return accountMenuItem;
         }
 
-        public void ReplaceFolders(IEnumerable<IMenuItem> folders)
+        public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
         {
-            ClearFolderAreaMenuItems();
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                ClearFolderAreaMenuItems();
 
-            Items.Add(new SeperatorItem());
-            AddRange(folders);
+                Items.Add(new SeperatorItem());
+                AddRange(folders);
+            });
+        }
+
+        /// <summary>
+        /// Enables/disables account menu items in the list.
+        /// </summary>
+        /// <param name="isEnabled">Whether menu items should be enabled or disabled.</param>
+        public async Task SetAccountMenuItemEnabledStatusAsync(bool isEnabled)
+        {
+            var accountItems = this.Where(a => a is IAccountMenuItem).Cast<IAccountMenuItem>();
+
+            await _dispatcher.ExecuteOnUIThread(() =>
+            {
+                accountItems.ForEach(a => a.IsEnabled = isEnabled);
+            });
         }
 
         public void AddAccountMenuItem(IAccountMenuItem accountMenuItem)
@@ -158,18 +188,15 @@ namespace Wino.Core.MenuItems
 
         private void ClearFolderAreaMenuItems()
         {
-            var cloneItems = Items.ToList();
+            var itemsToRemove = this.Where(a => !_preservingTypesForFolderArea.Contains(a.GetType())).ToList();
 
-            foreach (var item in cloneItems)
+            itemsToRemove.ForEach(item =>
             {
-                if (item is SeperatorItem || item is IBaseFolderMenuItem || item is MergedAccountMoreFolderMenuItem)
-                {
-                    item.IsSelected = false;
-                    item.IsExpanded = false;
+                item.IsExpanded = false;
+                item.IsSelected = false;
+            });
 
-                    Remove(item);
-                }
-            }
+            RemoveRange(itemsToRemove);
         }
     }
 }
