@@ -504,7 +504,7 @@ namespace Wino.Core.Synchronizers
                 }
                 catch (Exception)
                 {
-
+                    item.Request.RevertUIChanges();
                     throw;
                 }
                 finally
