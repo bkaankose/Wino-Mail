@@ -13,7 +13,7 @@ namespace Wino.Core.MenuItems
     /// <summary>
     /// Menu item that holds a list of folders under the merged account menu item.
     /// </summary>
-    public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFolder>>, IMergedAccountFolderMenuItem
+    public partial class MergedAccountFolderMenuItem : MenuItemBase<List<IMailItemFolder>, IMenuItem>, IMergedAccountFolderMenuItem
     {
         public SpecialFolderType FolderType { get; }
 
@@ -37,7 +37,7 @@ namespace Wino.Core.MenuItems
 
         public bool ShowUnreadCount => HandlingFolders?.Any(a => a.ShowUnreadCount) ?? false;
 
-        public IEnumerable<IMenuItem> SubMenuItems => SubMenuItems;
+        public new IEnumerable<IMenuItem> SubMenuItems => base.SubMenuItems;
 
         [ObservableProperty]
         private int unreadItemCount;
