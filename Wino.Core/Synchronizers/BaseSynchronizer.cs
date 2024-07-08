@@ -310,8 +310,6 @@ namespace Wino.Core.Synchronizers
                 Type = SynchronizationType.FoldersOnly
             };
 
-            //bool isCustomSynchronization = requests.All(a => a is ICustomFolderSynchronizationRequest);
-
             if (isAllCustomSynchronizationRequests)
             {
                 // Gather FolderIds to synchronize.

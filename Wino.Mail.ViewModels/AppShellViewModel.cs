@@ -221,7 +221,9 @@ namespace Wino.Mail.ViewModels
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
-            // await ForceAllAccountSynchronizationsAsync();
+#if !DEBUG
+            await ForceAllAccountSynchronizationsAsync();
+#endif
             await ConfigureBackgroundTasksAsync();
         }
 
@@ -255,7 +257,6 @@ namespace Wino.Mail.ViewModels
                     AccountId = account.Id,
                     Type = SynchronizationType.Inbox
                 };
-
 
                 Messenger.Send(new NewSynchronizationRequested(options));
             }

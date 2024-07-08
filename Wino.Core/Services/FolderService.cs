@@ -318,17 +318,6 @@ namespace Wino.Core.Services
             }
 
             return commonSpecialFolderTypes;
-
-            //// Find FolderModels in all lists that have the common special folder types
-            //var commonFolders = new List<MailItemFolder>();
-
-            //foreach (var list in lists)
-            //{
-            //    commonFolders.AddRange(list.Where(f => commonSpecialFolderTypes.Contains(f.SpecialFolderType)));
-            //}
-
-            //// Group by SpecialFolderType to ensure each special folder type is included only once
-            //return commonFolders.GroupBy(f => f.SpecialFolderType).Select(g => g.First()).ToList();
         }
 
         private async Task<MailItemFolder> GetChildFolderItemsRecursiveAsync(Guid folderId, Guid accountId)

@@ -73,7 +73,7 @@ namespace Wino.Core.Synchronizers
             {
                 _logger.Information("Synchronizing folders for {Name}", Account.Name);
 
-                await SynchronizeFoldersExAsync(cancellationToken).ConfigureAwait(false);
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
                 _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
             }
@@ -242,7 +242,7 @@ namespace Wino.Core.Synchronizers
             return SynchronizationResult.Completed(unreadNewItems);
         }
 
-        private async Task SynchronizeFoldersExAsync(CancellationToken cancellationToken = default)
+        private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -321,7 +321,6 @@ namespace Wino.Core.Synchronizers
                     await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
                 }
 
-                // Bug: category folders are updated.
                 foreach (var folder in updatedFolders)
                 {
                     await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);

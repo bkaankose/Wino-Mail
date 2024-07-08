@@ -131,31 +131,6 @@ namespace Wino.Core.MenuItems
             return value != null;
         }
 
-        public void RemoveFolderMenuItem(IBaseFolderMenuItem baseFolderMenuItem)
-        {
-            if (baseFolderMenuItem is FolderMenuItem rootFolderItem)
-            {
-                if (rootFolderItem.ParentMenuItem == null)
-                    Remove(rootFolderItem);
-                else if (rootFolderItem.ParentMenuItem is FolderMenuItem parentFolderMenuItem)
-                    parentFolderMenuItem.SubMenuItems.Remove(rootFolderItem);
-                else if (rootFolderItem.ParentMenuItem is AccountMenuItem parentAccountMenuItem)
-                {
-                    bool removed = parentAccountMenuItem.SubMenuItems.Remove(rootFolderItem);
-
-                    // Might be in More menu item.
-                    if (!removed)
-                    {
-
-                    }
-                }
-
-                else if (rootFolderItem.ParentMenuItem is MergedAccountMenuItem parentMergedAccountMenuItem)
-                    parentMergedAccountMenuItem.SubMenuItems.Remove(rootFolderItem);
-            }
-        }
-
-
         /// <summary>
         /// Skips the merged account menu item, but directly returns the Account menu item inside the merged account menu item.
         /// </summary>

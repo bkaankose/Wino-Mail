@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -9,9 +10,25 @@ namespace Wino.Core.Requests
 {
     public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> MailsToMarkRead) : FolderRequestBase(Folder, MailSynchronizerOperation.MarkFolderRead), ICustomFolderSynchronizationRequest
     {
-        public override void ApplyUIChanges() { }
+        public override void ApplyUIChanges()
+        {
+            foreach (var item in MailsToMarkRead)
+            {
+                item.IsRead = true;
 
-        public override void RevertUIChanges() { }
+                WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+            }
+        }
+
+        public override void RevertUIChanges()
+        {
+            foreach (var item in MailsToMarkRead)
+            {
+                item.IsRead = false;
+
+                WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+            }
+        }
 
         public override bool DelayExecution => false;
 

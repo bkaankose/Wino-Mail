@@ -1,12 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 
 namespace Wino.Core.Requests
 {
-    public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, MailSynchronizerOperation.EmptyFolder)
+    public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, MailSynchronizerOperation.EmptyFolder), ICustomFolderSynchronizationRequest
     {
         public override void ApplyUIChanges()
         {
@@ -23,5 +25,7 @@ namespace Wino.Core.Requests
                 WeakReferenceMessenger.Default.Send(new MailAddedMessage(item));
             }
         }
+
+        public List<Guid> SynchronizationFolderIds => [Folder.Id];
     }
 }
