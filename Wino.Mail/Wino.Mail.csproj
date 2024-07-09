@@ -114,7 +114,7 @@
     <Prefer32Bit>false</Prefer32Bit>
     <!-- .NET Native Shit -->
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <UseDotNetNativeSharedAssemblyFrameworkPackage>true</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
     <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
   </PropertyGroup>
@@ -762,7 +762,7 @@
     <Content Include="JS\libs\jodit.min.css" />
     <Content Include="JS\libs\jodit.min.js" />
     <Content Include="JS\reader.html" />
-    <Content Include="Assets\ReleaseNotes\172.md" />
+    <Content Include="Assets\ReleaseNotes\176.md" />
     <None Include="Package.StoreAssociation.xml" />
     <Content Include="Properties\Default.rd.xml" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
