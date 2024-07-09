@@ -202,8 +202,11 @@ namespace Wino.Dialogs
 
         private async Task<string> InvokeScriptSafeAsync(string function)
         {
+            if (Chromium == null) return string.Empty;
+
             try
             {
+
                 return await Chromium.ExecuteScriptAsync(function);
             }
             catch (Exception ex)
