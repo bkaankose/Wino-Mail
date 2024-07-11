@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <BaseOutputPath>bin\</BaseOutputPath>
+    <RootNamespace>Wino.Core.Domain</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
