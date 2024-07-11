@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Core.NET8", "Wino.Core
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Core.WinUI", "Wino.Core.UWP\Wino.Core.WinUI.csproj", "{FF3C03F7-4E9B-4333-9A9D-2BB1D1241C56}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.BackgroundTasks.NET8", "Wino.BackgroundTasks\Wino.BackgroundTasks.NET8.csproj", "{2C86AF48-F7DD-4EA6-A9A6-610E69287F03}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{FF3C03F7-4E9B-4333-9A9D-2BB1D1241C56}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FF3C03F7-4E9B-4333-9A9D-2BB1D1241C56}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FF3C03F7-4E9B-4333-9A9D-2BB1D1241C56}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2C86AF48-F7DD-4EA6-A9A6-610E69287F03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2C86AF48-F7DD-4EA6-A9A6-610E69287F03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2C86AF48-F7DD-4EA6-A9A6-610E69287F03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2C86AF48-F7DD-4EA6-A9A6-610E69287F03}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

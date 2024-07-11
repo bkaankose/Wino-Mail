@@ -1,7 +1,12 @@
-﻿using Microsoft.Toolkit.Uwp.Notifications;
+﻿
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Background;
 
+#if NET8_0
+using CommunityToolkit.WinUI.Notifications;
+#else
+using Microsoft.Toolkit.Uwp.Notifications;
+#endif
 namespace Wino.BackgroundTasks
 {
     /// <summary>
