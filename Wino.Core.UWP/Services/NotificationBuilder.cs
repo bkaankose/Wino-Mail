@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Toolkit.Uwp.Notifications;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.Core.Domain;
@@ -11,6 +10,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Services;
+
+#if NET8_0
+using CommunityToolkit.WinUI.Notifications;
+#else
+using Microsoft.Toolkit.Uwp.Notifications;
+#endif
 
 namespace Wino.Core.UWP.Services
 {

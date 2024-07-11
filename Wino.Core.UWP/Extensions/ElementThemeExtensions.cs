@@ -1,5 +1,9 @@
-﻿using Windows.UI.Xaml;
-using Wino.Core.Domain.Enums;
+﻿using Wino.Core.Domain.Enums;
+#if NET8_0
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.Core.UWP.Extensions
 {

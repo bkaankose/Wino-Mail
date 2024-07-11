@@ -6,15 +6,12 @@ using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Toolkit.Uwp.Helpers;
+
 using Newtonsoft.Json;
 using Windows.Storage;
-using Windows.UI;
+
 using Windows.UI.ViewManagement;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Markup;
-using Windows.UI.Xaml.Media;
+
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -25,6 +22,22 @@ using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Models.Personalization;
 using Wino.Core.UWP.Services;
 
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using CommunityToolkit.WinUI.Helpers;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI;
+#else
+using Windows.UI;
+using Windows.UI.Xaml.Controls;
+using Microsoft.Toolkit.Uwp.Helpers;
+using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Markup;
+
+#endif
 namespace Wino.Services
 {
     /// <summary>
@@ -226,7 +239,11 @@ namespace Wino.Services
             // Change accent color if specified.
             if (!string.IsNullOrEmpty(hex))
             {
+#if NET8_0
+                var brush = new SolidColorBrush(CommunityToolkit.WinUI.Helpers.ColorHelper.ToColor(hex));
+#else
                 var brush = new SolidColorBrush(Microsoft.Toolkit.Uwp.Helpers.ColorHelper.ToColor(hex));
+#endif
 
                 if (_applicationResourceManager.ContainsResourceKey("SystemAccentColor"))
                     _applicationResourceManager.ReplaceResource("SystemAccentColor", brush);

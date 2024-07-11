@@ -9,11 +9,17 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Shell;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
 
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+#endif
 namespace Wino.Services
 {
     public class NativeAppService : INativeAppService
@@ -100,7 +106,7 @@ namespace Wino.Services
             await Launcher.LaunchFileAsync(file);
         }
 
-        public Task LaunchUriAsync(Uri uri) => Xamarin.Essentials.Launcher.OpenAsync(uri);
+        public Task LaunchUriAsync(Uri uri) => Launcher.LaunchUriAsync(uri).AsTask();
 
         public string GetFullAppVersion()
         {

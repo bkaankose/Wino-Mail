@@ -1,7 +1,14 @@
-﻿using Windows.System;
+﻿
+using Windows.System;
 using Windows.UI.Core;
-using Windows.UI.Xaml;
+
 using Wino.Core.Domain.Interfaces;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.Core.UWP.Services
 {
