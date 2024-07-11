@@ -587,8 +587,6 @@ namespace Wino.Mail.ViewModels
             // Load account folder structure and replace the visible folders.
             var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
 
-            // var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(clickedBaseAccountMenuItem.HoldingAccounts.Select(a => a.Id)).ConfigureAwait(false);
-
             await MenuItems.ReplaceFoldersAsync(folders);
             await UpdateUnreadItemCountAsync();
             await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
@@ -663,6 +661,9 @@ namespace Wino.Mail.ViewModels
                     }
                 }
             }
+
+            // Update unread badge after all unread counts are updated.
+            await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
         }
 
         private async void NavigateInbox(IAccountMenuItem clickedBaseAccountMenuItem)
