@@ -13,7 +13,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Services;
-using Xamarin.Essentials;
 
 namespace Wino.Core.Authenticators
 {
@@ -132,7 +131,7 @@ namespace Wino.Core.Authenticators
 
             var authorizationUri = authRequest.BuildRequest(ClientId);
 
-            await Browser.OpenAsync(authorizationUri, BrowserLaunchMode.SystemPreferred);
+            await _nativeAppService.LaunchUriAsync(new Uri(authorizationUri));
 
             Uri responseRedirectUri = null;
 
