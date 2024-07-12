@@ -6,10 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Input;
+
 using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
@@ -25,6 +22,20 @@ using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Views.Abstract;
+using Microsoft.UI.Xaml.Controls;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Navigation;
+#endif
 
 namespace Wino.Views
 {
@@ -32,7 +43,8 @@ namespace Wino.Views
         IRecipient<AccountMenuItemExtended>,
         IRecipient<NavigateMailFolderEvent>,
         IRecipient<CreateNewMailWithMultipleAccountsRequested>,
-        IRecipient<InfoBarMessageRequested>
+        IRecipient<InfoBarMessageRequested>,
+        IRecipient<ApplicationThemeChanged>
     {
         public AppShell() : base()
         {
@@ -40,6 +52,12 @@ namespace Wino.Views
 
             var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
             coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
+
+#if !NET8_0
+            // BackdropMaterial is not available in WinUI 3.0.
+            // We manually apply it for UWP version only.
+            SetupMica();
+#endif
         }
 
         private void TitleBarLayoutUpdated(CoreApplicationViewTitleBar sender, object args) => UpdateTitleBarLayout(sender);
@@ -200,7 +218,7 @@ namespace Wino.Views
             }
         }
 
-        private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
+        private void ShellFrameContentNavigated(object sender, NavigationEventArgs e)
             => RealAppBar.ShellFrameContent = (e.Content as BasePage).ShellContent;
 
         private void BackButtonClicked(Controls.Advanced.WinoAppTitleBar sender, RoutedEventArgs args)
@@ -298,5 +316,22 @@ namespace Wino.Views
                 ShellInfoBar.IsOpen = true;
             });
         }
+
+
+        private void SetupMica()
+        {
+#if !NET8_0
+            var resourceManager = App.Current.Services.GetService<IApplicationResourceManager<ResourceDictionary>>();
+
+            if (resourceManager.ContainsResourceKey("UseMica"))
+            {
+                bool isMicaEnabled = resourceManager.GetResource<bool>("UseMica");
+
+                BackdropMaterial.SetApplyToRootOrPageBackground(this, isMicaEnabled);
+            }
+#endif
+        }
+
+        public void Receive(ApplicationThemeChanged message) => SetupMica();
     }
 }

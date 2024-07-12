@@ -9,8 +9,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
 using Windows.UI.Text;
 
-
-
 #if NET8_0
 using Microsoft.UI;
 using Microsoft.UI.Text;
@@ -28,6 +26,7 @@ using Windows.UI.Xaml.Media;
 using Microsoft.Toolkit.Uwp.Helpers;
 using Windows.UI.Xaml.Shapes;
 #endif
+
 namespace Wino.Helpers
 {
     public static class XamlHelpers

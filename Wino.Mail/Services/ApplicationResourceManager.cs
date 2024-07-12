@@ -23,5 +23,8 @@ namespace Wino.Services
 
         public void ReplaceResource(string resourceKey, object resource)
             => App.Current.Resources[resourceKey] = resource;
+
+        public TReturn GetResource<TReturn>(string resourceKey)
+            => (TReturn)App.Current.Resources[resourceKey];
     }
 }

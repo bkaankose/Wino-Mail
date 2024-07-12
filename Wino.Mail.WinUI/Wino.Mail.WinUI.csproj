@@ -15,6 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Wino.Mail\AppShell.xaml.cs" Link="AppShell.xaml.cs" />
     <Compile Include="..\Wino.Mail\Behaviors\BindableCommandBarBehavior.cs" Link="Behaviors\BindableCommandBarBehavior.cs" />
     <Compile Include="..\Wino.Mail\Behaviors\CreateMailNavigationItemBehavior.cs" Link="Behaviors\CreateMailNavigationItemBehavior.cs" />
     <Compile Include="..\Wino.Mail\Controls\AccountNavigationItem.cs" Link="Controls\AccountNavigationItem.cs" />
@@ -118,6 +119,7 @@
     <PackageReference Include="CommunityToolkit.WinUI.Animations" Version="8.0.240109" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" Version="8.0.240109" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.0.240109" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.0.240109" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240701003-experimental2" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="2.0.9" />
@@ -162,6 +164,9 @@
     <None Include="..\Wino.Mail\JS\libs\jodit.min.js" Link="JS\libs\jodit.min.js" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="..\Wino.Mail\AppShell.xaml" Link="AppShell.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="..\Wino.Mail\Controls\Advanced\WinoAppTitleBar.xaml" Link="Controls\Advanced\WinoAppTitleBar.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Page>
