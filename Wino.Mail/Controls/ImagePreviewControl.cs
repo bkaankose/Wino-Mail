@@ -2,12 +2,22 @@
 using System.Text.RegularExpressions;
 using Fernandezja.ColorHashSharp;
 using Windows.UI;
+
+using Wino.Core.Services;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Shapes;
+#else
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Shapes;
-using Wino.Core.Services;
+#endif
 
 namespace Wino.Controls
 {

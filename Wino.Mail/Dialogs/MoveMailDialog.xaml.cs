@@ -1,8 +1,14 @@
 ﻿using System.Collections.Generic;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Folders;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.Dialogs
 {

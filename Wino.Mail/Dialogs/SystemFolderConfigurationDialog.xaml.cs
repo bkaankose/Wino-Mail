@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
 
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml.Controls;
+#endif
 namespace Wino.Dialogs
 {
     public sealed partial class SystemFolderConfigurationDialog : ContentDialog

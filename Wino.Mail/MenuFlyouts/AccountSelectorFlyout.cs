@@ -2,10 +2,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.UI.Xaml.Controls;
+
 using Wino.Controls;
 using Wino.Core.Domain.Entities;
 using Wino.Helpers;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.MenuFlyouts
 {
@@ -40,7 +48,7 @@ namespace Wino.MenuFlyouts
             }
         }
 
-        private async void AccountClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private async void AccountClicked(object sender, RoutedEventArgs e)
         {
             if (sender is MenuFlyoutItem menuItem && menuItem.Tag is string accountAddress)
             {

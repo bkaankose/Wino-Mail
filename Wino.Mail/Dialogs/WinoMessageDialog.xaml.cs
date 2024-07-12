@@ -1,7 +1,12 @@
 ﻿using System.Threading.Tasks;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-
+#endif
 namespace Wino.Dialogs
 {
     public sealed partial class WinoMessageDialog : ContentDialog

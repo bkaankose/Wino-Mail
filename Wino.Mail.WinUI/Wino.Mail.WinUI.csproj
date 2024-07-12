@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <RootNamespace>Wino.Mail.WinUI</RootNamespace>
+    <RootNamespace>Wino</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -11,9 +11,99 @@
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
+	<WindowsSdkPackageVersion>10.0.19041.35-preview</WindowsSdkPackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Wino.Mail\Behaviors\BindableCommandBarBehavior.cs" Link="Behaviors\BindableCommandBarBehavior.cs" />
+    <Compile Include="..\Wino.Mail\Behaviors\CreateMailNavigationItemBehavior.cs" Link="Behaviors\CreateMailNavigationItemBehavior.cs" />
+    <Compile Include="..\Wino.Mail\Controls\AccountNavigationItem.cs" Link="Controls\AccountNavigationItem.cs" />
+    <Compile Include="..\Wino.Mail\Controls\Advanced\WinoAppTitleBar.xaml.cs" Link="Controls\Advanced\WinoAppTitleBar.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Controls\Advanced\WinoListView.cs" Link="Controls\Advanced\WinoListView.cs" />
+    <Compile Include="..\Wino.Mail\Controls\ControlConstants.cs" Link="Controls\ControlConstants.cs" />
+    <Compile Include="..\Wino.Mail\Controls\ImagePreviewControl.cs" Link="Controls\ImagePreviewControl.cs" />
+    <Compile Include="..\Wino.Mail\Controls\MailItemDisplayInformationControl.xaml.cs" Link="Controls\MailItemDisplayInformationControl.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Controls\RendererCommandBar.cs" Link="Controls\RendererCommandBar.cs" />
+    <Compile Include="..\Wino.Mail\Controls\SettingsMenuItemControl.cs" Link="Controls\SettingsMenuItemControl.cs" />
+    <Compile Include="..\Wino.Mail\Controls\WinoFontIcon.cs" Link="Controls\WinoFontIcon.cs" />
+    <Compile Include="..\Wino.Mail\Controls\WinoFontIconSource.cs" Link="Controls\WinoFontIconSource.cs" />
+    <Compile Include="..\Wino.Mail\Controls\WinoInfoBar.cs" Link="Controls\WinoInfoBar.cs" />
+    <Compile Include="..\Wino.Mail\Controls\WinoNavigationViewItem.cs" Link="Controls\WinoNavigationViewItem.cs" />
+    <Compile Include="..\Wino.Mail\Controls\WinoPivotControl.xaml.cs" Link="Controls\WinoPivotControl.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Controls\WinoSwipeControlItems.cs" Link="Controls\WinoSwipeControlItems.cs" />
+    <Compile Include="..\Wino.Mail\Converters\ReverseBooleanConverter.cs" Link="Converters\ReverseBooleanConverter.cs" />
+    <Compile Include="..\Wino.Mail\Converters\ReverseBooleanToVisibilityConverter.cs" Link="Converters\ReverseBooleanToVisibilityConverter.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\AccountCreationDialog.xaml.cs" Link="Dialogs\AccountCreationDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\AccountEditDialog.xaml.cs" Link="Dialogs\AccountEditDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\AccountPickerDialog.xaml.cs" Link="Dialogs\AccountPickerDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\AccountReorderDialog.xaml.cs" Link="Dialogs\AccountReorderDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\BaseAccountCreationDialog.cs" Link="Dialogs\BaseAccountCreationDialog.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\ConfirmationDialog.xaml.cs" Link="Dialogs\ConfirmationDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\CustomThemeBuilderDialog.xaml.cs" Link="Dialogs\CustomThemeBuilderDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\MoveMailDialog.xaml.cs" Link="Dialogs\MoveMailDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\NewAccountDialog.xaml.cs" Link="Dialogs\NewAccountDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\NewImapSetupDialog.xaml.cs" Link="Dialogs\NewImapSetupDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\SignatureEditorDialog.xaml.cs" Link="Dialogs\SignatureEditorDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\StoreRatingDialog.xaml.cs" Link="Dialogs\StoreRatingDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\SystemFolderConfigurationDialog.xaml.cs" Link="Dialogs\SystemFolderConfigurationDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\TextInputDialog.xaml.cs" Link="Dialogs\TextInputDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Dialogs\WinoMessageDialog.xaml.cs" Link="Dialogs\WinoMessageDialog.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\AnimationExtensions.cs" Link="Extensions\AnimationExtensions.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\CompositionEnums.cs" Link="Extensions\CompositionEnums.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\CompositionExtensions.Implicit.cs" Link="Extensions\CompositionExtensions.Implicit.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\CompositionExtensions.Size.cs" Link="Extensions\CompositionExtensions.Size.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\EnumerableExtensions.cs" Link="Extensions\EnumerableExtensions.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\MimeKitExtensions.cs" Link="Extensions\MimeKitExtensions.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\UIExtensions.cs" Link="Extensions\UIExtensions.cs" />
+    <Compile Include="..\Wino.Mail\Extensions\UtilExtensions.cs" Link="Extensions\UtilExtensions.cs" />
+    <Compile Include="..\Wino.Mail\Helpers\JsonHelpers.cs" Link="Helpers\JsonHelpers.cs" />
+    <Compile Include="..\Wino.Mail\Helpers\SettingsStorageExtensions.cs" Link="Helpers\SettingsStorageExtensions.cs" />
+    <Compile Include="..\Wino.Mail\Helpers\WinoVisualTreeHelper.cs" Link="Helpers\WinoVisualTreeHelper.cs" />
+    <Compile Include="..\Wino.Mail\Helpers\XamlHelpers.cs" Link="Helpers\XamlHelpers.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\AccountSelectorFlyout.cs" Link="MenuFlyouts\AccountSelectorFlyout.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\FilterMenuFlyout.cs" Link="MenuFlyouts\FilterMenuFlyout.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\FolderOperationFlyout.cs" Link="MenuFlyouts\FolderOperationFlyout.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\FolderOperationMenuFlyoutItem.cs" Link="MenuFlyouts\FolderOperationMenuFlyoutItem.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\MailOperationFlyout.cs" Link="MenuFlyouts\MailOperationFlyout.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\MailOperationMenuFlyoutItem.cs" Link="MenuFlyouts\MailOperationMenuFlyoutItem.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\MoveButtonFlyout.cs" Link="MenuFlyouts\MoveButtonFlyout.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\RendererCommandBarItem.cs" Link="MenuFlyouts\RendererCommandBarItem.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\WinoOperationFlyout.cs" Link="MenuFlyouts\WinoOperationFlyout.cs" />
+    <Compile Include="..\Wino.Mail\MenuFlyouts\WinoOperationFlyoutItem.cs" Link="MenuFlyouts\WinoOperationFlyoutItem.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\AccountProviderViewModelTemplateSelector.cs" Link="Selectors\AccountProviderViewModelTemplateSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\AccountReorderTemplateSelector.cs" Link="Selectors\AccountReorderTemplateSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\AppThemePreviewTemplateSelector.cs" Link="Selectors\AppThemePreviewTemplateSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\FileAttachmentTypeSelector.cs" Link="Selectors\FileAttachmentTypeSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\MailItemContainerStyleSelector.cs" Link="Selectors\MailItemContainerStyleSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\MailItemDisplayModePreviewTemplateSelector.cs" Link="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\MailItemDisplaySelector.cs" Link="Selectors\MailItemDisplaySelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\NavigationMenuTemplateSelector.cs" Link="Selectors\NavigationMenuTemplateSelector.cs" />
+    <Compile Include="..\Wino.Mail\Selectors\RendererCommandBarItemTemplateSelector.cs" Link="Selectors\RendererCommandBarItemTemplateSelector.cs" />
+    <Compile Include="..\Wino.Mail\Services\ApplicationResourceManager.cs" Link="Services\ApplicationResourceManager.cs" />
+    <Compile Include="..\Wino.Mail\Services\LaunchProtocolService.cs" Link="Services\LaunchProtocolService.cs" />
+    <Compile Include="..\Wino.Mail\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
+    <Compile Include="..\Wino.Mail\Services\StatePersistenceService.cs" Link="Services\StatePersistenceService.cs" />
+    <Compile Include="..\Wino.Mail\Services\ToastActivationService.cs" Link="Services\ToastActivationService.cs" />
+    <Compile Include="..\Wino.Mail\Views\ImapSetup\AdvancedImapSetupPage.xaml.cs" Link="Views\ImapSetup\AdvancedImapSetupPage.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Views\ImapSetup\ImapConnectionFailedPage.xaml.cs" Link="Views\ImapSetup\ImapConnectionFailedPage.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Views\ImapSetup\PreparingImapFoldersPage.xaml.cs" Link="Views\ImapSetup\PreparingImapFoldersPage.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Views\ImapSetup\TestingImapConnectionPage.xaml.cs" Link="Views\ImapSetup\TestingImapConnectionPage.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Views\ImapSetup\WelcomeImapSetupPage.xaml.cs" Link="Views\ImapSetup\WelcomeImapSetupPage.xaml.cs" />
+    <Compile Include="..\Wino.Mail\Views\Settings\SignatureManagementPage.xaml.cs" Link="Views\Settings\SignatureManagementPage.xaml.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Wino.Mail\BackgroundImages\Acrylic.jpg" Link="BackgroundImages\Acrylic.jpg" />
+    <Content Include="..\Wino.Mail\BackgroundImages\Clouds.jpg" Link="BackgroundImages\Clouds.jpg" />
+    <Content Include="..\Wino.Mail\BackgroundImages\Forest.jpg" Link="BackgroundImages\Forest.jpg" />
+    <Content Include="..\Wino.Mail\BackgroundImages\Garden.jpg" Link="BackgroundImages\Garden.jpg" />
+    <Content Include="..\Wino.Mail\BackgroundImages\Mica.jpg" Link="BackgroundImages\Mica.jpg" />
+    <Content Include="..\Wino.Mail\BackgroundImages\Nighty.jpg" Link="BackgroundImages\Nighty.jpg" />
+    <Content Include="..\Wino.Mail\BackgroundImages\Snowflake.jpg" Link="BackgroundImages\Snowflake.jpg" />
+    <Content Include="..\Wino.Mail\JS\editor.html" Link="JS\editor.html" />
+    <Content Include="..\Wino.Mail\JS\global.css" Link="JS\global.css" />
+    <Content Include="..\Wino.Mail\JS\libs\jodit.min.css" Link="JS\libs\jodit.min.css" />
+    <Content Include="..\Wino.Mail\JS\reader.html" Link="JS\reader.html" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
@@ -24,8 +114,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ColorHashSharp" Version="1.0.0" />
+    <PackageReference Include="CommunityToolkit.WinUI.Animations" Version="8.0.240109" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" Version="8.0.240109" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.0.240109" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240701003-experimental2" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="2.0.9" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
@@ -36,6 +131,121 @@
   -->
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.BackgroundTasks\Wino.BackgroundTasks.NET8.csproj" />
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.NET8.csproj" />
+    <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.WinUI.csproj" />
+    <ProjectReference Include="..\Wino.Core\Wino.Core.NET8.csproj" />
+    <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.NET8.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Activation\" />
+    <Folder Include="Controls\Advanced\" />
+    <Folder Include="Converters\" />
+    <Folder Include="Helpers\" />
+    <Folder Include="Extensions\" />
+    <Folder Include="BackgroundImages\" />
+    <Folder Include="Behaviors\" />
+    <Folder Include="JS\libs\" />
+    <Folder Include="MenuFlyouts\" />
+    <Folder Include="Dialogs\" />
+    <Folder Include="Services\" />
+    <Folder Include="Selectors\" />
+    <Folder Include="Styles\" />
+    <Folder Include="Views\ImapSetup\" />
+    <Folder Include="Views\Settings\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Wino.Mail\JS\editor.js" Link="JS\editor.js" />
+    <None Include="..\Wino.Mail\JS\libs\darkreader.js" Link="JS\libs\darkreader.js" />
+    <None Include="..\Wino.Mail\JS\libs\jodit.min.js" Link="JS\libs\jodit.min.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="..\Wino.Mail\Controls\Advanced\WinoAppTitleBar.xaml" Link="Controls\Advanced\WinoAppTitleBar.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Controls\MailItemDisplayInformationControl.xaml" Link="Controls\MailItemDisplayInformationControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Controls\WinoPivotControl.xaml" Link="Controls\WinoPivotControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\AccountCreationDialog.xaml" Link="Dialogs\AccountCreationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\AccountEditDialog.xaml" Link="Dialogs\AccountEditDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\AccountPickerDialog.xaml" Link="Dialogs\AccountPickerDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\AccountReorderDialog.xaml" Link="Dialogs\AccountReorderDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\ConfirmationDialog.xaml" Link="Dialogs\ConfirmationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\CustomThemeBuilderDialog.xaml" Link="Dialogs\CustomThemeBuilderDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\MoveMailDialog.xaml" Link="Dialogs\MoveMailDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\NewAccountDialog.xaml" Link="Dialogs\NewAccountDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\NewImapSetupDialog.xaml" Link="Dialogs\NewImapSetupDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\SignatureEditorDialog.xaml" Link="Dialogs\SignatureEditorDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\StoreRatingDialog.xaml" Link="Dialogs\StoreRatingDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\SystemFolderConfigurationDialog.xaml" Link="Dialogs\SystemFolderConfigurationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\TextInputDialog.xaml" Link="Dialogs\TextInputDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Dialogs\WinoMessageDialog.xaml" Link="Dialogs\WinoMessageDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Styles\Colors.xaml" Link="Styles\Colors.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Styles\ContentPresenters.xaml" Link="Styles\ContentPresenters.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Styles\Converters.xaml" Link="Styles\Converters.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Styles\FontIcons.xaml" Link="Styles\FontIcons.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Styles\ImagePreviewControl.xaml" Link="Styles\ImagePreviewControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Views\ImapSetup\AdvancedImapSetupPage.xaml" Link="Views\ImapSetup\AdvancedImapSetupPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Views\ImapSetup\ImapConnectionFailedPage.xaml" Link="Views\ImapSetup\ImapConnectionFailedPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Views\ImapSetup\PreparingImapFoldersPage.xaml" Link="Views\ImapSetup\PreparingImapFoldersPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Views\ImapSetup\TestingImapConnectionPage.xaml" Link="Views\ImapSetup\TestingImapConnectionPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Views\ImapSetup\WelcomeImapSetupPage.xaml" Link="Views\ImapSetup\WelcomeImapSetupPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="..\Wino.Mail\Views\Settings\SignatureManagementPage.xaml" Link="Views\Settings\SignatureManagementPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
 
   <!--

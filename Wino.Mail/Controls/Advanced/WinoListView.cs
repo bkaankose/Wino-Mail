@@ -5,14 +5,22 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Serilog;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
+#endif
 namespace Wino.Controls.Advanced
 {
     /// <summary>
@@ -114,7 +122,7 @@ namespace Wino.Controls.Advanced
             }
         }
 
-        private void ProcessDelKey(UIElement sender, Windows.UI.Xaml.Input.ProcessKeyboardAcceleratorEventArgs args)
+        private void ProcessDelKey(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
         {
             if (args.Key == Windows.System.VirtualKey.Delete)
             {

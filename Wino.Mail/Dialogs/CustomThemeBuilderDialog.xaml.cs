@@ -1,10 +1,17 @@
 ﻿using System;
 using CommunityToolkit.WinUI.Helpers;
 using Microsoft.Extensions.DependencyInjection;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Media;
+#endif
 
 namespace Wino.Dialogs
 {
@@ -43,7 +50,7 @@ namespace Wino.Dialogs
             }
         }
 
-        private async void BrowseWallpaperClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private async void BrowseWallpaperClicked(object sender, RoutedEventArgs e)
         {
             var dialogService = App.Current.Services.GetService<IDialogService>();
 

@@ -1,13 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using Windows.UI.Composition;
+
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Composition;
+#else
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Media.Animation;
-
+using Windows.UI.Composition;
+#endif
 namespace Wino.Extensions
 {
     public static class AnimationExtensions

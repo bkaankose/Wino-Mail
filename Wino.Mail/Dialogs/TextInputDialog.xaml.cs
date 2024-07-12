@@ -1,5 +1,11 @@
-﻿using Windows.UI.Xaml;
+﻿
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+#endif
 
 namespace Wino.Dialogs
 {

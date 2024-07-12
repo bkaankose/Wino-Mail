@@ -1,9 +1,15 @@
 ﻿using System;
 using System.Numerics;
 using System.Threading.Tasks;
-using Windows.UI.Composition;
-using Windows.UI.Xaml;
 
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Composition;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Composition;
+#endif
 namespace Wino.Extensions
 {
     public static partial class CompositionExtensions
@@ -51,7 +57,6 @@ namespace Wino.Extensions
             {
                 to = Vector2.One;
             }
-
             visual.StartAnimation("Size",
                 compositor.CreateVector2KeyFrameAnimation(from, to.Value, duration, delay, easing, iterationBehavior));
 

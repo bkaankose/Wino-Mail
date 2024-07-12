@@ -1,8 +1,14 @@
-﻿using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+﻿
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+#endif
 namespace Wino.Dialogs
 {
     public abstract class BaseAccountCreationDialog : ContentDialog, IAccountCreationDialog

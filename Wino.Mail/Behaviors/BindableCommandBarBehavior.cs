@@ -1,14 +1,22 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Windows.Input;
+
 using Microsoft.Xaml.Interactivity;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
 using Wino.Controls;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Helpers;
 
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
+
+#endif
 namespace Wino.Behaviors
 {
     public class BindableCommandBarBehavior : Behavior<CommandBar>

@@ -1,6 +1,10 @@
-﻿using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Interfaces;
+﻿using Wino.Core.Domain.Interfaces;
 
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml.Controls;
+#endif
 namespace Wino.Dialogs
 {
     public sealed partial class StoreRatingDialog : ContentDialog, IStoreRatingDialog

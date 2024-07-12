@@ -2,12 +2,21 @@
 using System.Collections.Generic;
 using System.Linq;
 using Windows.Foundation;
-using Windows.UI.Composition;
+
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Composition;
+#else
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Hosting;
 using Windows.UI.Xaml.Media;
-
+using Windows.UI.Composition;
+#endif
 namespace Wino.Extensions
 {
     public static class UtilExtensions

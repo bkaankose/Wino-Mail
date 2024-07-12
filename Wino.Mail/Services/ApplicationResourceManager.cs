@@ -1,7 +1,11 @@
 ﻿using System.Linq;
-using Windows.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 
+#if NET8_0
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml;
+#endif
 namespace Wino.Services
 {
     public class ApplicationResourceManager : IApplicationResourceManager<ResourceDictionary>

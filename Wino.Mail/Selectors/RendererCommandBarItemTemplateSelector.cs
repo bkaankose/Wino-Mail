@@ -1,8 +1,13 @@
-﻿using Windows.Graphics.Printing.OptionDetails;
+﻿using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Menus;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Menus;
+#endif
 
 namespace Wino.Selectors
 {

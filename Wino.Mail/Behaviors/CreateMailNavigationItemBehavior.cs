@@ -1,8 +1,14 @@
 ﻿using System.Collections.ObjectModel;
 using Microsoft.Xaml.Interactivity;
-using Windows.UI.Xaml;
+
 using Wino.Controls;
 using Wino.Core.MenuItems;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.Behaviors
 {

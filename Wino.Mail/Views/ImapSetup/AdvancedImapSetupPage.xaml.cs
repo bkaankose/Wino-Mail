@@ -1,15 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
+
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Messages.Mails;
 
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Navigation;
+#endif
 
 namespace Wino.Views.ImapSetup
 {

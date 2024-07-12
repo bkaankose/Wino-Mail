@@ -1,9 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+
+#if NET8_0
+using Microsoft.UI.Xaml.Data;
+#else
 using Windows.UI.Xaml.Data;
+#endif
 
 namespace Wino.Converters
 {

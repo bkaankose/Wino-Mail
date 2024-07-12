@@ -1,9 +1,13 @@
 ﻿using System.Collections.ObjectModel;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
-using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml.Controls;
+#endif
 namespace Wino.Dialogs
 {
     public sealed partial class AccountReorderDialog : ContentDialog

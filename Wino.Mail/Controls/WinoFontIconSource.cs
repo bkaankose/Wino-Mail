@@ -1,5 +1,12 @@
-﻿using Windows.UI.Xaml;
+﻿
 
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Media;
+#endif
 namespace Wino.Controls
 {
     public class WinoFontIconSource : Microsoft.UI.Xaml.Controls.FontIconSource
@@ -14,7 +21,7 @@ namespace Wino.Controls
 
         public WinoFontIconSource()
         {
-            FontFamily = new Windows.UI.Xaml.Media.FontFamily("ms-appx:///Assets/WinoIcons.ttf#WinoIcons");
+            FontFamily = new FontFamily("ms-appx:///Assets/WinoIcons.ttf#WinoIcons");
             FontSize = 32;
         }
 

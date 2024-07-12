@@ -5,13 +5,21 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
 using Newtonsoft.Json;
 using Windows.UI.ViewManagement.Core;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Views.Settings;
+
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+#endif
 
 namespace Wino.Dialogs
 {

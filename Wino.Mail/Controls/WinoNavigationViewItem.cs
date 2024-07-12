@@ -1,8 +1,13 @@
 ﻿using System.Numerics;
 using Microsoft.UI.Xaml.Controls;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Hosting;
+#else
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Hosting;
-
+#endif
 namespace Wino.Controls
 {
     public class WinoNavigationViewItem : NavigationViewItem

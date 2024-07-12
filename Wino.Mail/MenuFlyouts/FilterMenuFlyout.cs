@@ -1,12 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.Input;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Wino.Controls;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Helpers;
 
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml;
+#endif
 namespace Wino.MenuFlyouts
 {
     public class FilterMenuFlyout : MenuFlyout

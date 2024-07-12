@@ -1,19 +1,33 @@
 ﻿using System;
 using System.Linq;
-using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
-using Windows.UI;
-using Windows.UI.Text;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Markup;
-using Windows.UI.Xaml.Media;
+
 using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Reader;
+using Windows.UI.Text;
 
+
+
+#if NET8_0
+using Microsoft.UI;
+using Microsoft.UI.Text;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Media;
+using CommunityToolkit.WinUI.Helpers;
+using Microsoft.UI.Xaml.Shapes;
+#else
+using Windows.UI;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Markup;
+using Windows.UI.Xaml.Media;
+using Microsoft.Toolkit.Uwp.Helpers;
+using Windows.UI.Xaml.Shapes;
+#endif
 namespace Wino.Helpers
 {
     public static class XamlHelpers
@@ -276,7 +290,7 @@ namespace Wino.Helpers
             "<Path " +
             "xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
             "<Path.Data>" + pathMarkup + "</Path.Data></Path>";
-            var path = XamlReader.Load(xaml) as Windows.UI.Xaml.Shapes.Path;
+            var path = XamlReader.Load(xaml) as Path;
 
             Geometry geometry = path.Data;
             path.Data = null;

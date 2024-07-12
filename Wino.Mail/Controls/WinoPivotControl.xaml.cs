@@ -1,13 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Foundation;
-using Windows.Foundation.Collections;
+
+using Wino.Extensions;
+#if NET8_0
+using Microsoft.UI;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+#else
 using Windows.UI;
 using Windows.UI.Composition;
 using Windows.UI.Xaml;
@@ -17,8 +21,7 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
-using Wino.Extensions;
-
+#endif
 namespace Wino.Controls
 {
     // TODO: Memory leak with FolderPivot bindings.
@@ -131,7 +134,7 @@ namespace Wino.Controls
             {
                 // Get selected item container position
                 // TODO: It's bad...
-                while(PivotHeaders.ContainerFromItem(PivotHeaders.SelectedItem) == null)
+                while (PivotHeaders.ContainerFromItem(PivotHeaders.SelectedItem) == null)
                 {
                     await Task.Delay(100);
                 }

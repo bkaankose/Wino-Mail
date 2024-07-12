@@ -1,13 +1,21 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Media.Animation;
+
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Messages.Mails;
 using Wino.Views.ImapSetup;
+
+
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media.Animation;
+#endif
 
 namespace Wino.Dialogs
 {

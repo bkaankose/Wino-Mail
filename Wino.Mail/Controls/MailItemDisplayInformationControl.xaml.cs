@@ -3,14 +3,19 @@ using System.ComponentModel;
 using System.Numerics;
 using System.Windows.Input;
 using Microsoft.UI.Xaml.Controls;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Input;
+
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
-
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
+#endif
 namespace Wino.Controls
 {
     public sealed partial class MailItemDisplayInformationControl : UserControl, INotifyPropertyChanged
@@ -214,7 +219,7 @@ namespace Wino.Controls
             RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
         }
 
-        private void ControlPointerEntered(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        private void ControlPointerEntered(object sender, PointerRoutedEventArgs e)
         {
             if (IsHoverActionsEnabled)
             {
@@ -222,7 +227,7 @@ namespace Wino.Controls
             }
         }
 
-        private void ControlPointerExited(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        private void ControlPointerExited(object sender, PointerRoutedEventArgs e)
         {
             if (IsHoverActionsEnabled)
             {

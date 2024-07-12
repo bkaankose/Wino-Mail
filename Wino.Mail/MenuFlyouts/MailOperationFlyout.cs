@@ -1,9 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using Windows.UI.Xaml.Controls;
+
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Menus;
 
+
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml.Controls;
+#endif
 namespace Wino.MenuFlyouts.Context
 {
     public class MailOperationFlyout : WinoOperationFlyout<MailOperationMenuItem>

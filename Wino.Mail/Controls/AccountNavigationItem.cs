@@ -1,8 +1,16 @@
 ﻿using System.Numerics;
 using Microsoft.UI.Xaml.Controls;
-using Windows.UI.Xaml;
+
 using Wino.Core.Domain.Interfaces;
 
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Shapes;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Shapes;
+#endif
 namespace Wino.Controls
 {
     public class AccountNavigationItem : WinoNavigationViewItem
@@ -28,7 +36,7 @@ namespace Wino.Controls
         private const string PART_SelectionIndicator = "CustomSelectionIndicator";
 
         private ItemsRepeater _itemsRepeater;
-        private Windows.UI.Xaml.Shapes.Rectangle _selectionIndicator;
+        private Rectangle _selectionIndicator;
 
         public AccountNavigationItem()
         {
@@ -40,7 +48,7 @@ namespace Wino.Controls
             base.OnApplyTemplate();
 
             _itemsRepeater = GetTemplateChild(PART_NavigationViewItemMenuItemsHost) as ItemsRepeater;
-            _selectionIndicator = GetTemplateChild(PART_SelectionIndicator) as Windows.UI.Xaml.Shapes.Rectangle;
+            _selectionIndicator = GetTemplateChild(PART_SelectionIndicator) as Rectangle;
 
             if (_itemsRepeater == null) return;
 

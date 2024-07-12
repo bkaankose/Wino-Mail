@@ -1,10 +1,16 @@
 ﻿using System;
 using System.Numerics;
-using CommunityToolkit.WinUI.Animations;
-using Microsoft.UI.Xaml.Controls;
-using Windows.UI.Xaml;
-using Wino.Core.Domain.Enums;
 
+using Microsoft.UI.Xaml.Controls;
+
+using Wino.Core.Domain.Enums;
+using CommunityToolkit.WinUI.Animations;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml;
+#endif
 namespace Wino.Controls
 {
     public class WinoInfoBar : InfoBar

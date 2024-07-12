@@ -1,8 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Windows.UI.Xaml.Controls;
 
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
+#endif
 namespace Wino.MenuFlyouts
 {
     public class WinoOperationFlyout<TActionType> : MenuFlyout, IDisposable where TActionType : class
@@ -22,7 +28,7 @@ namespace Wino.MenuFlyouts
             Closing += FlyoutClosing;
         }
 
-        private void FlyoutClosing(Windows.UI.Xaml.Controls.Primitives.FlyoutBase sender, Windows.UI.Xaml.Controls.Primitives.FlyoutBaseClosingEventArgs args)
+        private void FlyoutClosing(FlyoutBase sender, FlyoutBaseClosingEventArgs args)
         {
             Closing -= FlyoutClosing;
 

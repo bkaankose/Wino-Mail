@@ -1,11 +1,18 @@
 ﻿using System;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+
 using Wino.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Helpers;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+#endif
 
 namespace Wino.MenuFlyouts
 {
@@ -45,7 +52,7 @@ namespace Wino.MenuFlyouts
             Click += MenuClicked;
         }
 
-        private void MenuClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void MenuClicked(object sender, RoutedEventArgs e)
         {
             Clicked(Operation);
         }
