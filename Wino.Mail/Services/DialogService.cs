@@ -4,11 +4,9 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Toolkit.Uwp.Helpers;
 using Serilog;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -21,6 +19,13 @@ using Wino.Core.Messages.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
+using Wino.Helpers;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml.Controls;
+#endif
 
 namespace Wino.Services
 {

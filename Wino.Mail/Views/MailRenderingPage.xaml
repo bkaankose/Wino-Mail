@@ -15,10 +15,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:selectors="using:Wino.Selectors"
-    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
-    muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     IsDarkEditor="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
     mc:Ignorable="d">
 
@@ -376,10 +374,7 @@
             <Grid Margin="1" CornerRadius="7">
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <controls:WebView2
-                    x:Name="Chromium"
-                    FontFamily="Segoe UI"
-                    NavigationStarting="WebViewNavigationStarting" />
+                <controls:WebView2 x:Name="Chromium" NavigationStarting="WebViewNavigationStarting" />
 
                 <muxc:ProgressRing
                     Width="50"

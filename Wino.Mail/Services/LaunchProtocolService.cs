@@ -1,7 +1,7 @@
 ﻿using System.Collections.Specialized;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services
+namespace Wino.Services
 {
     public class LaunchProtocolService : ILaunchProtocolService
     {

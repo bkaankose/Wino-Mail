@@ -1,24 +1,47 @@
-﻿using System;
+﻿using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Wino.Core;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
 
 namespace Wino
 {
     public partial class App : Application
     {
-        public new static App Current => (App)Application.Current;
-        public IServiceProvider Services { get; }
+        public static MainWindow MainWindow = new MainWindow();
 
         public App()
         {
-            this.InitializeComponent();
+            InitializeComponent();
+
+            Services = ConfigureServices();
+
+            _logInitializer = Services.GetService<ILogInitializer>();
+
+            ConfigureLogger();
+            ConfigureAppCenter();
+            ConfigurePrelaunch();
+            ConfigureXbox();
+
+            _themeService = Services.GetService<IThemeService>();
+            _databaseService = Services.GetService<IDatabaseService>();
+            _appInitializerService = Services.GetService<IAppInitializerService>();
+            _synchronizerFactory = Services.GetService<IWinoSynchronizerFactory>();
+            _translationService = Services.GetService<ITranslationService>();
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
 
-        protected override void OnLaunched(LaunchActivatedEventArgs args)
+        protected override async void OnLaunched(LaunchActivatedEventArgs args)
         {
-            m_window = new MainWindow();
-            m_window.Activate();
-        }
+            foreach (var service in initializeServices)
+            {
+                await service.InitializeAsync();
+            }
 
-        private Window m_window;
+            MainWindow.Activate();
+            MainWindow.StartWino();
+        }
     }
 }

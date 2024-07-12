@@ -4,13 +4,20 @@ using System.Linq;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Activation;
 using Windows.Storage;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Helpers;
 using Wino.Views;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media.Animation;
+#endif
 
 namespace Wino.Activation
 {
@@ -57,6 +64,7 @@ namespace Wino.Activation
                 else
                 {
                     _statePersistanceService.ShouldShiftMailRenderingDesign = true;
+
                     (Window.Current.Content as Frame).Navigate(typeof(MailRenderingPage), messageInformation, new DrillInNavigationTransitionInfo());
                 }
             }

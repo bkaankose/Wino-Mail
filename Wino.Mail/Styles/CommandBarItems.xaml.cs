@@ -1,4 +1,8 @@
-﻿using Windows.UI.Xaml;
+﻿#if NET8_0
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.Styles
 {

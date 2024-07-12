@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading.Tasks;
-using Microsoft.Toolkit.Uwp.Notifications;
+
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.Background;
@@ -13,6 +13,12 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Services;
 using Wino.Services;
+
+#if NET8_0
+using CommunityToolkit.WinUI.Notifications;
+#else
+using Microsoft.Toolkit.Uwp.Notifications;
+#endif
 
 namespace Wino.Activation
 {

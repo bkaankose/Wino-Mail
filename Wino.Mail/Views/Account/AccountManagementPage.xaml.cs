@@ -1,6 +1,10 @@
-﻿using System;
+﻿using Wino.Views.Abstract;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Navigation;
+#else
 using Windows.UI.Xaml.Navigation;
-using Wino.Views.Abstract;
+#endif
 
 namespace Wino.Views
 {

@@ -1,6 +1,13 @@
-﻿using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Models.Folders;
+﻿using Wino.Core.Domain.Models.Folders;
 using Wino.Views.Abstract;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
+#else
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml;
+#endif
 
 namespace Wino.Views
 {
@@ -11,7 +18,7 @@ namespace Wino.Views
             InitializeComponent();
         }
 
-        private async void SyncFolderToggled(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private async void SyncFolderToggled(object sender, RoutedEventArgs e)
         {
             if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
             {
@@ -19,7 +26,7 @@ namespace Wino.Views
             }
         }
 
-        private async void UnreadBadgeCheckboxToggled(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private async void UnreadBadgeCheckboxToggled(object sender, RoutedEventArgs e)
         {
             if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
             {

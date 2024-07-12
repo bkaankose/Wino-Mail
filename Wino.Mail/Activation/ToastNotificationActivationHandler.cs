@@ -2,12 +2,17 @@
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Messages.Accounts;
+
+#if NET8_0
+using CommunityToolkit.WinUI.Notifications;
+#else
+using Microsoft.Toolkit.Uwp.Notifications;
+#endif
 
 namespace Wino.Activation
 {

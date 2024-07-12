@@ -1,5 +1,5 @@
 using Microsoft.UI.Xaml;
-
+using Wino.Views;
 
 namespace Wino
 {
@@ -10,9 +10,9 @@ namespace Wino
             InitializeComponent();
         }
 
-        private void myButton_Click(object sender, RoutedEventArgs e)
+        public void StartWino()
         {
-            myButton.Content = "Clicked";
+            WindowFrame.Navigate(typeof(AppShell));
         }
     }
 }

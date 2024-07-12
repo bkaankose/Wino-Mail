@@ -3,8 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
-using Windows.UI.Xaml.Media.Animation;
-using Windows.UI.Xaml.Navigation;
+
 using Wino.Core.Domain.Enums;
 using Wino.Core.Messages.Navigation;
 using Wino.Core.Requests;
@@ -12,6 +11,14 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 using Wino.Views.Account;
 using Wino.Views.Settings;
+
+#if NET8_0
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
+#else
+using Windows.UI.Xaml.Media.Animation;
+using Windows.UI.Xaml.Navigation;
+#endif
 
 namespace Wino.Views
 {

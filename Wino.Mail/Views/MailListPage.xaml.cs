@@ -8,12 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Windows.Foundation;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media.Animation;
-using Windows.UI.Xaml.Navigation;
+
 using Wino.Controls;
 using Wino.Controls.Advanced;
 using Wino.Core.Domain;
@@ -28,6 +23,21 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.MenuFlyouts.Context;
 using Wino.Views.Abstract;
+
+#if NET8_0
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
+#else
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media.Animation;
+using Windows.UI.Xaml.Navigation;
+#endif
 
 namespace Wino.Views
 {
@@ -90,7 +100,7 @@ namespace Wino.Views
             SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
         }
 
-        private void SelectionModeToggleChecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectionModeToggleChecked(object sender, RoutedEventArgs e)
         {
             ChangeSelectionMode(ListViewSelectionMode.Multiple);
         }
@@ -132,17 +142,17 @@ namespace Wino.Views
             }
         }
 
-        private void SelectionModeToggleUnchecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectionModeToggleUnchecked(object sender, RoutedEventArgs e)
         {
             ChangeSelectionMode(ListViewSelectionMode.Extended);
         }
 
-        private void SelectAllCheckboxChecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
         {
             MailListView.SelectAllWino();
         }
 
-        private void SelectAllCheckboxUnchecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
         {
             MailListView.ClearSelections();
         }

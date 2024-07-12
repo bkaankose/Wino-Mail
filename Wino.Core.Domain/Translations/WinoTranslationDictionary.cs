@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
+﻿using System.Reflection;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Translations

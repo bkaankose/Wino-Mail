@@ -151,9 +151,12 @@ namespace Wino.Controls.Advanced
 
         public WinoAppTitleBar()
         {
-            this.InitializeComponent();
-
+            InitializeComponent();
+#if NET8_0
+            App.MainWindow.SetTitleBar(dragbar);
+#else
             Window.Current.SetTitleBar(dragbar);
+#endif
         }
 
         private void BackClicked(object sender, RoutedEventArgs e)

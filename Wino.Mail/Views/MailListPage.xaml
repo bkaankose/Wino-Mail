@@ -17,7 +17,7 @@
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:selectors="using:Wino.Selectors"
-    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
+    xmlns:ui="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino"
     xmlns:converters="using:Wino.Converters"

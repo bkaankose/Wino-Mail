@@ -6,8 +6,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Messages.Shell;
-using Wino.Core.UWP;
-using Wino.Mail;
 using Wino.Mail.ViewModels;
 
 namespace Wino
@@ -36,7 +34,12 @@ namespace Wino
 
         protected BasePage()
         {
+            // UWP and WinUI Dispatchers are different.
+#if NET8_0
+            ViewModel.Dispatcher = new WinAppDispatcher(DispatcherQueue);
+#else
             ViewModel.Dispatcher = new UWPDispatcher(Dispatcher);
+#endif
         }
 
         ~BasePage()

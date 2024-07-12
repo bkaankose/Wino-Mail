@@ -324,6 +324,7 @@
     <Compile Include="MenuFlyouts\RendererCommandBarItem.cs" />
     <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
     <Compile Include="Helpers\XamlHelpers.cs" />
+    <Compile Include="PartialApp.cs" />
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
     <Compile Include="Selectors\AccountReorderTemplateSelector.cs" />
     <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />

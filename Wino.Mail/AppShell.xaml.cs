@@ -35,6 +35,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Navigation;
+using Microsoft.Extensions.DependencyInjection;
 #endif
 
 namespace Wino.Views
@@ -49,14 +50,13 @@ namespace Wino.Views
         public AppShell() : base()
         {
             InitializeComponent();
-
-            var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
-            coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
-
 #if !NET8_0
             // BackdropMaterial is not available in WinUI 3.0.
             // We manually apply it for UWP version only.
             SetupMica();
+
+            var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
+            coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
 #endif
         }
 
