@@ -235,9 +235,9 @@
     <Folder Include="Views\Settings\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\Wino.Mail\JS\editor.js" Link="JS\editor.js" />
-    <None Include="..\Wino.Mail\JS\libs\darkreader.js" Link="JS\libs\darkreader.js" />
-    <None Include="..\Wino.Mail\JS\libs\jodit.min.js" Link="JS\libs\jodit.min.js" />
+    <Content Include="..\Wino.Mail\JS\editor.js" Link="JS\editor.js" />
+    <Content Include="..\Wino.Mail\JS\libs\darkreader.js" Link="JS\libs\darkreader.js" />
+    <Content Include="..\Wino.Mail\JS\libs\jodit.min.js" Link="JS\libs\jodit.min.js" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="..\Wino.Mail\AppShell.xaml" Link="AppShell.xaml">
