@@ -137,6 +137,7 @@
     <Content Include="..\Wino.Mail\Assets\FileTypes\type_pdf.png" Link="Assets\FileTypes\type_pdf.png" />
     <Content Include="..\Wino.Mail\Assets\FileTypes\type_rar.png" Link="Assets\FileTypes\type_rar.png" />
     <Content Include="..\Wino.Mail\Assets\FileTypes\type_video.png" Link="Assets\FileTypes\type_video.png" />
+	<Content Include="..\Wino.Mail\Assets\WinoIcons.ttf" Link="Assets\WinoIcons.ttf" />
     <Content Include="..\Wino.Mail\Assets\NotificationIcons\delete.png" Link="Assets\NotificationIcons\delete.png" />
     <Content Include="..\Wino.Mail\Assets\NotificationIcons\dismiss.png" Link="Assets\NotificationIcons\dismiss.png" />
     <Content Include="..\Wino.Mail\Assets\NotificationIcons\markread.png" Link="Assets\NotificationIcons\markread.png" />
