@@ -165,8 +165,13 @@ namespace Wino.Services
 
             // Save reference as this might be null when the user is in another app
 
+
+#if NET8_0
             // WinUI
+#else
             mainApplicationFrame = Window.Current.Content as Frame;
+#endif
+
 
             if (mainApplicationFrame == null) return;
 

@@ -12,6 +12,7 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
 	<WindowsSdkPackageVersion>10.0.19041.35-preview</WindowsSdkPackageVersion>
+	<GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="AppThemes\Custom.xaml" />
@@ -99,7 +100,6 @@
     <Compile Include="..\Wino.Mail\Services\LaunchProtocolService.cs" Link="Services\LaunchProtocolService.cs" />
     <Compile Include="..\Wino.Mail\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
     <Compile Include="..\Wino.Mail\Services\StatePersistenceService.cs" Link="Services\StatePersistenceService.cs" />
-    <Compile Include="..\Wino.Mail\Services\ToastActivationService.cs" Link="Services\ToastActivationService.cs" />
     <Compile Include="..\Wino.Mail\Services\WinoNavigationService.cs" Link="Services\WinoNavigationService.cs" />
     <Compile Include="..\Wino.Mail\Styles\CommandBarItems.xaml.cs" Link="Styles\CommandBarItems.xaml.cs" />
     <Compile Include="..\Wino.Mail\Views\Account\AccountDetailsPage.xaml.cs" Link="Views\Account\AccountDetailsPage.xaml.cs" />

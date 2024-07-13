@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.Foundation.Metadata;
-using Windows.Security.Authentication.Web;
 using Windows.Security.Cryptography;
 using Windows.Security.Cryptography.Core;
 using Windows.Storage;
@@ -27,7 +26,16 @@ namespace Wino.Services
         private string _mimeMessagesFolder;
         private string _editorBundlePath;
 
-        public string GetWebAuthenticationBrokerUri() => WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+        public string GetWebAuthenticationBrokerUri()
+        {
+#if NET8_0
+            // WinUI
+            return "wino://winomail.app";
+#else
+            return WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+#endif
+
+        }
 
         public async Task<string> GetMimeMessageStoragePath()
         {

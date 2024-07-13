@@ -24,6 +24,7 @@ using Wino.MenuFlyouts.Context;
 using Wino.Views.Abstract;
 using Microsoft.UI.Xaml.Controls;
 
+
 #if NET8_0
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -295,7 +296,7 @@ namespace Wino.Views
         /// </summary>
         public async void Receive(InfoBarMessageRequested message)
         {
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            await ViewModel.ExecuteUIThread(() =>
             {
                 if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
                 {

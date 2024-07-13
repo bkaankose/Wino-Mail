@@ -18,6 +18,8 @@ using Wino.Core.UWP;
 using Wino.Mail.ViewModels;
 using Wino.Services;
 using Wino.Core.Services;
+using Wino.Core.WinUI.Services;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -40,6 +42,7 @@ namespace Wino
         private readonly IAppInitializerService _appInitializerService;
         private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly ITranslationService _translationService;
+        private readonly IAppShellService _appShellService;
 
         public new static App Current => (App)Application.Current;
         public IServiceProvider Services { get; }

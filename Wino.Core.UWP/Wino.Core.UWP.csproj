@@ -128,6 +128,7 @@
     <Compile Include="Models\Personalization\SystemAppTheme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\AppInitializerService.cs" />
+    <Compile Include="Services\AppShellService.cs" />
     <Compile Include="Services\BackgroundSynchronizer.cs" />
     <Compile Include="Services\BackgroundTaskService.cs" />
     <Compile Include="Services\ClipboardService.cs" />

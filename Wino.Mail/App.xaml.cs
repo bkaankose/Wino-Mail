@@ -55,6 +55,8 @@ namespace Wino
         {
             base.OnWindowCreated(args);
 
+            _appShellService.AppWindow = args.Window;
+
             LogActivation("Window is created.");
 
             ConfigureTitleBar();

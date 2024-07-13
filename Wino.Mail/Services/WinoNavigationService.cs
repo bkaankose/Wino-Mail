@@ -11,9 +11,10 @@ using Wino.Mail.ViewModels.Messages;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Settings;
+using Wino.Core.WinUI.Services;
+
 
 #if NET8_0
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 #else
@@ -27,6 +28,7 @@ namespace Wino.Services
     public class WinoNavigationService : IWinoNavigationService
     {
         private readonly IStatePersistanceService _statePersistanceService;
+        private readonly IAppShellService _appShellService;
 
         private WinoPage[] _renderingPageTypes = new WinoPage[]
         {
@@ -34,9 +36,10 @@ namespace Wino.Services
             WinoPage.ComposePage
         };
 
+
         private Frame GetCoreFrame(NavigationReferenceFrame frameType)
         {
-            if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
+            if (_appShellService.AppWindow.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
                 return WinoVisualTreeHelper.GetChildObject<Frame>(shellPage, frameType.ToString());
 
             return null;
@@ -52,9 +55,10 @@ namespace Wino.Services
             }
         }
 
-        public WinoNavigationService(IStatePersistanceService statePersistanceService)
+        public WinoNavigationService(IStatePersistanceService statePersistanceService, IAppShellService appShellService)
         {
             _statePersistanceService = statePersistanceService;
+            _appShellService = appShellService;
         }
 
         private Type GetPageType(WinoPage winoPage)

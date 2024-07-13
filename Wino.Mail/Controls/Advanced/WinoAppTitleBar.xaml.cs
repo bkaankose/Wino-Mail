@@ -1,4 +1,6 @@
 ﻿using Windows.Foundation;
+using Wino.Core.WinUI.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -11,6 +13,8 @@ namespace Wino.Controls.Advanced
 {
     public sealed partial class WinoAppTitleBar : UserControl
     {
+        private IAppShellService _appShellService = App.Current.Services.GetService<IAppShellService>();
+
         public event TypedEventHandler<WinoAppTitleBar, RoutedEventArgs> BackButtonClicked;
 
         public string CoreWindowText
@@ -152,11 +156,8 @@ namespace Wino.Controls.Advanced
         public WinoAppTitleBar()
         {
             InitializeComponent();
-#if NET8_0
-            App.MainWindow.SetTitleBar(dragbar);
-#else
-            Window.Current.SetTitleBar(dragbar);
-#endif
+
+            _appShellService.AppWindow.SetTitleBar(dragbar);
         }
 
         private void BackClicked(object sender, RoutedEventArgs e)

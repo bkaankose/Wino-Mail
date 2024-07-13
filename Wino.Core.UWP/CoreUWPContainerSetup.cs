@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP.Services;
+using Wino.Core.WinUI.Services;
 using Wino.Services;
 
 namespace Wino.Core.UWP
@@ -13,6 +14,7 @@ namespace Wino.Core.UWP
             services.AddSingleton<INativeAppService, NativeAppService>();
             services.AddSingleton<IStoreManagementService, StoreManagementService>();
             services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
+            services.AddSingleton<IAppShellService, AppShellService>();
 
             services.AddTransient<IAppInitializerService, AppInitializerService>();
             services.AddTransient<IConfigurationService, ConfigurationService>();
