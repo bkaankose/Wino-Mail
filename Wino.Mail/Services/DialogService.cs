@@ -20,6 +20,8 @@ using Wino.Core.Requests;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
 using Wino.Helpers;
+using Windows.Foundation.Metadata;
+using Wino.Core.WinUI.Services;
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;
@@ -34,10 +36,12 @@ namespace Wino.Services
         private SemaphoreSlim _presentationSemaphore = new SemaphoreSlim(1);
 
         private readonly IThemeService _themeService;
+        private readonly IAppShellService _appShellService;
 
-        public DialogService(IThemeService themeService)
+        public DialogService(IThemeService themeService, IAppShellService appShellService)
         {
             _themeService = themeService;
+            _appShellService = appShellService;
         }
 
         public void ShowNotSupportedMessage()
@@ -52,7 +56,19 @@ namespace Wino.Services
                 RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
             };
 
+#if NET8_0
+            AssignXamlRoot(dialog);
+#endif
+
             await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, message));
+        }
+
+        private void AssignXamlRoot(ContentDialog dialog)
+        {
+            if (ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 8))
+            {
+                dialog.XamlRoot = (_appShellService.AppWindow.Content).XamlRoot;
+            }
         }
 
         /// <summary>
@@ -66,6 +82,9 @@ namespace Wino.Services
 
             try
             {
+#if NET8_0
+                AssignXamlRoot(dialog);
+#endif
                 return await dialog.ShowAsync();
             }
             catch (Exception ex)
