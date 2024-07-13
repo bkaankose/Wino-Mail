@@ -56,19 +56,19 @@ namespace Wino.Services
                 RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
             };
 
-#if NET8_0
             AssignXamlRoot(dialog);
-#endif
 
             await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, message));
         }
 
         private void AssignXamlRoot(ContentDialog dialog)
         {
+#if NET8_0
             if (ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 8))
             {
                 dialog.XamlRoot = (_appShellService.AppWindow.Content).XamlRoot;
             }
+#endif
         }
 
         /// <summary>
@@ -82,9 +82,8 @@ namespace Wino.Services
 
             try
             {
-#if NET8_0
                 AssignXamlRoot(dialog);
-#endif
+
                 return await dialog.ShowAsync();
             }
             catch (Exception ex)
@@ -131,6 +130,8 @@ namespace Wino.Services
                 RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
             };
 
+            AssignXamlRoot(dialog);
+
             return await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, question, confirmationButtonTitle));
         }
 
@@ -165,6 +166,8 @@ namespace Wino.Services
                     RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
                 };
             }
+
+            AssignXamlRoot(dialog as ContentDialog);
 
             return dialog;
         }
@@ -360,6 +363,7 @@ namespace Wino.Services
         public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null)
         {
             SignatureEditorDialog signatureEditorDialog;
+
             if (signatureModel != null)
             {
                 signatureEditorDialog = new SignatureEditorDialog(signatureModel)
