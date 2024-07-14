@@ -7,7 +7,16 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <Identity
+    <!-- Publisher Cache Folders -->
+    <Extensions>
+	    <Extension Category="windows.publisherCacheFolders">
+		    <PublisherCacheFolders>
+			    <Folder Name="WinoShared" />
+		    </PublisherCacheFolders>
+	    </Extension>
+    </Extensions>
+
+	<Identity
     Name="58272BurakKSE.WPCEx"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
     Version="1.0.0.0" />
@@ -43,10 +52,37 @@
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
+		  <!-- Web Auth Broker -->
         <uap:Extension Category="windows.protocol">
           <uap:Protocol Name="winomail.app"/>
         </uap:Extension>
-      </Extensions>
+
+		  <!-- App updated task. Notifies about new version after each Store update. -->
+		  <Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
+
+		  <!-- Protocol activation: mailto -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="mailto" />
+		  </uap:Extension>
+
+		  <!-- Protocol activation: Google oAuth -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="google.pw.oauth2">
+				  <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+			  </uap:Protocol>
+		  </uap:Extension>
+
+		  <!-- File Assosication: EML -->
+		  <uap:Extension Category="windows.fileTypeAssociation">
+			  <uap:FileTypeAssociation Name="eml">
+				  <uap:Logo>EML\eml.png</uap:Logo>
+				  <uap:SupportedFileTypes>
+					  <uap:FileType>.eml</uap:FileType>
+				  </uap:SupportedFileTypes>
+			  </uap:FileTypeAssociation>
+		  </uap:Extension>
+
+	  </Extensions>
     </Application>
   </Applications>
 
