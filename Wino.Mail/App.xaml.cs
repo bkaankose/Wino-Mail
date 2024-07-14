@@ -14,6 +14,7 @@ using Wino.Activation;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
+using Wino.Core.WinUI.Services;
 
 namespace Wino
 {
@@ -43,6 +44,7 @@ namespace Wino
             _appInitializerService = Services.GetService<IAppInitializerService>();
             _synchronizerFactory = Services.GetService<IWinoSynchronizerFactory>();
             _translationService = Services.GetService<ITranslationService>();
+            _appShellService = Services.GetService<IAppShellService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
