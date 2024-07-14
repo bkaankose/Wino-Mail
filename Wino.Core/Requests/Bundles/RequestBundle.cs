@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Requests
@@ -43,7 +43,7 @@ namespace Wino.Core.Domain.Models.Requests
         {
             var content = await httpResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-            return JsonConvert.DeserializeObject<TResponse>(content) ?? throw new InvalidOperationException("Invalid Http Response Deserialization");
+            return JsonSerializer.Deserialize<TResponse>(content) ?? throw new InvalidOperationException("Invalid Http Response Deserialization");
         }
 
         public override string ToString()

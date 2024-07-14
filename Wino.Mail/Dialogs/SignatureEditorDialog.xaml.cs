@@ -1,17 +1,15 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
-using Newtonsoft.Json;
 using Windows.UI.ViewManagement.Core;
-
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Views.Settings;
-
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -82,7 +80,7 @@ namespace Wino.Dialogs
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonConvert.DeserializeObject<string>(editorContent);
+                return JsonSerializer.Deserialize<string>(editorContent);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -197,7 +195,7 @@ namespace Wino.Dialogs
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";
@@ -320,7 +318,7 @@ namespace Wino.Dialogs
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
 
             if (change.type == "bold")
             {

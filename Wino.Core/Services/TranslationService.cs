@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Newtonsoft.Json;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -44,7 +44,7 @@ namespace Wino.Core.Services
 
             var stremValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
 
-            var translationLookups = JsonConvert.DeserializeObject<Dictionary<string, string>>(stremValue);
+            var translationLookups = JsonSerializer.Deserialize<Dictionary<string, string>>(stremValue);
 
             // Insert new translation key-value pairs.
             // Overwrite existing values for the same keys.

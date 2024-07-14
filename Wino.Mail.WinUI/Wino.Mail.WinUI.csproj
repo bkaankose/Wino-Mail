@@ -81,7 +81,6 @@
     <Compile Include="..\Wino.Mail\Extensions\MimeKitExtensions.cs" Link="Extensions\MimeKitExtensions.cs" />
     <Compile Include="..\Wino.Mail\Extensions\UIExtensions.cs" Link="Extensions\UIExtensions.cs" />
     <Compile Include="..\Wino.Mail\Extensions\UtilExtensions.cs" Link="Extensions\UtilExtensions.cs" />
-    <Compile Include="..\Wino.Mail\Helpers\JsonHelpers.cs" Link="Helpers\JsonHelpers.cs" />
     <Compile Include="..\Wino.Mail\Helpers\SettingsStorageExtensions.cs" Link="Helpers\SettingsStorageExtensions.cs" />
     <Compile Include="..\Wino.Mail\Helpers\WinoVisualTreeHelper.cs" Link="Helpers\WinoVisualTreeHelper.cs" />
     <Compile Include="..\Wino.Mail\Helpers\XamlHelpers.cs" Link="Helpers\XamlHelpers.cs" />

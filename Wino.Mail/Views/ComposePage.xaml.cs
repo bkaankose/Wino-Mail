@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
-using Newtonsoft.Json;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
@@ -29,6 +28,8 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 using CommunityToolkit.WinUI.Controls;
 using Wino.Helpers;
+using System.Text.Json;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -215,7 +216,7 @@ namespace Wino.Views
                             imageDataURLs.Add(await GetDataURL(file));
                     }
 
-                    await InvokeScriptSafeAsync($"insertImages({JsonConvert.SerializeObject(imageDataURLs)});");
+                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imageDataURLs)});");
                 }
             }
             // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -328,7 +329,7 @@ namespace Wino.Views
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";
@@ -459,7 +460,7 @@ namespace Wino.Views
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonConvert.DeserializeObject<string>(editorContent);
+                return JsonSerializer.Deserialize<string>(editorContent);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -483,7 +484,7 @@ namespace Wino.Views
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
 
             if (change.type == "bold")
             {
