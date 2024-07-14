@@ -459,14 +459,25 @@ namespace Wino.Mail.ViewModels.Collections
                             var singleViewModel = threadMailItemViewModel.GetSingleItemViewModel();
                             var groupKey = GetGroupingKey(singleViewModel);
 
-                            await ExecuteUIThread(() => { RemoveItemInternal(group, threadMailItemViewModel); });
+                            await ExecuteUIThread(() =>
+                            {
+                                RemoveItemInternal(group, threadMailItemViewModel);
+                                InsertItemInternal(groupKey, singleViewModel);
+                            });
 
                             // If thread->single conversion is being done, we should ignore it for non-draft items.
                             // eg. Deleting a reply message from draft folder. Single non-draft item should not be re-added.
 
-                            if (!PruneSingleNonDraftItems || singleViewModel.IsDraft)
+                            if (PruneSingleNonDraftItems && !singleViewModel.IsDraft)
                             {
-                                await ExecuteUIThread(() => { InsertItemInternal(groupKey, singleViewModel); });
+                                // This item should not be here anymore.
+                                // It's basically a reply mail in Draft folder.
+                                var newGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
+
+                                if (newGroup != null)
+                                {
+                                    await ExecuteUIThread(() => { RemoveItemInternal(newGroup, singleViewModel); });
+                                }
                             }
                         }
                         else if (threadMailItemViewModel.ThreadItems.Count == 0)
@@ -479,18 +490,6 @@ namespace Wino.Mail.ViewModels.Collections
                             await ExecuteUIThread(() => { threadMailItemViewModel.ThreadItems.Remove(removalItem); });
 
                             UpdateUniqueIdHashes(removalItem, false);
-                        }
-
-                        var newGroupKey = GetGroupingKey(threadMailItemViewModel);
-
-                        // Make sure to update group key after the thread is updated.
-                        if (!oldGroupKey.Equals(newGroupKey))
-                        {
-                            await ExecuteUIThread(() =>
-                            {
-                                RemoveItemInternal(group, threadMailItemViewModel);
-                                InsertItemInternal(newGroupKey, threadMailItemViewModel);
-                            });
                         }
 
                         shouldExit = true;
