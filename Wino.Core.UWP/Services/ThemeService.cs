@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 
-using Newtonsoft.Json;
 using Windows.Storage;
 
 using Windows.UI.ViewManagement;
@@ -21,6 +21,8 @@ using Wino.Core.Messages.Shell;
 using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Models.Personalization;
 using Wino.Core.UWP.Services;
+using Wino.Core.WinUI.Services;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;
@@ -47,15 +49,15 @@ namespace Wino.Services
     {
         public const string CustomThemeFolderName = "CustomThemes";
 
-        private static string _micaThemeId = "a160b1b0-2ab8-4e97-a803-f4050f036e25";
-        private static string _acrylicThemeId = "fc08e58c-36fd-46e2-a562-26cf277f1467";
-        private static string _cloudsThemeId = "3b621cc2-e270-4a76-8477-737917cccda0";
-        private static string _forestThemeId = "8bc89b37-a7c5-4049-86e2-de1ae8858dbd";
-        private static string _nightyThemeId = "5b65e04e-fd7e-4c2d-8221-068d3e02d23a";
-        private static string _snowflakeThemeId = "e143ddde-2e28-4846-9d98-dad63d6505f1";
-        private static string _gardenThemeId = "698e4466-f88c-4799-9c61-f0ea1308ed49";
+        private const string MicaThemeId = "a160b1b0-2ab8-4e97-a803-f4050f036e25";
+        private const string AcrylicThemeId = "fc08e58c-36fd-46e2-a562-26cf277f1467";
+        private const string CloudsThemeId = "3b621cc2-e270-4a76-8477-737917cccda0";
+        private const string ForestThemeId = "8bc89b37-a7c5-4049-86e2-de1ae8858dbd";
+        private const string NightyThemeId = "5b65e04e-fd7e-4c2d-8221-068d3e02d23a";
+        private const string SnowflakeThemeId = "e143ddde-2e28-4846-9d98-dad63d6505f1";
+        private const string GardenThemeId = "698e4466-f88c-4799-9c61-f0ea1308ed49";
 
-        private Frame mainApplicationFrame = null;
+        private Frame mainApplicationFrame;
 
         public event EventHandler<ApplicationElementTheme> ElementThemeChanged;
         public event EventHandler<string> AccentColorChanged;
@@ -73,25 +75,28 @@ namespace Wino.Services
         private readonly IConfigurationService _configurationService;
         private readonly IUnderlyingThemeService _underlyingThemeService;
         private readonly IApplicationResourceManager<ResourceDictionary> _applicationResourceManager;
+        private readonly IAppShellService _appShellService;
 
         private List<AppThemeBase> preDefinedThemes { get; set; } = new List<AppThemeBase>()
         {
-            new SystemAppTheme("Mica", Guid.Parse(_micaThemeId)),
-            new SystemAppTheme("Acrylic", Guid.Parse(_acrylicThemeId)),
-            new PreDefinedAppTheme("Nighty", Guid.Parse(_nightyThemeId), "#e1b12c", ApplicationElementTheme.Dark),
-            new PreDefinedAppTheme("Forest", Guid.Parse(_forestThemeId), "#16a085", ApplicationElementTheme.Dark),
-            new PreDefinedAppTheme("Clouds", Guid.Parse(_cloudsThemeId), "#0984e3", ApplicationElementTheme.Light),
-            new PreDefinedAppTheme("Snowflake", Guid.Parse(_snowflakeThemeId), "#4a69bd", ApplicationElementTheme.Light),
-            new PreDefinedAppTheme("Garden", Guid.Parse(_gardenThemeId), "#05c46b", ApplicationElementTheme.Light),
+            new SystemAppTheme("Mica", Guid.Parse(MicaThemeId)),
+            new SystemAppTheme("Acrylic", Guid.Parse(AcrylicThemeId)),
+            new PreDefinedAppTheme("Nighty", Guid.Parse(NightyThemeId), "#e1b12c", ApplicationElementTheme.Dark),
+            new PreDefinedAppTheme("Forest", Guid.Parse(ForestThemeId), "#16a085", ApplicationElementTheme.Dark),
+            new PreDefinedAppTheme("Clouds", Guid.Parse(CloudsThemeId), "#0984e3", ApplicationElementTheme.Light),
+            new PreDefinedAppTheme("Snowflake", Guid.Parse(SnowflakeThemeId), "#4a69bd", ApplicationElementTheme.Light),
+            new PreDefinedAppTheme("Garden", Guid.Parse(GardenThemeId), "#05c46b", ApplicationElementTheme.Light),
         };
 
         public ThemeService(IConfigurationService configurationService,
                             IUnderlyingThemeService underlyingThemeService,
-                            IApplicationResourceManager<ResourceDictionary> applicationResourceManager)
+                            IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
+                            IAppShellService appShellService)
         {
             _configurationService = configurationService;
             _underlyingThemeService = underlyingThemeService;
             _applicationResourceManager = applicationResourceManager;
+            _appShellService = appShellService;
         }
 
         /// <summary>
@@ -99,12 +104,7 @@ namespace Wino.Services
         /// </summary>
         public ApplicationElementTheme RootTheme
         {
-            get
-            {
-                if (mainApplicationFrame == null) return ApplicationElementTheme.Default;
-
-                return mainApplicationFrame.RequestedTheme.ToWinoElementTheme();
-            }
+            get => (mainApplicationFrame?.RequestedTheme.ToWinoElementTheme()) ?? ApplicationElementTheme.Default;
             set
             {
                 if (mainApplicationFrame == null)
@@ -121,22 +121,26 @@ namespace Wino.Services
             }
         }
 
-
         private Guid currentApplicationThemeId;
 
         public Guid CurrentApplicationThemeId
         {
-            get { return currentApplicationThemeId; }
+            get => currentApplicationThemeId;
             set
             {
                 currentApplicationThemeId = value;
 
                 _configurationService.Set(CurrentApplicationThemeKey, value);
 
+#if NET8_0
+                _ = mainApplicationFrame.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
+                    async () => await ApplyCustomThemeAsync(false));
+#else
                 _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, async () =>
                 {
                     await ApplyCustomThemeAsync(false);
                 });
+#endif
             }
         }
 
@@ -145,7 +149,7 @@ namespace Wino.Services
 
         public string AccentColor
         {
-            get { return accentColor; }
+            get => accentColor;
             set
             {
                 accentColor = value;
@@ -163,15 +167,7 @@ namespace Wino.Services
             if (mainApplicationFrame != null)
                 return;
 
-            // Save reference as this might be null when the user is in another app
-
-
-#if NET8_0
-            // WinUI
-#else
-            mainApplicationFrame = Window.Current.Content as Frame;
-#endif
-
+            mainApplicationFrame = _appShellService.AppWindow.Content as Frame;
 
             if (mainApplicationFrame == null) return;
 
@@ -179,7 +175,7 @@ namespace Wino.Services
             AccentColor = _configurationService.Get(AccentColorKey, string.Empty);
 
             // Set the current theme id. Default to Mica.
-            var applicationThemeGuid = _configurationService.Get(CurrentApplicationThemeKey, _micaThemeId);
+            var applicationThemeGuid = _configurationService.Get(CurrentApplicationThemeKey, MicaThemeId);
 
             currentApplicationThemeId = Guid.Parse(applicationThemeGuid);
 
@@ -191,13 +187,22 @@ namespace Wino.Services
 
         private void NotifyThemeUpdate()
         {
-            if (mainApplicationFrame == null || mainApplicationFrame.Dispatcher == null) return;
+            if (mainApplicationFrame == null) return;
 
+#if NET8_0
+            _ = mainApplicationFrame.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
+                () =>
+                {
+                    ElementThemeChanged?.Invoke(this, RootTheme);
+                    WeakReferenceMessenger.Default.Send(new ApplicationThemeChanged(_underlyingThemeService.IsUnderlyingThemeDark()));
+                });
+#else
             _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
             {
                 ElementThemeChanged?.Invoke(this, RootTheme);
                 WeakReferenceMessenger.Default.Send(new ApplicationThemeChanged(_underlyingThemeService.IsUnderlyingThemeDark()));
             });
+#endif
         }
 
         private void UISettingsColorChanged(UISettings sender, object args)
@@ -206,14 +211,22 @@ namespace Wino.Services
             if (mainApplicationFrame != null)
             {
                 // Dispatch on UI thread so that we have a current appbar to access and change
-
+#if NET8_0
+                _ = mainApplicationFrame.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.High,
+                    () =>
+                    {
+                        UpdateSystemCaptionButtonColors();
+                        var accentColor = sender.GetColorValue(UIColorType.Accent);
+                        //AccentColorChangedBySystem?.Invoke(this, accentColor.ToHex());
+                    });
+#else
                 _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
                 {
                     UpdateSystemCaptionButtonColors();
-
                     var accentColor = sender.GetColorValue(UIColorType.Accent);
                     //AccentColorChangedBySystem?.Invoke(this, accentColor.ToHex());
                 });
+#endif
             }
 
             NotifyThemeUpdate();
@@ -223,10 +236,36 @@ namespace Wino.Services
         {
             if (mainApplicationFrame == null) return;
 
+#if NET8_0
+            _ = mainApplicationFrame.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal,
+                () =>
+                {
+                    ApplicationViewTitleBar titleBar = null;
+                    try
+                    {
+                        titleBar = ApplicationView.GetForCurrentView().TitleBar;
+                    }
+                    catch { }
+                    if (titleBar == null) return;
+
+                    if (_underlyingThemeService.IsUnderlyingThemeDark())
+                    {
+                        titleBar.ButtonForegroundColor = Colors.White;
+                    }
+                    else
+                    {
+                        titleBar.ButtonForegroundColor = Colors.Black;
+                    }
+                });
+#else
             _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
-                ApplicationViewTitleBar titleBar = ApplicationView.GetForCurrentView().TitleBar;
-
+               ApplicationViewTitleBar titleBar = null;
+                try
+                {
+                    titleBar = ApplicationView.GetForCurrentView().TitleBar;
+                }
+                catch { }
                 if (titleBar == null) return;
 
                 if (_underlyingThemeService.IsUnderlyingThemeDark())
@@ -238,6 +277,7 @@ namespace Wino.Services
                     titleBar.ButtonForegroundColor = Colors.Black;
                 }
             });
+#endif
         }
 
         public void UpdateAccentColor(string hex)
@@ -308,7 +348,7 @@ namespace Wino.Services
 
                 controlThemeList.AddRange(customThemes.Select(a => new CustomAppTheme(a)));
 
-                applyingTheme = controlThemeList.Find(a => a.Id == currentApplicationThemeId) ?? preDefinedThemes.First(a => a.Id == Guid.Parse(_micaThemeId));
+                applyingTheme = controlThemeList.Find(a => a.Id == currentApplicationThemeId) ?? preDefinedThemes.First(a => a.Id == Guid.Parse(MicaThemeId));
             }
 
             try
@@ -418,7 +458,7 @@ namespace Wino.Services
             {
                 byte[] bytes = new byte[readerStream.Length];
 
-                await readerStream.ReadAsync(bytes, 0, bytes.Length);
+                await readerStream.ReadAsync(bytes,0, bytes.Length);
 
                 var buffer = bytes.AsBuffer();
 
@@ -428,7 +468,7 @@ namespace Wino.Services
             // Save metadata.
             var metadataFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.json", CreationCollisionOption.ReplaceExisting);
 
-            var serialized = JsonConvert.SerializeObject(newTheme);
+            var serialized = JsonSerializer.Serialize(newTheme);
             await FileIO.WriteTextAsync(metadataFile, serialized);
 
             return newTheme;
@@ -456,11 +496,11 @@ namespace Wino.Services
             return results;
         }
 
-        private async Task<CustomThemeMetadata> GetCustomMetadataAsync(IStorageFile file)
+        private static async Task<CustomThemeMetadata> GetCustomMetadataAsync(IStorageFile file)
         {
             var fileContent = await FileIO.ReadTextAsync(file);
 
-            return JsonConvert.DeserializeObject<CustomThemeMetadata>(fileContent);
+            return JsonSerializer.Deserialize<CustomThemeMetadata>(fileContent);
         }
 
         public string GetSystemAccentColorHex()
