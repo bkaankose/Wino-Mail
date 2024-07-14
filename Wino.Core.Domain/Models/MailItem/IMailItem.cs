@@ -6,7 +6,7 @@ namespace Wino.Core.Domain.Models.MailItem
     /// <summary>
     /// Interface of simplest representation of a MailCopy.
     /// </summary>
-    public interface IMailItem
+    public interface IMailItem : IMailHashContainer
     {
         Guid UniqueId { get; }
         string Id { get; }

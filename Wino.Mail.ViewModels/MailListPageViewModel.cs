@@ -172,6 +172,24 @@ namespace Wino.Mail.ViewModels
                 {
                     await ExecuteUIThread(() => { SelectedItemCollectionUpdated(a.EventArgs); });
                 });
+
+            MailCollection.MailItemRemoved += (c, removedItem) =>
+            {
+                if (removedItem is ThreadMailItemViewModel removedThreadViewModelItem)
+                {
+                    foreach (var viewModel in removedThreadViewModelItem.ThreadItems.Cast<MailItemViewModel>())
+                    {
+                        if (SelectedItems.Contains(viewModel))
+                        {
+                            SelectedItems.Remove(viewModel);
+                        }
+                    }
+                }
+                else if (removedItem is MailItemViewModel removedMailItemViewModel && SelectedItems.Contains(removedMailItemViewModel))
+                {
+                    SelectedItems.Remove(removedMailItemViewModel);
+                }
+            };
         }
 
         #region Properties
@@ -309,25 +327,6 @@ namespace Wino.Mail.ViewModels
 
             MailCollection.CoreDispatcher = Dispatcher;
         }
-
-        //protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
-        //{
-        //    base.OnFolderUpdated(updatedFolder, account);
-
-        //    // Don't need to update if the folder update does not belong to the current folder menu item.
-        //    if (ActiveFolder == null || updatedFolder == null || !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedFolder.Id)) return;
-
-        //    await ExecuteUIThread(() =>
-        //    {
-        //        ActiveFolder.UpdateFolder(updatedFolder);
-
-        //        OnPropertyChanged(nameof(CanSynchronize));
-        //        OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-        //    });
-
-        //    // Force synchronization after enabling the folder.
-        //    SyncFolder();
-        //}
 
         private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
         {
@@ -618,12 +617,9 @@ namespace Wino.Mail.ViewModels
 
                 if (!shouldPreventIgnoringFilter && ShouldPreventItemAdd(addedMail)) return;
 
-                await ExecuteUIThread(async () =>
-                {
-                    await MailCollection.AddAsync(addedMail);
+                await MailCollection.AddAsync(addedMail);
 
-                    NotifyItemFoundState();
-                });
+                await ExecuteUIThread(() => { NotifyItemFoundState(); });
             }
             catch { }
             finally
@@ -693,6 +689,7 @@ namespace Wino.Mail.ViewModels
                 gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
             }
         }
+
         protected override async void OnDraftCreated(MailCopy draftMail, MailAccount account)
         {
             base.OnDraftCreated(draftMail, account);
@@ -704,10 +701,10 @@ namespace Wino.Mail.ViewModels
                 await listManipulationSemepahore.WaitAsync();
 
                 // Create the item. Draft folder navigation is already done at this point.
-                await ExecuteUIThread(async () =>
-                {
-                    await MailCollection.AddAsync(draftMail);
+                await MailCollection.AddAsync(draftMail);
 
+                await ExecuteUIThread(() =>
+                {
                     // New draft is created by user. Select the item.
                     Messenger.Send(new MailItemNavigationRequested(draftMail.UniqueId, ScrollToItem: true));
 
@@ -940,8 +937,6 @@ namespace Wino.Mail.ViewModels
 
             if (navigatingMailItem != null)
                 WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(navigatingMailItem, message.ScrollToItem));
-            else
-                Debugger.Break();
         }
 
         #endregion

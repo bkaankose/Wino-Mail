@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Models.MailItem;
@@ -94,5 +95,7 @@ namespace Wino.Mail.ViewModels.Data
             OnPropertyChanged(nameof(Subject));
             OnPropertyChanged(nameof(PreviewText));
         }
+
+        public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
     }
 }

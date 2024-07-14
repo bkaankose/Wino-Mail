@@ -18,7 +18,9 @@ namespace Wino.Mail.ViewModels.Collections
         // If the item provider here for update or removal doesn't exist here
         // we can ignore the operation.
 
-        public HashSet<Guid> MailCopyIdHashSet = new HashSet<Guid>();
+        public HashSet<Guid> MailCopyIdHashSet = [];
+
+        public event EventHandler<IMailItem> MailItemRemoved;
 
         private ListItemComparer listComparer = new ListItemComparer();
 
@@ -61,45 +63,51 @@ namespace Wino.Mail.ViewModels.Collections
                 return mailItem.FromName;
         }
 
-        private async Task InsertItemInternalAsync(object groupKey, IMailItem mailItem)
-            => await ExecuteUIThread(() =>
-                {
-                    if (mailItem is MailCopy mailCopy)
-                    {
-                        MailCopyIdHashSet.Add(mailCopy.UniqueId);
-
-                        _mailItemSource.InsertItem(groupKey, listComparer, new MailItemViewModel(mailCopy), listComparer.GetItemComparer());
-                    }
-                    else if (mailItem is ThreadMailItem threadMailItem)
-                    {
-                        foreach (var item in threadMailItem.ThreadItems)
-                        {
-                            MailCopyIdHashSet.Add(item.UniqueId);
-                        }
-
-                        _mailItemSource.InsertItem(groupKey, listComparer, new ThreadMailItemViewModel(threadMailItem), listComparer.GetItemComparer());
-                    }
-                    else if (mailItem is MailItemViewModel)
-                    {
-                        MailCopyIdHashSet.Add(mailItem.UniqueId);
-
-                        _mailItemSource.InsertItem(groupKey, listComparer, mailItem, listComparer.GetItemComparer());
-                    }
-                });
-
-        private async Task RemoveItemInternalAsync(ObservableGroup<object, IMailItem> group, IMailItem mailItem)
+        private void UpdateUniqueIdHashes(IMailHashContainer itemContainer, bool isAdd)
         {
-            MailCopyIdHashSet.Remove(mailItem.UniqueId);
-
-            await ExecuteUIThread(() =>
+            foreach (var item in itemContainer.GetContainingIds())
             {
-                group.Remove(mailItem);
-
-                if (group.Count == 0)
+                if (isAdd)
                 {
-                    _mailItemSource.RemoveGroup(group.Key);
+                    MailCopyIdHashSet.Add(item);
                 }
-            });
+                else
+                {
+                    MailCopyIdHashSet.Remove(item);
+                }
+            }
+        }
+
+        private void InsertItemInternal(object groupKey, IMailItem mailItem)
+        {
+            UpdateUniqueIdHashes(mailItem, true);
+
+            if (mailItem is MailCopy mailCopy)
+            {
+                _mailItemSource.InsertItem(groupKey, listComparer, new MailItemViewModel(mailCopy), listComparer.GetItemComparer());
+            }
+            else if (mailItem is ThreadMailItem threadMailItem)
+            {
+                _mailItemSource.InsertItem(groupKey, listComparer, new ThreadMailItemViewModel(threadMailItem), listComparer.GetItemComparer());
+            }
+            else
+            {
+                _mailItemSource.InsertItem(groupKey, listComparer, mailItem, listComparer.GetItemComparer());
+            }
+        }
+
+        private void RemoveItemInternal(ObservableGroup<object, IMailItem> group, IMailItem mailItem)
+        {
+            UpdateUniqueIdHashes(mailItem, false);
+
+            MailItemRemoved?.Invoke(this, mailItem);
+
+            group.Remove(mailItem);
+
+            if (group.Count == 0)
+            {
+                _mailItemSource.RemoveGroup(group.Key);
+            }
         }
 
         public async Task AddAsync(MailCopy addedItem)
@@ -108,6 +116,9 @@ namespace Wino.Mail.ViewModels.Collections
             bool shouldExit = false;
 
             var groupCount = _mailItemSource.Count;
+
+            var addedAccountProviderType = addedItem.AssignedAccount.ProviderType;
+            var threadingStrategy = ThreadingStrategyProvider?.GetStrategy(addedAccountProviderType);
 
             for (int i = 0; i < groupCount; i++)
             {
@@ -118,10 +129,6 @@ namespace Wino.Mail.ViewModels.Collections
                 for (int k = 0; k < group.Count; k++)
                 {
                     var item = group[k];
-
-                    var addedAccountProviderType = addedItem.AssignedAccount.ProviderType;
-
-                    var threadingStrategy = ThreadingStrategyProvider?.GetStrategy(addedAccountProviderType);
 
                     if (threadingStrategy?.ShouldThreadWithItem(addedItem, item) ?? false)
                     {
@@ -140,22 +147,31 @@ namespace Wino.Mail.ViewModels.Collections
 
                             var existingGroupKey = GetGroupingKey(threadMailItemViewModel);
 
-                            threadMailItemViewModel.AddMailItemViewModel(addedItem);
+                            await ExecuteUIThread(() => { threadMailItemViewModel.AddMailItemViewModel(addedItem); });
 
                             var newGroupKey = GetGroupingKey(threadMailItemViewModel);
 
                             if (!existingGroupKey.Equals(newGroupKey))
                             {
-                                await RemoveItemInternalAsync(group, threadMailItemViewModel);
-                                await InsertItemInternalAsync(newGroupKey, threadMailItemViewModel);
+                                var mailThreadItems = threadMailItemViewModel.GetThreadMailItem();
+
+                                await ExecuteUIThread(() =>
+                                {
+                                    // Group must be changed for this thread.
+                                    // Remove the thread first.
+
+                                    RemoveItemInternal(group, threadMailItemViewModel);
+
+                                    // Insert new view model because the previous one might've been deleted with the group.
+                                    InsertItemInternal(newGroupKey, new ThreadMailItemViewModel(mailThreadItems));
+                                });
                             }
-
-                            await ExecuteUIThread(() => { threadMailItemViewModel.NotifyPropertyChanges(); });
-
-                            if (!MailCopyIdHashSet.Contains(addedItem.UniqueId))
+                            else
                             {
-                                MailCopyIdHashSet.Add(addedItem.UniqueId);
+                                await ExecuteUIThread(() => { threadMailItemViewModel.NotifyPropertyChanges(); });
                             }
+
+                            UpdateUniqueIdHashes(addedItem, true);
 
                             break;
                         }
@@ -177,10 +193,10 @@ namespace Wino.Mail.ViewModels.Collections
 
                                 if (item is MailItemViewModel itemViewModel)
                                 {
-                                    itemViewModel.Update(addedItem);
+                                    await ExecuteUIThread(() => { itemViewModel.Update(addedItem); });
 
-                                    MailCopyIdHashSet.Remove(itemViewModel.UniqueId);
-                                    MailCopyIdHashSet.Add(addedItem.UniqueId);
+                                    UpdateUniqueIdHashes(itemViewModel, false);
+                                    UpdateUniqueIdHashes(addedItem, true);
                                 }
                             }
                             else
@@ -189,15 +205,18 @@ namespace Wino.Mail.ViewModels.Collections
 
                                 var threadMailItem = new ThreadMailItem();
 
-                                threadMailItem.AddThreadItem(item);
-                                threadMailItem.AddThreadItem(addedItem);
+                                await ExecuteUIThread(() =>
+                                {
+                                    threadMailItem.AddThreadItem(item);
+                                    threadMailItem.AddThreadItem(addedItem);
 
-                                if (threadMailItem.ThreadItems.Count == 1) return;
+                                    if (threadMailItem.ThreadItems.Count == 1) return;
 
-                                var newGroupKey = GetGroupingKey(threadMailItem);
+                                    var newGroupKey = GetGroupingKey(threadMailItem);
 
-                                await RemoveItemInternalAsync(group, item);
-                                await InsertItemInternalAsync(newGroupKey, threadMailItem);
+                                    RemoveItemInternal(group, item);
+                                    InsertItemInternal(newGroupKey, threadMailItem);
+                                });
                             }
 
                             break;
@@ -208,6 +227,9 @@ namespace Wino.Mail.ViewModels.Collections
                         // Update properties.
                         if (item.Id == addedItem.Id && item is MailItemViewModel itemViewModel)
                         {
+                            UpdateUniqueIdHashes(itemViewModel, false);
+                            UpdateUniqueIdHashes(addedItem, true);
+
                             await ExecuteUIThread(() => { itemViewModel.Update(addedItem); });
 
                             shouldExit = true;
@@ -224,7 +246,7 @@ namespace Wino.Mail.ViewModels.Collections
 
                 var groupKey = GetGroupingKey(addedItem);
 
-                await InsertItemInternalAsync(groupKey, addedItem);
+                await ExecuteUIThread(() => { InsertItemInternal(groupKey, addedItem); });
             }
         }
 
@@ -268,12 +290,9 @@ namespace Wino.Mail.ViewModels.Collections
                 }
                 else
                 {
-
                     foreach (var item in group)
                     {
                         existingGroup.Add(item);
-
-                        // _mailItemSource.InsertItem(existingGroup, item);
                     }
                 }
             }
@@ -325,11 +344,14 @@ namespace Wino.Mail.ViewModels.Collections
 
                 if (itemContainer == null) return;
 
-                // mailCopyIdHashSet.Remove(itemContainer.ItemViewModel.UniqueId);
+                if (itemContainer.ItemViewModel != null)
+                {
+                    UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
+                }
 
                 itemContainer.ItemViewModel?.Update(updatedMailCopy);
 
-                // mailCopyIdHashSet.Add(updatedMailCopy.UniqueId);
+                UpdateUniqueIdHashes(updatedMailCopy, true);
 
                 // Call thread notifications if possible.
                 itemContainer.ThreadViewModel?.NotifyPropertyChanges();
@@ -426,6 +448,8 @@ namespace Wino.Mail.ViewModels.Collections
                          * -> Remove the thread.
                          */
 
+                        var oldGroupKey = GetGroupingKey(threadMailItemViewModel);
+
                         await ExecuteUIThread(() => { threadMailItemViewModel.RemoveCopyItem(removalItem); });
 
                         if (threadMailItemViewModel.ThreadItems.Count == 1)
@@ -435,25 +459,38 @@ namespace Wino.Mail.ViewModels.Collections
                             var singleViewModel = threadMailItemViewModel.GetSingleItemViewModel();
                             var groupKey = GetGroupingKey(singleViewModel);
 
-                            await RemoveItemInternalAsync(group, threadMailItemViewModel);
+                            await ExecuteUIThread(() => { RemoveItemInternal(group, threadMailItemViewModel); });
 
                             // If thread->single conversion is being done, we should ignore it for non-draft items.
                             // eg. Deleting a reply message from draft folder. Single non-draft item should not be re-added.
 
                             if (!PruneSingleNonDraftItems || singleViewModel.IsDraft)
                             {
-                                await InsertItemInternalAsync(groupKey, singleViewModel);
+                                await ExecuteUIThread(() => { InsertItemInternal(groupKey, singleViewModel); });
                             }
                         }
                         else if (threadMailItemViewModel.ThreadItems.Count == 0)
                         {
-                            await RemoveItemInternalAsync(group, threadMailItemViewModel);
+                            await ExecuteUIThread(() => { RemoveItemInternal(group, threadMailItemViewModel); });
                         }
                         else
                         {
                             // Item inside the thread is removed.
+                            await ExecuteUIThread(() => { threadMailItemViewModel.ThreadItems.Remove(removalItem); });
 
-                            threadMailItemViewModel.ThreadItems.Remove(removalItem);
+                            UpdateUniqueIdHashes(removalItem, false);
+                        }
+
+                        var newGroupKey = GetGroupingKey(threadMailItemViewModel);
+
+                        // Make sure to update group key after the thread is updated.
+                        if (!oldGroupKey.Equals(newGroupKey))
+                        {
+                            await ExecuteUIThread(() =>
+                            {
+                                RemoveItemInternal(group, threadMailItemViewModel);
+                                InsertItemInternal(newGroupKey, threadMailItemViewModel);
+                            });
                         }
 
                         shouldExit = true;
@@ -461,7 +498,8 @@ namespace Wino.Mail.ViewModels.Collections
                     }
                     else if (item.UniqueId == removeItem.UniqueId)
                     {
-                        await RemoveItemInternalAsync(group, item);
+                        await ExecuteUIThread(() => { RemoveItemInternal(group, item); });
+
                         shouldExit = true;
 
                         break;
