@@ -240,13 +240,9 @@ namespace Wino.Services
             _ = mainApplicationFrame.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal,
                 () =>
                 {
-                    ApplicationViewTitleBar titleBar = null;
-                    try
-                    {
-                        titleBar = ApplicationView.GetForCurrentView().TitleBar;
-                    }
-                    catch { }
-                    if (titleBar == null) return;
+                    var titleBar = _appShellService.AppWindow.AppWindow.TitleBar;
+
+                    if(titleBar == null) return;
 
                     if (_underlyingThemeService.IsUnderlyingThemeDark())
                     {
@@ -260,12 +256,8 @@ namespace Wino.Services
 #else
             _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
-               ApplicationViewTitleBar titleBar = null;
-                try
-                {
-                    titleBar = ApplicationView.GetForCurrentView().TitleBar;
-                }
-                catch { }
+                ApplicationViewTitleBar titleBar = ApplicationView.GetForCurrentView().TitleBar;
+
                 if (titleBar == null) return;
 
                 if (_underlyingThemeService.IsUnderlyingThemeDark())
@@ -458,7 +450,7 @@ namespace Wino.Services
             {
                 byte[] bytes = new byte[readerStream.Length];
 
-                await readerStream.ReadAsync(bytes,0, bytes.Length);
+                await readerStream.ReadAsync(bytes, 0, bytes.Length);
 
                 var buffer = bytes.AsBuffer();
 
