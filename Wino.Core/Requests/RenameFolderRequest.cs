@@ -2,6 +2,7 @@
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Messages.Server;
 
 namespace Wino.Core.Requests
 {

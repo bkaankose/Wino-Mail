@@ -515,6 +515,14 @@
                     IsOpen="False"
                     PreferredPlacement="Bottom"
                     Target="{x:Bind ShellInfoBar}" />
+
+                <Grid
+                    Grid.Column="1"
+                    Padding="14"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom">
+                    <TextBlock Text="{x:Bind ViewModel.ServerConnectionManager.Status, Mode=OneWay}" />
+                </Grid>
             </Grid>
         </muxc:NavigationView>
 

@@ -18,7 +18,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.MenuItems;
 using Wino.Core.Messages.Accounts;
@@ -27,6 +26,7 @@ using Wino.Core.Messages.Navigation;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
 using Wino.Core.Services;
+using Wino.Messages.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -62,6 +62,7 @@ namespace Wino.Mail.ViewModels
         #endregion
 
         public IStatePersistanceService StatePersistenceService { get; }
+        public IWinoServerConnectionManager ServerConnectionManager { get; }
         public IPreferencesService PreferencesService { get; }
         public IWinoNavigationService NavigationService { get; }
 
@@ -97,9 +98,12 @@ namespace Wino.Mail.ViewModels
                                  INotificationBuilder notificationBuilder,
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IFolderService folderService,
-                                 IStatePersistanceService statePersistanceService) : base(dialogService)
+                                 IStatePersistanceService statePersistanceService,
+                                 IWinoServerConnectionManager serverConnectionManager) : base(dialogService)
         {
             StatePersistenceService = statePersistanceService;
+            ServerConnectionManager = serverConnectionManager;
+
             PreferencesService = preferencesService;
             NavigationService = navigationService;
 

@@ -13,10 +13,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
+using Wino.Messages.Server;
 
 namespace Wino.Core.Services
 {

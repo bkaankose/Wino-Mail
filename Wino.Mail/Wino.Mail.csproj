@@ -229,6 +229,7 @@
   <ItemGroup>
     <Compile Include="Activation\ActivationHandler.cs" />
     <Compile Include="Activation\BackgroundActivationHandler.cs" />
+    <Compile Include="Activation\BackgroundActivationHandlerEx.cs" />
     <Compile Include="Activation\DefaultActivationHandler.cs" />
     <Compile Include="Activation\FileActivationHandler.cs" />
     <Compile Include="Activation\ProtocolActivationHandler.cs" />
@@ -770,7 +771,6 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <None Include="Wino.Mail_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Thumbnails\uber.com.png" />
@@ -812,7 +812,9 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Server\" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>

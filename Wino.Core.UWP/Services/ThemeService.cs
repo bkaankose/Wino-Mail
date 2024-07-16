@@ -167,6 +167,7 @@ namespace Wino.Services
             await ApplyCustomThemeAsync(true);
 
             // Registering to color changes, thus we notice when user changes theme system wide
+            uiSettings.ColorValuesChanged -= UISettingsColorChanged;
             uiSettings.ColorValuesChanged += UISettingsColorChanged;
         }
 

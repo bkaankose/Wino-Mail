@@ -70,4 +70,7 @@
 	    <LastGenOutput>Translator.Designer.cs</LastGenOutput>
 	  </None>
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Models\Communication\" />
+	</ItemGroup>
 </Project>

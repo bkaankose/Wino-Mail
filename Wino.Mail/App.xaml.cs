@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
+using Windows.ApplicationModel.AppService;
+using Windows.ApplicationModel.Background;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
@@ -37,6 +39,7 @@ namespace Wino
         public new static App Current => (App)Application.Current;
         public IServiceProvider Services { get; }
 
+        private readonly IWinoServerConnectionManager<AppServiceConnection> _appServiceConnectionManager;
         private readonly ILogInitializer _logInitializer;
         private readonly IThemeService _themeService;
         private readonly IDatabaseService _databaseService;
@@ -47,8 +50,9 @@ namespace Wino
         // Order matters.
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
         {
-            _translationService,
             _databaseService,
+            _appServiceConnectionManager,
+            _translationService,
             _themeService,
             _synchronizerFactory
         };
@@ -60,6 +64,7 @@ namespace Wino
             UnhandledException += OnAppUnhandledException;
             EnteredBackground += OnEnteredBackground;
             LeavingBackground += OnLeavingBackground;
+            Suspending += OnSuspending;
 
             Services = ConfigureServices();
 
@@ -70,6 +75,7 @@ namespace Wino
             ConfigurePrelaunch();
             ConfigureXbox();
 
+            _appServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
             _themeService = Services.GetService<IThemeService>();
             _databaseService = Services.GetService<IDatabaseService>();
             _appInitializerService = Services.GetService<IAppInitializerService>();
@@ -77,6 +83,12 @@ namespace Wino
             _translationService = Services.GetService<ITranslationService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        }
+
+        private void OnSuspending(object sender, SuspendingEventArgs e)
+        {
+            var deferral = e.SuspendingOperation.GetDeferral();
+            deferral.Complete();
         }
 
         private void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
@@ -101,7 +113,8 @@ namespace Wino
         private void RegisterActivationHandlers(IServiceCollection services)
         {
             services.AddTransient<ProtocolActivationHandler>();
-            services.AddTransient<BackgroundActivationHandler>();
+            services.AddTransient<BackgroundActivationHandlerEx>();
+            // services.AddTransient<BackgroundActivationHandler>();
             services.AddTransient<ToastNotificationActivationHandler>();
             services.AddTransient<FileActivationHandler>();
         }
@@ -246,7 +259,10 @@ namespace Wino
 
         private async Task ActivateWinoAsync(object args)
         {
-            await PreInitializationAsync();
+            foreach (var service in initializeServices)
+            {
+                await service.InitializeAsync().ConfigureAwait(false);
+            }
 
             if (IsInteractiveLaunchArgs(args))
             {
@@ -267,37 +283,6 @@ namespace Wino
                 Window.Current.Activate();
 
                 LogActivation("Window activated");
-            }
-        }
-
-        /// <summary>
-        /// Tasks that must run before the activation and launch.
-        /// Regardless of whether it's an interactive launch or not.
-        /// </summary>
-        private async Task PreInitializationAsync()
-        {
-            // Handle migrations.
-            // TODO: Automate migration process with more proper way.
-
-            if (!ApplicationData.Current.LocalSettings.Values.ContainsKey("Migration_169"))
-            {
-                try
-                {
-                    await _appInitializerService.MigrateAsync();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, $"{WinoLaunchLogPrefix}Migration_169 failed.");
-                }
-                finally
-                {
-                    ApplicationData.Current.LocalSettings.Values["Migration_169"] = true;
-                }
-            }
-
-            foreach (var service in initializeServices)
-            {
-                await service.InitializeAsync();
             }
         }
 
@@ -323,9 +308,15 @@ namespace Wino
         private IEnumerable<ActivationHandler> GetActivationHandlers()
         {
             yield return Services.GetService<ProtocolActivationHandler>();
-            yield return Services.GetService<BackgroundActivationHandler>();
+            yield return Services.GetService<BackgroundActivationHandlerEx>(); // New app service background task handler.
+            // yield return Services.GetService<BackgroundActivationHandler>(); // Old UWP background task handler.
             yield return Services.GetService<ToastNotificationActivationHandler>();
             yield return Services.GetService<FileActivationHandler>();
+        }
+
+        public void OnBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        {
+            Log.Information($"Background task {sender.Task.Name} was canceled. Reason: {reason}");
         }
     }
 }

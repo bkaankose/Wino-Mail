@@ -15,12 +15,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
+using Wino.Messages.Server;
 
 namespace Wino.Services
 {

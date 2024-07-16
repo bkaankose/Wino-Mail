@@ -15,12 +15,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Store;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Authorization;
 using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messages.Server;
 
 namespace Wino.Mail.ViewModels
 {
