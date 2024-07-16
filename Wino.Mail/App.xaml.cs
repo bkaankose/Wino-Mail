@@ -261,7 +261,7 @@ namespace Wino
         {
             foreach (var service in initializeServices)
             {
-                await service.InitializeAsync().ConfigureAwait(false);
+                await service.InitializeAsync();
             }
 
             if (IsInteractiveLaunchArgs(args))
