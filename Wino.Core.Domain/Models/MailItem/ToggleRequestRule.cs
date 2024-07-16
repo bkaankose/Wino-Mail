@@ -1,8 +1,7 @@
 ﻿using System;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Models.Requests
+namespace Wino.Core.Domain.Models.MailItem
 {
     /// <summary>
     /// Defines a single rule for toggling user actions if needed.

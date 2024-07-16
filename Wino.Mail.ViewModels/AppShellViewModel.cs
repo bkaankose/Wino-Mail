@@ -18,6 +18,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.MenuItems;
 using Wino.Core.Messages.Accounts;
@@ -25,7 +26,6 @@ using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Navigation;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
-using Wino.Core.Requests;
 using Wino.Core.Services;
 
 namespace Wino.Mail.ViewModels

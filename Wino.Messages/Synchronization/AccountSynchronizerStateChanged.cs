@@ -1,7 +1,7 @@
 ﻿using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Messages.Synchronization
+namespace Wino.Messages.Synchronization
 {
     /// <summary>
     /// Emitted when synchronizer state is updated.

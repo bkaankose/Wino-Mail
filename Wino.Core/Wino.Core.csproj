@@ -18,11 +18,11 @@
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
      </PackageReference>
-     <PackageReference Include="MailKit" Version="4.6.0" />
+     <PackageReference Include="MailKit" Version="4.7.1.1" />
      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
      <PackageReference Include="Microsoft.Graph" Version="5.55.0" />
      <PackageReference Include="Microsoft.Identity.Client" Version="4.47.2" />
-     <PackageReference Include="MimeKit" Version="4.6.0" />
+     <PackageReference Include="MimeKit" Version="4.7.1" />
      <PackageReference Include="morelinq" Version="4.1.0" />
      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
      <PackageReference Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
@@ -37,5 +37,6 @@
 
    <ItemGroup>
      <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+     <ProjectReference Include="..\Wino.Messages\Wino.Messages.csproj" />
    </ItemGroup>
 </Project>

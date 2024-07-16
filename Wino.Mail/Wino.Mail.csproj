@@ -802,6 +802,10 @@
       <Project>{d62f1c03-da57-4709-a640-0283296a8e66}</Project>
       <Name>Wino.Mail.ViewModels</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messages.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messages</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">

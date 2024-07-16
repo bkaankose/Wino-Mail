@@ -1,9 +1,9 @@
 ﻿using System;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Requests;
 
-namespace Wino.Core.Requests
+namespace Wino.Core.Domain.Models.Requests
 {
     public record MailAddedMessage(MailCopy AddedMail) : IUIMessage;
     public record MailRemovedMessage(MailCopy RemovedMail) : IUIMessage;

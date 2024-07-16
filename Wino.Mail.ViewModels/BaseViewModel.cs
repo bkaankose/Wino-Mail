@@ -7,7 +7,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Requests;
-using Wino.Core.Requests;
 
 namespace Wino.Mail.ViewModels
 {

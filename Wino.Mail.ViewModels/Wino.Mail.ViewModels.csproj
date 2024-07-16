@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
     <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Messages\Wino.Messages.csproj" />
   </ItemGroup>
 
 </Project>

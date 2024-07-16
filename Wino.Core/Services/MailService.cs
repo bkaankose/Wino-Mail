@@ -13,8 +13,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Extensions;
-using Wino.Core.Requests;
 
 namespace Wino.Core.Services
 {

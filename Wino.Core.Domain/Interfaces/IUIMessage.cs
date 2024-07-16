@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Models.Requests
+﻿namespace Wino.Core.Domain.Interfaces
 {
     /// <summary>
     /// Interface for all messages to report UI changes from synchronizers to UI.
