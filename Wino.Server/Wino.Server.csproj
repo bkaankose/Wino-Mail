@@ -2,7 +2,7 @@
 	<PropertyGroup>
 		<TargetFramework>net8.0-windows</TargetFramework>
 		<OutputType>WinExe</OutputType>
-		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 		<UseWPF>true</UseWPF>
 		<ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
 		<TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
