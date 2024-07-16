@@ -39,6 +39,8 @@ namespace Wino
         public new static App Current => (App)Application.Current;
         public IServiceProvider Services { get; }
 
+        private BackgroundTaskDeferral backgroundTaskDeferral;
+
         private readonly IWinoServerConnectionManager<AppServiceConnection> _appServiceConnectionManager;
         private readonly ILogInitializer _logInitializer;
         private readonly IThemeService _themeService;
@@ -113,7 +115,6 @@ namespace Wino
         private void RegisterActivationHandlers(IServiceCollection services)
         {
             services.AddTransient<ProtocolActivationHandler>();
-            services.AddTransient<BackgroundActivationHandlerEx>();
             // services.AddTransient<BackgroundActivationHandler>();
             services.AddTransient<ToastNotificationActivationHandler>();
             services.AddTransient<FileActivationHandler>();
@@ -234,6 +235,20 @@ namespace Wino
         {
             base.OnBackgroundActivated(args);
 
+            if (args.TaskInstance.TriggerDetails is AppServiceTriggerDetails appServiceTriggerDetails)
+            {
+                // Only accept connections from callers in the same package
+                if (appServiceTriggerDetails.CallerPackageFamilyName == Package.Current.Id.FamilyName)
+                {
+                    // Connection established from the fulltrust process
+
+                    backgroundTaskDeferral = args.TaskInstance.GetDeferral();
+                    args.TaskInstance.Canceled += OnBackgroundTaskCanceled;
+
+                    _appServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
+                }
+            }
+
             LogActivation($"OnBackgroundActivated -> {args.GetType().Name}, TaskInstanceIdName -> {args.TaskInstance?.Task?.Name ?? "NA"}");
 
             await ActivateWinoAsync(args);
@@ -308,7 +323,6 @@ namespace Wino
         private IEnumerable<ActivationHandler> GetActivationHandlers()
         {
             yield return Services.GetService<ProtocolActivationHandler>();
-            yield return Services.GetService<BackgroundActivationHandlerEx>(); // New app service background task handler.
             // yield return Services.GetService<BackgroundActivationHandler>(); // Old UWP background task handler.
             yield return Services.GetService<ToastNotificationActivationHandler>();
             yield return Services.GetService<FileActivationHandler>();
@@ -317,6 +331,11 @@ namespace Wino
         public void OnBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
             Log.Information($"Background task {sender.Task.Name} was canceled. Reason: {reason}");
+
+            backgroundTaskDeferral?.Complete();
+            backgroundTaskDeferral = null;
+
+            _appServiceConnectionManager.Connection = null;
         }
     }
 }

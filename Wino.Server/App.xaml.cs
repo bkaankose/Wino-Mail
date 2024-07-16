@@ -11,7 +11,6 @@ namespace Wino.Server
         {
             base.OnStartup(e);
 
-            //create the notifyicon (it's a resource declared in NotifyIconResources.xaml
             notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
             notifyIcon.ForceCreate(enablesEfficiencyMode: true);
         }

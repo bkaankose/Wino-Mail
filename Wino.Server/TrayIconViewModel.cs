@@ -11,6 +11,7 @@ namespace Wino.Server
         [RelayCommand]
         public void LaunchWino()
         {
+            _context.SendMessage();
         }
 
         /// <summary>

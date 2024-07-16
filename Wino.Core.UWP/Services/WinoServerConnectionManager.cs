@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Metadata;
 using Wino.Core.Domain.Enums;
@@ -10,9 +11,34 @@ namespace Wino.Core.UWP.Services
 {
     public partial class WinoServerConnectionManager : ObservableObject, IWinoServerConnectionManager<AppServiceConnection>
     {
-        public AppServiceConnection Connection { get; set; }
+        private AppServiceConnection _connection;
 
-        private Guid? _activeConnectionSessionId;
+        public AppServiceConnection Connection
+        {
+            get { return _connection; }
+            set
+            {
+                if (_connection != null)
+                {
+                    _connection.RequestReceived -= ServerMessageReceived;
+                    _connection.ServiceClosed -= ServerDisconnected;
+                }
+
+                _connection = value;
+
+                if (value == null)
+                {
+                    Status = WinoServerConnectionStatus.Disconnected;
+                }
+                else
+                {
+                    value.RequestReceived += ServerMessageReceived;
+                    value.ServiceClosed += ServerDisconnected;
+
+                    Status = WinoServerConnectionStatus.Connected;
+                }
+            }
+        }
 
         [ObservableProperty]
         private WinoServerConnectionStatus _status;
@@ -27,10 +53,13 @@ namespace Wino.Core.UWP.Services
                 {
                     Status = WinoServerConnectionStatus.Connecting;
 
-                    // await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+
+                    // If the server connection is success, Status will be updated to Connected by BackgroundActivationHandlerEx.
                 }
                 catch (Exception)
                 {
+                    Status = WinoServerConnectionStatus.Failed;
                     return false;
                 }
 
@@ -54,6 +83,16 @@ namespace Wino.Core.UWP.Services
             var isConnectionSuccessfull = await ConnectAsync();
 
             // TODO: Log connection status
+        }
+
+        private void ServerMessageReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        {
+            // TODO: Handle server messsages.
+        }
+
+        private void ServerDisconnected(AppServiceConnection sender, AppServiceClosedEventArgs args)
+        {
+            // TODO: Handle server disconnection.
         }
     }
 }

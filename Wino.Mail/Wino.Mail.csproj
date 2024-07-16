@@ -229,7 +229,6 @@
   <ItemGroup>
     <Compile Include="Activation\ActivationHandler.cs" />
     <Compile Include="Activation\BackgroundActivationHandler.cs" />
-    <Compile Include="Activation\BackgroundActivationHandlerEx.cs" />
     <Compile Include="Activation\DefaultActivationHandler.cs" />
     <Compile Include="Activation\FileActivationHandler.cs" />
     <Compile Include="Activation\ProtocolActivationHandler.cs" />

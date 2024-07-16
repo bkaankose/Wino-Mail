@@ -1,6 +1,7 @@
 ﻿using System;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
+using Windows.Foundation.Collections;
 
 namespace Wino.Server
 {
@@ -33,6 +34,13 @@ namespace Wino.Server
             {
                 // TODO: Handle connection error
             }
+        }
+
+        public async void SendMessage()
+        {
+            var set = new ValueSet();
+            set.Add("Hello", "World");
+            await connection.SendMessageAsync(set);
         }
 
         private void OnConnectionClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
