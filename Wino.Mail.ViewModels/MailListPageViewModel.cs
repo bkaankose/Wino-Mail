@@ -72,7 +72,6 @@ namespace Wino.Mail.ViewModels
 
         private readonly IMailService _mailService;
         private readonly IFolderService _folderService;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
         private readonly IContextMenuItemService _contextMenuItemService;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
@@ -143,7 +142,6 @@ namespace Wino.Mail.ViewModels
                                      IMailService mailService,
                                      IStatePersistanceService statePersistanceService,
                                      IFolderService folderService,
-                                     IWinoSynchronizerFactory winoSynchronizerFactory,
                                      IThreadingStrategyProvider threadingStrategyProvider,
                                      IContextMenuItemService contextMenuItemService,
                                      IWinoRequestDelegator winoRequestDelegator,
@@ -156,7 +154,6 @@ namespace Wino.Mail.ViewModels
 
             _mailService = mailService;
             _folderService = folderService;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
             _threadingStrategyProvider = threadingStrategyProvider;
             _contextMenuItemService = contextMenuItemService;
             _winoRequestDelegator = winoRequestDelegator;
@@ -977,17 +974,19 @@ namespace Wino.Mail.ViewModels
 
                 foreach (var accountId in accountIds)
                 {
-                    var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
+                    // TODO: Server: Check whether account is already synchronizing from the server.
 
-                    if (synchronizer == null) continue;
+                    //var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
 
-                    bool isAccountSynchronizing = synchronizer.State != AccountSynchronizerState.Idle;
+                    //if (synchronizer == null) continue;
 
-                    if (isAccountSynchronizing)
-                    {
-                        isAnyAccountSynchronizing = true;
-                        break;
-                    }
+                    //bool isAccountSynchronizing = synchronizer.State != AccountSynchronizerState.Idle;
+
+                    //if (isAccountSynchronizing)
+                    //{
+                    //    isAnyAccountSynchronizing = true;
+                    //    break;
+                    //}
                 }
             }
 

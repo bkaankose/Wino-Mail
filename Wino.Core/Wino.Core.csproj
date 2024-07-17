@@ -7,6 +7,10 @@
 	<LangVersion>12</LangVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="WinoSynchronizerFactory.cs" />
+  </ItemGroup>
+
 
    <ItemGroup>
      <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />

@@ -12,6 +12,8 @@ namespace Wino.Core.Domain.Interfaces
         WinoServerConnectionStatus Status { get; }
         event EventHandler<WinoServerConnectionStatus> StatusChanged;
         void DisposeConnection();
+
+        void QueueRequest(IRequestBase request, Guid accountId);
     }
 
     public interface IWinoServerConnectionManager<TAppServiceConnection> : IWinoServerConnectionManager, IInitializeAsync

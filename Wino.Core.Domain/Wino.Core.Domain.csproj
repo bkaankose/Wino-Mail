@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Interfaces\IWinoSynchronizerFactory.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Translations\ca_ES\resources.json" />
     <None Remove="Translations\cs_CZ\resources.json" />
     <None Remove="Translations\da_DK\resources.json" />

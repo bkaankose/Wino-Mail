@@ -18,7 +18,6 @@ namespace Wino.Mail.ViewModels
 {
     public partial class AccountDetailsPageViewModel : BaseViewModel
     {
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly IAccountService _accountService;
         private readonly IFolderService _folderService;
 
@@ -44,11 +43,9 @@ namespace Wino.Mail.ViewModels
 
 
         public AccountDetailsPageViewModel(IDialogService dialogService,
-            IWinoSynchronizerFactory synchronizerFactory,
             IAccountService accountService,
             IFolderService folderService) : base(dialogService)
         {
-            _synchronizerFactory = synchronizerFactory;
             _accountService = accountService;
             _folderService = folderService;
         }
@@ -98,10 +95,7 @@ namespace Wino.Mail.ViewModels
 
             await _accountService.DeleteAccountAsync(Account);
 
-            _synchronizerFactory.DeleteSynchronizer(Account);
-
-            // TODO: Clear existing requests.
-            // _synchronizationWorker.ClearRequests(Account.Id);
+            // TODO: Server: Cancel ongoing calls from server for this account.
 
             DialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
 

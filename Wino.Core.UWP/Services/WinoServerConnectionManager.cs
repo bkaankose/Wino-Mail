@@ -195,5 +195,10 @@ namespace Wino.Core.UWP.Services
         {
             if (Connection == null) return;
         }
+
+        public void QueueRequest(IRequestBase request, Guid accountId)
+        {
+            // TODO: Queue this request to corresponding account's synchronizer request queue.
+        }
     }
 }

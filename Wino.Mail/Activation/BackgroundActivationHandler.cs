@@ -8,7 +8,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Services;
 
 namespace Wino.Activation
@@ -20,7 +19,7 @@ namespace Wino.Activation
         private readonly IWinoRequestDelegator _winoRequestDelegator;
         private readonly INativeAppService _nativeAppService;
         private readonly IWinoRequestProcessor _winoRequestProcessor;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private readonly IMailService _mailService;
         private ToastArguments _toastArguments;
 
@@ -28,13 +27,13 @@ namespace Wino.Activation
         public BackgroundActivationHandler(IWinoRequestDelegator winoRequestDelegator,
                                            INativeAppService nativeAppService,
                                            IWinoRequestProcessor winoRequestProcessor,
-                                           IWinoSynchronizerFactory winoSynchronizerFactory,
+                                           IWinoServerConnectionManager winoServerConnectionManager,
                                            IMailService mailService)
         {
             _winoRequestDelegator = winoRequestDelegator;
             _nativeAppService = nativeAppService;
             _winoRequestProcessor = winoRequestProcessor;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
+            _winoServerConnectionManager = winoServerConnectionManager;
             _mailService = mailService;
         }
 
@@ -78,23 +77,25 @@ namespace Wino.Activation
                     {
                         // We need to synchronize changes without reflection the UI changes.
 
-                        var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItem.AssignedAccount.Id);
+                        // var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItem.AssignedAccount.Id);
                         var prepRequest = new MailOperationPreperationRequest(action, mailItem);
 
                         var requests = await _winoRequestProcessor.PrepareRequestsAsync(prepRequest);
 
                         foreach (var request in requests)
                         {
-                            synchronizer.QueueRequest(request);
+                            _winoServerConnectionManager.QueueRequest(request, mailItem.AssignedAccount.Id);
+
+                            // synchronizer.QueueRequest(request);
                         }
 
-                        var options = new SynchronizationOptions()
-                        {
-                            Type = SynchronizationType.ExecuteRequests,
-                            AccountId = mailItem.AssignedAccount.Id
-                        };
+                        //var options = new SynchronizationOptions()
+                        //{
+                        //    Type = SynchronizationType.ExecuteRequests,
+                        //    AccountId = mailItem.AssignedAccount.Id
+                        //};
 
-                        await synchronizer.SynchronizeAsync(options);
+                        //await synchronizer.SynchronizeAsync(options);
                     }
                 }
             }

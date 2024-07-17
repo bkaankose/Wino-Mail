@@ -7,6 +7,5 @@ namespace Wino.Core.Domain.Interfaces
     {
         IBaseSynchronizer GetAccountSynchronizer(Guid accountId);
         IBaseSynchronizer CreateNewSynchronizer(MailAccount account);
-        void DeleteSynchronizer(MailAccount account);
     }
 }

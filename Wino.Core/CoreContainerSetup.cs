@@ -18,7 +18,6 @@ namespace Wino.Core
 
             services.AddSingleton<ITranslationService, TranslationService>();
             services.AddSingleton<IDatabaseService, DatabaseService>();
-            services.AddSingleton<IWinoSynchronizerFactory, WinoSynchronizerFactory>();
             services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
             services.AddSingleton<IMimeFileService, MimeFileService>();
 

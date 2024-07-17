@@ -46,7 +46,6 @@ namespace Wino
         private readonly IThemeService _themeService;
         private readonly IDatabaseService _databaseService;
         private readonly IAppInitializerService _appInitializerService;
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly ITranslationService _translationService;
 
         // Order matters.
@@ -56,7 +55,6 @@ namespace Wino
             _appServiceConnectionManager,
             _translationService,
             _themeService,
-            _synchronizerFactory
         };
 
         public App()
@@ -83,7 +81,6 @@ namespace Wino
             _themeService = Services.GetService<IThemeService>();
             _databaseService = Services.GetService<IDatabaseService>();
             _appInitializerService = Services.GetService<IAppInitializerService>();
-            _synchronizerFactory = Services.GetService<IWinoSynchronizerFactory>();
             _translationService = Services.GetService<ITranslationService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

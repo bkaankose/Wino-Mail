@@ -16,7 +16,6 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
-using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Authorization;
 using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
@@ -35,7 +34,6 @@ namespace Wino.Mail.ViewModels
         private readonly IStoreManagementService _storeManagementService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAuthenticationProvider _authenticationProvider;
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
 
         public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
 
@@ -60,7 +58,6 @@ namespace Wino.Mail.ViewModels
 
         public AccountManagementViewModel(IDialogService dialogService,
                                           IWinoNavigationService navigationService,
-                                          IWinoSynchronizerFactory synchronizerFactory,
                                           IAccountService accountService,
                                           IProviderService providerService,
                                           IFolderService folderService,
@@ -69,7 +66,6 @@ namespace Wino.Mail.ViewModels
                                           IAuthenticationProvider authenticationProvider) : base(dialogService)
         {
             _accountService = accountService;
-            _synchronizerFactory = synchronizerFactory;
             _dialogService = dialogService;
             _providerService = providerService;
             _folderService = folderService;
@@ -205,29 +201,31 @@ namespace Wino.Mail.ViewModels
                     // Local account has been created.
                     // Create new synchronizer and start synchronization.
 
-                    var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
+                    // TODO: Server: Make sure that server synchronizes folders and sends back the result.
 
-                    if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
-                        customServerAccountCreationDialog.ShowPreparingFolders();
-                    else
-                        creationDialog.State = AccountCreationDialogState.PreparingFolders;
+                    //var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
 
-                    var options = new SynchronizationOptions()
-                    {
-                        AccountId = createdAccount.Id,
-                        Type = SynchronizationType.FoldersOnly
-                    };
+                    //if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
+                    //    customServerAccountCreationDialog.ShowPreparingFolders();
+                    //else
+                    //    creationDialog.State = AccountCreationDialogState.PreparingFolders;
 
-                    var synchronizationResult = await synchronizer.SynchronizeAsync(options);
+                    //var options = new SynchronizationOptions()
+                    //{
+                    //    AccountId = createdAccount.Id,
+                    //    Type = SynchronizationType.FoldersOnly
+                    //};
 
-                    if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
+                    //var synchronizationResult = await synchronizer.SynchronizeAsync(options);
 
-                    // Check if Inbox folder is available for the account after synchronization.
-                    var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+                    //if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                    //    throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
-                    if (!isInboxAvailable)
-                        throw new Exception(Translator.Exception_InboxNotAvailable);
+                    //// Check if Inbox folder is available for the account after synchronization.
+                    //var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+
+                    //if (!isInboxAvailable)
+                    //    throw new Exception(Translator.Exception_InboxNotAvailable);
 
                     // Send changes to listeners.
                     ReportUIChange(new AccountCreatedMessage(createdAccount));
