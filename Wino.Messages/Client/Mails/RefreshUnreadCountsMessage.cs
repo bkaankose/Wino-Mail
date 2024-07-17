@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Messages.Client.Mails
+namespace Wino.Messaging.Client.Mails
 {
     public record RefreshUnreadCountsMessage(Guid AccountId);
 }

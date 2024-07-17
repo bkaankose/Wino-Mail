@@ -1,7 +1,6 @@
 ﻿using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Messages.Server
+namespace Wino.Messaging.Server
 {
-    public record AccountUpdatedMessage(MailAccount Account) : IServerMessage;
+    public record AccountUpdatedMessage(MailAccount Account) : ServerMessageBase<AccountUpdatedMessage>;
 }

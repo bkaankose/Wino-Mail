@@ -1,7 +1,7 @@
 ﻿using System;
 using Wino.Core.Domain.Models.MailItem;
 
-namespace Wino.Messages.Client.Accounts
+namespace Wino.Messaging.Client.Accounts
 {
     /// <summary>
     /// When menu item for the account is requested to be extended.

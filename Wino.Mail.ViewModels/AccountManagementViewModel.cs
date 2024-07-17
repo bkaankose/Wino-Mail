@@ -20,7 +20,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Authorization;
 using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messages.Server;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {

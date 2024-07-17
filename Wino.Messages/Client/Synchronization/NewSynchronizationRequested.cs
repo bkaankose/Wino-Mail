@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Models.Synchronization;
 
-namespace Wino.Messages.Client.Synchronization
+namespace Wino.Messaging.Client.Synchronization
 {
     /// <summary>
     /// Triggers a new synchronization if possible.

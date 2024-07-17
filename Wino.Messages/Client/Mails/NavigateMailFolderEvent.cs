@@ -2,7 +2,7 @@
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 
-namespace Wino.Messages.Client.Mails
+namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// Selects the given FolderMenuItem in the shell folders list.

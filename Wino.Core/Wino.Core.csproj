@@ -37,6 +37,6 @@
 
    <ItemGroup>
      <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-     <ProjectReference Include="..\Wino.Messages\Wino.Messages.csproj" />
+     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
    </ItemGroup>
 </Project>

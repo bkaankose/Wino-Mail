@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Wino.Messages.Client.Accounts
+namespace Wino.Messaging.Client.Accounts
 {
     /// <summary>
     /// Emitted when account menu items are reordered.

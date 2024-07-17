@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Models.Reader;
 
-namespace Wino.Messages.Client.Mails
+namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// When a new composing requested.

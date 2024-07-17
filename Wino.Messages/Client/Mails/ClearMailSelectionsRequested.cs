@@ -1,4 +1,4 @@
-﻿namespace Wino.Messages.Client.Mails
+﻿namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// When reset all mail selections requested.

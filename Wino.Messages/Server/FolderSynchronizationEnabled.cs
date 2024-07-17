@@ -1,7 +1,6 @@
-﻿using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
+﻿using Wino.Core.Domain.Models.Folders;
 
-namespace Wino.Messages.Server
+namespace Wino.Messaging.Server
 {
-    public record FolderSynchronizationEnabled(IMailItemFolder MailItemFolder) : IServerMessage;
+    public record FolderSynchronizationEnabled(IMailItemFolder MailItemFolder) : ServerMessageBase<FolderSynchronizationEnabled>;
 }

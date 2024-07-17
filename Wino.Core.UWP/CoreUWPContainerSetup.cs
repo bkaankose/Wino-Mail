@@ -25,7 +25,6 @@ namespace Wino.Core.UWP
             services.AddTransient<IFileService, FileService>();
             services.AddTransient<IStoreRatingService, StoreRatingService>();
             services.AddTransient<IKeyPressService, KeyPressService>();
-            services.AddTransient<IBackgroundSynchronizer, BackgroundSynchronizer>();
             services.AddTransient<INotificationBuilder, NotificationBuilder>();
             services.AddTransient<IClipboardService, ClipboardService>();
         }

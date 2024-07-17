@@ -1,13 +1,17 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces
 {
     public interface IWinoServerConnectionManager
     {
-        WinoServerConnectionStatus Status { get; }
         Task<bool> ConnectAsync();
         Task<bool> DisconnectAsync();
+
+        WinoServerConnectionStatus Status { get; }
+        event EventHandler<WinoServerConnectionStatus> StatusChanged;
+        void DisposeConnection();
     }
 
     public interface IWinoServerConnectionManager<TAppServiceConnection> : IWinoServerConnectionManager, IInitializeAsync

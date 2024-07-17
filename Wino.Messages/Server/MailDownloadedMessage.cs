@@ -1,7 +1,6 @@
 ﻿using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Messages.Server
+namespace Wino.Messaging.Server
 {
-    public record MailDownloadedMessage(MailCopy DownloadedMail) : IServerMessage;
+    public record MailDownloadedMessage(MailCopy DownloadedMail) : ServerMessageBase<MailDownloadedMessage>;
 }

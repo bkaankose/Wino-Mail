@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Messages.Client.Authorization
+namespace Wino.Messaging.Client.Authorization
 {
     /// <summary>
     /// When Google authentication makes a callback to the app via protocol activation to the app.

@@ -66,6 +66,8 @@ namespace Wino
             UnhandledException += OnAppUnhandledException;
             EnteredBackground += OnEnteredBackground;
             LeavingBackground += OnLeavingBackground;
+
+            Resuming += OnResuming;
             Suspending += OnSuspending;
 
             Services = ConfigureServices();
@@ -85,6 +87,15 @@ namespace Wino
             _translationService = Services.GetService<ITranslationService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        }
+
+        private async void OnResuming(object sender, object e)
+        {
+            // App Service connection was lost on suspension.
+            // We must restore it.
+            // Server might be running already, but re-launching it will trigger a new connection attempt.
+
+            await _appServiceConnectionManager.ConnectAsync();
         }
 
         private void OnSuspending(object sender, SuspendingEventArgs e)
@@ -328,9 +339,11 @@ namespace Wino
             yield return Services.GetService<FileActivationHandler>();
         }
 
-        public void OnBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        public async void OnBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
             Log.Information($"Background task {sender.Task.Name} was canceled. Reason: {reason}");
+
+            await _appServiceConnectionManager.DisconnectAsync();
 
             backgroundTaskDeferral?.Complete();
             backgroundTaskDeferral = null;

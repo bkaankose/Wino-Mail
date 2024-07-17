@@ -602,6 +602,8 @@ namespace Wino.Mail.ViewModels
         {
             base.OnMailAdded(addedMail);
 
+            if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
+
             try
             {
                 await listManipulationSemepahore.WaitAsync();

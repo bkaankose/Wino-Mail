@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Enums;
 
-namespace Wino.Messages.Client.Shell
+namespace Wino.Messaging.Client.Shell
 {
     /// <summary>
     /// When navigation pane mode is changed.

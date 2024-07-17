@@ -1,7 +1,6 @@
 ﻿using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Messages.Server
+namespace Wino.Messaging.Server
 {
-    public record DraftCreated(MailCopy DraftMail, MailAccount Account) : IServerMessage;
+    public record DraftCreated(MailCopy DraftMail, MailAccount Account) : ServerMessageBase<DraftCreated>;
 }

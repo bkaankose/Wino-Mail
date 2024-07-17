@@ -20,6 +20,7 @@ namespace Wino.Core.Services
     {
         private readonly IWinoRequestProcessor _winoRequestProcessor;
         private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
+
         private readonly IFolderService _folderService;
         private readonly IDialogService _dialogService;
         private readonly ILogger _logger = Log.ForContext<WinoRequestDelegator>();

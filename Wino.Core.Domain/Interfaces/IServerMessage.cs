@@ -6,5 +6,6 @@
     /// They are sent either from processor or view models to signal some other
     /// parts of the application.
     /// </summary>
+
     public interface IServerMessage;
 }

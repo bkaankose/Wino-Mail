@@ -16,7 +16,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
-using Wino.Messages.Server;
+using Wino.Messaging.Server;
 
 namespace Wino.Core.Services
 {

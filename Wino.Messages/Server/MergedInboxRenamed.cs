@@ -1,7 +1,6 @@
 ﻿using System;
-using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Messages.Server
+namespace Wino.Messaging.Server
 {
-    public record MergedInboxRenamed(Guid MergedInboxId, string NewName) : IServerMessage;
+    public record MergedInboxRenamed(Guid MergedInboxId, string NewName) : ServerMessageBase<MergedInboxRenamed>;
 }

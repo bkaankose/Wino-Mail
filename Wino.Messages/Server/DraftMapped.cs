@@ -1,6 +1,4 @@
-﻿using Wino.Core.Domain.Interfaces;
-
-namespace Wino.Messages.Server
+﻿namespace Wino.Messaging.Server
 {
-    public record DraftMapped(string LocalDraftCopyId, string RemoteDraftCopyId) : IServerMessage;
+    public record DraftMapped(string LocalDraftCopyId, string RemoteDraftCopyId) : ServerMessageBase<DraftMapped>;
 }

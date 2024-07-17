@@ -1,4 +1,4 @@
-﻿namespace Wino.Messages.Client.Mails
+﻿namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// When selected mail count is changed.

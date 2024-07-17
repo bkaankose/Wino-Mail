@@ -15,11 +15,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wino.BackgroundTasks", "Win
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Mail.ViewModels", "Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj", "{D62F1C03-DA57-4709-A640-0283296A8E66}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Messages", "Wino.Messages\Wino.Messages.csproj", "{0C307D7E-256F-448C-8265-5622A812FBCC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Messaging", "Wino.Messages\Wino.Messaging.csproj", "{0C307D7E-256F-448C-8265-5622A812FBCC}"
 EndProject
 Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "Wino.Packaging", "Wino.Packaging\Wino.Packaging.wapproj", "{760F5F31-8EE3-4B83-80F3-0E4FFBCC737C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wino.Server", "Wino.Server\Wino.Server.csproj", "{3D1942E5-1A3B-4062-B4BB-156A40DA47FE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Server", "Wino.Server\Wino.Server.csproj", "{3D1942E5-1A3B-4062-B4BB-156A40DA47FE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

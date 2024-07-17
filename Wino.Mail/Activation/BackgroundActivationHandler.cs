@@ -1,18 +1,15 @@
-﻿using System.Diagnostics;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.Background;
 using Windows.UI.Notifications;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Services;
-using Wino.Services;
 
 namespace Wino.Activation
 {
@@ -21,7 +18,6 @@ namespace Wino.Activation
         private const string BackgroundExecutionLogTag = "[BackgroundExecution] ";
 
         private readonly IWinoRequestDelegator _winoRequestDelegator;
-        private readonly IBackgroundSynchronizer _backgroundSynchronizer;
         private readonly INativeAppService _nativeAppService;
         private readonly IWinoRequestProcessor _winoRequestProcessor;
         private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
@@ -30,14 +26,12 @@ namespace Wino.Activation
 
         BackgroundTaskDeferral _deferral;
         public BackgroundActivationHandler(IWinoRequestDelegator winoRequestDelegator,
-                                           IBackgroundSynchronizer backgroundSynchronizer,
                                            INativeAppService nativeAppService,
                                            IWinoRequestProcessor winoRequestProcessor,
                                            IWinoSynchronizerFactory winoSynchronizerFactory,
                                            IMailService mailService)
         {
             _winoRequestDelegator = winoRequestDelegator;
-            _backgroundSynchronizer = backgroundSynchronizer;
             _nativeAppService = nativeAppService;
             _winoRequestProcessor = winoRequestProcessor;
             _winoSynchronizerFactory = winoSynchronizerFactory;
@@ -103,18 +97,6 @@ namespace Wino.Activation
                         await synchronizer.SynchronizeAsync(options);
                     }
                 }
-            }
-            else if (taskName == BackgroundTaskService.BackgroundSynchronizationTimerTaskNameEx)
-            {
-                var watch = new Stopwatch();
-                watch.Start();
-
-                // Run timer based background synchronization.
-
-                await _backgroundSynchronizer.RunBackgroundSynchronizationAsync(BackgroundSynchronizationReason.Timer);
-
-                watch.Stop();
-                Log.Information($"{BackgroundExecutionLogTag}Background synchronization is completed in {watch.Elapsed.TotalSeconds} seconds.");
             }
 
             instance.Canceled -= OnBackgroundExecutionCanceled;

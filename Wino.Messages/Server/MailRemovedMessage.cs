@@ -1,7 +1,6 @@
 ﻿using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Messages.Server
+namespace Wino.Messaging.Server
 {
-    public record MailRemovedMessage(MailCopy RemovedMail) : IServerMessage;
+    public record MailRemovedMessage(MailCopy RemovedMail) : ServerMessageBase<MailRemovedMessage>;
 }

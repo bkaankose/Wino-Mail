@@ -20,7 +20,7 @@ using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
-using Wino.Messages.Server;
+using Wino.Messaging.Server;
 
 namespace Wino.Services
 {

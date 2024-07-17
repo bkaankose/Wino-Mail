@@ -26,7 +26,7 @@ using Wino.Core.Messages.Navigation;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
 using Wino.Core.Services;
-using Wino.Messages.Server;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -83,6 +83,9 @@ namespace Wino.Mail.ViewModels
 
         private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
+        [ObservableProperty]
+        private string _activeConnectionStatus = WinoServerConnectionStatus.None.ToString();
+
         public AppShellViewModel(IDialogService dialogService,
                                  IWinoNavigationService navigationService,
                                  IWinoSynchronizerFactory synchronizerFactory,
@@ -103,6 +106,14 @@ namespace Wino.Mail.ViewModels
         {
             StatePersistenceService = statePersistanceService;
             ServerConnectionManager = serverConnectionManager;
+
+            ServerConnectionManager.StatusChanged += async (sender, status) =>
+            {
+                await ExecuteUIThread(() =>
+                {
+                    ActiveConnectionStatus = status.ToString();
+                });
+            };
 
             PreferencesService = preferencesService;
             NavigationService = navigationService;

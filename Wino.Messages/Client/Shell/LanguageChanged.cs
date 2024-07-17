@@ -1,4 +1,4 @@
-﻿namespace Wino.Messages.Client.Shell
+﻿namespace Wino.Messaging.Client.Shell
 {
     /// <summary>
     /// When application language is updated.

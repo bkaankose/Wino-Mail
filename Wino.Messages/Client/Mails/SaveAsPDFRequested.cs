@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Wino.Messages.Client.Mails
+namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// When mail save as PDF requested.

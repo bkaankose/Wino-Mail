@@ -1,4 +1,4 @@
-﻿namespace Wino.Messages.Client.Mails
+﻿namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// When existing a new html is requested to be rendered due to mail selection or signature.

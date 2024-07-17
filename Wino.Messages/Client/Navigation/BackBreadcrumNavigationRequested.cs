@@ -1,4 +1,4 @@
-﻿namespace Wino.Messages.Client.Navigation
+﻿namespace Wino.Messaging.Client.Navigation
 {
     /// <summary>
     /// When back navigation is requested for breadcrumb pages.

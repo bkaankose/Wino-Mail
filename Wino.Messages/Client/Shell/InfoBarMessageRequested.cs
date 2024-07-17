@@ -1,7 +1,7 @@
 ﻿using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Messages.Client.Shell
+namespace Wino.Messaging.Client.Shell
 {
     /// <summary>
     /// For displaying right sliding notification message in shell.

@@ -11,7 +11,7 @@ namespace Wino.Server
         [RelayCommand]
         public void LaunchWino()
         {
-            _context.SendMessage();
+            _context.SendTestMessageAsync();
         }
 
         /// <summary>
@@ -24,5 +24,7 @@ namespace Wino.Server
 
             Application.Current.Shutdown();
         }
+
+        public void Reconnect() => _context.InitializeAppServiceConnection();
     }
 }

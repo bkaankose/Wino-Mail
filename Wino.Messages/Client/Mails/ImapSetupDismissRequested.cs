@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Entities;
 
-namespace Wino.Messages.Client.Mails
+namespace Wino.Messaging.Client.Mails
 {
     /// <summary>
     /// When user asked to dismiss IMAP setup dialog.
