@@ -30,7 +30,7 @@ namespace Wino.Views
         IRecipient<ApplicationThemeChanged>,
         IRecipient<SaveAsPDFRequested>
     {
-        private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
+        private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
         private readonly IDialogService _dialogService = App.Current.Services.GetService<IDialogService>();
 
         private bool isRenderingInProgress = false;
@@ -271,10 +271,10 @@ namespace Wino.Views
 
         private async Task UpdateReaderFontPropertiesAsync()
         {
-            await ExecuteScriptFunctionAsync("ChangeFontSize", _fontService.GetCurrentReaderFontSize());
+            await ExecuteScriptFunctionAsync("ChangeFontSize", _preferencesService.ReaderFontSize);
 
             // Prepare font family name with fallback to sans-serif by default.
-            var fontName = _fontService.GetCurrentReaderFont();
+            var fontName = _preferencesService.ReaderFont;
 
             // If font family name is not supported by the browser, fallback to sans-serif.
             fontName += ", sans-serif";
