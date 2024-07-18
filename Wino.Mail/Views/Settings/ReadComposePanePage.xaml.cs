@@ -2,9 +2,9 @@
 
 namespace Wino.Views.Settings
 {
-    public sealed partial class ReadingPanePage : ReadingPanePageAbstract
+    public sealed partial class ReadComposePanePage : ReadComposePanePageAbstract
     {
-        public ReadingPanePage()
+        public ReadComposePanePage()
         {
             InitializeComponent();
         }

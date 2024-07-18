@@ -19,7 +19,11 @@ namespace Wino.Dialogs
     {
         private Func<Task<string>> _getHTMLBodyFunction;
         private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
+
         private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
+        private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
+        private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+
         public AccountSignature Result;
 
         public bool IsComposerDarkMode
@@ -36,7 +40,7 @@ namespace Wino.Dialogs
 
             SignatureNameTextBox.Header = Translator.SignatureEditorDialog_SignatureName_TitleNew;
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,FontAccess");
 
             // TODO: Should be added additional logic to enable/disable primary button when webview content changed.
             IsPrimaryButtonEnabled = true;
@@ -275,6 +279,7 @@ namespace Wino.Dialogs
             await _domLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
+            await InitializeEditorAsync();
 
             if (string.IsNullOrEmpty(htmlBody))
             {
@@ -286,6 +291,16 @@ namespace Wino.Dialogs
 
                 await FocusEditorAsync();
             }
+        }
+
+        private async Task<string> InitializeEditorAsync()
+        {
+            var fonts = _fontService.GetFonts();
+            var composerFont = _preferencesService.ComposerFont;
+            int composerFontSize = _preferencesService.ComposerFontSize;
+            var readerFont = _preferencesService.ReaderFont;
+            int readerFontSize = _preferencesService.ReaderFontSize;
+            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)

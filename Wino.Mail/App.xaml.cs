@@ -135,7 +135,7 @@ namespace Wino
             services.AddTransient(typeof(AccountDetailsPageViewModel));
             services.AddTransient(typeof(SignatureManagementPageViewModel));
             services.AddTransient(typeof(MessageListPageViewModel));
-            services.AddTransient(typeof(ReadingPanePageViewModel));
+            services.AddTransient(typeof(ReadComposePanePageViewModel));
             services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
             services.AddTransient(typeof(LanguageTimePageViewModel));
         }
