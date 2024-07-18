@@ -11,6 +11,7 @@ namespace Wino.Core.Domain.Interfaces
         Task<string> GetEditorBundlePathAsync();
         Task LaunchFileAsync(string filePath);
         Task LaunchUriAsync(Uri uri);
+
         bool IsAppRunning();
 
         string GetFullAppVersion();

@@ -1,6 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using SQLite;
-using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Services
 {
@@ -16,7 +16,7 @@ namespace Wino.Core.Services
             _databaseService = databaseService;
         }
 
-        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
+        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IServerMessage
             => Messenger.Send(message);
     }
 }

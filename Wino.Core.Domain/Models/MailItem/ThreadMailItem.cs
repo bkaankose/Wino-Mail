@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Wino.Core.Domain.Entities;
@@ -39,6 +40,8 @@ namespace Wino.Core.Domain.Models.MailItem
                 ThreadItems.Insert(index, item);
             }
         }
+
+        public IEnumerable<Guid> GetContainingIds() => ThreadItems?.Select(a => a.UniqueId) ?? default;
 
         #region IMailItem
 

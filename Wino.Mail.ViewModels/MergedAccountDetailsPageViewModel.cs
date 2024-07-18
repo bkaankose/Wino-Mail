@@ -9,8 +9,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Messages.Navigation;
-using Wino.Core.Requests;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {

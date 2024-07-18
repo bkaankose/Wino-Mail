@@ -106,7 +106,15 @@ namespace Wino.Services
             return _editorBundlePath;
         }
 
-        public bool IsAppRunning() => (Window.Current?.Content as Frame)?.Content != null;
+        public bool IsAppRunning()
+        {
+#if WINDOWS_UWP
+            return (Window.Current?.Content as Frame)?.Content != null;
+#endif
+
+            return true;
+        }
+
 
         public async Task LaunchFileAsync(string filePath)
         {

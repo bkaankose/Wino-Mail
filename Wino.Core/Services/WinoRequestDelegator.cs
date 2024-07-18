@@ -19,18 +19,18 @@ namespace Wino.Core.Services
     public class WinoRequestDelegator : IWinoRequestDelegator
     {
         private readonly IWinoRequestProcessor _winoRequestProcessor;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private readonly IFolderService _folderService;
         private readonly IDialogService _dialogService;
         private readonly ILogger _logger = Log.ForContext<WinoRequestDelegator>();
 
         public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                    IWinoSynchronizerFactory winoSynchronizerFactory,
+                                    IWinoServerConnectionManager winoServerConnectionManager,
                                     IFolderService folderService,
                                     IDialogService dialogService)
         {
             _winoRequestProcessor = winoRequestProcessor;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
+            _winoServerConnectionManager = winoServerConnectionManager;
             _folderService = folderService;
             _dialogService = dialogService;
         }
@@ -132,19 +132,7 @@ namespace Wino.Core.Services
         }
 
         private void QueueRequest(IRequestBase request, Guid accountId)
-        {
-            var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
-
-            if (synchronizer == null)
-            {
-                _logger.Warning("Synchronizer not found for account {AccountId}.", accountId);
-                _logger.Warning("Skipping queueing request {Operation}.", request.Operation);
-
-                return;
-            }
-
-            synchronizer.QueueRequest(request);
-        }
+            => _winoServerConnectionManager.QueueRequest(request, accountId);
 
         private void QueueSynchronization(Guid accountId)
         {

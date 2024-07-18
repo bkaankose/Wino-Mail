@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
 using MoreLinq;
@@ -25,8 +26,8 @@ using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Navigation;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
-using Wino.Core.Requests;
 using Wino.Core.Services;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -62,6 +63,7 @@ namespace Wino.Mail.ViewModels
         #endregion
 
         public IStatePersistanceService StatePersistenceService { get; }
+        public IWinoServerConnectionManager ServerConnectionManager { get; }
         public IPreferencesService PreferencesService { get; }
         public IWinoNavigationService NavigationService { get; }
 
@@ -73,7 +75,6 @@ namespace Wino.Mail.ViewModels
         private readonly INotificationBuilder _notificationBuilder;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
 
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly IBackgroundTaskService _backgroundTaskService;
         private readonly IMimeFileService _mimeFileService;
 
@@ -82,9 +83,11 @@ namespace Wino.Mail.ViewModels
 
         private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
+        [ObservableProperty]
+        private string _activeConnectionStatus = WinoServerConnectionStatus.None.ToString();
+
         public AppShellViewModel(IDialogService dialogService,
                                  IWinoNavigationService navigationService,
-                                 IWinoSynchronizerFactory synchronizerFactory,
                                  IBackgroundTaskService backgroundTaskService,
                                  IMimeFileService mimeFileService,
                                  INativeAppService nativeAppService,
@@ -97,13 +100,23 @@ namespace Wino.Mail.ViewModels
                                  INotificationBuilder notificationBuilder,
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IFolderService folderService,
-                                 IStatePersistanceService statePersistanceService) : base(dialogService)
+                                 IStatePersistanceService statePersistanceService,
+                                 IWinoServerConnectionManager serverConnectionManager) : base(dialogService)
         {
             StatePersistenceService = statePersistanceService;
+            ServerConnectionManager = serverConnectionManager;
+
+            ServerConnectionManager.StatusChanged += async (sender, status) =>
+            {
+                await ExecuteUIThread(() =>
+                {
+                    ActiveConnectionStatus = status.ToString();
+                });
+            };
+
             PreferencesService = preferencesService;
             NavigationService = navigationService;
 
-            _synchronizerFactory = synchronizerFactory;
             _backgroundTaskService = backgroundTaskService;
             _mimeFileService = mimeFileService;
             _nativeAppService = nativeAppService;
@@ -116,6 +129,9 @@ namespace Wino.Mail.ViewModels
             _notificationBuilder = notificationBuilder;
             _winoRequestDelegator = winoRequestDelegator;
         }
+
+        [RelayCommand]
+        private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
         protected override void OnDispatcherAssigned()
         {
@@ -776,65 +792,65 @@ namespace Wino.Mail.ViewModels
             await _winoRequestDelegator.ExecuteAsync(draftPreperationRequest);
         }
 
-
-
         public async void Receive(NewSynchronizationRequested message)
         {
+            // TODO: Queue new synchronization for an account.
+
             // Don't send message for sync completion when we execute requests.
             // People are usually interested in seeing the notification after they trigger the synchronization.
 
-            bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
+            //bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
 
-            var synchronizer = _synchronizerFactory.GetAccountSynchronizer(message.Options.AccountId);
+            //var synchronizer = _synchronizerFactory.GetAccountSynchronizer(message.Options.AccountId);
 
-            if (synchronizer == null) return;
+            //if (synchronizer == null) return;
 
-            var accountId = message.Options.AccountId;
+            //var accountId = message.Options.AccountId;
 
-            message.Options.ProgressListener = this;
+            //message.Options.ProgressListener = this;
 
-            bool isSynchronizationSucceeded = false;
+            //bool isSynchronizationSucceeded = false;
 
-            try
-            {
-                // TODO: Cancellation Token
-                var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options);
+            //try
+            //{
+            //    // TODO: Cancellation Token
+            //    var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options);
 
-                isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
+            //    isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
 
-                // Create notification for synchronization result.
-                if (synchronizationResult.DownloadedMessages.Any())
-                {
-                    var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
+            //    // Create notification for synchronization result.
+            //    if (synchronizationResult.DownloadedMessages.Any())
+            //    {
+            //        var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
 
-                    if (accountInboxFolder == null) return;
+            //        if (accountInboxFolder == null) return;
 
-                    await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
-                }
-            }
-            catch (AuthenticationAttentionException)
-            {
-                await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
-            }
-            catch (SystemFolderConfigurationMissingException)
-            {
-                await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
-            }
-            catch (OperationCanceledException)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncCanceledMessage, Translator.Info_SyncCanceledMessage, InfoBarMessageType.Warning);
-            }
-            catch (Exception ex)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
-            }
-            finally
-            {
-                if (shouldReportSynchronizationResult)
-                    Messenger.Send(new AccountSynchronizationCompleted(accountId,
-                                                                       isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
-                                                                       message.Options.GroupedSynchronizationTrackingId));
-            }
+            //        await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
+            //    }
+            //}
+            //catch (AuthenticationAttentionException)
+            //{
+            //    await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
+            //}
+            //catch (SystemFolderConfigurationMissingException)
+            //{
+            //    await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
+            //}
+            //catch (OperationCanceledException)
+            //{
+            //    DialogService.InfoBarMessage(Translator.Info_SyncCanceledMessage, Translator.Info_SyncCanceledMessage, InfoBarMessageType.Warning);
+            //}
+            //catch (Exception ex)
+            //{
+            //    DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
+            //}
+            //finally
+            //{
+            //    if (shouldReportSynchronizationResult)
+            //        Messenger.Send(new AccountSynchronizationCompleted(accountId,
+            //                                                           isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
+            //                                                           message.Options.GroupedSynchronizationTrackingId));
+            //}
         }
 
 

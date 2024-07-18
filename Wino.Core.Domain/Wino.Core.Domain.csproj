@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Interfaces\IWinoSynchronizerFactory.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Translations\ca_ES\resources.json" />
     <None Remove="Translations\cs_CZ\resources.json" />
     <None Remove="Translations\da_DK\resources.json" />
@@ -49,7 +53,9 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MimeKit" Version="4.4.0" />
+		<PackageReference Include="MimeKit" Version="4.7.1" />
+		<PackageReference Include="MailKit" Version="4.7.1.1" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.8.116" />
 		<PackageReference Include="System.Text.Json" Version="8.0.4" />
 	</ItemGroup>
@@ -68,5 +74,8 @@
 	    <Generator>TextTemplatingFileGenerator</Generator>
 	    <LastGenOutput>Translator.Designer.cs</LastGenOutput>
 	  </None>
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Models\Communication\" />
 	</ItemGroup>
 </Project>

@@ -514,6 +514,14 @@
                     IsOpen="False"
                     PreferredPlacement="Bottom"
                     Target="{x:Bind ShellInfoBar}" />
+
+                <Grid
+                    Grid.Column="1"
+                    Padding="14"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom">
+                    <Button Content="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}" Command="{x:Bind ViewModel.ReconnectServerCommand}" />
+                </Grid>
             </Grid>
         </muxc:NavigationView>
 

@@ -16,7 +16,6 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Messages.Shell;
 using Wino.Core.Messages.Synchronization;
-using Wino.Core.Requests;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
 using Wino.Helpers;

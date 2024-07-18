@@ -29,10 +29,17 @@ namespace Wino.Core.Authenticators
         {
             var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
 
-            _publicClientApplication = PublicClientApplicationBuilder.Create(ClientId)
-                .WithAuthority(Authority)
-                .WithRedirectUri(authenticationRedirectUri)
-                .Build();
+            var outlookAppBuilder = PublicClientApplicationBuilder.Create(ClientId)
+                .WithAuthority(Authority);
+
+#if WINDOWS_UWP
+                 outlookAppBuilder.WithRedirectUri(authenticationRedirectUri);
+#else
+            outlookAppBuilder.WithDefaultRedirectUri();
+#endif
+            _publicClientApplication = outlookAppBuilder.Build();
+
+
         }
 
 #pragma warning disable S1133 // Deprecated code should be removed

@@ -12,18 +12,14 @@ namespace Wino.Mail.ViewModels.Data
     /// <summary>
     /// Thread mail item (multiple IMailItem) view model representation.
     /// </summary>
-    public class ThreadMailItemViewModel : ObservableObject, IMailItemThread, IComparable<string>, IComparable<DateTime>
+    public partial class ThreadMailItemViewModel : ObservableObject, IMailItemThread, IComparable<string>, IComparable<DateTime>
     {
         public ObservableCollection<IMailItem> ThreadItems => ((IMailItemThread)_threadMailItem).ThreadItems;
 
         private readonly ThreadMailItem _threadMailItem;
 
+        [ObservableProperty]
         private bool isThreadExpanded;
-        public bool IsThreadExpanded
-        {
-            get => isThreadExpanded;
-            set => SetProperty(ref isThreadExpanded, value);
-        }
 
         public ThreadMailItemViewModel(ThreadMailItem threadMailItem)
         {
@@ -35,6 +31,8 @@ namespace Wino.Mail.ViewModels.Data
                 AddMailItemViewModel(item);
             }
         }
+
+        public ThreadMailItem GetThreadMailItem() => _threadMailItem;
 
         public IEnumerable<MailCopy> GetMailCopies()
             => ThreadItems.OfType<MailItemViewModel>().Select(a => a.MailCopy);
@@ -123,5 +121,7 @@ namespace Wino.Mail.ViewModels.Data
 
         // Get single mail item view model out of the only item in thread items.
         public MailItemViewModel GetSingleItemViewModel() => ThreadItems.First() as MailItemViewModel;
+
+        public IEnumerable<Guid> GetContainingIds() => ((IMailItemThread)_threadMailItem).GetContainingIds();
     }
 }

@@ -336,8 +336,6 @@
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\LaunchProtocolService.cs" />
-    <Compile Include="Services\PreferencesService.cs" />
-    <Compile Include="Services\StatePersistenceService.cs" />
     <Compile Include="Services\ToastActivationService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />
     <Compile Include="Styles\CommandBarItems.xaml.cs">
@@ -770,7 +768,6 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <None Include="Wino.Mail_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Thumbnails\uber.com.png" />
@@ -801,6 +798,10 @@
     <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj">
       <Project>{d62f1c03-da57-4709-a640-0283296a8e66}</Project>
       <Name>Wino.Mail.ViewModels</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messaging</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

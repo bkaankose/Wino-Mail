@@ -37,7 +37,6 @@ namespace Wino.Mail.ViewModels
         private readonly IMimeFileService _mimeFileService;
         private readonly Core.Domain.Interfaces.IMailService _mailService;
         private readonly IFileService _fileService;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IWinoRequestDelegator _requestDelegator;
         private readonly IClipboardService _clipboardService;
         private readonly IUnsubscriptionService _unsubscriptionService;
@@ -124,7 +123,6 @@ namespace Wino.Mail.ViewModels
                                           IMimeFileService mimeFileService,
                                           Core.Domain.Interfaces.IMailService mailService,
                                           IFileService fileService,
-                                          IWinoSynchronizerFactory winoSynchronizerFactory,
                                           IWinoRequestDelegator requestDelegator,
                                           IStatePersistanceService statePersistanceService,
                                           IClipboardService clipboardService,
@@ -141,7 +139,6 @@ namespace Wino.Mail.ViewModels
             _mimeFileService = mimeFileService;
             _mailService = mailService;
             _fileService = fileService;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
             _requestDelegator = requestDelegator;
         }
 
@@ -344,30 +341,31 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-
         private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
         {
-            var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItemViewModel.AssignedAccount.Id);
+            // TODO: Server: Download single mime and report back the item here.
 
-            try
-            {
-                // To show the progress on the UI.
-                CurrentDownloadPercentage = 1;
+            //var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItemViewModel.AssignedAccount.Id);
 
-                await synchronizer.DownloadMissingMimeMessageAsync(mailItemViewModel.MailCopy, this, renderCancellationTokenSource.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                Log.Information("MIME download is canceled.");
-            }
-            catch (Exception ex)
-            {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
-            }
-            finally
-            {
-                ResetProgress();
-            }
+            //try
+            //{
+            //    // To show the progress on the UI.
+            //    CurrentDownloadPercentage = 1;
+
+            //    await synchronizer.DownloadMissingMimeMessageAsync(mailItemViewModel.MailCopy, this, renderCancellationTokenSource.Token);
+            //}
+            //catch (OperationCanceledException)
+            //{
+            //    Log.Information("MIME download is canceled.");
+            //}
+            //catch (Exception ex)
+            //{
+            //    DialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            //}
+            //finally
+            //{
+            //    ResetProgress();
+            //}
         }
 
         private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)

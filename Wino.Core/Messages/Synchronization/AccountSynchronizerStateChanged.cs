@@ -1,5 +1,5 @@
 ﻿using Wino.Core.Domain.Enums;
-using Wino.Core.Synchronizers;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Messages.Synchronization
 {

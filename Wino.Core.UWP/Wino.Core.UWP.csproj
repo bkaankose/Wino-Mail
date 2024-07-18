@@ -118,6 +118,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <LangVersion>12.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CoreUWPContainerSetup.cs" />
@@ -127,9 +128,9 @@
     <Compile Include="Models\Personalization\PreDefinedAppTheme.cs" />
     <Compile Include="Models\Personalization\SystemAppTheme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Services\AppInitializerService.cs" />
-    <Compile Include="Services\AppShellService.cs" />
-    <Compile Include="Services\BackgroundSynchronizer.cs" />
+    <Compile Include="Services\PreferencesService.cs" />
+    <Compile Include="Services\StatePersistenceService.cs" />
+    <Compile Include="Services\WinoServerConnectionManager.cs" />
     <Compile Include="Services\BackgroundTaskService.cs" />
     <Compile Include="Services\ClipboardService.cs" />
     <Compile Include="Services\ConfigurationService.cs" />
@@ -169,8 +170,16 @@
       <Project>{e6b1632a-8901-41e8-9ddf-6793c7698b0b}</Project>
       <Name>Wino.Core</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messaging</Name>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">
+      <Name>Windows Desktop Extensions for the UWP</Name>
+    </SDKReference>
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>

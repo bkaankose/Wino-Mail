@@ -6,8 +6,8 @@ using MoreLinq;
 
 using Wino.Core.Domain.Enums;
 using Wino.Core.Messages.Navigation;
-using Wino.Core.Requests;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Server;
 using Wino.Views.Abstract;
 using Wino.Views.Account;
 using Wino.Views.Settings;

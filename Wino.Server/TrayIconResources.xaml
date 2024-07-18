@@ -1,0 +1,21 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:tb="http://www.hardcodet.net/taskbar"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:server="clr-namespace:Wino.Server">
+
+    <ContextMenu x:Shared="false" x:Key="SysTrayMenu">
+        <MenuItem Header="Launch Wino Mail" Command="{Binding LaunchWinoCommand}" />
+        <Separator />
+        <MenuItem Header="Exit" Command="{Binding ExitApplicationCommand}" />
+    </ContextMenu>
+
+    <tb:TaskbarIcon
+        x:Key="NotifyIcon"
+        IconSource="Images/Wino_Icon.ico"
+        ToolTipText="Wino Mail"
+        LeftClickCommand="{Binding LaunchWinoCommand}"
+        NoLeftClickDelay="True"
+        ContextMenu="{StaticResource SysTrayMenu}" />
+
+</ResourceDictionary>

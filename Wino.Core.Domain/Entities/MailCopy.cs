@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
@@ -140,7 +141,7 @@ namespace Wino.Core.Domain.Entities
         /// </summary>
         [Ignore]
         public MailAccount AssignedAccount { get; set; }
-
+        public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
         public override string ToString() => $"{Subject} <-> {Id}";
     }
 }
