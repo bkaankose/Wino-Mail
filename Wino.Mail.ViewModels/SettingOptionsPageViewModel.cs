@@ -9,17 +9,10 @@ using Wino.Core.Messages.Navigation;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class SettingOptionsPageViewModel : BaseViewModel
+    public partial class SettingOptionsPageViewModel(IDialogService dialogService) : BaseViewModel(dialogService)
     {
-        public SettingOptionsPageViewModel(IDialogService dialogService) : base(dialogService) { }
-
         [RelayCommand]
         private void GoAccountSettings() => Messenger.Send<NavigateSettingsRequested>();
-
-        public override void OnNavigatedTo(NavigationMode mode, object parameters)
-        {
-            base.OnNavigatedTo(mode, parameters);
-        }
 
         [RelayCommand]
         public void NavigateSubDetail(object type)
@@ -31,7 +24,7 @@ namespace Wino.Mail.ViewModels
                     WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
                     WinoPage.AboutPage => Translator.SettingsAbout_Title,
                     WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
-                    WinoPage.ReadingPanePage => Translator.SettingsReadingPane_Title,
+                    WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
                     WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
                     _ => throw new NotImplementedException()
                 };

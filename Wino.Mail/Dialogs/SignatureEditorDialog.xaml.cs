@@ -20,6 +20,7 @@ namespace Wino.Dialogs
         private Func<Task<string>> _getHTMLBodyFunction;
         private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
         private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
+        private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
         public AccountSignature Result;
 
         public bool IsComposerDarkMode
@@ -275,6 +276,7 @@ namespace Wino.Dialogs
             await _domLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
+            await InitializeEditorAsync();
 
             if (string.IsNullOrEmpty(htmlBody))
             {
@@ -286,6 +288,16 @@ namespace Wino.Dialogs
 
                 await FocusEditorAsync();
             }
+        }
+
+        private async Task<string> InitializeEditorAsync()
+        {
+            var fonts = _fontService.GetFonts();
+            var composerFont = _fontService.GetCurrentComposerFont();
+            int composerFontSize = _fontService.GetCurrentComposerFontSize();
+            var readerFont = _fontService.GetCurrentReaderFont();
+            int readerFontSize = _fontService.GetCurrentReaderFontSize();
+            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)

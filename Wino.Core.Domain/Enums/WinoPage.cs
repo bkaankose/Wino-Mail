@@ -19,7 +19,7 @@
         PersonalizationPage,
         MessageListPage,
         MailListPage,
-        ReadingPanePage,
+        ReadComposePanePage,
         LanguageTimePage,
         SettingOptionsPage,
     }

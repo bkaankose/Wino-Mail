@@ -112,6 +112,7 @@ namespace Wino.Mail.ViewModels
         private readonly IFolderService _folderService;
         private readonly IAccountService _accountService;
         private readonly IWinoRequestDelegator _worker;
+        public readonly IFontService FontService;
         public readonly IContactService ContactService;
 
         public ComposePageViewModel(IDialogService dialogService,
@@ -123,11 +124,13 @@ namespace Wino.Mail.ViewModels
                                     IFolderService folderService,
                                     IAccountService accountService,
                                     IWinoRequestDelegator worker,
-                                    IContactService contactService) : base(dialogService)
+                                    IContactService contactService,
+                                    IFontService fontService) : base(dialogService)
         {
             NativeAppService = nativeAppService;
             _folderService = folderService;
             ContactService = contactService;
+            FontService = fontService;
 
             _mailService = mailService;
             _launchProtocolService = launchProtocolService;

@@ -2244,14 +2244,14 @@ namespace Wino.Core.Domain
 		public static string SettingsPrivacyPolicy_Title => Resources.GetTranslatedString(@"SettingsPrivacyPolicy_Title");	
 	
         /// <summary>
-		/// Mail rendering options.
+		/// Fonts, external content.
 		/// </summary>
-		public static string SettingsReadingPane_Description => Resources.GetTranslatedString(@"SettingsReadingPane_Description");	
+		public static string SettingsReadComposePane_Description => Resources.GetTranslatedString(@"SettingsReadComposePane_Description");	
 	
         /// <summary>
-		/// Reading Pane
+		/// Reader & Composer
 		/// </summary>
-		public static string SettingsReadingPane_Title => Resources.GetTranslatedString(@"SettingsReadingPane_Title");	
+		public static string SettingsReadComposePane_Title => Resources.GetTranslatedString(@"SettingsReadComposePane_Title");	
 	
         /// <summary>
 		/// Default Reader Font

@@ -356,7 +356,7 @@
     <Compile Include="Views\Abstract\MessageListPageAbstract.cs" />
     <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
-    <Compile Include="Views\Abstract\ReadingPanePageAbstract.cs" />
+    <Compile Include="Views\Abstract\ReadComposePanePageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageBase.cs" />
@@ -419,8 +419,8 @@
     <Compile Include="AppShell.xaml.cs">
       <DependentUpon>AppShell.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\Settings\ReadingPanePage.xaml.cs">
-      <DependentUpon>ReadingPanePage.xaml</DependentUpon>
+    <Compile Include="Views\Settings\ReadComposePanePage.xaml.cs">
+      <DependentUpon>ReadComposePanePage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\SettingOptionsPage.xaml.cs">
       <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
@@ -647,7 +647,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Views\Settings\ReadingPanePage.xaml">
+    <Page Include="Views\Settings\ReadComposePanePage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

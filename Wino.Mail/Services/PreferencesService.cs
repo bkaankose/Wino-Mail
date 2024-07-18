@@ -166,9 +166,9 @@ namespace Wino.Services
             set => SaveProperty(propertyName: nameof(CurrentLanguage), value);
         }
 
-        public ReaderFont ReaderFont
+        public string ReaderFont
         {
-            get => _configurationService.Get(nameof(ReaderFont), ReaderFont.Calibri);
+            get => _configurationService.Get(nameof(ReaderFont), "Calibri");
             set => SaveProperty(propertyName: nameof(ReaderFont), value);
         }
 
@@ -176,6 +176,18 @@ namespace Wino.Services
         {
             get => _configurationService.Get(nameof(ReaderFontSize), 14);
             set => SaveProperty(propertyName: nameof(ReaderFontSize), value);
+        }
+
+        public string ComposerFont
+        {
+            get => _configurationService.Get(nameof(ComposerFont), "Calibri");
+            set => SaveProperty(propertyName: nameof(ComposerFont), value);
+        }
+
+        public int ComposerFontSize
+        {
+            get => _configurationService.Get(nameof(ComposerFontSize), 14);
+            set => SaveProperty(propertyName: nameof(ComposerFontSize), value);
         }
 
         public bool IsNavigationPaneOpened

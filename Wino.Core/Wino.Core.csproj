@@ -30,6 +30,7 @@
      <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
      <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0" />
      <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+     <PackageReference Include="SkiaSharp" Version="2.88.8" />
      <PackageReference Include="SqlKata" Version="2.4.0" />
      <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
      <PackageReference Include="Xamarin.Essentials" Version="1.8.1" />

@@ -51,7 +51,7 @@ namespace Wino.Views
             WinoPage.AboutPage => typeof(AboutPage),
             WinoPage.PersonalizationPage => typeof(PersonalizationPage),
             WinoPage.MessageListPage => typeof(MessageListPage),
-            WinoPage.ReadingPanePage => typeof(ReadingPanePage),
+            WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
             _ => null,
         };

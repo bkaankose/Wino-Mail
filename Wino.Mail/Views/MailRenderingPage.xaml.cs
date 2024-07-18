@@ -17,6 +17,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 
@@ -273,12 +274,10 @@ namespace Wino.Views
             await ExecuteScriptFunctionAsync("ChangeFontSize", _fontService.GetCurrentReaderFontSize());
 
             // Prepare font family name with fallback to sans-serif by default.
-            var fontName = _fontService.GetCurrentReaderFont()?.FontFamilyName ?? "Arial";
+            var fontName = _fontService.GetCurrentReaderFont();
 
             // If font family name is not supported by the browser, fallback to sans-serif.
             fontName += ", sans-serif";
-
-            // var fontName = "Starborn";
 
             await ExecuteScriptFunctionAsync("ChangeFontFamily", fontName);
         }
