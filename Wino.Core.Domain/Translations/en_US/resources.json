@@ -444,6 +444,8 @@
     "SettingsPersonalization_Title": "Personalization",
     "SettingsPrivacyPolicy_Description": "Review privacy policy.",
     "SettingsPrivacyPolicy_Title": "Privacy Policy",
+    "SettingsReader_Title": "Reader",
+    "SettingsComposer_Title": "Composer",
     "SettingsReadComposePane_Description": "Fonts, external content.",
     "SettingsReadComposePane_Title": "Reader & Composer",
     "SettingsReaderFont_Title": "Default Reader Font",

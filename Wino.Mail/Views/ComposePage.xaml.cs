@@ -404,10 +404,10 @@ namespace Wino.Views
         private async Task<string> InitializeEditorAsync()
         {
             var fonts = ViewModel.FontService.GetFonts();
-            var composerFont = ViewModel.FontService.GetCurrentComposerFont();
-            int composerFontSize = ViewModel.FontService.GetCurrentComposerFontSize();
-            var readerFont = ViewModel.FontService.GetCurrentReaderFont();
-            int readerFontSize = ViewModel.FontService.GetCurrentReaderFontSize();
+            var composerFont = ViewModel.PreferencesService.ComposerFont;
+            int composerFontSize = ViewModel.PreferencesService.ComposerFontSize;
+            var readerFont = ViewModel.PreferencesService.ReaderFont;
+            int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
             return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 

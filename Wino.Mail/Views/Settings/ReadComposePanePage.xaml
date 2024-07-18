@@ -12,7 +12,7 @@
 
     <ScrollViewer>
         <StackPanel Spacing="4">
-            <TextBlock FontWeight="SemiBold" Text="Reader" />
+            <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsReader_Title}" />
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsReaderFontFamily_Description}"
                 Header="{x:Bind domain:Translator.SettingsReaderFont_Title}"
@@ -75,7 +75,7 @@
             <TextBlock
                 Margin="0,20,0,0"
                 FontWeight="SemiBold"
-                Text="Composer" />
+                Text="{x:Bind domain:Translator.SettingsComposer_Title}" />
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsComposerFontFamily_Description}"
                 Header="{x:Bind domain:Translator.SettingsComposerFont_Title}"

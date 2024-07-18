@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
 using MoreLinq;
-using Org.BouncyCastle.Asn1.Ocsp;
 using Serilog;
 using SqlKata;
 using Wino.Core.Domain;
@@ -29,7 +28,7 @@ namespace Wino.Core.Services
         private readonly ISignatureService _signatureService;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
         private readonly IMimeFileService _mimeFileService;
-        private readonly IFontService _fontService;
+        private readonly IPreferencesService _preferencesService;
 
 
         private readonly ILogger _logger = Log.ForContext<MailService>();
@@ -41,7 +40,7 @@ namespace Wino.Core.Services
                            ISignatureService signatureService,
                            IThreadingStrategyProvider threadingStrategyProvider,
                            IMimeFileService mimeFileService,
-                           IFontService fontService) : base(databaseService)
+                           IPreferencesService preferencesService) : base(databaseService)
         {
             _folderService = folderService;
             _contactService = contactService;
@@ -49,7 +48,7 @@ namespace Wino.Core.Services
             _signatureService = signatureService;
             _threadingStrategyProvider = threadingStrategyProvider;
             _mimeFileService = mimeFileService;
-            _fontService = fontService;
+            _preferencesService = preferencesService;
         }
 
         public async Task<MailCopy> CreateDraftAsync(MailAccount composerAccount,
@@ -828,10 +827,7 @@ namespace Wino.Core.Services
 
             string CreateHtmlGap()
             {
-                var font = _fontService.GetCurrentComposerFont();
-                var fontSize = _fontService.GetCurrentComposerFontSize();
-
-                var template = $"""<div style="font-family: '{font}', Arial, sans-serif; font-size: {fontSize}px"><br></div>""";
+                var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
                 return string.Concat(Enumerable.Repeat(template, 5));
             }
 

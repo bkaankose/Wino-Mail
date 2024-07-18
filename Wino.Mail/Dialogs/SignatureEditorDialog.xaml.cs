@@ -19,8 +19,11 @@ namespace Wino.Dialogs
     {
         private Func<Task<string>> _getHTMLBodyFunction;
         private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
+
         private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
         private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
+        private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+
         public AccountSignature Result;
 
         public bool IsComposerDarkMode
@@ -293,10 +296,10 @@ namespace Wino.Dialogs
         private async Task<string> InitializeEditorAsync()
         {
             var fonts = _fontService.GetFonts();
-            var composerFont = _fontService.GetCurrentComposerFont();
-            int composerFontSize = _fontService.GetCurrentComposerFontSize();
-            var readerFont = _fontService.GetCurrentReaderFont();
-            int readerFontSize = _fontService.GetCurrentReaderFontSize();
+            var composerFont = _preferencesService.ComposerFont;
+            int composerFontSize = _preferencesService.ComposerFontSize;
+            var readerFont = _preferencesService.ReaderFont;
+            int readerFontSize = _preferencesService.ReaderFontSize;
             return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 

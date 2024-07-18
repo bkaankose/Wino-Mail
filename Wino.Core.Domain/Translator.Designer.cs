@@ -2244,6 +2244,16 @@ namespace Wino.Core.Domain
 		public static string SettingsPrivacyPolicy_Title => Resources.GetTranslatedString(@"SettingsPrivacyPolicy_Title");	
 	
         /// <summary>
+		/// Reader
+		/// </summary>
+		public static string SettingsReader_Title => Resources.GetTranslatedString(@"SettingsReader_Title");	
+	
+        /// <summary>
+		/// Composer
+		/// </summary>
+		public static string SettingsComposer_Title => Resources.GetTranslatedString(@"SettingsComposer_Title");	
+	
+        /// <summary>
 		/// Fonts, external content.
 		/// </summary>
 		public static string SettingsReadComposePane_Description => Resources.GetTranslatedString(@"SettingsReadComposePane_Description");	

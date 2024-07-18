@@ -108,24 +108,24 @@ namespace Wino.Mail.ViewModels
         private readonly IMailService _mailService;
         private readonly ILaunchProtocolService _launchProtocolService;
         private readonly IMimeFileService _mimeFileService;
-        private readonly IStatePersistanceService _statePersistanceService;
         private readonly IFolderService _folderService;
         private readonly IAccountService _accountService;
         private readonly IWinoRequestDelegator _worker;
         public readonly IFontService FontService;
+        public readonly IPreferencesService PreferencesService;
         public readonly IContactService ContactService;
 
         public ComposePageViewModel(IDialogService dialogService,
                                     IMailService mailService,
                                     ILaunchProtocolService launchProtocolService,
                                     IMimeFileService mimeFileService,
-                                    IStatePersistanceService statePersistanceService,
                                     INativeAppService nativeAppService,
                                     IFolderService folderService,
                                     IAccountService accountService,
                                     IWinoRequestDelegator worker,
                                     IContactService contactService,
-                                    IFontService fontService) : base(dialogService)
+                                    IFontService fontService,
+                                    IPreferencesService preferencesService) : base(dialogService)
         {
             NativeAppService = nativeAppService;
             _folderService = folderService;
@@ -135,11 +135,11 @@ namespace Wino.Mail.ViewModels
             _mailService = mailService;
             _launchProtocolService = launchProtocolService;
             _mimeFileService = mimeFileService;
-            _statePersistanceService = statePersistanceService;
             _accountService = accountService;
             _worker = worker;
 
             SelectedToolbarSection = ToolbarSections[0];
+            PreferencesService = preferencesService;
         }
 
         [RelayCommand]
