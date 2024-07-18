@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
-using Serilog;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
@@ -18,7 +16,10 @@ using Wino.Core.UWP;
 using Wino.Mail.ViewModels;
 using Wino.Services;
 using Wino.Core.Services;
+using Windows.ApplicationModel.AppService;
+using Wino.Core.UWP.Services;
 using Wino.Core.WinUI.Services;
+
 
 
 #if NET8_0
@@ -36,11 +37,11 @@ namespace Wino
         private const string WinoLaunchLogPrefix = "[Wino Launch] ";
         private const string AppCenterKey = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
 
+
+        private readonly IWinoServerConnectionManager<AppServiceConnection> _appServiceConnectionManager;
         private readonly ILogInitializer _logInitializer;
         private readonly IThemeService _themeService;
         private readonly IDatabaseService _databaseService;
-        private readonly IAppInitializerService _appInitializerService;
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly ITranslationService _translationService;
         private readonly IAppShellService _appShellService;
 
@@ -50,10 +51,9 @@ namespace Wino
         // Order matters.
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
         {
-            _translationService,
             _databaseService,
+            _translationService,
             _themeService,
-            _synchronizerFactory
         };
 
         private IServiceProvider ConfigureServices()
@@ -153,37 +153,6 @@ namespace Wino
         }
 
         #endregion
-
-        /// <summary>
-        /// Tasks that must run before the activation and launch.
-        /// Regardless of whether it's an interactive launch or not.
-        /// </summary>
-        private async Task PreInitializationAsync()
-        {
-            // Handle migrations.
-            // TODO: Automate migration process with more proper way.
-
-            if (!ApplicationData.Current.LocalSettings.Values.ContainsKey("Migration_169"))
-            {
-                try
-                {
-                    await _appInitializerService.MigrateAsync();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, $"{WinoLaunchLogPrefix}Migration_169 failed.");
-                }
-                finally
-                {
-                    ApplicationData.Current.LocalSettings.Values["Migration_169"] = true;
-                }
-            }
-
-            foreach (var service in initializeServices)
-            {
-                await service.InitializeAsync();
-            }
-        }
 
         private IEnumerable<ActivationHandler> GetActivationHandlers()
         {
