@@ -1,6 +1,9 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Windows;
 using H.NotifyIcon;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Core;
 
 namespace Wino.Server
 {
@@ -16,11 +19,27 @@ namespace Wino.Server
         private const string WinoServerAppName = "Wino.Server";
         private const string WinoServerActiatedName = "Wino.Server.Activated";
 
+        public new static App Current => (App)Application.Current;
+
         private TaskbarIcon? notifyIcon;
         private static Mutex _mutex = null;
         private EventWaitHandle _eventWaitHandle;
 
-        protected override void OnStartup(StartupEventArgs e)
+        public IServiceProvider Services { get; private set; }
+
+        private IServiceProvider ConfigureServices()
+        {
+            var services = new ServiceCollection();
+
+            services.AddTransient<ServerContext>();
+            services.AddTransient<TrayIconViewModel>();
+
+            services.RegisterCoreServices();
+
+            return services.BuildServiceProvider();
+        }
+
+        protected override async void OnStartup(StartupEventArgs e)
         {
             bool isCreatedNew;
 
@@ -36,11 +55,11 @@ namespace Wino.Server
                     {
                         if (notifyIcon == null) return;
 
-                        Current.Dispatcher.BeginInvoke(() =>
+                        Current.Dispatcher.BeginInvoke(async () =>
                         {
                             if (notifyIcon.DataContext is TrayIconViewModel trayIconViewModel)
                             {
-                                trayIconViewModel.Reconnect();
+                                await trayIconViewModel.ReconnectAsync();
                             }
                         });
                     }
@@ -48,13 +67,19 @@ namespace Wino.Server
 
                 // It is important mark it as background otherwise it will prevent app from exiting.
                 thread.IsBackground = true;
-
                 thread.Start();
+
+                Services = ConfigureServices();
 
                 base.OnStartup(e);
 
                 // Create taskbar icon for the new server.
                 notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
+
+                var viewModel = Services.GetRequiredService<TrayIconViewModel>();
+                await viewModel.Context.InitializeAsync();
+
+                notifyIcon.DataContext = viewModel;
                 notifyIcon.ForceCreate(enablesEfficiencyMode: true);
             }
             else

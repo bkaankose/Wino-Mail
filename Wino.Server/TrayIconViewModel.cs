@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Threading.Tasks;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -6,12 +7,18 @@ namespace Wino.Server
 {
     public partial class TrayIconViewModel : ObservableObject
     {
-        private readonly ServerContext _context = new ServerContext();
+        public ServerContext Context { get; }
+
+        public TrayIconViewModel(ServerContext serverContext)
+        {
+            Context = serverContext;
+        }
 
         [RelayCommand]
         public void LaunchWino()
         {
-            _context.SendTestMessageAsync();
+
+            // ServerContext.SendTestMessageAsync();
         }
 
         /// <summary>
@@ -25,6 +32,6 @@ namespace Wino.Server
             Application.Current.Shutdown();
         }
 
-        public void Reconnect() => _context.InitializeAppServiceConnection();
+        public async Task ReconnectAsync() => await Context.InitializeAppServiceConnectionAsync();
     }
 }

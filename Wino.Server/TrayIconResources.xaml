@@ -16,10 +16,6 @@
         ToolTipText="Wino Mail"
         LeftClickCommand="{Binding LaunchWinoCommand}"
         NoLeftClickDelay="True"
-        ContextMenu="{StaticResource SysTrayMenu}">
+        ContextMenu="{StaticResource SysTrayMenu}" />
 
-        <tb:TaskbarIcon.DataContext>
-            <server:TrayIconViewModel />
-        </tb:TaskbarIcon.DataContext>
-    </tb:TaskbarIcon>
 </ResourceDictionary>

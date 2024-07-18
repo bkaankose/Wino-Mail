@@ -4,23 +4,23 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
-using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
 using Wino.Messaging;
 using Wino.Messaging.Enums;
-using Wino.Messaging.Server;
 
 namespace Wino.Server
 {
-    public class ServerContext
+    public class ServerContext : IInitializeAsync
     {
         private static object connectionLock = new object();
 
         private AppServiceConnection connection = null;
+        private readonly IDatabaseService _databaseService;
 
-        public ServerContext()
+        public ServerContext(IDatabaseService databaseService)
         {
-            InitializeAppServiceConnection();
+            _databaseService = databaseService;
         }
 
         private string GetAppPackagFamilyName()
@@ -42,7 +42,7 @@ namespace Wino.Server
         /// <summary>
         /// Open connection to UWP app service
         /// </summary>
-        public async void InitializeAppServiceConnection()
+        public async Task InitializeAppServiceConnectionAsync()
         {
             if (connection != null) DisposeConnection();
 
@@ -63,12 +63,6 @@ namespace Wino.Server
 
                 DisposeConnection();
             }
-        }
-
-        public Task SendTestMessageAsync()
-        {
-            var message = new MailAddedMessage(new MailCopy());
-            return SendMessageAsync(MessageType.UIMessage, message);
         }
 
         private async Task SendMessageAsync(MessageType messageType, object message)
@@ -118,6 +112,12 @@ namespace Wino.Server
                 connection.Dispose();
                 connection = null;
             }
+        }
+
+        public async Task InitializeAsync()
+        {
+            await InitializeAppServiceConnectionAsync();
+            await _databaseService.InitializeAsync();
         }
     }
 }
