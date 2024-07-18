@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using Windows.Storage;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
@@ -28,11 +29,16 @@ namespace Wino.Server
 
         public new static App Current => (App)Application.Current;
 
-        private TaskbarIcon? notifyIcon;
+        private TaskbarIcon notifyIcon;
         private static Mutex _mutex = null;
         private EventWaitHandle _eventWaitHandle;
 
         public IServiceProvider Services { get; private set; }
+
+        public App()
+        {
+            InitializeComponent();
+        }
 
         private IServiceProvider ConfigureServices()
         {
@@ -72,8 +78,10 @@ namespace Wino.Server
             return serverViewModel;
         }
 
-        protected override async void OnStartup(StartupEventArgs e)
+        protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
+            base.OnLaunched(args);
+
             _mutex = new Mutex(true, WinoServerAppName, out bool isCreatedNew);
             _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, WinoServerActiatedName);
 
@@ -102,7 +110,6 @@ namespace Wino.Server
 
                 Services = ConfigureServices();
 
-                base.OnStartup(e);
 
                 var serverViewModel = await InitializeNewServerAsync();
 
@@ -117,14 +124,21 @@ namespace Wino.Server
                 _eventWaitHandle.Set();
 
                 // Terminate this instance.
-                Shutdown();
+                // Shutdown();
             }
+
         }
 
-        protected override void OnExit(ExitEventArgs e)
+        private void InitializeNotifyIcon()
         {
-            notifyIcon?.Dispose();
-            base.OnExit(e);
+            var showHideWindowCommand = (XamlUICommand)Resources["ShowHideWindowCommand"];
+            showHideWindowCommand.ExecuteRequested += ShowHideWindowCommand_ExecuteRequested;
+
+            var exitApplicationCommand = (XamlUICommand)Resources["ExitApplicationCommand"];
+            exitApplicationCommand.ExecuteRequested += ExitApplicationCommand_ExecuteRequested;
+
+            notifyIcon = (TaskbarIcon)Resources["TrayIcon"];
+            notifyIcon.ForceCreate();
         }
     }
 }

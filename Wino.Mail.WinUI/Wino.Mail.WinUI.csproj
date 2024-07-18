@@ -14,6 +14,7 @@
 	<WindowsSdkPackageVersion>10.0.19041.35-preview</WindowsSdkPackageVersion>
 	<GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
 	<GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+	<GenerateAssemblyInfo>True</GenerateAssemblyInfo>
 	<AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
 	<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
 	<AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
@@ -107,8 +108,6 @@
     <Compile Include="..\Wino.Mail\Services\ApplicationResourceManager.cs" Link="Services\ApplicationResourceManager.cs" />
     <Compile Include="..\Wino.Mail\Services\DialogService.cs" Link="Services\DialogService.cs" />
     <Compile Include="..\Wino.Mail\Services\LaunchProtocolService.cs" Link="Services\LaunchProtocolService.cs" />
-    <Compile Include="..\Wino.Mail\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
-    <Compile Include="..\Wino.Mail\Services\StatePersistenceService.cs" Link="Services\StatePersistenceService.cs" />
     <Compile Include="..\Wino.Mail\Services\WinoNavigationService.cs" Link="Services\WinoNavigationService.cs" />
     <Compile Include="..\Wino.Mail\Styles\CommandBarItems.xaml.cs" Link="Styles\CommandBarItems.xaml.cs" />
     <Compile Include="..\Wino.Mail\Views\Account\AccountDetailsPage.xaml.cs" Link="Views\Account\AccountDetailsPage.xaml.cs" />
@@ -199,7 +198,7 @@
     <PackageReference Include="Microsoft.AppCenter.Analytics" Version="5.0.5" />
     <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.5" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240701003-experimental2" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="2.0.9" />
     <PackageReference Include="WinUIEx" Version="2.3.4" />
     <Manifest Include="$(ApplicationManifest)" />

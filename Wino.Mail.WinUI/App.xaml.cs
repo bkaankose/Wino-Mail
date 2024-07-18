@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using Wino.Core;
+using Windows.Storage;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Core.WinUI.Services;
@@ -16,6 +16,8 @@ namespace Wino
         private WindowEx m_Window;
         private Frame m_ShellFrame;
 
+        private readonly IApplicationConfiguration _applicationFolderConfiguration;
+
         public App()
         {
             if (WebAuthenticator.CheckOAuthRedirectionActivation()) return;
@@ -24,6 +26,7 @@ namespace Wino
 
             Services = ConfigureServices();
 
+            _applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
             _logInitializer = Services.GetService<ILogInitializer>();
 
             ConfigureLogger();
@@ -31,10 +34,12 @@ namespace Wino
             ConfigurePrelaunch();
             ConfigureXbox();
 
+            // Make sure the paths are setup on app start.
+            _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
+            _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+
             _themeService = Services.GetService<IThemeService>();
             _databaseService = Services.GetService<IDatabaseService>();
-            _appInitializerService = Services.GetService<IAppInitializerService>();
-            _synchronizerFactory = Services.GetService<IWinoSynchronizerFactory>();
             _translationService = Services.GetService<ITranslationService>();
             _appShellService = Services.GetService<IAppShellService>();
 

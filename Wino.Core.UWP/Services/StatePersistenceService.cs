@@ -115,10 +115,11 @@ namespace Wino.Services
 
         private void UpdateAppCoreWindowTitle()
         {
-            var appView = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
+            // TODO: WinUI
+            //var appView = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
 
-            if (appView != null)
-                appView.Title = CoreWindowTitle;
+            //if (appView != null)
+            //    appView.Title = CoreWindowTitle;
         }
     }
 }

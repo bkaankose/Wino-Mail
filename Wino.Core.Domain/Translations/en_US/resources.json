@@ -521,6 +521,7 @@
     "SettingsSignature_AddCustomSignature_Button": "Add signature",
     "SettingsSignature_EditSignature_Title": "Edit signature",
     "SettingsSignature_DeleteSignature_Title": "Delete signature",
-    "SettingsSignature_NoneSignatureName": "None"
-
+    "SettingsSignature_NoneSignatureName": "None",
+    "WinoSystemTray_LaunchWino": "Launch Wino",
+    "WinoSystemTray_QuitWino": "Quit"
 }

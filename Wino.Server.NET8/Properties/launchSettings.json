@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Wino.Server.NET8 (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Wino.Server.NET8 (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
