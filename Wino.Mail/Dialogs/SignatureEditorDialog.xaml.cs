@@ -40,7 +40,7 @@ namespace Wino.Dialogs
 
             SignatureNameTextBox.Header = Translator.SignatureEditorDialog_SignatureName_TitleNew;
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,FontAccess");
 
             // TODO: Should be added additional logic to enable/disable primary button when webview content changed.
             IsPrimaryButtonEnabled = true;
