@@ -2,22 +2,23 @@
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Server
 {
-    public partial class TrayIconViewModel : ObservableObject
+    public partial class ServerViewModel : ObservableObject, IInitializeAsync
     {
         public ServerContext Context { get; }
 
-        public TrayIconViewModel(ServerContext serverContext)
+        public ServerViewModel(ServerContext serverContext)
         {
             Context = serverContext;
         }
 
         [RelayCommand]
-        public void LaunchWino()
+        public async Task LaunchWinoAsync()
         {
-
+            await Context.TestOutlookSynchronizer();
             // ServerContext.SendTestMessageAsync();
         }
 
@@ -33,5 +34,7 @@ namespace Wino.Server
         }
 
         public async Task ReconnectAsync() => await Context.InitializeAppServiceConnectionAsync();
+
+        public Task InitializeAsync() => Context.InitializeAppServiceConnectionAsync();
     }
 }

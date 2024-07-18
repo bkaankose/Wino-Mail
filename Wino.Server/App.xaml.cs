@@ -1,9 +1,15 @@
 ﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
+using Windows.Storage;
 using Wino.Core;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
+using Wino.Core.UWP.Services;
+using Wino.Services;
 
 namespace Wino.Server
 {
@@ -16,6 +22,7 @@ namespace Wino.Server
     /// </summary>
     public partial class App : Application
     {
+        private const string NotifyIconResourceKey = "NotifyIcon";
         private const string WinoServerAppName = "Wino.Server";
         private const string WinoServerActiatedName = "Wino.Server.Activated";
 
@@ -32,18 +39,42 @@ namespace Wino.Server
             var services = new ServiceCollection();
 
             services.AddTransient<ServerContext>();
-            services.AddTransient<TrayIconViewModel>();
+            services.AddTransient<ServerViewModel>();
 
             services.RegisterCoreServices();
+
+            // Below services belongs to UWP.Core package and some APIs are not available for WPF.
+            // We register them here to avoid compilation errors.
+
+            services.AddSingleton<IConfigurationService, ConfigurationService>();
+            services.AddSingleton<INativeAppService, NativeAppService>();
+            services.AddSingleton<IPreferencesService, PreferencesService>();
 
             return services.BuildServiceProvider();
         }
 
+        private async Task<ServerViewModel> InitializeNewServerAsync()
+        {
+            // TODO: Error handling.
+
+            var databaseService = Services.GetService<IDatabaseService>();
+            var applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
+
+            applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
+            applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+
+            await databaseService.InitializeAsync();
+
+            var serverViewModel = Services.GetRequiredService<ServerViewModel>();
+
+            await serverViewModel.InitializeAsync();
+
+            return serverViewModel;
+        }
+
         protected override async void OnStartup(StartupEventArgs e)
         {
-            bool isCreatedNew;
-
-            _mutex = new Mutex(true, WinoServerAppName, out isCreatedNew);
+            _mutex = new Mutex(true, WinoServerAppName, out bool isCreatedNew);
             _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, WinoServerActiatedName);
 
             if (isCreatedNew)
@@ -57,7 +88,7 @@ namespace Wino.Server
 
                         Current.Dispatcher.BeginInvoke(async () =>
                         {
-                            if (notifyIcon.DataContext is TrayIconViewModel trayIconViewModel)
+                            if (notifyIcon.DataContext is ServerViewModel trayIconViewModel)
                             {
                                 await trayIconViewModel.ReconnectAsync();
                             }
@@ -73,18 +104,16 @@ namespace Wino.Server
 
                 base.OnStartup(e);
 
+                var serverViewModel = await InitializeNewServerAsync();
+
                 // Create taskbar icon for the new server.
-                notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
-
-                var viewModel = Services.GetRequiredService<TrayIconViewModel>();
-                await viewModel.Context.InitializeAsync();
-
-                notifyIcon.DataContext = viewModel;
+                notifyIcon = (TaskbarIcon)FindResource(NotifyIconResourceKey);
+                notifyIcon.DataContext = serverViewModel;
                 notifyIcon.ForceCreate(enablesEfficiencyMode: true);
             }
             else
             {
-                // Notify other instance so it could bring itself to foreground.
+                // Notify other instance so it could reconnect to UWP app if needed.
                 _eventWaitHandle.Set();
 
                 // Terminate this instance.

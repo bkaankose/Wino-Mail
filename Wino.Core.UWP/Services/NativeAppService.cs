@@ -9,10 +9,13 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Shell;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
+
+#if WINDOWS_UWP
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+#endif
 
 namespace Wino.Services
 {
@@ -21,7 +24,14 @@ namespace Wino.Services
         private string _mimeMessagesFolder;
         private string _editorBundlePath;
 
-        public string GetWebAuthenticationBrokerUri() => WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+        public string GetWebAuthenticationBrokerUri()
+        {
+#if WINDOWS_UWP
+            return WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+#endif
+
+            return string.Empty;
+        }
 
         public async Task<string> GetMimeMessageStoragePath()
         {
@@ -91,7 +101,15 @@ namespace Wino.Services
             return _editorBundlePath;
         }
 
-        public bool IsAppRunning() => (Window.Current?.Content as Frame)?.Content != null;
+        public bool IsAppRunning()
+        {
+#if WINDOWS_UWP
+            return (Window.Current?.Content as Frame)?.Content != null;
+#endif
+
+            return true;
+        }
+
 
         public async Task LaunchFileAsync(string filePath)
         {

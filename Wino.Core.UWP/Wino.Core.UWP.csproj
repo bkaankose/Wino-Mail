@@ -128,7 +128,8 @@
     <Compile Include="Models\Personalization\PreDefinedAppTheme.cs" />
     <Compile Include="Models\Personalization\SystemAppTheme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Services\AppInitializerService.cs" />
+    <Compile Include="Services\PreferencesService.cs" />
+    <Compile Include="Services\StatePersistenceService.cs" />
     <Compile Include="Services\WinoServerConnectionManager.cs" />
     <Compile Include="Services\BackgroundTaskService.cs" />
     <Compile Include="Services\ClipboardService.cs" />

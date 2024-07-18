@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Crashes;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Messages.Shell;
 
@@ -116,17 +115,10 @@ namespace Wino.Services
 
         private void UpdateAppCoreWindowTitle()
         {
-            try
-            {
-                var appView = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
+            var appView = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
 
-                if (appView != null)
-                    appView.Title = CoreWindowTitle;
-            }
-            catch (System.Exception ex)
-            {
-                Crashes.TrackError(ex);
-            }
+            if (appView != null)
+                appView.Title = CoreWindowTitle;
         }
     }
 }

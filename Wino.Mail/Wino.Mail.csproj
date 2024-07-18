@@ -336,8 +336,6 @@
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\LaunchProtocolService.cs" />
-    <Compile Include="Services\PreferencesService.cs" />
-    <Compile Include="Services\StatePersistenceService.cs" />
     <Compile Include="Services\ToastActivationService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />
     <Compile Include="Styles\CommandBarItems.xaml.cs">

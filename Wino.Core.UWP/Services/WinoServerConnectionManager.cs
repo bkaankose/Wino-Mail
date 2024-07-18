@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -140,6 +141,8 @@ namespace Wino.Core.UWP.Services
         /// <param name="messageJson">Message data in json format.</param>
         private void HandleUIMessage(string messageJson, string typeName)
         {
+            Debug.WriteLine($"C: UImessage ({typeName})");
+
             switch (typeName)
             {
                 case nameof(MailAddedMessage):

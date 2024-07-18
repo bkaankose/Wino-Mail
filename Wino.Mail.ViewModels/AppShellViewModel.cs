@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
 using MoreLinq;
@@ -128,6 +129,9 @@ namespace Wino.Mail.ViewModels
             _notificationBuilder = notificationBuilder;
             _winoRequestDelegator = winoRequestDelegator;
         }
+
+        [RelayCommand]
+        private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
         protected override void OnDispatcherAssigned()
         {

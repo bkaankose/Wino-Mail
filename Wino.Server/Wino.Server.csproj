@@ -17,6 +17,12 @@
 	  <None Remove="Images\Wino_Icon.ico" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Compile Include="..\Wino.Core.UWP\Services\ConfigurationService.cs" Link="Services\ConfigurationService.cs" />
+	  <Compile Include="..\Wino.Core.UWP\Services\NativeAppService.cs" Link="Services\NativeAppService.cs" />
+	  <Compile Include="..\Wino.Core.UWP\Services\NotificationBuilder.cs" Link="Services\NotificationBuilder.cs" />
+	  <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
+	</ItemGroup>
+	<ItemGroup>
 	  <Resource Include="Images\Wino_Icon.ico">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </Resource>
@@ -29,5 +35,8 @@
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	  <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
 	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Services\" />
 	</ItemGroup>
 </Project>

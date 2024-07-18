@@ -7,7 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Services;
 
-namespace Wino.Services
+namespace Wino.Core.UWP.Services
 {
     public class PreferencesService : ObservableObject, IPreferencesService
     {

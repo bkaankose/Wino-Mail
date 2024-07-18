@@ -45,8 +45,9 @@ namespace Wino
         private readonly ILogInitializer _logInitializer;
         private readonly IThemeService _themeService;
         private readonly IDatabaseService _databaseService;
-        private readonly IAppInitializerService _appInitializerService;
+        private readonly IApplicationConfiguration _appInitializerService;
         private readonly ITranslationService _translationService;
+        private readonly IApplicationConfiguration _applicationFolderConfiguration;
 
         // Order matters.
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
@@ -77,10 +78,16 @@ namespace Wino
             ConfigurePrelaunch();
             ConfigureXbox();
 
+            _applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
+
+            // Make sure the paths are setup on app start.
+            _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
+            _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+
             _appServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
             _themeService = Services.GetService<IThemeService>();
             _databaseService = Services.GetService<IDatabaseService>();
-            _appInitializerService = Services.GetService<IAppInitializerService>();
+            _appInitializerService = Services.GetService<IApplicationConfiguration>();
             _translationService = Services.GetService<ITranslationService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

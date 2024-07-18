@@ -521,7 +521,7 @@
                     Padding="14"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom">
-                    <TextBlock Text="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}" />
+                    <Button Content="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}" Command="{x:Bind ViewModel.ReconnectServerCommand}" />
                 </Grid>
             </Grid>
         </muxc:NavigationView>
