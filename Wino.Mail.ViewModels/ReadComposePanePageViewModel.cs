@@ -38,23 +38,23 @@ namespace Wino.Mail.ViewModels
             _fontService = fontService;
             PreferencesService = preferencesService;
 
-            CurrentReaderFont = fontService.GetCurrentReaderFont();
-            CurrentReaderFontSize = fontService.GetCurrentReaderFontSize();
+            CurrentReaderFont = preferencesService.ReaderFont;
+            CurrentReaderFontSize = preferencesService.ReaderFontSize;
 
-            CurrentComposerFont = fontService.GetCurrentComposerFont();
-            CurrentComposerFontSize = fontService.GetCurrentComposerFontSize();
+            CurrentComposerFont = preferencesService.ComposerFont;
+            CurrentComposerFontSize = preferencesService.ComposerFontSize;
         }
 
         public void Receive(PropertyChangedMessage<string> message)
         {
             if (message.PropertyName == nameof(CurrentReaderFont) && message.OldValue != message.NewValue)
             {
-                _fontService.SetReaderFont(message.NewValue);
+                PreferencesService.ReaderFont = message.NewValue;
             }
 
             if (message.PropertyName == nameof(CurrentComposerFont) && message.OldValue != message.NewValue)
             {
-                _fontService.SetComposerFont(message.NewValue);
+                PreferencesService.ComposerFont = message.NewValue;
             }
         }
 
@@ -62,11 +62,11 @@ namespace Wino.Mail.ViewModels
         {
             if (message.PropertyName == nameof(CurrentReaderFontSize))
             {
-                _fontService.SetReaderFontSize(CurrentReaderFontSize);
+                PreferencesService.ReaderFontSize = CurrentReaderFontSize;
             }
             else if (message.PropertyName == nameof(CurrentComposerFontSize))
             {
-                _fontService.SetComposerFontSize(CurrentComposerFontSize);
+                PreferencesService.ComposerFontSize = CurrentComposerFontSize;
             }
         }
     }
