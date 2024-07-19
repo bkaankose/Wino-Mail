@@ -1,18 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Wino.Server</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+	  
     <Platforms>x86;x64;ARM64</Platforms>
-	<SelfContained>true</SelfContained>
-    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
+	<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+	<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
+	<WindowsSdkPackageVersion>10.0.19041.35-preview</WindowsSdkPackageVersion>
+	  
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
+
     <EnableMsixTooling>true</EnableMsixTooling>
-	<DisableEmbeddedXbf>false</DisableEmbeddedXbf>
+
+    <SupportedOSPlatformVersion>10.0.22621.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
 	<!-- Disable XAML generated main to enable single activation. -->
@@ -36,13 +40,15 @@
 	</PropertyGroup>
 	
   <ItemGroup>
+	<ApplicationDefinition Include="ServerApp.xaml" SubType="Designer" />
     <None Remove="app.manifest" />
     <None Remove="Assets\Wino_Icon.ico" />
     <None Remove="TrayIconResources.xaml" />
   </ItemGroup>
 	
   <ItemGroup>
-    <Page Remove="App.xaml" />
+	  <None Remove="ServerApp.xaml" />
+	  <Page Remove="ServerApp.xaml" />
   </ItemGroup>
 
   <ItemGroup>
