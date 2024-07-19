@@ -1,13 +1,12 @@
 ﻿<ResourceDictionary
-    x:Class="Wino.Server.TrayIconResources"
+    x:Class="Wino.Server.Styles.TrayIconResources"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:tb="using:H.NotifyIcon"
-    xmlns:local="using:Wino.Server">
+    xmlns:local="using:Wino.Server"
+    xmlns:tb="using:H.NotifyIcon">
 
     <!--  TODO: Localize by Translator.  -->
-
     <XamlUICommand
         x:Key="LaunchCommand"
         Label="Launch"
@@ -30,10 +29,10 @@
         x:Key="TrayIcon"
         Visibility="Visible"
         ToolTipText="Wino Mail"
-        ContextMenuMode="SecondWindow"
+        ContextMenuMode="PopupMenu"
         LeftClickCommand="{StaticResource LaunchCommand}"
         NoLeftClickDelay="True"
-        IconSource="\Images\Wino_Icon.ico">
+        IconSource="\Assets\Wino_Icon.ico">
         <tb:TaskbarIcon.ContextFlyout>
             <MenuFlyout>
                 <MenuFlyoutItem Command="{StaticResource LaunchCommand}" />
