@@ -19,7 +19,6 @@
 	<ItemGroup>
 	  <Compile Include="..\Wino.Core.UWP\Services\ConfigurationService.cs" Link="Services\ConfigurationService.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\NativeAppService.cs" Link="Services\NativeAppService.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\NotificationBuilder.cs" Link="Services\NotificationBuilder.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
 	</ItemGroup>
 	<ItemGroup>
