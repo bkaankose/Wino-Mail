@@ -161,6 +161,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" />
-    <ProjectReference Include="..\Wino.Server.NET8\Wino.Server.NET8.csproj" />
+    <ProjectReference Include="..\Wino.Server\Wino.Server.csproj" />
   </ItemGroup>
 </Project>

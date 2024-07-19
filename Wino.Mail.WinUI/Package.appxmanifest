@@ -17,14 +17,14 @@
     </Extensions>
 
 	<Identity
-    Name="58272BurakKSE.WPCEx"
+    Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="1.0.0.0" />
+    Version="0.0.1.0" />
 
-  <mp:PhoneIdentity PhoneProductId="5f63c5a0-c3a9-4589-97ef-25dad4e4ec10" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+  <mp:PhoneIdentity PhoneProductId="efeba1ea-0f3a-484d-8ac6-5f03a08ba6a9" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>WPCEx</DisplayName>
+    <DisplayName>Wino Mail (Preview)</DisplayName>
     <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -71,6 +71,13 @@
 				  <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
 			  </uap:Protocol>
 		  </uap:Extension>
+
+		  <!-- SessionConnected task for background synchronization on startup. -->
+		  <!--<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
+			  <BackgroundTasks>
+				  <Task Type="systemEvent" />
+			  </BackgroundTasks>
+		  </Extension>-->
 
 		  <!-- File Assosication: EML -->
 		  <uap:Extension Category="windows.fileTypeAssociation">

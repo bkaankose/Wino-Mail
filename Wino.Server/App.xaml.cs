@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Input;
 using Windows.Storage;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
-using Wino.Core.UWP.Services;
-using Wino.Services;
+//using Wino.Core.UWP;
 
 namespace Wino.Server
 {
@@ -29,16 +27,11 @@ namespace Wino.Server
 
         public new static App Current => (App)Application.Current;
 
-        private TaskbarIcon notifyIcon;
+        private TaskbarIcon? notifyIcon;
         private static Mutex _mutex = null;
         private EventWaitHandle _eventWaitHandle;
 
         public IServiceProvider Services { get; private set; }
-
-        public App()
-        {
-            InitializeComponent();
-        }
 
         private IServiceProvider ConfigureServices()
         {
@@ -48,13 +41,14 @@ namespace Wino.Server
             services.AddTransient<ServerViewModel>();
 
             services.RegisterCoreServices();
+            // services.RegisterCoreUWPServices();
 
             // Below services belongs to UWP.Core package and some APIs are not available for WPF.
             // We register them here to avoid compilation errors.
 
-            services.AddSingleton<IConfigurationService, ConfigurationService>();
-            services.AddSingleton<INativeAppService, NativeAppService>();
-            services.AddSingleton<IPreferencesService, PreferencesService>();
+            //services.AddSingleton<IConfigurationService, ConfigurationService>();
+            //services.AddSingleton<INativeAppService, NativeAppService>();
+            //services.AddSingleton<IPreferencesService, PreferencesService>();
 
             return services.BuildServiceProvider();
         }
@@ -78,10 +72,8 @@ namespace Wino.Server
             return serverViewModel;
         }
 
-        protected override void OnLaunched(LaunchActivatedEventArgs args)
+        protected override async void OnStartup(StartupEventArgs e)
         {
-            base.OnLaunched(args);
-
             _mutex = new Mutex(true, WinoServerAppName, out bool isCreatedNew);
             _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, WinoServerActiatedName);
 
@@ -110,6 +102,7 @@ namespace Wino.Server
 
                 Services = ConfigureServices();
 
+                base.OnStartup(e);
 
                 var serverViewModel = await InitializeNewServerAsync();
 
@@ -124,21 +117,14 @@ namespace Wino.Server
                 _eventWaitHandle.Set();
 
                 // Terminate this instance.
-                // Shutdown();
+                Shutdown();
             }
-
         }
 
-        private void InitializeNotifyIcon()
+        protected override void OnExit(ExitEventArgs e)
         {
-            var showHideWindowCommand = (XamlUICommand)Resources["ShowHideWindowCommand"];
-            showHideWindowCommand.ExecuteRequested += ShowHideWindowCommand_ExecuteRequested;
-
-            var exitApplicationCommand = (XamlUICommand)Resources["ExitApplicationCommand"];
-            exitApplicationCommand.ExecuteRequested += ExitApplicationCommand_ExecuteRequested;
-
-            notifyIcon = (TaskbarIcon)Resources["TrayIcon"];
-            notifyIcon.ForceCreate();
+            notifyIcon?.Dispose();
+            base.OnExit(e);
         }
     }
 }

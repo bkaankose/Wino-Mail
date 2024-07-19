@@ -13,7 +13,6 @@
 	  Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
 	  Version="1.8.0.0" />
 
-
 	<Extensions>
 		<!-- Publisher Cache Folders -->
 		<Extension Category="windows.publisherCacheFolders">
@@ -57,11 +56,11 @@
 			<Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
 
 			<!-- SessionConnected task for background synchronization on startup. -->
-			<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
+			<!--<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
 				<BackgroundTasks>
 					<Task Type="systemEvent" />
 				</BackgroundTasks>
-			</Extension>
+			</Extension>-->
 
 			<!-- Protocol activation: mailto -->
 			<uap:Extension Category="windows.protocol">
