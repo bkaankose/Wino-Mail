@@ -54,7 +54,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MimeKit" Version="4.7.1" />
     <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
     <PackageReference Include="MimeKit" Version="4.7.1" />
     <PackageReference Include="MailKit" Version="4.7.1.1" />
