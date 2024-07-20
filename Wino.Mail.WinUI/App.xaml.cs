@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,8 +10,7 @@ using Wino.Core.Services;
 using Wino.Core.WinUI.Services;
 using Wino.Views;
 using WinUIEx;
-
-namespace Wino.Mail.WinUI
+namespace Wino
 {
     public partial class App : Application
     {
@@ -62,7 +62,7 @@ namespace Wino.Mail.WinUI
             m_Window.Activate();
         }
 
-        private void ConfigureWindow()
+        private async void ConfigureWindow()
         {
             m_Window = new WindowEx
             {

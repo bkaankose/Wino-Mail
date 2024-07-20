@@ -108,13 +108,13 @@ namespace Wino.Server
 
         public async Task TestOutlookSynchronizer()
         {
-            var accountService = ServerApp.Current.Services.GetService<IAccountService>();
+            var accountService = App.Current.Services.GetService<IAccountService>();
 
             var accs = await accountService.GetAccountsAsync();
             var acc = accs.ElementAt(0);
 
-            var authenticator = ServerApp.Current.Services.GetService<OutlookAuthenticator>();
-            var processor = ServerApp.Current.Services.GetService<IOutlookChangeProcessor>();
+            var authenticator = App.Current.Services.GetService<OutlookAuthenticator>();
+            var processor = App.Current.Services.GetService<IOutlookChangeProcessor>();
 
             var sync = new OutlookSynchronizer(acc, authenticator, processor);
 

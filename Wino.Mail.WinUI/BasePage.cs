@@ -6,9 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Messages.Shell;
-using Wino.Core.WinUI;
 using Wino.Mail.ViewModels;
-using Wino.Mail.WinUI;
 
 namespace Wino
 {

@@ -8,6 +8,7 @@ using Windows.Storage;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
+using Wino.Core.UWP;
 //using Wino.Core.UWP;
 
 namespace Wino.Server
@@ -41,7 +42,7 @@ namespace Wino.Server
             services.AddTransient<ServerViewModel>();
 
             services.RegisterCoreServices();
-            // services.RegisterCoreUWPServices();
+            services.RegisterCoreUWPServices();
 
             // Below services belongs to UWP.Core package and some APIs are not available for WPF.
             // We register them here to avoid compilation errors.

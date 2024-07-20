@@ -96,7 +96,7 @@
 			<!--<uap:Extension Category="windows.appService">
 				<uap:AppService Name="WinoInteropService" />
 			</uap:Extension>-->
-			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />
+			<!--<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />-->
 		</Extensions>
     </Application>
   </Applications>

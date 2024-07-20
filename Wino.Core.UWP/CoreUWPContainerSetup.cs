@@ -21,8 +21,7 @@ namespace Wino.Core.UWP
             services.AddSingleton<IStoreManagementService, StoreManagementService>();
             services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
             services.AddSingleton<IAppShellService, AppShellService>();
-
-
+            services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddTransient<IConfigurationService, ConfigurationService>();
             services.AddTransient<IFileService, FileService>();
             services.AddTransient<IStoreRatingService, StoreRatingService>();

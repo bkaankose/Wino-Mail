@@ -1,21 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-	<TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
-	<TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Wino.Server</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-	<GenerateAssemblyInfo>True</GenerateAssemblyInfo>
-	  
     <Platforms>x86;x64;ARM64</Platforms>
-	<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-	<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
-	<WindowsSdkPackageVersion>10.0.22621.35-preview</WindowsSdkPackageVersion>
+	<SelfContained>true</SelfContained>
+    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
-	<SelfContained>true</SelfContained>
     <EnableMsixTooling>true</EnableMsixTooling>
-    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+	<DisableEmbeddedXbf>false</DisableEmbeddedXbf>
   </PropertyGroup>
 
 	<!-- Disable XAML generated main to enable single activation. -->
@@ -39,15 +36,13 @@
 	</PropertyGroup>
 	
   <ItemGroup>
-	<ApplicationDefinition Include="ServerApp.xaml" SubType="Designer" />
     <None Remove="app.manifest" />
     <None Remove="Assets\Wino_Icon.ico" />
     <None Remove="TrayIconResources.xaml" />
   </ItemGroup>
 	
   <ItemGroup>
-	  <None Remove="ServerApp.xaml" />
-	  <Page Remove="ServerApp.xaml" />
+    <Page Remove="App.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -63,7 +58,7 @@
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.1.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240701003-experimental2" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 

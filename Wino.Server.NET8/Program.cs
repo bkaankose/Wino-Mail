@@ -24,15 +24,13 @@ namespace Wino.Server
                     var context = new DispatcherQueueSynchronizationContext(
                         DispatcherQueue.GetForCurrentThread());
                     SynchronizationContext.SetSynchronizationContext(context);
-                    new ServerApp();
+                    new App();
                 });
             }
         }
 
         private static bool DecideRedirection()
         {
-            return false;
-
             bool isRedirect = false;
 
             AppActivationArguments args = AppInstance.GetCurrent().GetActivatedEventArgs();

@@ -7,16 +7,25 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
-  <Identity
-    Name="8c9e5a8b-1203-4229-a3d1-18bca87c08a6"
-    Publisher="CN=bkaan"
-    Version="1.0.0.0" />
+    <!-- Publisher Cache Folders -->
+    <Extensions>
+	    <Extension Category="windows.publisherCacheFolders">
+		    <PublisherCacheFolders>
+			    <Folder Name="WinoShared" />
+		    </PublisherCacheFolders>
+	    </Extension>
+    </Extensions>
 
-  <mp:PhoneIdentity PhoneProductId="8c9e5a8b-1203-4229-a3d1-18bca87c08a6" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+	<Identity
+    Name="58272BurakKSE.WinoMailPreview"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Version="0.0.1.0" />
+
+  <mp:PhoneIdentity PhoneProductId="efeba1ea-0f3a-484d-8ac6-5f03a08ba6a9" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Wino.Mail.WinUI</DisplayName>
-    <PublisherDisplayName>bkaan</PublisherDisplayName>
+    <DisplayName>Wino Mail (Preview)</DisplayName>
+    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -34,14 +43,53 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="Wino.Mail.WinUI"
-        Description="Wino.Mail.WinUI"
+        DisplayName="Wino Mail WinUI"
+        Description="WinUI 3 for Wino Mail"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"  Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+		  <!-- Web Auth Broker -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="winomail.app"/>
+        </uap:Extension>
+
+		  <!-- App updated task. Notifies about new version after each Store update. -->
+		  <Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
+
+		  <!-- Protocol activation: mailto -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="mailto" />
+		  </uap:Extension>
+
+		  <!-- Protocol activation: Google oAuth -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="google.pw.oauth2">
+				  <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+			  </uap:Protocol>
+		  </uap:Extension>
+
+		  <!-- SessionConnected task for background synchronization on startup. -->
+		  <!--<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
+			  <BackgroundTasks>
+				  <Task Type="systemEvent" />
+			  </BackgroundTasks>
+		  </Extension>-->
+
+		  <!-- File Assosication: EML -->
+		  <uap:Extension Category="windows.fileTypeAssociation">
+			  <uap:FileTypeAssociation Name="eml">
+				  <uap:Logo>EML\eml.png</uap:Logo>
+				  <uap:SupportedFileTypes>
+					  <uap:FileType>.eml</uap:FileType>
+				  </uap:SupportedFileTypes>
+			  </uap:FileTypeAssociation>
+		  </uap:Extension>
+
+	  </Extensions>
     </Application>
   </Applications>
 
