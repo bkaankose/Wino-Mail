@@ -318,26 +318,13 @@ namespace Wino.Mail.ViewModels
             renderCancellationTokenSource = new CancellationTokenSource();
 
             // Mime content might not be available for now and might require a download.
-            try
-            {
-                if (parameters is MailItemViewModel selectedMailItemViewModel)
-                    await RenderAsync(selectedMailItemViewModel, renderCancellationTokenSource.Token);
-                else if (parameters is MimeMessageInformation mimeMessageInformation)
-                    await RenderAsync(mimeMessageInformation);
 
-                InitializeCommandBarItems();
-            }
-            catch (OperationCanceledException)
-            {
-                Log.Information("Canceled mail rendering.");
-            }
-            catch (Exception ex)
-            {
-                DialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+            if (parameters is MailItemViewModel selectedMailItemViewModel)
+                await RenderAsync(selectedMailItemViewModel, renderCancellationTokenSource.Token);
+            else if (parameters is MimeMessageInformation mimeMessageInformation)
+                await RenderAsync(mimeMessageInformation);
 
-                Crashes.TrackError(ex);
-                Log.Error(ex, "Render Failed");
-            }
+            InitializeCommandBarItems();
         }
 
         private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
@@ -393,59 +380,74 @@ namespace Wino.Mail.ViewModels
 
         private async Task RenderAsync(MimeMessageInformation mimeMessageInformation)
         {
-            var message = mimeMessageInformation.MimeMessage;
-            var messagePath = mimeMessageInformation.Path;
-
-            initializedMimeMessageInformation = mimeMessageInformation;
-
-            // TODO: Handle S/MIME decryption.
-            // initializedMimeMessageInformation.MimeMessage.Body is MultipartSigned
-
-            var renderingOptions = PreferencesService.GetRenderingOptions();
-
-            await ExecuteUIThread(() =>
+            try
             {
-                Attachments.Clear();
+                var message = mimeMessageInformation.MimeMessage;
+                var messagePath = mimeMessageInformation.Path;
 
-                Subject = message.Subject;
+                initializedMimeMessageInformation = mimeMessageInformation;
 
-                // TODO: FromName and FromAddress is probably not correct here for mail lists.
-                FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
-                FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
-                CreationDate = message.Date.DateTime;
+                // TODO: Handle S/MIME decryption.
+                // initializedMimeMessageInformation.MimeMessage.Body is MultipartSigned
 
-                // Extract to,cc and bcc
-                LoadAddressInfo(message.To, ToItems);
-                LoadAddressInfo(message.Cc, CCItemsItems);
-                LoadAddressInfo(message.Bcc, BCCItems);
+                var renderingOptions = PreferencesService.GetRenderingOptions();
 
-                // Automatically disable images for Junk folder to prevent pixel tracking.
-                // This can only work for selected mail item rendering, not for EML file rendering.
-                if (initializedMailItemViewModel != null &&
-                    initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+                await ExecuteUIThread(() =>
                 {
-                    renderingOptions.LoadImages = false;
-                }
+                    Attachments.Clear();
 
-                // Load images if forced.
-                if (forceImageLoading)
-                {
-                    renderingOptions.LoadImages = true;
-                }
+                    Subject = message.Subject;
 
-                CurrentRenderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+                    // TODO: FromName and FromAddress is probably not correct here for mail lists.
+                    FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
+                    FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
+                    CreationDate = message.Date.DateTime;
 
-                Messenger.Send(new HtmlRenderingRequested(CurrentRenderModel.RenderHtml));
+                    // Extract to,cc and bcc
+                    LoadAddressInfo(message.To, ToItems);
+                    LoadAddressInfo(message.Cc, CCItemsItems);
+                    LoadAddressInfo(message.Bcc, BCCItems);
 
-                foreach (var attachment in CurrentRenderModel.Attachments)
-                {
-                    Attachments.Add(new MailAttachmentViewModel(attachment));
-                }
+                    // Automatically disable images for Junk folder to prevent pixel tracking.
+                    // This can only work for selected mail item rendering, not for EML file rendering.
+                    if (initializedMailItemViewModel != null &&
+                        initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+                    {
+                        renderingOptions.LoadImages = false;
+                    }
 
-                OnPropertyChanged(nameof(IsImageRenderingDisabled));
+                    // Load images if forced.
+                    if (forceImageLoading)
+                    {
+                        renderingOptions.LoadImages = true;
+                    }
 
-                StatePersistanceService.IsReadingMail = true;
-            });
+                    CurrentRenderModel = _mimeFileService.GetMailRenderModel(message, messagePath, renderingOptions);
+
+                    Messenger.Send(new HtmlRenderingRequested(CurrentRenderModel.RenderHtml));
+
+                    foreach (var attachment in CurrentRenderModel.Attachments)
+                    {
+                        Attachments.Add(new MailAttachmentViewModel(attachment));
+                    }
+
+                    OnPropertyChanged(nameof(IsImageRenderingDisabled));
+
+                    StatePersistanceService.IsReadingMail = true;
+                });
+
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Information("Canceled mail rendering.");
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+
+                Crashes.TrackError(ex);
+                Log.Error(ex, "Render Failed");
+            }
         }
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
