@@ -185,7 +185,7 @@ namespace Wino.Core.UWP.Services
                 else
                     badgeUpdater.Clear();
             }
-            catch (System.Exception ex)
+            catch (Exception)
             {
                 // TODO: Log exceptions.
 

@@ -89,6 +89,8 @@ namespace Wino.Core.UWP.Services
         {
             if (Connection == null || Status == WinoServerConnectionStatus.Disconnected) return true;
 
+            await Task.CompletedTask;
+
             // TODO: Send disconnect message to the fulltrust process.
 
             return true;
