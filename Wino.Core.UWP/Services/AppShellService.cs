@@ -2,7 +2,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 #else
-using Windows.UI.Xaml;
+using Microsoft.UI.Xaml;
 #endif
 
 namespace Wino.Core.WinUI.Services

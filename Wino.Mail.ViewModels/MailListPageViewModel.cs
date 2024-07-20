@@ -14,7 +14,6 @@ using Microsoft.AppCenter.Crashes;
 using MoreLinq;
 using Nito.AsyncEx;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;

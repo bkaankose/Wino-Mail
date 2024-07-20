@@ -7,7 +7,7 @@ using Wino.Core.MenuItems;
 #if NET8_0
 using Microsoft.UI.Xaml;
 #else
-using Windows.UI.Xaml;
+using Microsoft.UI.Xaml;
 #endif
 
 namespace Wino.Behaviors

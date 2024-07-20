@@ -16,8 +16,8 @@ using Wino.Core.Domain.Models.Authorization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 #else
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Windows.Security.Authentication.Web;
 #endif
 namespace Wino.Services

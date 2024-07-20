@@ -1,4 +1,4 @@
-﻿namespace Wino.Core
+﻿namespace Wino.Core.Domain
 {
     /// <summary>
     /// Error codes for Wino application.

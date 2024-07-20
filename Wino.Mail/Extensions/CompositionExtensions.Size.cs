@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Composition;
 #else
-using Windows.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Windows.UI.Composition;
 #endif
 namespace Wino.Extensions

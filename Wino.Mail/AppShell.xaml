@@ -528,6 +528,7 @@
         <advanced:WinoAppTitleBar
             x:Name="RealAppBar"
             Grid.ColumnSpan="2"
+            Background="Transparent"
             BackButtonClicked="BackButtonClicked"
             Canvas.ZIndex="150"
             CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"

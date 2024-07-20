@@ -8,8 +8,8 @@ using Wino.Core.Domain.Interfaces;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Shapes;
 #else
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Shapes;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Shapes;
 #endif
 namespace Wino.Controls
 {

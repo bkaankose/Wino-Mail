@@ -15,23 +15,23 @@
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
-            <local:AcrylicBrush
+            <!--<local:AcrylicBrush
                 x:Key="WinoApplicationBackgroundColor"
                 BackgroundSource="HostBackdrop"
                 FallbackColor="#F9F9F9"
                 TintColor="#FCFCFC"
-                TintOpacity="0.75" />
+                TintOpacity="0.75" />-->
         </ResourceDictionary>
 
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#2C2C2C</SolidColorBrush>
 
-            <local:AcrylicBrush
+            <!--<local:AcrylicBrush
                 x:Key="WinoApplicationBackgroundColor"
                 BackgroundSource="HostBackdrop"
                 FallbackColor="#2C2C2C"
                 TintColor="#2C2C2C"
-                TintOpacity="0.30" />
+                TintOpacity="0.30" />-->
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

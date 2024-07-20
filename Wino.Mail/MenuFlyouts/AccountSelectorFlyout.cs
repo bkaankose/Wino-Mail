@@ -11,8 +11,8 @@ using Wino.Helpers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 #else
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
 #endif
 
 namespace Wino.MenuFlyouts

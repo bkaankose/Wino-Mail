@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Windows.ApplicationModel.Core;
 using Windows.Foundation;
 
 using Wino.Controls;
@@ -31,11 +30,11 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 #else
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 #endif
 
@@ -51,19 +50,19 @@ namespace Wino.Views
         public AppShell() : base()
         {
             InitializeComponent();
-#if !NET8_0
+#if NET8_0
             // BackdropMaterial is not available in WinUI 3.0.
             // We manually apply it for UWP version only.
             SetupMica();
 
-            var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
-            coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
+            //var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
+            //coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
 #endif
         }
 
-        private void TitleBarLayoutUpdated(CoreApplicationViewTitleBar sender, object args) => UpdateTitleBarLayout(sender);
+        // private void TitleBarLayoutUpdated(CoreApplicationViewTitleBar sender, object args) => UpdateTitleBarLayout(sender);
 
-        private void UpdateTitleBarLayout(CoreApplicationViewTitleBar coreTitleBar) => RealAppBar.SystemReserved = coreTitleBar.SystemOverlayRightInset;
+        //private void UpdateTitleBarLayout(CoreApplicationViewTitleBar coreTitleBar) => RealAppBar.SystemReserved = coreTitleBar.SystemOverlayRightInset;
 
         private async void ItemDroppedOnFolder(object sender, DragEventArgs e)
         {

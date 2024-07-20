@@ -3,30 +3,19 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
-  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap5 rescap">
+  IgnorableNamespaces="uap rescap">
 
-	<Identity
-	  Name="58272BurakKSE.WinoMailPreview"
-	  Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-	  Version="1.8.0.0" />
+  <Identity
+    Name="58272BurakKSE.WinoMailPreview"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Version="0.0.1.0" />
 
-	<Extensions>
-		<!-- Publisher Cache Folders -->
-		<Extension Category="windows.publisherCacheFolders">
-			<PublisherCacheFolders>
-				<Folder Name="WinoShared" />
-			</PublisherCacheFolders>
-		</Extension>
-	</Extensions>
-
-	<Properties>
-		<DisplayName>Wino Mail</DisplayName>
-		<PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
-		<Logo>Assets\StoreLogo.png</Logo>
-	</Properties>
+  <Properties>
+    <DisplayName>Wino Mail (Preview)</DisplayName>
+    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
 
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.0.0" MaxVersionTested="10.0.0.0" />
@@ -37,67 +26,28 @@
     <Resource Language="x-generate"/>
   </Resources>
 
-  <Applications>
+    <Extensions>
+	    <!-- Publisher Cache Folders -->
+	    <Extension Category="windows.publisherCacheFolders">
+		    <PublisherCacheFolders>
+			    <Folder Name="WinoShared" />
+		    </PublisherCacheFolders>
+	    </Extension>
+    </Extensions>
+
+	<Applications>
     <Application Id="App"
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
-		<uap:VisualElements
-        DisplayName="Wino Mail (Packaging)"
-        Description="Packaging project for Wino Mail"
+      <uap:VisualElements
+        DisplayName="Wino Mail (Preview)"
+        Description="Wino.Packaging"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"  Square71x71Logo="Images\SmallTile.png" Square310x310Logo="Images\LargeTile.png"/>
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
-
-		<Extensions>
-			<!-- App updated task. Notifies about new version after each Store update. -->
-			<Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
-
-			<!-- SessionConnected task for background synchronization on startup. -->
-			<!--<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
-				<BackgroundTasks>
-					<Task Type="systemEvent" />
-				</BackgroundTasks>
-			</Extension>-->
-
-			<!-- Protocol activation: mailto -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="mailto" />
-			</uap:Extension>
-
-			<!-- Protocol activation: Google oAuth -->
-			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="google.pw.oauth2">
-					<uap:DisplayName>Google Auth Protocol</uap:DisplayName>
-				</uap:Protocol>
-			</uap:Extension>
-
-			<!-- File Assosication: EML -->
-			<uap:Extension Category="windows.fileTypeAssociation">
-				<uap:FileTypeAssociation Name="eml">
-					<uap:Logo>EML\eml.png</uap:Logo>
-					<uap:SupportedFileTypes>
-						<uap:FileType>.eml</uap:FileType>
-					</uap:SupportedFileTypes>
-				</uap:FileTypeAssociation>
-			</uap:Extension>
-
-			<!-- Startup Task -->
-			<uap5:Extension Category="windows.startupTask">
-				<uap5:StartupTask
-					TaskId="WinoStartupId"
-					Enabled="false"
-					DisplayName="Wino Startup Service" />
-			</uap5:Extension>
-
-			<!-- Registration of full trust backend application. -->
-			<!--<uap:Extension Category="windows.appService">
-				<uap:AppService Name="WinoInteropService" />
-			</uap:Extension>-->
-			<!--<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />-->
-		</Extensions>
     </Application>
   </Applications>
 

@@ -2,6 +2,7 @@
     x:Class="Wino.Views.AccountManagementPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="using:CommunityToolkit.WinUI"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -196,8 +197,10 @@
                 x:Name="AccountsListView"
                 Grid.Row="1"
                 x:Load="{x:Bind ViewModel.HasAccountsDefined, Mode=OneWay}"
-                ItemContainerStyle="{StaticResource StretchedItemContainerStyle}"
                 ItemTemplateSelector="{StaticResource AccountProviderViewModelTemplateSelector}"
+                ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
                 ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}"
                 SelectionMode="None">
                 <ListView.Header>
@@ -235,11 +238,11 @@
                         </winuiControls:SettingsCard>
                     </StackPanel>
                 </ListView.Header>
-                <ListView.ItemsPanel>
+                <!--<ListView.ItemsPanel>
                     <ItemsPanelTemplate>
                         <ItemsStackPanel Orientation="Vertical" />
                     </ItemsPanelTemplate>
-                </ListView.ItemsPanel>
+                </ListView.ItemsPanel>-->
             </ListView>
 
             <!--  No Accounts Panel  -->

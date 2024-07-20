@@ -6,27 +6,22 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Crashes;
-using MoreLinq;
-using MoreLinq.Extensions;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.MenuItems;
-using Wino.Core.Messages.Accounts;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Navigation;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
 using Wino.Core.Services;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
@@ -75,7 +70,6 @@ namespace Wino.Mail.ViewModels
         private readonly INotificationBuilder _notificationBuilder;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
 
-        private readonly IBackgroundTaskService _backgroundTaskService;
         private readonly IMimeFileService _mimeFileService;
 
         private readonly INativeAppService _nativeAppService;
@@ -88,7 +82,6 @@ namespace Wino.Mail.ViewModels
 
         public AppShellViewModel(IDialogService dialogService,
                                  IWinoNavigationService navigationService,
-                                 IBackgroundTaskService backgroundTaskService,
                                  IMimeFileService mimeFileService,
                                  INativeAppService nativeAppService,
                                  IMailService mailService,
@@ -117,7 +110,6 @@ namespace Wino.Mail.ViewModels
             PreferencesService = preferencesService;
             NavigationService = navigationService;
 
-            _backgroundTaskService = backgroundTaskService;
             _mimeFileService = mimeFileService;
             _nativeAppService = nativeAppService;
             _mailService = mailService;
@@ -240,26 +232,8 @@ namespace Wino.Mail.ViewModels
 #if !DEBUG
             await ForceAllAccountSynchronizationsAsync();
 #endif
-            await ConfigureBackgroundTasksAsync();
         }
 
-        private async Task ConfigureBackgroundTasksAsync()
-        {
-            try
-            {
-                await _backgroundTaskService.HandleBackgroundTaskRegistrations();
-            }
-            catch (BackgroundTaskExecutionRequestDeniedException)
-            {
-                await DialogService.ShowMessageAsync(Translator.Info_BackgroundExecutionDeniedMessage, Translator.Info_BackgroundExecutionDeniedTitle);
-            }
-            catch (Exception ex)
-            {
-                Crashes.TrackError(ex);
-
-                DialogService.InfoBarMessage(Translator.Info_BackgroundExecutionUnknownErrorTitle, Translator.Info_BackgroundExecutionUnknownErrorMessage, InfoBarMessageType.Error);
-            }
-        }
 
         private async Task ForceAllAccountSynchronizationsAsync()
         {

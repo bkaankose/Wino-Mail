@@ -3,12 +3,17 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
@@ -21,26 +26,12 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
 using Wino.Extensions;
-using Wino.Mail.ViewModels.Data;
-using Wino.Views.Abstract;
-using CommunityToolkit.WinUI.Controls;
 using Wino.Helpers;
-using System.Text.Json;
-
-
-#if NET8_0
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media.Animation;
-using Microsoft.UI.Xaml.Navigation;
-#else
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Media.Animation;
-using Windows.UI.Xaml.Navigation;
-#endif
+using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Mails;
+using Wino.Views.Abstract;
 
 namespace Wino.Views
 {

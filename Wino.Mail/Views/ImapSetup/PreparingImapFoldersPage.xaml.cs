@@ -2,7 +2,7 @@
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;
 #else
-using Windows.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls;
 #endif
 
 namespace Wino.Views.ImapSetup

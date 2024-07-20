@@ -18,9 +18,9 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Extensions;
-using Wino.Core.Messages.Mails;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Mails;
 
 namespace Wino.Mail.ViewModels
 {

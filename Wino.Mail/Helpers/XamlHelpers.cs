@@ -19,12 +19,12 @@ using CommunityToolkit.WinUI.Helpers;
 using Microsoft.UI.Xaml.Shapes;
 #else
 using Windows.UI;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Markup;
-using Windows.UI.Xaml.Media;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.Toolkit.Uwp.Helpers;
-using Windows.UI.Xaml.Shapes;
+using Microsoft.UI.Xaml.Shapes;
 #endif
 
 namespace Wino.Helpers

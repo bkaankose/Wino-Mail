@@ -9,7 +9,6 @@ using Windows.Foundation.Metadata;
 using Windows.Storage;
 using Windows.System.Profile;
 using Windows.UI.ViewManagement;
-using Wino.Activation;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP;
@@ -25,7 +24,7 @@ using Wino.Core.WinUI.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI;
 #else
-using Windows.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Windows.UI;
 #endif
 
@@ -35,7 +34,6 @@ namespace Wino
     {
         private const string WinoLaunchLogPrefix = "[Wino Launch] ";
         private const string AppCenterKey = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
-
 
         private readonly IWinoServerConnectionManager<AppServiceConnection> _appServiceConnectionManager;
         private readonly ILogInitializer _logInitializer;
@@ -111,10 +109,10 @@ namespace Wino
 
         private void RegisterActivationHandlers(IServiceCollection services)
         {
-            services.AddTransient<ProtocolActivationHandler>();
-            services.AddTransient<BackgroundActivationHandler>();
-            services.AddTransient<ToastNotificationActivationHandler>();
-            services.AddTransient<FileActivationHandler>();
+            //services.AddTransient<ProtocolActivationHandler>();
+            //services.AddTransient<BackgroundActivationHandler>();
+            //services.AddTransient<ToastNotificationActivationHandler>();
+            //services.AddTransient<FileActivationHandler>();
         }
 
         private void RegisterUWPServices(IServiceCollection services)
@@ -152,12 +150,12 @@ namespace Wino
 
         #endregion
 
-        private IEnumerable<ActivationHandler> GetActivationHandlers()
-        {
-            yield return Services.GetService<ProtocolActivationHandler>();
-            yield return Services.GetService<BackgroundActivationHandler>();
-            yield return Services.GetService<ToastNotificationActivationHandler>();
-            yield return Services.GetService<FileActivationHandler>();
-        }
+        //private IEnumerable<ActivationHandler> GetActivationHandlers()
+        //{
+        //    yield return Services.GetService<ProtocolActivationHandler>();
+        //    yield return Services.GetService<BackgroundActivationHandler>();
+        //    yield return Services.GetService<ToastNotificationActivationHandler>();
+        //    yield return Services.GetService<FileActivationHandler>();
+        //}
     }
 }

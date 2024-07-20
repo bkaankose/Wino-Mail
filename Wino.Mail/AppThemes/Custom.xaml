@@ -1,7 +1,7 @@
-﻿<ResourceDictionary
+<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:xaml="using:Windows.UI.Xaml">
+    xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Custom</x:String>
     <x:String x:Key="ThemeBackgroundImage">ms-appdata:///local/CustomWallpaper.jpg</x:String>
@@ -23,7 +23,7 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
             <Color x:Key="MainCustomThemeColor">#D9FFFFFF</Color>
-
+            
             <SolidColorBrush x:Key="AppBarBackgroundColor" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />

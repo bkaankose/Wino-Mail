@@ -4,7 +4,7 @@
 #if NET8_0
 using Microsoft.UI.Xaml.Data;
 #else
-using Windows.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Data;
 #endif
 
 namespace Wino.Converters

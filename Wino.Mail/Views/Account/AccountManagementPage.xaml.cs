@@ -3,7 +3,7 @@
 #if NET8_0
 using Microsoft.UI.Xaml.Navigation;
 #else
-using Windows.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Navigation;
 #endif
 
 namespace Wino.Views

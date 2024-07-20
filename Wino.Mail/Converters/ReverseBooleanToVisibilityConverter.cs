@@ -5,8 +5,8 @@
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml;
 #else
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml;
 #endif
 
 namespace Wino.Converters

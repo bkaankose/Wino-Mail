@@ -2632,5 +2632,15 @@ namespace Wino.Core.Domain
 		/// None
 		/// </summary>
 		public static string SettingsSignature_NoneSignatureName => Resources.GetTranslatedString(@"SettingsSignature_NoneSignatureName");	
+	
+        /// <summary>
+		/// Launch Wino
+		/// </summary>
+		public static string WinoSystemTray_LaunchWino => Resources.GetTranslatedString(@"WinoSystemTray_LaunchWino");	
+	
+        /// <summary>
+		/// Quit
+		/// </summary>
+		public static string WinoSystemTray_QuitWino => Resources.GetTranslatedString(@"WinoSystemTray_QuitWino");	
 	}
 }

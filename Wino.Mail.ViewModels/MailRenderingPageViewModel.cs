@@ -11,7 +11,6 @@ using MailKit;
 using Microsoft.AppCenter.Crashes;
 using MimeKit;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;

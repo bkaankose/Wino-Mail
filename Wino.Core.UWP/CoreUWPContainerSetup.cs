@@ -19,7 +19,6 @@ namespace Wino.Core.UWP
             services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
             services.AddSingleton<INativeAppService, NativeAppService>();
             services.AddSingleton<IStoreManagementService, StoreManagementService>();
-            services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
             services.AddSingleton<IAppShellService, AppShellService>();
             services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddTransient<IConfigurationService, ConfigurationService>();

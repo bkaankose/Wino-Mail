@@ -75,116 +75,6 @@
             </Grid>
         </DataTemplate>
 
-        <!--
-            Thread items should not display multi select checkbox.
-            We override one for thread view models, and default items should use
-            what the system has by default. Overriding ListViewItem and ListViewItemPresenter styles
-            are really dangerous since they are somehow messy at system level.
-        -->
-
-        <!--  Thread Item Container Style  -->
-        <Style x:Key="ThreadItemContainerStyle" TargetType="ListViewItem">
-            <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
-            <Setter Property="FontSize" Value="{ThemeResource ControlContentThemeFontSize}" />
-            <Setter Property="Background" Value="{ThemeResource ListViewItemBackground}" />
-            <Setter Property="Foreground" Value="{ThemeResource ListViewItemForeground}" />
-            <Setter Property="TabNavigation" Value="Local" />
-            <Setter Property="IsHoldingEnabled" Value="True" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="MinWidth" Value="{ThemeResource ListViewItemMinWidth}" />
-            <Setter Property="MinHeight" Value="{ThemeResource ListViewItemMinHeight}" />
-            <Setter Property="AllowDrop" Value="False" />
-            <Setter Property="UseSystemFocusVisuals" Value="{StaticResource UseSystemFocusVisuals}" />
-            <Setter Property="FocusVisualMargin" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <ListViewItemPresenter
-                            x:Name="Root"
-                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                            CheckBoxBrush="Transparent"
-                            CheckBrush="Transparent"
-                            CheckMode="Overlay"
-                            ContentMargin="{TemplateBinding Padding}"
-                            ContentTransitions="{TemplateBinding ContentTransitions}"
-                            Control.IsTemplateFocusTarget="True"
-                            CornerRadius="5"
-                            DisabledOpacity="{ThemeResource ListViewItemDisabledThemeOpacity}"
-                            DragBackground="{ThemeResource ListViewItemDragBackground}"
-                            DragForeground="{ThemeResource ListViewItemDragForeground}"
-                            DragOpacity="{ThemeResource ListViewItemDragThemeOpacity}"
-                            FocusBorderBrush="{ThemeResource ListViewItemFocusBorderBrush}"
-                            FocusSecondaryBorderBrush="{ThemeResource ListViewItemFocusSecondaryBorderBrush}"
-                            FocusVisualMargin="{TemplateBinding FocusVisualMargin}"
-                            PlaceholderBackground="{ThemeResource ListViewItemPlaceholderBackground}"
-                            PointerOverBackground="{ThemeResource ListViewItemBackgroundPointerOver}"
-                            PointerOverForeground="{ThemeResource ListViewItemForegroundPointerOver}"
-                            PressedBackground="{ThemeResource ListViewItemBackgroundPressed}"
-                            ReorderHintOffset="{ThemeResource ListViewItemReorderHintThemeOffset}"
-                            RevealBackground="{ThemeResource ListViewItemRevealBackground}"
-                            RevealBorderBrush="{ThemeResource ListViewItemRevealBorderBrush}"
-                            RevealBorderThickness="{ThemeResource ListViewItemRevealBorderThemeThickness}"
-                            SelectedBackground="{ThemeResource ListViewItemBackgroundSelected}"
-                            SelectedForeground="{ThemeResource ListViewItemForegroundSelected}"
-                            SelectedPointerOverBackground="{ThemeResource ListViewItemBackgroundSelectedPointerOver}"
-                            SelectedPressedBackground="{ThemeResource ListViewItemBackgroundSelectedPressed}"
-                            SelectionCheckMarkVisualEnabled="False">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="Selected" />
-                                    <VisualState x:Name="PointerOver">
-                                        <VisualState.Setters>
-                                            <Setter Target="Root.(RevealBrush.State)" Value="PointerOver" />
-                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPointerOver}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="PointerOverSelected">
-                                        <VisualState.Setters>
-                                            <Setter Target="Root.(RevealBrush.State)" Value="PointerOver" />
-                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPointerOver}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="PointerOverPressed">
-                                        <VisualState.Setters>
-                                            <Setter Target="Root.(RevealBrush.State)" Value="Pressed" />
-                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPressed}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="Pressed">
-                                        <VisualState.Setters>
-                                            <Setter Target="Root.(RevealBrush.State)" Value="Pressed" />
-                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPressed}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="PressedSelected">
-                                        <VisualState.Setters>
-                                            <Setter Target="Root.(RevealBrush.State)" Value="Pressed" />
-                                            <Setter Target="Root.RevealBorderBrush" Value="{ThemeResource ListViewItemRevealBorderBrushPressed}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="DisabledStates">
-                                    <VisualState x:Name="Enabled" />
-                                    <VisualState x:Name="Disabled">
-                                        <VisualState.Setters>
-                                            <Setter Target="Root.RevealBorderThickness" Value="0" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                        </ListViewItemPresenter>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!--  Mail Item Container Style Selector  -->
-        <selectors:MailItemContainerStyleSelector x:Key="WinoContainerSelector" Thread="{StaticResource ThreadItemContainerStyle}" />
-
         <!--  Swipe Items  -->
         <!--  Left  -->
         <muxc:SwipeItems x:Key="LeftSwipeItems" Mode="Execute">
@@ -732,7 +622,6 @@
                                 x:Name="MailListView"
                                 HorizontalContentAlignment="Stretch"
                                 ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-                                ItemContainerStyleSelector="{StaticResource WinoContainerSelector}"
                                 ItemDeletedCommand="{x:Bind ViewModel.MailOperationCommand}"
                                 ItemTemplateSelector="{StaticResource MailItemDisplaySelector}"
                                 ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
