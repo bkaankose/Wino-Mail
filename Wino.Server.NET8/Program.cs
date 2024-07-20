@@ -31,6 +31,8 @@ namespace Wino.Server
 
         private static bool DecideRedirection()
         {
+            return false;
+
             bool isRedirect = false;
 
             AppActivationArguments args = AppInstance.GetCurrent().GetActivatedEventArgs();

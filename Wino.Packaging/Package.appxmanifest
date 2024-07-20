@@ -93,9 +93,9 @@
 			</uap5:Extension>
 
 			<!-- Registration of full trust backend application. -->
-			<uap:Extension Category="windows.appService">
+			<!--<uap:Extension Category="windows.appService">
 				<uap:AppService Name="WinoInteropService" />
-			</uap:Extension>
+			</uap:Extension>-->
 			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />
 		</Extensions>
     </Application>

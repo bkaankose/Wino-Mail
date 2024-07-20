@@ -8,8 +8,8 @@ using Windows.Storage;
 using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
-using Wino.Core.UWP.Services;
-using Wino.Services;
+//using Wino.Core.UWP.Services;
+//using Wino.Services;
 
 namespace Wino.Server.NET8
 {
@@ -39,9 +39,9 @@ namespace Wino.Server.NET8
             // Below services belongs to UWP.Core package and some APIs are not available for WPF.
             // We register them here to avoid compilation errors.
 
-            services.AddSingleton<IConfigurationService, ConfigurationService>();
-            services.AddSingleton<INativeAppService, NativeAppService>();
-            services.AddSingleton<IPreferencesService, PreferencesService>();
+            //services.AddSingleton<IConfigurationService, ConfigurationService>();
+            //services.AddSingleton<INativeAppService, NativeAppService>();
+            //services.AddSingleton<IPreferencesService, PreferencesService>();
 
             return services.BuildServiceProvider();
         }

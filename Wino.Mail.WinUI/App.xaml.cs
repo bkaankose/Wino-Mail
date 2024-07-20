@@ -1,50 +1,79 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+﻿using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using Windows.Storage;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
+using Wino.Core.WinUI.Services;
+using Wino.Views;
+using WinUIEx;
 
 namespace Wino.Mail.WinUI
 {
-    /// <summary>
-    /// Provides application-specific behavior to supplement the default Application class.
-    /// </summary>
     public partial class App : Application
     {
-        /// <summary>
-        /// Initializes the singleton application object.  This is the first line of authored code
-        /// executed, and as such is the logical equivalent of main() or WinMain().
-        /// </summary>
+        private WindowEx m_Window;
+        private Frame m_ShellFrame;
+
+        private readonly IApplicationConfiguration _applicationFolderConfiguration;
+
         public App()
         {
-            this.InitializeComponent();
+            if (WebAuthenticator.CheckOAuthRedirectionActivation()) return;
+
+            InitializeComponent();
+
+            Services = ConfigureServices();
+
+            _applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
+            _logInitializer = Services.GetService<ILogInitializer>();
+
+            ConfigureLogger();
+            ConfigureAppCenter();
+            ConfigurePrelaunch();
+            ConfigureXbox();
+
+            // Make sure the paths are setup on app start.
+            _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
+            _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+
+            _themeService = Services.GetService<IThemeService>();
+            _databaseService = Services.GetService<IDatabaseService>();
+            _translationService = Services.GetService<ITranslationService>();
+            _appShellService = Services.GetService<IAppShellService>();
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         }
 
-        /// <summary>
-        /// Invoked when the application is launched.
-        /// </summary>
-        /// <param name="args">Details about the launch request and process.</param>
-        protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+        protected override async void OnLaunched(LaunchActivatedEventArgs args)
         {
-            m_window = new MainWindow();
-            m_window.Activate();
+            ConfigureWindow();
+
+            _appShellService.AppWindow = m_Window;
+
+            foreach (var service in initializeServices)
+            {
+                await service.InitializeAsync();
+            }
+
+            m_ShellFrame.Navigate(typeof(AppShell));
+            m_Window.Activate();
         }
 
-        private Window m_window;
+        private void ConfigureWindow()
+        {
+            m_Window = new WindowEx
+            {
+                SystemBackdrop = new MicaBackdrop(),
+                ExtendsContentIntoTitleBar = true,
+                MinWidth = 420
+            };
+
+            m_ShellFrame = new Frame();
+
+            m_Window.Content = m_ShellFrame;
+        }
     }
 }

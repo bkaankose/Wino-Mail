@@ -1,0 +1,276 @@
+﻿<UserControl
+    x:Class="Wino.Controls.MailItemDisplayInformationControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    PointerEntered="ControlPointerEntered"
+    PointerExited="ControlPointerExited">
+
+    <UserControl.Resources>
+        <Style
+            x:Key="HoverActionButtonStyle"
+            BasedOn="{StaticResource DefaultButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="Transparent" Tapped="ThreadHeaderTapped">
+        <Grid.RowDefinitions>
+            <RowDefinition x:Name="ContainerHeight" Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            x:Name="RootContainer"
+            Padding="0,1"
+            x:DefaultBindMode="OneWay">
+
+            <!--  Custom Interaction Focus Indicator  -->
+            <Ellipse
+                Width="8"
+                Height="8"
+                Canvas.ZIndex="9999"
+                Margin="0,12,8,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Visibility="{x:Bind IsCustomFocused, Mode=OneWay}"
+                Fill="{ThemeResource SystemAccentColor}" />
+
+            <Border
+                x:Name="RootContainerVisualWrapper"
+                Margin="0,4"
+                Background="Transparent"
+                BorderBrush="Transparent"
+                BorderThickness="0.5"
+                CornerRadius="4" />
+
+            <Grid x:Name="MainContentContainer">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <controls:ImagePreviewControl
+                    x:Name="ContactImage"
+                    Width="35"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    FromAddress="{x:Bind FromAddress, Mode=OneWay}"
+                    FromName="{x:Bind DisplayName, Mode=OneWay}"
+                    Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
+
+                <Grid
+                    x:Name="ContentGrid"
+                    Grid.Column="1"
+                    Canvas.ZIndex="2">
+
+                    <!--  Sender + Title  -->
+                    <Grid x:Name="ContentStackpanel" VerticalAlignment="Center">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!--  Sender + IsDraft + Hover Buttons  -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!--  IsDraft Tag  -->
+                            <TextBlock
+                                x:Name="DraftTitle"
+                                Margin="0,0,4,0"
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
+                                Foreground="{StaticResource DeleteBrush}">
+
+                                <Run Text="[" /><Run Text="{x:Bind domain:Translator.Draft}" /><Run Text="]" /> <Run Text=" " />
+                            </TextBlock>
+
+                            <!--  Sender  -->
+                            <TextBlock
+                                x:Name="SenderText"
+                                Grid.Column="1"
+                                Text="{x:Bind DisplayName}"
+                                TextTrimming="WordEllipsis" />
+
+                            <!--  Hover button  -->
+                            <StackPanel
+                                x:Name="HoverActionButtons"
+                                Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                Background="Transparent"
+                                Canvas.ZIndex="10"
+                                Orientation="Horizontal"
+                                Spacing="12"
+                                Visibility="Collapsed">
+                                <StackPanel.ChildrenTransitions>
+                                    <TransitionCollection>
+                                        <EdgeUIThemeTransition Edge="Right" />
+                                    </TransitionCollection>
+                                </StackPanel.ChildrenTransitions>
+                                <Button Click="FirstActionClicked" Style="{StaticResource HoverActionButtonStyle}">
+                                    <Button.Content>
+                                        <controls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
+                                    </Button.Content>
+                                </Button>
+
+                                <Button Click="SecondActionClicked" Style="{StaticResource HoverActionButtonStyle}">
+                                    <Button.Content>
+                                        <controls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
+                                    </Button.Content>
+                                </Button>
+
+                                <Button Click="ThirdActionClicked" Style="{StaticResource HoverActionButtonStyle}">
+                                    <Button.Content>
+                                        <controls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
+                                    </Button.Content>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!--  Subject + IsDraft  -->
+                        <Grid Grid.Row="1" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock
+                                x:Name="TitleText"
+                                MaxLines="1"
+                                Text="{x:Bind Subject}"
+                                TextTrimming="CharacterEllipsis" />
+
+                            <TextBlock
+                                Grid.Column="1"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                Opacity="0.7"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, ReceivedDate, Prefer24HourTimeFormat)}" />
+                        </Grid>
+
+                        <!--  Message  -->
+                        <Grid
+                            x:Name="PreviewTextContainerRoot"
+                            Grid.Row="2"
+                            VerticalAlignment="Top">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid x:Name="PreviewTextContainer">
+                                <TextBlock
+                                    x:Name="PreviewTextblock"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ShouldDisplayPreview(Snippet), Mode=OneWay}"
+                                    MaxLines="1"
+                                    Opacity="0.7"
+                                    Text="{x:Bind Snippet}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </Grid>
+
+                            <!--  Right Icons Container  -->
+                            <StackPanel
+                                x:Name="IconsContainer"
+                                Grid.Column="1"
+                                Margin="4,4,1,4"
+                                Orientation="Horizontal"
+                                Spacing="2">
+
+                                <ContentPresenter
+                                    x:Name="HasAttachmentContent"
+                                    x:Load="{x:Bind HasAttachments, Mode=OneWay}"
+                                    ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+
+                                <ContentPresenter
+                                    x:Name="IsFlaggedContent"
+                                    x:Load="{x:Bind IsFlagged, Mode=OneWay}"
+                                    ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <VisualStateManager.VisualStateGroups>
+            <!--  Read States  -->
+            <VisualStateGroup x:Name="ReadStates">
+                <VisualState x:Name="Unread">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind IsRead, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+
+                    <VisualState.Setters>
+                        <Setter Target="TitleText.Foreground" Value="{ThemeResource SystemAccentColor}" />
+                        <Setter Target="TitleText.FontWeight" Value="Semibold" />
+                        <Setter Target="SenderText.FontWeight" Value="Semibold" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="Read" />
+            </VisualStateGroup>
+
+            <!--  Sizing States  -->
+            <VisualStateGroup x:Name="SizingStates">
+                <VisualState x:Name="Compact">
+                    <VisualState.Setters>
+                        <Setter Target="ContainerHeight.Height" Value="50" />
+                        <Setter Target="ContentGrid.Padding" Value="8,0" />
+                        <Setter Target="PreviewTextContainer.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ObjectEquals(DisplayMode, enums:MailListDisplayMode.Compact), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+
+                <!--  Medium  -->
+                <VisualState x:Name="Medium">
+                    <VisualState.Setters>
+                        <Setter Target="ContainerHeight.Height" Value="65" />
+                        <Setter Target="ContentGrid.Padding" Value="6,0" />
+                        <Setter Target="PreviewTextContainer.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ObjectEquals(DisplayMode, enums:MailListDisplayMode.Medium), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+
+                <!--  Spacious  -->
+                <VisualState x:Name="Spacious">
+                    <VisualState.Setters>
+                        <Setter Target="ContainerHeight.Height" Value="Auto" />
+                        <Setter Target="ContentGrid.Padding" Value="12,12,6,12" />
+                        <Setter Target="PreviewTextContainer.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ObjectEquals(DisplayMode, enums:MailListDisplayMode.Spacious), Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+
+            <!--  Preview Text States  -->
+            <VisualStateGroup x:Name="PreviewTextStates">
+                <VisualState x:Name="ShowText" />
+                <VisualState x:Name="HideText">
+                    <VisualState.Setters>
+                        <Setter Target="PreviewTextContainerRoot.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ShowPreviewText, Mode=OneWay, Converter={StaticResource ReverseBooleanConverter}}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+</UserControl>

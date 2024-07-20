@@ -52,7 +52,7 @@
   <PropertyGroup>
     <ProjectGuid>760f5f31-8ee3-4b83-80f3-0e4ffbcc737c</ProjectGuid>
     <TargetPlatformVersion>10.0.22621.0</TargetPlatformVersion>
-    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <DefaultLanguage>en-US</DefaultLanguage>
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
@@ -64,7 +64,7 @@
     <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-    <EntryPointProjectUniqueName>..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj</EntryPointProjectUniqueName>
+    <EntryPointProjectUniqueName>..\Wino.Server.NET8\Wino.Server.NET8.csproj</EntryPointProjectUniqueName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <AppxBundle>Always</AppxBundle>
@@ -160,7 +160,6 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj" />
     <ProjectReference Include="..\Wino.Server.NET8\Wino.Server.NET8.csproj" />
   </ItemGroup>
 </Project>
