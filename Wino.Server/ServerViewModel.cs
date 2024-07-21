@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain.Interfaces;
@@ -29,8 +28,6 @@ namespace Wino.Server
         public void ExitApplication()
         {
             // TODO: App service send message to UWP app to terminate itself.
-
-            Application.Current.Shutdown();
         }
 
         public async Task ReconnectAsync() => await Context.InitializeAppServiceConnectionAsync();

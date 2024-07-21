@@ -13,16 +13,16 @@ using Wino.Services;
 
 namespace Wino.Server.NET8
 {
-    public partial class App : Application
+    public partial class ServerApp : Application
     {
-        public new static App Current => (App)Application.Current;
+        public new static ServerApp Current => (ServerApp)Application.Current;
 
         private const string WinoServerAppName = "Wino.Server";
 
         public TaskbarIcon TrayIcon { get; private set; }
         public bool HandleClosedEvents { get; set; } = true;
         public IServiceProvider Services { get; private set; }
-        public App()
+        public ServerApp()
         {
             InitializeComponent();
         }

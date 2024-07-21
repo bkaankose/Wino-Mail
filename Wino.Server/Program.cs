@@ -24,7 +24,7 @@ namespace Wino.Server
                     var context = new DispatcherQueueSynchronizationContext(
                         DispatcherQueue.GetForCurrentThread());
                     SynchronizationContext.SetSynchronizationContext(context);
-                    new App();
+                    new ServerApp();
                 });
             }
         }

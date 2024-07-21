@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+		<TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+		<OutputType>WinExe</OutputType>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<UseWPF>true</UseWPF>
+		<ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+		<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &gt;= 8">win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<RuntimeIdentifiers Condition="$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')) &lt; 8">win10-x86;win10-x64;win10-arm64</RuntimeIdentifiers>
+		<CsWinRTComponent>true</CsWinRTComponent>
+		<CsWinRTWindowsMetadata>10.0.22621.0</CsWinRTWindowsMetadata>
+	</PropertyGroup>
+	<PropertyGroup>
+		<StartupObject>Wino.Server.App</StartupObject>
+	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="Images\Wino_Icon.ico" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Resource Include="Images\Wino_Icon.ico">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Resource>
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+	  <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.0" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.NET8.csproj" />
+	  <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.WinUI.csproj" />
+	  <ProjectReference Include="..\Wino.Core\Wino.Core.NET8.csproj" />
+	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.NET8.csproj" />
+	</ItemGroup>
+</Project>
