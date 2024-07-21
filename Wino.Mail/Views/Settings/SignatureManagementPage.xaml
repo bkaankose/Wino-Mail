@@ -6,12 +6,12 @@
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:domain="using:Wino.Core.Domain"
-    xmlns:entities="using:Wino.Core.Domain.Entities"
+    xmlns:domain="using:Wino.Domain"
+    xmlns:entities="using:Wino.Domain.Entities"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    xmlns:reader="using:Wino.Domain.Models.Reader"
     x:Name="root"
     mc:Ignorable="d">
 

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Wino.Core.Domain.Models.AutoDiscovery
+namespace Wino.Domain.Models.AutoDiscovery
 {
     public class AutoDiscoveryProviderSetting
     {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     /// <summary>
     /// An interface that should force synchronizer to do synchronization for only given folder ids

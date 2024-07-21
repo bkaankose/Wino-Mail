@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Navigation;
+using Wino.Domain;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels

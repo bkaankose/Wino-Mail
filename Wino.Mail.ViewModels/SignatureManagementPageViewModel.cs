@@ -7,10 +7,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoreLinq;
 using MoreLinq.Extensions;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels
 {

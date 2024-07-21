@@ -1,5 +1,5 @@
 ﻿using System.Collections.Specialized;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Interfaces;
 
 namespace Wino.Services
 {

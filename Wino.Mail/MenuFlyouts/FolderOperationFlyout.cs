@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Enums;
 
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Folders;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;

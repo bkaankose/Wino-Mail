@@ -6,10 +6,10 @@
     Title="{x:Bind domain:Translator.SettingsOptions_Title, Mode=OneWay}"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:domain="using:Wino.Domain"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:translations="using:Wino.Core.Domain.Models.Translations"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:translations="using:Wino.Domain.Models.Translations"
+    xmlns:enums="using:Wino.Domain.Enums"
     mc:Ignorable="d">
 
 

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
 
-namespace Wino.Core.Domain.Models.Synchronization
+namespace Wino.Domain.Models.Synchronization
 {
     public class SynchronizationOptions
     {

@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Domain.Interfaces;
 
-using Wino.Core.Domain.Interfaces;
 
 
 #if NET8_0

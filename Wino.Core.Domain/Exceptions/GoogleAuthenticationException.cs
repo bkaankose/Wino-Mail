@@ -1,6 +1,6 @@
-﻿namespace Wino.Core.Domain.Exceptions
+﻿namespace Wino.Domain.Exceptions
 {
-    public class GoogleAuthenticationException : System.Exception
+    public class GoogleAuthenticationException : Exception
     {
         public GoogleAuthenticationException(string message) : base(message) { }
     }

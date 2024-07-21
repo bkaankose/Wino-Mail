@@ -1,7 +1,7 @@
-﻿using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
+﻿using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
 
-namespace Wino.Core.Domain.Models.Menus
+namespace Wino.Domain.Models.Menus
 {
     public class MailOperationMenuItem : MenuOperationItemBase<MailOperation>, IMenuOperation
     {

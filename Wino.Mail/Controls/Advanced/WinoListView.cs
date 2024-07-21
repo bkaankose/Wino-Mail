@@ -5,12 +5,13 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Serilog;
-
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+
+
 
 
 #if NET8_0

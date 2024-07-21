@@ -2,8 +2,9 @@
 using System.Linq;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Controls;
-using Wino.Core.Domain.Models.Reader;
 using Wino.Helpers;
+using Wino.Domain.Models.Reader;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;

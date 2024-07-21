@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels.Messages
 {

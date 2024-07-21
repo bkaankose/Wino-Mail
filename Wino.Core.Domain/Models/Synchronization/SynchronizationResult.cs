@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Models.Synchronization
+namespace Wino.Domain.Models.Synchronization
 {
     public class SynchronizationResult
     {

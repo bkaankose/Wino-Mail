@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Domain.Models.Menus;
+using Wino.Domain.Enums;
 
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Menus;
+
 
 
 #if NET8_0

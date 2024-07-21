@@ -1,5 +1,6 @@
-﻿
-using Wino.Core.UWP.Models.Personalization;
+﻿using Wino.Shared.WinRT.Models.Personalization;
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

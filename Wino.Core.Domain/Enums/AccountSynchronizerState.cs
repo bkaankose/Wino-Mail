@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Domain.Enums
 {
     /// <summary>
     /// Indicates the state of synchronizer.

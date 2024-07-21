@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     /// <summary>
     /// An interface for reporting progress of the synchronization.

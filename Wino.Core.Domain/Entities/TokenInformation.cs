@@ -1,8 +1,8 @@
 ﻿using System;
 using SQLite;
-using Wino.Core.Domain.Models.Authentication;
+using Wino.Domain.Models.Authentication;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Domain.Entities
 {
     public class TokenInformation : TokenInformationBase
     {

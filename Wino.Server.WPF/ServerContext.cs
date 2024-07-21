@@ -8,15 +8,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
-using Wino.Core.Authenticators;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Integration.Processors;
-using Wino.Core.Services;
+using Wino.Domain.Models.Synchronization;
 using Wino.Core.Synchronizers;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
 using Wino.Messaging;
 using Wino.Messaging.Enums;
 using Wino.Messaging.Server;
+using Wino.Services.Authenticators;
 
 namespace Wino.Server
 {
@@ -120,7 +119,7 @@ namespace Wino.Server
             var options = new SynchronizationOptions()
             {
                 AccountId = acc.Id,
-                Type = Core.Domain.Enums.SynchronizationType.Full
+                Type = SynchronizationType.Full
             };
 
             var result = await sync.SynchronizeAsync(options);

@@ -1,6 +1,4 @@
-﻿using System;
-using Wino.Core.MenuItems;
-using Wino.Mail.ViewModels.Data;
+﻿using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels.Messages
 {

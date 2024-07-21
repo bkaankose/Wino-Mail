@@ -1,6 +1,6 @@
-﻿using Wino.Core.Domain.Enums;
+﻿using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Translations
+namespace Wino.Domain.Models.Translations
 {
     public record AppLanguageModel(AppLanguage Language, string DisplayName);
 }

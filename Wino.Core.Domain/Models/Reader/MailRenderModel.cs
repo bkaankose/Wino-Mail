@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using MimeKit;
 
-namespace Wino.Core.Domain.Models.Reader
+namespace Wino.Domain.Models.Reader
 {
     /// <summary>
     /// Final model to be passed to renderer page.

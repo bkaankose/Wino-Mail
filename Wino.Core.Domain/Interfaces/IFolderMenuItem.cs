@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Folders;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Folders;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IFolderMenuItem : IBaseFolderMenuItem
     {

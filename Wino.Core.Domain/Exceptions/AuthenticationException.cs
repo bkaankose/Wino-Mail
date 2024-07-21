@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Exceptions
+namespace Wino.Domain.Exceptions
 {
     /// <summary>
     /// All exceptions related to authentication.

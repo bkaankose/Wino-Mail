@@ -4,8 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Wino.Controls;
-using Wino.Core.Domain.Entities;
 using Wino.Helpers;
+using Wino.Domain.Entities;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;

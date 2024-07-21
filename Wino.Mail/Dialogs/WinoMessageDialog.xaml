@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="{x:Bind DialogTitle, Mode=OneWay}"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:domain="using:Wino.Domain"
     Style="{StaticResource WinoDialogStyle}"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"

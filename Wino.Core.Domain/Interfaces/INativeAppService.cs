@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Models.Authorization;
+using Wino.Domain.Models.Authorization;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface INativeAppService
     {

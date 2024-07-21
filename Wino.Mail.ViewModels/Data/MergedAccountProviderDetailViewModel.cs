@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Entities;
+using Wino.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data
 {

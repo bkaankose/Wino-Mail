@@ -1,4 +1,4 @@
-﻿using Wino.Core.Domain.Interfaces;
+﻿using Wino.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {

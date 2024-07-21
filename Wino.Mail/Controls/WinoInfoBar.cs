@@ -2,9 +2,9 @@
 using System.Numerics;
 
 using Microsoft.UI.Xaml.Controls;
-
-using Wino.Core.Domain.Enums;
 using CommunityToolkit.WinUI.Animations;
+using Wino.Domain.Enums;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

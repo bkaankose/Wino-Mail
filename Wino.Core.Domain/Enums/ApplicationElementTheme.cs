@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Domain.Enums
 {
     public enum ApplicationElementTheme
     {

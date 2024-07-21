@@ -1,17 +1,17 @@
 ﻿
-namespace Wino.Core.Domain
+namespace Wino.Domain
 {
 	public class Translator
 	{
-		private static global::Wino.Core.Domain.Translations.WinoTranslationDictionary _dictionary;
+		private static global::Wino.Domain.Translations.WinoTranslationDictionary _dictionary;
 
-		public static global::Wino.Core.Domain.Translations.WinoTranslationDictionary Resources
+		public static global::Wino.Domain.Translations.WinoTranslationDictionary Resources
 		{
 			get
 			{
 				if (_dictionary == null)
 				{
-					_dictionary = new global::Wino.Core.Domain.Translations.WinoTranslationDictionary();
+					_dictionary = new global::Wino.Domain.Translations.WinoTranslationDictionary();
 				}
 
 				return _dictionary;

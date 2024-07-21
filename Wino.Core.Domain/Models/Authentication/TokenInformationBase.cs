@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Models.Authentication
+namespace Wino.Domain.Models.Authentication
 {
     public class TokenInformationBase
     {

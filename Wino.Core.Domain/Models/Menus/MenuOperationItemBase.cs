@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Models.Menus
+namespace Wino.Domain.Models.Menus
 {
     public class MenuOperationItemBase<TOperation> where TOperation : Enum
     {

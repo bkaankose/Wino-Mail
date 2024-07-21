@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Models.Comparers
+namespace Wino.Domain.Models.Comparers
 {
     public class ListItemComparer : IComparer<object>
     {

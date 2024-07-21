@@ -7,21 +7,24 @@ using CommunityToolkit.Mvvm.Messaging;
 using Windows.Foundation;
 
 using Wino.Controls;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Accounts;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
+using Wino.Domain;
+using Wino.Domain.Models.Navigation;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Views.Abstract;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Accounts;
+using Wino.Domain.Entities;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.MailItem;
+
+
+
 
 
 #if NET8_0

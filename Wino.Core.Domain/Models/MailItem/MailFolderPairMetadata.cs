@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     public class MailFolderPairMetadata
     {

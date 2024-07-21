@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using Windows.Foundation;
-using Wino.Core.Domain.Entities;
+using Wino.Domain.Entities;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

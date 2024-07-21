@@ -3,11 +3,14 @@ using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 
 using Wino.Controls;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Reader;
+using Wino.Domain;
 using Windows.UI.Text;
+using Wino.Domain.Models.Reader;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+
+
+
 
 #if NET8_0
 using Microsoft.UI;

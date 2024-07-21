@@ -7,16 +7,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.MenuItems;
-using Wino.Core.Services;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Navigation;
+using Wino.Domain.Models.Synchronization;
+using Wino.Mail.ViewModels.Data.MenuItems;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
@@ -432,7 +431,7 @@ namespace Wino.Mail.ViewModels
                     }
 
                     var package = new MailOperationPreperationRequest(MailOperation.Move, group, false, handlingAccountFolder);
-                    await _winoRequestDelegator.ExecuteAsync(package);
+                    await _winoRequestDelegator.QueueAsync(package);
                 }
             }
             else if (targetFolderMenuItem is IFolderMenuItem singleFolderMenuItem)
@@ -442,7 +441,7 @@ namespace Wino.Mail.ViewModels
 
                 var package = new MailOperationPreperationRequest(MailOperation.Move, items, false, targetFolderMenuItem.HandlingFolders.First());
 
-                await _winoRequestDelegator.ExecuteAsync(package);
+                await _winoRequestDelegator.QueueAsync(package);
             }
         }
 
@@ -465,7 +464,7 @@ namespace Wino.Mail.ViewModels
                 {
                     var folderPrepRequest = new FolderOperationPreperationRequest(operation, realFolder);
 
-                    await _winoRequestDelegator.ExecuteAsync(folderPrepRequest);
+                    await _winoRequestDelegator.QueueAsync(folderPrepRequest);
                 }
             }
 
@@ -575,7 +574,7 @@ namespace Wino.Mail.ViewModels
             });
 
             // Load account folder structure and replace the visible folders.
-            var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+            var folders = await GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
 
             await MenuItems.ReplaceFoldersAsync(folders);
             await UpdateUnreadItemCountAsync();
@@ -591,6 +590,154 @@ namespace Wino.Mail.ViewModels
                 });
             }
         }
+
+        #region Folder Menu Item Preperations
+
+        public Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem)
+        {
+            if (accountMenuItem is IMergedAccountMenuItem mergedAccountFolderMenuItem)
+            {
+                return GetMergedAccountFolderMenuItemsAsync(mergedAccountFolderMenuItem);
+            }
+            else
+            {
+                return GetSingleAccountFolderMenuItemsAsync(accountMenuItem);
+            }
+        }
+
+        private async Task<FolderMenuItem> GetPreparedFolderMenuItemRecursiveAsync(MailAccount account, MailItemFolder parentFolder, IMenuItem parentMenuItem)
+        {
+            // Localize category folder name.
+            if (parentFolder.SpecialFolderType == SpecialFolderType.Category) parentFolder.FolderName = Translator.CategoriesFolderNameOverride;
+
+            var preparedFolder = new FolderMenuItem(parentFolder, account, parentMenuItem);
+
+            var childFolders = await _folderService.GetChildFoldersAsync(account.Id, parentFolder.RemoteFolderId).ConfigureAwait(false);
+
+            if (childFolders.Any())
+            {
+                foreach (var subChildFolder in childFolders)
+                {
+                    var preparedChild = await GetPreparedFolderMenuItemRecursiveAsync(account, subChildFolder, preparedFolder);
+
+                    if (preparedChild == null) continue;
+
+                    preparedFolder.SubMenuItems.Add(preparedChild);
+                }
+            }
+
+            return preparedFolder;
+        }
+
+        private async Task<IEnumerable<IMenuItem>> GetSingleAccountFolderMenuItemsAsync(IAccountMenuItem accountMenuItem)
+        {
+            var accountId = accountMenuItem.EntityId.Value;
+            var preparedFolderMenuItems = new List<IMenuItem>();
+
+            // Get all folders for the account. Excluding hidden folders.
+            var folders = await _folderService.GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+
+            if (!folders.Any()) return new List<IMenuItem>();
+
+            var mailAccount = accountMenuItem.HoldingAccounts.First();
+
+            var listingFolders = folders.OrderBy(a => a.SpecialFolderType);
+
+            var moreFolder = MailItemFolder.CreateMoreFolder();
+            var categoryFolder = MailItemFolder.CreateCategoriesFolder();
+
+            var moreFolderMenuItem = new FolderMenuItem(moreFolder, mailAccount, accountMenuItem);
+            var categoryFolderMenuItem = new FolderMenuItem(categoryFolder, mailAccount, accountMenuItem);
+
+            foreach (var item in listingFolders)
+            {
+                // Category type folders should be skipped. They will be categorized under virtual category folder.
+                if (Constants.SubCategoryFolderLabelIds.Contains(item.RemoteFolderId)) continue;
+
+                bool skipEmptyParentRemoteFolders = mailAccount.ProviderType == MailProviderType.Gmail;
+
+                if (skipEmptyParentRemoteFolders && !string.IsNullOrEmpty(item.ParentRemoteFolderId)) continue;
+
+                // Sticky items belong to account menu item directly. Rest goes to More folder.
+                IMenuItem parentFolderMenuItem = item.IsSticky ? accountMenuItem : (Constants.SubCategoryFolderLabelIds.Contains(item.FolderName.ToUpper()) ? categoryFolderMenuItem : moreFolderMenuItem);
+
+                var preparedItem = await GetPreparedFolderMenuItemRecursiveAsync(mailAccount, item, parentFolderMenuItem).ConfigureAwait(false);
+
+                // Don't add menu items that are prepared for More folder. They've been included in More virtual folder already.
+                // We'll add More folder later on at the end of the list.
+
+                if (preparedItem == null) continue;
+
+                if (item.IsSticky)
+                {
+                    preparedFolderMenuItems.Add(preparedItem);
+                }
+                else if (parentFolderMenuItem is FolderMenuItem baseParentFolderMenuItem)
+                {
+                    baseParentFolderMenuItem.SubMenuItems.Add(preparedItem);
+                }
+            }
+
+            // Only add category folder if it's Gmail.
+            if (mailAccount.ProviderType == MailProviderType.Gmail) preparedFolderMenuItems.Add(categoryFolderMenuItem);
+
+            // Only add More folder if there are any items in it.
+            if (moreFolderMenuItem.SubMenuItems.Any()) preparedFolderMenuItems.Add(moreFolderMenuItem);
+
+            return preparedFolderMenuItems;
+        }
+
+        private async Task<IEnumerable<IMenuItem>> GetMergedAccountFolderMenuItemsAsync(IMergedAccountMenuItem mergedAccountFolderMenuItem)
+        {
+            var holdingAccounts = mergedAccountFolderMenuItem.HoldingAccounts;
+
+            if (holdingAccounts == null || !holdingAccounts.Any()) return [];
+
+            var preparedFolderMenuItems = new List<IMenuItem>();
+
+            // First gather all account folders.
+            // Prepare single menu items for both of them.
+
+            var allAccountFolders = new List<List<MailItemFolder>>();
+
+            foreach (var account in holdingAccounts)
+            {
+                var accountFolders = await _folderService.GetVisibleFoldersAsync(account.Id).ConfigureAwait(false);
+
+                allAccountFolders.Add(accountFolders);
+            }
+
+            var commonFolders = FindCommonFolders(allAccountFolders);
+
+            // Prepare menu items for common folders.
+            foreach (var commonFolderType in commonFolders)
+            {
+                var folderItems = allAccountFolders.SelectMany(a => a.Where(b => b.SpecialFolderType == commonFolderType)).Cast<IMailItemFolder>().ToList();
+                var menuItem = new MergedAccountFolderMenuItem(folderItems, null, mergedAccountFolderMenuItem.Parameter);
+
+                preparedFolderMenuItems.Add(menuItem);
+            }
+
+            return preparedFolderMenuItems;
+        }
+
+        private HashSet<SpecialFolderType> FindCommonFolders(List<List<MailItemFolder>> lists)
+        {
+            var allSpecialTypesExceptOther = Enum.GetValues(typeof(SpecialFolderType)).Cast<SpecialFolderType>().Where(a => a != SpecialFolderType.Other).ToList();
+
+            // Start with all special folder types from the first list
+            var commonSpecialFolderTypes = new HashSet<SpecialFolderType>(allSpecialTypesExceptOther);
+
+            // Intersect with special folder types from all lists
+            foreach (var list in lists)
+            {
+                commonSpecialFolderTypes.IntersectWith(list.Select(f => f.SpecialFolderType));
+            }
+
+            return commonSpecialFolderTypes;
+        }
+
+        #endregion
 
         private async Task UpdateUnreadItemCountAsync()
         {
@@ -763,7 +910,7 @@ namespace Wino.Mail.ViewModels
             var createdDraftMailMessage = await _mailService.CreateDraftAsync(account, createdMimeMessage).ConfigureAwait(false);
 
             var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdMimeMessage);
-            await _winoRequestDelegator.ExecuteAsync(draftPreperationRequest);
+            await _winoRequestDelegator.QueueAsync(draftPreperationRequest);
         }
 
         public async void Receive(NewSynchronizationRequested message)

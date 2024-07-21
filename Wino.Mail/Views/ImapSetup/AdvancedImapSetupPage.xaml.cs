@@ -2,11 +2,16 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
 
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.AutoDiscovery;
-using Wino.Core.Messages.Mails;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Messaging.Client.Mails;
+using Wino.Domain.Models.Accounts;
+using Wino.Domain.Models.AutoDiscovery;
+using Wino.Domain.Enums;
+
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -24,21 +29,21 @@ namespace Wino.Views.ImapSetup
     {
         public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } = new List<ImapAuthenticationMethodModel>()
         {
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.None, Translator.ImapAuthenticationMethod_None),
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.NormalPassword, Translator.ImapAuthenticationMethod_Plain),
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.EncryptedPassword, Translator.ImapAuthenticationMethod_EncryptedPassword),
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Ntlm, Translator.ImapAuthenticationMethod_Ntlm),
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.CramMd5, Translator.ImapAuthenticationMethod_CramMD5),
-            new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.DigestMd5, Translator.ImapAuthenticationMethod_DigestMD5)
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.None, Translator.ImapAuthenticationMethod_None),
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.NormalPassword, Translator.ImapAuthenticationMethod_Plain),
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.EncryptedPassword, Translator.ImapAuthenticationMethod_EncryptedPassword),
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.Ntlm, Translator.ImapAuthenticationMethod_Ntlm),
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.CramMd5, Translator.ImapAuthenticationMethod_CramMD5),
+            new ImapAuthenticationMethodModel(ImapAuthenticationMethod.DigestMd5, Translator.ImapAuthenticationMethod_DigestMD5)
         };
 
         public List<ImapConnectionSecurityModel> AvailableConnectionSecurities { get; set; } = new List<ImapConnectionSecurityModel>()
         {
-            new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.Auto, Translator.ImapConnectionSecurity_Auto),
-            new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.SslTls, Translator.ImapConnectionSecurity_SslTls),
-            new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.StartTls, Translator.ImapConnectionSecurity_StartTls),
-            new ImapConnectionSecurityModel(Core.Domain.Enums.ImapConnectionSecurity.None, Translator.ImapConnectionSecurity_None)
+            new ImapConnectionSecurityModel(ImapConnectionSecurity.Auto, Translator.ImapConnectionSecurity_Auto),
+            new ImapConnectionSecurityModel(ImapConnectionSecurity.SslTls, Translator.ImapConnectionSecurity_SslTls),
+            new ImapConnectionSecurityModel(ImapConnectionSecurity.StartTls, Translator.ImapConnectionSecurity_StartTls),
+            new ImapConnectionSecurityModel(ImapConnectionSecurity.None, Translator.ImapConnectionSecurity_None)
         };
 
         public bool UseSameCredentialsForSending
@@ -140,7 +145,7 @@ namespace Wino.Views.ImapSetup
                 Id = Guid.NewGuid(),
 
                 IncomingServerPassword = PasswordBox.Password,
-                IncomingServerType = Core.Domain.Enums.CustomIncomingServerType.IMAP4,
+                IncomingServerType = CustomIncomingServerType.IMAP4,
                 IncomingServerUsername = UsernameBox.Text,
                 IncomingAuthenticationMethod = (IncomingAuthenticationMethod.SelectedItem as ImapAuthenticationMethodModel).ImapAuthenticationMethod,
                 IncomingServerSocketOption = (IncomingConnectionSecurity.SelectedItem as ImapConnectionSecurityModel).ImapConnectionSecurity,

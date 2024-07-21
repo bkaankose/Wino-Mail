@@ -1,7 +1,7 @@
 ﻿using System;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Exceptions
+namespace Wino.Domain.Exceptions
 {
     /// <summary>
     /// Emitted when special folder is needed for an operation but it couldn't be found.

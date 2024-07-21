@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Interfaces
+﻿namespace Wino.Domain.Interfaces
 {
     public interface IApplicationResourceManager<T>
     {

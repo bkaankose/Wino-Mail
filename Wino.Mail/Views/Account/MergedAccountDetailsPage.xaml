@@ -7,7 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:domain="using:Wino.Domain"
     xmlns:controls1="using:Wino.Controls"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     x:Name="MainPage"

@@ -1,10 +1,10 @@
 ﻿using System.Collections.Specialized;
 using System.Linq;
 using MimeKit;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     public class DraftCreationOptions
     {

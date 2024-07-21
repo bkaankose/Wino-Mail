@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Models.AutoDiscovery;
+using Wino.Domain.Models.AutoDiscovery;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     /// <summary>
     /// Searches for Auto Discovery settings for custom mail accounts.

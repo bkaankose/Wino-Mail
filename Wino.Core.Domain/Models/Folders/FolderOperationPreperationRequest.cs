@@ -1,7 +1,7 @@
-﻿using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
+﻿using Wino.Domain.Entities;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Folders
+namespace Wino.Domain.Models.Folders
 {
     /// <summary>
     /// Encapsulates a request to prepare a folder operation like Rename, Delete, etc.

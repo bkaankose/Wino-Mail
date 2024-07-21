@@ -1,11 +1,11 @@
 ﻿
 using System.Reflection;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 #if !NET8_0
 using System.IO;
 using System.Collections.Generic;
 #endif
-namespace Wino.Core.Domain.Translations
+namespace Wino.Domain.Translations
 {
     public class WinoTranslationDictionary : Dictionary<string, string>
     {

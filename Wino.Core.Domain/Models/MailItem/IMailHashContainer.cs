@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     /// <summary>
     /// An interface that returns the UniqueId store for IMailItem.

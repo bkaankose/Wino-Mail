@@ -11,9 +11,9 @@
     xmlns:selectors="using:Wino.Selectors"
     xmlns:controls1="using:Wino.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
-    xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
-    xmlns:domain="using:Wino.Core.Domain"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:personalization="using:Wino.Shared.WinRT.Models.Personalization"
+    xmlns:domain="using:Wino.Domain"
+    xmlns:enums="using:Wino.Domain.Enums"
     Title="Personalization"
     mc:Ignorable="d">
 

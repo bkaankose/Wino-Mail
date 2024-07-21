@@ -9,16 +9,16 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Extensions;
-using Wino.Core.Services;
+using Wino.Domain;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Exceptions;
+using Wino.Domain.Extensions;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Navigation;
+using Wino.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 
@@ -113,6 +113,7 @@ namespace Wino.Mail.ViewModels
         private readonly IAccountService _accountService;
         private readonly IWinoRequestDelegator _worker;
         public readonly IContactService ContactService;
+        private readonly IHtmlPreviewer _htmlPreviewer;
 
         public ComposePageViewModel(IDialogService dialogService,
                                     IMailService mailService,
@@ -123,12 +124,13 @@ namespace Wino.Mail.ViewModels
                                     IFolderService folderService,
                                     IAccountService accountService,
                                     IWinoRequestDelegator worker,
-                                    IContactService contactService) : base(dialogService)
+                                    IContactService contactService,
+                                    IHtmlPreviewer htmlPreviewer) : base(dialogService)
         {
             NativeAppService = nativeAppService;
             _folderService = folderService;
             ContactService = contactService;
-
+            _htmlPreviewer = htmlPreviewer;
             _mailService = mailService;
             _launchProtocolService = launchProtocolService;
             _mimeFileService = mimeFileService;
@@ -170,7 +172,7 @@ namespace Wino.Mail.ViewModels
             var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
             var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, CurrentMimeMessage, CurrentMailDraftItem.AssignedFolder, sentFolder, CurrentMailDraftItem.AssignedAccount.Preferences);
 
-            await _worker.ExecuteAsync(draftSendPreparationRequest);
+            await _worker.QueueAsync(draftSendPreparationRequest);
         }
 
         private async Task UpdateMimeChangesAsync()
@@ -238,7 +240,7 @@ namespace Wino.Mail.ViewModels
             }
 
             if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
-                bodyBuilder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(bodyBuilder.HtmlBody);
+                bodyBuilder.TextBody = _htmlPreviewer.GetHtmlPreview(bodyBuilder.HtmlBody);
 
             if (bodyBuilder.HtmlBody != null && bodyBuilder.TextBody != null)
                 CurrentMimeMessage.Body = bodyBuilder.ToMessageBody();
@@ -269,7 +271,7 @@ namespace Wino.Mail.ViewModels
                 else
                 {
                     var deletePackage = new MailOperationPreperationRequest(MailOperation.HardDelete, CurrentMailDraftItem.MailCopy, ignoreHardDeleteProtection: true);
-                    await _worker.ExecuteAsync(deletePackage).ConfigureAwait(false);
+                    await _worker.QueueAsync(deletePackage).ConfigureAwait(false);
                 }
             }
         }

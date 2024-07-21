@@ -1,11 +1,11 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Navigation;
+using Wino.Domain;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Navigation;
+using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels
 {

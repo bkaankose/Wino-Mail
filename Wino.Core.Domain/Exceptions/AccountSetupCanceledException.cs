@@ -1,6 +1,6 @@
-﻿namespace Wino.Core.Domain.Exceptions
+﻿namespace Wino.Domain.Exceptions
 {
-    public class AccountSetupCanceledException : System.Exception
+    public class AccountSetupCanceledException : Exception
     {
 
     }

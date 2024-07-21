@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     /// <summary>
     /// Class that holds information when the drag/drop of mails are performed.

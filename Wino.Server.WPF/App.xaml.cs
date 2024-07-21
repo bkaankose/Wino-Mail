@@ -5,10 +5,10 @@ using System.Windows;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage;
-using Wino.Core;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
-using Wino.Core.UWP;
+using Wino.Domain;
+using Wino.Domain.Interfaces;
+using Wino.Services;
+using Wino.Synchronization;
 //using Wino.Core.UWP;
 
 namespace Wino.Server
@@ -41,15 +41,8 @@ namespace Wino.Server
             services.AddTransient<ServerContext>();
             services.AddTransient<ServerViewModel>();
 
-            services.RegisterCoreServices();
-            services.RegisterCoreUWPServices();
-
-            // Below services belongs to UWP.Core package and some APIs are not available for WPF.
-            // We register them here to avoid compilation errors.
-
-            //services.AddSingleton<IConfigurationService, ConfigurationService>();
-            //services.AddSingleton<INativeAppService, NativeAppService>();
-            //services.AddSingleton<IPreferencesService, PreferencesService>();
+            services.RegisterSynchronizationServices();
+            services.RegisterServices();
 
             return services.BuildServiceProvider();
         }
@@ -62,7 +55,7 @@ namespace Wino.Server
             var applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
 
             applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
-            applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+            applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(Constants.SharedFolderName).Path;
 
             await databaseService.InitializeAsync();
 

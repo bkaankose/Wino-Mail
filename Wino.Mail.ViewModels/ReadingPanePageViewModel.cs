@@ -4,9 +4,9 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Reader;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Reader;
 
 namespace Wino.Mail.ViewModels
 {

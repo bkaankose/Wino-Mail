@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Folders
+namespace Wino.Domain.Models.Folders
 {
     public interface IMailItemFolder
     {

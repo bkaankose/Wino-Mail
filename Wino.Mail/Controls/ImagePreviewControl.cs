@@ -2,8 +2,9 @@
 using System.Text.RegularExpressions;
 using Fernandezja.ColorHashSharp;
 using Windows.UI;
+using Wino.Shared.WinRT.Services;
 
-using Wino.Core.Services;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

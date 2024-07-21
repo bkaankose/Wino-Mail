@@ -1,7 +1,7 @@
 ﻿using System;
-using Wino.Core.Domain.Entities;
+using Wino.Domain.Entities;
 
-namespace Wino.Core.Domain.Exceptions
+namespace Wino.Domain.Exceptions
 {
     /// <summary>
     /// Thrown when IAuthenticator requires user interaction to fix authentication issues.

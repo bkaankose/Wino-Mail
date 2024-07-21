@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
 
-namespace Wino.Core.Domain.Models.Requests
+namespace Wino.Domain.Models.Requests
 {
     public abstract record RequestBase<TBatchRequestType>(MailCopy Item, MailSynchronizerOperation Operation) : IRequest
         where TBatchRequestType : IBatchChangeRequest

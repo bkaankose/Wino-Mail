@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Synchronization;
+﻿using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Accounts;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Synchronization;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IFolderService
     {
@@ -82,7 +79,7 @@ namespace Wino.Core.Domain.Interfaces
         /// Returns the active folder menu items for the given account for UI.
         /// </summary>
         /// <param name="accountMenuItem">Account to get folder menu items for.</param>
-        Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
+        // Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem);
 
         /// <summary>
         /// Returns a list of unread item counts for the given account ids.
@@ -90,5 +87,13 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="accountIds">Account ids to get unread folder counts for.</param>
         Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds);
+        Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId);
+
+        /// <summary>
+        /// Returns the child folders of the given folder.
+        /// </summary>
+        /// <param name="accountId">Account id to get folders for.</param>
+        /// <param name="parentRemoteFolderId">Parent folder id to get children for.</param>
+        Task<List<MailItemFolder>> GetChildFoldersAsync(Guid accountId, string parentRemoteFolderId);
     }
 }

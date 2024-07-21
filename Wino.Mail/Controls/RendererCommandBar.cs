@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
-
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Menus;
 using Wino.Helpers;
 using Wino.MenuFlyouts;
+using Wino.Domain.Models.Menus;
+using Wino.Domain.Enums;
+
+
 #if NET8_0
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

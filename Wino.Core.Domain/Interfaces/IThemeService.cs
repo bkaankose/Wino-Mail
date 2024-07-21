@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Personalization;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Personalization;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IThemeService : IInitializeAsync
     {

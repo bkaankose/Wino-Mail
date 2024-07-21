@@ -1,8 +1,8 @@
-﻿using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Menus;
+﻿using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Menus;
 
-namespace Wino.Core.Domain.Models.Folders
+namespace Wino.Domain.Models.Folders
 {
     public class FolderOperationMenuItem : MenuOperationItemBase<FolderOperation>, IMenuOperation
     {

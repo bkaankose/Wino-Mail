@@ -3,20 +3,23 @@ using System.Collections.Generic;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
-using Microsoft.Extensions.DependencyInjection;
+
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
 using Windows.System.Profile;
 using Windows.UI.ViewManagement;
-using Wino.Core;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP;
 using Wino.Mail.ViewModels;
 using Wino.Services;
-using Wino.Core.Services;
 using Windows.ApplicationModel.AppService;
-using Wino.Core.WinUI.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Mail;
+using Wino.Shared.WinRT;
+using Wino.Shared.WinRT.Services;
+using Wino.Domain.Interfaces;
+
+
+
 
 
 
@@ -57,12 +60,17 @@ namespace Wino
         {
             var services = new ServiceCollection();
 
-            services.RegisterCoreServices();
+            // Registration of the database services and non-synchronization related classes.
+            services.RegisterServices();
+
+            // Registration of shared WinRT services.
             services.RegisterCoreUWPServices();
 
-            RegisterUWPServices(services);
-            RegisterViewModels(services);
-            RegisterActivationHandlers(services);
+            // Registration of Wino Mail services.
+            services.RegisterWinoMailServices();
+
+            // Register Wino Mail viewModels.
+            services.RegisterViewModels();
 
             return services.BuildServiceProvider();
         }
@@ -104,58 +112,5 @@ namespace Wino
         }
 
         #endregion
-
-        #region Dependency Injection
-
-        private void RegisterActivationHandlers(IServiceCollection services)
-        {
-            //services.AddTransient<ProtocolActivationHandler>();
-            //services.AddTransient<BackgroundActivationHandler>();
-            //services.AddTransient<ToastNotificationActivationHandler>();
-            //services.AddTransient<FileActivationHandler>();
-        }
-
-        private void RegisterUWPServices(IServiceCollection services)
-        {
-            services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
-            services.AddSingleton<IThemeService, ThemeService>();
-            services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
-            services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
-            services.AddSingleton<IWinoNavigationService, WinoNavigationService>();
-            services.AddSingleton<IDialogService, DialogService>();
-        }
-
-        private void RegisterViewModels(IServiceCollection services)
-        {
-            services.AddSingleton(typeof(AppShellViewModel));
-            services.AddTransient(typeof(SettingsDialogViewModel));
-            services.AddTransient(typeof(PersonalizationPageViewModel));
-            services.AddTransient(typeof(SettingOptionsPageViewModel));
-            services.AddTransient(typeof(MailListPageViewModel));
-            services.AddTransient(typeof(MailRenderingPageViewModel));
-            services.AddTransient(typeof(AccountManagementViewModel));
-            services.AddTransient(typeof(WelcomePageViewModel));
-            services.AddTransient(typeof(AboutPageViewModel));
-            services.AddTransient(typeof(ComposePageViewModel));
-            services.AddTransient(typeof(IdlePageViewModel));
-            services.AddTransient(typeof(SettingsPageViewModel));
-            services.AddTransient(typeof(NewAccountManagementPageViewModel));
-            services.AddTransient(typeof(AccountDetailsPageViewModel));
-            services.AddTransient(typeof(SignatureManagementPageViewModel));
-            services.AddTransient(typeof(MessageListPageViewModel));
-            services.AddTransient(typeof(ReadingPanePageViewModel));
-            services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
-            services.AddTransient(typeof(LanguageTimePageViewModel));
-        }
-
-        #endregion
-
-        //private IEnumerable<ActivationHandler> GetActivationHandlers()
-        //{
-        //    yield return Services.GetService<ProtocolActivationHandler>();
-        //    yield return Services.GetService<BackgroundActivationHandler>();
-        //    yield return Services.GetService<ToastNotificationActivationHandler>();
-        //    yield return Services.GetService<FileActivationHandler>();
-        //}
     }
 }

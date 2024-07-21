@@ -1,6 +1,6 @@
-﻿using Wino.Core.Domain.Entities;
+﻿using Wino.Domain.Entities;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IAccountProviderDetails
     {

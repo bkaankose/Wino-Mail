@@ -1,7 +1,7 @@
 ﻿using System;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     public class MailDetailInformation
     {

@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace Wino.Core.Domain.Models.Reader
+namespace Wino.Domain.Models.Reader
 {
     /// <summary>
     /// Used to pass messages from the webview to the app.

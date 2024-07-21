@@ -5,9 +5,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.Storage;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
-using Wino.Core.WinUI.Services;
+using Wino.Domain;
+using Wino.Domain.Interfaces;
+using Wino.Shared.WinRT.Services;
 using Wino.Views;
 using WinUIEx;
 namespace Wino
@@ -37,7 +37,7 @@ namespace Wino
 
             // Make sure the paths are setup on app start.
             _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
-            _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+            _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(Constants.SharedFolderName).Path;
 
             _themeService = Services.GetService<IThemeService>();
             _databaseService = Services.GetService<IDatabaseService>();

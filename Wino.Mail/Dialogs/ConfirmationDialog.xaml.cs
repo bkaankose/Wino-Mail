@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Interfaces;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;

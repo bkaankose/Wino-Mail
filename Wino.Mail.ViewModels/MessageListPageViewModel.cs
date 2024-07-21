@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {

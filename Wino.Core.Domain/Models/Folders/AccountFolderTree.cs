@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Folders
+namespace Wino.Domain.Models.Folders
 {
     /// <summary>
     /// Grouped folder information for the menu for given account.

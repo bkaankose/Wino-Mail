@@ -1,6 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     /// <summary>
     /// Interface that represents conversation threads.

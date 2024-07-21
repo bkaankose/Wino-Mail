@@ -1,10 +1,11 @@
 ﻿using System.Linq;
 using Microsoft.UI.Xaml.Controls;
-
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

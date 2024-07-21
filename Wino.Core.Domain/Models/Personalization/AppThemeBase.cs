@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Personalization
+namespace Wino.Domain.Models.Personalization
 {
     /// <summary>
     /// Base class for all app themes.

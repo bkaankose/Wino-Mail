@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using Wino.Core.Domain.Entities;
+using Wino.Domain.Entities;
 
-namespace Wino.Core.Domain.Models.AutoDiscovery
+namespace Wino.Domain.Models.AutoDiscovery
 {
     public class AutoDiscoverySettings
     {

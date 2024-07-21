@@ -4,10 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Personalization;
+using Wino.Domain;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Personalization;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels

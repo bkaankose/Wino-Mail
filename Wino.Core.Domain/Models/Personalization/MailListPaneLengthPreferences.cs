@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Models.Personalization
+﻿namespace Wino.Domain.Models.Personalization
 {
     public record MailListPaneLengthPreferences(string Title, double Length);
 }

@@ -7,21 +7,32 @@ using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
-using Wino.Core.UWP.Extensions;
+using Wino.Domain;
+using Wino.Domain.Models.Synchronization;
 using Wino.Dialogs;
 using Wino.Helpers;
-using Wino.Core.WinUI.Services;
 using Wino.Messaging.Server;
 using Windows.Foundation.Metadata;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Synchronization;
+using Wino.Shared.WinRT.Extensions;
+using Wino.Shared.WinRT.Services;
+using Wino.Domain.Models.Accounts;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Entities;
+using Wino.Domain.Interfaces;
+
+
+
+
+
+
+
+
+
+
+
 
 
 

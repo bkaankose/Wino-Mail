@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Models.MailItem
+﻿namespace Wino.Domain.Models.MailItem
 {
     /// <summary>
     /// Class that holds immutable information about special folders in Outlook.

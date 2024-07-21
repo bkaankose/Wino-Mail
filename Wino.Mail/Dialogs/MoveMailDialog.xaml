@@ -7,11 +7,11 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:folders="using:Wino.Core.Domain.Models.Folders"
+    xmlns:folders="using:Wino.Domain.Models.Folders"
     Title="{x:Bind domain:Translator.MoveMailDialog_Title}"
     Style="{StaticResource WinoDialogStyle}"
     PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:domain="using:Wino.Domain"
     DefaultButton="Primary"
     PrimaryButtonClick="CancelClicked"
     mc:Ignorable="d">

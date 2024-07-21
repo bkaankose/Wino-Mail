@@ -21,16 +21,16 @@ using Windows.Foundation;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI.ViewManagement.Core;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Messages.Shell;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Reader;
 using Wino.Extensions;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views

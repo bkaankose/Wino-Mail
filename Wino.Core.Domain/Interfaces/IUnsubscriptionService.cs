@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Models.Reader;
+using Wino.Domain.Models.Reader;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IUnsubscriptionService
     {

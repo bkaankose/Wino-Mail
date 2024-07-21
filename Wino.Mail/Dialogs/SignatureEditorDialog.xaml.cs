@@ -5,11 +5,14 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
 using Windows.UI.ViewManagement.Core;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Reader;
+using Wino.Domain;
 using Wino.Views.Settings;
+using Wino.Domain.Models.Reader;
+using Wino.Domain.Entities;
+using Wino.Domain.Interfaces;
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

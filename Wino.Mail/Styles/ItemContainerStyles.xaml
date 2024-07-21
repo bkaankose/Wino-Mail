@@ -14,7 +14,7 @@
             <SolidColorBrush x:Key="InformationBrush">#ecf0f1</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
-    
+
     <!--  Mail List Header Item Style  -->
     <Style x:Key="MailListHeaderStyle" TargetType="ListViewHeaderItem">
         <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />

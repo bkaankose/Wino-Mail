@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Models.Personalization
+namespace Wino.Domain.Models.Personalization
 {
     public class CustomThemeMetadata
     {

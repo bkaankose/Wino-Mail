@@ -1,8 +1,9 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
+using Wino.Domain;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels
 {
@@ -30,7 +31,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Can't find the patch notes.", Core.Domain.Enums.InfoBarMessageType.Information);
+                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Can't find the patch notes.", InfoBarMessageType.Information);
             }
         }
     }

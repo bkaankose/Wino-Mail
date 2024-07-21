@@ -19,6 +19,7 @@
     </ItemGroup>
 	
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240627000" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="2.0.9" />
@@ -44,11 +45,11 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-    <ProjectReference Include="..\Wino.Core.UWP\Wino.Shared.csproj" />
-    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Domain.csproj" />
     <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
-    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+    <ProjectReference Include="..\Wino.Messaging\Wino.Messaging.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+    <ProjectReference Include="..\Wino.Shared.WinRT\Wino.Shared.WinRT.csproj" />
   </ItemGroup>
 
   <!--

@@ -1,6 +1,6 @@
-﻿using Wino.Core.Domain.Enums;
+﻿using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Accounts
+namespace Wino.Domain.Models.Accounts
 {
     public class ImapAuthenticationMethodModel(ImapAuthenticationMethod imapAuthenticationMethod, string displayName)
     {

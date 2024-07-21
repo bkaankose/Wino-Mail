@@ -5,12 +5,12 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Navigation;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Models.Navigation;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 

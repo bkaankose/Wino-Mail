@@ -1,8 +1,8 @@
-﻿using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Navigation;
+﻿using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Navigation;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IWinoNavigationService
     {

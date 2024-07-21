@@ -1,9 +1,14 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
+using Wino.Domain;
+using Wino.Messaging.Client.Mails;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Exceptions;
+
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -33,7 +38,7 @@ namespace Wino.Views.ImapSetup
         {
             await _clipboardService.CopyClipboardAsync(_protocolLog);
 
-            _dialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, "Log"), Core.Domain.Enums.InfoBarMessageType.Information);
+            _dialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, "Log"), InfoBarMessageType.Information);
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

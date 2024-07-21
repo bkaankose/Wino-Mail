@@ -9,13 +9,17 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using Windows.System;
 
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
+using Wino.Domain;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Mails;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

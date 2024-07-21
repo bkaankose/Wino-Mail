@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Domain.Enums
 {
     // From the SDK.
     public enum StorePurchaseResult

@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Models.Navigation
+﻿namespace Wino.Domain.Models.Navigation
 {
     public enum NavigationMode
     {

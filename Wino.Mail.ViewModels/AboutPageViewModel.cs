@@ -2,9 +2,10 @@
 using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
+using Wino.Domain;
+using Wino.Domain;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {
@@ -71,9 +72,9 @@ namespace Wino.Mail.ViewModels
         }
 
         private Task ShareProtocolLogAsync()
-            => SaveLogInternalAsync(ImapTestService.ProtocolLogFileName);
+            => SaveLogInternalAsync(Constants.ProtocolLogFileName);
         private Task ShareWinoLogAsync()
-            => SaveLogInternalAsync(LogInitializer.WinoLogFileName);
+            => SaveLogInternalAsync(Constants.WinoLogFileName);
 
         private async Task SaveLogInternalAsync(string sourceFileName)
         {
@@ -83,7 +84,7 @@ namespace Wino.Mail.ViewModels
 
             if (!File.Exists(logFile))
             {
-                DialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, Core.Domain.Enums.InfoBarMessageType.Warning);
+                DialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, InfoBarMessageType.Warning);
                 return;
             }
 
@@ -95,7 +96,7 @@ namespace Wino.Mail.ViewModels
 
             var copiedFileName = Path.GetFileName(copiedFilePath);
 
-            DialogService.InfoBarMessage(Translator.Info_LogsSavedTitle, string.Format(Translator.Info_LogsSavedMessage, copiedFileName), Core.Domain.Enums.InfoBarMessageType.Success);
+            DialogService.InfoBarMessage(Translator.Info_LogsSavedTitle, string.Format(Translator.Info_LogsSavedMessage, copiedFileName), InfoBarMessageType.Success);
         }
 
         private async Task Navigate(object url)

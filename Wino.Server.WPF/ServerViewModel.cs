@@ -2,7 +2,7 @@
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Interfaces;
 
 namespace Wino.Server
 {

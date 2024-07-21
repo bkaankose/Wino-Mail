@@ -27,9 +27,9 @@
 	  <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.0" />
 	</ItemGroup>
 	<ItemGroup>
-	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.NET8.csproj" />
-	  <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.WinUI.csproj" />
-	  <ProjectReference Include="..\Wino.Core\Wino.Core.NET8.csproj" />
-	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.NET8.csproj" />
+	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Domain.csproj" />
+	  <ProjectReference Include="..\Wino.Messaging\Wino.Messaging.csproj" />
+	  <ProjectReference Include="..\Wino.Shared.WinRT\Wino.Shared.WinRT.csproj" />
+	  <ProjectReference Include="..\Wino.Synchronization\Wino.Synchronization.csproj" />
 	</ItemGroup>
 </Project>

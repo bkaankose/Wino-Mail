@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Wino.Core.Domain.Exceptions;
+﻿using Wino.Domain.Exceptions;
 
-namespace Wino.Core.Domain.Models.Authorization
+namespace Wino.Domain.Models.Authorization
 {
     public class GoogleAuthorizationRequest
     {

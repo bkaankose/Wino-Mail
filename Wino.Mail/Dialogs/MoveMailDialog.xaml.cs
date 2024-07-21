@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Models.Folders;
+using Wino.Domain;
+using Wino.Domain.Models.Folders;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;

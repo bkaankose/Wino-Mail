@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Models.Reader
+﻿namespace Wino.Domain.Models.Reader
 {
     /// <summary>
     /// Rendering options for mail.

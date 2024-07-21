@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Domain.Entities;
+using Wino.Domain.Models.MailItem;
 
 namespace Wino.Mail.ViewModels.Data
 {

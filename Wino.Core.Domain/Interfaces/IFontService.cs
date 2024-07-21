@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Reader;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Reader;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IFontService
     {

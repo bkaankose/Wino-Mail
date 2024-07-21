@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain;
+using Wino.Domain;
 
 namespace Wino.Mail.ViewModels.Data
 {

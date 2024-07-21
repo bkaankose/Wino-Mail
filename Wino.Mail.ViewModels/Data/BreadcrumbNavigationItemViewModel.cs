@@ -1,5 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Messages.Navigation;
+using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels.Data
 {

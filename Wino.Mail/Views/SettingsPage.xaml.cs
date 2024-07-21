@@ -4,12 +4,15 @@ using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
 
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Messages.Navigation;
+using Wino.Domain;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
 using Wino.Views.Settings;
+using Wino.Messaging.Client.Navigation;
+using Wino.Domain.Enums;
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Media.Animation;

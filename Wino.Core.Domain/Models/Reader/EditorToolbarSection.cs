@@ -1,6 +1,7 @@
-﻿using Wino.Core.Domain.Enums;
+﻿using Wino.Domain;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Reader
+namespace Wino.Domain.Models.Reader
 {
     public class EditorToolbarSection
     {

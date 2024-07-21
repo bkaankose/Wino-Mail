@@ -1,8 +1,8 @@
 ﻿using System;
 using SQLite;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Domain.Entities
 {
     public class MailAccount
     {

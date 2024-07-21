@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Menus;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Menus;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IContextMenuProvider
     {

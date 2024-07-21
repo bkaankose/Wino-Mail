@@ -2,11 +2,17 @@
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.AutoDiscovery;
-using Wino.Core.Messages.Mails;
+using Wino.Domain.Exceptions;
+using Wino.Messaging.Client.Mails;
+using Wino.Domain.Exceptions;
+using Wino.Domain.Models.AutoDiscovery;
+using Wino.Domain.Entities;
+using Wino.Domain.Interfaces;
+
+
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;

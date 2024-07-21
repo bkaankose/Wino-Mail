@@ -3,8 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Domain.Enums"
+    xmlns:domain="using:Wino.Domain"
     xmlns:helpers="using:Wino.Helpers"
     PointerEntered="ControlPointerEntered"
     PointerExited="ControlPointerExited">

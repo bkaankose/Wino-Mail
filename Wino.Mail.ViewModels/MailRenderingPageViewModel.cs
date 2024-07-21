@@ -11,19 +11,20 @@ using MailKit;
 using Microsoft.AppCenter.Crashes;
 using MimeKit;
 using Serilog;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Menus;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Extensions;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Services;
+using Wino.Domain;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Extensions;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Menus;
+using Wino.Domain.Models.Navigation;
+using Wino.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
 
 namespace Wino.Mail.ViewModels
 {
@@ -34,7 +35,7 @@ namespace Wino.Mail.ViewModels
         private readonly IUnderlyingThemeService _underlyingThemeService;
 
         private readonly IMimeFileService _mimeFileService;
-        private readonly Core.Domain.Interfaces.IMailService _mailService;
+        private readonly Domain.Interfaces.IMailService _mailService;
         private readonly IFileService _fileService;
         private readonly IWinoRequestDelegator _requestDelegator;
         private readonly IClipboardService _clipboardService;
@@ -120,7 +121,7 @@ namespace Wino.Mail.ViewModels
                                           INativeAppService nativeAppService,
                                           IUnderlyingThemeService underlyingThemeService,
                                           IMimeFileService mimeFileService,
-                                          Core.Domain.Interfaces.IMailService mailService,
+                                          Domain.Interfaces.IMailService mailService,
                                           IFileService fileService,
                                           IWinoRequestDelegator requestDelegator,
                                           IStatePersistanceService statePersistanceService,
@@ -281,14 +282,14 @@ namespace Wino.Mail.ViewModels
                     ReferenceMailCopy = initializedMailItemViewModel.MailCopy
                 };
 
-                await _requestDelegator.ExecuteAsync(draftPreperationRequest);
+                await _requestDelegator.QueueAsync(draftPreperationRequest);
 
             }
             else if (initializedMailItemViewModel != null)
             {
                 // All other operations require a mail item.
                 var prepRequest = new MailOperationPreperationRequest(operation, initializedMailItemViewModel.MailCopy);
-                await _requestDelegator.ExecuteAsync(prepRequest);
+                await _requestDelegator.QueueAsync(prepRequest);
             }
         }
 
@@ -360,6 +361,9 @@ namespace Wino.Mail.ViewModels
 
             if (!isMimeExists)
             {
+                // TODO: Prevent WinUI crash for non-existing mimes.
+                return;
+
                 await HandleSingleItemDownloadAsync(mailItemViewModel);
             }
 

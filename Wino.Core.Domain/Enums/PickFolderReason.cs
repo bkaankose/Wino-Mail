@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Domain.Enums
 {
     /// <summary>
     /// Defines the potential reasons for picking folder in the folder picking dialog.

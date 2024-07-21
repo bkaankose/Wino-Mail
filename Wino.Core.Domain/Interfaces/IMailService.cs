@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MimeKit;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Domain.Entities;
+using Wino.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IMailService
     {
@@ -92,5 +92,7 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="folderId">Folder id to get unread mails for.</param>
         Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId);
+        Task<MailCopy> GetReplyParentAsync(IMailItem replyItem, Guid accountId, Guid threadingFolderId, Guid sentFolderId, Guid draftFolderId);
+        Task<MailCopy> GetInReplyToReplyAsync(IMailItem originalItem, Guid accountId, Guid threadingFolderId, Guid sentFolderId, Guid draftFolderId);
     }
 }

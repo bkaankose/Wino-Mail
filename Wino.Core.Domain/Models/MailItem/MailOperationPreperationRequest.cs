@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Folders;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Folders;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     /// <summary>
     /// Encapsulates the options for preparing requests to execute mail operations for mail items like Move, Delete, MarkAsRead, etc.

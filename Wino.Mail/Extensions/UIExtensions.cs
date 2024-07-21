@@ -1,5 +1,5 @@
 ﻿using Microsoft.UI.Xaml.Controls;
-using Wino.Core.Domain.Enums;
+using Wino.Domain.Enums;
 
 namespace Wino.Extensions
 {

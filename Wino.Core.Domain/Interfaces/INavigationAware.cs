@@ -1,6 +1,6 @@
-﻿using Wino.Core.Domain.Models.Navigation;
+﻿using Wino.Domain.Models.Navigation;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface INavigationAware
     {

@@ -12,23 +12,24 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
 using MoreLinq;
-using Nito.AsyncEx;
 using Serilog;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Menus;
-using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
+using Wino.Domain;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Synchronization;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Menus;
+using Wino.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Synchronization;
 
 namespace Wino.Mail.ViewModels
 {
@@ -546,7 +547,7 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
-        public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
+        public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.QueueAsync(package);
 
         public IEnumerable<MailItemViewModel> GetTargetMailItemViewModels(IMailItem clickedItem)
         {

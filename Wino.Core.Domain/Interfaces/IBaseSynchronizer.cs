@@ -1,12 +1,12 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using MailKit;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Synchronization;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Models.Synchronization;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IBaseSynchronizer
     {

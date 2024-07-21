@@ -2,10 +2,10 @@
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Navigation;
+using Wino.Domain.Entities;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Folders;
+using Wino.Domain.Models.Navigation;
 using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels

@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Domain.Enums
 {
     // Synchronizer requests.
     public enum MailSynchronizerOperation

@@ -2,7 +2,9 @@
 using Microsoft.Xaml.Interactivity;
 
 using Wino.Controls;
-using Wino.Core.MenuItems;
+using Wino.Mail.ViewModels.Data.MenuItems;
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

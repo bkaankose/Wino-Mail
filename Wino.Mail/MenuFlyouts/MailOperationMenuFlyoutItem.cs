@@ -1,5 +1,5 @@
 ﻿using System;
-using Wino.Core.Domain.Models.Menus;
+using Wino.Domain.Models.Menus;
 
 namespace Wino.MenuFlyouts.Context
 {

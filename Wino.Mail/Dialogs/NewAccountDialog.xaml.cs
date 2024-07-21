@@ -1,6 +1,10 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
+using Wino.Domain.Models.Accounts;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;
@@ -83,7 +87,7 @@ namespace Wino.Dialogs
         private void ValidateNames()
         {
             AccountNameTextbox.IsEnabled = SelectedMailProvider != null;
-            SenderNameTextbox.IsEnabled = SelectedMailProvider != null && SelectedMailProvider.Type != Core.Domain.Enums.MailProviderType.IMAP4;
+            SenderNameTextbox.IsEnabled = SelectedMailProvider != null && SelectedMailProvider.Type != MailProviderType.IMAP4;
         }
 
         private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args) => Validate();

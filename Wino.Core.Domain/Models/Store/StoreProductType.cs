@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Models.Store
+﻿namespace Wino.Domain.Models.Store
 {
     public enum StoreProductType
     {

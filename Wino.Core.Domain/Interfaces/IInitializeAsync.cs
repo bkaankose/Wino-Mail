@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     /// <summary>
     /// An interface that all startup services must implement.

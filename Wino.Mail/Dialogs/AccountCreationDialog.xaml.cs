@@ -1,4 +1,4 @@
-﻿using Wino.Core.Domain.Enums;
+﻿using Wino.Domain.Enums;
 using Wino.Helpers;
 
 namespace Wino.Dialogs

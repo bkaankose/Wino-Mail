@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using MimeKit;
-using Wino.Core.Domain.Entities;
+using Wino.Domain.Entities;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Domain.Models.MailItem
 {
     public class DraftPreperationRequest : DraftCreationOptions
     {

@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
 using Wino.Views.ImapSetup;
+using Wino.Messaging.Client.Mails;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+using Wino.Domain.Interfaces;
+
+
+
 
 
 #if NET8_0

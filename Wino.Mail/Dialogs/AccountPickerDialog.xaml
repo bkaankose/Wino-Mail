@@ -7,7 +7,7 @@
     mc:Ignorable="d"
     Style="{StaticResource WinoDialogStyle}"
     PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:domain="using:Wino.Domain"
     Title="{x:Bind domain:Translator.AccountPickerDialog_Title}">
 
     <ListView

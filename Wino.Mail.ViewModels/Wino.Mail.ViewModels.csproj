@@ -8,16 +8,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.5" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    <PackageReference Include="morelinq" Version="4.3.0" />
     <PackageReference Include="Serilog" Version="4.0.0" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
-    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Domain.csproj" />
+    <ProjectReference Include="..\Wino.Messaging\Wino.Messaging.csproj" />
   </ItemGroup>
 
 </Project>

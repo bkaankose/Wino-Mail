@@ -1,7 +1,8 @@
 ﻿using System;
 using CommunityToolkit.WinUI.Helpers;
 using Microsoft.Extensions.DependencyInjection;
-using Wino.Core.Domain.Interfaces;
+using Wino.Domain.Interfaces;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

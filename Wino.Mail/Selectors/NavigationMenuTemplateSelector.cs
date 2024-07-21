@@ -1,5 +1,8 @@
-﻿
-using Wino.Core.MenuItems;
+﻿using Wino.Mail.ViewModels.Data.MenuItems;
+using Wino.Domain.Enums;
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -54,7 +57,7 @@ namespace Wino.Selectors
             else if (item is FolderMenuItem)
                 return FolderMenuTemplate;
             else if (item is FixAccountIssuesMenuItem fixAccountIssuesMenuItem)
-                return fixAccountIssuesMenuItem.Account.AttentionReason == Core.Domain.Enums.AccountAttentionReason.MissingSystemFolderConfiguration
+                return fixAccountIssuesMenuItem.Account.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
                         ? FixMissingFolderConfigTemplate : FixAuthenticationIssueTemplate;
             else
             {

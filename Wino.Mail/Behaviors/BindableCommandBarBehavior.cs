@@ -4,8 +4,11 @@ using System.Windows.Input;
 
 using Microsoft.Xaml.Interactivity;
 using Wino.Controls;
-using Wino.Core.Domain.Models.Menus;
 using Wino.Helpers;
+using Wino.Domain.Models.Menus;
+using Wino.Domain.Enums;
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;
@@ -108,7 +111,7 @@ namespace Wino.Behaviors
                 {
                     ICommandBarElement menuItem = null;
 
-                    if (mailOperationMenuItem.Operation == Core.Domain.Enums.MailOperation.Seperator)
+                    if (mailOperationMenuItem.Operation == MailOperation.Seperator)
                     {
                         menuItem = new AppBarSeparator();
                     }

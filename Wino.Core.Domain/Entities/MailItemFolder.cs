@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using SQLite;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Folders;
+using Wino.Domain;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Folders;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Domain.Entities
 {
     [DebuggerDisplay("{FolderName} - {SpecialFolderType}")]
     public class MailItemFolder : IMailItemFolder

@@ -2,9 +2,9 @@
 using System.ComponentModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Translations;
+using Wino.Domain.Interfaces;
+using Wino.Domain.Models.Navigation;
+using Wino.Domain.Models.Translations;
 
 namespace Wino.Mail.ViewModels
 {

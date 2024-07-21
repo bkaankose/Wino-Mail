@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
+using Wino.Domain;
+using Wino.Domain.Entities;
+using Wino.Domain.Enums;
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Controls;
@@ -31,11 +33,11 @@ namespace Wino.Dialogs
 
             AvailableFolders = availableFolders;
 
-            Sent = AvailableFolders.Find(a => a.SpecialFolderType == Core.Domain.Enums.SpecialFolderType.Sent);
-            Draft = AvailableFolders.Find(a => a.SpecialFolderType == Core.Domain.Enums.SpecialFolderType.Draft);
-            Archive = AvailableFolders.Find(a => a.SpecialFolderType == Core.Domain.Enums.SpecialFolderType.Archive);
-            Junk = AvailableFolders.Find(a => a.SpecialFolderType == Core.Domain.Enums.SpecialFolderType.Junk);
-            Trash = AvailableFolders.Find(a => a.SpecialFolderType == Core.Domain.Enums.SpecialFolderType.Deleted);
+            Sent = AvailableFolders.Find(a => a.SpecialFolderType == SpecialFolderType.Sent);
+            Draft = AvailableFolders.Find(a => a.SpecialFolderType == SpecialFolderType.Draft);
+            Archive = AvailableFolders.Find(a => a.SpecialFolderType == SpecialFolderType.Archive);
+            Junk = AvailableFolders.Find(a => a.SpecialFolderType == SpecialFolderType.Junk);
+            Trash = AvailableFolders.Find(a => a.SpecialFolderType == SpecialFolderType.Deleted);
         }
 
         private void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)

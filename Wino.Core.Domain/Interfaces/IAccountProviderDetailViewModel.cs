@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IAccountProviderDetailViewModel
     {

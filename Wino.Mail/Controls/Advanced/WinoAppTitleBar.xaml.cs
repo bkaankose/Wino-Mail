@@ -1,6 +1,8 @@
 ﻿using Windows.Foundation;
-using Wino.Core.WinUI.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Shared.WinRT.Services;
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

@@ -11,18 +11,27 @@ using Windows.Foundation;
 
 using Wino.Controls;
 using Wino.Controls.Advanced;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Menus;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
+using Wino.Domain;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.MenuFlyouts.Context;
 using Wino.Views.Abstract;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Mails;
+using Wino.Domain.Models.Navigation;
+using Wino.Domain.Models.Menus;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Interfaces;
+
+
+
+
+
+
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

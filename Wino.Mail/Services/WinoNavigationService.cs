@@ -1,17 +1,23 @@
 ﻿using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Settings;
-using Wino.Core.WinUI.Services;
+using Wino.Shared.WinRT.Services;
+using Wino.Domain.Models.Navigation;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.MailItem;
+using Wino.Domain.Interfaces;
+
+
+
+
+
+
 
 
 #if NET8_0

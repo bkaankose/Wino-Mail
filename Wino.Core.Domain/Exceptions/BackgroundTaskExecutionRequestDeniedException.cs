@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Exceptions
+namespace Wino.Domain.Exceptions
 {
     /// <summary>
     /// An exception thrown when the background task execution policies are denied for some reason.

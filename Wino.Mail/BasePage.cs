@@ -5,8 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Wino.Core.Messages.Shell;
 using Wino.Mail.ViewModels;
+using Wino.Messaging.Client.Shell;
+using Wino.Shared.WinRT;
 
 namespace Wino
 {
@@ -69,9 +70,9 @@ namespace Wino
             GC.Collect();
         }
 
-        private Core.Domain.Models.Navigation.NavigationMode GetNavigationMode(NavigationMode mode)
+        private Domain.Models.Navigation.NavigationMode GetNavigationMode(Microsoft.UI.Xaml.Navigation.NavigationMode mode)
         {
-            return (Core.Domain.Models.Navigation.NavigationMode)mode;
+            return (Domain.Models.Navigation.NavigationMode)mode;
         }
     }
 }

@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Wino.Core.Domain.Exceptions
+﻿namespace Wino.Domain.Exceptions
 {
     public class ImapClientPoolException : Exception
     {

@@ -1,5 +1,5 @@
 ﻿using System;
-using Wino.Core.Domain.Models.Folders;
+using Wino.Domain.Models.Folders;
 
 namespace Wino.MenuFlyouts
 {

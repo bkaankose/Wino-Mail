@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Enums;
+﻿using Wino.Domain.Enums;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

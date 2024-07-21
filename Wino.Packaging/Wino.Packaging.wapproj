@@ -117,5 +117,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.Mail\Wino.Mail.csproj" />
+    <ProjectReference Include="..\Wino.Server.WPF\Wino.Server.csproj" />
   </ItemGroup>
 </Project>

@@ -1,8 +1,9 @@
 ﻿using System;
 
 using Wino.Controls;
-using Wino.Core.Domain.Enums;
 using Wino.Helpers;
+using Wino.Domain.Enums;
+
 
 #if NET8_0
 using Microsoft.UI.Xaml;

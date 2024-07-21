@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Interfaces
+﻿namespace Wino.Domain.Interfaces
 {
     /// <summary>
     /// Singleton object that holds the application data folder path and the publisher shared folder path.

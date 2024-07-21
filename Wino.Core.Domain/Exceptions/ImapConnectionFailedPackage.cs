@@ -1,7 +1,7 @@
 ﻿using System;
-using Wino.Core.Domain.Models.AutoDiscovery;
+using Wino.Domain.Models.AutoDiscovery;
 
-namespace Wino.Core.Domain.Exceptions
+namespace Wino.Domain.Exceptions
 {
     public class ImapConnectionFailedPackage
     {

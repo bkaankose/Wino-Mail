@@ -3,14 +3,16 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
-
-using Wino.Core.Domain.Enums;
-using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Server;
 using Wino.Views.Abstract;
 using Wino.Views.Account;
 using Wino.Views.Settings;
+using Wino.Messaging.Client.Navigation;
+using Wino.Domain.Enums;
+
+
+
 
 #if NET8_0
 using Microsoft.UI.Xaml.Media.Animation;
@@ -38,7 +40,7 @@ namespace Wino.Views
         {
             base.OnNavigatedTo(e);
 
-            var initialRequest = new BreadcrumbNavigationRequested("Manage Accounts", Core.Domain.Enums.WinoPage.AccountManagementPage);
+            var initialRequest = new BreadcrumbNavigationRequested("Manage Accounts", WinoPage.AccountManagementPage);
             PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
 
             AccountPagesFrame.Navigate(typeof(AccountManagementPage), null, new SuppressNavigationTransitionInfo());

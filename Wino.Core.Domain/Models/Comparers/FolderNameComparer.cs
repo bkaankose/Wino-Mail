@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Entities;
+using Wino.Domain.Entities;
 
-namespace Wino.Core.Domain.Models.Comparers
+namespace Wino.Domain.Models.Comparers
 {
     public class FolderNameComparer : IComparer<MailItemFolder>
     {

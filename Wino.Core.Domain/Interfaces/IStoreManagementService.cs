@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Store;
+using Wino.Domain.Enums;
+using Wino.Domain.Models.Store;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface IStoreManagementService
     {

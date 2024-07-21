@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Domain.Interfaces
 {
     public interface INotificationBuilder
     {

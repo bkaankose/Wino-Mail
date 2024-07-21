@@ -9,7 +9,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:controls="using:Wino.Controls"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:domain="using:Wino.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:selectors="using:Wino.Selectors"
