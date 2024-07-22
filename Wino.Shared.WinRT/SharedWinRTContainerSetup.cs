@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Windows.ApplicationModel.AppService;
 using Wino.Domain.Interfaces;
 using Wino.Shared.WinRT.Services;
 
@@ -9,10 +8,15 @@ namespace Wino.Shared.WinRT
     {
         public static void RegisterCoreUWPServices(this IServiceCollection services)
         {
-            var serverConnectionManager = new WinoServerConnectionManager();
+            // AppServiceConnection works only for UWP.
 
+            // var serverConnectionManager = new WinoServerConnectionManager();
+            //services.AddSingleton<IWinoServerConnectionManager>(serverConnectionManager);
+            //services.AddSingleton<IWinoServerConnectionManager<AppServiceConnection>>(serverConnectionManager);
+
+            // Use new IPC server for WinAppSDK
+            var serverConnectionManager = new WinoIPCServerConnectionManager();
             services.AddSingleton<IWinoServerConnectionManager>(serverConnectionManager);
-            services.AddSingleton<IWinoServerConnectionManager<AppServiceConnection>>(serverConnectionManager);
 
             services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
             services.AddSingleton<INativeAppService, NativeAppService>();

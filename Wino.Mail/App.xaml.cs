@@ -60,6 +60,11 @@ namespace Wino
 
             m_ShellFrame.Navigate(typeof(AppShell));
             m_Window.Activate();
+
+            // Launch server
+
+            var serverConnectionManager = Services.GetService<IWinoServerConnectionManager>();
+            await serverConnectionManager.ConnectAsync();
         }
 
         private void ConfigureWindow()
