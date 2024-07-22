@@ -7,7 +7,7 @@ using Serilog;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Accounts;
+using Wino.Messaging.Client.Accounts;
 
 namespace Wino.Activation
 {

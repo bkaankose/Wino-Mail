@@ -71,7 +71,7 @@ namespace Wino.Core.UWP.Services
 
                     await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
 
-                    // If the server connection is success, Status will be updated to Connected by BackgroundActivationHandlerEx.
+                    // If the server connection is success, Status will be updated to Connected by App.xaml.cs OnBackgroundActivated.
                 }
                 catch (Exception)
                 {
@@ -112,13 +112,10 @@ namespace Wino.Core.UWP.Services
                     switch (messageType)
                     {
                         case MessageType.UIMessage:
-                            if (args.Request.Message.TryGetValue(MessageConstants.MessageDataTypeKey, out object dataTypeObject) && dataTypeObject is string dataTypeName)
-                            {
-                                HandleUIMessage(messageJson, dataTypeName);
-                            }
-                            else
+                            if (!args.Request.Message.TryGetValue(MessageConstants.MessageDataTypeKey, out object dataTypeObject) || dataTypeObject is not string dataTypeName)
                                 throw new ArgumentException("Message data type is missing.");
 
+                            HandleUIMessage(messageJson, dataTypeName);
                             break;
                         case MessageType.ServerAction:
                             HandleServerAction(messageJson);
@@ -201,7 +198,7 @@ namespace Wino.Core.UWP.Services
 
         public void QueueRequest(IRequestBase request, Guid accountId)
         {
-            // TODO: Queue this request to corresponding account's synchronizer request queue.
+            // TODO: Queue this request to corresponding account's synchronizer request queue in the server.
         }
     }
 }

@@ -6,7 +6,7 @@ using Windows.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
+using Wino.Messaging.Client.Mails;
 using Wino.Views.ImapSetup;
 
 namespace Wino.Dialogs

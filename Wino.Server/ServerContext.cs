@@ -79,6 +79,23 @@ namespace Wino.Server
         public async void Receive(MergedInboxRenamed message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
+
+        private string GetAppPackagFamilyName()
+        {
+            // If running as a standalone app, Package will throw exception.
+            // Return hardcoded value for debugging purposes.
+            // Connection will not be available in this case.
+
+            try
+            {
+                return Package.Current.Id.FamilyName;
+            }
+            catch (Exception)
+            {
+                return "Debug.Wino.Server.FamilyName";
+            }
+        }
+
         /// <summary>
         /// Open connection to UWP app service
         /// </summary>
@@ -183,39 +200,40 @@ namespace Wino.Server
 
         private void OnWinRTMessageReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
-            // TODO: Handle incoming messages from UWP/WINUI Application.
+            // TODO: Handle incoming messages from UWP / WINUI Application.
 
-        }
-
-        #region Init
-
-        private string GetAppPackagFamilyName()
-        {
-            // If running as a standalone app, Package will throw exception.
-            // Return hardcoded value for debugging purposes.
-            // Connection will not be available in this case.
-
-            try
+            if (args.Request.Message.TryGetValue(MessageConstants.MessageTypeKey, out object messageTypeObject) && messageTypeObject is int messageTypeInt)
             {
-                return Package.Current.Id.FamilyName;
-            }
-            catch (Exception)
-            {
-                return "Debug.Wino.Server.FamilyName";
+                var messageType = (MessageType)messageTypeInt;
+
+                if (args.Request.Message.TryGetValue(MessageConstants.MessageDataKey, out object messageDataObject) && messageDataObject is string messageJson)
+                {
+                    switch (messageType)
+                    {
+                        case MessageType.UIMessage:
+                            if (!args.Request.Message.TryGetValue(MessageConstants.MessageDataTypeKey, out object dataTypeObject) || dataTypeObject is not string dataTypeName)
+                                throw new ArgumentException("Message data type is missing.");
+
+                            HandleUIMessage(messageJson, dataTypeName);
+                            break;
+                        case MessageType.ServerAction:
+                            HandleServerAction(messageJson);
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
         }
 
-        public async Task InitializeAsync()
+        private void HandleServerAction(string messageJson)
         {
 
-            await InitializeAppServiceConnectionAsync();
         }
 
-        #endregion
+        private void HandleUIMessage(string messageJson, string typeName)
+        {
 
-
-
-
-
+        }
     }
 }

@@ -3,7 +3,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Shell;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services
 {

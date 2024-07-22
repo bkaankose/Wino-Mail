@@ -16,9 +16,9 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
-using Wino.Core.Messages.Authorization;
-using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Authorization;
+using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels

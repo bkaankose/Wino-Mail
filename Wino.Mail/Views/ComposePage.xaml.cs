@@ -28,10 +28,10 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views

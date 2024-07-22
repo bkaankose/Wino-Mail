@@ -11,7 +11,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Extensions;
-using Wino.Core.Messages.Accounts;
+using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 
 namespace Wino.Core.Services

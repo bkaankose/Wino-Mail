@@ -24,12 +24,12 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Synchronization;
 
 namespace Wino.Mail.ViewModels
 {

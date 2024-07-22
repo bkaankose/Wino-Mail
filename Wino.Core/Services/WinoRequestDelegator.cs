@@ -11,8 +11,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Synchronization;
 using Wino.Core.Requests;
+using Wino.Messaging.Client.Synchronization;
 
 namespace Wino.Core.Services
 {

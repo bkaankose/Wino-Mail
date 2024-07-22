@@ -21,12 +21,12 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.MenuItems;
-using Wino.Core.Messages.Accounts;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Navigation;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
 using Wino.Core.Services;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
