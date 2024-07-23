@@ -1,21 +1,26 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
+using Windows.Foundation.Collections;
 using Windows.Foundation.Metadata;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Integration.Json;
 using Wino.Messaging;
 using Wino.Messaging.Enums;
-using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services
 {
     public class WinoServerConnectionManager : IWinoServerConnectionManager<AppServiceConnection>
     {
+        public event EventHandler<WinoServerConnectionStatus> StatusChanged;
+
         private WinoServerConnectionStatus status;
 
         public WinoServerConnectionStatus Status
@@ -29,9 +34,6 @@ namespace Wino.Core.UWP.Services
         }
 
         private AppServiceConnection _connection;
-
-        public event EventHandler<WinoServerConnectionStatus> StatusChanged;
-
         public AppServiceConnection Connection
         {
             get { return _connection; }
@@ -58,6 +60,11 @@ namespace Wino.Core.UWP.Services
                 }
             }
         }
+
+        private readonly JsonSerializerOptions _serverJsonServerSerializer = new JsonSerializerOptions
+        {
+            TypeInfoResolver = new ServerRequestTypeInfoResolver()
+        };
 
         public async Task<bool> ConnectAsync()
         {
@@ -117,19 +124,11 @@ namespace Wino.Core.UWP.Services
 
                             HandleUIMessage(messageJson, dataTypeName);
                             break;
-                        case MessageType.ServerAction:
-                            HandleServerAction(messageJson);
-                            break;
                         default:
                             break;
                     }
                 }
             }
-        }
-
-        private void HandleServerAction(string messageJson)
-        {
-
         }
 
         /// <summary>
@@ -138,8 +137,6 @@ namespace Wino.Core.UWP.Services
         /// <param name="messageJson">Message data in json format.</param>
         private void HandleUIMessage(string messageJson, string typeName)
         {
-            Debug.WriteLine($"C: UImessage ({typeName})");
-
             switch (typeName)
             {
                 case nameof(MailAddedMessage):
@@ -196,9 +193,50 @@ namespace Wino.Core.UWP.Services
             if (Connection == null) return;
         }
 
-        public void QueueRequest(IRequestBase request, Guid accountId)
+        public async Task QueueRequestAsync(IRequestBase request, Guid accountId)
         {
-            // TODO: Queue this request to corresponding account's synchronizer request queue in the server.
+            var queuePackage = new ServerRequestPackage(accountId, request);
+
+            // IRequestBase is not a concrete type, so we need to use a custom type resolver.
+            // System.Text.Json must know the concrete type to serialize the object.
+
+            var serialized = JsonSerializer.Serialize(queuePackage, _serverJsonServerSerializer);
+
+            var response = await Connection.SendMessageAsync(new ValueSet
+            {
+                { MessageConstants.MessageTypeKey, (int)MessageType.ServerMessage },
+                { MessageConstants.MessageDataKey, serialized },
+                { MessageConstants.MessageDataTypeKey, nameof(ServerRequestPackage) },
+                { MessageConstants.MessageDataRequestAccountIdKey, accountId }
+            });
+
+            if (response.Status != AppServiceResponseStatus.Success)
+                throw new WinoServerException(new Exception($"Failed to queue request to server. Server response was: {response.Status}"));
         }
+
+        public async Task<TResponse> GetResponseAsync<TResponse, TRequestType>(TRequestType message) where TRequestType : IClientMessage
+        {
+            // TODO: Handle exceptions and disconnections.
+
+            var serialized = JsonSerializer.Serialize(message, _serverJsonServerSerializer);
+
+            var response = await Connection.SendMessageAsync(new ValueSet
+            {
+                { MessageConstants.MessageTypeKey, (int)MessageType.ServerMessage },
+                { MessageConstants.MessageDataKey, serialized },
+                { MessageConstants.MessageDataTypeKey, message.GetType().Name }
+            });
+
+            if (response.Status == AppServiceResponseStatus.Success)
+            {
+                if (response.Message.TryGetValue(MessageConstants.MessageDataKey, out object messageDataObject) && messageDataObject is string messageJson)
+                {
+                    return JsonSerializer.Deserialize<TResponse>(messageJson);
+                }
+            }
+
+            return default;
+        }
+
     }
 }

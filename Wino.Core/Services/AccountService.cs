@@ -12,7 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Extensions;
 using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Services
 {

@@ -1,22 +1,20 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
-using Wino.Core.Authenticators;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Integration.Processors;
+using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Integration.Json;
 using Wino.Core.Services;
-using Wino.Core.Synchronizers;
 using Wino.Messaging;
 using Wino.Messaging.Enums;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
+using Wino.Server.MessageHandlers;
 
 namespace Wino.Server
 {
@@ -41,12 +39,24 @@ namespace Wino.Server
 
         private readonly IDatabaseService _databaseService;
         private readonly IApplicationConfiguration _applicationFolderConfiguration;
+        private readonly ISynchronizerFactory _synchronizerFactory;
+        private readonly IServerMessageHandlerFactory _serverMessageHandlerFactory;
 
-        public ServerContext(IDatabaseService databaseService, IApplicationConfiguration applicationFolderConfiguration)
+        // Constains ServerRequestTypeInfoResolver for resolving unknown types.
+
+        private JsonSerializerOptions JsonSerializerOptions { get; } = new JsonSerializerOptions();
+
+        public ServerContext(IDatabaseService databaseService,
+                             IApplicationConfiguration applicationFolderConfiguration,
+                             ISynchronizerFactory synchronizerFactory,
+                             IServerMessageHandlerFactory serverMessageHandlerFactory)
         {
             _databaseService = databaseService;
             _applicationFolderConfiguration = applicationFolderConfiguration;
+            _synchronizerFactory = synchronizerFactory;
+            _serverMessageHandlerFactory = serverMessageHandlerFactory;
 
+            JsonSerializerOptions.TypeInfoResolver = new ServerRequestTypeInfoResolver();
             WeakReferenceMessenger.Default.RegisterAll(this);
         }
 
@@ -122,27 +132,6 @@ namespace Wino.Server
             }
         }
 
-        public async Task TestOutlookSynchronizer()
-        {
-            var accountService = App.Current.Services.GetService<IAccountService>();
-
-            var accs = await accountService.GetAccountsAsync();
-            var acc = accs.ElementAt(0);
-
-            var authenticator = App.Current.Services.GetService<OutlookAuthenticator>();
-            var processor = App.Current.Services.GetService<IOutlookChangeProcessor>();
-
-            var sync = new OutlookSynchronizer(acc, authenticator, processor);
-
-            var options = new SynchronizationOptions()
-            {
-                AccountId = acc.Id,
-                Type = Core.Domain.Enums.SynchronizationType.Full
-            };
-
-            var result = await sync.SynchronizeAsync(options);
-        }
-
         /// <summary>
         /// Disposes current connection to UWP app service.
         /// </summary>
@@ -171,7 +160,7 @@ namespace Wino.Server
         {
             if (connection == null) return;
 
-            if (message is not IServerMessage serverMessage)
+            if (message is not IUIMessage serverMessage)
                 throw new ArgumentException("Server message must be a type of IServerMessage");
 
             string json = JsonSerializer.Serialize(message);
@@ -183,7 +172,6 @@ namespace Wino.Server
                 { MessageConstants.MessageDataTypeKey, message.GetType().Name }
             };
 
-            Debug.WriteLine($"S: {messageType} ({message.GetType().Name})");
             await connection.SendMessageAsync(set);
         }
 
@@ -198,7 +186,7 @@ namespace Wino.Server
             DisposeConnection();
         }
 
-        private void OnWinRTMessageReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
+        private async void OnWinRTMessageReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
             // TODO: Handle incoming messages from UWP / WINUI Application.
 
@@ -208,32 +196,80 @@ namespace Wino.Server
 
                 if (args.Request.Message.TryGetValue(MessageConstants.MessageDataKey, out object messageDataObject) && messageDataObject is string messageJson)
                 {
-                    switch (messageType)
-                    {
-                        case MessageType.UIMessage:
-                            if (!args.Request.Message.TryGetValue(MessageConstants.MessageDataTypeKey, out object dataTypeObject) || dataTypeObject is not string dataTypeName)
-                                throw new ArgumentException("Message data type is missing.");
+                    if (!args.Request.Message.TryGetValue(MessageConstants.MessageDataTypeKey, out object dataTypeObject) || dataTypeObject is not string dataTypeName)
+                        throw new ArgumentException("Message data type is missing.");
 
-                            HandleUIMessage(messageJson, dataTypeName);
-                            break;
-                        case MessageType.ServerAction:
-                            HandleServerAction(messageJson);
-                            break;
-                        default:
-                            break;
+                    if (messageType == MessageType.ServerMessage)
+                    {
+                        // Client is awaiting a response from server.
+                        // ServerMessage calls are awaited on the server and response is returned back in the args.
+
+                        await HandleServerMessageAsync(messageJson, dataTypeName, args).ConfigureAwait(false);
                     }
+                    else if (messageType == MessageType.UIMessage)
+                        throw new Exception("Received UIMessage from UWP. This is not expected.");
                 }
             }
         }
 
-        private void HandleServerAction(string messageJson)
+        private async Task HandleServerMessageAsync(string messageJson, string typeName, AppServiceRequestReceivedEventArgs args)
         {
+            switch (typeName)
+            {
+                case nameof(NewSynchronizationRequested):
+                    Debug.WriteLine($"New synchronization requested.");
 
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<NewSynchronizationRequested>(messageJson, JsonSerializerOptions));
+                    break;
+                case nameof(DownloadMissingMessageRequested):
+                    Debug.WriteLine($"Download missing message requested.");
+
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<DownloadMissingMessageRequested>(messageJson, JsonSerializerOptions));
+                    break;
+                case nameof(ServerRequestPackage):
+                    var serverPackage = JsonSerializer.Deserialize<ServerRequestPackage>(messageJson, JsonSerializerOptions);
+
+                    Debug.WriteLine(serverPackage);
+
+                    await ExecuteServerMessageSafeAsync(args, serverPackage);
+                    break;
+                case nameof(AuthorizationRequested):
+                    Debug.WriteLine($"Authorization requested.");
+
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<AuthorizationRequested>(messageJson, JsonSerializerOptions));
+                    break;
+                default:
+                    Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");
+                    break;
+            }
         }
 
-        private void HandleUIMessage(string messageJson, string typeName)
+        /// <summary>
+        /// Executes ServerMessage coming from the UWP.
+        /// These requests are awaited and expected to return a response.
+        /// </summary>
+        /// <param name="args">App service request args.</param>
+        /// <param name="message">Message that client sent to server.</param>
+        private async Task ExecuteServerMessageSafeAsync(AppServiceRequestReceivedEventArgs args, IClientMessage message)
         {
+            var deferral = args.GetDeferral();
 
+            try
+            {
+                var messageName = message.GetType().Name;
+
+                var handler = _serverMessageHandlerFactory.GetHandler(messageName);
+                await handler.ExecuteAsync(message, args.Request).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Fatal crash. Handlers should not crash.
+                Debugger.Break();
+            }
+            finally
+            {
+                deferral.Complete();
+            }
         }
     }
 }

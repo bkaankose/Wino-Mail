@@ -394,9 +394,16 @@ namespace Wino.Core.Synchronizers
 
                 deltaRequest.UrlTemplate = deltaRequest.UrlTemplate.Insert(deltaRequest.UrlTemplate.Length - 1, ",%24deltaToken");
                 deltaRequest.QueryParameters.Add("%24deltaToken", currentDeltaLink);
-                graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
+                try
+                {
+                    graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
+                catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
+                {
+                    // TODO: Handle GONE response for expired folder delta tokens.
+                }
             }
 
             var iterator = PageIterator<MailFolder, Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, graphFolders, (folder) =>

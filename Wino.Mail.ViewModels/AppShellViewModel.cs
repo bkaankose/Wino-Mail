@@ -28,6 +28,7 @@ using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -796,63 +797,60 @@ namespace Wino.Mail.ViewModels
         {
             // TODO: Queue new synchronization for an account.
 
+            // var syncResponse = 
+
             // Don't send message for sync completion when we execute requests.
             // People are usually interested in seeing the notification after they trigger the synchronization.
 
-            //bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
+            bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
 
-            //var synchronizer = _synchronizerFactory.GetAccountSynchronizer(message.Options.AccountId);
+            var accountId = message.Options.AccountId;
 
-            //if (synchronizer == null) return;
+            message.Options.ProgressListener = this;
 
-            //var accountId = message.Options.AccountId;
+            bool isSynchronizationSucceeded = false;
 
-            //message.Options.ProgressListener = this;
+            try
+            {
+                // TODO: Cancellation Token
+                var synchronizationResult = await ServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
 
-            //bool isSynchronizationSucceeded = false;
+                isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
 
-            //try
-            //{
-            //    // TODO: Cancellation Token
-            //    var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options);
+                // Create notification for synchronization result.
+                if (synchronizationResult.DownloadedMessages.Any())
+                {
+                    var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
 
-            //    isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
+                    if (accountInboxFolder == null) return;
 
-            //    // Create notification for synchronization result.
-            //    if (synchronizationResult.DownloadedMessages.Any())
-            //    {
-            //        var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
-
-            //        if (accountInboxFolder == null) return;
-
-            //        await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
-            //    }
-            //}
-            //catch (AuthenticationAttentionException)
-            //{
-            //    await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
-            //}
-            //catch (SystemFolderConfigurationMissingException)
-            //{
-            //    await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
-            //}
-            //catch (OperationCanceledException)
-            //{
-            //    DialogService.InfoBarMessage(Translator.Info_SyncCanceledMessage, Translator.Info_SyncCanceledMessage, InfoBarMessageType.Warning);
-            //}
-            //catch (Exception ex)
-            //{
-            //    DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
-            //}
-            //finally
-            //{
-            //    if (shouldReportSynchronizationResult)
-            //        Messenger.Send(new AccountSynchronizationCompleted(accountId,
-            //                                                           isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
-            //                                                           message.Options.GroupedSynchronizationTrackingId));
-            //}
+                    await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
+                }
+            }
+            catch (AuthenticationAttentionException)
+            {
+                await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
+            }
+            catch (SystemFolderConfigurationMissingException)
+            {
+                await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
+            }
+            catch (OperationCanceledException)
+            {
+                DialogService.InfoBarMessage(Translator.Info_SyncCanceledMessage, Translator.Info_SyncCanceledMessage, InfoBarMessageType.Warning);
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
+            }
+            finally
+            {
+                if (shouldReportSynchronizationResult)
+                    Messenger.Send(new AccountSynchronizationCompleted(accountId,
+                                                                       isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
+                                                                       message.Options.GroupedSynchronizationTrackingId));
+            }
         }
-
 
         protected override async void OnAccountUpdated(MailAccount updatedAccount)
         {

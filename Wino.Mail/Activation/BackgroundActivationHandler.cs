@@ -84,10 +84,10 @@ namespace Wino.Activation
 
                         foreach (var request in requests)
                         {
-                            _winoServerConnectionManager.QueueRequest(request, mailItem.AssignedAccount.Id);
-
-                            // synchronizer.QueueRequest(request);
+                            await _winoServerConnectionManager.QueueRequestAsync(request, mailItem.AssignedAccount.Id);
                         }
+
+                        // TODO: Signal server for new synchronization.
 
                         //var options = new SynchronizationOptions()
                         //{

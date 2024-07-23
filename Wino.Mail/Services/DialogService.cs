@@ -19,8 +19,8 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
 using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Services
 {

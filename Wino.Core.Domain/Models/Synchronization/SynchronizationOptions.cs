@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
@@ -29,7 +30,9 @@ namespace Wino.Core.Domain.Models.Synchronization
 
         /// <summary>
         /// A listener to be notified about the progress of the synchronization.
+        /// Ignored for server deserialization.
         /// </summary>
+        [JsonIgnore]
         public ISynchronizationProgress ProgressListener { get; set; }
 
         /// <summary>

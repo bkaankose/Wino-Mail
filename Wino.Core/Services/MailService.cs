@@ -14,7 +14,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
-using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Services
 {

@@ -7,5 +7,5 @@
     /// parts of the application.
     /// </summary>
 
-    public interface IServerMessage;
+    public interface IUIMessage;
 }

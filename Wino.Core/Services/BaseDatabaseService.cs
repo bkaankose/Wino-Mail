@@ -16,7 +16,7 @@ namespace Wino.Core.Services
             _databaseService = databaseService;
         }
 
-        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IServerMessage
+        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
             => Messenger.Send(message);
     }
 }

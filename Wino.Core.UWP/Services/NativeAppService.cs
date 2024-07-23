@@ -24,6 +24,8 @@ namespace Wino.Services
         private string _mimeMessagesFolder;
         private string _editorBundlePath;
 
+        public Func<object> GetCoreWindowHwnd { get; set; }
+
         public string GetWebAuthenticationBrokerUri()
         {
 #if WINDOWS_UWP
@@ -101,6 +103,7 @@ namespace Wino.Services
             return _editorBundlePath;
         }
 
+        [Obsolete("This should be removed. There should be no functionality.")]
         public bool IsAppRunning()
         {
 #if WINDOWS_UWP

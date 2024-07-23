@@ -25,6 +25,7 @@ using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -40,7 +41,7 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoRequestDelegator _requestDelegator;
         private readonly IClipboardService _clipboardService;
         private readonly IUnsubscriptionService _unsubscriptionService;
-
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private bool forceImageLoading = false;
 
         private MailItemViewModel initializedMailItemViewModel = null;
@@ -127,12 +128,13 @@ namespace Wino.Mail.ViewModels
                                           IStatePersistanceService statePersistanceService,
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
-                                          IPreferencesService preferencesService) : base(dialogService)
+                                          IPreferencesService preferencesService,
+                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             NativeAppService = nativeAppService;
             StatePersistanceService = statePersistanceService;
             PreferencesService = preferencesService;
-
+            _winoServerConnectionManager = winoServerConnectionManager;
             _clipboardService = clipboardService;
             _unsubscriptionService = unsubscriptionService;
             _underlyingThemeService = underlyingThemeService;
@@ -345,27 +347,26 @@ namespace Wino.Mail.ViewModels
         {
             // TODO: Server: Download single mime and report back the item here.
 
-            //var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItemViewModel.AssignedAccount.Id);
+            try
+            {
+                // To show the progress on the UI.
+                CurrentDownloadPercentage = 1;
 
-            //try
-            //{
-            //    // To show the progress on the UI.
-            //    CurrentDownloadPercentage = 1;
-
-            //    await synchronizer.DownloadMissingMimeMessageAsync(mailItemViewModel.MailCopy, this, renderCancellationTokenSource.Token);
-            //}
-            //catch (OperationCanceledException)
-            //{
-            //    Log.Information("MIME download is canceled.");
-            //}
-            //catch (Exception ex)
-            //{
-            //    DialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
-            //}
-            //finally
-            //{
-            //    ResetProgress();
-            //}
+                var package = new DownloadMissingMessageRequested(mailItemViewModel.AssignedAccount.Id, mailItemViewModel.MailCopy);
+                await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Information("MIME download is canceled.");
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            }
+            finally
+            {
+                ResetProgress();
+            }
         }
 
         private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)
@@ -664,6 +665,23 @@ namespace Wino.Mail.ViewModels
         // For upload.
         void ITransferProgress.Report(long bytesTransferred) { }
 
-        public async void Receive(NewMailItemRenderingRequestedEvent message) => await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
+        public async void Receive(NewMailItemRenderingRequestedEvent message)
+        {
+            try
+            {
+                await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Information("Canceled mail rendering.");
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+
+                Crashes.TrackError(ex);
+                Log.Error(ex, "Render Failed");
+            }
+        }
     }
 }

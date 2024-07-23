@@ -2,8 +2,9 @@
 {
     public static class MessageConstants
     {
-        public const string MessageTypeKey = "MessageType";
-        public const string MessageDataKey = "MessageData";
-        public const string MessageDataTypeKey = "MessageDataType";
+        public const string MessageTypeKey = nameof(MessageTypeKey);
+        public const string MessageDataKey = nameof(MessageDataKey);
+        public const string MessageDataTypeKey = nameof(MessageDataTypeKey);
+        public const string MessageDataRequestAccountIdKey = nameof(MessageDataRequestAccountIdKey);
     }
 }

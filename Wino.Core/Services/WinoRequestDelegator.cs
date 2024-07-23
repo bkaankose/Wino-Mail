@@ -12,7 +12,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
-using Wino.Messaging.Client.Synchronization;
+using Wino.Messaging.Server;
 
 namespace Wino.Core.Services
 {
@@ -77,7 +77,7 @@ namespace Wino.Core.Services
             {
                 foreach (var accountRequest in accountId)
                 {
-                    QueueRequest(accountRequest, accountId.Key);
+                    await QueueRequestAsync(accountRequest, accountId.Key);
                 }
 
                 QueueSynchronization(accountId.Key);
@@ -107,32 +107,36 @@ namespace Wino.Core.Services
 
             if (request == null) return;
 
-            QueueRequest(request, accountId);
+            await QueueRequestAsync(request, accountId);
             QueueSynchronization(accountId);
         }
 
-        public Task ExecuteAsync(DraftPreperationRequest draftPreperationRequest)
+        public async Task ExecuteAsync(DraftPreperationRequest draftPreperationRequest)
         {
             var request = new CreateDraftRequest(draftPreperationRequest);
 
-            QueueRequest(request, draftPreperationRequest.Account.Id);
+            await QueueRequestAsync(request, draftPreperationRequest.Account.Id);
             QueueSynchronization(draftPreperationRequest.Account.Id);
-
-            return Task.CompletedTask;
         }
 
-        public Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
+        public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
         {
             var request = new SendDraftRequest(sendDraftPreperationRequest);
 
-            QueueRequest(request, sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
+            await QueueRequestAsync(request, sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
             QueueSynchronization(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
-
-            return Task.CompletedTask;
         }
 
-        private void QueueRequest(IRequestBase request, Guid accountId)
-            => _winoServerConnectionManager.QueueRequest(request, accountId);
+        private Task QueueRequestAsync(IRequestBase request, Guid accountId)
+        {
+            // Concerete types are needed for System.Text.Json package.
+            // We must convert all IRequestBase objects into types to be able to queue request to server.
+            //if (request is MarkReadRequest markReadRequest)
+            //{
+            //    return QueueRequestAsync(moveMailRequest, accountId);
+            //}
+            return _winoServerConnectionManager.QueueRequestAsync(request, accountId);
+        }
 
         private void QueueSynchronization(Guid accountId)
         {

@@ -43,13 +43,14 @@ namespace Wino.Core
             services.AddTransient<IFontService, FontService>();
             services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
 
-            services.AddTransient<OutlookAuthenticator>();
-            services.AddTransient<GmailAuthenticator>();
-            services.AddTransient<CustomAuthenticator>();
+            services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
+            services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
 
             services.AddTransient<OutlookThreadingStrategy>();
             services.AddTransient<GmailThreadingStrategy>();
             services.AddTransient<ImapThreadStrategy>();
+
+            services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
         }
     }
 }

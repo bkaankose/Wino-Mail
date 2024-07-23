@@ -35,7 +35,4 @@
 	  <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
 	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Services\" />
-	</ItemGroup>
 </Project>

@@ -22,5 +22,7 @@ namespace Wino.Core.Domain.Interfaces
         /// Some cryptographic shit is needed for requesting Google authentication in UWP.
         /// </summary>
         GoogleAuthorizationRequest GetGoogleAuthorizationRequest();
+
+        Func<object> GetCoreWindowHwnd { get; set; }
     }
 }

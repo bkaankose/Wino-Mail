@@ -9,6 +9,8 @@ using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Core.UWP.Services;
+using Wino.Server.Core;
+using Wino.Server.MessageHandlers;
 using Wino.Services;
 
 namespace Wino.Server
@@ -24,7 +26,7 @@ namespace Wino.Server
     {
         private const string NotifyIconResourceKey = "NotifyIcon";
         private const string WinoServerAppName = "Wino.Server";
-        private const string WinoServerActiatedName = "Wino.Server.Activated";
+        private const string WinoServerActivatedName = "Wino.Server.Activated";
 
         public new static App Current => (App)Application.Current;
 
@@ -50,23 +52,40 @@ namespace Wino.Server
             services.AddSingleton<INativeAppService, NativeAppService>();
             services.AddSingleton<IPreferencesService, PreferencesService>();
 
+            // Register server message handler factory.
+            var serverMessageHandlerFactory = new ServerMessageHandlerFactory();
+            serverMessageHandlerFactory.Setup(services);
+
+            services.AddSingleton<IServerMessageHandlerFactory>(serverMessageHandlerFactory);
+
             return services.BuildServiceProvider();
         }
 
         private async Task<ServerViewModel> InitializeNewServerAsync()
         {
-            // TODO: Error handling.
-
-            var databaseService = Services.GetService<IDatabaseService>();
+            // Make sure app config is setup before anything else.
             var applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
 
             applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
             applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
 
+            // Make sure the database is ready.
+            var databaseService = Services.GetService<IDatabaseService>();
             await databaseService.InitializeAsync();
 
-            var serverViewModel = Services.GetRequiredService<ServerViewModel>();
+            // Setup core window handler for native app service.
 
+            var nativeAppService = Services.GetService<INativeAppService>();
+
+            // TODO: Retrieve Window handle for UWP app or somehow enable WAM.
+            /// nativeAppService.GetCoreWindowHwnd = () => invisibleWindow;
+
+            // Make sure all accounts have synchronizers.
+            var synchronizerFactory = Services.GetService<ISynchronizerFactory>();
+            await synchronizerFactory.InitializeAsync();
+
+            // Load up the server view model.
+            var serverViewModel = Services.GetRequiredService<ServerViewModel>();
             await serverViewModel.InitializeAsync();
 
             return serverViewModel;
@@ -75,7 +94,7 @@ namespace Wino.Server
         protected override async void OnStartup(StartupEventArgs e)
         {
             _mutex = new Mutex(true, WinoServerAppName, out bool isCreatedNew);
-            _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, WinoServerActiatedName);
+            _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, WinoServerActivatedName);
 
             if (isCreatedNew)
             {

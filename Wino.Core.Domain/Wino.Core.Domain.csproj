@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Models\Communication\**" />
+    <EmbeddedResource Remove="Models\Communication\**" />
+    <None Remove="Models\Communication\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="Interfaces\IWinoSynchronizerFactory.cs" />
   </ItemGroup>
 
@@ -57,6 +63,7 @@
 		<PackageReference Include="MailKit" Version="4.7.1.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.8.116" />
+		<PackageReference Include="System.Text.Json" Version="8.0.4" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
@@ -73,8 +80,5 @@
 	    <Generator>TextTemplatingFileGenerator</Generator>
 	    <LastGenOutput>Translator.Designer.cs</LastGenOutput>
 	  </None>
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Models\Communication\" />
 	</ItemGroup>
 </Project>

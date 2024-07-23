@@ -105,6 +105,7 @@
     "ElementTheme_Default": "Use system setting",
     "ElementTheme_Light": "Light mode",
     "Emoji": "Emoji",
+    "Exception_WinoServerException":  "Wino server failed.",
     "Exception_ImapAutoDiscoveryFailed": "Couldn't find mailbox settings.",
     "Exception_ImapClientPoolFailed": "IMAP Client Pool failed.",
     "Exception_AuthenticationCanceled": "Authentication canceled",

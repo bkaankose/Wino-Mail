@@ -20,6 +20,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -34,6 +35,7 @@ namespace Wino.Mail.ViewModels
         private readonly IStoreManagementService _storeManagementService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAuthenticationProvider _authenticationProvider;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
 
         public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
 
@@ -63,7 +65,8 @@ namespace Wino.Mail.ViewModels
                                           IFolderService folderService,
                                           IStoreManagementService storeManagementService,
                                           IPreferencesService preferencesService,
-                                          IAuthenticationProvider authenticationProvider) : base(dialogService)
+                                          IAuthenticationProvider authenticationProvider,
+                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             _accountService = accountService;
             _dialogService = dialogService;
@@ -72,6 +75,7 @@ namespace Wino.Mail.ViewModels
             _storeManagementService = storeManagementService;
             _preferencesService = preferencesService;
             _authenticationProvider = authenticationProvider;
+            _winoServerConnectionManager = winoServerConnectionManager;
         }
 
         [RelayCommand]
@@ -189,7 +193,7 @@ namespace Wino.Mail.ViewModels
                     {
                         // For OAuth authentications, we just generate token and assign it to the MailAccount.
 
-                        tokenInformation = await _accountService.ExternalAuthenticationAuthenticator.GenerateTokenAsync(createdAccount, false)
+                        tokenInformation = await _winoServerConnectionManager.GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType, createdAccount))
                         ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
 
                         createdAccount.Address = tokenInformation.Address;

@@ -1,7 +1,6 @@
-﻿<ResourceDictionary
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Microsoft.UI.Xaml.Media">
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Microsoft.UI.Xaml.Media">
 
     <SolidColorBrush x:Key="FlaggedBrush">#e74c3c</SolidColorBrush>
     <SolidColorBrush x:Key="DeleteBrush">#e74c3c</SolidColorBrush>

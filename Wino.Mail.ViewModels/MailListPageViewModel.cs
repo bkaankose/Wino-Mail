@@ -30,6 +30,7 @@ using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Client.Synchronization;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {

@@ -549,6 +549,11 @@ namespace Wino.Core.Domain
 		public static string Emoji => Resources.GetTranslatedString(@"Emoji");	
 	
         /// <summary>
+		/// Wino server failed.
+		/// </summary>
+		public static string Exception_WinoServerException => Resources.GetTranslatedString(@"Exception_WinoServerException");	
+	
+        /// <summary>
 		/// Couldn't find mailbox settings.
 		/// </summary>
 		public static string Exception_ImapAutoDiscoveryFailed => Resources.GetTranslatedString(@"Exception_ImapAutoDiscoveryFailed");	

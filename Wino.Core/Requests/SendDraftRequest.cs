@@ -7,12 +7,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
-using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests
 {
     public record SendDraftRequest(SendDraftPreparationRequest Request)
-        : RequestBase<BatchMarkReadRequest>(Request.MailItem, MailSynchronizerOperation.Send),
+        : RequestBase<BatchSendDraftRequestRequest>(Request.MailItem, MailSynchronizerOperation.Send),
         ICustomFolderSynchronizationRequest
     {
         public List<Guid> SynchronizationFolderIds

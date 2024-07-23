@@ -2,6 +2,8 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.Broker;
+using Microsoft.Identity.Client.Extensions.Msal;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -12,34 +14,43 @@ using Wino.Core.Services;
 
 namespace Wino.Core.Authenticators
 {
-    public class OutlookAuthenticator : BaseAuthenticator, IAuthenticator
+    public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     {
+        private const string TokenCacheFileName = "OutlookCache.bin";
+        private bool isTokenCacheAttached = false;
+
         // Outlook
         private const string Authority = "https://login.microsoftonline.com/common";
 
         public string ClientId { get; } = "b19c2035-d740-49ff-b297-de6ec561b208";
 
-        private readonly string[] MailScope = new string[] { "email", "mail.readwrite", "offline_access", "mail.send" };
+        private readonly string[] MailScope = ["email", "mail.readwrite", "offline_access", "mail.send"];
 
         public override MailProviderType ProviderType => MailProviderType.Outlook;
 
         private readonly IPublicClientApplication _publicClientApplication;
+        private readonly IApplicationConfiguration _applicationConfiguration;
 
-        public OutlookAuthenticator(ITokenService tokenService, INativeAppService nativeAppService) : base(tokenService)
+        public OutlookAuthenticator(ITokenService tokenService,
+                                    INativeAppService nativeAppService,
+                                    IApplicationConfiguration applicationConfiguration) : base(tokenService)
         {
+            _applicationConfiguration = applicationConfiguration;
+
             var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
 
+            var options = new BrokerOptions(BrokerOptions.OperatingSystems.Windows)
+            {
+                Title = "Wino Mail"
+            };
+
             var outlookAppBuilder = PublicClientApplicationBuilder.Create(ClientId)
+                .WithParentActivityOrWindow(nativeAppService.GetCoreWindowHwnd)
+                .WithBroker(options)
+                .WithDefaultRedirectUri()
                 .WithAuthority(Authority);
 
-#if WINDOWS_UWP
-                 outlookAppBuilder.WithRedirectUri(authenticationRedirectUri);
-#else
-            outlookAppBuilder.WithDefaultRedirectUri();
-#endif
             _publicClientApplication = outlookAppBuilder.Build();
-
-
         }
 
 #pragma warning disable S1133 // Deprecated code should be removed
@@ -54,6 +65,15 @@ namespace Wino.Core.Authenticators
 
         public async Task<TokenInformation> GetTokenAsync(MailAccount account)
         {
+            if (!isTokenCacheAttached)
+            {
+                var storageProperties = new StorageCreationPropertiesBuilder(TokenCacheFileName, _applicationConfiguration.PublisherSharedFolderPath).Build();
+                var msalcachehelper = await MsalCacheHelper.CreateAsync(storageProperties);
+                msalcachehelper.RegisterCache(_publicClientApplication.UserTokenCache);
+
+                isTokenCacheAttached = true;
+            }
+
             var cachedToken = await TokenService.GetTokenInformationAsync(account.Id)
                 ?? throw new AuthenticationAttentionException(account);
 
@@ -62,6 +82,7 @@ namespace Wino.Core.Authenticators
 
             if (cachedToken.IsExpired)
             {
+                var accs = await _publicClientApplication.GetAccountsAsync();
                 var cachedOutlookAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(a => a.Username == account.Address);
 
                 // Again, not expected at all...

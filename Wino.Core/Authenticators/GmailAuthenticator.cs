@@ -17,7 +17,7 @@ using Xamarin.Essentials;
 
 namespace Wino.Core.Authenticators
 {
-    public class GmailAuthenticator : BaseAuthenticator, IAuthenticator
+    public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     {
         public string ClientId { get; } = "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
 

@@ -18,7 +18,7 @@ namespace Wino.Server
         [RelayCommand]
         public async Task LaunchWinoAsync()
         {
-            await Context.TestOutlookSynchronizer();
+            // await Context.TestOutlookSynchronizer();
             // ServerContext.SendTestMessageAsync();
         }
 
