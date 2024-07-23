@@ -194,9 +194,13 @@ namespace Wino.Mail.ViewModels
                     {
                         // For OAuth authentications, we just generate token and assign it to the MailAccount.
 
-                        tokenInformation = await _winoServerConnectionManager.GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType, createdAccount))
-                        ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
+                        var tokenInformationResponse = await _winoServerConnectionManager.GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType, createdAccount));
 
+                        tokenInformationResponse.ThrowIfFailed();
+
+                        // ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
+
+                        tokenInformation = tokenInformationResponse.Data;
                         createdAccount.Address = tokenInformation.Address;
                         tokenInformation.AccountId = createdAccount.Id;
                     }
@@ -221,8 +225,10 @@ namespace Wino.Mail.ViewModels
                         Type = SynchronizationType.FoldersOnly
                     };
 
-                    var synchronizationResult = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options));
+                    var synchronizationResultResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options));
 
+
+                    var synchronizationResult = synchronizationResultResponse.Data;
                     if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 

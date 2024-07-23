@@ -127,15 +127,16 @@ namespace Wino.Core.Services
             QueueSynchronization(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
         }
 
-        private Task QueueRequestAsync(IRequestBase request, Guid accountId)
+        private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
         {
-            // Concerete types are needed for System.Text.Json package.
-            // We must convert all IRequestBase objects into types to be able to queue request to server.
-            //if (request is MarkReadRequest markReadRequest)
-            //{
-            //    return QueueRequestAsync(moveMailRequest, accountId);
-            //}
-            return _winoServerConnectionManager.QueueRequestAsync(request, accountId);
+            try
+            {
+                await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
+            }
+            catch (WinoServerException serverException)
+            {
+                _dialogService.InfoBarMessage("", serverException.Message, InfoBarMessageType.Error);
+            }
         }
 
         private void QueueSynchronization(Guid accountId)

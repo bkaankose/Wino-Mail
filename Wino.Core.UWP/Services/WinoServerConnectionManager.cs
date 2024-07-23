@@ -1,15 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
 using Windows.Foundation.Metadata;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Server;
 using Wino.Core.Integration.Json;
 using Wino.Messaging;
 using Wino.Messaging.Enums;
@@ -20,6 +22,8 @@ namespace Wino.Core.UWP.Services
     public class WinoServerConnectionManager : IWinoServerConnectionManager<AppServiceConnection>
     {
         public event EventHandler<WinoServerConnectionStatus> StatusChanged;
+
+        private ILogger Logger => Logger.ForContext<WinoServerConnectionManager>();
 
         private WinoServerConnectionStatus status;
 
@@ -200,45 +204,83 @@ namespace Wino.Core.UWP.Services
         {
             var queuePackage = new ServerRequestPackage(accountId, request);
 
-            // IRequestBase is not a concrete type, so we need to use a custom type resolver.
-            // System.Text.Json must know the concrete type to serialize the object.
-
-            var serialized = JsonSerializer.Serialize(queuePackage, _serverJsonServerSerializer);
-
-            var response = await Connection.SendMessageAsync(new ValueSet
+            var queueResponse = await GetResponseInternalAsync<bool, ServerRequestPackage>(queuePackage, new Dictionary<string, object>()
             {
-                { MessageConstants.MessageTypeKey, (int)MessageType.ServerMessage },
-                { MessageConstants.MessageDataKey, serialized },
-                { MessageConstants.MessageDataTypeKey, nameof(ServerRequestPackage) },
                 { MessageConstants.MessageDataRequestAccountIdKey, accountId }
             });
 
-            if (response.Status != AppServiceResponseStatus.Success)
-                throw new WinoServerException(new Exception($"Failed to queue request to server. Server response was: {response.Status}"));
+            queueResponse.ThrowIfFailed();
         }
 
-        public async Task<TResponse> GetResponseAsync<TResponse, TRequestType>(TRequestType message) where TRequestType : IClientMessage
+        public Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType message) where TRequestType : IClientMessage
+            => GetResponseInternalAsync<TResponse, TRequestType>(message);
+
+        private async Task<WinoServerResponse<TResponse>> GetResponseInternalAsync<TResponse, TRequestType>(TRequestType message, Dictionary<string, object> parameters = null)
         {
-            // TODO: Handle exceptions and disconnections.
+            if (Connection == null)
+                return WinoServerResponse<TResponse>.CreateErrorResponse("Server connection is not established.");
 
-            var serialized = JsonSerializer.Serialize(message, _serverJsonServerSerializer);
+            string serializedMessage = string.Empty;
 
-            var response = await Connection.SendMessageAsync(new ValueSet
+            try
             {
-                { MessageConstants.MessageTypeKey, (int)MessageType.ServerMessage },
-                { MessageConstants.MessageDataKey, serialized },
-                { MessageConstants.MessageDataTypeKey, message.GetType().Name }
-            });
+                // IRequestBase is not a concrete type, so we need to use a custom type resolver.
+                // System.Text.Json must know the concrete type to serialize the object.
 
-            if (response.Status == AppServiceResponseStatus.Success)
+                serializedMessage = JsonSerializer.Serialize(message, _serverJsonServerSerializer);
+            }
+            catch (Exception serializationException)
             {
-                if (response.Message.TryGetValue(MessageConstants.MessageDataKey, out object messageDataObject) && messageDataObject is string messageJson)
-                {
-                    return JsonSerializer.Deserialize<TResponse>(messageJson);
-                }
+                Logger.Error(serializationException, $"Failed to serialize client message for sending.");
+                return WinoServerResponse<TResponse>.CreateErrorResponse($"Failed to serialize message.\n{serializationException.Message}");
             }
 
-            return default;
+            AppServiceResponse response = null;
+
+            try
+            {
+                var valueSet = new ValueSet
+                {
+                    { MessageConstants.MessageTypeKey, (int)MessageType.ServerMessage },
+                    { MessageConstants.MessageDataKey, serializedMessage },
+                    { MessageConstants.MessageDataTypeKey, message.GetType().Name }
+                };
+
+                // Add additional parameters into ValueSet
+                if (parameters != null)
+                {
+                    foreach (var item in parameters)
+                    {
+                        valueSet.Add(item.Key, item.Value);
+                    }
+                }
+
+                response = await Connection.SendMessageAsync(valueSet);
+            }
+            catch (Exception serverSendException)
+            {
+                Logger.Error(serverSendException, $"Failed to send message to server.");
+                return WinoServerResponse<TResponse>.CreateErrorResponse($"Failed to send message to server.\n{serverSendException.Message}");
+            }
+
+            // It should be always Success.
+            if (response.Status != AppServiceResponseStatus.Success)
+                return WinoServerResponse<TResponse>.CreateErrorResponse($"Wino Server responded with '{response.Status}' status to message delivery.");
+
+            // All responses must contain a message data.
+            if (!(response.Message.TryGetValue(MessageConstants.MessageDataKey, out object messageDataObject) && messageDataObject is string messageJson))
+                return WinoServerResponse<TResponse>.CreateErrorResponse("Server response did not contain message data.");
+
+            // Try deserialize the message data.
+            try
+            {
+                return JsonSerializer.Deserialize<WinoServerResponse<TResponse>>(messageJson); // WinoServerResponse<TResponse>.CreateSuccessResponse();
+            }
+            catch (Exception jsonDeserializationError)
+            {
+                Logger.Error(jsonDeserializationError, $"Failed to deserialize server response message data.");
+                return WinoServerResponse<TResponse>.CreateErrorResponse($"Failed to deserialize Wino server response message data.\n{jsonDeserializationError.Message}");
+            }
         }
 
     }

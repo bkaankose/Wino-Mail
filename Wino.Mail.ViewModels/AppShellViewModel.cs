@@ -794,44 +794,16 @@ namespace Wino.Mail.ViewModels
 
         public async void Receive(NewSynchronizationRequested message)
         {
-            // TODO: Queue new synchronization for an account.
-
-            // var syncResponse = 
-
-            // Don't send message for sync completion when we execute requests.
-            // People are usually interested in seeing the notification after they trigger the synchronization.
-
-            bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
-
-            var accountId = message.Options.AccountId;
-
             message.Options.ProgressListener = this;
-
-
-            var synchronizationResult = await ServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
-
-            // TODO: Following cases might always be thrown from server. Handle them properly.
-            // TODO: Exceptions are not serialized properly and will crash server.
 
             try
             {
-
+                var synchronizationResultResponse = await ServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
+                synchronizationResultResponse.ThrowIfFailed();
             }
-            catch (AuthenticationAttentionException)
+            catch (WinoServerException serverException)
             {
-                await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
-            }
-            catch (SystemFolderConfigurationMissingException)
-            {
-                await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
-            }
-            catch (OperationCanceledException)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncCanceledMessage, Translator.Info_SyncCanceledMessage, InfoBarMessageType.Warning);
-            }
-            catch (Exception ex)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
+                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
             }
         }
 

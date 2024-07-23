@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Server;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -17,7 +18,8 @@ namespace Wino.Server.MessageHandlers
     /// </summary>
     public class SynchronizationRequestHandler : ServerMessageHandler<NewSynchronizationRequested, SynchronizationResult>
     {
-        public override SynchronizationResult FailureDefaultResponse(Exception ex) => SynchronizationResult.Failed(ex);
+        public override WinoServerResponse<SynchronizationResult> FailureDefaultResponse(Exception ex)
+            => WinoServerResponse<SynchronizationResult>.CreateErrorResponse(ex.Message);
 
         private readonly ISynchronizerFactory _synchronizerFactory;
         private readonly INotificationBuilder _notificationBuilder;
@@ -32,34 +34,58 @@ namespace Wino.Server.MessageHandlers
             _folderService = folderService;
         }
 
-        protected override async Task<SynchronizationResult> HandleAsync(NewSynchronizationRequested message, CancellationToken cancellationToken = default)
+        protected override async Task<WinoServerResponse<SynchronizationResult>> HandleAsync(NewSynchronizationRequested message, CancellationToken cancellationToken = default)
         {
             var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.Options.AccountId);
 
+            // Don't send message for sync completion when we execute requests.
+            // People are usually interested in seeing the notification after they trigger the synchronization.
+
             bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
 
-            var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options, cancellationToken).ConfigureAwait(false);
-
-            if (synchronizationResult.DownloadedMessages.Any())
+            try
             {
-                var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
+                var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options, cancellationToken).ConfigureAwait(false);
 
-                if (accountInboxFolder != null)
+                if (synchronizationResult.DownloadedMessages.Any())
                 {
-                    await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
+                    var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
+
+                    if (accountInboxFolder != null)
+                    {
+                        await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
+                    }
                 }
+
+                var isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
+
+                if (shouldReportSynchronizationResult)
+                {
+                    var completedMessage = new AccountSynchronizationCompleted(message.Options.AccountId,
+                                                                               isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
+                                                                               message.Options.GroupedSynchronizationTrackingId);
+
+                    WeakReferenceMessenger.Default.Send(completedMessage);
+                }
+
+                return WinoServerResponse<SynchronizationResult>.CreateSuccessResponse(synchronizationResult);
             }
+            // TODO: Following cases might always be thrown from server. Handle them properly.
 
-            var isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
-
-            if (shouldReportSynchronizationResult)
+            //catch (AuthenticationAttentionException)
+            //{
+            //    // TODO
+            //    // await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
+            //}
+            //catch (SystemFolderConfigurationMissingException)
+            //{
+            //    // TODO
+            //    // await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
+            //}
+            catch (Exception)
             {
-                WeakReferenceMessenger.Default.Send(new AccountSynchronizationCompleted(message.Options.AccountId,
-                                                                       isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
-                                                                       message.Options.GroupedSynchronizationTrackingId));
+                throw;
             }
-
-            return synchronizationResult;
         }
     }
 }

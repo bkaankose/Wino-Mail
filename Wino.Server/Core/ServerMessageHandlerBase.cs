@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Server;
 using Wino.Messaging;
 
 namespace Wino.Server.Core
@@ -23,7 +24,7 @@ namespace Wino.Server.Core
         /// </summary>
         /// <param name="ex">Exception that target threw.</param>
         /// <returns>Default response on failure object.</returns>
-        public abstract TResponse FailureDefaultResponse(Exception ex);
+        public abstract WinoServerResponse<TResponse> FailureDefaultResponse(Exception ex);
 
         /// <summary>
         /// Safely executes the handler code and returns the response.
@@ -34,7 +35,7 @@ namespace Wino.Server.Core
         /// <returns>Response object that server executes for the given method.</returns>
         public override async Task ExecuteAsync(IClientMessage message, AppServiceRequest request, CancellationToken cancellationToken = default)
         {
-            TResponse response = default;
+            WinoServerResponse<TResponse> response = default;
 
             try
             {
@@ -58,10 +59,10 @@ namespace Wino.Server.Core
         /// <summary>
         /// Code that will be executed directly on the server.
         /// All handlers must implement this method.
+        /// Response is wrapped with WinoServerResponse.
         /// </summary>
         /// <param name="message">IClientMessage that client asked the response for from the server.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        protected abstract Task<TResponse> HandleAsync(TClientMessage message, CancellationToken cancellationToken = default);
-        // => throw new NotImplementedException("Override HandleAsync and bring the implementation.");
+        protected abstract Task<WinoServerResponse<TResponse>> HandleAsync(TClientMessage message, CancellationToken cancellationToken = default);
     }
 }
