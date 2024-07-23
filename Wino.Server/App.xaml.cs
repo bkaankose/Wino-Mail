@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,6 +26,14 @@ namespace Wino.Server
     /// </summary>
     public partial class App : Application
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        private const string FRAME_WINDOW = "ApplicationFrameWindow";
+
         private const string NotifyIconResourceKey = "NotifyIcon";
         private const string WinoServerAppName = "Wino.Server";
         private const string WinoServerActivatedName = "Wino.Server.Activated";
@@ -51,6 +61,8 @@ namespace Wino.Server
             services.AddSingleton<IConfigurationService, ConfigurationService>();
             services.AddSingleton<INativeAppService, NativeAppService>();
             services.AddSingleton<IPreferencesService, PreferencesService>();
+            services.AddTransient<INotificationBuilder, NotificationBuilder>();
+            services.AddTransient<IUnderlyingThemeService, UnderlyingThemeService>();
 
             // Register server message handler factory.
             var serverMessageHandlerFactory = new ServerMessageHandlerFactory();
@@ -74,11 +86,9 @@ namespace Wino.Server
             await databaseService.InitializeAsync();
 
             // Setup core window handler for native app service.
-
+            // WPF app uses UWP app's window handle to display authentication dialog.
             var nativeAppService = Services.GetService<INativeAppService>();
-
-            // TODO: Retrieve Window handle for UWP app or somehow enable WAM.
-            /// nativeAppService.GetCoreWindowHwnd = () => invisibleWindow;
+            nativeAppService.GetCoreWindowHwnd = FindUWPClientWindowHandle;
 
             // Make sure all accounts have synchronizers.
             var synchronizerFactory = Services.GetService<ISynchronizerFactory>();
@@ -89,6 +99,34 @@ namespace Wino.Server
             await serverViewModel.InitializeAsync();
 
             return serverViewModel;
+        }
+
+        /// <summary>
+        /// OutlookAuthenticator for WAM requires window handle to display the dialog.
+        /// Since server app is windowless, we need to find the UWP app window handle.
+        /// </summary>
+        /// <param name="proc"></param>
+        /// <returns>Pointer to running UWP app's hwnd.</returns>
+        private IntPtr FindUWPClientWindowHandle()
+        {
+            // TODO: Resilient.
+            var proc = Process.GetProcessesByName("Wino")[0];
+
+            for (IntPtr appWindow = FindWindowEx(IntPtr.Zero, IntPtr.Zero, FRAME_WINDOW, null); appWindow != IntPtr.Zero;
+                appWindow = FindWindowEx(IntPtr.Zero, appWindow, FRAME_WINDOW, null))
+            {
+                IntPtr coreWindow = FindWindowEx(appWindow, IntPtr.Zero, "Windows.UI.Core.CoreWindow", null);
+                if (coreWindow != IntPtr.Zero)
+                {
+                    GetWindowThreadProcessId(coreWindow, out var corePid);
+                    if (corePid == proc.Id)
+                    {
+                        return appWindow;
+                    }
+                }
+            }
+
+            return IntPtr.Zero;
         }
 
         protected override async void OnStartup(StartupEventArgs e)

@@ -33,6 +33,7 @@ namespace Wino.Core.Domain.Models.Synchronization
         /// Ignored for server deserialization.
         /// </summary>
         [JsonIgnore]
+        [Obsolete("This is not supported with server. Refactor with messages.")]
         public ISynchronizationProgress ProgressListener { get; set; }
 
         /// <summary>

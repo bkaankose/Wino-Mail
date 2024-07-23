@@ -19,7 +19,7 @@ namespace Wino.Server.MessageHandlers
 
         protected override async Task<bool> HandleAsync(DownloadMissingMessageRequested message, CancellationToken cancellationToken = default)
         {
-            var synchronizer = _synchronizerFactory.GetAccountSynchronizer(message.AccountId);
+            var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.AccountId);
 
             // TODO: ITransferProgress support is lost.
             await synchronizer.DownloadMissingMimeMessageAsync(message.MailItem, null, cancellationToken);

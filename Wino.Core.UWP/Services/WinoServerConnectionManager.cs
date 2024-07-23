@@ -178,6 +178,9 @@ namespace Wino.Core.UWP.Services
                 case nameof(MergedInboxRenamed):
                     WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<MergedInboxRenamed>(messageJson));
                     break;
+                case nameof(AccountSynchronizationCompleted):
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountSynchronizationCompleted>(messageJson));
+                    break;
                 default:
                     throw new Exception("Invalid data type name passed to client.");
             }

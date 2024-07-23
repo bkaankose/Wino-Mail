@@ -31,7 +31,8 @@ namespace Wino.Server
         IRecipient<MailDownloadedMessage>,
         IRecipient<MailRemovedMessage>,
         IRecipient<MailUpdatedMessage>,
-        IRecipient<MergedInboxRenamed>
+        IRecipient<MergedInboxRenamed>,
+        IRecipient<AccountSynchronizationCompleted>
     {
         private static object connectionLock = new object();
 
@@ -87,6 +88,8 @@ namespace Wino.Server
         public async void Receive(MailUpdatedMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         public async void Receive(MergedInboxRenamed message) => await SendMessageAsync(MessageType.UIMessage, message);
+
+        public async void Receive(AccountSynchronizationCompleted message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
 
@@ -261,15 +264,17 @@ namespace Wino.Server
                 var handler = _serverMessageHandlerFactory.GetHandler(messageName);
                 await handler.ExecuteAsync(message, args.Request).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Fatal crash. Handlers should not crash.
-                Debugger.Break();
+                // Debugger.Break();
             }
             finally
             {
                 deferral.Complete();
             }
         }
+
+
     }
 }

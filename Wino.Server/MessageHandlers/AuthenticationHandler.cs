@@ -23,7 +23,8 @@ namespace Wino.Server.MessageHandlers
         {
             var authenticator = _authenticationProvider.GetAuthenticator(message.MailProviderType);
 
-            return await authenticator.GenerateTokenAsync(message.CreatedAccount, true);
+            // Do not save the token here. Call is coming from account creation and things are atomic there.
+            return await authenticator.GenerateTokenAsync(message.CreatedAccount, saveToken: false);
         }
     }
 }

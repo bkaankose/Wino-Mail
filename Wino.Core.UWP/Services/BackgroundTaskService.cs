@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Serilog;
 using Windows.ApplicationModel.Background;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.UWP.Services
 {
@@ -78,9 +78,9 @@ namespace Wino.Core.UWP.Services
 
         private void LogBackgroundTaskRegistration(string taskName)
         {
-            Log.Information($"Registered new background task -> {taskName}");
+            //Log.Information($"Registered new background task -> {taskName}");
 
-            registeredBackgroundTaskNames.Add($"{taskName}");
+            //registeredBackgroundTaskNames.Add($"{taskName}");
         }
 
         private BackgroundTaskRegistration RegisterSessionConnectedTask()

@@ -24,7 +24,7 @@ namespace Wino.Services
         private string _mimeMessagesFolder;
         private string _editorBundlePath;
 
-        public Func<object> GetCoreWindowHwnd { get; set; }
+        public Func<IntPtr> GetCoreWindowHwnd { get; set; }
 
         public string GetWebAuthenticationBrokerUri()
         {

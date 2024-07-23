@@ -26,7 +26,6 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -808,24 +807,15 @@ namespace Wino.Mail.ViewModels
 
             message.Options.ProgressListener = this;
 
-            bool isSynchronizationSucceeded = false;
+
+            var synchronizationResult = await ServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
+
+            // TODO: Following cases might always be thrown from server. Handle them properly.
+            // TODO: Exceptions are not serialized properly and will crash server.
 
             try
             {
-                // TODO: Cancellation Token
-                var synchronizationResult = await ServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
 
-                isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
-
-                // Create notification for synchronization result.
-                if (synchronizationResult.DownloadedMessages.Any())
-                {
-                    var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
-
-                    if (accountInboxFolder == null) return;
-
-                    await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
-                }
             }
             catch (AuthenticationAttentionException)
             {
@@ -842,13 +832,6 @@ namespace Wino.Mail.ViewModels
             catch (Exception ex)
             {
                 DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
-            }
-            finally
-            {
-                if (shouldReportSynchronizationResult)
-                    Messenger.Send(new AccountSynchronizationCompleted(accountId,
-                                                                       isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
-                                                                       message.Options.GroupedSynchronizationTrackingId));
             }
         }
 
@@ -886,6 +869,7 @@ namespace Wino.Mail.ViewModels
             await _nativeAppService.PinAppToTaskbarAsync();
         }
 
+        // TODO: Handle by messaging.
         private async Task SetAccountAttentionAsync(Guid accountId, AccountAttentionReason reason)
         {
             if (!MenuItems.TryGetAccountMenuItem(accountId, out IAccountMenuItem accountMenuItem)) return;

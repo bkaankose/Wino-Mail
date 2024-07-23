@@ -693,6 +693,8 @@ namespace Wino.Core.Synchronizers
                                                                    HttpResponseMessage httpResponseMessage,
                                                                    CancellationToken cancellationToken = default)
         {
+            if (httpResponseMessage == null) return;
+
             if (!httpResponseMessage.IsSuccessStatusCode)
             {
                 throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));

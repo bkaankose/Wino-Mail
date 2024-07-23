@@ -23,6 +23,10 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         GoogleAuthorizationRequest GetGoogleAuthorizationRequest();
 
-        Func<object> GetCoreWindowHwnd { get; set; }
+        /// <summary>
+        /// Gets or sets the function that returns a pointer for main window hwnd for UWP.
+        /// This is used to display WAM broker dialog on running UWP app called by a windowless server code.
+        /// </summary>
+        Func<IntPtr> GetCoreWindowHwnd { get; set; }
     }
 }

@@ -18,13 +18,13 @@ namespace Wino.Server.MessageHandlers
             _synchronizerFactory = synchronizerFactory;
         }
 
-        protected override Task<bool> HandleAsync(ServerRequestPackage package, CancellationToken cancellationToken = default)
+        protected override async Task<bool> HandleAsync(ServerRequestPackage package, CancellationToken cancellationToken = default)
         {
-            var synchronizer = _synchronizerFactory.GetAccountSynchronizer(package.AccountId);
+            var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(package.AccountId);
 
             synchronizer.QueueRequest(package.Request);
 
-            return Task.FromResult(true);
+            return true;
         }
     }
 }

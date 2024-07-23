@@ -16,6 +16,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Client.Navigation;
@@ -153,7 +154,7 @@ namespace Wino.Mail.ViewModels
                 {
                     creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
-                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
+                    // _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
 
                     CustomServerInformation customServerInformation = null;
 
@@ -207,29 +208,29 @@ namespace Wino.Mail.ViewModels
 
                     // TODO: Server: Make sure that server synchronizes folders and sends back the result.
 
-                    //var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
+                    // var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
 
-                    //if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
-                    //    customServerAccountCreationDialog.ShowPreparingFolders();
-                    //else
-                    //    creationDialog.State = AccountCreationDialogState.PreparingFolders;
+                    if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
+                        customServerAccountCreationDialog.ShowPreparingFolders();
+                    else
+                        creationDialog.State = AccountCreationDialogState.PreparingFolders;
 
-                    //var options = new SynchronizationOptions()
-                    //{
-                    //    AccountId = createdAccount.Id,
-                    //    Type = SynchronizationType.FoldersOnly
-                    //};
+                    var options = new SynchronizationOptions()
+                    {
+                        AccountId = createdAccount.Id,
+                        Type = SynchronizationType.FoldersOnly
+                    };
 
-                    //var synchronizationResult = await synchronizer.SynchronizeAsync(options);
+                    var synchronizationResult = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options));
 
-                    //if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                    //    throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
+                    if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
-                    //// Check if Inbox folder is available for the account after synchronization.
-                    //var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+                    // Check if Inbox folder is available for the account after synchronization.
+                    var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
 
-                    //if (!isInboxAvailable)
-                    //    throw new Exception(Translator.Exception_InboxNotAvailable);
+                    if (!isInboxAvailable)
+                        throw new Exception(Translator.Exception_InboxNotAvailable);
 
                     // Send changes to listeners.
                     ReportUIChange(new AccountCreatedMessage(createdAccount));

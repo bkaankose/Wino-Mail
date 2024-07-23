@@ -11,6 +11,10 @@ namespace Wino.Core.Domain.Entities
 
         public Guid AccountId { get; set; }
 
+        /// <summary>
+        /// Unique object storage for authenticators if needed.
+        /// </summary>
+        public string UniqueId { get; set; }
         public string Address { get; set; }
 
         public void RefreshTokens(TokenInformationBase tokenInformationBase)

@@ -36,7 +36,24 @@ namespace Wino.Core.Services
             _accountService = accountService;
         }
 
-        public IBaseSynchronizer GetAccountSynchronizer(Guid accountId) => synchronizerCache.Find(a => a.Account.Id == accountId);
+        public async Task<IBaseSynchronizer> GetAccountSynchronizerAsync(Guid accountId)
+        {
+            var synchronizer = synchronizerCache.Find(a => a.Account.Id == accountId);
+
+            if (synchronizer == null)
+            {
+                var account = await _accountService.GetAccountAsync(accountId);
+
+                if (account != null)
+                {
+                    synchronizer = CreateNewSynchronizer(account);
+
+                    return await GetAccountSynchronizerAsync(accountId);
+                }
+            }
+
+            return synchronizer;
+        }
 
         private IBaseSynchronizer CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
         {

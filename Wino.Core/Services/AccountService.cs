@@ -382,7 +382,10 @@ namespace Wino.Core.Services
             if (customServerInformation != null)
                 await Connection.InsertAsync(customServerInformation);
 
-            if (tokenInformation != null)
+            // Outlook token cache is managed by MSAL.
+            // Don't save it to database.
+
+            if (tokenInformation != null && account.ProviderType != MailProviderType.Outlook)
                 await Connection.InsertAsync(tokenInformation);
         }
 
