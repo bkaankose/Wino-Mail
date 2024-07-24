@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Net.Http;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using Nito.AsyncEx;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -13,7 +11,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Services;
-using Xamarin.Essentials;
 
 namespace Wino.Core.Authenticators
 {
@@ -26,9 +23,6 @@ namespace Wino.Core.Authenticators
         private const string UserInfoEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
 
         public override MailProviderType ProviderType => MailProviderType.Gmail;
-
-        private TaskCompletionSource<Uri> _authorizationCompletionSource = null;
-        private CancellationTokenSource _authorizationCancellationTokenSource = null;
 
         private readonly INativeAppService _nativeAppService;
 
@@ -99,8 +93,6 @@ namespace Wino.Core.Authenticators
             };
         }
 
-        public void ContinueAuthorization(Uri authorizationResponseUri) => _authorizationCompletionSource?.TrySetResult(authorizationResponseUri);
-
         public async Task<TokenInformation> GetTokenAsync(MailAccount account)
         {
             var cachedToken = await TokenService.GetTokenInformationAsync(account.Id)
@@ -127,28 +119,18 @@ namespace Wino.Core.Authenticators
         {
             var authRequest = _nativeAppService.GetGoogleAuthorizationRequest();
 
-            _authorizationCompletionSource = new TaskCompletionSource<Uri>();
-            _authorizationCancellationTokenSource = new CancellationTokenSource();
-
             var authorizationUri = authRequest.BuildRequest(ClientId);
-
-            await Browser.OpenAsync(authorizationUri, BrowserLaunchMode.SystemPreferred);
 
             Uri responseRedirectUri = null;
 
             try
             {
-                responseRedirectUri = await _authorizationCompletionSource.Task.WaitAsync(_authorizationCancellationTokenSource.Token);
+                //await _authorizationCompletionSource.Task.WaitAsync(_authorizationCancellationTokenSource.Token);
+                responseRedirectUri = await _nativeAppService.GetAuthorizationResponseUriAsync(this, authorizationUri);
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
                 throw new AuthenticationException(Translator.Exception_AuthenticationCanceled);
-            }
-            finally
-            {
-                _authorizationCancellationTokenSource.Dispose();
-                _authorizationCancellationTokenSource = null;
-                _authorizationCompletionSource = null;
             }
 
             authRequest.ValidateAuthorizationCode(responseRedirectUri);
@@ -213,7 +195,5 @@ namespace Wino.Core.Authenticators
                 RefreshToken = activeRefreshToken
             };
         }
-
-        public void CancelAuthorization() => _authorizationCancellationTokenSource?.Cancel();
     }
 }

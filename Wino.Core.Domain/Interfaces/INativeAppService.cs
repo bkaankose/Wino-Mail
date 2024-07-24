@@ -12,6 +12,19 @@ namespace Wino.Core.Domain.Interfaces
         Task LaunchFileAsync(string filePath);
         Task LaunchUriAsync(Uri uri);
 
+        /// <summary>
+        /// Launches the default browser with the specified uri and waits for protocol activation to finish.
+        /// </summary>
+        /// <param name="authenticator"></param>
+        /// <returns>Response callback from the browser.</returns>
+        Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri);
+
+        /// <summary>
+        /// Finalizes GetAuthorizationResponseUriAsync for current IAuthenticator.
+        /// </summary>
+        /// <param name="authorizationResponseUri"></param>
+        void ContinueAuthorization(Uri authorizationResponseUri);
+
         bool IsAppRunning();
 
         string GetFullAppVersion();

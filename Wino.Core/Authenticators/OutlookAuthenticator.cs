@@ -62,16 +62,6 @@ namespace Wino.Core.Authenticators
             _publicClientApplication = outlookAppBuilder.Build();
         }
 
-#pragma warning disable S1133 // Deprecated code should be removed
-        [Obsolete("Not used for OutlookAuthenticator.")]
-#pragma warning restore S1133 // Deprecated code should be removed
-        public void ContinueAuthorization(Uri authorizationResponseUri) { }
-
-#pragma warning disable S1133 // Deprecated code should be removed
-        [Obsolete("Not used for OutlookAuthenticator.")]
-#pragma warning restore S1133 // Deprecated code should be removed
-        public void CancelAuthorization() { }
-
         public async Task<TokenInformation> GetTokenAsync(MailAccount account)
         {
             if (!isTokenCacheAttached)

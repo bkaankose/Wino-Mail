@@ -38,7 +38,6 @@
      <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
      <PackageReference Include="SqlKata" Version="2.4.0" />
      <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
-     <PackageReference Include="Xamarin.Essentials" Version="1.8.1" />
    </ItemGroup>
 
    <ItemGroup>

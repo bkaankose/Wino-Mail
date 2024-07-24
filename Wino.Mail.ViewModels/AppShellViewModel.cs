@@ -23,7 +23,6 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.MenuItems;
 using Wino.Core.Services;
 using Wino.Messaging.Client.Accounts;
-using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;

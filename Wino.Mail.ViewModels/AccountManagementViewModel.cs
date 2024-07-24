@@ -386,11 +386,10 @@ namespace Wino.Mail.ViewModels
             return new AccountProviderDetailViewModel(provider, account);
         }
 
-        public void Receive(ProtocolAuthorizationCallbackReceived message)
+        public async void Receive(ProtocolAuthorizationCallbackReceived message)
         {
-            // Authorization must be completed in account service.
-
-            _accountService.ExternalAuthenticationAuthenticator?.ContinueAuthorization(message.AuthorizationResponseUri);
+            // Authorization must be completed in the server.
+            await _winoServerConnectionManager.GetResponseAsync<bool, ProtocolAuthorizationCallbackReceived>(message);
         }
     }
 }

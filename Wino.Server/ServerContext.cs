@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Integration.Json;
 using Wino.Core.Services;
 using Wino.Messaging;
+using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Enums;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -32,7 +33,8 @@ namespace Wino.Server
         IRecipient<MailRemovedMessage>,
         IRecipient<MailUpdatedMessage>,
         IRecipient<MergedInboxRenamed>,
-        IRecipient<AccountSynchronizationCompleted>
+        IRecipient<AccountSynchronizationCompleted>,
+        IRecipient<RefreshUnreadCountsMessage>
     {
         private static object connectionLock = new object();
 
@@ -90,6 +92,7 @@ namespace Wino.Server
         public async void Receive(MergedInboxRenamed message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         public async void Receive(AccountSynchronizationCompleted message) => await SendMessageAsync(MessageType.UIMessage, message);
+        public async void Receive(RefreshUnreadCountsMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
 
@@ -164,7 +167,7 @@ namespace Wino.Server
             if (connection == null) return;
 
             if (message is not IUIMessage serverMessage)
-                throw new ArgumentException("Server message must be a type of IServerMessage");
+                throw new ArgumentException("Server message must be a type of IUIMessage");
 
             string json = JsonSerializer.Serialize(message);
 
@@ -241,6 +244,11 @@ namespace Wino.Server
 
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<AuthorizationRequested>(messageJson, JsonSerializerOptions));
                     break;
+                case nameof(ProtocolAuthorizationCallbackReceived):
+                    Debug.WriteLine($"Continuing authorization from protocol activation.");
+
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ProtocolAuthorizationCallbackReceived>(messageJson, JsonSerializerOptions));
+                    break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");
                     break;
@@ -267,14 +275,12 @@ namespace Wino.Server
             catch (Exception ex)
             {
                 // Fatal crash. Handlers should not crash.
-                // Debugger.Break();
+                Debugger.Break();
             }
             finally
             {
                 deferral.Complete();
             }
         }
-
-
     }
 }

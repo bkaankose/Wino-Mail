@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Server;
 using Wino.Server.MessageHandlers;
 
@@ -16,6 +17,7 @@ namespace Wino.Server.Core
                 nameof(ServerRequestPackage) => App.Current.Services.GetService<UserActionRequestHandler>(),
                 nameof(DownloadMissingMessageRequested) => App.Current.Services.GetService<SingleMimeDownloadHandler>(),
                 nameof(AuthorizationRequested) => App.Current.Services.GetService<AuthenticationHandler>(),
+                nameof(ProtocolAuthorizationCallbackReceived) => App.Current.Services.GetService<ProtocolAuthActivationHandler>(),
                 _ => throw new Exception($"Server handler for {typeName} is not registered."),
             };
         }
@@ -28,6 +30,8 @@ namespace Wino.Server.Core
             serviceCollection.AddTransient<UserActionRequestHandler>();
             serviceCollection.AddTransient<SingleMimeDownloadHandler>();
             serviceCollection.AddTransient<AuthenticationHandler>();
+            serviceCollection.AddTransient<ProtocolAuthActivationHandler>();
+
         }
     }
 }

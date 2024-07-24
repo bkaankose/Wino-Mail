@@ -25,7 +25,6 @@ namespace Wino.Activation
         protected override Task HandleInternalAsync(ProtocolActivatedEventArgs args)
         {
             // Check URI prefix.
-
             var protocolString = args.Uri.AbsoluteUri;
 
             // Google OAuth Response
