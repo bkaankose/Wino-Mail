@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
@@ -10,6 +11,7 @@ using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
@@ -49,10 +51,12 @@ namespace Wino.Core.Services
         }
 
         public async Task<MailCopy> CreateDraftAsync(MailAccount composerAccount,
-            MimeMessage createdDraftMimeMessage,
+            string generatedReplyMimeMessageBase64,
             MimeMessage replyingMimeMessage = null,
             IMailItem replyingMailItem = null)
         {
+            var createdDraftMimeMessage = generatedReplyMimeMessageBase64.GetMimeMessageFromBase64();
+
             bool isImapAccount = composerAccount.ServerInformation != null;
 
             string fromName;
@@ -622,7 +626,7 @@ namespace Wino.Core.Services
             }
         }
 
-        public async Task<MimeMessage> CreateDraftMimeMessageAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
+        public async Task<string> CreateDraftMimeBase64Async(Guid accountId, DraftCreationOptions draftCreationOptions)
         {
             // This unique id is stored in mime headers for Wino to identify remote message with local copy.
             // Same unique id will be used for the local copy as well.
@@ -787,7 +791,14 @@ namespace Wino.Core.Services
                 // Update TextBody from existing HtmlBody if exists.
             }
 
-            return message;
+            using MemoryStream memoryStream = new();
+            message.WriteTo(FormatOptions.Default, memoryStream);
+            byte[] buffer = memoryStream.GetBuffer();
+            int count = (int)memoryStream.Length;
+
+            return Convert.ToBase64String(buffer);
+
+            // return message;
 
             // Generates html representation of To/Cc/From/Time and so on from referenced message.
             string CreateHtmlForReferencingMessage(MimeMessage referenceMessage)

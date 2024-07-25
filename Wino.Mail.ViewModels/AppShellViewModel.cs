@@ -784,15 +784,16 @@ namespace Wino.Mail.ViewModels
                 MailtoParameters = _launchProtocolService.MailtoParameters
             };
 
-            var createdMimeMessage = await _mailService.CreateDraftMimeMessageAsync(account.Id, draftOptions).ConfigureAwait(false);
-            var createdDraftMailMessage = await _mailService.CreateDraftAsync(account, createdMimeMessage).ConfigureAwait(false);
+            var createdBase64EncodedMimeMessage = await _mailService.CreateDraftMimeBase64Async(account.Id, draftOptions).ConfigureAwait(false);
+            var createdDraftMailMessage = await _mailService.CreateDraftAsync(account, createdBase64EncodedMimeMessage).ConfigureAwait(false);
 
-            var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdMimeMessage);
+            var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdBase64EncodedMimeMessage);
             await _winoRequestDelegator.ExecuteAsync(draftPreperationRequest);
         }
 
         public async void Receive(NewSynchronizationRequested message)
         {
+            // TODO: Sync progress via server.
             message.Options.ProgressListener = this;
 
             try

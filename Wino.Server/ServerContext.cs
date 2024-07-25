@@ -45,9 +45,10 @@ namespace Wino.Server
         private readonly ISynchronizerFactory _synchronizerFactory;
         private readonly IServerMessageHandlerFactory _serverMessageHandlerFactory;
 
-        // Constains ServerRequestTypeInfoResolver for resolving unknown types.
-
-        private JsonSerializerOptions JsonSerializerOptions { get; } = new JsonSerializerOptions();
+        private readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
+        {
+            TypeInfoResolver = new ServerRequestTypeInfoResolver()
+        };
 
         public ServerContext(IDatabaseService databaseService,
                              IApplicationConfiguration applicationFolderConfiguration,
@@ -59,7 +60,6 @@ namespace Wino.Server
             _synchronizerFactory = synchronizerFactory;
             _serverMessageHandlerFactory = serverMessageHandlerFactory;
 
-            JsonSerializerOptions.TypeInfoResolver = new ServerRequestTypeInfoResolver();
             WeakReferenceMessenger.Default.RegisterAll(this);
         }
 
@@ -225,15 +225,15 @@ namespace Wino.Server
                 case nameof(NewSynchronizationRequested):
                     Debug.WriteLine($"New synchronization requested.");
 
-                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<NewSynchronizationRequested>(messageJson, JsonSerializerOptions));
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<NewSynchronizationRequested>(messageJson, _jsonSerializerOptions));
                     break;
                 case nameof(DownloadMissingMessageRequested):
                     Debug.WriteLine($"Download missing message requested.");
 
-                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<DownloadMissingMessageRequested>(messageJson, JsonSerializerOptions));
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<DownloadMissingMessageRequested>(messageJson, _jsonSerializerOptions));
                     break;
                 case nameof(ServerRequestPackage):
-                    var serverPackage = JsonSerializer.Deserialize<ServerRequestPackage>(messageJson, JsonSerializerOptions);
+                    var serverPackage = JsonSerializer.Deserialize<ServerRequestPackage>(messageJson, _jsonSerializerOptions);
 
                     Debug.WriteLine(serverPackage);
 
@@ -242,12 +242,12 @@ namespace Wino.Server
                 case nameof(AuthorizationRequested):
                     Debug.WriteLine($"Authorization requested.");
 
-                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<AuthorizationRequested>(messageJson, JsonSerializerOptions));
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<AuthorizationRequested>(messageJson, _jsonSerializerOptions));
                     break;
                 case nameof(ProtocolAuthorizationCallbackReceived):
                     Debug.WriteLine($"Continuing authorization from protocol activation.");
 
-                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ProtocolAuthorizationCallbackReceived>(messageJson, JsonSerializerOptions));
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ProtocolAuthorizationCallbackReceived>(messageJson, _jsonSerializerOptions));
                     break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");

@@ -271,14 +271,16 @@ namespace Wino.Mail.ViewModels
                 draftOptions.ReferenceMailCopy = initializedMailItemViewModel.MailCopy;
                 draftOptions.ReferenceMimeMessage = initializedMimeMessageInformation.MimeMessage;
 
-                var createdMimeMessage = await _mailService.CreateDraftMimeMessageAsync(initializedMailItemViewModel.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+                var createdMimeMessage = await _mailService.CreateDraftMimeBase64Async(initializedMailItemViewModel.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
 
                 var createdDraftMailMessage = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount,
                                                                                   createdMimeMessage,
                                                                                   initializedMimeMessageInformation.MimeMessage,
                                                                                   initializedMailItemViewModel).ConfigureAwait(false);
 
-                var draftPreperationRequest = new DraftPreperationRequest(initializedMailItemViewModel.AssignedAccount, createdDraftMailMessage, createdMimeMessage)
+                var draftPreperationRequest = new DraftPreperationRequest(initializedMailItemViewModel.AssignedAccount,
+                                                                          createdDraftMailMessage,
+                                                                          createdMimeMessage)
                 {
                     ReferenceMimeMessage = initializedMimeMessageInformation.MimeMessage,
                     ReferenceMailCopy = initializedMailItemViewModel.MailCopy

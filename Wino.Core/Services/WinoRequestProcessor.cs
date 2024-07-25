@@ -91,6 +91,7 @@ namespace Wino.Core.Services
 
             var requests = new List<IRequest>();
 
+            // TODO: Fix: Collection was modified; enumeration operation may not execute
             foreach (var item in preperationRequest.MailItems)
             {
                 var singleRequest = await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution);

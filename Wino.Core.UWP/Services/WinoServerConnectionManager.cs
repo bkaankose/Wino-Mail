@@ -65,11 +65,10 @@ namespace Wino.Core.UWP.Services
             }
         }
 
-        private readonly JsonSerializerOptions _serverJsonServerSerializer = new JsonSerializerOptions
+        private readonly JsonSerializerOptions _jsonSerializerOptions = new()
         {
             TypeInfoResolver = new ServerRequestTypeInfoResolver()
         };
-
         public async Task<bool> ConnectAsync()
         {
             if (Status == WinoServerConnectionStatus.Connected) return true;
@@ -227,10 +226,9 @@ namespace Wino.Core.UWP.Services
 
             try
             {
-                // IRequestBase is not a concrete type, so we need to use a custom type resolver.
-                // System.Text.Json must know the concrete type to serialize the object.
+                serializedMessage = JsonSerializer.Serialize(message, _jsonSerializerOptions);
 
-                serializedMessage = JsonSerializer.Serialize(message, _serverJsonServerSerializer);
+                var des = JsonSerializer.Deserialize<ServerRequestPackage>(serializedMessage, _jsonSerializerOptions);
             }
             catch (Exception serializationException)
             {
