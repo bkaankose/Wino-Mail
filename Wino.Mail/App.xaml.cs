@@ -263,10 +263,13 @@ namespace Wino
                     _appServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
                 }
             }
+            else
+            {
+                // Other background activations might have handlers.
+                // AppServiceTrigger is handled here because delegating it to handlers somehow make it not work...
 
-            LogActivation($"OnBackgroundActivated -> {args.GetType().Name}, TaskInstanceIdName -> {args.TaskInstance?.Task?.Name ?? "NA"}");
-
-            await ActivateWinoAsync(args);
+                await ActivateWinoAsync(args);
+            }
         }
 
         private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
