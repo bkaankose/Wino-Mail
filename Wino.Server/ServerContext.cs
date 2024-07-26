@@ -8,6 +8,7 @@ using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Json;
 using Wino.Core.Services;
 using Wino.Messaging;
@@ -34,7 +35,8 @@ namespace Wino.Server
         IRecipient<MailUpdatedMessage>,
         IRecipient<MergedInboxRenamed>,
         IRecipient<AccountSynchronizationCompleted>,
-        IRecipient<RefreshUnreadCountsMessage>
+        IRecipient<RefreshUnreadCountsMessage>,
+        IRecipient<AccountSynchronizerStateChanged>
     {
         private static object connectionLock = new object();
 
@@ -92,7 +94,10 @@ namespace Wino.Server
         public async void Receive(MergedInboxRenamed message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         public async void Receive(AccountSynchronizationCompleted message) => await SendMessageAsync(MessageType.UIMessage, message);
+
         public async void Receive(RefreshUnreadCountsMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
+
+        public async void Receive(AccountSynchronizerStateChanged message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
 
@@ -248,6 +253,12 @@ namespace Wino.Server
                     Debug.WriteLine($"Continuing authorization from protocol activation.");
 
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ProtocolAuthorizationCallbackReceived>(messageJson, _jsonSerializerOptions));
+                    break;
+
+                case nameof(SynchronizationExistenceCheckRequest):
+                    Debug.WriteLine($"Synchronization existence check requested.");
+
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<SynchronizationExistenceCheckRequest>(messageJson, _jsonSerializerOptions));
                     break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");

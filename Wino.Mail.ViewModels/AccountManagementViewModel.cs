@@ -210,10 +210,6 @@ namespace Wino.Mail.ViewModels
                     // Local account has been created.
                     // Create new synchronizer and start synchronization.
 
-                    // TODO: Server: Make sure that server synchronizes folders and sends back the result.
-
-                    // var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
-
                     if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
                         customServerAccountCreationDialog.ShowPreparingFolders();
                     else

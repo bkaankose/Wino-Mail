@@ -347,8 +347,6 @@ namespace Wino.Mail.ViewModels
 
         private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
         {
-            // TODO: Server: Download single mime and report back the item here.
-
             try
             {
                 // To show the progress on the UI.

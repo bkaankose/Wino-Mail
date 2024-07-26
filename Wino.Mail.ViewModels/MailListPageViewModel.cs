@@ -29,7 +29,6 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
-using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -78,7 +77,7 @@ namespace Wino.Mail.ViewModels
         private readonly IContextMenuItemService _contextMenuItemService;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
         private readonly IKeyPressService _keyPressService;
-
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private MailItemViewModel _activeMailItem;
 
         public List<SortingOption> SortingOptions { get; } =
@@ -148,9 +147,11 @@ namespace Wino.Mail.ViewModels
                                      IContextMenuItemService contextMenuItemService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      IKeyPressService keyPressService,
-                                     IPreferencesService preferencesService) : base(dialogService)
+                                     IPreferencesService preferencesService,
+                                     IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             PreferencesService = preferencesService;
+            _winoServerConnectionManager = winoServerConnectionManager;
             StatePersistanceService = statePersistanceService;
             NavigationService = navigationService;
 
@@ -976,19 +977,13 @@ namespace Wino.Mail.ViewModels
 
                 foreach (var accountId in accountIds)
                 {
-                    // TODO: Server: Check whether account is already synchronizing from the server.
+                    var serverResponse = await _winoServerConnectionManager.GetResponseAsync<bool, SynchronizationExistenceCheckRequest>(new SynchronizationExistenceCheckRequest(accountId));
 
-                    //var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
-
-                    //if (synchronizer == null) continue;
-
-                    //bool isAccountSynchronizing = synchronizer.State != AccountSynchronizerState.Idle;
-
-                    //if (isAccountSynchronizing)
-                    //{
-                    //    isAnyAccountSynchronizing = true;
-                    //    break;
-                    //}
+                    if (serverResponse.IsSuccess && serverResponse.Data == true)
+                    {
+                        isAnyAccountSynchronizing = true;
+                        break;
+                    }
                 }
             }
 

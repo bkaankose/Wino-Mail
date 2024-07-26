@@ -10,7 +10,7 @@ namespace Wino.Controls
             base.OnApplyTemplate();
             if (GetTemplateChild("ExpanderHeader") is ToggleButton toggleButton)
             {
-                toggleButton.Padding = new Windows.UI.Xaml.Thickness(0, 0, 0, 0);
+                toggleButton.Padding = new Windows.UI.Xaml.Thickness(0, 4, 0, 4);
             }
         }
     }

@@ -16,7 +16,6 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration;
 using Wino.Core.Misc;
 using Wino.Core.Requests;
-using Wino.Messaging.Client.Synchronization;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
@@ -44,7 +43,7 @@ namespace Wino.Core.Synchronizers
             {
                 state = value;
 
-                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(this, value));
+                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(Account.Id, value));
             }
         }
 
