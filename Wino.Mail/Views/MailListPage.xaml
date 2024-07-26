@@ -57,7 +57,7 @@
 
         <!--  Header Templates  -->
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="collections:IReadOnlyObservableGroup">
-            <Grid Margin="6,2"
+            <Grid Margin="6,2,16,2"
                   AllowFocusOnInteraction="False"
                   Background="{ThemeResource MailListHeaderBackgroundColor}"
                   CornerRadius="6">
@@ -305,7 +305,7 @@
                 </Grid.RowDefinitions>
 
                 <!--  Top Area  -->
-                <Grid Padding="12,6"
+                <Grid Padding="4,6"
                       CornerRadius="8"
                       RowSpacing="4">
                     <Grid.RowDefinitions>
