@@ -243,6 +243,7 @@
     <Compile Include="Controls\ControlConstants.cs" />
     <Compile Include="Controls\SettingsMenuItemControl.cs" />
     <Compile Include="Controls\Advanced\WinoListView.cs" />
+    <Compile Include="Controls\WinoExpander.cs" />
     <Compile Include="Controls\WinoFontIconSource.cs" />
     <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoSwipeControlItems.cs" />

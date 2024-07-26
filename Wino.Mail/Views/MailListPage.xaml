@@ -174,12 +174,13 @@
         <selectors:MailItemDisplaySelector x:Key="MailItemDisplaySelector" SingleMailItemTemplate="{StaticResource SingleMailItemTemplate}">
             <selectors:MailItemDisplaySelector.ThreadMailItemTemplate>
                 <DataTemplate x:DataType="viewModelData:ThreadMailItemViewModel">
-                    <muxc:Expander x:Name="ThreadExpander"
-                                   HorizontalAlignment="Stretch"
-                                   HorizontalContentAlignment="Stretch"
-                                   BackgroundSizing="InnerBorderEdge"
-                                   BorderThickness="0"
-                                   IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
+                    <controls:WinoExpander x:Name="ThreadExpander"
+                                           HorizontalAlignment="Stretch"
+                                           HorizontalContentAlignment="Stretch"
+                                           BackgroundSizing="InnerBorderEdge"
+                                           BorderThickness="0"
+                                           Padding="0"
+                                           IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
                         <muxc:Expander.Header>
                             <controls:MailItemDisplayInformationControl x:DefaultBindMode="OneWay"
                                                                         Background="Transparent"
@@ -225,7 +226,7 @@
                                 </ListView.ItemContainerTransitions>
                             </listview:WinoListView>
                         </muxc:Expander.Content>
-                    </muxc:Expander>
+                    </controls:WinoExpander>
                 </DataTemplate>
             </selectors:MailItemDisplaySelector.ThreadMailItemTemplate>
         </selectors:MailItemDisplaySelector>
