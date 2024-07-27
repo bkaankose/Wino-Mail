@@ -91,6 +91,10 @@ namespace Wino.Server
             var nativeAppService = Services.GetService<INativeAppService>();
             nativeAppService.GetCoreWindowHwnd = FindUWPClientWindowHandle;
 
+            // Initialize translations.
+            var translationService = Services.GetService<ITranslationService>();
+            await translationService.InitializeAsync();
+
             // Make sure all accounts have synchronizers.
             var synchronizerFactory = Services.GetService<ISynchronizerFactory>();
             await synchronizerFactory.InitializeAsync();
