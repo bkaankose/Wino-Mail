@@ -30,6 +30,7 @@ namespace Wino.Core.Services
         private readonly ISignatureService _signatureService;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
         private readonly IMimeFileService _mimeFileService;
+        private readonly IPreferencesService _preferencesService;
 
 
         private readonly ILogger _logger = Log.ForContext<MailService>();
@@ -40,7 +41,8 @@ namespace Wino.Core.Services
                            IAccountService accountService,
                            ISignatureService signatureService,
                            IThreadingStrategyProvider threadingStrategyProvider,
-                           IMimeFileService mimeFileService) : base(databaseService)
+                           IMimeFileService mimeFileService,
+                           IPreferencesService preferencesService) : base(databaseService)
         {
             _folderService = folderService;
             _contactService = contactService;
@@ -48,6 +50,7 @@ namespace Wino.Core.Services
             _signatureService = signatureService;
             _threadingStrategyProvider = threadingStrategyProvider;
             _mimeFileService = mimeFileService;
+            _preferencesService = preferencesService;
         }
 
         public async Task<MailCopy> CreateDraftAsync(MailAccount composerAccount,
@@ -655,6 +658,9 @@ namespace Wino.Core.Services
 
             message.From.Add(new MailboxAddress(account.SenderName, account.Address));
 
+            // It contains empty blocks with inlined font, to make sure when users starts typing,it will follow selected font.
+            var gapHtml = CreateHtmlGap();
+
             // Manage "To"
             if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
             {
@@ -686,8 +692,7 @@ namespace Wino.Core.Services
                 {
                     message.InReplyTo = referenceMessage.MessageId;
 
-                    foreach (var id in referenceMessage.References)
-                        message.References.Add(id);
+                    message.References.AddRange(referenceMessage.References);
 
                     message.References.Add(referenceMessage.MessageId);
                 }
@@ -715,13 +720,17 @@ namespace Wino.Core.Services
 
                     if (string.IsNullOrWhiteSpace(builder.HtmlBody))
                     {
-                        builder.HtmlBody = $"<br><br><br>{signature.HtmlBody}";
+                        builder.HtmlBody = $"{gapHtml}{signature.HtmlBody}";
                     }
                     else
                     {
-                        builder.HtmlBody = $"<br><br><br>{signature.HtmlBody}" + builder.HtmlBody;
+                        builder.HtmlBody = $"{gapHtml}{signature.HtmlBody}{gapHtml}{builder.HtmlBody}";
                     }
                 }
+            }
+            else
+            {
+                builder.HtmlBody = $"{gapHtml}{builder.HtmlBody}";
             }
 
             // Manage Subject
@@ -805,7 +814,7 @@ namespace Wino.Core.Services
             {
                 var htmlMimeInfo = string.Empty;
                 // Separation Line
-                htmlMimeInfo += "<br><br><hr style='display:inline-block;width:100%' tabindex='-1'>";
+                htmlMimeInfo += "<hr style='display:inline-block;width:100%' tabindex='-1'>";
 
                 var visitor = _mimeFileService.CreateHTMLPreviewVisitor(referenceMessage, string.Empty);
                 visitor.Visit(referenceMessage);
@@ -825,6 +834,12 @@ namespace Wino.Core.Services
                         """;
 
                 return htmlMimeInfo;
+            }
+
+            string CreateHtmlGap()
+            {
+                var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
+                return string.Concat(Enumerable.Repeat(template, 5));
             }
 
             static string ParticipantsToHtml(InternetAddressList internetAddresses) =>

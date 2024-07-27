@@ -122,14 +122,24 @@ namespace Wino.Core.Domain.Interfaces
         AppLanguage CurrentLanguage { get; set; }
 
         /// <summary>
-        /// Setting: Display font for the mail reader. Not composer.
+        /// Setting: Display font for the mail reader.
         /// </summary>
-        ReaderFont ReaderFont { get; set; }
+        string ReaderFont { get; set; }
 
         /// <summary>
-        /// Setting: Font size for the mail reader. Not composer.
+        /// Setting: Font size for the mail reader.
         /// </summary>
         int ReaderFontSize { get; set; }
+
+        /// <summary>
+        /// Setting: Display font for the mail composer.
+        /// </summary>
+        string ComposerFont { get; set; }
+
+        /// <summary>
+        /// Setting: Font size for the mail composer.
+        /// </summary>
+        int ComposerFontSize { get; set; }
 
         /// <summary>
         /// Setting: Whether the navigation pane is opened on the last session or not.

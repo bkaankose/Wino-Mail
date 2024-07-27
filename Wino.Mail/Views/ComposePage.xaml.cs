@@ -389,6 +389,7 @@ namespace Wino.Views
             await DOMLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
+            await InitializeEditorAsync();
 
             if (string.IsNullOrEmpty(htmlBody))
             {
@@ -398,6 +399,16 @@ namespace Wino.Views
             {
                 await ExecuteScriptFunctionAsync("RenderHTML", htmlBody);
             }
+        }
+
+        private async Task<string> InitializeEditorAsync()
+        {
+            var fonts = ViewModel.FontService.GetFonts();
+            var composerFont = ViewModel.PreferencesService.ComposerFont;
+            int composerFontSize = ViewModel.PreferencesService.ComposerFontSize;
+            var readerFont = ViewModel.PreferencesService.ReaderFont;
+            int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
+            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
         protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)

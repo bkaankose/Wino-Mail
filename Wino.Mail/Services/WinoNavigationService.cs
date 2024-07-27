@@ -72,8 +72,8 @@ namespace Wino.Services
                     return typeof(PersonalizationPage);
                 case WinoPage.MessageListPage:
                     return typeof(MessageListPage);
-                case WinoPage.ReadingPanePage:
-                    return typeof(ReadingPanePage);
+                case WinoPage.ReadComposePanePage:
+                    return typeof(ReadComposePanePage);
                 case WinoPage.MailRenderingPage:
                     return typeof(MailRenderingPage);
                 case WinoPage.ComposePage:
