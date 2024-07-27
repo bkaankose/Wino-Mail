@@ -18,8 +18,10 @@ namespace Wino.Core.Domain.Interfaces
         WinoServerConnectionStatus Status { get; }
 
         /// <summary>
-        /// Launches Full Thrust process (Wino Server) and awaits connection completion.
+        /// Launches Full Trust process (Wino Server) and awaits connection completion.
         /// If connection is not established in 5 seconds, it will return false.
+        /// If the server process is already running, it'll connect to existing one.
+        /// If the server process is not running, it'll be launched and connection establishment is awaited.
         /// </summary>
         /// <returns>Whether connection is established or not.</returns>
         Task<bool> ConnectAsync();

@@ -75,7 +75,7 @@
 
 			</uap:Extension>
 
-			<!-- Protocol activation: Launch UWP app from Full Thrust Process  -->
+			<!-- Protocol activation: Launch UWP app from Full Trust Process  -->
 			<uap:Extension Category="windows.protocol">
 				<uap:Protocol Name="wino.mail.launch">
 					<uap:DisplayName>Wino Mail Launcher Protocol</uap:DisplayName>

@@ -105,7 +105,7 @@ namespace Wino.Core.UWP.Services
 
                     await _connectionTaskCompletionSource.Task.WaitAsync(connectionCancellationToken.Token);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     Status = WinoServerConnectionStatus.Failed;
                     return false;
