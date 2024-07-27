@@ -14,7 +14,7 @@ namespace Wino.Server.Core
     {
         public string HandlingRequestType { get; }
 
-        public abstract Task ExecuteAsync(IClientMessage message, AppServiceRequest request, CancellationToken cancellationToken = default);
+        public abstract Task ExecuteAsync(IClientMessage message, AppServiceRequest request = null, CancellationToken cancellationToken = default);
     }
 
     public abstract class ServerMessageHandler<TClientMessage, TResponse> : ServerMessageHandlerBase where TClientMessage : IClientMessage
@@ -26,14 +26,16 @@ namespace Wino.Server.Core
         /// <returns>Default response on failure object.</returns>
         public abstract WinoServerResponse<TResponse> FailureDefaultResponse(Exception ex);
 
+
         /// <summary>
         /// Safely executes the handler code and returns the response.
         /// This call will never crash the server. Exceptions encountered will be handled and returned as response.
         /// </summary>
         /// <param name="message">IClientMessage that client asked the response for from the server.</param>
+        /// <param name="request">optional AppServiceRequest to return response for.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response object that server executes for the given method.</returns>
-        public override async Task ExecuteAsync(IClientMessage message, AppServiceRequest request, CancellationToken cancellationToken = default)
+        public override async Task ExecuteAsync(IClientMessage message, AppServiceRequest request = null, CancellationToken cancellationToken = default)
         {
             WinoServerResponse<TResponse> response = default;
 
@@ -47,12 +49,17 @@ namespace Wino.Server.Core
             }
             finally
             {
-                var valueSet = new ValueSet()
+                // No need to send response if request is null.
+                // Handler might've been called directly from the server itself.
+                if (request != null)
                 {
-                    { MessageConstants.MessageDataKey, JsonSerializer.Serialize(response) }
-                };
+                    var valueSet = new ValueSet()
+                    {
+                        { MessageConstants.MessageDataKey, JsonSerializer.Serialize(response) }
+                    };
 
-                await request.SendResponseAsync(valueSet);
+                    await request.SendResponseAsync(valueSet);
+                }
             }
         }
 

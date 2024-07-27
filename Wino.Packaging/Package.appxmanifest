@@ -67,13 +67,21 @@
 				<uap:Protocol Name="mailto" />
 			</uap:Extension>
 
-			<!-- Protocol activation: Google oAuth -->
+			<!-- Protocol activation: Google OAuth -->
 			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="google.pw.oauth2">
-					<uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+				<uap:Protocol Name="wino.googleauth.callback">
+					<uap:DisplayName>Wino Google Authentication Protocol</uap:DisplayName>
 				</uap:Protocol>
+
 			</uap:Extension>
 
+			<!-- Protocol activation: Launch UWP app from Full Thrust Process  -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="wino.mail.launch">
+					<uap:DisplayName>Wino Mail Launcher Protocol</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+			
 			<!-- File Assosication: EML -->
 			<uap:Extension Category="windows.fileTypeAssociation">
 				<uap:FileTypeAssociation Name="eml">

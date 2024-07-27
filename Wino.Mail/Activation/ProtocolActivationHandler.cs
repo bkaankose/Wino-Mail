@@ -10,7 +10,7 @@ namespace Wino.Activation
 {
     internal class ProtocolActivationHandler : ActivationHandler<ProtocolActivatedEventArgs>
     {
-        private const string GoogleAuthorizationProtocolTag = "google.pw.oauth2";
+        private const string GoogleAuthorizationProtocolTag = "wino.googleauth.callback";
         private const string MailtoProtocolTag = "mailto:";
 
         private readonly INativeAppService _nativeAppService;

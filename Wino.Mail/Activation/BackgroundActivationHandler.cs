@@ -77,7 +77,6 @@ namespace Wino.Activation
                     {
                         // We need to synchronize changes without reflection the UI changes.
 
-                        // var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItem.AssignedAccount.Id);
                         var prepRequest = new MailOperationPreperationRequest(action, mailItem);
 
                         var requests = await _winoRequestProcessor.PrepareRequestsAsync(prepRequest);

@@ -5,6 +5,7 @@
     <RootNamespace>Wino.Core</RootNamespace>
     <Configurations>Debug;Release</Configurations>
 	<LangVersion>12</LangVersion>
+	<Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

@@ -33,6 +33,7 @@ namespace Wino.Server
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         private const string FRAME_WINDOW = "ApplicationFrameWindow";
+        public const string WinoMailLaunchProtocol = "wino.mail.launch";
 
         private const string NotifyIconResourceKey = "NotifyIcon";
         private const string WinoServerAppName = "Wino.Server";

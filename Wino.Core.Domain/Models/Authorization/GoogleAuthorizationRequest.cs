@@ -7,7 +7,7 @@ namespace Wino.Core.Domain.Models.Authorization
 {
     public class GoogleAuthorizationRequest
     {
-        public const string RedirectUri = "google.pw.oauth2:/oauth2redirect";
+        public const string RedirectUri = "wino.googleauth.callback:/oauth2redirect";
 
         const string authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
         const string CodeChallangeMethod = "S256";

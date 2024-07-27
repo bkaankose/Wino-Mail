@@ -1,7 +1,9 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Windows.System;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Server
@@ -16,11 +18,7 @@ namespace Wino.Server
         }
 
         [RelayCommand]
-        public async Task LaunchWinoAsync()
-        {
-            // await Context.TestOutlookSynchronizer();
-            // ServerContext.SendTestMessageAsync();
-        }
+        public Task LaunchWinoAsync() => Launcher.LaunchUriAsync(new Uri($"{App.WinoMailLaunchProtocol}:")).AsTask();
 
         /// <summary>
         /// Shuts down the application.

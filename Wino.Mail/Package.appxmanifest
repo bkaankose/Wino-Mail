@@ -71,9 +71,12 @@
 		  
 		<!-- Protocol activation: Google oAuth -->
         <uap:Extension Category="windows.protocol">
-          <uap:Protocol Name="google.pw.oauth2">
+          <uap:Protocol Name="wino.googleauth.callback">
             <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
           </uap:Protocol>
+			<!--<uap:Protocol Name="uwptestapp">
+				<uap:DisplayName>UWP-Test-app</uap:DisplayName>
+			</uap:Protocol>-->
         </uap:Extension>
 
 		<!-- File Assosication: EML -->

@@ -4,6 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
 	<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	<LangVersion>12.0</LangVersion>
+	<Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

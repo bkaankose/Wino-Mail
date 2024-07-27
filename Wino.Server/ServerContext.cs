@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
@@ -35,9 +36,10 @@ namespace Wino.Server
         IRecipient<MailUpdatedMessage>,
         IRecipient<MergedInboxRenamed>,
         IRecipient<AccountSynchronizationCompleted>,
-        IRecipient<RefreshUnreadCountsMessage>,
-        IRecipient<AccountSynchronizerStateChanged>
+        IRecipient<AccountSynchronizerStateChanged>,
+        IRecipient<RefreshUnreadCountsMessage>
     {
+        private readonly System.Timers.Timer _timer;
         private static object connectionLock = new object();
 
         private AppServiceConnection connection = null;
@@ -46,7 +48,7 @@ namespace Wino.Server
         private readonly IApplicationConfiguration _applicationFolderConfiguration;
         private readonly ISynchronizerFactory _synchronizerFactory;
         private readonly IServerMessageHandlerFactory _serverMessageHandlerFactory;
-
+        private readonly IAccountService _accountService;
         private readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
         {
             TypeInfoResolver = new ServerRequestTypeInfoResolver()
@@ -55,14 +57,43 @@ namespace Wino.Server
         public ServerContext(IDatabaseService databaseService,
                              IApplicationConfiguration applicationFolderConfiguration,
                              ISynchronizerFactory synchronizerFactory,
-                             IServerMessageHandlerFactory serverMessageHandlerFactory)
+                             IServerMessageHandlerFactory serverMessageHandlerFactory,
+                             IAccountService accountService)
         {
+            // Setup timer for synchronization.
+
+            _timer = new System.Timers.Timer(1000 * 60 * 1); // 1 minute
+            _timer.Elapsed += SynchronizationTimerTriggered;
+
             _databaseService = databaseService;
             _applicationFolderConfiguration = applicationFolderConfiguration;
             _synchronizerFactory = synchronizerFactory;
             _serverMessageHandlerFactory = serverMessageHandlerFactory;
+            _accountService = accountService;
 
             WeakReferenceMessenger.Default.RegisterAll(this);
+
+            _timer.Start();
+        }
+
+        private async void SynchronizationTimerTriggered(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            // Send sync request for all accounts.
+
+            var accounts = await _accountService.GetAccountsAsync();
+
+            foreach (var account in accounts)
+            {
+                var options = new SynchronizationOptions
+                {
+                    AccountId = account.Id,
+                    Type = SynchronizationType.Full,
+                };
+
+                var request = new NewSynchronizationRequested(options);
+
+                await ExecuteServerMessageSafeAsync(null, request);
+            }
         }
 
         #region Message Handlers
@@ -256,7 +287,6 @@ namespace Wino.Server
                     break;
 
                 case nameof(SynchronizationExistenceCheckRequest):
-                    Debug.WriteLine($"Synchronization existence check requested.");
 
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<SynchronizationExistenceCheckRequest>(messageJson, _jsonSerializerOptions));
                     break;
@@ -274,14 +304,14 @@ namespace Wino.Server
         /// <param name="message">Message that client sent to server.</param>
         private async Task ExecuteServerMessageSafeAsync(AppServiceRequestReceivedEventArgs args, IClientMessage message)
         {
-            var deferral = args.GetDeferral();
+            AppServiceDeferral deferral = args?.GetDeferral() ?? null;
 
             try
             {
                 var messageName = message.GetType().Name;
 
                 var handler = _serverMessageHandlerFactory.GetHandler(messageName);
-                await handler.ExecuteAsync(message, args.Request).ConfigureAwait(false);
+                await handler.ExecuteAsync(message, args?.Request ?? null).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -290,7 +320,7 @@ namespace Wino.Server
             }
             finally
             {
-                deferral.Complete();
+                deferral?.Complete();
             }
         }
     }
