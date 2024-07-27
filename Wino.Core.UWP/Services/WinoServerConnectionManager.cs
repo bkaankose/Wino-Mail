@@ -276,7 +276,7 @@ namespace Wino.Core.UWP.Services
             // Try deserialize the message data.
             try
             {
-                return JsonSerializer.Deserialize<WinoServerResponse<TResponse>>(messageJson); // WinoServerResponse<TResponse>.CreateSuccessResponse();
+                return JsonSerializer.Deserialize<WinoServerResponse<TResponse>>(messageJson);
             }
             catch (Exception jsonDeserializationError)
             {
