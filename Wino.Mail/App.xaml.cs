@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
@@ -27,6 +28,7 @@ using Wino.Core.Services;
 using Wino.Core.UWP;
 using Wino.Core.UWP.Services;
 using Wino.Mail.ViewModels;
+using Wino.Messaging.Client.Connection;
 using Wino.Services;
 
 namespace Wino
@@ -261,6 +263,8 @@ namespace Wino
                     args.TaskInstance.Canceled += OnBackgroundTaskCanceled;
 
                     _appServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
+
+                    WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstrablished());
                 }
             }
             else

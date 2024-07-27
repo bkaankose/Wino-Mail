@@ -105,6 +105,7 @@ namespace Wino.Mail.ViewModels
             StatePersistenceService = statePersistanceService;
             ServerConnectionManager = serverConnectionManager;
 
+            ActiveConnectionStatus = serverConnectionManager.Status.ToString();
             ServerConnectionManager.StatusChanged += async (sender, status) =>
             {
                 await ExecuteUIThread(() =>

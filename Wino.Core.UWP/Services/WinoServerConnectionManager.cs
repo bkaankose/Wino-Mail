@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Nito.AsyncEx;
 using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
@@ -14,14 +16,20 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Server;
 using Wino.Core.Integration.Json;
 using Wino.Messaging;
+using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Enums;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services
 {
-    public class WinoServerConnectionManager : IWinoServerConnectionManager<AppServiceConnection>
+    public class WinoServerConnectionManager :
+        IWinoServerConnectionManager<AppServiceConnection>,
+        IRecipient<WinoServerConnectionEstrablished>
     {
+        private const int ServerConnectionTimeoutMs = 5000;
+
         public event EventHandler<WinoServerConnectionStatus> StatusChanged;
+        private TaskCompletionSource<bool> _connectionTaskCompletionSource;
 
         private ILogger Logger => Logger.ForContext<WinoServerConnectionManager>();
 
@@ -69,6 +77,12 @@ namespace Wino.Core.UWP.Services
         {
             TypeInfoResolver = new ServerRequestTypeInfoResolver()
         };
+
+        public WinoServerConnectionManager()
+        {
+            WeakReferenceMessenger.Default.Register(this);
+        }
+
         public async Task<bool> ConnectAsync()
         {
             if (Status == WinoServerConnectionStatus.Connected) return true;
@@ -77,13 +91,21 @@ namespace Wino.Core.UWP.Services
             {
                 try
                 {
+                    _connectionTaskCompletionSource ??= new TaskCompletionSource<bool>();
+
+                    var connectionCancellationToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(ServerConnectionTimeoutMs));
+
                     Status = WinoServerConnectionStatus.Connecting;
 
                     await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
 
-                    // If the server connection is success, Status will be updated to Connected by App.xaml.cs OnBackgroundActivated.
+                    // Connection establishment handler is in App.xaml.cs OnBackgroundActivated.
+                    // Once the connection is established, the handler will set the Connection property
+                    // and WinoServerConnectionEstrablished will be fired by the messenger.
+
+                    await _connectionTaskCompletionSource.Task.WaitAsync(connectionCancellationToken.Token);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     Status = WinoServerConnectionStatus.Failed;
                     return false;
@@ -200,10 +222,6 @@ namespace Wino.Core.UWP.Services
             // TODO: Handle server disconnection.
         }
 
-        public void DisposeConnection()
-        {
-            if (Connection == null) return;
-        }
 
         public async Task QueueRequestAsync(IRequestBase request, Guid accountId)
         {
@@ -285,5 +303,12 @@ namespace Wino.Core.UWP.Services
             }
         }
 
+        public void Receive(WinoServerConnectionEstrablished message)
+        {
+            if (_connectionTaskCompletionSource != null)
+            {
+                _connectionTaskCompletionSource.TrySetResult(true);
+            }
+        }
     }
 }
