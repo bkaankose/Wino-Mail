@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Wino.Core.Domain.Entities;
+using Windows.System;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Server
 {
@@ -23,13 +21,13 @@ namespace Wino.Server
         }
 
         [RelayCommand]
-        public async Task LaunchWinoAsync()
+        public Task LaunchWinoAsync()
         {
-            //Launcher.LaunchUriAsync(new Uri($"{App.WinoMailLaunchProtocol}:")).AsTask();
-            await _notificationBuilder.CreateNotificationsAsync(Guid.Empty, new List<IMailItem>()
-            {
-                new MailCopy(){  UniqueId = Guid.Parse("8f25d2a0-4448-4fee-96a9-c9b25a19e866")}
-            });
+            return Launcher.LaunchUriAsync(new Uri($"{App.WinoMailLaunchProtocol}:")).AsTask();
+            //await _notificationBuilder.CreateNotificationsAsync(Guid.Empty, new List<IMailItem>()
+            //{
+            //    new MailCopy(){  UniqueId = Guid.Parse("8f25d2a0-4448-4fee-96a9-c9b25a19e866")}
+            //});
         }
 
         /// <summary>
