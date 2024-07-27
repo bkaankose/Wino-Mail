@@ -42,8 +42,8 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
 		<uap:VisualElements
-        DisplayName="Wino Mail (Packaging)"
-        Description="Packaging project for Wino Mail"
+        DisplayName="Wino Mail"
+        Description="Wino Mail"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">
