@@ -62,7 +62,7 @@ namespace Wino.Server
         {
             // Setup timer for synchronization.
 
-            _timer = new System.Timers.Timer(1000 * 60 * 1); // 1 minute
+            _timer = new System.Timers.Timer(1000 * 60 * 3); // 1 minute
             _timer.Elapsed += SynchronizationTimerTriggered;
 
             _databaseService = databaseService;
@@ -87,7 +87,7 @@ namespace Wino.Server
                 var options = new SynchronizationOptions
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.Full,
+                    Type = SynchronizationType.Inbox,
                 };
 
                 var request = new NewSynchronizationRequested(options);
