@@ -150,5 +150,10 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Whether the next item should be automatically selected once the current item is moved or removed.
         /// </summary>
         bool AutoSelectNextItem { get; set; }
+
+        /// <summary>
+        /// Setting: Gets or sets what should happen to server app when the client is terminated.
+        /// </summary>
+        ServerBackgroundMode ServerTerminationBehavior { get; set; }
     }
 }

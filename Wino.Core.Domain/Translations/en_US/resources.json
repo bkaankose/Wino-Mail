@@ -105,7 +105,7 @@
     "ElementTheme_Default": "Use system setting",
     "ElementTheme_Light": "Light mode",
     "Emoji": "Emoji",
-    "Exception_WinoServerException":  "Wino server failed.",
+    "Exception_WinoServerException": "Wino server failed.",
     "Exception_ImapAutoDiscoveryFailed": "Couldn't find mailbox settings.",
     "Exception_ImapClientPoolFailed": "IMAP Client Pool failed.",
     "Exception_AuthenticationCanceled": "Authentication canceled",
@@ -419,6 +419,10 @@
     "SettingsFolderMenuStyle_Description": "Change whether account folders should be nested inside an account menu item or not. Toggle this off if you like the old menu system in Windows Mail",
     "SettingsManageAccountSettings_Description": "Notifications, signatures, synchronization and other settings per account.",
     "SettingsManageAccountSettings_Title": "Manage Account Settings",
+    "SettingsAppPreferences_Title": "App Preferences",
+    "SettingsAppPreferences_Description": "General settings / preferences for Wino Mail.",
+    "SettingsAppPreferences_CloseBehavior_Title": "Application close behavior",
+    "SettingsAppPreferences_CloseBehavior_Description": "What should happen when you close the app?",
     "SettingsReorderAccounts_Title": "Reorder Accounts",
     "SettingsReorderAccounts_Description": "Change the order of accounts in the account list.",
     "SettingsManageLink_Description": "Move items to add new link or remove existing link.",
@@ -524,6 +528,11 @@
     "SettingsSignature_AddCustomSignature_Button": "Add signature",
     "SettingsSignature_EditSignature_Title": "Edit signature",
     "SettingsSignature_DeleteSignature_Title": "Delete signature",
-    "SettingsSignature_NoneSignatureName": "None"
-
+    "SettingsSignature_NoneSignatureName": "None",
+    "SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title": "Minimize to system tray",
+    "SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description": "Wino Mail will keep running on the system tray. Available to launch by clicking on an icon. You will be notified as new mails arrive.",
+    "SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title": "Run in the background",
+    "SettingsAppPreferences_ServerBackgroundingMode_Invisible_Description": "Wino Mail will keep running in the background. You will be notified as new mails arrive.",
+    "SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title": "Terminate",
+    "SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description": "Wino Mail will not keep running anywhere. You will not be notified as new mails arrive. Launch Wino Mail again to continue mail synchronization."
 }

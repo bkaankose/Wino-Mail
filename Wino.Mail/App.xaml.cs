@@ -169,6 +169,7 @@ namespace Wino
             services.AddTransient(typeof(ReadComposePanePageViewModel));
             services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
             services.AddTransient(typeof(LanguageTimePageViewModel));
+            services.AddTransient(typeof(AppPreferencesPageViewModel));
         }
 
         #endregion

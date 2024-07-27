@@ -201,5 +201,11 @@ namespace Wino.Core.UWP.Services
             get => _configurationService.Get(nameof(AutoSelectNextItem), true);
             set => SaveProperty(propertyName: nameof(AutoSelectNextItem), value);
         }
+
+        public ServerBackgroundMode ServerTerminationBehavior
+        {
+            get => _configurationService.Get(nameof(ServerTerminationBehavior), ServerBackgroundMode.MinimizedTray);
+            set => SaveProperty(propertyName: nameof(ServerTerminationBehavior), value);
+        }
     }
 }

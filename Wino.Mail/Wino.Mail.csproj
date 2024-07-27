@@ -345,6 +345,7 @@
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AppPreferencesPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\ComposePageAbstract.cs" />
     <Compile Include="Views\Abstract\IdlePageAbstract.cs" />
@@ -405,6 +406,9 @@
     </Compile>
     <Compile Include="Views\Settings\AboutPage.xaml.cs">
       <DependentUpon>AboutPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\AppPreferencesPage.xaml.cs">
+      <DependentUpon>AppPreferencesPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\LanguageTimePage.xaml.cs">
       <DependentUpon>LanguageTimePage.xaml</DependentUpon>
@@ -629,6 +633,10 @@
     <Page Include="Views\Settings\AboutPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\AppPreferencesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\Settings\LanguageTimePage.xaml">
       <Generator>MSBuild:Compile</Generator>

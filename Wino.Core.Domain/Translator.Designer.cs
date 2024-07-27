@@ -2119,6 +2119,26 @@ namespace Wino.Core.Domain
 		public static string SettingsManageAccountSettings_Title => Resources.GetTranslatedString(@"SettingsManageAccountSettings_Title");	
 	
         /// <summary>
+		/// App Preferences
+		/// </summary>
+		public static string SettingsAppPreferences_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_Title");	
+	
+        /// <summary>
+		/// General settings / preferences for Wino Mail.
+		/// </summary>
+		public static string SettingsAppPreferences_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_Description");	
+	
+        /// <summary>
+		/// Application close behavior
+		/// </summary>
+		public static string SettingsAppPreferences_CloseBehavior_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_CloseBehavior_Title");	
+	
+        /// <summary>
+		/// What should happen when you close the app?
+		/// </summary>
+		public static string SettingsAppPreferences_CloseBehavior_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_CloseBehavior_Description");	
+	
+        /// <summary>
 		/// Reorder Accounts
 		/// </summary>
 		public static string SettingsReorderAccounts_Title => Resources.GetTranslatedString(@"SettingsReorderAccounts_Title");	
@@ -2647,5 +2667,35 @@ namespace Wino.Core.Domain
 		/// None
 		/// </summary>
 		public static string SettingsSignature_NoneSignatureName => Resources.GetTranslatedString(@"SettingsSignature_NoneSignatureName");	
+	
+        /// <summary>
+		/// Minimize to system tray
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title");	
+	
+        /// <summary>
+		/// Wino Mail will keep running on the system tray. Available to launch by clicking on an icon. You will be notified as new mails arrive.
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description");	
+	
+        /// <summary>
+		/// Run in the background
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title");	
+	
+        /// <summary>
+		/// Wino Mail will keep running in the background. You will be notified as new mails arrive.
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Invisible_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Invisible_Description");	
+	
+        /// <summary>
+		/// Terminate
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title");	
+	
+        /// <summary>
+		/// Wino Mail will not keep running anywhere. You will not be notified as new mails arrive. Launch Wino Mail again to continue mail synchronization.
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description");	
 	}
 }
