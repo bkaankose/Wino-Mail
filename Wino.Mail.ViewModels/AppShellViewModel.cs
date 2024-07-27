@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -360,23 +361,28 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem)
+        public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitAwaitTask = null)
         {
             // It's already there. Don't navigate again.
             if (SelectedMenuItem == baseFolderMenuItem) return;
 
-            SelectedMenuItem = baseFolderMenuItem;
-            baseFolderMenuItem.IsSelected = true;
+            await ExecuteUIThread(() =>
+            {
+                SelectedMenuItem = baseFolderMenuItem;
+                baseFolderMenuItem.IsSelected = true;
 
-            var mailInitCompletionSource = new TaskCompletionSource<bool>();
-            var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, mailInitCompletionSource);
+                if (folderInitAwaitTask == null) folderInitAwaitTask = new TaskCompletionSource<bool>();
 
-            NavigationService.NavigateFolder(args);
+                var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, folderInitAwaitTask);
 
-            UpdateWindowTitleForFolder(baseFolderMenuItem);
+                NavigationService.NavigateFolder(args);
+
+                UpdateWindowTitleForFolder(baseFolderMenuItem);
+            });
 
             // Wait until mail list page picks up the event and finish initialization of the mails.
-            await mailInitCompletionSource.Task;
+            await folderInitAwaitTask.Task;
+            Debug.WriteLine($"Folder init task is finalized.");
         }
 
         private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
@@ -610,11 +616,7 @@ namespace Wino.Mail.ViewModels
             if (navigateInbox)
             {
                 await Task.Yield();
-
-                await ExecuteUIThread(() =>
-                {
-                    NavigateInbox(clickedBaseAccountMenuItem);
-                });
+                await NavigateInboxAsync(clickedBaseAccountMenuItem);
             }
         }
 
@@ -682,20 +684,22 @@ namespace Wino.Mail.ViewModels
             await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
         }
 
-        private async void NavigateInbox(IAccountMenuItem clickedBaseAccountMenuItem)
+        private async Task NavigateInboxAsync(IAccountMenuItem clickedBaseAccountMenuItem)
         {
+            var folderInitAwaitTask = new TaskCompletionSource<bool>();
+
             if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
             {
                 if (MenuItems.TryGetWindowsStyleRootSpecialFolderMenuItem(accountMenuItem.AccountId, SpecialFolderType.Inbox, out FolderMenuItem inboxFolder))
                 {
-                    await NavigateFolderAsync(inboxFolder);
+                    await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
                 }
             }
             else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
             {
                 if (MenuItems.TryGetMergedAccountSpecialFolderMenuItem(mergedAccountMenuItem.EntityId.GetValueOrDefault(), SpecialFolderType.Inbox, out IBaseFolderMenuItem inboxFolder))
                 {
-                    await NavigateFolderAsync(inboxFolder);
+                    await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
                 }
             }
         }

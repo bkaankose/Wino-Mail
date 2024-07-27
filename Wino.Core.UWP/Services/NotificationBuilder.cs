@@ -70,8 +70,8 @@ namespace Wino.Core.UWP.Services
 
                 foreach (var mailItem in validItems)
                 {
-                    if (mailItem.IsRead)
-                        continue;
+                    //if (mailItem.IsRead)
+                    //    continue;
 
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
