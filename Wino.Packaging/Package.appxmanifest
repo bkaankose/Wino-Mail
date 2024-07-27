@@ -69,7 +69,7 @@
 
 			<!-- Protocol activation: Google OAuth -->
 			<uap:Extension Category="windows.protocol">
-				<uap:Protocol Name="wino.googleauth.callback">
+				<uap:Protocol Name="google.pw.oauth2">
 					<uap:DisplayName>Wino Google Authentication Protocol</uap:DisplayName>
 				</uap:Protocol>
 
@@ -81,6 +81,7 @@
 					<uap:DisplayName>Wino Mail Launcher Protocol</uap:DisplayName>
 				</uap:Protocol>
 			</uap:Extension>
+			
 			
 			<!-- File Assosication: EML -->
 			<uap:Extension Category="windows.fileTypeAssociation">
@@ -112,5 +113,6 @@
   <Capabilities>
     <Capability Name="internetClient" />
     <rescap:Capability Name="runFullTrust" />
+	<rescap:Capability Name="confirmAppClose"/>
   </Capabilities>
 </Package>
