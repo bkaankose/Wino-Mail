@@ -230,8 +230,6 @@ namespace Wino.Core.UWP.Services
             try
             {
                 serializedMessage = JsonSerializer.Serialize(message, _jsonSerializerOptions);
-
-                var des = JsonSerializer.Deserialize<ServerRequestPackage>(serializedMessage, _jsonSerializerOptions);
             }
             catch (Exception serializationException)
             {
