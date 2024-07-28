@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Windows.ApplicationModel;
 using Windows.System;
 using Wino.Core.Domain.Interfaces;
 
@@ -34,9 +37,28 @@ namespace Wino.Server
         /// Shuts down the application.
         /// </summary>
         [RelayCommand]
-        public void ExitApplication()
+        public async Task ExitApplication()
         {
-            // TODO: App service send message to UWP app to terminate itself.
+            // Find the running UWP app by AppDiagnosticInfo API and terminate it if possible.
+            var appDiagnosticInfos = await AppDiagnosticInfo.RequestInfoForPackageAsync(Package.Current.Id.FamilyName);
+
+            var clientDiagnosticInfo = appDiagnosticInfos.FirstOrDefault();
+
+            if (clientDiagnosticInfo == null)
+            {
+                Debug.WriteLine($"Wino Mail client is not running. Termination is skipped.");
+            }
+            else
+            {
+                var appResourceGroupInfo = clientDiagnosticInfo.GetResourceGroups().FirstOrDefault();
+
+                if (appResourceGroupInfo != null)
+                {
+                    await appResourceGroupInfo.StartTerminateAsync();
+
+                    Debug.WriteLine($"Wino Mail client is terminated succesfully.");
+                }
+            }
 
             Application.Current.Shutdown();
         }
