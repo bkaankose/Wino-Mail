@@ -74,9 +74,6 @@
           <uap:Protocol Name="google.pw.oauth2">
             <uap:DisplayName>Google Auth Protocol</uap:DisplayName>
           </uap:Protocol>
-			<!--<uap:Protocol Name="uwptestapp">
-				<uap:DisplayName>UWP-Test-app</uap:DisplayName>
-			</uap:Protocol>-->
         </uap:Extension>
 
 		<!-- File Assosication: EML -->
