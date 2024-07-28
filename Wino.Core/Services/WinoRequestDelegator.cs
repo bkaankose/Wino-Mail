@@ -147,7 +147,7 @@ namespace Wino.Core.Services
                 Type = SynchronizationType.ExecuteRequests
             };
 
-            WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options));
+            WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
         }
     }
 }

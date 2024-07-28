@@ -221,8 +221,7 @@ namespace Wino.Mail.ViewModels
                         Type = SynchronizationType.FoldersOnly
                     };
 
-                    var synchronizationResultResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options));
-
+                    var synchronizationResultResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options, SynchronizationSource.Client));
 
                     var synchronizationResult = synchronizationResultResponse.Data;
                     if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)

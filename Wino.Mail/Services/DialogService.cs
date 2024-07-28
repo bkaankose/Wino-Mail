@@ -244,7 +244,7 @@ namespace Wino.Services
                         Type = SynchronizationType.Full,
                     };
 
-                    WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options));
+                    WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
                 }
 
                 if (configuration != null)

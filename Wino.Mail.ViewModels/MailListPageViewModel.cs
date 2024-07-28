@@ -450,7 +450,7 @@ namespace Wino.Mail.ViewModels
                     GroupedSynchronizationTrackingId = trackingSynchronizationId
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options));
+                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 

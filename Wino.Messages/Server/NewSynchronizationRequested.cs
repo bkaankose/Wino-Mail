@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Interfaces;
+﻿using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Messaging.Server
@@ -7,5 +8,5 @@ namespace Wino.Messaging.Server
     /// Triggers a new synchronization if possible.
     /// </summary>
     /// <param name="Options">Options for synchronization.</param>
-    public record NewSynchronizationRequested(SynchronizationOptions Options) : IClientMessage;
+    public record NewSynchronizationRequested(SynchronizationOptions Options, SynchronizationSource Source) : IClientMessage;
 }

@@ -38,10 +38,15 @@ namespace Wino.Server.MessageHandlers
         {
             var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.Options.AccountId);
 
-            // Don't send message for sync completion when we execute requests.
+            // 1. Don't send message for sync completion when we execute requests.
             // People are usually interested in seeing the notification after they trigger the synchronization.
 
-            bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
+            // 2. Don't send message for sync completion when we are synchronizing from the server.
+            // It happens very common and there is no need to send a message for each synchronization.
+
+            bool shouldReportSynchronizationResult =
+                message.Options.Type != SynchronizationType.ExecuteRequests &&
+                message.Source == SynchronizationSource.Client;
 
             try
             {

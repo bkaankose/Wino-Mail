@@ -91,7 +91,7 @@ namespace Wino.Server
                     Type = SynchronizationType.Inbox,
                 };
 
-                var request = new NewSynchronizationRequested(options);
+                var request = new NewSynchronizationRequested(options, SynchronizationSource.Server);
 
                 await ExecuteServerMessageSafeAsync(null, request);
             }

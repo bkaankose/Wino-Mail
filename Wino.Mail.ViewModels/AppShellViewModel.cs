@@ -266,7 +266,7 @@ namespace Wino.Mail.ViewModels
                     Type = SynchronizationType.Inbox
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options));
+                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 
@@ -815,7 +815,7 @@ namespace Wino.Mail.ViewModels
                 Type = SynchronizationType.Full,
             };
 
-            Messenger.Send(new NewSynchronizationRequested(options));
+            Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
 
             await _nativeAppService.PinAppToTaskbarAsync();
         }
