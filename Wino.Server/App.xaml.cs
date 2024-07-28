@@ -8,6 +8,7 @@ using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage;
 using Wino.Core;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Core.UWP.Services;
@@ -172,6 +173,10 @@ namespace Wino.Server
                 notifyIcon = (TaskbarIcon)FindResource(NotifyIconResourceKey);
                 notifyIcon.DataContext = serverViewModel;
                 notifyIcon.ForceCreate(enablesEfficiencyMode: true);
+
+                // Hide the icon if user has set it to invisible.
+                var preferencesService = Services.GetService<IPreferencesService>();
+                ChangeNotifyIconVisiblity(preferencesService.ServerTerminationBehavior != ServerBackgroundMode.Invisible);
             }
             else
             {
