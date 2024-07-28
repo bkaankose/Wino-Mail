@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -14,8 +16,7 @@ namespace Wino.Mail.ViewModels
         private List<string> _appTerminationBehavior;
 
         private string _selectedAppTerminationBehavior;
-
-        public string SelectedsAppTerminationBehavior
+        public string SelectedAppTerminationBehavior
         {
             get => _selectedAppTerminationBehavior;
             set
@@ -26,20 +27,39 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        public AppPreferencesPageViewModel(IDialogService dialogService, IPreferencesService preferencesService) : base(dialogService)
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+        public AppPreferencesPageViewModel(IDialogService dialogService,
+                                           IPreferencesService preferencesService,
+                                           IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             PreferencesService = preferencesService;
+            _winoServerConnectionManager = winoServerConnectionManager;
 
             // Load the app termination behavior options
 
-            _appTerminationBehavior = new List<string>
-            {
+            _appTerminationBehavior =
+            [
                 Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title, // "Minimize to tray"
                 Translator.SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title, // "Invisible"
                 Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title // "Terminate"
-            };
+            ];
 
-            SelectedsAppTerminationBehavior = _appTerminationBehavior[(int)PreferencesService.ServerTerminationBehavior];
+            SelectedAppTerminationBehavior = _appTerminationBehavior[(int)PreferencesService.ServerTerminationBehavior];
+        }
+
+        protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
+
+            if (e.PropertyName == nameof(SelectedAppTerminationBehavior))
+            {
+                var terminationModeChangedResult = await _winoServerConnectionManager.GetResponseAsync<bool, ServerTerminationModeChanged>(new ServerTerminationModeChanged(PreferencesService.ServerTerminationBehavior));
+
+                if (!terminationModeChangedResult.IsSuccess)
+                {
+                    DialogService.InfoBarMessage(Translator.GeneralTitle_Error, terminationModeChangedResult.Message, InfoBarMessageType.Error);
+                }
+            }
         }
     }
 }

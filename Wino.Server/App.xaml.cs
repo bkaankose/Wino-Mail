@@ -188,5 +188,15 @@ namespace Wino.Server
             notifyIcon?.Dispose();
             base.OnExit(e);
         }
+
+        public void ChangeNotifyIconVisiblity(bool isVisible)
+        {
+            if (notifyIcon == null) return;
+
+            Current.Dispatcher.BeginInvoke(() =>
+            {
+                notifyIcon.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+            });
+        }
     }
 }

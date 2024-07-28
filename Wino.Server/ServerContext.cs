@@ -37,7 +37,8 @@ namespace Wino.Server
         IRecipient<MergedInboxRenamed>,
         IRecipient<AccountSynchronizationCompleted>,
         IRecipient<AccountSynchronizerStateChanged>,
-        IRecipient<RefreshUnreadCountsMessage>
+        IRecipient<RefreshUnreadCountsMessage>,
+        IRecipient<ServerTerminationModeChanged>
     {
         private readonly System.Timers.Timer _timer;
         private static object connectionLock = new object();
@@ -290,6 +291,10 @@ namespace Wino.Server
 
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<SynchronizationExistenceCheckRequest>(messageJson, _jsonSerializerOptions));
                     break;
+
+                case nameof(ServerTerminationModeChanged):
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ServerTerminationModeChanged>(messageJson, _jsonSerializerOptions));
+                    break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");
                     break;
@@ -322,6 +327,15 @@ namespace Wino.Server
             {
                 deferral?.Complete();
             }
+        }
+
+        public void Receive(ServerTerminationModeChanged message)
+        {
+            var backgroundMode = message.ServerBackgroundMode;
+
+            bool isServerTrayIconVisible = backgroundMode == ServerBackgroundMode.MinimizedTray || backgroundMode == ServerBackgroundMode.Terminate;
+
+            App.Current.ChangeNotifyIconVisiblity(isServerTrayIconVisible);
         }
     }
 }
