@@ -1,4 +1,6 @@
-﻿using Windows.ApplicationModel.Background;
+﻿using System;
+using Windows.ApplicationModel;
+using Windows.ApplicationModel.Background;
 
 namespace Wino.BackgroundTasks
 {
@@ -8,32 +10,8 @@ namespace Wino.BackgroundTasks
         {
             var def = taskInstance.GetDeferral();
 
-            //try
-            //{
-            //    var services = new ServiceCollection();
-
-            //    services.RegisterCoreServices();
-            //    services.RegisterCoreUWPServices();
-
-            //    var providere = services.BuildServiceProvider();
-
-            //    var backgroundTaskService = providere.GetService<IBackgroundSynchronizer>();
-            //    var dbService = providere.GetService<IDatabaseService>();
-            //    var logInitializer = providere.GetService<ILogInitializer>();
-
-            //    logInitializer.SetupLogger(ApplicationData.Current.LocalFolder.Path);
-
-            //    await dbService.InitializeAsync();
-            //    await backgroundTaskService.RunBackgroundSynchronizationAsync(Core.Domain.Enums.BackgroundSynchronizationReason.SessionConnected);
-            //}
-            //catch (Exception ex)
-            //{
-            //    Log.Error(ex, "Background synchronization failed from background task.");
-            //}
-            //finally
-            //{
-            //    def.Complete();
-            //}
+            // Run server on session connected by launching the Full Thrust process.
+            await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
 
             def.Complete();
         }

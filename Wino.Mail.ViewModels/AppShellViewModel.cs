@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +14,6 @@ using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -237,9 +235,7 @@ namespace Wino.Mail.ViewModels
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
-#if !DEBUG
             await ForceAllAccountSynchronizationsAsync();
-#endif
             await ConfigureBackgroundTasksAsync();
         }
 
@@ -248,10 +244,6 @@ namespace Wino.Mail.ViewModels
             try
             {
                 await _backgroundTaskService.HandleBackgroundTaskRegistrations();
-            }
-            catch (BackgroundTaskExecutionRequestDeniedException)
-            {
-                await DialogService.ShowMessageAsync(Translator.Info_BackgroundExecutionDeniedMessage, Translator.Info_BackgroundExecutionDeniedTitle);
             }
             catch (Exception ex)
             {
@@ -381,7 +373,6 @@ namespace Wino.Mail.ViewModels
 
             // Wait until mail list page picks up the event and finish initialization of the mails.
             await folderInitAwaitTask.Task;
-            Debug.WriteLine($"Folder init task is finalized.");
         }
 
         private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
