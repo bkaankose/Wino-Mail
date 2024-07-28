@@ -33,7 +33,6 @@ namespace Wino.Mail.ViewModels
 {
     public partial class AppShellViewModel : BaseViewModel,
         ISynchronizationProgress,
-        IRecipient<NewSynchronizationRequested>,
         IRecipient<NavigateSettingsRequested>,
         IRecipient<MailtoProtocolMessageRequested>,
         IRecipient<RefreshUnreadCountsMessage>,
@@ -794,22 +793,6 @@ namespace Wino.Mail.ViewModels
 
             var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdBase64EncodedMimeMessage);
             await _winoRequestDelegator.ExecuteAsync(draftPreperationRequest);
-        }
-
-        public async void Receive(NewSynchronizationRequested message)
-        {
-            // TODO: Sync progress via server.
-            message.Options.ProgressListener = this;
-
-            try
-            {
-                var synchronizationResultResponse = await ServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
-                synchronizationResultResponse.ThrowIfFailed();
-            }
-            catch (WinoServerException serverException)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
-            }
         }
 
         protected override async void OnAccountUpdated(MailAccount updatedAccount)

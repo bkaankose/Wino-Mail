@@ -24,6 +24,17 @@ namespace Wino.Server.MessageHandlers
             var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(package.AccountId);
             synchronizer.QueueRequest(package.Request);
 
+            //if (package.QueueSynchronization)
+            //{
+            //    var options = new SynchronizationOptions
+            //    {
+            //        AccountId = package.AccountId,
+            //        Type = Wino.Core.Domain.Enums.SynchronizationType.ExecuteRequests
+            //    };
+
+            //    WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options));
+            //}
+
             return WinoServerResponse<bool>.CreateSuccessResponse(true);
         }
     }

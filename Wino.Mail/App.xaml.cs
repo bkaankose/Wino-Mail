@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI.Notifications;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
@@ -18,22 +19,29 @@ using Windows.Foundation.Metadata;
 using Windows.Storage;
 using Windows.System.Profile;
 using Windows.UI;
+using Windows.UI.Notifications;
 using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Activation;
 using Wino.Core;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Core.UWP;
 using Wino.Core.UWP.Services;
 using Wino.Mail.ViewModels;
 using Wino.Messaging.Client.Connection;
+using Wino.Messaging.Server;
 using Wino.Services;
 
 namespace Wino
 {
-    public sealed partial class App : Application
+    public sealed partial class App : Application, IRecipient<NewSynchronizationRequested>
     {
         private const string WinoLaunchLogPrefix = "[Wino Launch] ";
         private const string AppCenterKey = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
@@ -41,7 +49,8 @@ namespace Wino
         public new static App Current => (App)Application.Current;
         public IServiceProvider Services { get; }
 
-        private BackgroundTaskDeferral backgroundTaskDeferral;
+        private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
+        private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
 
         private readonly IWinoServerConnectionManager<AppServiceConnection> _appServiceConnectionManager;
         private readonly ILogInitializer _logInitializer;
@@ -50,6 +59,7 @@ namespace Wino
         private readonly IApplicationConfiguration _appInitializerService;
         private readonly ITranslationService _translationService;
         private readonly IApplicationConfiguration _applicationFolderConfiguration;
+        private readonly IDialogService _dialogService;
 
         // Order matters.
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
@@ -91,8 +101,11 @@ namespace Wino
             _databaseService = Services.GetService<IDatabaseService>();
             _appInitializerService = Services.GetService<IApplicationConfiguration>();
             _translationService = Services.GetService<ITranslationService>();
+            _dialogService = Services.GetService<IDialogService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            WeakReferenceMessenger.Default.Register(this);
         }
 
         private async void OnResuming(object sender, object e)
@@ -260,13 +273,54 @@ namespace Wino
                 {
                     // Connection established from the fulltrust process
 
-                    backgroundTaskDeferral = args.TaskInstance.GetDeferral();
-                    args.TaskInstance.Canceled += OnBackgroundTaskCanceled;
+                    connectionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
+                    args.TaskInstance.Canceled += OnConnectionBackgroundTaskCanceled;
 
                     _appServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
 
                     WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstrablished());
                 }
+            }
+            else if (args.TaskInstance.TriggerDetails is ToastNotificationActionTriggerDetail toastNotificationActionTriggerDetail)
+            {
+                await InitializeServicesAsync();
+
+                // Notification action is triggered and the app is not running.
+
+                toastActionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
+
+                args.TaskInstance.Canceled += OnToastActionClickedBackgroundTaskCanceled;
+
+                var toastArguments = ToastArguments.Parse(toastNotificationActionTriggerDetail.Argument);
+
+                // All toast activation mail actions are handled here like mark as read or delete.
+                // This should not launch the application on the foreground.
+
+                // Get the action and mail item id.
+                // Prepare package and send to delegator.
+
+                if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action) &&
+                                    toastArguments.TryGetValue(Constants.ToastMailUniqueIdKey, out string mailUniqueIdString) &&
+                                    Guid.TryParse(mailUniqueIdString, out Guid mailUniqueId))
+                {
+
+                    // At this point server should've already been connected.
+
+                    var processor = Services.GetService<IWinoRequestProcessor>();
+                    var delegator = Services.GetService<IWinoRequestDelegator>();
+                    var mailService = Services.GetService<IMailService>();
+
+                    var mailItem = await mailService.GetSingleMailItemAsync(mailUniqueId);
+
+                    if (mailItem != null)
+                    {
+                        var package = new MailOperationPreperationRequest(action, mailItem);
+
+                        await delegator.ExecuteAsync(package);
+                    }
+                }
+
+                toastActionBackgroundTaskDeferral.Complete();
             }
             else
             {
@@ -275,6 +329,16 @@ namespace Wino
 
                 await ActivateWinoAsync(args);
             }
+        }
+
+        private void OnToastActionClickedBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        {
+            sender.Canceled -= OnToastActionClickedBackgroundTaskCanceled;
+
+            Log.Information($"Toast action background task was canceled. Reason: {reason}");
+
+            toastActionBackgroundTaskDeferral?.Complete();
+            toastActionBackgroundTaskDeferral = null;
         }
 
         private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
@@ -295,12 +359,17 @@ namespace Wino
 
         private bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 
-        private async Task ActivateWinoAsync(object args)
+        private async Task InitializeServicesAsync()
         {
             foreach (var service in initializeServices)
             {
                 await service.InitializeAsync();
             }
+        }
+
+        private async Task ActivateWinoAsync(object args)
+        {
+            await InitializeServicesAsync();
 
             if (IsInteractiveLaunchArgs(args))
             {
@@ -346,21 +415,35 @@ namespace Wino
         private IEnumerable<ActivationHandler> GetActivationHandlers()
         {
             yield return Services.GetService<ProtocolActivationHandler>();
-            // yield return Services.GetService<BackgroundActivationHandler>(); // Old UWP background task handler.
             yield return Services.GetService<ToastNotificationActivationHandler>();
             yield return Services.GetService<FileActivationHandler>();
         }
 
-        public async void OnBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        public async void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
+            sender.Canceled -= OnConnectionBackgroundTaskCanceled;
+
             Log.Information($"Background task {sender.Task.Name} was canceled. Reason: {reason}");
 
             await _appServiceConnectionManager.DisconnectAsync();
 
-            backgroundTaskDeferral?.Complete();
-            backgroundTaskDeferral = null;
+            connectionBackgroundTaskDeferral?.Complete();
+            connectionBackgroundTaskDeferral = null;
 
             _appServiceConnectionManager.Connection = null;
+        }
+
+        public async void Receive(NewSynchronizationRequested message)
+        {
+            try
+            {
+                var synchronizationResultResponse = await _appServiceConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
+                synchronizationResultResponse.ThrowIfFailed();
+            }
+            catch (WinoServerException serverException)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
+            }
         }
     }
 }

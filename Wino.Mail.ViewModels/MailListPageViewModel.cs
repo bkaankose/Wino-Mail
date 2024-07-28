@@ -865,8 +865,6 @@ namespace Wino.Mail.ViewModels
                 await Task.Delay(100);
             }
 
-            Debug.WriteLine($"Folder init task is set to true in mail list page.");
-
             // Let awaiters know about the completion of mail init.
             message.FolderInitLoadAwaitTask?.TrySetResult(true);
 

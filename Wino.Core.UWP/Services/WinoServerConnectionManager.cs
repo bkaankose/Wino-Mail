@@ -222,7 +222,6 @@ namespace Wino.Core.UWP.Services
             // TODO: Handle server disconnection.
         }
 
-
         public async Task QueueRequestAsync(IRequestBase request, Guid accountId)
         {
             var queuePackage = new ServerRequestPackage(accountId, request);

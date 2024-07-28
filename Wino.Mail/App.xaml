@@ -1,10 +1,9 @@
-﻿<Application
-    x:Class="Wino.App"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Wino.Controls"
-    xmlns:selectors="using:Wino.Selectors"
-    xmlns:wino="using:Wino">
+﻿<Application x:Class="Wino.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Wino.Controls"
+             xmlns:selectors="using:Wino.Selectors"
+             xmlns:wino="using:Wino">
 
     <Application.Resources>
         <ResourceDictionary>
@@ -61,10 +60,9 @@
                     </Style>
 
                     <!--  Default Style for ContentDialog  -->
-                    <Style
-                        x:Key="WinoDialogStyle"
-                        BasedOn="{StaticResource DefaultContentDialogStyle}"
-                        TargetType="ContentDialog" />
+                    <Style x:Key="WinoDialogStyle"
+                           BasedOn="{StaticResource DefaultContentDialogStyle}"
+                           TargetType="ContentDialog" />
 
                     <!--  Settings Menu Item Template  -->
                     <Style TargetType="controls:SettingsMenuItemControl">
@@ -76,71 +74,63 @@
                             <Setter.Value>
                                 <ControlTemplate TargetType="controls:SettingsMenuItemControl">
                                     <Grid>
-                                        <Button
-                                            Padding="0"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Stretch"
-                                            Command="{TemplateBinding Command}"
-                                            CommandParameter="{TemplateBinding CommandParameter}"
-                                            IsEnabled="{TemplateBinding IsEnabled}"
-                                            IsHitTestVisible="{TemplateBinding IsClickable}">
-                                            <Grid
-                                                Height="70"
-                                                Padding="0,6,12,6"
-                                                CornerRadius="4">
+                                        <Button Padding="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                Command="{TemplateBinding Command}"
+                                                CommandParameter="{TemplateBinding CommandParameter}"
+                                                IsEnabled="{TemplateBinding IsEnabled}"
+                                                IsHitTestVisible="{TemplateBinding IsClickable}">
+                                            <Grid Height="70"
+                                                  Padding="0,6,12,6"
+                                                  CornerRadius="4">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="50" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
 
-                                                <ContentControl
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    Content="{TemplateBinding Icon}" />
+                                                <ContentControl HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                Content="{TemplateBinding Icon}" />
 
-                                                <Grid
-                                                    Grid.Column="1"
-                                                    Margin="4,0"
-                                                    VerticalAlignment="Center"
-                                                    RowSpacing="3">
+                                                <Grid Grid.Column="1"
+                                                      Margin="4,0"
+                                                      VerticalAlignment="Center"
+                                                      RowSpacing="3">
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="Auto" />
                                                     </Grid.RowDefinitions>
 
-                                                    <TextBlock
-                                                        VerticalAlignment="Center"
-                                                        FontWeight="SemiBold"
-                                                        Style="{StaticResource BodyTextBlockStyle}"
-                                                        Text="{TemplateBinding Title}" />
-                                                    <TextBlock
-                                                        Grid.Row="1"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Text="{TemplateBinding Description}" />
+                                                    <TextBlock VerticalAlignment="Center"
+                                                               FontWeight="SemiBold"
+                                                               Style="{StaticResource BodyTextBlockStyle}"
+                                                               Text="{TemplateBinding Title}" />
+                                                    <TextBlock Grid.Row="1"
+                                                               VerticalAlignment="Center"
+                                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                                               Text="{TemplateBinding Description}" />
                                                 </Grid>
 
-                                                <Viewbox
-                                                    Grid.Column="0"
-                                                    Grid.ColumnSpan="2"
-                                                    Width="16"
-                                                    Height="16"
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Center"
-                                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsNavigateIconVisible}">
+                                                <Viewbox Grid.Column="0"
+                                                         Grid.ColumnSpan="2"
+                                                         Width="16"
+                                                         Height="16"
+                                                         HorizontalAlignment="Right"
+                                                         VerticalAlignment="Center"
+                                                         Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsNavigateIconVisible}">
                                                     <PathIcon Data="F1 M 5.029297 19.091797 L 14.111328 10 L 5.029297 0.908203 L 5.908203 0.029297 L 15.888672 10 L 5.908203 19.970703 Z " />
                                                 </Viewbox>
                                             </Grid>
                                         </Button>
 
-                                        <ContentControl
-                                            Grid.RowSpan="2"
-                                            Margin="0,0,16,0"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Center"
-                                            Content="{TemplateBinding SideContent}"
-                                            IsHitTestVisible="True"
-                                            Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsNavigateIconVisible, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
+                                        <ContentControl Grid.RowSpan="2"
+                                                        Margin="0,0,16,0"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Center"
+                                                        Content="{TemplateBinding SideContent}"
+                                                        IsHitTestVisible="True"
+                                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsNavigateIconVisible, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
                                     </Grid>
                                 </ControlTemplate>
                             </Setter.Value>
@@ -198,17 +188,16 @@
                         <Image Source="/Assets/FileTypes/type_other.png" />
                     </DataTemplate>
 
-                    <selectors:FileAttachmentTypeSelector
-                        x:Key="FileTypeIconSelector"
-                        Archive="{StaticResource ArchiveTemplate}"
-                        Executable="{StaticResource ExecutableTemplate}"
-                        HTML="{StaticResource HTMLTemplate}"
-                        Image="{StaticResource ImageTemplate}"
-                        None="{StaticResource NoneTemplate}"
-                        Other="{StaticResource OtherTemplate}"
-                        PDF="{StaticResource PDFTemplate}"
-                        RarArchive="{StaticResource RarTemplate}"
-                        Video="{StaticResource VideoTemplate}" />
+                    <selectors:FileAttachmentTypeSelector x:Key="FileTypeIconSelector"
+                                                          Archive="{StaticResource ArchiveTemplate}"
+                                                          Executable="{StaticResource ExecutableTemplate}"
+                                                          HTML="{StaticResource HTMLTemplate}"
+                                                          Image="{StaticResource ImageTemplate}"
+                                                          None="{StaticResource NoneTemplate}"
+                                                          Other="{StaticResource OtherTemplate}"
+                                                          PDF="{StaticResource PDFTemplate}"
+                                                          RarArchive="{StaticResource RarTemplate}"
+                                                          Video="{StaticResource VideoTemplate}" />
                 </ResourceDictionary>
 
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
