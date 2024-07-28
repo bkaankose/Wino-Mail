@@ -193,5 +193,17 @@ namespace Wino.Controls.Advanced
         }
 
         private void TitlebarSizeChanged(object sender, SizeChangedEventArgs e) => DrawTitleBar();
+
+        private void ReconnectClicked(object sender, RoutedEventArgs e)
+        {
+            // Close the popup for reconnect button.
+            if (sender is Button senderButton && senderButton.Flyout is Flyout senderButtonFlyout)
+            {
+                senderButtonFlyout.Hide();
+            }
+
+            // Execute the reconnect command.
+            ReconnectCommand?.Execute(null);
+        }
     }
 }
