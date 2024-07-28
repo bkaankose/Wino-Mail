@@ -534,5 +534,10 @@
     "SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title": "Run in the background",
     "SettingsAppPreferences_ServerBackgroundingMode_Invisible_Description": "Wino Mail will keep running in the background. You will be notified as new mails arrive.",
     "SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title": "Terminate",
-    "SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description": "Wino Mail will not keep running anywhere. You will not be notified as new mails arrive. Launch Wino Mail again to continue mail synchronization."
+    "SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description": "Wino Mail will not keep running anywhere. You will not be notified as new mails arrive. Launch Wino Mail again to continue mail synchronization.",
+    "TitleBarServerDisconnectedButton_Title": "no connection",
+    "TitleBarServerDisconnectedButton_Description": "Wino is disconnected from the network. Click reconnect to restore connection.",
+    "TitleBarServerReconnectButton_Title": "reconnect",
+    "TitleBarServerReconnectingButton_Title": "connecting"
+
 }

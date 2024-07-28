@@ -63,13 +63,11 @@ namespace Wino.Helpers
                 return prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat);
             }
         }
-
         public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
         {
             var localTime = date.ToLocalTime();
             return $"{localTime.ToLongDateString()} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
         }
-
         public static string GetMailGroupDateString(object groupObject)
         {
             if (groupObject is string stringObject)
@@ -103,6 +101,7 @@ namespace Wino.Helpers
 
             return Translator.UnknownDateHeader;
         }
+        public static bool ConnectionStatusEquals(WinoServerConnectionStatus winoServerConnectionStatus, WinoServerConnectionStatus connectionStatus) => winoServerConnectionStatus == connectionStatus;
 
         #endregion
 

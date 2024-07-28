@@ -2697,5 +2697,25 @@ namespace Wino.Core.Domain
 		/// Wino Mail will not keep running anywhere. You will not be notified as new mails arrive. Launch Wino Mail again to continue mail synchronization.
 		/// </summary>
 		public static string SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description");	
+	
+        /// <summary>
+		/// no connection
+		/// </summary>
+		public static string TitleBarServerDisconnectedButton_Title => Resources.GetTranslatedString(@"TitleBarServerDisconnectedButton_Title");	
+	
+        /// <summary>
+		/// Wino is disconnected from the network. Click reconnect to restore connection.
+		/// </summary>
+		public static string TitleBarServerDisconnectedButton_Description => Resources.GetTranslatedString(@"TitleBarServerDisconnectedButton_Description");	
+	
+        /// <summary>
+		/// reconnect
+		/// </summary>
+		public static string TitleBarServerReconnectButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectButton_Title");	
+	
+        /// <summary>
+		/// connecting...
+		/// </summary>
+		public static string TitleBarServerReconnectingButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectingButton_Title");	
 	}
 }

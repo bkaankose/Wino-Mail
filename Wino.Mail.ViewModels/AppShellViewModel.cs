@@ -84,7 +84,7 @@ namespace Wino.Mail.ViewModels
         private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
         [ObservableProperty]
-        private string _activeConnectionStatus = WinoServerConnectionStatus.None.ToString();
+        private WinoServerConnectionStatus activeConnectionStatus;
 
         public AppShellViewModel(IDialogService dialogService,
                                  IWinoNavigationService navigationService,
@@ -106,12 +106,12 @@ namespace Wino.Mail.ViewModels
             StatePersistenceService = statePersistanceService;
             ServerConnectionManager = serverConnectionManager;
 
-            ActiveConnectionStatus = serverConnectionManager.Status.ToString();
+            ActiveConnectionStatus = serverConnectionManager.Status;
             ServerConnectionManager.StatusChanged += async (sender, status) =>
             {
                 await ExecuteUIThread(() =>
                 {
-                    ActiveConnectionStatus = status.ToString();
+                    ActiveConnectionStatus = status;
                 });
             };
 
