@@ -13,6 +13,8 @@ using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -73,18 +75,58 @@ namespace Wino.Core.Synchronizers
         {
             var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
-            // Add immutable id preffered client.
+            // Update request handlers for Graph client.
             var handlers = GraphClientFactory.CreateDefaultHandlers();
-            handlers.Add(new MicrosoftImmutableIdHandler());
+
+            handlers.Add(GetMicrosoftImmutableIdHandler());
+
+            // Remove existing RetryHandler and add a new one with custom options.
+            var existingRetryHandler = handlers.FirstOrDefault(a => a is RetryHandler);
+            if (existingRetryHandler != null)
+                handlers.Remove(existingRetryHandler);
+
+            // Add custom one.
+            handlers.Add(GetRetryHandler());
 
             var httpClient = GraphClientFactory.Create(handlers);
-
             _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
+
             _outlookChangeProcessor = outlookChangeProcessor;
 
             // Specify to use TLS 1.2 as default connection
-            System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
+
+        #region MS Graph Handlers
+
+        private MicrosoftImmutableIdHandler GetMicrosoftImmutableIdHandler() => new();
+
+        private RetryHandler GetRetryHandler()
+        {
+            var options = new RetryHandlerOption()
+            {
+                ShouldRetry = (delay, attempt, httpResponse) =>
+                {
+                    var statusCode = httpResponse.StatusCode;
+
+                    return statusCode switch
+                    {
+                        HttpStatusCode.ServiceUnavailable => true,
+                        HttpStatusCode.GatewayTimeout => true,
+                        (HttpStatusCode)429 => true,
+                        HttpStatusCode.Unauthorized => true,
+                        _ => false
+                    };
+                },
+                Delay = 3,
+                MaxRetry = 3
+            };
+
+            return new RetryHandler(options);
+        }
+
+        #endregion
+
 
         public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
@@ -120,7 +162,8 @@ namespace Wino.Core.Synchronizers
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+                _logger.Error(ex, "Synchronizing folders for {Name}", Account.Name);
+                Debugger.Break();
 
                 throw;
             }
@@ -361,6 +404,7 @@ namespace Wino.Core.Synchronizers
             var archiveId = await wellKnownFolderIdBatch.AddBatchRequestStepAsync(archiveRequest);
 
             var returnedResponse = await _graphClient.Batch.PostAsync(wellKnownFolderIdBatch, cancellationToken).ConfigureAwait(false);
+
 
             var inboxFolderId = (await returnedResponse.GetResponseByIdAsync<MailFolder>(inboxId)).Id;
             var sentFolderId = (await returnedResponse.GetResponseByIdAsync<MailFolder>(sentId)).Id;

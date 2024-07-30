@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -189,7 +190,11 @@ namespace Wino
 
         #region Misc Configuration
 
-        private void ConfigureLogger() => _logInitializer.SetupLogger(ApplicationData.Current.LocalFolder.Path);
+        private void ConfigureLogger()
+        {
+            string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
+            _logInitializer.SetupLogger(logFilePath);
+        }
 
         private void ConfigureAppCenter() => AppCenter.Start(AppCenterKey, typeof(Analytics), typeof(Crashes));
 

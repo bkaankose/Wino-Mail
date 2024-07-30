@@ -72,8 +72,9 @@ namespace Wino.Mail.ViewModels
 
         private Task ShareProtocolLogAsync()
             => SaveLogInternalAsync(ImapTestService.ProtocolLogFileName);
+
         private Task ShareWinoLogAsync()
-            => SaveLogInternalAsync(LogInitializer.WinoLogFileName);
+            => SaveLogInternalAsync(Constants.ClientLogFile);
 
         private async Task SaveLogInternalAsync(string sourceFileName)
         {

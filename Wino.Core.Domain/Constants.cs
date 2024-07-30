@@ -10,5 +10,8 @@
 
         public const string ToastMailUniqueIdKey = nameof(ToastMailUniqueIdKey);
         public const string ToastActionKey = nameof(ToastActionKey);
+
+        public const string ClientLogFile = "Client.log";
+        public const string ServerLogFile = "Server.log";
     }
 }

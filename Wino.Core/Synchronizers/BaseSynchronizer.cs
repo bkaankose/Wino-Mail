@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -121,12 +122,15 @@ namespace Wino.Core.Synchronizers
             }
             catch (OperationCanceledException)
             {
-                Logger.Warning("Synchronization cancelled.");
+                Logger.Warning("Synchronization canceled.");
+
                 return SynchronizationResult.Canceled;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Disable maybe?
+                Logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+                Debugger.Break();
+
                 throw;
             }
             finally

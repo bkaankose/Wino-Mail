@@ -35,10 +35,6 @@ namespace Wino.Core.Authenticators
         private readonly IPublicClientApplication _publicClientApplication;
         private readonly IApplicationConfiguration _applicationConfiguration;
 
-        // First time the token is created, it'll be kept in memory until MSAL decides to refresh it.
-        // If MSAL's UniqueId is changed, it'll be forced to refresh the in memory token until next refresh.
-        private TokenInformation _inMemoryCachedTokenInformation = null;
-
         public OutlookAuthenticator(ITokenService tokenService,
                                     INativeAppService nativeAppService,
                                     IApplicationConfiguration applicationConfiguration) : base(tokenService)
@@ -82,14 +78,7 @@ namespace Wino.Core.Authenticators
             {
                 var authResult = await _publicClientApplication.AcquireTokenSilent(MailScope, storedAccount).ExecuteAsync();
 
-                // Refresh in memory token if it's different or doesn't exists (on first auth for example).
-                if (_inMemoryCachedTokenInformation == null || _inMemoryCachedTokenInformation.UniqueId != authResult.UniqueId)
-                {
-                    // MSAL refreshed the token. Update in memory cache for the TokenInformation.
-                    _inMemoryCachedTokenInformation = authResult.CreateTokenInformation();
-                }
-
-                return _inMemoryCachedTokenInformation ?? throw new Exception("Failed to get Outlook token.");
+                return authResult.CreateTokenInformation() ?? throw new Exception("Failed to get Outlook token.");
             }
             catch (MsalUiRequiredException)
             {
@@ -101,41 +90,6 @@ namespace Wino.Core.Authenticators
             {
                 throw;
             }
-
-            //if (cachedOutlookAccount == null)
-            //{
-            //    // What if interactive login info is for different account?
-
-            //    return await GenerateTokenAsync(account, true);
-            //}
-            //else
-            //{
-            //    // Silently refresh token from cache.
-
-            //    AuthenticationResult authResult = await _publicClientApplication.AcquireTokenSilent(MailScope, cachedOutlookAccount).ExecuteAsync();
-
-            //    // Save refreshed token and return
-            //    var refreshedTokenInformation = authResult.CreateTokenInformation();
-
-            //    await TokenService.SaveTokenInformationAsync(account.Id, refreshedTokenInformation);
-
-            //    return refreshedTokenInformation;
-            //}
-
-            // We have token but it's expired.
-            // Silently refresh the token and save new token.
-
-            //if (cachedToken.IsExpired)
-            //{
-            //    var cachedOutlookAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(a => a.Username == account.Address);
-
-            //    // Again, not expected at all...
-            //    // Force interactive login at this point.
-
-
-            //}
-            //else
-            //    return cachedToken;
         }
 
         public async Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage;
 using Wino.Core;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
@@ -82,6 +84,12 @@ namespace Wino.Server
 
             applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
             applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+
+            // Setup logger
+            var logInitializer = Services.GetService<ILogInitializer>();
+            var logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ServerLogFile);
+
+            logInitializer.SetupLogger(logFilePath);
 
             // Make sure the database is ready.
             var databaseService = Services.GetService<IDatabaseService>();
