@@ -2139,6 +2139,51 @@ namespace Wino.Core.Domain
 		public static string SettingsAppPreferences_CloseBehavior_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_CloseBehavior_Description");	
 	
         /// <summary>
+		/// Start minimized on Windows startup
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Title");	
+	
+        /// <summary>
+		/// Allow Wino Mail to launch minimized when Windows starts. Always allow it to receive notifications.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Description");	
+	
+        /// <summary>
+		/// Wino Mail successfully set to be launched in the background on Windows startup.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Enabled => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Enabled");	
+	
+        /// <summary>
+		/// Wino Mail will not be launched on Windows startup. This will cause you to miss notifications when you restart your computer.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Disabled => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Disabled");	
+	
+        /// <summary>
+		/// Your administrator or group policies disabled running applications on startup. Thus, Wino Mail can't be set to launch on Windows startup.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_DisabledByPolicy => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_DisabledByPolicy");	
+	
+        /// <summary>
+		/// Please go to Task Manager -> Startup tab to allow Wino Mail to launch on Windows startup.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_DisabledByUser => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_DisabledByUser");	
+	
+        /// <summary>
+		/// Fatal error occurred while changing the startup mode for Wino Mail.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_FatalError => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_FatalError");	
+	
+        /// <summary>
+		/// Enable
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Enable => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Enable");	
+	
+        /// <summary>
+		/// Disable
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Disable => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Disable");	
+	
+        /// <summary>
 		/// Reorder Accounts
 		/// </summary>
 		public static string SettingsReorderAccounts_Title => Resources.GetTranslatedString(@"SettingsReorderAccounts_Title");	
@@ -2714,7 +2759,7 @@ namespace Wino.Core.Domain
 		public static string TitleBarServerReconnectButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectButton_Title");	
 	
         /// <summary>
-		/// connecting...
+		/// connecting
 		/// </summary>
 		public static string TitleBarServerReconnectingButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectingButton_Title");	
 	}

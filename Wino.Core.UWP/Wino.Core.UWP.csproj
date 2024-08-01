@@ -105,11 +105,13 @@
     <Compile Include="CoreUWPContainerSetup.cs" />
     <Compile Include="Dispatcher.cs" />
     <Compile Include="Extensions\ElementThemeExtensions.cs" />
+    <Compile Include="Extensions\StartupTaskStateExtensions.cs" />
     <Compile Include="Models\Personalization\CustomAppTheme.cs" />
     <Compile Include="Models\Personalization\PreDefinedAppTheme.cs" />
     <Compile Include="Models\Personalization\SystemAppTheme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\PreferencesService.cs" />
+    <Compile Include="Services\StartupBehaviorService.cs" />
     <Compile Include="Services\StatePersistenceService.cs" />
     <Compile Include="Services\WinoServerConnectionManager.cs" />
     <Compile Include="Services\BackgroundTaskService.cs" />

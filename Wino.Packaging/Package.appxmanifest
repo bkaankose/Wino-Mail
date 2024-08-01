@@ -94,11 +94,14 @@
 			</uap:Extension>
 
 			<!-- Startup Task -->
-			<uap5:Extension Category="windows.startupTask">
+			<uap5:Extension
+				Category="windows.startupTask"
+				Executable="Wino.Server.exe"
+				EntryPoint="Windows.FullTrustApplication">
 				<uap5:StartupTask
-					TaskId="WinoStartupId"
-					Enabled="false"
-					DisplayName="Wino Startup Service" />
+					  TaskId="WinoServer"
+					  Enabled="false"
+					  DisplayName="Wino Mail" />
 			</uap5:Extension>
 
 			<!-- Registration of full trust backend application. -->

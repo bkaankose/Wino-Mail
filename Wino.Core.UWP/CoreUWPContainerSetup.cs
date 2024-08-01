@@ -27,6 +27,7 @@ namespace Wino.Core.UWP
             services.AddTransient<IKeyPressService, KeyPressService>();
             services.AddTransient<INotificationBuilder, NotificationBuilder>();
             services.AddTransient<IClipboardService, ClipboardService>();
+            services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
         }
     }
 }
