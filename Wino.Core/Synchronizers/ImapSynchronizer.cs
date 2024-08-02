@@ -407,8 +407,6 @@ namespace Wino.Core.Synchronizers
 
         public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
-            // options.Type = SynchronizationType.FoldersOnly;
-
             var downloadedMessageIds = new List<string>();
 
             _logger.Information("Internal synchronization started for {Name}", Account.Name);
@@ -416,12 +414,12 @@ namespace Wino.Core.Synchronizers
 
             PublishSynchronizationProgress(1);
 
-            // Only do folder sync for these types.
-            // Opening folder and checking their UidValidity is slow.
-            // Therefore this should be avoided as many times as possible.
+            bool shouldDoFolderSync = options.Type == SynchronizationType.Full || options.Type == SynchronizationType.FoldersOnly;
 
-            // This may create some inconsistencies, but nothing we can do...
-            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            if (shouldDoFolderSync)
+            {
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             if (options.Type != SynchronizationType.FoldersOnly)
             {
