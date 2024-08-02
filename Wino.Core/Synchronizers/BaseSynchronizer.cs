@@ -136,7 +136,7 @@ namespace Wino.Core.Synchronizers
             finally
             {
                 // Reset account progress to hide the progress.
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 0);
+                PublishSynchronizationProgress(0);
 
                 State = AccountSynchronizerState.Idle;
                 synchronizationSemaphore.Release();
@@ -149,6 +149,9 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         private void PublishUnreadItemChanges()
             => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
+
+        public void PublishSynchronizationProgress(double progress)
+            => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 
         /// <summary>
         /// 1. Group all requests by operation type.
@@ -261,20 +264,31 @@ namespace Wino.Core.Synchronizers
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
         private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> requests)
         {
-            bool isAllCustomSynchronizationRequests = requests.All(a => a is ICustomFolderSynchronizationRequest);
+            List<Guid> synchronizationFolderIds = new();
+
+            if (requests.All(a => a is IBatchChangeRequest))
+            {
+                var requestsInsideBatches = requests.Cast<IBatchChangeRequest>().SelectMany(b => b.Items);
+
+                // Gather FolderIds to synchronize.
+                synchronizationFolderIds = requestsInsideBatches
+                    .Where(a => a is ICustomFolderSynchronizationRequest)
+                    .Cast<ICustomFolderSynchronizationRequest>()
+                    .SelectMany(a => a.SynchronizationFolderIds)
+                    .ToList();
+            }
 
             var options = new SynchronizationOptions()
             {
                 AccountId = Account.Id,
-                Type = SynchronizationType.FoldersOnly
             };
 
-            if (isAllCustomSynchronizationRequests)
+            if (synchronizationFolderIds.Count > 0)
             {
                 // Gather FolderIds to synchronize.
 
                 options.Type = SynchronizationType.Custom;
-                options.SynchronizationFolderIds = requests.Cast<ICustomFolderSynchronizationRequest>().SelectMany(a => a.SynchronizationFolderIds).ToList();
+                options.SynchronizationFolderIds = synchronizationFolderIds;
             }
             else
             {
