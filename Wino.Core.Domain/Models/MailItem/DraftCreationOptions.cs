@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Linq;
+using System.Text.Json.Serialization;
 using MimeKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -8,6 +9,7 @@ namespace Wino.Core.Domain.Models.MailItem
 {
     public class DraftCreationOptions
     {
+        [JsonIgnore]
         public MimeMessage ReferenceMimeMessage { get; set; }
         public MailCopy ReferenceMailCopy { get; set; }
         public DraftCreationReason Reason { get; set; }
