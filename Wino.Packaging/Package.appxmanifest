@@ -93,22 +93,23 @@
 				</uap:FileTypeAssociation>
 			</uap:Extension>
 
+			<!-- Registration of full trust backend application. -->
+			<uap:Extension Category="windows.appService">
+				<uap:AppService Name="WinoInteropService" />
+			</uap:Extension>
+
+			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />
+
 			<!-- Startup Task -->
 			<uap5:Extension
 				Category="windows.startupTask"
-				Executable="Wino.Server.exe"
+				Executable="Wino.Server\Wino.Server.exe"
 				EntryPoint="Windows.FullTrustApplication">
 				<uap5:StartupTask
 					  TaskId="WinoServer"
 					  Enabled="false"
 					  DisplayName="Wino Mail" />
 			</uap5:Extension>
-
-			<!-- Registration of full trust backend application. -->
-			<uap:Extension Category="windows.appService">
-				<uap:AppService Name="WinoInteropService" />
-			</uap:Extension>
-			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />
 		</Extensions>
     </Application>
   </Applications>
