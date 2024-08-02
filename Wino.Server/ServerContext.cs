@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.AppService;
 using Windows.Foundation.Collections;
@@ -38,7 +39,8 @@ namespace Wino.Server
         IRecipient<AccountSynchronizationCompleted>,
         IRecipient<AccountSynchronizerStateChanged>,
         IRecipient<RefreshUnreadCountsMessage>,
-        IRecipient<ServerTerminationModeChanged>
+        IRecipient<ServerTerminationModeChanged>,
+        IRecipient<AccountSynchronizationProgressUpdatedMessage>
     {
         private readonly System.Timers.Timer _timer;
         private static object connectionLock = new object();
@@ -130,6 +132,8 @@ namespace Wino.Server
         public async void Receive(RefreshUnreadCountsMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         public async void Receive(AccountSynchronizerStateChanged message) => await SendMessageAsync(MessageType.UIMessage, message);
+
+        public async void Receive(AccountSynchronizationProgressUpdatedMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
 
@@ -231,8 +235,6 @@ namespace Wino.Server
 
         private async void OnWinRTMessageReceived(AppServiceConnection sender, AppServiceRequestReceivedEventArgs args)
         {
-            // TODO: Handle incoming messages from UWP / WINUI Application.
-
             if (args.Request.Message.TryGetValue(MessageConstants.MessageTypeKey, out object messageTypeObject) && messageTypeObject is int messageTypeInt)
             {
                 var messageType = (MessageType)messageTypeInt;
@@ -320,7 +322,7 @@ namespace Wino.Server
             }
             catch (Exception ex)
             {
-                // Fatal crash. Handlers should not crash.
+                Log.Error(ex, "ExecuteServerMessageSafeAsync crashed.");
                 Debugger.Break();
             }
             finally

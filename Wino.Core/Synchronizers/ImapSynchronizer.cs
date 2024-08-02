@@ -414,7 +414,7 @@ namespace Wino.Core.Synchronizers
             _logger.Information("Internal synchronization started for {Name}", Account.Name);
             _logger.Information("Options: {Options}", options);
 
-            options.ProgressListener?.AccountProgressUpdated(Account.Id, 1);
+            PublishSynchronizationProgress(1);
 
             // Only do folder sync for these types.
             // Opening folder and checking their UidValidity is slow.
@@ -432,14 +432,14 @@ namespace Wino.Core.Synchronizers
                     var folder = synchronizationFolders[i];
                     var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                    options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                    PublishSynchronizationProgress(progress);
 
                     var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
                     downloadedMessageIds.AddRange(folderDownloadedMessageIds);
                 }
             }
 
-            options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
+            PublishSynchronizationProgress(100);
 
             // Get all unread new downloaded items and return in the result.
             // This is primarily used in notifications.

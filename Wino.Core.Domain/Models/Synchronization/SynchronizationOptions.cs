@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Synchronization
 {
@@ -27,14 +25,6 @@ namespace Wino.Core.Domain.Models.Synchronization
         /// Collection of FolderId to perform SynchronizationType.Custom type sync.
         /// </summary>
         public List<Guid> SynchronizationFolderIds { get; set; }
-
-        /// <summary>
-        /// A listener to be notified about the progress of the synchronization.
-        /// Ignored for server deserialization.
-        /// </summary>
-        [JsonIgnore]
-        [Obsolete("This is not supported with server. Refactor with messages.")]
-        public ISynchronizationProgress ProgressListener { get; set; }
 
         /// <summary>
         /// When doing a linked inbox synchronization, we must ignore reporting completion to the caller for each folder.

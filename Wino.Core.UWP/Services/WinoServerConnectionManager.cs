@@ -212,6 +212,9 @@ namespace Wino.Core.UWP.Services
                 case nameof(AccountSynchronizerStateChanged):
                     WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountSynchronizerStateChanged>(messageJson));
                     break;
+                case nameof(AccountSynchronizationProgressUpdatedMessage):
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountSynchronizationProgressUpdatedMessage>(messageJson));
+                    break;
                 default:
                     throw new Exception("Invalid data type name passed to client.");
             }

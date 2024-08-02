@@ -30,14 +30,14 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels
 {
     public partial class AppShellViewModel : BaseViewModel,
-        ISynchronizationProgress,
         IRecipient<NavigateSettingsRequested>,
         IRecipient<MailtoProtocolMessageRequested>,
         IRecipient<RefreshUnreadCountsMessage>,
         IRecipient<AccountsMenuRefreshRequested>,
         IRecipient<MergedInboxRenamed>,
         IRecipient<LanguageChanged>,
-        IRecipient<AccountMenuItemsReordered>
+        IRecipient<AccountMenuItemsReordered>,
+        IRecipient<AccountSynchronizationProgressUpdatedMessage>
     {
         #region Menu Items
 
@@ -862,15 +862,6 @@ namespace Wino.Mail.ViewModels
             await CreateNewMailForAsync(targetAccount);
         }
 
-        public async void AccountProgressUpdated(Guid accountId, int progress)
-        {
-            var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(accountId);
-
-            if (accountMenuItem == null) return;
-
-            await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = progress; });
-        }
-
         private async Task RecreateMenuItemsAsync()
         {
             await ExecuteUIThread(() =>
@@ -957,6 +948,15 @@ namespace Wino.Mail.ViewModels
             base.OnFolderSynchronizationEnabled(mailItemFolder);
 
             UpdateFolderCollection(mailItemFolder);
+        }
+
+        public async void Receive(AccountSynchronizationProgressUpdatedMessage message)
+        {
+            var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(message.AccountId);
+
+            if (accountMenuItem == null) return;
+
+            await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = message.Progress; });
         }
     }
 }

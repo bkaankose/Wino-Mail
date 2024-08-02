@@ -137,7 +137,7 @@ namespace Wino.Core.Synchronizers
 
             try
             {
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 1);
+                PublishSynchronizationProgress(1);
 
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
@@ -153,7 +153,7 @@ namespace Wino.Core.Synchronizers
                         var folder = synchronizationFolders[i];
                         var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                        options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                        PublishSynchronizationProgress(progress);
 
                         var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
                         downloadedMessageIds.AddRange(folderDownloadedMessageIds);
@@ -169,7 +169,7 @@ namespace Wino.Core.Synchronizers
             }
             finally
             {
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
+                PublishSynchronizationProgress(100);
             }
 
             // Get all unred new downloaded items and return in the result.

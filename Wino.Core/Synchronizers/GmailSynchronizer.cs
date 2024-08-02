@@ -212,7 +212,7 @@ namespace Wino.Core.Synchronizers
             }
 
             // Start downloading missing messages.
-            await BatchDownloadMessagesAsync(missingMessageIds, options.ProgressListener, cancellationToken).ConfigureAwait(false);
+            await BatchDownloadMessagesAsync(missingMessageIds, cancellationToken).ConfigureAwait(false);
 
             // Map remote drafts to local drafts.
             await MapDraftIdsAsync(cancellationToken).ConfigureAwait(false);
@@ -353,7 +353,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="messageIds">Gmail message ids to download.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        private async Task BatchDownloadMessagesAsync(IEnumerable<string> messageIds, ISynchronizationProgress progressListener = null, CancellationToken cancellationToken = default)
+        private async Task BatchDownloadMessagesAsync(IEnumerable<string> messageIds, CancellationToken cancellationToken = default)
         {
             var totalDownloadCount = messageIds.Count();
 
@@ -396,7 +396,7 @@ namespace Wino.Core.Synchronizers
 
                         var progressValue = downloadedItemCount * 100 / Math.Max(1, totalDownloadCount);
 
-                        progressListener?.AccountProgressUpdated(Account.Id, progressValue);
+                        PublishSynchronizationProgress(progressValue);
                     });
                 });
 
