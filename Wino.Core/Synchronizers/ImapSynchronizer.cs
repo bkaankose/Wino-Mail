@@ -943,7 +943,12 @@ namespace Wino.Core.Synchronizers
 
                         foreach (var mailPackage in createdMailPackages)
                         {
-                            await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage).ConfigureAwait(false);
+                            bool isCreated = await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage).ConfigureAwait(false);
+
+                            if (isCreated)
+                            {
+                                downloadedMessageIds.Add(mailPackage.Copy.Id);
+                            }
                         }
                     }
                 }
