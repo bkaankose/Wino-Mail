@@ -388,7 +388,7 @@ namespace Wino.Controls.Advanced
 
             if (itemContainer is ListViewItem listViewItem)
             {
-                listViewItem.Margin = new Thickness(0, 0, 12, 0);
+                listViewItem.Margin = new Thickness(0, 0, 12, 4);
             }
 
             return itemContainer;
