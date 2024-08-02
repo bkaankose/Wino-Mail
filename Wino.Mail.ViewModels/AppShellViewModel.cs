@@ -263,7 +263,7 @@ namespace Wino.Mail.ViewModels
                 var options = new SynchronizationOptions()
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.Inbox
+                    Type = SynchronizationType.Full
                 };
 
                 Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
