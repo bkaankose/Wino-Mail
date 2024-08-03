@@ -81,7 +81,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private bool HasMultipleAttachments => Attachments.Count > 1;
+        public bool HasMultipleAttachments => Attachments.Count > 1;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]

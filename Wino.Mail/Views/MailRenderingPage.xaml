@@ -313,7 +313,7 @@
                         </ItemsControl.ItemsPanel>
                     </ListView>
 
-                    <HyperlinkButton Content="Save all attachments"
+                    <HyperlinkButton Content="{x:Bind domain:Translator.Reader_SaveAllAttachmentButtonText}"
                                      Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
                                      Visibility="{x:Bind ViewModel.HasMultipleAttachments, Mode=OneWay}"
                                      Grid.Column="1"

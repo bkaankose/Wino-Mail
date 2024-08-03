@@ -336,6 +336,7 @@
     "ProtocolLogAvailable_Message": "Protocol logs are available for diagnostics.",
     "Results": "Results",
     "Right": "Right",
+    "Reader_SaveAllAttachmentButtonText": "Save all attachments",
     "SynchronizationFolderReport_Success": "up to date",
     "SynchronizationFolderReport_Failed": "synchronization is failed",
     "SearchBarPlaceholder": "Search",

@@ -1704,6 +1704,11 @@ namespace Wino.Core.Domain
 		public static string Right => Resources.GetTranslatedString(@"Right");	
 	
         /// <summary>
+		/// Save all attachments
+		/// </summary>
+		public static string Reader_SaveAllAttachmentButtonText => Resources.GetTranslatedString(@"Reader_SaveAllAttachmentButtonText");	
+	
+        /// <summary>
 		/// up to date
 		/// </summary>
 		public static string SynchronizationFolderReport_Success => Resources.GetTranslatedString(@"SynchronizationFolderReport_Success");	
