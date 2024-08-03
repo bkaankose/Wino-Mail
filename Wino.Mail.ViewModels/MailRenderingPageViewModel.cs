@@ -81,6 +81,8 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        private bool HasMultipleAttachments => Attachments.Count > 1;
+
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
         private bool isIndetermineProgress;
@@ -167,10 +169,7 @@ namespace Wino.Mail.ViewModels
 
             if (initializedMailItemViewModel == null && initializedMimeMessageInformation == null) return;
 
-            if (initializedMailItemViewModel != null)
-                await RenderAsync(initializedMimeMessageInformation);
-            else
-                await RenderAsync(initializedMimeMessageInformation);
+            await RenderAsync(initializedMimeMessageInformation);
         }
 
         [RelayCommand]
@@ -303,6 +302,9 @@ namespace Wino.Mail.ViewModels
         {
             base.OnNavigatedTo(mode, parameters);
 
+            Attachments.CollectionChanged -= AttachmentsUpdated;
+            Attachments.CollectionChanged += AttachmentsUpdated;
+
             renderCancellationTokenSource.Cancel();
 
             initializedMailItemViewModel = null;
@@ -343,6 +345,11 @@ namespace Wino.Mail.ViewModels
                 Crashes.TrackError(ex);
                 Log.Error(ex, "Render Failed");
             }
+        }
+
+        private async void AttachmentsUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            await ExecuteUIThread(() => { OnPropertyChanged(nameof(HasMultipleAttachments)); });
         }
 
         private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
@@ -453,6 +460,8 @@ namespace Wino.Mail.ViewModels
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
+
+            Attachments.CollectionChanged -= AttachmentsUpdated;
 
             renderCancellationTokenSource.Cancel();
             CurrentDownloadPercentage = 0d;
@@ -630,6 +639,32 @@ namespace Wino.Mail.ViewModels
             finally
             {
                 attachmentViewModel.IsBusy = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task SaveAllAttachmentsAsync()
+        {
+            var pickedPath = await DialogService.PickWindowsFolderAsync();
+
+            if (string.IsNullOrEmpty(pickedPath)) return;
+
+            try
+            {
+
+                foreach (var attachmentViewModel in Attachments)
+                {
+                    await SaveAttachmentInternalAsync(attachmentViewModel, pickedPath);
+                }
+
+                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, WinoErrors.SaveAttachment);
+                Crashes.TrackError(ex);
+
+                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
             }
         }
 

@@ -314,6 +314,8 @@
                     </ListView>
 
                     <HyperlinkButton Content="Save all attachments"
+                                     Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
+                                     Visibility="{x:Bind ViewModel.HasMultipleAttachments, Mode=OneWay}"
                                      Grid.Column="1"
                                      VerticalAlignment="Center" />
                 </Grid>
