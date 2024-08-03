@@ -26,7 +26,7 @@ namespace Wino.Core.Services
         {
             Log.Logger = new LoggerConfiguration()
                         .MinimumLevel.ControlledBy(_levelSwitch)
-                        .WriteTo.File(fullLogFilePath)
+                        .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3)
                         .WriteTo.Debug()
                         .Enrich.FromLogContext()
                         .Enrich.WithExceptionDetails()
