@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Переименовать имя связанных учетных записей",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Эта операция не удалит ваши учетные записи, но только нарушает ссылку на соединение с общими папками. Вы хотите продолжить?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Отвязать учетные записи",
-    "DialogMessage_EmptySubjectConfirmation": "Не указана тема письма",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Сообщение не имеет темы. Вы хотите продолжить?",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",
