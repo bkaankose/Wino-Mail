@@ -63,6 +63,15 @@ namespace Wino.Core.Integration.Processors
         Task<bool> IsMailExistsAsync(string messageId);
 
         /// <summary>
+        /// Checks whether the mail exists in the folder.
+        /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
+        /// </summary>
+        /// <param name="messageId">Message id</param>
+        /// <param name="folderId">Folder's local id.</param>
+        /// <returns>Whether mail exists in the folder or not.</returns>
+        Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId);
+
+        /// <summary>
         /// Updates Folder's delta synchronization identifier.
         /// Only used in Outlook since it does per-folder sync.
         /// </summary>
@@ -70,6 +79,24 @@ namespace Wino.Core.Integration.Processors
         /// <param name="synchronizationIdentifier">New synchronization identifier.</param>
         /// <returns>New identifier if success.</returns>
         Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier);
+
+        /// <summary>
+        /// Outlook may expire folder's delta token after a while.
+        /// Recommended action for this scenario is to reset token and do full sync.
+        /// This method resets the token for the given folder.
+        /// </summary>
+        /// <param name="folderId">Local folder id to reset token for.</param>
+        /// <returns>Empty string to assign folder delta sync for.</returns>
+        Task<string> ResetFolderDeltaTokenAsync(Guid folderId);
+
+        /// <summary>
+        /// Outlook may expire account's delta token after a while.
+        /// This will result returning 410 GONE response from the API for synchronizing folders.
+        /// This method resets the token for the given account for re-syncing folders.
+        /// </summary>
+        /// <param name="accountId">Account identifier to reset delta token for.</param>
+        /// <returns>Empty string to assign account delta sync for.</returns>
+        Task<string> ResetAccountDeltaTokenAsync(Guid accountId);
     }
 
     public interface IImapChangeProcessor : IDefaultChangeProcessor
@@ -90,11 +117,11 @@ namespace Wino.Core.Integration.Processors
         protected IMailService MailService = mailService;
 
         protected IFolderService FolderService = folderService;
-        private readonly IAccountService _accountService = accountService;
+        protected IAccountService AccountService = accountService;
         private readonly IMimeFileService _mimeFileService = mimeFileService;
 
         public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
-            => _accountService.UpdateSynchronizationIdentifierAsync(accountId, synchronizationDeltaIdentifier);
+            => AccountService.UpdateSynchronizationIdentifierAsync(accountId, synchronizationDeltaIdentifier);
 
         public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
             => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);

@@ -281,19 +281,11 @@ namespace Wino.Core.Synchronizers
         private bool IsResourceDeleted(IDictionary<string, object> additionalData)
             => additionalData != null && additionalData.ContainsKey("@removed");
 
-        private bool IsResourceUpdated(IDictionary<string, object> additionalData)
-            => additionalData == null || !additionalData.Any();
-
         private async Task<bool> HandleFolderRetrievedAsync(MailFolder folder, OutlookSpecialFolderIdInformation outlookSpecialFolderIdInformation, CancellationToken cancellationToken = default)
         {
             if (IsResourceDeleted(folder.AdditionalData))
             {
                 await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, folder.Id).ConfigureAwait(false);
-            }
-            else if (IsResourceUpdated(folder.AdditionalData))
-            {
-                // TODO
-                Debugger.Break();
             }
             else
             {
@@ -340,38 +332,45 @@ namespace Wino.Core.Synchronizers
 
                 await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
             }
-            else if (IsResourceUpdated(item.AdditionalData))
-            {
-                // Some of the properties of the item are updated.
-
-                if (item.IsRead != null)
-                {
-                    await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
-                }
-
-                if (item.Flag?.FlagStatus != null)
-                {
-                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
-                                                 .ConfigureAwait(false);
-                }
-            }
             else
             {
-                // Package may return null on some cases mapping the remote draft to existing local draft.
+                // If the item exists in the local database, it means that it's already downloaded. Process as an Update.
 
-                var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
+                var isMailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(item.Id, folder.Id);
 
-                if (newMailPackages != null)
+                if (isMailExists)
                 {
-                    foreach (var package in newMailPackages)
-                    {
-                        // Only add to downloaded message ids if it's inserted successfuly.
-                        // Updates should not be added to the list because they are not new.
-                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                    // Some of the properties of the item are updated.
 
-                        if (isInserted)
+                    if (item.IsRead != null)
+                    {
+                        await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
+                    }
+
+                    if (item.Flag?.FlagStatus != null)
+                    {
+                        await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
+                                                     .ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    // Package may return null on some cases mapping the remote draft to existing local draft.
+
+                    var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
+
+                    if (newMailPackages != null)
+                    {
+                        foreach (var package in newMailPackages)
                         {
-                            downloadedMessageIds.Add(package.Copy.Id);
+                            // Only add to downloaded message ids if it's inserted successfuly.
+                            // Updates should not be added to the list because they are not new.
+                            bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                            if (isInserted)
+                            {
+                                downloadedMessageIds.Add(package.Copy.Id);
+                            }
                         }
                     }
                 }
@@ -382,11 +381,12 @@ namespace Wino.Core.Synchronizers
 
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
-            // Gather special folders by default.
-            // Others will be other type.
+        // Gather special folders by default.
+        // Others will be other type.
 
-            // Get well known folder ids by batch.
+        // Get well known folder ids by batch.
 
+        retry:
             var wellKnownFolderIdBatch = new BatchRequestContentCollection(_graphClient);
 
             var inboxRequest = _graphClient.Me.MailFolders[INBOX_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; });
@@ -404,7 +404,6 @@ namespace Wino.Core.Synchronizers
             var archiveId = await wellKnownFolderIdBatch.AddBatchRequestStepAsync(archiveRequest);
 
             var returnedResponse = await _graphClient.Batch.PostAsync(wellKnownFolderIdBatch, cancellationToken).ConfigureAwait(false);
-
 
             var inboxFolderId = (await returnedResponse.GetResponseByIdAsync<MailFolder>(inboxId)).Id;
             var sentFolderId = (await returnedResponse.GetResponseByIdAsync<MailFolder>(sentId)).Id;
@@ -438,6 +437,7 @@ namespace Wino.Core.Synchronizers
 
                 deltaRequest.UrlTemplate = deltaRequest.UrlTemplate.Insert(deltaRequest.UrlTemplate.Length - 1, ",%24deltaToken");
                 deltaRequest.QueryParameters.Add("%24deltaToken", currentDeltaLink);
+
                 try
                 {
                     graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
@@ -446,7 +446,9 @@ namespace Wino.Core.Synchronizers
                 }
                 catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
                 {
-                    // TODO: Handle GONE response for expired folder delta tokens.
+                    Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor.ResetAccountDeltaTokenAsync(Account.Id);
+
+                    goto retry;
                 }
             }
 

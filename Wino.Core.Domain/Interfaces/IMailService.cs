@@ -101,5 +101,14 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="folderId">Folder id to get unread mails for.</param>
         Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId);
+
+        /// <summary>
+        /// Checks whether the mail exists in the folder.
+        /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
+        /// </summary>
+        /// <param name="messageId">Message id</param>
+        /// <param name="folderId">Folder's local id.</param>
+        /// <returns>Whether mail exists in the folder or not.</returns>
+        Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId);
     }
 }
