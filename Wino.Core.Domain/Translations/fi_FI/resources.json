@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Uudelleennimeä yhdistetty tili",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Tämä ei poista tilejäsi, ainoastaan yhteyden tilien jaettujen kansioiden välillä. Haluatko jatkaa?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Poista tilien yhteys",
-    "DialogMessage_EmptySubjectConfirmation": "Aihe puuttuu",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Viestillä ei ole aihetta. Haluatko jatkaa?",
     "DialogMessage_RenameFolderTitle": "Uudelleennimeä kansio",
     "DialogMessage_RenameFolderMessage": "Anna uusi nimi tälle kansiolle",
