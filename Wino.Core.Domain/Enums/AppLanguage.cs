@@ -15,5 +15,6 @@
         Indonesian,
         Greek,
         PortugeseBrazil,
+        Italian
     }
 }

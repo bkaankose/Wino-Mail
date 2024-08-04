@@ -77,6 +77,7 @@ namespace Wino.Core.Services
                 new AppLanguageModel(AppLanguage.Deutsch, "Deutsch"),
                 new AppLanguageModel(AppLanguage.English, "English"),
                 new AppLanguageModel(AppLanguage.French, "French"),
+                new AppLanguageModel(AppLanguage.Italian, "Italian"),
                 new AppLanguageModel(AppLanguage.Greek, "Greek"),
                 new AppLanguageModel(AppLanguage.Indonesian, "Indonesian"),
                 new AppLanguageModel(AppLanguage.Polish, "Polski"),
