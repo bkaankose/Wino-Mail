@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Renomear conta vinculada",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Esta operação não apagará suas contas, mas quebrará apenas o vínculo para conexões de pastas compartilhadas. Você deseja continuar?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Desvincular Contas",
-    "DialogMessage_EmptySubjectConfirmation": "Sem assunto",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Mensagem não possui assunto. Você deseja continuar?",
     "DialogMessage_RenameFolderTitle": "Renomear Pasta",
     "DialogMessage_RenameFolderMessage": "Escolha um novo nome para esta pasta",

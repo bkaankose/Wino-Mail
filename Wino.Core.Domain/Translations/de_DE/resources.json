@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Verknüpftes Konto umbenennen",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Dieser Vorgang wird Ihre Konten nicht löschen, sondern nur den Link für freigegebene Ordnerverbindungen zerstören. Möchten Sie fortfahren?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Konten trennen",
-    "DialogMessage_EmptySubjectConfirmation": "Betreff fehlt",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Nachricht hat keinen Betreff. Möchten Sie fortfahren?",
     "DialogMessage_RenameFolderTitle": "Ordner umbenennen",
     "DialogMessage_RenameFolderMessage": "Geben Sie einen neuen Namen für diesen Ordner ein",

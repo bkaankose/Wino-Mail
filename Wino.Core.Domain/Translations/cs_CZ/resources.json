@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Přejmenovat propojený účet",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Tato operace neodstraní vaše mailové účty, ale pouze zruší jejich propojení. Chcete pokračovat?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Rozpojit účty",
-    "DialogMessage_EmptySubjectConfirmation": "Chybějící Předmět",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Zpráva nemá Předmět. Chcete pokračovat?",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",

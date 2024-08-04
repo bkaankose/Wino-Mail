@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Μετονομασία Συνδεδεμένου Λογαριασμού",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Αυτή η λειτουργία δεν θα διαγράψει τους λογαριασμούς σας αλλά, απλά θα διαλύσει το σύνδεσμο για συνδέσεις κοινόχρηστων φακέλων. Θέλετε να συνεχίσετε;",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Αποδέσμευση Λογαριασμού",
-    "DialogMessage_EmptySubjectConfirmation": "Χωρίς Θέμα",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Το μήνυμα δεν έχει θέμα. Θέλετε να συνεχίσετε;",
     "DialogMessage_RenameFolderTitle": "Μετονομασία Φακέλου",
     "DialogMessage_RenameFolderMessage": "Εισάγετε νέο όνομα για αυτόν το φάκελο",

@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "重命名已链接账户",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "此操作不会删除您的账户，只会断开共享文件夹的连接。是否继续？",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "取消链接账户",
-    "DialogMessage_EmptySubjectConfirmation": "缺少主题",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "邮件没有主题。您想要继续吗？",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",

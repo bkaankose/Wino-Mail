@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Zmień nazwę połączonego konta",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Ta operacja nie usunie Twoich kont, tylko przerwie połączenie dla wspólnych folderów. Czy chcesz kontynuować?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Odłącz konto",
-    "DialogMessage_EmptySubjectConfirmation": "Brak tematu",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Wiadomość nie ma tematu. Czy chcesz kontynuować?",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",

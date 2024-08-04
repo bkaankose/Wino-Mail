@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Nomea a conta vinculada",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Esta operación non borrará a conta pero si romperá a vinculación para as conexións de carpetas compartidas. Queres continuar?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Desvincular conta",
-    "DialogMessage_EmptySubjectConfirmation": "Falta o asunto",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "A mensaxe non ten asunto. Queres continuar?",
     "DialogMessage_RenameFolderTitle": "Renomear cartafol",
     "DialogMessage_RenameFolderMessage": "Ponlle un novo nome a este cartafol",
