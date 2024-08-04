@@ -116,7 +116,7 @@
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
     <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
     <Use64BitCompiler>true</Use64BitCompiler>
-    <OutOfProcPDB>true</OutOfProcPDB>
+    <!--<OutOfProcPDB>true</OutOfProcPDB>-->
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
