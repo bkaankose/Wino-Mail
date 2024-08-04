@@ -24,7 +24,9 @@
 		<Assembly Name="*Application*" Dynamic="Required All" />
 
 		<!-- Reduce memory footprint when building with Microsoft.Graph -->
-		<Assembly Name="Microsoft.Graph" Dynamic="Public" XmlSerializer="Excluded" DataContractSerializer="Excluded" />
+
+		<Assembly Name="Microsoft.Graph" Serialize="Excluded" />
+		
 		<Assembly Name="Microsoft.Kiota.Abstractions" Dynamic="Public" />
 		<Assembly Name="Microsoft.Kiota.Authentication.Azure" Dynamic="Public" />
 		<Assembly Name="Microsoft.Kiota.Http.HttpClientLibrary" Dynamic="Public" />
