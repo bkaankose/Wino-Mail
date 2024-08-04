@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Ubah Nama Akun Tertaut",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Ini tidak akan menghapus akun-akun Anda, tetapi hanya menghapus tautan folder yang digabungkan. Apakah Anda ingin melanjutkan?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Lepas Tautan Akun",
-    "DialogMessage_EmptySubjectConfirmation": "Tidak Ada Perihal",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Pesan tidak memiliki perihal. Apakah Anda ingin melanjutkan?",
     "DialogMessage_RenameFolderTitle": "Ubah nama folder",
     "DialogMessage_RenameFolderMessage": "Masukkan nama baru untuk folder ini",
