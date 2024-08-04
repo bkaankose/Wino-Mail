@@ -17,10 +17,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Authorization;
-using Wino.Core.Messages.Navigation;
-using Wino.Core.Requests;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Authorization;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -35,7 +36,7 @@ namespace Wino.Mail.ViewModels
         private readonly IStoreManagementService _storeManagementService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAuthenticationProvider _authenticationProvider;
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
 
         public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
 
@@ -60,22 +61,22 @@ namespace Wino.Mail.ViewModels
 
         public AccountManagementViewModel(IDialogService dialogService,
                                           IWinoNavigationService navigationService,
-                                          IWinoSynchronizerFactory synchronizerFactory,
                                           IAccountService accountService,
                                           IProviderService providerService,
                                           IFolderService folderService,
                                           IStoreManagementService storeManagementService,
                                           IPreferencesService preferencesService,
-                                          IAuthenticationProvider authenticationProvider) : base(dialogService)
+                                          IAuthenticationProvider authenticationProvider,
+                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             _accountService = accountService;
-            _synchronizerFactory = synchronizerFactory;
             _dialogService = dialogService;
             _providerService = providerService;
             _folderService = folderService;
             _storeManagementService = storeManagementService;
             _preferencesService = preferencesService;
             _authenticationProvider = authenticationProvider;
+            _winoServerConnectionManager = winoServerConnectionManager;
         }
 
         [RelayCommand]
@@ -153,7 +154,7 @@ namespace Wino.Mail.ViewModels
                 {
                     creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
-                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
+                    // _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
 
                     CustomServerInformation customServerInformation = null;
 
@@ -193,9 +194,13 @@ namespace Wino.Mail.ViewModels
                     {
                         // For OAuth authentications, we just generate token and assign it to the MailAccount.
 
-                        tokenInformation = await _accountService.ExternalAuthenticationAuthenticator.GenerateTokenAsync(createdAccount, false)
-                        ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
+                        var tokenInformationResponse = await _winoServerConnectionManager.GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType, createdAccount));
 
+                        tokenInformationResponse.ThrowIfFailed();
+
+                        // ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
+
+                        tokenInformation = tokenInformationResponse.Data;
                         createdAccount.Address = tokenInformation.Address;
                         tokenInformation.AccountId = createdAccount.Id;
                     }
@@ -204,8 +209,6 @@ namespace Wino.Mail.ViewModels
 
                     // Local account has been created.
                     // Create new synchronizer and start synchronization.
-
-                    var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
 
                     if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
                         customServerAccountCreationDialog.ShowPreparingFolders();
@@ -218,8 +221,9 @@ namespace Wino.Mail.ViewModels
                         Type = SynchronizationType.FoldersOnly
                     };
 
-                    var synchronizationResult = await synchronizer.SynchronizeAsync(options);
+                    var synchronizationResultResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options, SynchronizationSource.Client));
 
+                    var synchronizationResult = synchronizationResultResponse.Data;
                     if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
@@ -377,11 +381,10 @@ namespace Wino.Mail.ViewModels
             return new AccountProviderDetailViewModel(provider, account);
         }
 
-        public void Receive(ProtocolAuthorizationCallbackReceived message)
+        public async void Receive(ProtocolAuthorizationCallbackReceived message)
         {
-            // Authorization must be completed in account service.
-
-            _accountService.ExternalAuthenticationAuthenticator?.ContinueAuthorization(message.AuthorizationResponseUri);
+            // Authorization must be completed in the server.
+            await _winoServerConnectionManager.GetResponseAsync<bool, ProtocolAuthorizationCallbackReceived>(message);
         }
     }
 }

@@ -8,21 +8,15 @@ namespace Wino.Core.Extensions
     {
         public static TokenInformation CreateTokenInformation(this AuthenticationResult clientBuilderResult)
         {
-            var expirationDate = clientBuilderResult.ExpiresOn.UtcDateTime;
-            var accesToken = clientBuilderResult.AccessToken;
-            var userName = clientBuilderResult.Account.Username;
-
-            // MSAL does not expose refresh token for security reasons.
-            // This token info will be created without refresh token.
-            // but OutlookIntegrator will ask for publicApplication to refresh it
-            // in case of expiration.
+            // Plain access token info is not stored for Outlook in Wino's database.
+            // Here we store UniqueId and Access Token in memory only to compare the UniqueId returned from MSAL auth result.
 
             var tokenInfo = new TokenInformation()
             {
-                ExpiresAt = expirationDate,
-                AccessToken = accesToken,
-                Address = userName,
+                Address = clientBuilderResult.Account.Username,
                 Id = Guid.NewGuid(),
+                UniqueId = clientBuilderResult.UniqueId,
+                AccessToken = clientBuilderResult.AccessToken
             };
 
             return tokenInfo;

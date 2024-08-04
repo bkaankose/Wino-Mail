@@ -378,5 +378,20 @@ namespace Wino.Controls.Advanced
                 internalScrollviewer.ViewChanged -= InternalScrollVeiwerViewChanged;
             }
         }
+
+        protected override DependencyObject GetContainerForItemOverride()
+        {
+            var itemContainer = base.GetContainerForItemOverride();
+
+            // Adjust scrolling margin for all containers.
+            // I don't want to override the default style for this.
+
+            if (itemContainer is ListViewItem listViewItem)
+            {
+                listViewItem.Margin = new Thickness(0, 0, 12, 4);
+            }
+
+            return itemContainer;
+        }
     }
 }

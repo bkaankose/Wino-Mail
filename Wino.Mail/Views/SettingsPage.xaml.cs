@@ -7,8 +7,8 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Navigation;
 using Wino.Views.Abstract;
 using Wino.Views.Settings;
 
@@ -53,6 +53,7 @@ namespace Wino.Views
             WinoPage.MessageListPage => typeof(MessageListPage),
             WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
+            WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
             _ => null,
         };
 

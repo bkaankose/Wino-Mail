@@ -5,7 +5,12 @@
     <RootNamespace>Wino.Core</RootNamespace>
     <Configurations>Debug;Release</Configurations>
 	<LangVersion>12</LangVersion>
+	<Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="WinoSynchronizerFactory.cs" />
+  </ItemGroup>
 
 
    <ItemGroup>
@@ -18,11 +23,13 @@
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
      </PackageReference>
-     <PackageReference Include="MailKit" Version="4.6.0" />
+     <PackageReference Include="MailKit" Version="4.7.1.1" />
      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
-     <PackageReference Include="Microsoft.Graph" Version="5.55.0" />
-     <PackageReference Include="Microsoft.Identity.Client" Version="4.47.2" />
-     <PackageReference Include="MimeKit" Version="4.6.0" />
+     <PackageReference Include="Microsoft.Graph" Version="5.56.0" />
+     <PackageReference Include="Microsoft.Identity.Client" Version="4.62.0" />
+     <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.62.0" />
+     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.62.0" />
+     <PackageReference Include="MimeKit" Version="4.7.1" />
      <PackageReference Include="morelinq" Version="4.1.0" />
      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
      <PackageReference Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
@@ -33,10 +40,10 @@
      <PackageReference Include="SkiaSharp" Version="2.88.8" />
      <PackageReference Include="SqlKata" Version="2.4.0" />
      <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
-     <PackageReference Include="Xamarin.Essentials" Version="1.8.1" />
    </ItemGroup>
 
    <ItemGroup>
      <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
    </ItemGroup>
 </Project>

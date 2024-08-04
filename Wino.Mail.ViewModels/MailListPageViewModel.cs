@@ -24,12 +24,13 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -72,12 +73,11 @@ namespace Wino.Mail.ViewModels
 
         private readonly IMailService _mailService;
         private readonly IFolderService _folderService;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
         private readonly IContextMenuItemService _contextMenuItemService;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
         private readonly IKeyPressService _keyPressService;
-
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private MailItemViewModel _activeMailItem;
 
         public List<SortingOption> SortingOptions { get; } =
@@ -143,20 +143,20 @@ namespace Wino.Mail.ViewModels
                                      IMailService mailService,
                                      IStatePersistanceService statePersistanceService,
                                      IFolderService folderService,
-                                     IWinoSynchronizerFactory winoSynchronizerFactory,
                                      IThreadingStrategyProvider threadingStrategyProvider,
                                      IContextMenuItemService contextMenuItemService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      IKeyPressService keyPressService,
-                                     IPreferencesService preferencesService) : base(dialogService)
+                                     IPreferencesService preferencesService,
+                                     IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             PreferencesService = preferencesService;
+            _winoServerConnectionManager = winoServerConnectionManager;
             StatePersistanceService = statePersistanceService;
             NavigationService = navigationService;
 
             _mailService = mailService;
             _folderService = folderService;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
             _threadingStrategyProvider = threadingStrategyProvider;
             _contextMenuItemService = contextMenuItemService;
             _winoRequestDelegator = winoRequestDelegator;
@@ -450,7 +450,7 @@ namespace Wino.Mail.ViewModels
                     GroupedSynchronizationTrackingId = trackingSynchronizationId
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options));
+                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 
@@ -601,6 +601,8 @@ namespace Wino.Mail.ViewModels
         protected override async void OnMailAdded(MailCopy addedMail)
         {
             base.OnMailAdded(addedMail);
+
+            if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
 
             try
             {
@@ -866,6 +868,8 @@ namespace Wino.Mail.ViewModels
             // Let awaiters know about the completion of mail init.
             message.FolderInitLoadAwaitTask?.TrySetResult(true);
 
+            await Task.Yield();
+
             isChangingFolder = false;
 
             void ResetFilters()
@@ -914,6 +918,7 @@ namespace Wino.Mail.ViewModels
 
         void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
         {
+            Debug.WriteLine($"Mail item navigation requested");
             // Find mail item and add to selected items.
 
             MailItemViewModel navigatingMailItem = null;
@@ -975,13 +980,9 @@ namespace Wino.Mail.ViewModels
 
                 foreach (var accountId in accountIds)
                 {
-                    var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
+                    var serverResponse = await _winoServerConnectionManager.GetResponseAsync<bool, SynchronizationExistenceCheckRequest>(new SynchronizationExistenceCheckRequest(accountId));
 
-                    if (synchronizer == null) continue;
-
-                    bool isAccountSynchronizing = synchronizer.State != AccountSynchronizerState.Idle;
-
-                    if (isAccountSynchronizing)
+                    if (serverResponse.IsSuccess && serverResponse.Data == true)
                     {
                         isAnyAccountSynchronizing = true;
                         break;

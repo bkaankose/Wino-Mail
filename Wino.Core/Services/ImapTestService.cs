@@ -11,11 +11,11 @@ namespace Wino.Core.Services
         public const string ProtocolLogFileName = "ImapProtocolLog.log";
 
         private readonly IPreferencesService _preferencesService;
-        private readonly IAppInitializerService _appInitializerService;
+        private readonly IApplicationConfiguration _appInitializerService;
 
         private Stream _protocolLogStream;
 
-        public ImapTestService(IPreferencesService preferencesService, IAppInitializerService appInitializerService)
+        public ImapTestService(IPreferencesService preferencesService, IApplicationConfiguration appInitializerService)
         {
             _preferencesService = preferencesService;
             _appInitializerService = appInitializerService;
@@ -24,7 +24,7 @@ namespace Wino.Core.Services
         private void EnsureProtocolLogFileExists()
         {
             // Create new file for protocol logger.
-            var localAppFolderPath = _appInitializerService.GetApplicationDataFolder();
+            var localAppFolderPath = _appInitializerService.ApplicationDataFolderPath;
 
             var logFile = Path.Combine(localAppFolderPath, ProtocolLogFileName);
 

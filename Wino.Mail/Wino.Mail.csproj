@@ -116,7 +116,7 @@
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
     <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
     <Use64BitCompiler>true</Use64BitCompiler>
-    <OutOfProcPDB>true</OutOfProcPDB>
+    <!--<OutOfProcPDB>true</OutOfProcPDB>-->
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -228,7 +228,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Activation\ActivationHandler.cs" />
-    <Compile Include="Activation\BackgroundActivationHandler.cs" />
     <Compile Include="Activation\DefaultActivationHandler.cs" />
     <Compile Include="Activation\FileActivationHandler.cs" />
     <Compile Include="Activation\ProtocolActivationHandler.cs" />
@@ -243,6 +242,7 @@
     <Compile Include="Controls\ControlConstants.cs" />
     <Compile Include="Controls\SettingsMenuItemControl.cs" />
     <Compile Include="Controls\Advanced\WinoListView.cs" />
+    <Compile Include="Controls\WinoExpander.cs" />
     <Compile Include="Controls\WinoFontIconSource.cs" />
     <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoSwipeControlItems.cs" />
@@ -336,9 +336,6 @@
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\LaunchProtocolService.cs" />
-    <Compile Include="Services\PreferencesService.cs" />
-    <Compile Include="Services\StatePersistenceService.cs" />
-    <Compile Include="Services\ToastActivationService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />
     <Compile Include="Styles\CommandBarItems.xaml.cs">
       <DependentUpon>CommandBarItems.xaml</DependentUpon>
@@ -346,6 +343,7 @@
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AppPreferencesPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\ComposePageAbstract.cs" />
     <Compile Include="Views\Abstract\IdlePageAbstract.cs" />
@@ -406,6 +404,9 @@
     </Compile>
     <Compile Include="Views\Settings\AboutPage.xaml.cs">
       <DependentUpon>AboutPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\AppPreferencesPage.xaml.cs">
+      <DependentUpon>AppPreferencesPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\LanguageTimePage.xaml.cs">
       <DependentUpon>LanguageTimePage.xaml</DependentUpon>
@@ -631,6 +632,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Views\Settings\AppPreferencesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\Settings\LanguageTimePage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -770,7 +775,6 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <None Include="Wino.Mail_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Thumbnails\uber.com.png" />
@@ -801,6 +805,10 @@
     <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj">
       <Project>{d62f1c03-da57-4709-a640-0283296a8e66}</Project>
       <Name>Wino.Mail.ViewModels</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messaging</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

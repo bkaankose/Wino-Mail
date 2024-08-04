@@ -18,9 +18,9 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Extensions;
-using Wino.Core.Messages.Mails;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Mails;
 
 namespace Wino.Mail.ViewModels
 {
@@ -171,7 +171,14 @@ namespace Wino.Mail.ViewModels
 
             var assignedAccount = CurrentMailDraftItem.AssignedAccount;
             var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
-            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, CurrentMimeMessage, CurrentMailDraftItem.AssignedFolder, sentFolder, CurrentMailDraftItem.AssignedAccount.Preferences);
+
+            using MemoryStream memoryStream = new();
+            CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
+            byte[] buffer = memoryStream.GetBuffer();
+            int count = (int)memoryStream.Length;
+
+            var base64EncodedMessage = Convert.ToBase64String(buffer);
+            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, sentFolder, CurrentMailDraftItem.AssignedFolder, CurrentMailDraftItem.AssignedAccount.Preferences, base64EncodedMessage);
 
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }

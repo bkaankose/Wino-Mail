@@ -92,13 +92,6 @@
 			    Enabled="false"
 			    DisplayName="Wino Startup Service" />
 		</uap5:Extension>
-		  
-		<!-- Registration of full trust backend application. -->
-		<!--<uap:Extension Category="windows.appService">
-			<uap:AppService Name="Wino.AppService" />
-		</uap:Extension>-->
-		  
-		<!--<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.AppService.exe" />-->
       </Extensions>
     </Application>
   </Applications>

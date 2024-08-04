@@ -86,6 +86,8 @@ namespace Wino.Services
                     return typeof(WelcomePage);
                 case WinoPage.SettingOptionsPage:
                     return typeof(SettingOptionsPage);
+                case WinoPage.AppPreferencesPage:
+                    return typeof(AppPreferencesPage);
                 default:
                     return null;
             }

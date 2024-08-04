@@ -1,5 +1,4 @@
-﻿using System.IO;
-using Serilog;
+﻿using Serilog;
 using Serilog.Core;
 using Serilog.Exceptions;
 using Wino.Core.Domain.Interfaces;
@@ -8,8 +7,6 @@ namespace Wino.Core.Services
 {
     public class LogInitializer : ILogInitializer
     {
-        public const string WinoLogFileName = "WinoDiagnostics.log";
-
         private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
         private readonly IPreferencesService _preferencesService;
 
@@ -25,13 +22,11 @@ namespace Wino.Core.Services
             _levelSwitch.MinimumLevel = _preferencesService.IsLoggingEnabled ? Serilog.Events.LogEventLevel.Debug : Serilog.Events.LogEventLevel.Fatal;
         }
 
-        public void SetupLogger(string logFolderPath)
+        public void SetupLogger(string fullLogFilePath)
         {
-            string logFilePath = Path.Combine(logFolderPath, WinoLogFileName);
-
             Log.Logger = new LoggerConfiguration()
                         .MinimumLevel.ControlledBy(_levelSwitch)
-                        .WriteTo.File(logFilePath)
+                        .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
                         .WriteTo.Debug()
                         .Enrich.FromLogContext()
                         .Enrich.WithExceptionDetails()

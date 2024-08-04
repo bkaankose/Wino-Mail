@@ -8,8 +8,10 @@
         public const string WinoLocalDraftHeader = "X-Wino-Draft-Id";
         public const string LocalDraftStartPrefix = "localDraft_";
 
-        public const string ToastMailItemIdKey = nameof(ToastMailItemIdKey);
-        public const string ToastMailItemRemoteFolderIdKey = nameof(ToastMailItemRemoteFolderIdKey);
+        public const string ToastMailUniqueIdKey = nameof(ToastMailUniqueIdKey);
         public const string ToastActionKey = nameof(ToastActionKey);
+
+        public const string ClientLogFile = "Client_.log";
+        public const string ServerLogFile = "Server_.log";
     }
 }

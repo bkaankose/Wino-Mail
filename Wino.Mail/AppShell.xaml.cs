@@ -17,13 +17,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Accounts;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views

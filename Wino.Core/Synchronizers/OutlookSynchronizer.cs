@@ -13,6 +13,8 @@ using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -73,18 +75,58 @@ namespace Wino.Core.Synchronizers
         {
             var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
-            // Add immutable id preffered client.
+            // Update request handlers for Graph client.
             var handlers = GraphClientFactory.CreateDefaultHandlers();
-            handlers.Add(new MicrosoftImmutableIdHandler());
+
+            handlers.Add(GetMicrosoftImmutableIdHandler());
+
+            // Remove existing RetryHandler and add a new one with custom options.
+            var existingRetryHandler = handlers.FirstOrDefault(a => a is RetryHandler);
+            if (existingRetryHandler != null)
+                handlers.Remove(existingRetryHandler);
+
+            // Add custom one.
+            handlers.Add(GetRetryHandler());
 
             var httpClient = GraphClientFactory.Create(handlers);
-
             _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
+
             _outlookChangeProcessor = outlookChangeProcessor;
 
             // Specify to use TLS 1.2 as default connection
-            System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
+
+        #region MS Graph Handlers
+
+        private MicrosoftImmutableIdHandler GetMicrosoftImmutableIdHandler() => new();
+
+        private RetryHandler GetRetryHandler()
+        {
+            var options = new RetryHandlerOption()
+            {
+                ShouldRetry = (delay, attempt, httpResponse) =>
+                {
+                    var statusCode = httpResponse.StatusCode;
+
+                    return statusCode switch
+                    {
+                        HttpStatusCode.ServiceUnavailable => true,
+                        HttpStatusCode.GatewayTimeout => true,
+                        (HttpStatusCode)429 => true,
+                        HttpStatusCode.Unauthorized => true,
+                        _ => false
+                    };
+                },
+                Delay = 3,
+                MaxRetry = 3
+            };
+
+            return new RetryHandler(options);
+        }
+
+        #endregion
+
 
         public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
@@ -95,7 +137,7 @@ namespace Wino.Core.Synchronizers
 
             try
             {
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 1);
+                PublishSynchronizationProgress(1);
 
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
@@ -111,7 +153,7 @@ namespace Wino.Core.Synchronizers
                         var folder = synchronizationFolders[i];
                         var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                        options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                        PublishSynchronizationProgress(progress);
 
                         var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
                         downloadedMessageIds.AddRange(folderDownloadedMessageIds);
@@ -120,13 +162,14 @@ namespace Wino.Core.Synchronizers
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+                _logger.Error(ex, "Synchronizing folders for {Name}", Account.Name);
+                Debugger.Break();
 
                 throw;
             }
             finally
             {
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
+                PublishSynchronizationProgress(100);
             }
 
             // Get all unred new downloaded items and return in the result.
@@ -238,19 +281,11 @@ namespace Wino.Core.Synchronizers
         private bool IsResourceDeleted(IDictionary<string, object> additionalData)
             => additionalData != null && additionalData.ContainsKey("@removed");
 
-        private bool IsResourceUpdated(IDictionary<string, object> additionalData)
-            => additionalData == null || !additionalData.Any();
-
         private async Task<bool> HandleFolderRetrievedAsync(MailFolder folder, OutlookSpecialFolderIdInformation outlookSpecialFolderIdInformation, CancellationToken cancellationToken = default)
         {
             if (IsResourceDeleted(folder.AdditionalData))
             {
                 await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, folder.Id).ConfigureAwait(false);
-            }
-            else if (IsResourceUpdated(folder.AdditionalData))
-            {
-                // TODO
-                Debugger.Break();
             }
             else
             {
@@ -297,38 +332,45 @@ namespace Wino.Core.Synchronizers
 
                 await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
             }
-            else if (IsResourceUpdated(item.AdditionalData))
-            {
-                // Some of the properties of the item are updated.
-
-                if (item.IsRead != null)
-                {
-                    await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
-                }
-
-                if (item.Flag?.FlagStatus != null)
-                {
-                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
-                                                 .ConfigureAwait(false);
-                }
-            }
             else
             {
-                // Package may return null on some cases mapping the remote draft to existing local draft.
+                // If the item exists in the local database, it means that it's already downloaded. Process as an Update.
 
-                var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
+                var isMailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(item.Id, folder.Id);
 
-                if (newMailPackages != null)
+                if (isMailExists)
                 {
-                    foreach (var package in newMailPackages)
-                    {
-                        // Only add to downloaded message ids if it's inserted successfuly.
-                        // Updates should not be added to the list because they are not new.
-                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                    // Some of the properties of the item are updated.
 
-                        if (isInserted)
+                    if (item.IsRead != null)
+                    {
+                        await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
+                    }
+
+                    if (item.Flag?.FlagStatus != null)
+                    {
+                        await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
+                                                     .ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    // Package may return null on some cases mapping the remote draft to existing local draft.
+
+                    var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
+
+                    if (newMailPackages != null)
+                    {
+                        foreach (var package in newMailPackages)
                         {
-                            downloadedMessageIds.Add(package.Copy.Id);
+                            // Only add to downloaded message ids if it's inserted successfuly.
+                            // Updates should not be added to the list because they are not new.
+                            bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                            if (isInserted)
+                            {
+                                downloadedMessageIds.Add(package.Copy.Id);
+                            }
                         }
                     }
                 }
@@ -339,11 +381,12 @@ namespace Wino.Core.Synchronizers
 
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
-            // Gather special folders by default.
-            // Others will be other type.
+        // Gather special folders by default.
+        // Others will be other type.
 
-            // Get well known folder ids by batch.
+        // Get well known folder ids by batch.
 
+        retry:
             var wellKnownFolderIdBatch = new BatchRequestContentCollection(_graphClient);
 
             var inboxRequest = _graphClient.Me.MailFolders[INBOX_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; });
@@ -394,9 +437,19 @@ namespace Wino.Core.Synchronizers
 
                 deltaRequest.UrlTemplate = deltaRequest.UrlTemplate.Insert(deltaRequest.UrlTemplate.Length - 1, ",%24deltaToken");
                 deltaRequest.QueryParameters.Add("%24deltaToken", currentDeltaLink);
-                graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
+
+                try
+                {
+                    graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
+                catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
+                {
+                    Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor.ResetAccountDeltaTokenAsync(Account.Id);
+
+                    goto retry;
+                }
             }
 
             var iterator = PageIterator<MailFolder, Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, graphFolders, (folder) =>
@@ -686,6 +739,8 @@ namespace Wino.Core.Synchronizers
                                                                    HttpResponseMessage httpResponseMessage,
                                                                    CancellationToken cancellationToken = default)
         {
+            if (httpResponseMessage == null) return;
+
             if (!httpResponseMessage.IsSuccessStatusCode)
             {
                 throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));

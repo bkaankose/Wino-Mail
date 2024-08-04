@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,57 +15,12 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Synchronization;
 using Wino.Core.Misc;
 using Wino.Core.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public interface IBaseSynchronizer
-    {
-        /// <summary>
-        /// Account that is assigned for this synchronizer.
-        /// </summary>
-        MailAccount Account { get; }
-
-        /// <summary>
-        /// Synchronizer state.
-        /// </summary>
-        AccountSynchronizerState State { get; }
-
-        /// <summary>
-        /// Queues a single request to be executed in the next synchronization.
-        /// </summary>
-        /// <param name="request">Request to queue.</param>
-        void QueueRequest(IRequestBase request);
-
-        /// <summary>
-        /// TODO
-        /// </summary>
-        /// <returns>Whether active synchronization is stopped or not.</returns>
-        bool CancelActiveSynchronization();
-
-        /// <summary>
-        /// Performs a full synchronization with the server with given options.
-        /// This will also prepares batch requests for execution.
-        /// Requests are executed in the order they are queued and happens before the synchronization.
-        /// Result of the execution queue is processed during the synchronization.
-        /// </summary>
-        /// <param name="options">Options for synchronization.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>Result summary of synchronization.</returns>
-        Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Downloads a single MIME message from the server and saves it to disk.
-        /// </summary>
-        /// <param name="mailItem">Mail item to download from server.</param>
-        /// <param name="transferProgress">Optional progress reporting for download operation.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        Task DownloadMissingMimeMessageAsync(IMailItem mailItem, ITransferProgress transferProgress, CancellationToken cancellationToken = default);
-    }
-
     public abstract class BaseSynchronizer<TBaseRequest, TMessageType> : BaseMailIntegrator<TBaseRequest>, IBaseSynchronizer
     {
         private SemaphoreSlim synchronizationSemaphore = new(1);
@@ -88,7 +44,7 @@ namespace Wino.Core.Synchronizers
             {
                 state = value;
 
-                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(this, value));
+                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(Account.Id, value));
             }
         }
 
@@ -166,18 +122,21 @@ namespace Wino.Core.Synchronizers
             }
             catch (OperationCanceledException)
             {
-                Logger.Warning("Synchronization cancelled.");
+                Logger.Warning("Synchronization canceled.");
+
                 return SynchronizationResult.Canceled;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Disable maybe?
+                Logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+                Debugger.Break();
+
                 throw;
             }
             finally
             {
                 // Reset account progress to hide the progress.
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 0);
+                PublishSynchronizationProgress(0);
 
                 State = AccountSynchronizerState.Idle;
                 synchronizationSemaphore.Release();
@@ -190,6 +149,9 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         private void PublishUnreadItemChanges()
             => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
+
+        public void PublishSynchronizationProgress(double progress)
+            => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 
         /// <summary>
         /// 1. Group all requests by operation type.
@@ -302,20 +264,31 @@ namespace Wino.Core.Synchronizers
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
         private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> requests)
         {
-            bool isAllCustomSynchronizationRequests = requests.All(a => a is ICustomFolderSynchronizationRequest);
+            List<Guid> synchronizationFolderIds = new();
+
+            if (requests.All(a => a is IBatchChangeRequest))
+            {
+                var requestsInsideBatches = requests.Cast<IBatchChangeRequest>().SelectMany(b => b.Items);
+
+                // Gather FolderIds to synchronize.
+                synchronizationFolderIds = requestsInsideBatches
+                    .Where(a => a is ICustomFolderSynchronizationRequest)
+                    .Cast<ICustomFolderSynchronizationRequest>()
+                    .SelectMany(a => a.SynchronizationFolderIds)
+                    .ToList();
+            }
 
             var options = new SynchronizationOptions()
             {
                 AccountId = Account.Id,
-                Type = SynchronizationType.FoldersOnly
             };
 
-            if (isAllCustomSynchronizationRequests)
+            if (synchronizationFolderIds.Count > 0)
             {
                 // Gather FolderIds to synchronize.
 
                 options.Type = SynchronizationType.Custom;
-                options.SynchronizationFolderIds = requests.Cast<ICustomFolderSynchronizationRequest>().SelectMany(a => a.SynchronizationFolderIds).ToList();
+                options.SynchronizationFolderIds = synchronizationFolderIds;
             }
             else
             {

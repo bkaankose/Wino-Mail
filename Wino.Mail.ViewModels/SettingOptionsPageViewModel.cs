@@ -4,8 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Navigation;
+using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels
 {
@@ -26,6 +25,7 @@ namespace Wino.Mail.ViewModels
                     WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
                     WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
                     WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
+                    WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
                     _ => throw new NotImplementedException()
                 };
 

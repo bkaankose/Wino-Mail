@@ -1,12 +1,39 @@
-﻿using Windows.Foundation;
+﻿using System.Windows.Input;
+using Windows.Foundation;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Controls.Advanced
 {
     public sealed partial class WinoAppTitleBar : UserControl
     {
         public event TypedEventHandler<WinoAppTitleBar, RoutedEventArgs> BackButtonClicked;
+
+        public static readonly DependencyProperty IsRenderingPaneVisibleProperty = DependencyProperty.Register(nameof(IsRenderingPaneVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty IsReaderNarrowedProperty = DependencyProperty.Register(nameof(IsReaderNarrowed), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnIsReaderNarrowedChanged));
+        public static readonly DependencyProperty IsBackButtonVisibleProperty = DependencyProperty.Register(nameof(IsBackButtonVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty OpenPaneLengthProperty = DependencyProperty.Register(nameof(OpenPaneLength), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(0d, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty IsNavigationPaneOpenProperty = DependencyProperty.Register(nameof(IsNavigationPaneOpen), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty NavigationViewDisplayModeProperty = DependencyProperty.Register(nameof(NavigationViewDisplayMode), typeof(Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode), typeof(WinoAppTitleBar), new PropertyMetadata(Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Compact, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty ShellFrameContentProperty = DependencyProperty.Register(nameof(ShellFrameContent), typeof(UIElement), typeof(WinoAppTitleBar), new PropertyMetadata(null, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty SystemReservedProperty = DependencyProperty.Register(nameof(SystemReserved), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(0, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty CoreWindowTextProperty = DependencyProperty.Register(nameof(CoreWindowText), typeof(string), typeof(WinoAppTitleBar), new PropertyMetadata(string.Empty, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty ReadingPaneLengthProperty = DependencyProperty.Register(nameof(ReadingPaneLength), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(420d, OnDrawingPropertyChanged));
+        public static readonly DependencyProperty ConnectionStatusProperty = DependencyProperty.Register(nameof(ConnectionStatus), typeof(WinoServerConnectionStatus), typeof(WinoAppTitleBar), new PropertyMetadata(WinoServerConnectionStatus.None, new PropertyChangedCallback(OnConnectionStatusChanged)));
+        public static readonly DependencyProperty ReconnectCommandProperty = DependencyProperty.Register(nameof(ReconnectCommand), typeof(ICommand), typeof(WinoAppTitleBar), new PropertyMetadata(null));
+
+        public ICommand ReconnectCommand
+        {
+            get { return (ICommand)GetValue(ReconnectCommandProperty); }
+            set { SetValue(ReconnectCommandProperty, value); }
+        }
+
+        public WinoServerConnectionStatus ConnectionStatus
+        {
+            get { return (WinoServerConnectionStatus)GetValue(ConnectionStatusProperty); }
+            set { SetValue(ConnectionStatusProperty, value); }
+        }
 
         public string CoreWindowText
         {
@@ -62,16 +89,7 @@ namespace Wino.Controls.Advanced
             set { SetValue(IsRenderingPaneVisibleProperty, value); }
         }
 
-        public static readonly DependencyProperty IsRenderingPaneVisibleProperty = DependencyProperty.Register(nameof(IsRenderingPaneVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty IsReaderNarrowedProperty = DependencyProperty.Register(nameof(IsReaderNarrowed), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnIsReaderNarrowedChanged));
-        public static readonly DependencyProperty IsBackButtonVisibleProperty = DependencyProperty.Register(nameof(IsBackButtonVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty OpenPaneLengthProperty = DependencyProperty.Register(nameof(OpenPaneLength), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(0d, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty IsNavigationPaneOpenProperty = DependencyProperty.Register(nameof(IsNavigationPaneOpen), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty NavigationViewDisplayModeProperty = DependencyProperty.Register(nameof(NavigationViewDisplayMode), typeof(Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode), typeof(WinoAppTitleBar), new PropertyMetadata(Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Compact, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty ShellFrameContentProperty = DependencyProperty.Register(nameof(ShellFrameContent), typeof(UIElement), typeof(WinoAppTitleBar), new PropertyMetadata(null, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty SystemReservedProperty = DependencyProperty.Register(nameof(SystemReserved), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(0, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty CoreWindowTextProperty = DependencyProperty.Register(nameof(CoreWindowText), typeof(string), typeof(WinoAppTitleBar), new PropertyMetadata(string.Empty, OnDrawingPropertyChanged));
-        public static readonly DependencyProperty ReadingPaneLengthProperty = DependencyProperty.Register(nameof(ReadingPaneLength), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(420d, OnDrawingPropertyChanged));
+
 
 
         public double ReadingPaneLength
@@ -94,6 +112,19 @@ namespace Wino.Controls.Advanced
             {
                 bar.DrawTitleBar();
             }
+        }
+
+        private static void OnConnectionStatusChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+        {
+            if (obj is WinoAppTitleBar bar)
+            {
+                bar.UpdateConnectionStatus();
+            }
+        }
+
+        private void UpdateConnectionStatus()
+        {
+
         }
 
         private void DrawTitleBar()
@@ -162,5 +193,17 @@ namespace Wino.Controls.Advanced
         }
 
         private void TitlebarSizeChanged(object sender, SizeChangedEventArgs e) => DrawTitleBar();
+
+        private void ReconnectClicked(object sender, RoutedEventArgs e)
+        {
+            // Close the popup for reconnect button.
+            if (sender is Button senderButton && senderButton.Flyout is Flyout senderButtonFlyout)
+            {
+                senderButtonFlyout.Hide();
+            }
+
+            // Execute the reconnect command.
+            ReconnectCommand?.Execute(null);
+        }
     }
 }

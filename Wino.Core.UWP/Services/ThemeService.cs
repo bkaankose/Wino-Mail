@@ -20,10 +20,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.Messages.Shell;
 using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Models.Personalization;
 using Wino.Core.UWP.Services;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services
 {
@@ -167,6 +167,7 @@ namespace Wino.Services
             await ApplyCustomThemeAsync(true);
 
             // Registering to color changes, thus we notice when user changes theme system wide
+            uiSettings.ColorValuesChanged -= UISettingsColorChanged;
             uiSettings.ColorValuesChanged += UISettingsColorChanged;
         }
 

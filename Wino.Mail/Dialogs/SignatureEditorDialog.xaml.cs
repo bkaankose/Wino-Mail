@@ -10,7 +10,7 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Views.Settings;
 
 namespace Wino.Dialogs
@@ -329,41 +329,41 @@ namespace Wino.Dialogs
         {
             var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
 
-            if (change.type == "bold")
+            if (change.Type == "bold")
             {
-                BoldButton.IsChecked = change.value == "true";
+                BoldButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "italic")
+            else if (change.Type == "italic")
             {
-                ItalicButton.IsChecked = change.value == "true";
+                ItalicButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "underline")
+            else if (change.Type == "underline")
             {
-                UnderlineButton.IsChecked = change.value == "true";
+                UnderlineButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "strikethrough")
+            else if (change.Type == "strikethrough")
             {
-                StrokeButton.IsChecked = change.value == "true";
+                StrokeButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "ol")
+            else if (change.Type == "ol")
             {
-                OrderedListButton.IsChecked = change.value == "true";
+                OrderedListButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "ul")
+            else if (change.Type == "ul")
             {
-                BulletListButton.IsChecked = change.value == "true";
+                BulletListButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "indent")
+            else if (change.Type == "indent")
             {
-                IncreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+                IncreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
             }
-            else if (change.type == "outdent")
+            else if (change.Type == "outdent")
             {
-                DecreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+                DecreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
             }
-            else if (change.type == "alignment")
+            else if (change.Type == "alignment")
             {
-                var parsedValue = change.value switch
+                var parsedValue = change.Value switch
                 {
                     "jodit-icon_left" => 0,
                     "jodit-icon_center" => 1,

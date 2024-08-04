@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Toolkit.Uwp.Notifications;
+using CommunityToolkit.WinUI.Notifications;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.Core.Domain;
@@ -70,8 +70,8 @@ namespace Wino.Core.UWP.Services
 
                 foreach (var mailItem in validItems)
                 {
-                    if (mailItem.IsRead)
-                        continue;
+                    //if (mailItem.IsRead)
+                    //    continue;
 
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
@@ -104,11 +104,11 @@ namespace Wino.Core.UWP.Services
                     builder.AddText(mailItem.Subject);
                     builder.AddText(mailItem.PreviewText);
 
-                    builder.AddArgument(Constants.ToastMailItemIdKey, mailItem.UniqueId.ToString());
+                    builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
                     builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
 
-                    builder.AddButton(GetMarkedAsRead(mailItem.Id, mailItem.AssignedFolder.RemoteFolderId));
-                    builder.AddButton(GetDeleteButton(mailItem.Id, mailItem.AssignedFolder.RemoteFolderId));
+                    builder.AddButton(GetMarkedAsRead(mailItem.UniqueId));
+                    builder.AddButton(GetDeleteButton(mailItem.UniqueId));
                     builder.AddButton(GetDismissButton());
 
                     builder.Show();
@@ -123,21 +123,19 @@ namespace Wino.Core.UWP.Services
             .SetDismissActivation()
             .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/dismiss.png"));
 
-        private ToastButton GetDeleteButton(string mailCopyId, string remoteFolderId)
+        private ToastButton GetDeleteButton(Guid mailUniqueId)
             => new ToastButton()
             .SetContent(Translator.MailOperation_Delete)
             .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/delete.png"))
-            .AddArgument(Constants.ToastMailItemIdKey, mailCopyId)
-            .AddArgument(Constants.ToastMailItemRemoteFolderIdKey, remoteFolderId)
+            .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
             .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
             .SetBackgroundActivation();
 
-        private ToastButton GetMarkedAsRead(string mailCopyId, string remoteFolderId)
+        private ToastButton GetMarkedAsRead(Guid mailUniqueId)
             => new ToastButton()
             .SetContent(Translator.MailOperation_MarkAsRead)
             .SetImageUri(new System.Uri("ms-appx:///Assets/NotificationIcons/markread.png"))
-            .AddArgument(Constants.ToastMailItemIdKey, mailCopyId)
-            .AddArgument(Constants.ToastMailItemRemoteFolderIdKey, remoteFolderId)
+            .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
             .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
             .SetBackgroundActivation();
 

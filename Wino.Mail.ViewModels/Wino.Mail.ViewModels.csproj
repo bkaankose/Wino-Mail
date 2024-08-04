@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
 	<LangVersion>12</LangVersion>
+	<Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
     <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
   </ItemGroup>
 
 </Project>

@@ -5,21 +5,19 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Navigation;
-using Wino.Core.Requests;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
     public partial class AccountDetailsPageViewModel : BaseViewModel
     {
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly IAccountService _accountService;
         private readonly IFolderService _folderService;
 
@@ -45,11 +43,9 @@ namespace Wino.Mail.ViewModels
 
 
         public AccountDetailsPageViewModel(IDialogService dialogService,
-            IWinoSynchronizerFactory synchronizerFactory,
             IAccountService accountService,
             IFolderService folderService) : base(dialogService)
         {
-            _synchronizerFactory = synchronizerFactory;
             _accountService = accountService;
             _folderService = folderService;
         }
@@ -99,10 +95,7 @@ namespace Wino.Mail.ViewModels
 
             await _accountService.DeleteAccountAsync(Account);
 
-            _synchronizerFactory.DeleteSynchronizer(Account);
-
-            // TODO: Clear existing requests.
-            // _synchronizationWorker.ClearRequests(Account.Id);
+            // TODO: Server: Cancel ongoing calls from server for this account.
 
             DialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
 

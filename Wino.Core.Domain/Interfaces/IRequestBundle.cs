@@ -22,7 +22,7 @@ namespace Wino.Core.Domain.Interfaces
         TRequest NativeRequest { get; }
     }
 
-    public interface IRequestBase
+    public interface IRequestBase : IClientMessage
     {
         /// <summary>
         /// Synchronizer option to perform.

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
+using Wino.Core.Authenticators;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration.Threading;
@@ -16,9 +17,9 @@ namespace Wino.Core
             services.AddSingleton(loggerLevelSwitcher);
             services.AddSingleton<ILogInitializer, LogInitializer>();
 
+            services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
             services.AddSingleton<ITranslationService, TranslationService>();
             services.AddSingleton<IDatabaseService, DatabaseService>();
-            services.AddSingleton<IWinoSynchronizerFactory, WinoSynchronizerFactory>();
             services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
             services.AddSingleton<IMimeFileService, MimeFileService>();
 
@@ -42,9 +43,14 @@ namespace Wino.Core
             services.AddTransient<IFontService, FontService>();
             services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
 
+            services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
+            services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+
             services.AddTransient<OutlookThreadingStrategy>();
             services.AddTransient<GmailThreadingStrategy>();
             services.AddTransient<ImapThreadStrategy>();
+
+            services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
         }
     }
 }

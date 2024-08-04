@@ -1,23 +1,49 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Text.Json.Serialization;
 using MimeKit;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem
 {
     public class DraftPreperationRequest : DraftCreationOptions
     {
-        public DraftPreperationRequest(MailAccount account, MailCopy createdLocalDraftCopy, MimeMessage createdLocalDraftMimeMessage)
+        public DraftPreperationRequest(MailAccount account, MailCopy createdLocalDraftCopy, string base64EncodedMimeMessage)
         {
             Account = account ?? throw new ArgumentNullException(nameof(account));
 
             CreatedLocalDraftCopy = createdLocalDraftCopy ?? throw new ArgumentNullException(nameof(createdLocalDraftCopy));
-            CreatedLocalDraftMimeMessage = createdLocalDraftMimeMessage ?? throw new ArgumentNullException(nameof(createdLocalDraftMimeMessage));
+
+            // MimeMessage is not serializable with System.Text.Json. Convert to base64 string.
+            // This is additional work when deserialization needed, but not much to do atm.
+
+            Base64LocalDraftMimeMessage = base64EncodedMimeMessage;
         }
 
+        [JsonConstructor]
+        private DraftPreperationRequest() { }
+
         public MailCopy CreatedLocalDraftCopy { get; set; }
-        public MimeMessage CreatedLocalDraftMimeMessage { get; set; }
+
+        public string Base64LocalDraftMimeMessage { get; set; }
+
+        [JsonIgnore]
+        private MimeMessage createdLocalDraftMimeMessage;
+
+        [JsonIgnore]
+        public MimeMessage CreatedLocalDraftMimeMessage
+        {
+            get
+            {
+                if (createdLocalDraftMimeMessage == null)
+                {
+                    createdLocalDraftMimeMessage = Base64LocalDraftMimeMessage.GetMimeMessageFromBase64();
+                }
+
+                return createdLocalDraftMimeMessage;
+            }
+        }
+
         public MailAccount Account { get; }
     }
 }

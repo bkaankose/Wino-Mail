@@ -12,7 +12,7 @@ namespace Wino.Mail.ViewModels
     {
         private readonly IStoreRatingService _storeRatingService;
         private readonly INativeAppService _nativeAppService;
-        private readonly IAppInitializerService _appInitializerService;
+        private readonly IApplicationConfiguration _appInitializerService;
         private readonly IFileService _fileService;
         private readonly ILogInitializer _logInitializer;
 
@@ -31,7 +31,7 @@ namespace Wino.Mail.ViewModels
                                   IDialogService dialogService,
                                   INativeAppService nativeAppService,
                                   IPreferencesService preferencesService,
-                                  IAppInitializerService appInitializerService,
+                                  IApplicationConfiguration appInitializerService,
                                   IFileService fileService,
                                   ILogInitializer logInitializer) : base(dialogService)
         {
@@ -72,12 +72,13 @@ namespace Wino.Mail.ViewModels
 
         private Task ShareProtocolLogAsync()
             => SaveLogInternalAsync(ImapTestService.ProtocolLogFileName);
+
         private Task ShareWinoLogAsync()
-            => SaveLogInternalAsync(LogInitializer.WinoLogFileName);
+            => SaveLogInternalAsync(Constants.ClientLogFile);
 
         private async Task SaveLogInternalAsync(string sourceFileName)
         {
-            var appDataFolder = _appInitializerService.GetApplicationDataFolder();
+            var appDataFolder = _appInitializerService.ApplicationDataFolderPath;
 
             var logFile = Path.Combine(appDataFolder, sourceFileName);
 

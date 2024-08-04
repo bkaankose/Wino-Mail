@@ -21,6 +21,7 @@
         MailListPage,
         ReadComposePanePage,
         LanguageTimePage,
+        AppPreferencesPage,
         SettingOptionsPage,
     }
 }

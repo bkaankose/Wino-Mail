@@ -14,16 +14,16 @@ namespace Wino.Core.Services
 
     public class DatabaseService : IDatabaseService
     {
-        private string DatabaseName => "Wino172.db";
+        private const string DatabaseName = "Wino172.db";
 
         private bool _isInitialized = false;
-        private readonly IAppInitializerService _appInitializerService;
+        private readonly IApplicationConfiguration _folderConfiguration;
 
         public SQLiteAsyncConnection Connection { get; private set; }
 
-        public DatabaseService(IAppInitializerService appInitializerService)
+        public DatabaseService(IApplicationConfiguration folderConfiguration)
         {
-            _appInitializerService = appInitializerService;
+            _folderConfiguration = folderConfiguration;
         }
 
         public async Task InitializeAsync()
@@ -31,8 +31,8 @@ namespace Wino.Core.Services
             if (_isInitialized)
                 return;
 
-            var applicationData = _appInitializerService.GetPublisherSharedFolder();
-            var databaseFileName = Path.Combine(applicationData, DatabaseName);
+            var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
+            var databaseFileName = Path.Combine(publisherCacheFolder, DatabaseName);
 
             Connection = new SQLiteAsyncConnection(databaseFileName)
             {
@@ -44,7 +44,6 @@ namespace Wino.Core.Services
                     // Log.Debug(t);
                 })
             };
-
 
             await CreateTablesAsync();
 

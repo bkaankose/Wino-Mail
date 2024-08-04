@@ -16,11 +16,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
-using Wino.Core.Requests;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Services
 {
@@ -244,7 +244,7 @@ namespace Wino.Services
                         Type = SynchronizationType.Full,
                     };
 
-                    WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options));
+                    WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
                 }
 
                 if (configuration != null)

@@ -3,8 +3,8 @@ using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Authorization;
-using Wino.Core.Messages.Shell;
+using Wino.Messaging.Client.Authorization;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Activation
 {
@@ -25,7 +25,6 @@ namespace Wino.Activation
         protected override Task HandleInternalAsync(ProtocolActivatedEventArgs args)
         {
             // Check URI prefix.
-
             var protocolString = args.Uri.AbsoluteUri;
 
             // Google OAuth Response

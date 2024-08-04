@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
 using MoreLinq;
@@ -13,33 +14,30 @@ using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.MenuItems;
-using Wino.Core.Messages.Accounts;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Navigation;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
-using Wino.Core.Requests;
 using Wino.Core.Services;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
     public partial class AppShellViewModel : BaseViewModel,
-        ISynchronizationProgress,
-        IRecipient<NewSynchronizationRequested>,
         IRecipient<NavigateSettingsRequested>,
         IRecipient<MailtoProtocolMessageRequested>,
         IRecipient<RefreshUnreadCountsMessage>,
         IRecipient<AccountsMenuRefreshRequested>,
         IRecipient<MergedInboxRenamed>,
         IRecipient<LanguageChanged>,
-        IRecipient<AccountMenuItemsReordered>
+        IRecipient<AccountMenuItemsReordered>,
+        IRecipient<AccountSynchronizationProgressUpdatedMessage>
     {
         #region Menu Items
 
@@ -62,6 +60,7 @@ namespace Wino.Mail.ViewModels
         #endregion
 
         public IStatePersistanceService StatePersistenceService { get; }
+        public IWinoServerConnectionManager ServerConnectionManager { get; }
         public IPreferencesService PreferencesService { get; }
         public IWinoNavigationService NavigationService { get; }
 
@@ -73,7 +72,6 @@ namespace Wino.Mail.ViewModels
         private readonly INotificationBuilder _notificationBuilder;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
 
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
         private readonly IBackgroundTaskService _backgroundTaskService;
         private readonly IMimeFileService _mimeFileService;
 
@@ -82,9 +80,11 @@ namespace Wino.Mail.ViewModels
 
         private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
+        [ObservableProperty]
+        private WinoServerConnectionStatus activeConnectionStatus;
+
         public AppShellViewModel(IDialogService dialogService,
                                  IWinoNavigationService navigationService,
-                                 IWinoSynchronizerFactory synchronizerFactory,
                                  IBackgroundTaskService backgroundTaskService,
                                  IMimeFileService mimeFileService,
                                  INativeAppService nativeAppService,
@@ -97,13 +97,24 @@ namespace Wino.Mail.ViewModels
                                  INotificationBuilder notificationBuilder,
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IFolderService folderService,
-                                 IStatePersistanceService statePersistanceService) : base(dialogService)
+                                 IStatePersistanceService statePersistanceService,
+                                 IWinoServerConnectionManager serverConnectionManager) : base(dialogService)
         {
             StatePersistenceService = statePersistanceService;
+            ServerConnectionManager = serverConnectionManager;
+
+            ActiveConnectionStatus = serverConnectionManager.Status;
+            ServerConnectionManager.StatusChanged += async (sender, status) =>
+            {
+                await ExecuteUIThread(() =>
+                {
+                    ActiveConnectionStatus = status;
+                });
+            };
+
             PreferencesService = preferencesService;
             NavigationService = navigationService;
 
-            _synchronizerFactory = synchronizerFactory;
             _backgroundTaskService = backgroundTaskService;
             _mimeFileService = mimeFileService;
             _nativeAppService = nativeAppService;
@@ -116,6 +127,9 @@ namespace Wino.Mail.ViewModels
             _notificationBuilder = notificationBuilder;
             _winoRequestDelegator = winoRequestDelegator;
         }
+
+        [RelayCommand]
+        private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
         protected override void OnDispatcherAssigned()
         {
@@ -221,9 +235,7 @@ namespace Wino.Mail.ViewModels
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
-#if !DEBUG
             await ForceAllAccountSynchronizationsAsync();
-#endif
             await ConfigureBackgroundTasksAsync();
         }
 
@@ -232,10 +244,6 @@ namespace Wino.Mail.ViewModels
             try
             {
                 await _backgroundTaskService.HandleBackgroundTaskRegistrations();
-            }
-            catch (BackgroundTaskExecutionRequestDeniedException)
-            {
-                await DialogService.ShowMessageAsync(Translator.Info_BackgroundExecutionDeniedMessage, Translator.Info_BackgroundExecutionDeniedTitle);
             }
             catch (Exception ex)
             {
@@ -255,10 +263,10 @@ namespace Wino.Mail.ViewModels
                 var options = new SynchronizationOptions()
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.Inbox
+                    Type = SynchronizationType.Full
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options));
+                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 
@@ -344,23 +352,27 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem)
+        public async Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitAwaitTask = null)
         {
             // It's already there. Don't navigate again.
             if (SelectedMenuItem == baseFolderMenuItem) return;
 
-            SelectedMenuItem = baseFolderMenuItem;
-            baseFolderMenuItem.IsSelected = true;
+            await ExecuteUIThread(() =>
+            {
+                SelectedMenuItem = baseFolderMenuItem;
+                baseFolderMenuItem.IsSelected = true;
 
-            var mailInitCompletionSource = new TaskCompletionSource<bool>();
-            var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, mailInitCompletionSource);
+                if (folderInitAwaitTask == null) folderInitAwaitTask = new TaskCompletionSource<bool>();
 
-            NavigationService.NavigateFolder(args);
+                var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, folderInitAwaitTask);
 
-            UpdateWindowTitleForFolder(baseFolderMenuItem);
+                NavigationService.NavigateFolder(args);
+
+                UpdateWindowTitleForFolder(baseFolderMenuItem);
+            });
 
             // Wait until mail list page picks up the event and finish initialization of the mails.
-            await mailInitCompletionSource.Task;
+            await folderInitAwaitTask.Task;
         }
 
         private void UpdateWindowTitleForFolder(IBaseFolderMenuItem folder)
@@ -594,11 +606,7 @@ namespace Wino.Mail.ViewModels
             if (navigateInbox)
             {
                 await Task.Yield();
-
-                await ExecuteUIThread(() =>
-                {
-                    NavigateInbox(clickedBaseAccountMenuItem);
-                });
+                await NavigateInboxAsync(clickedBaseAccountMenuItem);
             }
         }
 
@@ -666,20 +674,22 @@ namespace Wino.Mail.ViewModels
             await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
         }
 
-        private async void NavigateInbox(IAccountMenuItem clickedBaseAccountMenuItem)
+        private async Task NavigateInboxAsync(IAccountMenuItem clickedBaseAccountMenuItem)
         {
+            var folderInitAwaitTask = new TaskCompletionSource<bool>();
+
             if (clickedBaseAccountMenuItem is AccountMenuItem accountMenuItem)
             {
                 if (MenuItems.TryGetWindowsStyleRootSpecialFolderMenuItem(accountMenuItem.AccountId, SpecialFolderType.Inbox, out FolderMenuItem inboxFolder))
                 {
-                    await NavigateFolderAsync(inboxFolder);
+                    await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
                 }
             }
             else if (clickedBaseAccountMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
             {
                 if (MenuItems.TryGetMergedAccountSpecialFolderMenuItem(mergedAccountMenuItem.EntityId.GetValueOrDefault(), SpecialFolderType.Inbox, out IBaseFolderMenuItem inboxFolder))
                 {
-                    await NavigateFolderAsync(inboxFolder);
+                    await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
                 }
             }
         }
@@ -769,74 +779,12 @@ namespace Wino.Mail.ViewModels
                 MailtoParameters = _launchProtocolService.MailtoParameters
             };
 
-            var createdMimeMessage = await _mailService.CreateDraftMimeMessageAsync(account.Id, draftOptions).ConfigureAwait(false);
-            var createdDraftMailMessage = await _mailService.CreateDraftAsync(account, createdMimeMessage).ConfigureAwait(false);
+            var createdBase64EncodedMimeMessage = await _mailService.CreateDraftMimeBase64Async(account.Id, draftOptions).ConfigureAwait(false);
+            var createdDraftMailMessage = await _mailService.CreateDraftAsync(account, createdBase64EncodedMimeMessage).ConfigureAwait(false);
 
-            var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdMimeMessage);
+            var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdBase64EncodedMimeMessage);
             await _winoRequestDelegator.ExecuteAsync(draftPreperationRequest);
         }
-
-
-
-        public async void Receive(NewSynchronizationRequested message)
-        {
-            // Don't send message for sync completion when we execute requests.
-            // People are usually interested in seeing the notification after they trigger the synchronization.
-
-            bool shouldReportSynchronizationResult = message.Options.Type != SynchronizationType.ExecuteRequests;
-
-            var synchronizer = _synchronizerFactory.GetAccountSynchronizer(message.Options.AccountId);
-
-            if (synchronizer == null) return;
-
-            var accountId = message.Options.AccountId;
-
-            message.Options.ProgressListener = this;
-
-            bool isSynchronizationSucceeded = false;
-
-            try
-            {
-                // TODO: Cancellation Token
-                var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options);
-
-                isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
-
-                // Create notification for synchronization result.
-                if (synchronizationResult.DownloadedMessages.Any())
-                {
-                    var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
-
-                    if (accountInboxFolder == null) return;
-
-                    await _notificationBuilder.CreateNotificationsAsync(accountInboxFolder.Id, synchronizationResult.DownloadedMessages);
-                }
-            }
-            catch (AuthenticationAttentionException)
-            {
-                await SetAccountAttentionAsync(accountId, AccountAttentionReason.InvalidCredentials);
-            }
-            catch (SystemFolderConfigurationMissingException)
-            {
-                await SetAccountAttentionAsync(accountId, AccountAttentionReason.MissingSystemFolderConfiguration);
-            }
-            catch (OperationCanceledException)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncCanceledMessage, Translator.Info_SyncCanceledMessage, InfoBarMessageType.Warning);
-            }
-            catch (Exception ex)
-            {
-                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, ex.Message, InfoBarMessageType.Error);
-            }
-            finally
-            {
-                if (shouldReportSynchronizationResult)
-                    Messenger.Send(new AccountSynchronizationCompleted(accountId,
-                                                                       isSynchronizationSucceeded ? SynchronizationCompletedState.Success : SynchronizationCompletedState.Failed,
-                                                                       message.Options.GroupedSynchronizationTrackingId));
-            }
-        }
-
 
         protected override async void OnAccountUpdated(MailAccount updatedAccount)
         {
@@ -867,11 +815,12 @@ namespace Wino.Mail.ViewModels
                 Type = SynchronizationType.Full,
             };
 
-            Messenger.Send(new NewSynchronizationRequested(options));
+            Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
 
             await _nativeAppService.PinAppToTaskbarAsync();
         }
 
+        // TODO: Handle by messaging.
         private async Task SetAccountAttentionAsync(Guid accountId, AccountAttentionReason reason)
         {
             if (!MenuItems.TryGetAccountMenuItem(accountId, out IAccountMenuItem accountMenuItem)) return;
@@ -911,15 +860,6 @@ namespace Wino.Mail.ViewModels
             if (targetAccount == null) return;
 
             await CreateNewMailForAsync(targetAccount);
-        }
-
-        public async void AccountProgressUpdated(Guid accountId, int progress)
-        {
-            var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(accountId);
-
-            if (accountMenuItem == null) return;
-
-            await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = progress; });
         }
 
         private async Task RecreateMenuItemsAsync()
@@ -1008,6 +948,15 @@ namespace Wino.Mail.ViewModels
             base.OnFolderSynchronizationEnabled(mailItemFolder);
 
             UpdateFolderCollection(mailItemFolder);
+        }
+
+        public async void Receive(AccountSynchronizationProgressUpdatedMessage message)
+        {
+            var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(message.AccountId);
+
+            if (accountMenuItem == null) return;
+
+            await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = message.Progress; });
         }
     }
 }

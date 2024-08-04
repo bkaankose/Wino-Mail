@@ -11,22 +11,23 @@ namespace Wino.Core.Services
     {
         private readonly INativeAppService _nativeAppService;
         private readonly ITokenService _tokenService;
+        private readonly IApplicationConfiguration _applicationConfiguration;
 
-        public AuthenticationProvider(INativeAppService nativeAppService, ITokenService tokenService)
+        public AuthenticationProvider(INativeAppService nativeAppService, ITokenService tokenService, IApplicationConfiguration applicationConfiguration)
         {
             _nativeAppService = nativeAppService;
             _tokenService = tokenService;
+            _applicationConfiguration = applicationConfiguration;
         }
 
         public IAuthenticator GetAuthenticator(MailProviderType providerType)
         {
+            // TODO: Move DI
             return providerType switch
             {
-                MailProviderType.Outlook => new OutlookAuthenticator(_tokenService, _nativeAppService),
-                MailProviderType.Office365 => new Office365Authenticator(_tokenService, _nativeAppService),
+                MailProviderType.Outlook => new OutlookAuthenticator(_tokenService, _nativeAppService, _applicationConfiguration),
+                MailProviderType.Office365 => new Office365Authenticator(_tokenService, _nativeAppService, _applicationConfiguration),
                 MailProviderType.Gmail => new GmailAuthenticator(_tokenService, _nativeAppService),
-                MailProviderType.Yahoo => new YahooAuthenticator(_tokenService),
-                MailProviderType.IMAP4 => new CustomAuthenticator(_tokenService),
                 _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
             };
         }

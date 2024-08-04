@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Interfaces
     {
         Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
         Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId);
-        Task<MailCopy> CreateDraftAsync(MailAccount composerAccount, MimeMessage generatedReplyMime, MimeMessage replyingMimeMessage = null, IMailItem replyingMailItem = null);
+        Task<MailCopy> CreateDraftAsync(MailAccount composerAccount, string generatedReplyMimeMessageBase64, MimeMessage replyingMimeMessage = null, IMailItem replyingMailItem = null);
         Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options);
 
         /// <summary>
@@ -51,7 +51,16 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="newThreadId"></param>
         Task MapLocalDraftAsync(string newMailCopyId, string newDraftId, string newThreadId);
 
-        Task<MimeMessage> CreateDraftMimeMessageAsync(Guid accountId, DraftCreationOptions options);
+        /// <summary>
+        /// Creates a draft message with the given options.
+        /// </summary>
+        /// <param name="accountId">Account to create draft for.</param>
+        /// <param name="options">Draft creation options.</param>
+        /// <returns>
+        /// Base64 encoded string of MimeMessage object.
+        /// This is mainly for serialization purposes.
+        /// </returns>
+        Task<string> CreateDraftMimeBase64Async(Guid accountId, DraftCreationOptions options);
         Task UpdateMailAsync(MailCopy mailCopy);
 
         /// <summary>
@@ -92,5 +101,14 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="folderId">Folder id to get unread mails for.</param>
         Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId);
+
+        /// <summary>
+        /// Checks whether the mail exists in the folder.
+        /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
+        /// </summary>
+        /// <param name="messageId">Message id</param>
+        /// <param name="folderId">Folder's local id.</param>
+        /// <returns>Whether mail exists in the folder or not.</returns>
+        Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId);
     }
 }

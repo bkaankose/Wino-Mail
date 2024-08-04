@@ -17,25 +17,6 @@
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <PlatformTarget>x86</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
@@ -118,17 +99,21 @@
   </PropertyGroup>
   <PropertyGroup>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <LangVersion>12.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CoreUWPContainerSetup.cs" />
     <Compile Include="Dispatcher.cs" />
     <Compile Include="Extensions\ElementThemeExtensions.cs" />
+    <Compile Include="Extensions\StartupTaskStateExtensions.cs" />
     <Compile Include="Models\Personalization\CustomAppTheme.cs" />
     <Compile Include="Models\Personalization\PreDefinedAppTheme.cs" />
     <Compile Include="Models\Personalization\SystemAppTheme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Services\AppInitializerService.cs" />
-    <Compile Include="Services\BackgroundSynchronizer.cs" />
+    <Compile Include="Services\PreferencesService.cs" />
+    <Compile Include="Services\StartupBehaviorService.cs" />
+    <Compile Include="Services\StatePersistenceService.cs" />
+    <Compile Include="Services\WinoServerConnectionManager.cs" />
     <Compile Include="Services\BackgroundTaskService.cs" />
     <Compile Include="Services\ClipboardService.cs" />
     <Compile Include="Services\ConfigurationService.cs" />
@@ -143,9 +128,9 @@
     <EmbeddedResource Include="Properties\Wino.Core.UWP.rd.xml" />
   </ItemGroup>
   <ItemGroup>
-    <!--<PackageReference Include="CommunityToolkit.Uwp.Helpers">
-      <Version>8.0.230907</Version>
-    </PackageReference>-->
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications">
+      <Version>7.1.2</Version>
+    </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Analytics">
       <Version>5.0.4</Version>
     </PackageReference>
@@ -153,9 +138,6 @@
       <Version>6.2.14</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Toolkit.Uwp">
-      <Version>7.1.3</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications">
       <Version>7.1.3</Version>
     </PackageReference>
   </ItemGroup>
@@ -168,8 +150,16 @@
       <Project>{e6b1632a-8901-41e8-9ddf-6793c7698b0b}</Project>
       <Name>Wino.Core</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messaging</Name>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">
+      <Name>Windows Desktop Extensions for the UWP</Name>
+    </SDKReference>
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
