@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Renombrar cuenta vinculada",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Esta operación no eliminará sus cuentas pero sólo romperá el enlace para conexiones de carpetas compartidas. ¿Desea continuar?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Desvincular Cuentas",
-    "DialogMessage_EmptySubjectConfirmation": "Sin Asunto",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "El mensaje no tiene asunto. ¿Desea continuar?",
     "DialogMessage_RenameFolderTitle": "Renombrar carpeta",
     "DialogMessage_RenameFolderMessage": "Introduce un nombre nuevo para esta carpeta",
