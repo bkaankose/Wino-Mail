@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Gekoppeld account hernoemen",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Deze handeling zal je accounts niet verwijderen, maar alleen de koppeling van gedeelde mappen verbreken. Wil je doorgaan?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Ontkoppel accounts",
-    "DialogMessage_EmptySubjectConfirmation": "Onderwerp ontbreekt",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Het bericht heeft geen onderwerp. Wilt u doorgaan?",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",
