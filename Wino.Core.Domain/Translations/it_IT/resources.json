@@ -82,7 +82,7 @@
     "DialogMessage_RenameLinkedAccountsTitle": "Rinomina l'account collegato",
     "DialogMessage_UnlinkAccountsConfirmationMessage": "Questa operazione non eliminerà i tuoi account, ma interromperà solo il collegamento verso le connessioni alla cartella condivisa. Vuoi continuare?",
     "DialogMessage_UnlinkAccountsConfirmationTitle": "Scollega account",
-    "DialogMessage_EmptySubjectConfirmation": "Oggetto mancante",
+    "DialogMessage_EmptySubjectConfirmation": "Missing Subject",
     "DialogMessage_EmptySubjectConfirmationMessage": "Il messaggio non ha oggetto. Vuoi continuare?",
     "DialogMessage_RenameFolderTitle": "Rename Folder",
     "DialogMessage_RenameFolderMessage": "Enter new name for this folder",
