@@ -1,42 +1,31 @@
-﻿using System.Collections.Specialized;
-using System.Linq;
-using System.Text.Json.Serialization;
-using MimeKit;
+﻿using MimeKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.MailItem
+namespace Wino.Core.Domain.Models.MailItem;
+
+public class DraftCreationOptions
 {
-    public class DraftCreationOptions
-    {
-        [JsonIgnore]
-        public MimeMessage ReferenceMimeMessage { get; set; }
-        public MailCopy ReferenceMailCopy { get; set; }
-        public DraftCreationReason Reason { get; set; }
+    public DraftCreationReason Reason { get; set; }
 
-        #region Mailto Protocol Related Stuff
+    // Used for forward/reply
+    public ReferencedMessage ReferencedMessage { get; set; }
 
-        public const string MailtoSubjectParameterKey = "subject";
-        public const string MailtoBodyParameterKey = "body";
-        public const string MailtoToParameterKey = "mailto";
-        public const string MailtoCCParameterKey = "cc";
-        public const string MailtoBCCParameterKey = "bcc";
+    // Used to create mails from Mailto links
+    public MailToParameters MailToParameters { get; set; }
+}
 
-        public NameValueCollection MailtoParameters { get; set; }
+public class MailToParameters
+{
+    public string To { get; set; }
+    public string Cc { get; set; }
+    public string Bcc { get; set; }
+    public string Subject { get; set; }
+    public string Body { get; set; }
+}
 
-        private bool IsMailtoParameterExists(string parameterKey)
-            => MailtoParameters != null
-            && MailtoParameters.AllKeys.Contains(parameterKey);
-
-        public bool TryGetMailtoValue(string key, out string value)
-        {
-            bool valueExists = IsMailtoParameterExists(key);
-
-            value = valueExists ? MailtoParameters[key] : string.Empty;
-
-            return valueExists;
-        }
-
-        #endregion
-    }
+public class ReferencedMessage
+{
+    public MailCopy MailCopy { get; set; }
+    public MimeMessage MimeMessage { get; set; }
 }
