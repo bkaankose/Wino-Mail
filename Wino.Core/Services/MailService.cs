@@ -54,7 +54,7 @@ namespace Wino.Core.Services
 
         public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions, IMailItem replyingMailItem = null)
         {
-            var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount.Id, draftCreationOptions);
+            var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions);
 
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -623,17 +623,8 @@ namespace Wino.Core.Services
             }
         }
 
-        private async Task<MimeMessage> CreateDraftMimeAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
+        private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
         {
-            var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-
-            if (account == null)
-            {
-                _logger.Warning("Can't create draft mime message because account {AccountId} does not exist.", accountId);
-
-                return null;
-            }
-
             // This unique id is stored in mime headers for Wino to identify remote message with local copy.
             // Same unique id will be used for the local copy as well.
             // Synchronizer will map this unique id to the local draft copy after synchronization.
