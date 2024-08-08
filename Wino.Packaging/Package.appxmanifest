@@ -55,13 +55,6 @@
 			<!-- App updated task. Notifies about new version after each Store update. -->
 			<Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
 
-			<!-- SessionConnected task for background synchronization on startup. -->
-			<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
-				<BackgroundTasks>
-					<Task Type="systemEvent" />
-				</BackgroundTasks>
-			</Extension>
-
 			<!-- Protocol activation: mailto -->
 			<uap:Extension Category="windows.protocol">
 				<uap:Protocol Name="mailto" />

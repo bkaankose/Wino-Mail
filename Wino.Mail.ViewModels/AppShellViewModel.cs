@@ -236,14 +236,14 @@ namespace Wino.Mail.ViewModels
             await ProcessLaunchOptionsAsync();
 
             await ForceAllAccountSynchronizationsAsync();
-            await ConfigureBackgroundTasksAsync();
+            ConfigureBackgroundTasks();
         }
 
-        private async Task ConfigureBackgroundTasksAsync()
+        private void ConfigureBackgroundTasks()
         {
             try
             {
-                await _backgroundTaskService.HandleBackgroundTaskRegistrations();
+                _backgroundTaskService.UnregisterAllBackgroundTask();
             }
             catch (Exception ex)
             {
