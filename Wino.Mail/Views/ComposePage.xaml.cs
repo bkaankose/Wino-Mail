@@ -562,12 +562,7 @@ namespace Wino.Views
 
         private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
         {
-            CCBCCShowButton.Visibility = Visibility.Collapsed;
-
-            CCTextBlock.Visibility = Visibility.Visible;
-            CCBox.Visibility = Visibility.Visible;
-            BccTextBlock.Visibility = Visibility.Visible;
-            BccBox.Visibility = Visibility.Visible;
+            ViewModel.IsCCBCCVisible = false;
         }
 
         private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)

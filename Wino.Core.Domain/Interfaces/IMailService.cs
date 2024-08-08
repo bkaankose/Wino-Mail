@@ -43,7 +43,6 @@ namespace Wino.Core.Domain.Interfaces
 
         /// <summary>
         /// Maps new mail item with the existing local draft copy.
-        /// 
         /// </summary>
         /// <param name="newMailCopyId"></param>
         /// <param name="newDraftId"></param>

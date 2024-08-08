@@ -335,7 +335,6 @@
     <Compile Include="Selectors\RendererCommandBarItemTemplateSelector.cs" />
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
-    <Compile Include="Services\LaunchProtocolService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />
     <Compile Include="Styles\CommandBarItems.xaml.cs">
       <DependentUpon>CommandBarItems.xaml</DependentUpon>
