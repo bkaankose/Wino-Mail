@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
 using MoreLinq;
+using Org.BouncyCastle.Asn1.Ocsp;
 using Serilog;
 using SqlKata;
 using Wino.Core.Domain;
@@ -628,40 +629,13 @@ namespace Wino.Core.Services
 
             var builder = new BodyBuilder();
 
+            var signature = await GetSignature(account, draftCreationOptions.Reason);
+
             _ = draftCreationOptions.Reason switch
             {
-                DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions),
-                _ => CreateReferencedDraft(builder, message, draftCreationOptions, account),
+                DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
+                _ => CreateReferencedDraft(builder, message, draftCreationOptions, account, signature),
             };
-
-            // It contains empty blocks with inlined font, to make sure when users starts typing,it will follow selected font.
-            var gapHtml = CreateHtmlGap();
-
-            // Append signatures if needed.
-            if (account.Preferences.IsSignatureEnabled)
-            {
-                var signatureId = draftCreationOptions.Reason == DraftCreationReason.Empty ?
-                    account.Preferences.SignatureIdForNewMessages :
-                    account.Preferences.SignatureIdForFollowingMessages;
-
-                if (signatureId != null)
-                {
-                    var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
-
-                    if (string.IsNullOrWhiteSpace(builder.HtmlBody))
-                    {
-                        builder.HtmlBody = $"{gapHtml}{signature.HtmlBody}";
-                    }
-                    else
-                    {
-                        builder.HtmlBody = $"{gapHtml}{signature.HtmlBody}{gapHtml}{builder.HtmlBody}";
-                    }
-                }
-            }
-            else
-            {
-                builder.HtmlBody = $"{gapHtml}{builder.HtmlBody}";
-            }
 
             if (!string.IsNullOrEmpty(builder.HtmlBody))
             {
@@ -671,16 +645,36 @@ namespace Wino.Core.Services
             message.Body = builder.ToMessageBody();
 
             return message;
-
-            string CreateHtmlGap()
-            {
-                var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
-                return string.Concat(Enumerable.Repeat(template, 2));
-            }
         }
 
-        private MimeMessage CreateEmptyDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions)
+        private string CreateHtmlGap()
         {
+            var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
+            return string.Concat(Enumerable.Repeat(template, 2));
+        }
+
+        private async Task<string> GetSignature(MailAccount account, DraftCreationReason reason)
+        {
+            if (account.Preferences.IsSignatureEnabled)
+            {
+                var signatureId = reason == DraftCreationReason.Empty ?
+                    account.Preferences.SignatureIdForNewMessages :
+                    account.Preferences.SignatureIdForFollowingMessages;
+
+                if (signatureId != null)
+                {
+                    var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
+
+                    return signature.HtmlBody;
+                }
+            }
+
+            return null;
+        }
+
+        private MimeMessage CreateEmptyDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, string signature)
+        {
+            builder.HtmlBody = CreateHtmlGap();
             if (draftCreationOptions.MailToUri != null)
             {
                 if (draftCreationOptions.MailToUri.Subject != null)
@@ -688,31 +682,37 @@ namespace Wino.Core.Services
 
                 if (draftCreationOptions.MailToUri.Body != null)
                 {
-                    builder.TextBody = draftCreationOptions.MailToUri.Body;
-                    builder.HtmlBody = draftCreationOptions.MailToUri.Body;
-
-                    message.Body = builder.ToMessageBody();
+                    builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{draftCreationOptions.MailToUri.Body}</div>""" + builder.HtmlBody;
                 }
 
-                if (draftCreationOptions.MailToUri.To?.Any() == true)
+                if (draftCreationOptions.MailToUri.To.Any())
                     message.To.AddRange(draftCreationOptions.MailToUri.To.Select(x => new MailboxAddress(x, x)));
 
-                if (draftCreationOptions.MailToUri.Cc?.Any() == true)
+                if (draftCreationOptions.MailToUri.Cc.Any())
                     message.Cc.AddRange(draftCreationOptions.MailToUri.Cc.Select(x => new MailboxAddress(x, x)));
 
-                if (draftCreationOptions.MailToUri.Bcc?.Any() == true)
+                if (draftCreationOptions.MailToUri.Bcc.Any())
                     message.Bcc.AddRange(draftCreationOptions.MailToUri.Bcc.Select(x => new MailboxAddress(x, x)));
             }
+
+            if (signature != null)
+                builder.HtmlBody += signature;
 
             return message;
         }
 
-        private MimeMessage CreateReferencedDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, MailAccount account)
+        private MimeMessage CreateReferencedDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, MailAccount account, string signature)
         {
             var reason = draftCreationOptions.Reason;
             var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
 
-            builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
+            var gap = CreateHtmlGap();
+            builder.HtmlBody = gap + CreateHtmlForReferencingMessage(referenceMessage);
+
+            if (signature != null)
+            {
+                builder.HtmlBody = gap + signature + builder.HtmlBody;
+            }
 
             // Manage "To"
             if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
@@ -753,8 +753,7 @@ namespace Wino.Core.Services
             // Manage Subject
             if (reason == DraftCreationReason.Forward && !referenceMessage.Subject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
                 message.Subject = $"FW: {referenceMessage.Subject}";
-            else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) &&
-                !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
+            else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
                 message.Subject = $"RE: {referenceMessage.Subject}";
             else if (referenceMessage != null)
                 message.Subject = referenceMessage.Subject;

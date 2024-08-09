@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Interfaces;

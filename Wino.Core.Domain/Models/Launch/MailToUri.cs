@@ -31,7 +31,7 @@ public class MailToUri
         var components = mailToWithoutScheme.Split('?');
         if (!string.IsNullOrEmpty(components[0]))
         {
-            To.AddRange(components[0].Split(',').Select(email => email.Trim()));
+            To.AddRange(components[0].Split(',').Select(email => HttpUtility.UrlDecode(email).Trim()));
         }
 
         if (components.Length <= 1)
