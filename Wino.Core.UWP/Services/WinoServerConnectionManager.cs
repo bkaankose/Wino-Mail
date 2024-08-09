@@ -24,7 +24,7 @@ namespace Wino.Core.UWP.Services
 {
     public class WinoServerConnectionManager :
         IWinoServerConnectionManager<AppServiceConnection>,
-        IRecipient<WinoServerConnectionEstrablished>
+        IRecipient<WinoServerConnectionEstablished>
     {
         private const int ServerConnectionTimeoutMs = 5000;
 
@@ -101,7 +101,7 @@ namespace Wino.Core.UWP.Services
 
                     // Connection establishment handler is in App.xaml.cs OnBackgroundActivated.
                     // Once the connection is established, the handler will set the Connection property
-                    // and WinoServerConnectionEstrablished will be fired by the messenger.
+                    // and WinoServerConnectionEstablished will be fired by the messenger.
 
                     await _connectionTaskCompletionSource.Task.WaitAsync(connectionCancellationToken.Token);
                 }
@@ -305,7 +305,7 @@ namespace Wino.Core.UWP.Services
             }
         }
 
-        public void Receive(WinoServerConnectionEstrablished message)
+        public void Receive(WinoServerConnectionEstablished message)
         {
             if (_connectionTaskCompletionSource != null)
             {

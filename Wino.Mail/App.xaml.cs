@@ -10,6 +10,7 @@ using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
+using Nito.AsyncEx;
 using Serilog;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
@@ -146,7 +147,6 @@ namespace Wino
         private void RegisterActivationHandlers(IServiceCollection services)
         {
             services.AddTransient<ProtocolActivationHandler>();
-            // services.AddTransient<BackgroundActivationHandler>();
             services.AddTransient<ToastNotificationActivationHandler>();
             services.AddTransient<FileActivationHandler>();
         }
@@ -283,18 +283,17 @@ namespace Wino
 
                     _appServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
 
-                    WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstrablished());
+                    WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstablished());
                 }
             }
             else if (args.TaskInstance.TriggerDetails is ToastNotificationActionTriggerDetail toastNotificationActionTriggerDetail)
             {
-                await InitializeServicesAsync();
-
                 // Notification action is triggered and the app is not running.
 
                 toastActionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
-
                 args.TaskInstance.Canceled += OnToastActionClickedBackgroundTaskCanceled;
+
+                await InitializeServicesAsync();
 
                 var toastArguments = ToastArguments.Parse(toastNotificationActionTriggerDetail.Argument);
 
@@ -364,13 +363,7 @@ namespace Wino
 
         private bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 
-        private async Task InitializeServicesAsync()
-        {
-            foreach (var service in initializeServices)
-            {
-                await service.InitializeAsync();
-            }
-        }
+        private Task InitializeServicesAsync() => initializeServices.Select(a => a.InitializeAsync()).WhenAll();
 
         private async Task ActivateWinoAsync(object args)
         {
@@ -428,7 +421,7 @@ namespace Wino
         {
             sender.Canceled -= OnConnectionBackgroundTaskCanceled;
 
-            Log.Information($"Background task {sender.Task.Name} was canceled. Reason: {reason}");
+            Log.Information($"Server connection background task '{sender.Task.Name}' was canceled. Reason: {reason}");
 
             await _appServiceConnectionManager.DisconnectAsync();
 
