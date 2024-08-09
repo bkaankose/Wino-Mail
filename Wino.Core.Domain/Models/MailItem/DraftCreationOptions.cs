@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using MimeKit;
+﻿using MimeKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
@@ -10,10 +9,14 @@ public class DraftCreationOptions
 {
     public DraftCreationReason Reason { get; set; }
 
-    // Used for forward/reply
+    /// <summary>
+    /// Used for forward/reply
+    /// </summary>
     public ReferencedMessage ReferencedMessage { get; set; }
 
-    // Used to create mails from Mailto links
+    /// <summary>
+    /// Used to create mails from Mailto links
+    /// </summary>
     public MailToUri MailToUri { get; set; }
 }
 

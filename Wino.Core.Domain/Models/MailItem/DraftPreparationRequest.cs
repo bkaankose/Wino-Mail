@@ -6,9 +6,9 @@ using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
-public class DraftPreperationRequest
+public class DraftPreparationRequest
 {
-    public DraftPreperationRequest(MailAccount account, MailCopy createdLocalDraftCopy, string base64EncodedMimeMessage)
+    public DraftPreparationRequest(MailAccount account, MailCopy createdLocalDraftCopy, string base64EncodedMimeMessage)
     {
         Account = account ?? throw new ArgumentNullException(nameof(account));
 
@@ -21,7 +21,7 @@ public class DraftPreperationRequest
     }
 
     [JsonConstructor]
-    private DraftPreperationRequest() { }
+    private DraftPreparationRequest() { }
 
     public MailCopy CreatedLocalDraftCopy { get; set; }
 

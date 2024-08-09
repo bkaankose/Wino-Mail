@@ -272,7 +272,7 @@ namespace Wino.Mail.ViewModels
 
                 var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount, draftOptions, initializedMailItemViewModel).ConfigureAwait(false);
 
-                var draftPreparationRequest = new DraftPreperationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage);
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage);
 
                 await _requestDelegator.ExecuteAsync(draftPreparationRequest);
 
