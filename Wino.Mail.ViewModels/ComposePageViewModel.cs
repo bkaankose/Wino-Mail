@@ -57,7 +57,7 @@ namespace Wino.Mail.ViewModels
         private MessageImportance selectedMessageImportance;
 
         [ObservableProperty]
-        private bool isCCBCCVisible = true;
+        private bool isCCBCCVisible;
 
         [ObservableProperty]
         private string subject;
@@ -76,21 +76,20 @@ namespace Wino.Mail.ViewModels
         [ObservableProperty]
         private bool isDraggingOverImagesDropZone;
 
-        public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
+        public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
+        public ObservableCollection<MailAccount> Accounts { get; set; } = [];
+        public ObservableCollection<AddressInformation> ToItems { get; set; } = [];
+        public ObservableCollection<AddressInformation> CCItems { get; set; } = [];
+        public ObservableCollection<AddressInformation> BCCItems { get; set; } = [];
 
-        public ObservableCollection<MailAccount> Accounts { get; set; } = new ObservableCollection<MailAccount>();
-        public ObservableCollection<AddressInformation> ToItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> CCItemsItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> BCCItems { get; set; } = new ObservableCollection<AddressInformation>();
 
-
-        public List<EditorToolbarSection> ToolbarSections { get; set; } = new List<EditorToolbarSection>()
-        {
+        public List<EditorToolbarSection> ToolbarSections { get; set; } =
+        [
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Format },
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Insert },
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Draw },
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Options }
-        };
+        ];
 
         private EditorToolbarSection selectedToolbarSection;
 
@@ -189,7 +188,7 @@ namespace Wino.Mail.ViewModels
             // Save recipients.
 
             SaveAddressInfo(ToItems, CurrentMimeMessage.To);
-            SaveAddressInfo(CCItemsItems, CurrentMimeMessage.Cc);
+            SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
             SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
 
             SaveImportance();
@@ -421,14 +420,17 @@ namespace Wino.Mail.ViewModels
                 // Extract information
 
                 ToItems.Clear();
-                CCItemsItems.Clear();
+                CCItems.Clear();
                 BCCItems.Clear();
 
                 LoadAddressInfo(replyingMime.To, ToItems);
-                LoadAddressInfo(replyingMime.Cc, CCItemsItems);
+                LoadAddressInfo(replyingMime.Cc, CCItems);
                 LoadAddressInfo(replyingMime.Bcc, BCCItems);
 
                 LoadAttachments(replyingMime.Attachments);
+
+                if (replyingMime.Cc.Any() || replyingMime.Bcc.Any())
+                    IsCCBCCVisible = true;
 
                 Subject = replyingMime.Subject;
 
