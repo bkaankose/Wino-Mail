@@ -17,7 +17,7 @@ namespace Wino.Core.UWP.Services
 
         public void UnregisterAllBackgroundTask()
         {
-            if (_configurationService.Get<bool>(IsBackgroundTasksUnregisteredKey, false))
+            if (!_configurationService.Get(IsBackgroundTasksUnregisteredKey, false))
             {
                 foreach (var task in BackgroundTaskRegistration.AllTasks)
                 {
@@ -25,6 +25,7 @@ namespace Wino.Core.UWP.Services
                 }
 
                 Log.Information("Unregistered all background tasks.");
+                _configurationService.Set(IsBackgroundTasksUnregisteredKey, true);
             }
         }
     }
