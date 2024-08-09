@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
@@ -11,6 +10,7 @@ using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
@@ -101,14 +101,7 @@ namespace Wino.Core.Services
 
             ReportUIChange(new DraftCreated(copy, composerAccount));
 
-            using MemoryStream memoryStream = new();
-            createdDraftMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
-            byte[] buffer = memoryStream.GetBuffer();
-            int count = (int)memoryStream.Length;
-
-            var mimeMessageBase64 = Convert.ToBase64String(buffer);
-
-            return (copy, mimeMessageBase64);
+            return (copy, createdDraftMimeMessage.GetBase64MimeMessage());
         }
 
         public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
