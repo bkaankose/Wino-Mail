@@ -31,7 +31,6 @@ namespace Wino.Core.Services
         private readonly IMimeFileService _mimeFileService;
         private readonly IPreferencesService _preferencesService;
 
-
         private readonly ILogger _logger = Log.ForContext<MailService>();
 
         public MailService(IDatabaseService databaseService,
@@ -52,7 +51,7 @@ namespace Wino.Core.Services
             _preferencesService = preferencesService;
         }
 
-        public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions, IMailItem replyingMailItem = null)
+        public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions)
         {
             var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions);
 
@@ -91,8 +90,8 @@ namespace Wino.Core.Services
                 if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MimeMessage.MessageId))
                     copy.InReplyTo = draftCreationOptions.ReferencedMessage.MimeMessage.MessageId;
 
-                if (!string.IsNullOrEmpty(replyingMailItem?.ThreadId))
-                    copy.ThreadId = replyingMailItem.ThreadId;
+                if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
+                    copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
             }
 
             await Connection.InsertAsync(copy);

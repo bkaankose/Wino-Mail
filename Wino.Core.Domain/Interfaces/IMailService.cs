@@ -94,10 +94,18 @@ namespace Wino.Core.Domain.Interfaces
         /// Checks whether the mail exists in the folder.
         /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
         /// </summary>
-        /// <param name="messageId">Message id</param>
+        /// <param name="mailCopyId">MailCopy id</param>
         /// <param name="folderId">Folder's local id.</param>
         /// <returns>Whether mail exists in the folder or not.</returns>
         Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId);
-        Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions, IMailItem replyingMailItem = null);
+
+        /// <summary>
+        /// Creates a draft MailCopy and MimeMessage based on the given options.
+        /// For forward/reply it would include the referenced message.
+        /// </summary>
+        /// <param name="composerAccount">Account which should have new draft.</param>
+        /// <param name="draftCreationOptions">Options like new email/forward/draft.</param>
+        /// <returns>Draft MailCopy and Draft MimeMessage as base64.</returns>
+        Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions);
     }
 }

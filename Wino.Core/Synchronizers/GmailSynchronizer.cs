@@ -609,12 +609,12 @@ namespace Wino.Core.Synchronizers
                 Draft draft = null;
 
                 // It's new mail. Not a reply
-                if (singleRequest.DraftPreperationRequest.ReferencedMessage == null)
+                if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
                     draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
                 else
                     draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
-                        singleRequest.DraftPreperationRequest.ReferencedMessage.ThreadId,
-                        singleRequest.DraftPreperationRequest.ReferencedMessage.DraftId);
+                        singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
+                        singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
 
                 return _gmailService.Users.Drafts.Create(draft, "me");
             });

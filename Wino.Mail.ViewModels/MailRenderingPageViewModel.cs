@@ -266,13 +266,14 @@ namespace Wino.Mail.ViewModels
                     },
                     ReferencedMessage = new ReferencedMessage()
                     {
-                        MimeMessage = initializedMimeMessageInformation.MimeMessage
+                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
+                        MailCopy = initializedMailItemViewModel.MailCopy
                     }
                 };
 
-                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount, draftOptions, initializedMailItemViewModel).ConfigureAwait(false);
+                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount, draftOptions).ConfigureAwait(false);
 
-                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage);
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage, initializedMailItemViewModel.MailCopy);
 
                 await _requestDelegator.ExecuteAsync(draftPreparationRequest);
 
