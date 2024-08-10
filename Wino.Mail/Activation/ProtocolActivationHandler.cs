@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Activation;
@@ -50,6 +51,22 @@ namespace Wino.Activation
             }
 
             return Task.CompletedTask;
+        }
+
+        protected override bool CanHandleInternal(ProtocolActivatedEventArgs args)
+        {
+            // Validate the URI scheme.
+
+            try
+            {
+                var uriGet = args.Uri;
+            }
+            catch (UriFormatException)
+            {
+                return false;
+            }
+
+            return base.CanHandleInternal(args);
         }
     }
 }
