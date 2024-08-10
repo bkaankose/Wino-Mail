@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
 using MoreLinq;
-using Org.BouncyCastle.Asn1.Ocsp;
 using Serilog;
 using SqlKata;
 using Wino.Core.Domain;
@@ -728,15 +727,8 @@ namespace Wino.Core.Services
                 if (reason == DraftCreationReason.ReplyAll)
                 {
                     // Include all of the other original recipients
-                    message.To.AddRange(referenceMessage.To);
-
-                    // Find self and remove
-                    var self = message.To.FirstOrDefault(a => a is MailboxAddress mailboxAddress && mailboxAddress.Address == account.Address);
-
-                    if (self != null)
-                        message.To.Remove(self);
-
-                    message.Cc.AddRange(referenceMessage.Cc);
+                    message.To.AddRange(referenceMessage.To.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
+                    message.Cc.AddRange(referenceMessage.Cc.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
                 }
 
                 // Manage "ThreadId-ConversationId"
