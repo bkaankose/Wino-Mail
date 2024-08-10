@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
@@ -32,7 +31,6 @@ namespace Wino.Core.Services
         private readonly IMimeFileService _mimeFileService;
         private readonly IPreferencesService _preferencesService;
 
-
         private readonly ILogger _logger = Log.ForContext<MailService>();
 
         public MailService(IDatabaseService databaseService,
@@ -53,18 +51,9 @@ namespace Wino.Core.Services
             _preferencesService = preferencesService;
         }
 
-        public async Task<MailCopy> CreateDraftAsync(MailAccount composerAccount,
-            string generatedReplyMimeMessageBase64,
-            MimeMessage replyingMimeMessage = null,
-            IMailItem replyingMailItem = null)
+        public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions)
         {
-            var createdDraftMimeMessage = generatedReplyMimeMessageBase64.GetMimeMessageFromBase64();
-
-            bool isImapAccount = composerAccount.ServerInformation != null;
-
-            string fromName;
-
-            fromName = composerAccount.SenderName;
+            var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions);
 
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -78,7 +67,7 @@ namespace Wino.Core.Services
                 Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
                 CreationDate = DateTime.UtcNow,
                 FromAddress = composerAccount.Address,
-                FromName = fromName,
+                FromName = composerAccount.SenderName,
                 HasAttachments = false,
                 Importance = MailImportance.Normal,
                 Subject = createdDraftMimeMessage.Subject,
@@ -93,28 +82,25 @@ namespace Wino.Core.Services
             };
 
             // If replying, add In-Reply-To, ThreadId and References.
-            bool isReplying = replyingMimeMessage != null;
-
-            if (isReplying)
+            if (draftCreationOptions.ReferencedMessage != null)
             {
-                if (replyingMimeMessage.References != null)
-                    copy.References = string.Join(",", replyingMimeMessage.References);
+                if (draftCreationOptions.ReferencedMessage.MimeMessage.References != null)
+                    copy.References = string.Join(",", draftCreationOptions.ReferencedMessage.MimeMessage.References);
 
-                if (!string.IsNullOrEmpty(replyingMimeMessage.MessageId))
-                    copy.InReplyTo = replyingMimeMessage.MessageId;
+                if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MimeMessage.MessageId))
+                    copy.InReplyTo = draftCreationOptions.ReferencedMessage.MimeMessage.MessageId;
 
-                if (!string.IsNullOrEmpty(replyingMailItem?.ThreadId))
-                    copy.ThreadId = replyingMailItem.ThreadId;
+                if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
+                    copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
             }
 
             await Connection.InsertAsync(copy);
-
 
             await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
 
             ReportUIChange(new DraftCreated(copy, composerAccount));
 
-            return copy;
+            return (copy, createdDraftMimeMessage.GetBase64MimeMessage());
         }
 
         public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
@@ -629,85 +615,45 @@ namespace Wino.Core.Services
             }
         }
 
-        public async Task<string> CreateDraftMimeBase64Async(Guid accountId, DraftCreationOptions draftCreationOptions)
+        private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
         {
             // This unique id is stored in mime headers for Wino to identify remote message with local copy.
             // Same unique id will be used for the local copy as well.
             // Synchronizer will map this unique id to the local draft copy after synchronization.
-
-            var messageUniqueId = Guid.NewGuid();
-
             var message = new MimeMessage()
             {
-                Headers = { { Constants.WinoLocalDraftHeader, messageUniqueId.ToString() } }
+                Headers = { { Constants.WinoLocalDraftHeader, Guid.NewGuid().ToString() } },
+                From = { new MailboxAddress(account.SenderName, account.Address) }
             };
 
             var builder = new BodyBuilder();
 
-            var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+            var signature = await GetSignature(account, draftCreationOptions.Reason);
 
-            if (account == null)
+            _ = draftCreationOptions.Reason switch
             {
-                _logger.Warning("Can't create draft mime message because account {AccountId} does not exist.", accountId);
+                DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
+                _ => CreateReferencedDraft(builder, message, draftCreationOptions, account, signature),
+            };
 
-                return null;
+            if (!string.IsNullOrEmpty(builder.HtmlBody))
+            {
+                builder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(builder.HtmlBody);
             }
 
-            var reason = draftCreationOptions.Reason;
-            var referenceMessage = draftCreationOptions.ReferenceMimeMessage;
+            message.Body = builder.ToMessageBody();
 
-            message.From.Add(new MailboxAddress(account.SenderName, account.Address));
+            return message;
+        }
 
-            // It contains empty blocks with inlined font, to make sure when users starts typing,it will follow selected font.
-            var gapHtml = CreateHtmlGap();
+        private string CreateHtmlGap()
+        {
+            var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
+            return string.Concat(Enumerable.Repeat(template, 2));
+        }
 
-            // Manage "To"
-            if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
-            {
-                // Reply to the sender of the message
-
-                if (referenceMessage.ReplyTo.Count > 0)
-                    message.To.AddRange(referenceMessage.ReplyTo);
-                else if (referenceMessage.From.Count > 0)
-                    message.To.AddRange(referenceMessage.From);
-                else if (referenceMessage.Sender != null)
-                    message.To.Add(referenceMessage.Sender);
-
-                if (reason == DraftCreationReason.ReplyAll)
-                {
-                    // Include all of the other original recipients
-                    message.To.AddRange(referenceMessage.To);
-
-                    // Find self and remove
-                    var self = message.To.FirstOrDefault(a => a is MailboxAddress mailboxAddress && mailboxAddress.Address == account.Address);
-
-                    if (self != null)
-                        message.To.Remove(self);
-
-                    message.Cc.AddRange(referenceMessage.Cc);
-                }
-
-                // Manage "ThreadId-ConversationId"
-                if (!string.IsNullOrEmpty(referenceMessage.MessageId))
-                {
-                    message.InReplyTo = referenceMessage.MessageId;
-
-                    message.References.AddRange(referenceMessage.References);
-
-                    message.References.Add(referenceMessage.MessageId);
-                }
-
-                message.Headers.Add("Thread-Topic", referenceMessage.Subject);
-
-                builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
-            }
-
-            if (reason == DraftCreationReason.Forward)
-            {
-                builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
-            }
-
-            // Append signatures if needed.
+        private async Task<string> GetSignature(MailAccount account, DraftCreationReason reason)
+        {
             if (account.Preferences.IsSignatureEnabled)
             {
                 var signatureId = reason == DraftCreationReason.Empty ?
@@ -718,26 +664,88 @@ namespace Wino.Core.Services
                 {
                     var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
 
-                    if (string.IsNullOrWhiteSpace(builder.HtmlBody))
-                    {
-                        builder.HtmlBody = $"{gapHtml}{signature.HtmlBody}";
-                    }
-                    else
-                    {
-                        builder.HtmlBody = $"{gapHtml}{signature.HtmlBody}{gapHtml}{builder.HtmlBody}";
-                    }
+                    return signature.HtmlBody;
                 }
             }
-            else
+
+            return null;
+        }
+
+        private MimeMessage CreateEmptyDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, string signature)
+        {
+            builder.HtmlBody = CreateHtmlGap();
+            if (draftCreationOptions.MailToUri != null)
             {
-                builder.HtmlBody = $"{gapHtml}{builder.HtmlBody}";
+                if (draftCreationOptions.MailToUri.Subject != null)
+                    message.Subject = draftCreationOptions.MailToUri.Subject;
+
+                if (draftCreationOptions.MailToUri.Body != null)
+                {
+                    builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{draftCreationOptions.MailToUri.Body}</div>""" + builder.HtmlBody;
+                }
+
+                if (draftCreationOptions.MailToUri.To.Any())
+                    message.To.AddRange(draftCreationOptions.MailToUri.To.Select(x => new MailboxAddress(x, x)));
+
+                if (draftCreationOptions.MailToUri.Cc.Any())
+                    message.Cc.AddRange(draftCreationOptions.MailToUri.Cc.Select(x => new MailboxAddress(x, x)));
+
+                if (draftCreationOptions.MailToUri.Bcc.Any())
+                    message.Bcc.AddRange(draftCreationOptions.MailToUri.Bcc.Select(x => new MailboxAddress(x, x)));
+            }
+
+            if (signature != null)
+                builder.HtmlBody += signature;
+
+            return message;
+        }
+
+        private MimeMessage CreateReferencedDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, MailAccount account, string signature)
+        {
+            var reason = draftCreationOptions.Reason;
+            var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+
+            var gap = CreateHtmlGap();
+            builder.HtmlBody = gap + CreateHtmlForReferencingMessage(referenceMessage);
+
+            if (signature != null)
+            {
+                builder.HtmlBody = gap + signature + builder.HtmlBody;
+            }
+
+            // Manage "To"
+            if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
+            {
+                // Reply to the sender of the message
+                if (referenceMessage.ReplyTo.Count > 0)
+                    message.To.AddRange(referenceMessage.ReplyTo);
+                else if (referenceMessage.From.Count > 0)
+                    message.To.AddRange(referenceMessage.From);
+                else if (referenceMessage.Sender != null)
+                    message.To.Add(referenceMessage.Sender);
+
+                if (reason == DraftCreationReason.ReplyAll)
+                {
+                    // Include all of the other original recipients
+                    message.To.AddRange(referenceMessage.To.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
+                    message.Cc.AddRange(referenceMessage.Cc.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
+                }
+
+                // Manage "ThreadId-ConversationId"
+                if (!string.IsNullOrEmpty(referenceMessage.MessageId))
+                {
+                    message.InReplyTo = referenceMessage.MessageId;
+                    message.References.AddRange(referenceMessage.References);
+                    message.References.Add(referenceMessage.MessageId);
+                }
+
+                message.Headers.Add("Thread-Topic", referenceMessage.Subject);
             }
 
             // Manage Subject
             if (reason == DraftCreationReason.Forward && !referenceMessage.Subject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
                 message.Subject = $"FW: {referenceMessage.Subject}";
-            else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) &&
-                !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
+            else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
                 message.Subject = $"RE: {referenceMessage.Subject}";
             else if (referenceMessage != null)
                 message.Subject = referenceMessage.Subject;
@@ -751,63 +759,7 @@ namespace Wino.Core.Services
                 }
             }
 
-            if (!string.IsNullOrEmpty(builder.HtmlBody))
-            {
-                builder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(builder.HtmlBody);
-            }
-
-            message.Body = builder.ToMessageBody();
-
-            // Apply mail-to protocol parameters if exists.
-
-            if (draftCreationOptions.MailtoParameters != null)
-            {
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoSubjectParameterKey, out string subjectParameter))
-                    message.Subject = subjectParameter;
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoBodyParameterKey, out string bodyParameter))
-                {
-                    builder.TextBody = bodyParameter;
-                    builder.HtmlBody = bodyParameter;
-
-                    message.Body = builder.ToMessageBody();
-                }
-
-                static InternetAddressList ExtractRecipients(string parameterValue)
-                {
-                    var list = new InternetAddressList();
-
-                    var splittedRecipients = parameterValue.Split(',');
-
-                    foreach (var recipient in splittedRecipients)
-                        list.Add(new MailboxAddress(recipient, recipient));
-
-                    return list;
-
-                }
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoToParameterKey, out string toParameter))
-                    message.To.AddRange(ExtractRecipients(toParameter));
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoCCParameterKey, out string ccParameter))
-                    message.Cc.AddRange(ExtractRecipients(ccParameter));
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoBCCParameterKey, out string bccParameter))
-                    message.Bcc.AddRange(ExtractRecipients(bccParameter));
-            }
-            else
-            {
-                // Update TextBody from existing HtmlBody if exists.
-            }
-
-            using MemoryStream memoryStream = new();
-            message.WriteTo(FormatOptions.Default, memoryStream);
-            byte[] buffer = memoryStream.GetBuffer();
-            int count = (int)memoryStream.Length;
-
-            return Convert.ToBase64String(buffer);
-
-            // return message;
+            return message;
 
             // Generates html representation of To/Cc/From/Time and so on from referenced message.
             string CreateHtmlForReferencingMessage(MimeMessage referenceMessage)
@@ -820,26 +772,20 @@ namespace Wino.Core.Services
                 visitor.Visit(referenceMessage);
 
                 htmlMimeInfo += $"""
-                        <div id="divRplyFwdMsg" dir="ltr">
-                          <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
-                            <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
-                            <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
-                            <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
-                            {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
-                            <b>Subject:</b> {referenceMessage.Subject}
-                          </font>
-                          <div>&nbsp;</div>
-                          {visitor.HtmlBody}
-                        </div>
-                        """;
+                    <div id="divRplyFwdMsg" dir="ltr">
+                      <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
+                        <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
+                        <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
+                        <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
+                        {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
+                        <b>Subject:</b> {referenceMessage.Subject}
+                      </font>
+                      <div>&nbsp;</div>
+                      {visitor.HtmlBody}
+                    </div>
+                    """;
 
                 return htmlMimeInfo;
-            }
-
-            string CreateHtmlGap()
-            {
-                var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
-                return string.Concat(Enumerable.Repeat(template, 5));
             }
 
             static string ParticipantsToHtml(InternetAddressList internetAddresses) =>

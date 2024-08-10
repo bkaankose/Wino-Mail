@@ -562,12 +562,7 @@ namespace Wino.Views
 
         private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
         {
-            CCBCCShowButton.Visibility = Visibility.Collapsed;
-
-            CCTextBlock.Visibility = Visibility.Visible;
-            CCBox.Visibility = Visibility.Visible;
-            BccTextBlock.Visibility = Visibility.Visible;
-            BccBox.Visibility = Visibility.Visible;
+            ViewModel.IsCCBCCVisible = true;
         }
 
         private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
@@ -591,7 +586,7 @@ namespace Wino.Views
             if (boxTag == "ToBox")
                 addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.ToItems);
             else if (boxTag == "CCBox")
-                addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.CCItemsItems);
+                addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.CCItems);
             else if (boxTag == "BCCBox")
                 addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.BCCItems);
 
@@ -660,7 +655,7 @@ namespace Wino.Views
                     if (boxTag == "ToBox")
                         addressCollection = ViewModel.ToItems;
                     else if (boxTag == "CCBox")
-                        addressCollection = ViewModel.CCItemsItems;
+                        addressCollection = ViewModel.CCItems;
                     else if (boxTag == "BCCBox")
                         addressCollection = ViewModel.BCCItems;
 
