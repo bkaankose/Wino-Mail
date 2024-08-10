@@ -493,7 +493,7 @@
                             VerticalAlignment="Center"
                             Click="ShowCCBCCClicked"
                             GotFocus="CCBBCGotFocus"
-                            Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}">
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCCBCCVisible), Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon
                                     HorizontalAlignment="Center"
@@ -512,13 +512,14 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="Cc: "
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <controls1:TokenizingTextBox
                         x:Name="CCBox"
                         Grid.Row="2"
                         Grid.Column="1"
                         VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.CCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
@@ -526,7 +527,7 @@
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource TokenBoxTemplate}"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <TextBlock
                         x:Name="BccTextBlock"
@@ -534,13 +535,14 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="Bcc: "
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <controls1:TokenizingTextBox
                         x:Name="BccBox"
                         Grid.Row="3"
                         Grid.Column="1"
                         VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
@@ -548,7 +550,7 @@
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource TokenBoxTemplate}"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <!--  Subject  -->
                     <TextBlock

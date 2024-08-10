@@ -174,7 +174,7 @@ namespace Wino.Views
             // We don't have shell initialized here. It's only standalone EML viewing.
             // Shift command bar from top to adjust the design.
 
-            if (ViewModel.StatePersistanceService.ShouldShiftMailRenderingDesign)
+            if (ViewModel.StatePersistenceService.ShouldShiftMailRenderingDesign)
                 RendererGridFrame.Margin = new Thickness(0, 24, 0, 0);
             else
                 RendererGridFrame.Margin = new Thickness(0, 0, 0, 0);

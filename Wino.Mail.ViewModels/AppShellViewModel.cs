@@ -302,7 +302,7 @@ namespace Wino.Mail.ViewModels
                 }
                 else
                 {
-                    bool hasMailtoActivation = _launchProtocolService.MailtoParameters != null;
+                    bool hasMailtoActivation = _launchProtocolService.MailToUri != null;
 
                     if (hasMailtoActivation)
                     {
@@ -774,16 +774,13 @@ namespace Wino.Mail.ViewModels
             var draftOptions = new DraftCreationOptions
             {
                 Reason = DraftCreationReason.Empty,
-
-                // Include mail to parameters for parsing mailto if any.
-                MailtoParameters = _launchProtocolService.MailtoParameters
+                MailToUri = _launchProtocolService.MailToUri
             };
 
-            var createdBase64EncodedMimeMessage = await _mailService.CreateDraftMimeBase64Async(account.Id, draftOptions).ConfigureAwait(false);
-            var createdDraftMailMessage = await _mailService.CreateDraftAsync(account, createdBase64EncodedMimeMessage).ConfigureAwait(false);
+            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account, draftOptions).ConfigureAwait(false);
 
-            var draftPreperationRequest = new DraftPreperationRequest(account, createdDraftMailMessage, createdBase64EncodedMimeMessage);
-            await _winoRequestDelegator.ExecuteAsync(draftPreperationRequest);
+            var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage);
+            await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
         }
 
         protected override async void OnAccountUpdated(MailAccount updatedAccount)

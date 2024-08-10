@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -58,7 +57,7 @@ namespace Wino.Mail.ViewModels
         private MessageImportance selectedMessageImportance;
 
         [ObservableProperty]
-        private bool isCCBCCVisible = true;
+        private bool isCCBCCVisible;
 
         [ObservableProperty]
         private string subject;
@@ -77,21 +76,20 @@ namespace Wino.Mail.ViewModels
         [ObservableProperty]
         private bool isDraggingOverImagesDropZone;
 
-        public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
+        public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
+        public ObservableCollection<MailAccount> Accounts { get; set; } = [];
+        public ObservableCollection<AddressInformation> ToItems { get; set; } = [];
+        public ObservableCollection<AddressInformation> CCItems { get; set; } = [];
+        public ObservableCollection<AddressInformation> BCCItems { get; set; } = [];
 
-        public ObservableCollection<MailAccount> Accounts { get; set; } = new ObservableCollection<MailAccount>();
-        public ObservableCollection<AddressInformation> ToItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> CCItemsItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> BCCItems { get; set; } = new ObservableCollection<AddressInformation>();
 
-
-        public List<EditorToolbarSection> ToolbarSections { get; set; } = new List<EditorToolbarSection>()
-        {
+        public List<EditorToolbarSection> ToolbarSections { get; set; } =
+        [
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Format },
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Insert },
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Draw },
             new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Options }
-        };
+        ];
 
         private EditorToolbarSection selectedToolbarSection;
 
@@ -190,7 +188,7 @@ namespace Wino.Mail.ViewModels
             // Save recipients.
 
             SaveAddressInfo(ToItems, CurrentMimeMessage.To);
-            SaveAddressInfo(CCItemsItems, CurrentMimeMessage.Cc);
+            SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
             SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
 
             SaveImportance();
@@ -239,12 +237,7 @@ namespace Wino.Mail.ViewModels
         {
             if (GetHTMLBodyFunction != null)
             {
-                var htmlBody = await GetHTMLBodyFunction();
-
-                if (!string.IsNullOrEmpty(htmlBody))
-                {
-                    bodyBuilder.HtmlBody = Regex.Unescape(htmlBody);
-                }
+                bodyBuilder.HtmlBody = await GetHTMLBodyFunction();
             }
 
             if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
@@ -309,7 +302,7 @@ namespace Wino.Mail.ViewModels
 
             // Check if there is any delivering mail address from protocol launch.
 
-            if (_launchProtocolService.MailtoParameters != null)
+            if (_launchProtocolService.MailToUri != null)
             {
                 // TODO
                 //var requestedMailContact = await GetAddressInformationAsync(_launchProtocolService.MailtoParameters, ToItems);
@@ -322,7 +315,7 @@ namespace Wino.Mail.ViewModels
                 //    DialogService.InfoBarMessage("Invalid Address", "Address is not a valid e-mail address.", InfoBarMessageType.Warning);
 
                 // Clear the address.
-                _launchProtocolService.MailtoParameters = null;
+                _launchProtocolService.MailToUri = null;
             }
         }
 
@@ -427,14 +420,17 @@ namespace Wino.Mail.ViewModels
                 // Extract information
 
                 ToItems.Clear();
-                CCItemsItems.Clear();
+                CCItems.Clear();
                 BCCItems.Clear();
 
                 LoadAddressInfo(replyingMime.To, ToItems);
-                LoadAddressInfo(replyingMime.Cc, CCItemsItems);
+                LoadAddressInfo(replyingMime.Cc, CCItems);
                 LoadAddressInfo(replyingMime.Bcc, BCCItems);
 
                 LoadAttachments(replyingMime.Attachments);
+
+                if (replyingMime.Cc.Any() || replyingMime.Bcc.Any())
+                    IsCCBCCVisible = true;
 
                 Subject = replyingMime.Subject;
 

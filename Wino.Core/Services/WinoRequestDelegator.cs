@@ -111,7 +111,7 @@ namespace Wino.Core.Services
             QueueSynchronization(accountId);
         }
 
-        public async Task ExecuteAsync(DraftPreperationRequest draftPreperationRequest)
+        public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
         {
             var request = new CreateDraftRequest(draftPreperationRequest);
 

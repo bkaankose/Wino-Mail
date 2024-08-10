@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
-using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Launch;
 using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Client.Shell;
 
@@ -36,11 +36,7 @@ namespace Wino.Activation
             else if (protocolString.StartsWith(MailtoProtocolTag))
             {
                 // mailto activation. Try to parse params.
-
-                var replaced = protocolString.Replace(MailtoProtocolTag, "mailto=");
-                replaced = Wino.Core.Extensions.StringExtensions.ReplaceFirst(replaced, "?", "&");
-
-                _launchProtocolService.MailtoParameters = HttpUtility.ParseQueryString(replaced);
+                _launchProtocolService.MailToUri = new MailToUri(protocolString);
 
                 if (_nativeAppService.IsAppRunning())
                 {

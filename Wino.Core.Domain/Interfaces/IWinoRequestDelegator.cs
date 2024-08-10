@@ -16,7 +16,7 @@ namespace Wino.Core.Domain.Interfaces
         /// Queues new draft creation request for synchronizer.
         /// </summary>
         /// <param name="draftPreperationRequest">A class that holds the parameters for creating a draft.</param>
-        Task ExecuteAsync(DraftPreperationRequest draftPreperationRequest);
+        Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest);
 
         /// <summary>
         /// Queues a new request for synchronizer to send a draft.

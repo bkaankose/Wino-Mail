@@ -117,7 +117,7 @@ namespace Wino.Mail.ViewModels
         #endregion
 
         public INativeAppService NativeAppService { get; }
-        public IStatePersistanceService StatePersistanceService { get; }
+        public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
         public MailRenderingPageViewModel(IDialogService dialogService,
@@ -127,14 +127,14 @@ namespace Wino.Mail.ViewModels
                                           Core.Domain.Interfaces.IMailService mailService,
                                           IFileService fileService,
                                           IWinoRequestDelegator requestDelegator,
-                                          IStatePersistanceService statePersistanceService,
+                                          IStatePersistanceService statePersistenceService,
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService,
                                           IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             NativeAppService = nativeAppService;
-            StatePersistanceService = statePersistanceService;
+            StatePersistenceService = statePersistenceService;
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;
             _clipboardService = clipboardService;
@@ -255,37 +255,27 @@ namespace Wino.Mail.ViewModels
                 if (initializedMailItemViewModel == null) return;
 
                 // Create new draft.
-                var draftOptions = new DraftCreationOptions();
-
-                if (operation == MailOperation.Reply)
-                    draftOptions.Reason = DraftCreationReason.Reply;
-                else if (operation == MailOperation.ReplyAll)
-                    draftOptions.Reason = DraftCreationReason.ReplyAll;
-                else if (operation == MailOperation.Forward)
-                    draftOptions.Reason = DraftCreationReason.Forward;
-
-                // TODO: Separate mailto related stuff out of DraftCreationOptions and provide better
-                // model for draft preperation request. Right now it's a mess.
-
-                draftOptions.ReferenceMailCopy = initializedMailItemViewModel.MailCopy;
-                draftOptions.ReferenceMimeMessage = initializedMimeMessageInformation.MimeMessage;
-
-                var createdMimeMessage = await _mailService.CreateDraftMimeBase64Async(initializedMailItemViewModel.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
-
-                var createdDraftMailMessage = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount,
-                                                                                  createdMimeMessage,
-                                                                                  initializedMimeMessageInformation.MimeMessage,
-                                                                                  initializedMailItemViewModel).ConfigureAwait(false);
-
-                var draftPreperationRequest = new DraftPreperationRequest(initializedMailItemViewModel.AssignedAccount,
-                                                                          createdDraftMailMessage,
-                                                                          createdMimeMessage)
+                var draftOptions = new DraftCreationOptions()
                 {
-                    ReferenceMimeMessage = initializedMimeMessageInformation.MimeMessage,
-                    ReferenceMailCopy = initializedMailItemViewModel.MailCopy
+                    Reason = operation switch
+                    {
+                        MailOperation.Reply => DraftCreationReason.Reply,
+                        MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+                        MailOperation.Forward => DraftCreationReason.Forward,
+                        _ => DraftCreationReason.Empty
+                    },
+                    ReferencedMessage = new ReferencedMessage()
+                    {
+                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
+                        MailCopy = initializedMailItemViewModel.MailCopy
+                    }
                 };
 
-                await _requestDelegator.ExecuteAsync(draftPreperationRequest);
+                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount, draftOptions).ConfigureAwait(false);
+
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage, initializedMailItemViewModel.MailCopy);
+
+                await _requestDelegator.ExecuteAsync(draftPreparationRequest);
 
             }
             else if (initializedMailItemViewModel != null)
@@ -453,7 +443,7 @@ namespace Wino.Mail.ViewModels
 
                 OnPropertyChanged(nameof(IsImageRenderingDisabled));
 
-                StatePersistanceService.IsReadingMail = true;
+                StatePersistenceService.IsReadingMail = true;
             });
         }
 
@@ -477,7 +467,7 @@ namespace Wino.Mail.ViewModels
             Attachments.Clear();
             MenuItems.Clear();
 
-            StatePersistanceService.IsReadingMail = false;
+            StatePersistenceService.IsReadingMail = false;
         }
 
         private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)

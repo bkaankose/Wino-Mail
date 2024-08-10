@@ -11,7 +11,6 @@ namespace Wino.Core.Domain.Interfaces
     {
         Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
         Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId);
-        Task<MailCopy> CreateDraftAsync(MailAccount composerAccount, string generatedReplyMimeMessageBase64, MimeMessage replyingMimeMessage = null, IMailItem replyingMailItem = null);
         Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options);
 
         /// <summary>
@@ -44,23 +43,12 @@ namespace Wino.Core.Domain.Interfaces
 
         /// <summary>
         /// Maps new mail item with the existing local draft copy.
-        /// 
         /// </summary>
         /// <param name="newMailCopyId"></param>
         /// <param name="newDraftId"></param>
         /// <param name="newThreadId"></param>
         Task MapLocalDraftAsync(string newMailCopyId, string newDraftId, string newThreadId);
 
-        /// <summary>
-        /// Creates a draft message with the given options.
-        /// </summary>
-        /// <param name="accountId">Account to create draft for.</param>
-        /// <param name="options">Draft creation options.</param>
-        /// <returns>
-        /// Base64 encoded string of MimeMessage object.
-        /// This is mainly for serialization purposes.
-        /// </returns>
-        Task<string> CreateDraftMimeBase64Async(Guid accountId, DraftCreationOptions options);
         Task UpdateMailAsync(MailCopy mailCopy);
 
         /// <summary>
@@ -106,9 +94,18 @@ namespace Wino.Core.Domain.Interfaces
         /// Checks whether the mail exists in the folder.
         /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
         /// </summary>
-        /// <param name="messageId">Message id</param>
+        /// <param name="mailCopyId">MailCopy id</param>
         /// <param name="folderId">Folder's local id.</param>
         /// <returns>Whether mail exists in the folder or not.</returns>
         Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId);
+
+        /// <summary>
+        /// Creates a draft MailCopy and MimeMessage based on the given options.
+        /// For forward/reply it would include the referenced message.
+        /// </summary>
+        /// <param name="composerAccount">Account which should have new draft.</param>
+        /// <param name="draftCreationOptions">Options like new email/forward/draft.</param>
+        /// <returns>Draft MailCopy and Draft MimeMessage as base64.</returns>
+        Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions);
     }
 }
