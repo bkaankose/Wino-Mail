@@ -777,7 +777,7 @@ namespace Wino.Mail.ViewModels
                 MailToUri = _launchProtocolService.MailToUri
             };
 
-            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account, draftOptions).ConfigureAwait(false);
+            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
 
             var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage);
             await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);

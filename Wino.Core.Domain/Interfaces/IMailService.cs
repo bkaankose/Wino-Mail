@@ -103,9 +103,9 @@ namespace Wino.Core.Domain.Interfaces
         /// Creates a draft MailCopy and MimeMessage based on the given options.
         /// For forward/reply it would include the referenced message.
         /// </summary>
-        /// <param name="composerAccount">Account which should have new draft.</param>
+        /// <param name="accountId">AccountId which should have new draft.</param>
         /// <param name="draftCreationOptions">Options like new email/forward/draft.</param>
         /// <returns>Draft MailCopy and Draft MimeMessage as base64.</returns>
-        Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(MailAccount composerAccount, DraftCreationOptions draftCreationOptions);
+        Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions);
     }
 }
