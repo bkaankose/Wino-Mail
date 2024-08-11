@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
+using MimeKit.Utils;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -237,7 +238,7 @@ namespace Wino.Mail.ViewModels
         {
             if (GetHTMLBodyFunction != null)
             {
-                bodyBuilder.HtmlBody = await GetHTMLBodyFunction();
+                bodyBuilder.SetHtmlBody(await GetHTMLBodyFunction());
             }
 
             if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
@@ -401,7 +402,6 @@ namespace Wino.Mail.ViewModels
             {
                 DialogService.InfoBarMessage("Busy", "Mail is being processed. Please wait a moment and try again.", InfoBarMessageType.Warning);
             }
-
             catch (ComposerMimeNotFoundException)
             {
                 DialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
