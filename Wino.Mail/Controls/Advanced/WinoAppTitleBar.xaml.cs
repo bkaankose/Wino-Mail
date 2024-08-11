@@ -197,10 +197,7 @@ namespace Wino.Controls.Advanced
         private void ReconnectClicked(object sender, RoutedEventArgs e)
         {
             // Close the popup for reconnect button.
-            if (sender is Button senderButton && senderButton.Flyout is Flyout senderButtonFlyout)
-            {
-                senderButtonFlyout.Hide();
-            }
+            ReconnectFlyout.Hide();
 
             // Execute the reconnect command.
             ReconnectCommand?.Execute(null);
