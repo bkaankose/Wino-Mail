@@ -1,22 +1,22 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
 namespace Wino.Core.Domain.Models.AutoDiscovery
 {
     public class AutoDiscoveryProviderSetting
     {
-        [JsonProperty("protocol")]
+        [JsonPropertyName("protocol")]
         public string Protocol { get; set; }
 
-        [JsonProperty("address")]
+        [JsonPropertyName("address")]
         public string Address { get; set; }
 
-        [JsonProperty("port")]
+        [JsonPropertyName("port")]
         public int Port { get; set; }
 
-        [JsonProperty("secure")]
+        [JsonPropertyName("secure")]
         public string Secure { get; set; }
 
-        [JsonProperty("username")]
+        [JsonPropertyName("username")]
         public string Username { get; set; }
     }
 }

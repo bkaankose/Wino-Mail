@@ -48,7 +48,7 @@ function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, de
             const reader = new FileReader();
             reader.onload = function (event) {
                 const base64Image = event.target.result;
-                insertImages([base64Image]);
+                insertImages([{ data: base64Image, name: file.name }]);
             };
             reader.readAsDataURL(file);
         }
@@ -121,8 +121,8 @@ function toggleToolbar(enable) {
     }
 }
 
-function insertImages(images) {
-    images.forEach(image => {
-        editor.selection.insertHTML(`<img src="${image}" alt="Embedded Image">`);
+function insertImages(imagesInfo) {
+    imagesInfo.forEach(imageInfo => {
+        editor.selection.insertHTML(`<img src="${imageInfo.data}" alt="${imageInfo.name}">`);
     });
 };

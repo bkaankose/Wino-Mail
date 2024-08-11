@@ -4,10 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Helpers;
-using Newtonsoft.Json;
 using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -406,7 +406,7 @@ namespace Wino.Services
             // Save metadata.
             var metadataFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.json", CreationCollisionOption.ReplaceExisting);
 
-            var serialized = JsonConvert.SerializeObject(newTheme);
+            var serialized = JsonSerializer.Serialize(newTheme);
             await FileIO.WriteTextAsync(metadataFile, serialized);
 
             return newTheme;
@@ -438,7 +438,7 @@ namespace Wino.Services
         {
             var fileContent = await FileIO.ReadTextAsync(file);
 
-            return JsonConvert.DeserializeObject<CustomThemeMetadata>(fileContent);
+            return JsonSerializer.Deserialize<CustomThemeMetadata>(fileContent);
         }
 
         public string GetSystemAccentColorHex()

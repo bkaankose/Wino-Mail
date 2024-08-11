@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
@@ -43,7 +43,7 @@ namespace Wino.Core.Services
             {
                 var content = await response.Content.ReadAsStringAsync();
 
-                return JsonConvert.DeserializeObject<AutoDiscoverySettings>(content);
+                return JsonSerializer.Deserialize<AutoDiscoverySettings>(content);
             }
             catch (Exception ex)
             {
