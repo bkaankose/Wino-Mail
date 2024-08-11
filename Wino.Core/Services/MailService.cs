@@ -53,7 +53,7 @@ namespace Wino.Core.Services
 
         public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
         {
-            var composerAccount = await _accountService.GetAccountAsync(accountId);
+            var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
             var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions);
 
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
