@@ -241,9 +241,6 @@ namespace Wino.Mail.ViewModels
                 bodyBuilder.SetHtmlBody(await GetHTMLBodyFunction());
             }
 
-            if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
-                bodyBuilder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(bodyBuilder.HtmlBody);
-
             if (bodyBuilder.HtmlBody != null && bodyBuilder.TextBody != null)
                 CurrentMimeMessage.Body = bodyBuilder.ToMessageBody();
         }

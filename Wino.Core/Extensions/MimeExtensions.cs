@@ -54,6 +54,7 @@ namespace Wino.Core.Extensions
 
         /// <summary>
         /// Sets html body replacing base64 images with cid linked resources.
+        /// Updates text body based on html.
         /// </summary>
         /// <param name="bodyBuilder">Body builder.</param>
         /// <param name="htmlContent">Html content that can have embedded images.</param>
@@ -103,6 +104,10 @@ namespace Wino.Core.Extensions
             }
 
             bodyBuilder.HtmlBody = doc.DocumentNode.InnerHtml;
+            if (!string.IsNullOrEmpty(bodyBuilder.HtmlBody))
+            {
+                bodyBuilder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(bodyBuilder.HtmlBody);
+            }
 
             return bodyBuilder;
         }
