@@ -67,7 +67,6 @@ namespace Wino
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
         {
             _databaseService,
-            _appServiceConnectionManager,
             _translationService,
             _themeService,
         };
@@ -77,8 +76,6 @@ namespace Wino
             InitializeComponent();
 
             UnhandledException += OnAppUnhandledException;
-            EnteredBackground += OnEnteredBackground;
-            LeavingBackground += OnLeavingBackground;
 
             Resuming += OnResuming;
             Suspending += OnSuspending;
@@ -126,8 +123,6 @@ namespace Wino
         }
 
         private void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
-        private void OnLeavingBackground(object sender, LeavingBackgroundEventArgs e) => LogActivation($"Wino went foreground.");
-        private void OnEnteredBackground(object sender, EnteredBackgroundEventArgs e) => LogActivation($"Wino went background.");
         private IServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();
@@ -417,13 +412,11 @@ namespace Wino
             yield return Services.GetService<FileActivationHandler>();
         }
 
-        public async void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+        public void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
             sender.Canceled -= OnConnectionBackgroundTaskCanceled;
 
-            Log.Information($"Server connection background task '{sender.Task.Name}' was canceled. Reason: {reason}");
-
-            await _appServiceConnectionManager.DisconnectAsync();
+            Log.Information($"Server connection background task was canceled. Reason: {reason}");
 
             connectionBackgroundTaskDeferral?.Complete();
             connectionBackgroundTaskDeferral = null;

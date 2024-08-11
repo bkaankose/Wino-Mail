@@ -845,9 +845,6 @@ namespace Wino.Mail.ViewModels
             trackingSynchronizationId = null;
             completedTrackingSynchronizationCount = 0;
 
-            // Check whether the account synchronizer that this folder belongs to is already in synchronization.
-            await CheckIfAccountIsSynchronizingAsync();
-
             // Notify change for archive-unarchive app bar button.
             OnPropertyChanged(nameof(IsArchiveSpecialFolder));
 
@@ -864,6 +861,9 @@ namespace Wino.Mail.ViewModels
             {
                 await Task.Delay(100);
             }
+
+            // Check whether the account synchronizer that this folder belongs to is already in synchronization.
+            await CheckIfAccountIsSynchronizingAsync();
 
             // Let awaiters know about the completion of mail init.
             message.FolderInitLoadAwaitTask?.TrySetResult(true);

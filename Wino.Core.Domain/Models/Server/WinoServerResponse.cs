@@ -13,8 +13,6 @@ namespace Wino.Core.Domain.Models.Server
         public string Message { get; set; }
         public T Data { get; set; }
 
-        // protected WinoServerResponse() { }
-
         public static WinoServerResponse<T> CreateSuccessResponse(T data)
         {
             return new WinoServerResponse<T>

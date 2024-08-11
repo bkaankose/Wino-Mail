@@ -80,7 +80,7 @@ namespace Wino.Core.Services
                     await QueueRequestAsync(accountRequest, accountId.Key);
                 }
 
-                QueueSynchronization(accountId.Key);
+                await QueueSynchronizationAsync(accountId.Key);
             }
         }
 
@@ -108,7 +108,7 @@ namespace Wino.Core.Services
             if (request == null) return;
 
             await QueueRequestAsync(request, accountId);
-            QueueSynchronization(accountId);
+            await QueueSynchronizationAsync(accountId);
         }
 
         public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
@@ -116,7 +116,7 @@ namespace Wino.Core.Services
             var request = new CreateDraftRequest(draftPreperationRequest);
 
             await QueueRequestAsync(request, draftPreperationRequest.Account.Id);
-            QueueSynchronization(draftPreperationRequest.Account.Id);
+            await QueueSynchronizationAsync(draftPreperationRequest.Account.Id);
         }
 
         public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
@@ -124,23 +124,26 @@ namespace Wino.Core.Services
             var request = new SendDraftRequest(sendDraftPreperationRequest);
 
             await QueueRequestAsync(request, sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
-            QueueSynchronization(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
+            await QueueSynchronizationAsync(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
         }
 
         private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
         {
             try
             {
+                await EnsureServerConnectedAsync();
                 await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
             }
             catch (WinoServerException serverException)
             {
-                _dialogService.InfoBarMessage("", serverException.Message, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage("Wino Server Exception", serverException.Message, InfoBarMessageType.Error);
             }
         }
 
-        private void QueueSynchronization(Guid accountId)
+        private async Task QueueSynchronizationAsync(Guid accountId)
         {
+            await EnsureServerConnectedAsync();
+
             var options = new SynchronizationOptions()
             {
                 AccountId = accountId,
@@ -148,6 +151,13 @@ namespace Wino.Core.Services
             };
 
             WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+        }
+
+        private async Task EnsureServerConnectedAsync()
+        {
+            if (_winoServerConnectionManager.Status == WinoServerConnectionStatus.Connected) return;
+
+            await _winoServerConnectionManager.ConnectAsync();
         }
     }
 }

@@ -173,7 +173,7 @@ namespace Wino.Server
 
             if (status != AppServiceConnectionStatus.Success)
             {
-                // TODO: Handle connection error
+                Log.Error("Opening server connection failed. Status: {status}", status);
 
                 DisposeConnection();
             }
@@ -224,8 +224,6 @@ namespace Wino.Server
 
         private void OnConnectionClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
         {
-            // TODO: Handle connection closed.
-
             // UWP app might've been terminated or suspended.
             // At this point, we must keep active synchronizations going, but connection is lost.
             // As long as this process is alive, database will be kept updated, but no messages will be sent.

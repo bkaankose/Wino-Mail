@@ -19,18 +19,12 @@ namespace Wino.Core.Domain.Interfaces
 
         /// <summary>
         /// Launches Full Trust process (Wino Server) and awaits connection completion.
-        /// If connection is not established in 5 seconds, it will return false.
+        /// If connection is not established in 10 seconds, it will return false.
         /// If the server process is already running, it'll connect to existing one.
         /// If the server process is not running, it'll be launched and connection establishment is awaited.
         /// </summary>
         /// <returns>Whether connection is established or not.</returns>
         Task<bool> ConnectAsync();
-
-        /// <summary>
-        /// Disconnects from existing connection and disposes the connection.
-        /// </summary>
-        /// <returns>Whether disconnection is succesfull or not.</returns>
-        Task<bool> DisconnectAsync();
 
         /// <summary>
         /// Queues a new user request to be processed by Wino Server.
@@ -48,6 +42,13 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="clientMessage">Request type.</param>
         /// <returns>Response received from the server for the given TResponse type.</returns>
         Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType clientMessage) where TRequestType : IClientMessage;
+
+        /// <summary>
+        /// Handle for connecting to the server.
+        /// If the server is already running, it'll connect to existing one.
+        /// Callers can await this handle to wait for connection establishment.
+        /// </summary>
+        TaskCompletionSource<bool> ConnectingHandle { get; }
     }
 
     public interface IWinoServerConnectionManager<TAppServiceConnection> : IWinoServerConnectionManager, IInitializeAsync
