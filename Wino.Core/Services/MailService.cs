@@ -636,10 +636,7 @@ namespace Wino.Core.Services
                 _ => CreateReferencedDraft(builder, message, draftCreationOptions, account, signature),
             };
 
-            if (!string.IsNullOrEmpty(builder.HtmlBody))
-            {
-                builder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(builder.HtmlBody);
-            }
+            builder.SetHtmlBody(builder.HtmlBody);
 
             message.Body = builder.ToMessageBody();
 

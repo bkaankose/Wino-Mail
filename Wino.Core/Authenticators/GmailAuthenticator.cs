@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -58,14 +58,14 @@ namespace Wino.Core.Authenticators
             if (!response.IsSuccessStatusCode)
                 throw new GoogleAuthenticationException(Translator.Exception_GoogleAuthorizationCodeExchangeFailed);
 
-            var parsed = JObject.Parse(responseString);
+            var parsed = JsonNode.Parse(responseString).AsObject();
 
             if (parsed.ContainsKey("error"))
-                throw new GoogleAuthenticationException(parsed["error"]["message"].Value<string>());
+                throw new GoogleAuthenticationException(parsed["error"]["message"].GetValue<string>());
 
-            var accessToken = parsed["access_token"].Value<string>();
-            var refreshToken = parsed["refresh_token"].Value<string>();
-            var expiresIn = parsed["expires_in"].Value<long>();
+            var accessToken = parsed["access_token"].GetValue<string>();
+            var refreshToken = parsed["refresh_token"].GetValue<string>();
+            var expiresIn = parsed["expires_in"].GetValue<long>();
 
             var expirationDate = DateTime.UtcNow.AddSeconds(expiresIn);
 
@@ -76,12 +76,12 @@ namespace Wino.Core.Authenticators
             var userinfoResponse = await client.GetAsync(UserInfoEndpoint);
             string userinfoResponseContent = await userinfoResponse.Content.ReadAsStringAsync();
 
-            var parsedUserInfo = JObject.Parse(userinfoResponseContent);
+            var parsedUserInfo = JsonNode.Parse(userinfoResponseContent).AsObject();
 
             if (parsedUserInfo.ContainsKey("error"))
-                throw new GoogleAuthenticationException(parsedUserInfo["error"]["message"].Value<string>());
+                throw new GoogleAuthenticationException(parsedUserInfo["error"]["message"].GetValue<string>());
 
-            var username = parsedUserInfo["emailAddress"].Value<string>();
+            var username = parsedUserInfo["emailAddress"].GetValue<string>();
 
             return new TokenInformation()
             {
@@ -166,13 +166,13 @@ namespace Wino.Core.Authenticators
 
             string responseString = await response.Content.ReadAsStringAsync();
 
-            var parsed = JObject.Parse(responseString);
+            var parsed = JsonNode.Parse(responseString).AsObject();
 
             // TODO: Error parsing is incorrect.
             if (parsed.ContainsKey("error"))
-                throw new GoogleAuthenticationException(parsed["error_description"].Value<string>());
+                throw new GoogleAuthenticationException(parsed["error_description"].GetValue<string>());
 
-            var accessToken = parsed["access_token"].Value<string>();
+            var accessToken = parsed["access_token"].GetValue<string>();
 
             string activeRefreshToken = refresh_token;
 
@@ -182,10 +182,10 @@ namespace Wino.Core.Authenticators
 
             if (parsed.ContainsKey("refresh_token"))
             {
-                activeRefreshToken = parsed["refresh_token"].Value<string>();
+                activeRefreshToken = parsed["refresh_token"].GetValue<string>();
             }
 
-            var expiresIn = parsed["expires_in"].Value<long>();
+            var expiresIn = parsed["expires_in"].GetValue<long>();
             var expirationDate = DateTime.UtcNow.AddSeconds(expiresIn);
 
             return new TokenInformationBase()

@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
 namespace Wino.Core.Domain.Models.Reader
 {
@@ -7,10 +7,10 @@ namespace Wino.Core.Domain.Models.Reader
     /// </summary>
     public class WebViewMessage
     {
-        [JsonProperty("type")]
+        [JsonPropertyName("type")]
         public string Type { get; set; }
 
-        [JsonProperty("value")]
+        [JsonPropertyName("value")]
         public string Value { get; set; }
     }
 }

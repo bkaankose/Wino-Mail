@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -13,7 +14,6 @@ using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
-using Newtonsoft.Json;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
@@ -167,7 +167,7 @@ namespace Wino.Views
 
                 foreach (var file in files)
                 {
-                    if (ValidateImageFile(file))
+                    if (IsValidImageFile(file))
                     {
                         isValid = true;
                     }
@@ -200,15 +200,21 @@ namespace Wino.Views
                     var storageItems = await e.DataView.GetStorageItemsAsync();
                     var files = storageItems.OfType<StorageFile>();
 
-                    var imageDataURLs = new List<string>();
+                    var imagesInformation = new List<ImageInfo>();
 
                     foreach (var file in files)
                     {
-                        if (ValidateImageFile(file))
-                            imageDataURLs.Add(await GetDataURL(file));
+                        if (IsValidImageFile(file))
+                        {
+                            imagesInformation.Add(new ImageInfo
+                            {
+                                Data = await GetDataURL(file),
+                                Name = file.Name
+                            });
+                        }
                     }
 
-                    await InvokeScriptSafeAsync($"insertImages({JsonConvert.SerializeObject(imageDataURLs)});");
+                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation)});");
                 }
             }
             // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -240,7 +246,7 @@ namespace Wino.Views
             }
         }
 
-        private bool ValidateImageFile(StorageFile file)
+        private bool IsValidImageFile(StorageFile file)
         {
             string[] allowedTypes = new string[] { ".jpg", ".jpeg", ".png" };
             var fileType = file.FileType.ToLower();
@@ -321,7 +327,7 @@ namespace Wino.Views
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";
@@ -463,7 +469,7 @@ namespace Wino.Views
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonConvert.DeserializeObject<string>(editorContent);
+                return JsonSerializer.Deserialize<string>(editorContent);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -487,7 +493,7 @@ namespace Wino.Views
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
 
             if (change.Type == "bold")
             {

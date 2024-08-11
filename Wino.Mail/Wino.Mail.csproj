@@ -298,14 +298,12 @@
     <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
       <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Helpers\JsonHelpers.cs" />
     <Compile Include="Extensions\AnimationExtensions.cs" />
     <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
     <Compile Include="Extensions\CompositionExtensions.Size.cs" />
     <Compile Include="Extensions\CompositionEnums.cs" />
     <Compile Include="Extensions\EnumerableExtensions.cs" />
     <Compile Include="Extensions\UtilExtensions.cs" />
-    <Compile Include="Helpers\SettingsStorageExtensions.cs" />
     <Compile Include="MenuFlyouts\FilterMenuFlyout.cs" />
     <Compile Include="Controls\ImagePreviewControl.cs" />
     <Compile Include="Controls\MailItemDisplayInformationControl.xaml.cs">

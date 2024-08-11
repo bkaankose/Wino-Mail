@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
-using Newtonsoft.Json;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -70,7 +70,7 @@ namespace Wino.Views
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";

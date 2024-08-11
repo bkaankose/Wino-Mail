@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Toolkit.Uwp.Helpers;
 using Windows.ApplicationModel.Activation;
 using Windows.Storage;
 using Windows.UI.Xaml;
@@ -9,7 +10,6 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
-using Wino.Helpers;
 using Wino.Views;
 
 namespace Wino.Activation
