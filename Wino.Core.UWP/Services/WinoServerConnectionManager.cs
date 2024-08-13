@@ -131,11 +131,14 @@ namespace Wino.Core.UWP.Services
 
                     ConnectingHandle?.TrySetException(canceledException);
 
+                    Status = WinoServerConnectionStatus.Failed;
                     return false;
                 }
                 catch (Exception ex)
                 {
                     Log.Error(ex, "Failed to connect to the server.");
+
+                    ConnectingHandle?.TrySetException(ex);
 
                     Status = WinoServerConnectionStatus.Failed;
                     return false;
