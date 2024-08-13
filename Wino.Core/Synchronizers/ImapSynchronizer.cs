@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
@@ -21,19 +23,22 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Mime;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
+using Wino.Messaging.Server;
 
 namespace Wino.Core.Synchronizers
 {
     public class ImapSynchronizer : BaseSynchronizer<ImapRequest, ImapMessageCreationPackage>
     {
         private CancellationTokenSource idleDoneToken;
-        private CancellationTokenSource cancelInboxListeningToken = new CancellationTokenSource();
+        private CancellationTokenSource cancelInboxListeningToken;
 
         private IMailFolder inboxFolder;
 
         private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
         private readonly ImapClientPool _clientPool;
         private readonly IImapChangeProcessor _imapChangeProcessor;
+
+        public bool IsChangeListeningActive { get; set; }
 
         // Minimum summary items to Fetch for mail synchronization from IMAP.
         private readonly MessageSummaryItems mailSynchronizationFlags =
@@ -48,12 +53,6 @@ namespace Wino.Core.Synchronizers
             MessageSummaryItems.ModSeq;
 
         /// <summary>
-        /// Timer that keeps the <see cref="InboxClient"/> alive for the lifetime of the pool.
-        /// Sends NOOP command to the server periodically.
-        /// </summary>
-        private Timer _noOpTimer;
-
-        /// <summary>
         /// ImapClient that keeps the Inbox folder opened all the time for listening notifications.
         /// </summary>
         private ImapClient _inboxIdleClient;
@@ -65,56 +64,75 @@ namespace Wino.Core.Synchronizers
         {
             _clientPool = new ImapClientPool(Account.ServerInformation);
             _imapChangeProcessor = imapChangeProcessor;
-
-            idleDoneToken = new CancellationTokenSource();
         }
-
-        // TODO
-        // private async void NoOpTimerTriggered(object state) => await AwaitInboxIdleAsync();
 
         private async Task AwaitInboxIdleAsync()
         {
             if (_inboxIdleClient == null)
             {
-                _logger.Warning("InboxClient is null. Cannot send NOOP command.");
+                _logger.Warning("InboxClient is null. Cannot send IDLE command.");
                 return;
             }
+
+            if (inboxFolder == null)
+            {
+                _logger.Warning("Inbox folder is null. Cannot listen for changes.");
+                return;
+            }
+
+            idleDoneToken ??= new CancellationTokenSource();
+            cancelInboxListeningToken ??= new CancellationTokenSource();
 
             await _clientPool.EnsureConnectedAsync(_inboxIdleClient);
             await _clientPool.EnsureAuthenticatedAsync(_inboxIdleClient);
 
             try
             {
-                if (inboxFolder == null)
+                if (!inboxFolder.IsOpen)
                 {
-                    inboxFolder = _inboxIdleClient.Inbox;
                     await inboxFolder.OpenAsync(FolderAccess.ReadOnly, cancelInboxListeningToken.Token);
                 }
 
-                idleDoneToken = new CancellationTokenSource();
+                if (!_inboxIdleClient.IsIdle)
+                {
+                    idleDoneToken = new CancellationTokenSource();
 
-                await _inboxIdleClient.IdleAsync(idleDoneToken.Token, cancelInboxListeningToken.Token);
+                    IsChangeListeningActive = true;
+
+                    await _inboxIdleClient.IdleAsync(idleDoneToken.Token, cancelInboxListeningToken.Token);
+                }
+            }
+            catch (ImapProtocolException)
+            {
+                await ReconnectAsync();
+            }
+            catch (IOException)
+            {
+                await ReconnectAsync();
+            }
+            catch (Exception exception)
+            {
+                Logger.Error(exception, "Error occured while listening for Inbox changes.");
             }
             finally
             {
-                idleDoneToken.Dispose();
-                idleDoneToken = null;
+                IsChangeListeningActive = false;
             }
         }
 
-        private async Task StopInboxListeningAsync()
+        private async Task ReconnectAsync()
+        {
+            await _clientPool.EnsureConnectedAsync(_inboxIdleClient);
+            await _clientPool.EnsureAuthenticatedAsync(_inboxIdleClient);
+        }
+
+        public async Task StopInboxListeningAsync()
         {
             if (inboxFolder != null)
             {
                 inboxFolder.CountChanged -= InboxFolderCountChanged;
                 inboxFolder.MessageExpunged -= InboxFolderMessageExpunged;
                 inboxFolder.MessageFlagsChanged -= InboxFolderMessageFlagsChanged;
-            }
-
-            if (_noOpTimer != null)
-            {
-                _noOpTimer.Dispose();
-                _noOpTimer = null;
             }
 
             if (idleDoneToken != null)
@@ -124,9 +142,19 @@ namespace Wino.Core.Synchronizers
                 idleDoneToken = null;
             }
 
+            if (cancelInboxListeningToken != null)
+            {
+                cancelInboxListeningToken.Cancel();
+                cancelInboxListeningToken.Dispose();
+                cancelInboxListeningToken = null;
+            }
+
+            IsChangeListeningActive = false;
+
             if (_inboxIdleClient != null)
             {
                 await _inboxIdleClient.DisconnectAsync(true);
+
                 _inboxIdleClient.Dispose();
                 _inboxIdleClient = null;
             }
@@ -136,20 +164,14 @@ namespace Wino.Core.Synchronizers
         /// Tries to connect & authenticate with the given credentials.
         /// Prepares synchronizer for active listening of Inbox folder.
         /// </summary>
-        public async Task StartInboxListeningAsync()
+        public async Task<bool> StartInboxListeningAsync()
         {
             _inboxIdleClient = await _clientPool.GetClientAsync();
-
-            // Run it every 8 minutes after 1 minute delay.
-            // _noOpTimer = new Timer(NoOpTimerTriggered, null, 60000, 8 * 60 * 1000);
-
-            await _clientPool.EnsureConnectedAsync(_inboxIdleClient);
-            await _clientPool.EnsureAuthenticatedAsync(_inboxIdleClient);
 
             if (!_inboxIdleClient.Capabilities.HasFlag(ImapCapabilities.Idle))
             {
                 _logger.Information("Imap server does not support IDLE command. Listening live changes is not supported for {Name}", Account.Name);
-                return;
+                return false;
             }
 
             inboxFolder = _inboxIdleClient.Inbox;
@@ -157,35 +179,62 @@ namespace Wino.Core.Synchronizers
             if (inboxFolder == null)
             {
                 _logger.Information("Inbox folder is null. Cannot listen for changes.");
-                return;
+
+                return false;
             }
 
             inboxFolder.CountChanged += InboxFolderCountChanged;
             inboxFolder.MessageExpunged += InboxFolderMessageExpunged;
             inboxFolder.MessageFlagsChanged += InboxFolderMessageFlagsChanged;
 
-            while (!cancelInboxListeningToken.IsCancellationRequested)
+            try
             {
-                await AwaitInboxIdleAsync();
+                while (true)
+                {
+                    await AwaitInboxIdleAsync();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Information("Listening Inbox changes for IMAP is canceled.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error occured while listening for Inbox changes.");
+                return false;
             }
 
-            await StopInboxListeningAsync();
+            return true;
+        }
+
+        /// <summary>
+        /// When a change occurs in the Inbox folder, this method is called to force synchronization.
+        /// Quueing new sync is ignored if the synchronizer is already in a synchronization process.
+        /// </summary>
+        private void ForceInboxIdleSynchronization()
+        {
+            // Do not try to synchronize if we're already in a synchronization process.
+
+            if (State == AccountSynchronizerState.Idle)
+            {
+                var options = new SynchronizationOptions()
+                {
+                    Type = SynchronizationType.Inbox,
+                    AccountId = Account.Id
+                };
+
+                WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Server));
+            }
         }
 
         private void InboxFolderMessageFlagsChanged(object sender, MessageFlagsChangedEventArgs e)
-        {
-            Console.WriteLine("Flags have changed for message #{0} ({1}).", e.Index, e.Flags);
-        }
+            => ForceInboxIdleSynchronization();
 
         private void InboxFolderMessageExpunged(object sender, MessageEventArgs e)
-        {
-            _logger.Information("Inbox folder message expunged");
-        }
+            => ForceInboxIdleSynchronization();
 
         private void InboxFolderCountChanged(object sender, EventArgs e)
-        {
-            _logger.Information("Inbox folder count changed.");
-        }
+            => ForceInboxIdleSynchronization();
 
         /// <summary>
         /// Parses List of string of mail copy ids and return valid uIds.
@@ -998,5 +1047,21 @@ namespace Wino.Core.Synchronizers
         /// <param name="remoteFolder">Remote folder</param>
         /// <param name="localFolder">Local folder.</param>
         public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder) => remoteFolder.Name != localFolder.FolderName;
+
+        /// <summary>
+        /// 1. Stops active inbox listening.
+        /// 2. Disconnects client pool with all clients.
+        /// 3. Disposes everything gracefully.
+        ///
+        /// Usefull for killing server scenario where nothing is needed to be connected to IMAP server anymore.
+        /// </summary>
+        public async Task KillAsync()
+        {
+            Log.Debug("Killing ImapSynchronizer for {Name}", Account.Name);
+
+            await StopInboxListeningAsync();
+
+            _clientPool.Dispose();
+        }
     }
 }

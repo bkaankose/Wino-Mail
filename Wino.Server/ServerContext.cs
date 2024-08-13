@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Json;
 using Wino.Core.Services;
+using Wino.Core.Synchronizers;
 using Wino.Messaging;
 using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Enums;
@@ -40,7 +41,8 @@ namespace Wino.Server
         IRecipient<AccountSynchronizerStateChanged>,
         IRecipient<RefreshUnreadCountsMessage>,
         IRecipient<ServerTerminationModeChanged>,
-        IRecipient<AccountSynchronizationProgressUpdatedMessage>
+        IRecipient<AccountSynchronizationProgressUpdatedMessage>,
+        IRecipient<NewSynchronizationRequested>
     {
         private readonly System.Timers.Timer _timer;
         private static object connectionLock = new object();
@@ -56,6 +58,8 @@ namespace Wino.Server
         {
             TypeInfoResolver = new ServerRequestTypeInfoResolver()
         };
+
+        private Task imapIdleTask = null;
 
         public ServerContext(IDatabaseService databaseService,
                              IApplicationConfiguration applicationFolderConfiguration,
@@ -171,13 +175,64 @@ namespace Wino.Server
 
             AppServiceConnectionStatus status = await connection.OpenAsync();
 
-            if (status != AppServiceConnectionStatus.Success)
+            if (status == AppServiceConnectionStatus.Success)
+            {
+                imapIdleTask = RegisterImapSynchronizerChangesAsync();
+            }
+            else
             {
                 Log.Error("Opening server connection failed. Status: {status}", status);
 
                 DisposeConnection();
             }
         }
+
+        private async Task PerformForAllImapSynchronizers(Action<ImapSynchronizer> action)
+        {
+            var allAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+
+            var imapAccounts = allAccounts.FindAll(a => a.ProviderType == MailProviderType.IMAP4);
+
+            foreach (var account in imapAccounts)
+            {
+                var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(account.Id).ConfigureAwait(false);
+
+                if (synchronizer == null) continue;
+                if (synchronizer is not ImapSynchronizer accountImapSynchronizer)
+                {
+                    Log.Warning("Account '{Name}' has IMAP4 type but synchronizer is not ImapSynchronizer.", account.Name);
+                    continue;
+                }
+
+                action(accountImapSynchronizer);
+            }
+        }
+
+        /// <summary>
+        /// Hooks all ImapSynchronizer instances to listen for changes like new mail, folder rename etc.
+        /// </summary>
+        private Task RegisterImapSynchronizerChangesAsync()
+            => PerformForAllImapSynchronizers(async accountImapSynchronizer =>
+            {
+                // First make sure that listening is stopped.
+
+                await accountImapSynchronizer.StopInboxListeningAsync();
+
+                var startListeningTask = accountImapSynchronizer.StartInboxListeningAsync();
+
+                await Task.Delay(10000); // Wait for 10 seconds.
+
+                if (startListeningTask.Exception == null)
+                {
+                    Log.Information("IMAP change listening started for account '{Name}'.", accountImapSynchronizer.Account.Name);
+                }
+            });
+
+        public Task DisposeActiveImapConnectionsAsync()
+            => PerformForAllImapSynchronizers(async accountImapSynchronizer =>
+            {
+                await accountImapSynchronizer.KillAsync();
+            });
 
         /// <summary>
         /// Disposes current connection to UWP app service.
@@ -336,6 +391,11 @@ namespace Wino.Server
             bool isServerTrayIconVisible = backgroundMode == ServerBackgroundMode.MinimizedTray || backgroundMode == ServerBackgroundMode.Terminate;
 
             App.Current.ChangeNotifyIconVisiblity(isServerTrayIconVisible);
+        }
+
+        public async void Receive(NewSynchronizationRequested message)
+        {
+            await ExecuteServerMessageSafeAsync(null, message);
         }
     }
 }

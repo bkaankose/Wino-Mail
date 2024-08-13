@@ -26,6 +26,8 @@ namespace Wino.Server
         [RelayCommand]
         public Task LaunchWinoAsync()
         {
+            // Stop listening active imap synchronizer changes and disconnect gracefully.
+            return Context.DisposeActiveImapConnectionsAsync();
             //var opt = new SynchronizationOptions()
             //{
             //    Type = Wino.Core.Domain.Enums.SynchronizationType.Full,
@@ -37,7 +39,7 @@ namespace Wino.Server
 
             // return Task.CompletedTask;
 
-            return Launcher.LaunchUriAsync(new Uri($"{App.WinoMailLaunchProtocol}:")).AsTask();
+            // return Launcher.LaunchUriAsync(new Uri($"{App.WinoMailLaunchProtocol}:")).AsTask();
             //await _notificationBuilder.CreateNotificationsAsync(Guid.Empty, new List<IMailItem>()
             //{
             //    new MailCopy(){  UniqueId = Guid.Parse("8f25d2a0-4448-4fee-96a9-c9b25a19e866")}
@@ -70,6 +72,9 @@ namespace Wino.Server
                     Debug.WriteLine($"Wino Mail client is terminated succesfully.");
                 }
             }
+
+            // Stop listening active imap synchronizer changes and disconnect gracefully.
+            await Context.DisposeActiveImapConnectionsAsync();
 
             Application.Current.Shutdown();
         }
