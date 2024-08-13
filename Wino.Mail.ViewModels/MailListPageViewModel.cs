@@ -610,6 +610,9 @@ namespace Wino.Mail.ViewModels
 
                 if (ActiveFolder == null) return;
 
+                // At least accounts must match.
+                if (ActiveFolder.HandlingFolders.Any(a => a.MailAccountId != addedMail.AssignedAccount.Id)) return;
+
                 // Messages coming to sent or draft folder must be inserted regardless of the filter.
                 bool shouldPreventIgnoringFilter = addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
                                                    addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent;
@@ -617,6 +620,7 @@ namespace Wino.Mail.ViewModels
                 // Item does not belong to this folder and doesn't have special type to be inserted.
                 if (!shouldPreventIgnoringFilter && !ActiveFolder.HandlingFolders.Any(a => a.Id == addedMail.AssignedFolder.Id)) return;
 
+                // Item should be prevented from being added to the list due to filter.
                 if (!shouldPreventIgnoringFilter && ShouldPreventItemAdd(addedMail)) return;
 
                 await MailCollection.AddAsync(addedMail);
