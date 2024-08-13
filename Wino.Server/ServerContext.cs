@@ -219,7 +219,20 @@ namespace Wino.Server
                 { MessageConstants.MessageDataTypeKey, message.GetType().Name }
             };
 
-            await connection.SendMessageAsync(set);
+            try
+            {
+                await connection.SendMessageAsync(set);
+            }
+            catch (InvalidOperationException)
+            {
+                // Connection might've been disposed during the SendMessageAsync call.
+                // This is a safe way to handle the exception.
+                // We don't lock the connection since this request may take sometime to complete.
+            }
+            catch (Exception exception)
+            {
+                Log.Error(exception, "SendMessageAsync threw an exception");
+            }
         }
 
         private void OnConnectionClosed(AppServiceConnection sender, AppServiceClosedEventArgs args)
