@@ -109,11 +109,11 @@ namespace Wino.Core.UWP.Services
             {
                 try
                 {
-                    ConnectingHandle ??= new TaskCompletionSource<bool>();
-
-                    var connectionCancellationToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(ServerConnectionTimeoutMs));
+                    ConnectingHandle = new TaskCompletionSource<bool>();
 
                     Status = WinoServerConnectionStatus.Connecting;
+
+                    var connectionCancellationToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(ServerConnectionTimeoutMs));
 
                     await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
 
@@ -124,6 +124,14 @@ namespace Wino.Core.UWP.Services
                     await ConnectingHandle.Task.WaitAsync(connectionCancellationToken.Token);
 
                     Log.Information("Server connection established successfully.");
+                }
+                catch (OperationCanceledException canceledException)
+                {
+                    Log.Error(canceledException, $"Server process did not start in {ServerConnectionTimeoutMs} ms. Operation is canceled.");
+
+                    ConnectingHandle?.TrySetException(canceledException);
+
+                    return false;
                 }
                 catch (Exception ex)
                 {
