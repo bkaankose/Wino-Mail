@@ -33,7 +33,7 @@ namespace Wino.Core.Domain.Models.Authorization
             ClientId = clientId;
 
             // Creates the OAuth 2.0 authorization request.
-            return string.Format("{0}?response_type=code&scope=https://mail.google.com/ https://www.googleapis.com/auth/gmail.labels&redirect_uri={1}&client_id={2}&state={3}&code_challenge={4}&code_challenge_method={5}",
+            return string.Format("{0}?response_type=code&scope=https://mail.google.com/ https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/userinfo.profile&redirect_uri={1}&client_id={2}&state={3}&code_challenge={4}&code_challenge_method={5}",
                 authorizationEndpoint,
                 Uri.EscapeDataString(RedirectUri),
                 ClientId,

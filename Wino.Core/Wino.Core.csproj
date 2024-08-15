@@ -17,6 +17,7 @@
      <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />
      <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
      <PackageReference Include="Google.Apis.Gmail.v1" Version="1.68.0.3427" />
+     <PackageReference Include="Google.Apis.PeopleService.v1" Version="1.68.0.3359" />
      <PackageReference Include="HtmlAgilityPack" Version="1.11.59" />
      <PackageReference Include="HtmlKit" Version="1.1.0" />
      <PackageReference Include="IsExternalInit" Version="1.0.3">

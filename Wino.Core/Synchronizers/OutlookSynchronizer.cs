@@ -128,7 +128,7 @@ namespace Wino.Core.Synchronizers
         #endregion
 
 
-        public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             var downloadedMessageIds = new List<string>();
 

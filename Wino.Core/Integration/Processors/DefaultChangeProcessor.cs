@@ -19,6 +19,7 @@ namespace Wino.Core.Integration.Processors
     /// </summary>
     public interface IDefaultChangeProcessor
     {
+        Task UpdateAccountAsync(MailAccount account);
         Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
         Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
         Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
@@ -172,5 +173,8 @@ namespace Wino.Core.Integration.Processors
 
         public Task UpdateFolderLastSyncDateAsync(Guid folderId)
             => FolderService.UpdateFolderLastSyncDateAsync(folderId);
+
+        public Task UpdateAccountAsync(MailAccount account)
+            => AccountService.UpdateAccountAsync(account);
     }
 }

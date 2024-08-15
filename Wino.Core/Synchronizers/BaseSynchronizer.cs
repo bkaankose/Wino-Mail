@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -69,8 +70,42 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token</param>
         public abstract Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
 
-        public abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Refreshed remote mail account profile if possible.
+        /// Aliases, profile pictures, mailbox settings will be handled in this step.
+        /// </summary>
+        protected virtual Task SynchronizeProfileInformationAsync() => Task.CompletedTask;
 
+        /// <summary>
+        /// Returns the base64 encoded profile picture of the account from the given URL.
+        /// </summary>
+        /// <param name="url">URL to retrieve picture from.</param>
+        /// <returns>base64 encoded profile picture</returns>
+        protected async Task<string> GetProfilePictureBase64EncodedAsync(string url)
+        {
+            using var client = new HttpClient();
+
+            var response = await client.GetAsync(url).ConfigureAwait(false);
+            var byteContent = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+
+            return Convert.ToBase64String(byteContent);
+        }
+
+        /// <summary>
+        /// Internally synchronizes the account with the given options.
+        /// Not exposed and overriden for each synchronizer.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
+        protected abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
         public async Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             try
@@ -103,6 +138,14 @@ namespace Wino.Core.Synchronizers
                 State = AccountSynchronizerState.Synchronizing;
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
+
+                if (options.Type == SynchronizationType.Full)
+                {
+                    // Refresh profile information and mailbox settings on full synchronization.
+                    // Exceptions here is not critical. Therefore, they are ignored.
+
+                    await SynchronizeProfileInformationAsync();
+                }
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
 
@@ -150,6 +193,10 @@ namespace Wino.Core.Synchronizers
         private void PublishUnreadItemChanges()
             => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
 
+        /// <summary>
+        /// Sends a message to the shell to update the synchronization progress.
+        /// </summary>
+        /// <param name="progress">Percentage of the progress.</param>
         public void PublishSynchronizationProgress(double progress)
             => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 

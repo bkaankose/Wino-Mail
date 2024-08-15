@@ -46,6 +46,11 @@ namespace Wino.Core.Domain.Entities
         public string AccountColorHex { get; set; }
 
         /// <summary>
+        /// Base64 encoded profile picture of the account.
+        /// </summary>
+        public string ProfilePictureBase64 { get; set; }
+
+        /// <summary>
         /// Gets or sets the listing order of the account in the accounts list.
         /// </summary>
         public int Order { get; set; }
