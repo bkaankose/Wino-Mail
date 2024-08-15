@@ -513,28 +513,35 @@ namespace Wino.Core.Synchronizers
 
         protected override async Task SynchronizeProfileInformationAsync()
         {
-            // Outlook profile info synchronizes Sender Name and Profile Picture.
-            string senderName = Account.SenderName, base64ProfilePicture = Account.ProfilePictureBase64;
-
-            var profilePictureData = await GetUserProfilePictureAsync().ConfigureAwait(false);
-            senderName = await GetSenderNameAsync().ConfigureAwait(false);
-
-            bool shouldUpdateAccountProfile = (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
-                   || (!string.IsNullOrEmpty(profilePictureData) && Account.ProfilePictureBase64 != base64ProfilePicture);
-
-            if (!string.IsNullOrEmpty(profilePictureData) && Account.ProfilePictureBase64 != profilePictureData)
+            try
             {
-                Account.ProfilePictureBase64 = profilePictureData;
+                // Outlook profile info synchronizes Sender Name and Profile Picture.
+                string senderName = Account.SenderName, base64ProfilePicture = Account.ProfilePictureBase64;
+
+                var profilePictureData = await GetUserProfilePictureAsync().ConfigureAwait(false);
+                senderName = await GetSenderNameAsync().ConfigureAwait(false);
+
+                bool shouldUpdateAccountProfile = (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
+                       || (!string.IsNullOrEmpty(profilePictureData) && Account.ProfilePictureBase64 != base64ProfilePicture);
+
+                if (!string.IsNullOrEmpty(profilePictureData) && Account.ProfilePictureBase64 != profilePictureData)
+                {
+                    Account.ProfilePictureBase64 = profilePictureData;
+                }
+
+                if (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
+                {
+                    Account.SenderName = senderName;
+                }
+
+                if (shouldUpdateAccountProfile)
+                {
+                    await _outlookChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+                }
             }
-
-            if (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
+            catch (Exception ex)
             {
-                Account.SenderName = senderName;
-            }
-
-            if (shouldUpdateAccountProfile)
-            {
-                await _outlookChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+                Log.Error(ex, "Failed to synchronize profile information for {Name}", Account.Name);
             }
         }
 
