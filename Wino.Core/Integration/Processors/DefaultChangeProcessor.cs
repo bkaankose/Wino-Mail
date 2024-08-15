@@ -46,6 +46,7 @@ namespace Wino.Core.Integration.Processors
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
 
         Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
+        Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases);
     }
 
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -176,5 +177,8 @@ namespace Wino.Core.Integration.Processors
 
         public Task UpdateAccountAsync(MailAccount account)
             => AccountService.UpdateAccountAsync(account);
+
+        public Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
+            => AccountService.UpdateAccountAliases(accountId, aliases);
     }
 }

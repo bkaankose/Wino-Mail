@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
@@ -241,7 +240,11 @@ namespace Wino.Core.Services
             // By default all accounts must have at least 1 primary alias to create drafts for.
             // If there's no alias, create one from the existing account address. Migration doesn't exists to create one for older messages.
 
-            var aliases = await Connection.Table<MailAccountAlias>().ToListAsync().ConfigureAwait(false);
+            var aliases = await Connection
+                .Table<MailAccountAlias>()
+                .Where(a => a.AccountId == accountId)
+                .ToListAsync()
+                .ConfigureAwait(false);
 
             if (!aliases.Any())
             {
@@ -350,15 +353,22 @@ namespace Wino.Core.Services
 
         public async Task UpdateAccountAsync(MailAccount account)
         {
-            if (account.Preferences == null)
-            {
-                Debugger.Break();
-            }
-
-            await Connection.UpdateAsync(account.Preferences);
-            await Connection.UpdateAsync(account);
+            await Connection.UpdateAsync(account.Preferences).ConfigureAwait(false);
+            await Connection.UpdateAsync(account).ConfigureAwait(false);
 
             ReportUIChange(new AccountUpdatedMessage(account));
+        }
+
+        public async Task UpdateAccountAliases(Guid accountId, List<MailAccountAlias> aliases)
+        {
+            // Delete existing ones.
+            await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == accountId).ConfigureAwait(false);
+
+            // Insert new ones.
+            foreach (var alias in aliases)
+            {
+                await Connection.InsertAsync(alias).ConfigureAwait(false);
+            }
         }
 
         public async Task CreateAccountAsync(MailAccount account, TokenInformation tokenInformation, CustomServerInformation customServerInformation)

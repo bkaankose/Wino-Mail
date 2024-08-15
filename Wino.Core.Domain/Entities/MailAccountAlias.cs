@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SQLite;
 
 namespace Wino.Core.Domain.Entities
@@ -38,5 +39,30 @@ namespace Wino.Core.Domain.Entities
         /// Non-verified alias messages might be rejected by SMTP server.
         /// </summary>
         public bool IsVerified { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || GetType() != obj.GetType())
+                return false;
+
+            var other = (MailAccountAlias)obj;
+            return other != null &&
+                AccountId == other.AccountId &&
+                AliasAddress == other.AliasAddress &&
+                ReplyToAddress == other.ReplyToAddress &&
+                IsPrimary == other.IsPrimary &&
+                IsVerified == other.IsVerified;
+        }
+
+        public override int GetHashCode()
+        {
+            int hashCode = -753829106;
+            hashCode = hashCode * -1521134295 + AccountId.GetHashCode();
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(AliasAddress);
+            hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(ReplyToAddress);
+            hashCode = hashCode * -1521134295 + IsPrimary.GetHashCode();
+            hashCode = hashCode * -1521134295 + IsVerified.GetHashCode();
+            return hashCode;
+        }
     }
 }

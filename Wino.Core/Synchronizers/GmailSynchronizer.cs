@@ -103,6 +103,24 @@ namespace Wino.Core.Synchronizers
                     Account.ProfilePictureBase64 = base64ProfilePicture;
                 }
 
+                // Sync aliases
+
+                var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
+                var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
+
+                var updatedAliases = sendAsListResponse.GetMailAliases(Account);
+
+                bool shouldUpdateAliases =
+                    Account.Aliases.Any(a => updatedAliases.Any(b => a.Id == b.Id) == false) ||
+                    updatedAliases.Any(a => Account.Aliases.Any(b => a.Id == b.Id) == false);
+
+                if (shouldUpdateAliases)
+                {
+                    Account.Aliases = updatedAliases;
+
+                    await _gmailChangeProcessor.UpdateAccountAliasesAsync(Account.Id, updatedAliases);
+                }
+
                 if (shouldUpdateAccountProfile)
                 {
                     await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);

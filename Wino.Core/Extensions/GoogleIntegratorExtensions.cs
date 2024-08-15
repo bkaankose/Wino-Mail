@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Web;
 using Google.Apis.Gmail.v1.Data;
 using MimeKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Extensions
 {
@@ -205,44 +205,21 @@ namespace Wino.Core.Extensions
             };
         }
 
-        public static Tuple<MailCopy, MimeMessage, IEnumerable<string>> GetMailDetails(this Message message)
+        public static List<MailAccountAlias> GetMailAliases(this ListSendAsResponse response, MailAccount currentAccount)
         {
-            MimeMessage mimeMessage = message.GetGmailMimeMessage();
+            if (response == null || response.SendAs == null) return currentAccount.Aliases;
 
-            if (mimeMessage == null)
+            var remoteAliases = response.SendAs.Select(a => new MailAccountAlias()
             {
-                // This should never happen.
-                Debugger.Break();
+                AccountId = currentAccount.Id,
+                AliasAddress = a.SendAsEmail,
+                IsPrimary = a.IsPrimary.GetValueOrDefault(),
+                ReplyToAddress = string.IsNullOrEmpty(a.ReplyToAddress) ? currentAccount.Address : a.ReplyToAddress,
+                IsVerified = string.IsNullOrEmpty(a.VerificationStatus) ? true : a.VerificationStatus == "accepted",
+                Id = Guid.NewGuid()
+            }).ToList();
 
-                return default;
-            }
-
-            bool isUnread = message.GetIsUnread();
-            bool isFocused = message.GetIsFocused();
-            bool isFlagged = message.GetIsFlagged();
-            bool isDraft = message.GetIsDraft();
-
-            var mailCopy = new MailCopy()
-            {
-                CreationDate = mimeMessage.Date.UtcDateTime,
-                Subject = HttpUtility.HtmlDecode(mimeMessage.Subject),
-                FromName = MailkitClientExtensions.GetActualSenderName(mimeMessage),
-                FromAddress = MailkitClientExtensions.GetActualSenderAddress(mimeMessage),
-                PreviewText = HttpUtility.HtmlDecode(message.Snippet),
-                ThreadId = message.ThreadId,
-                Importance = (MailImportance)mimeMessage.Importance,
-                Id = message.Id,
-                IsDraft = isDraft,
-                HasAttachments = mimeMessage.Attachments.Any(),
-                IsRead = !isUnread,
-                IsFlagged = isFlagged,
-                IsFocused = isFocused,
-                InReplyTo = mimeMessage.InReplyTo,
-                MessageId = mimeMessage.MessageId,
-                References = mimeMessage.References.GetReferences()
-            };
-
-            return new Tuple<MailCopy, MimeMessage, IEnumerable<string>>(mailCopy, mimeMessage, message.LabelIds);
+            return EntityExtensions.GetFinalAliasList(currentAccount.Aliases, remoteAliases);
         }
     }
 }

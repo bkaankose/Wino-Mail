@@ -100,5 +100,13 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="accountIdOrderPair">AccountId-OrderNumber pair for all accounts.</param>
         Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair);
+
+        /// <summary>
+        /// Updated account's aliases.
+        /// </summary>
+        /// <param name="accountId">Account id to update aliases for.</param>
+        /// <param name="aliases">Full list of updated aliases.</param>
+        /// <returns></returns>
+        Task UpdateAccountAliases(Guid accountId, List<MailAccountAlias> aliases);
     }
 }
