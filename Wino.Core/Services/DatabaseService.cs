@@ -61,7 +61,8 @@ namespace Wino.Core.Services
                 typeof(CustomServerInformation),
                 typeof(AccountSignature),
                 typeof(MergedInbox),
-                typeof(MailAccountPreferences)
+                typeof(MailAccountPreferences),
+                typeof(MailAccountAlias)
                 );
         }
     }

@@ -227,10 +227,38 @@ namespace Wino.Core.Services
                 if (account.MergedInboxId != null)
                     account.MergedInbox = await GetMergedInboxInformationAsync(account.MergedInboxId.Value);
 
+                // Load aliases
+                account.Aliases = await GetAccountAliases(account.Id, account.Address);
+
                 account.Preferences = await GetAccountPreferencesAsync(account.Id);
             }
 
             return accounts;
+        }
+
+        private async Task<List<MailAccountAlias>> GetAccountAliases(Guid accountId, string primaryAccountAddress)
+        {
+            // By default all accounts must have at least 1 primary alias to create drafts for.
+            // If there's no alias, create one from the existing account address. Migration doesn't exists to create one for older messages.
+
+            var aliases = await Connection.Table<MailAccountAlias>().ToListAsync().ConfigureAwait(false);
+
+            if (!aliases.Any())
+            {
+                var primaryAccountAlias = new MailAccountAlias()
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = accountId,
+                    IsPrimary = true,
+                    AliasAddress = primaryAccountAddress,
+                    IsVerified = true,
+                };
+
+                await Connection.InsertAsync(primaryAccountAlias).ConfigureAwait(false);
+                aliases.Add(primaryAccountAlias);
+            }
+
+            return aliases;
         }
 
         private Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)

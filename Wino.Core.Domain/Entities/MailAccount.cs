@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Enums;
 
@@ -72,6 +73,14 @@ namespace Wino.Core.Domain.Entities
 
         [Ignore]
         public CustomServerInformation ServerInformation { get; set; }
+
+        /// <summary>
+        /// Gets or sets the aliases of the account.
+        /// It's only synchronized for Gmail right now.
+        /// Other provider types are manually added by users and not verified.
+        /// </summary>
+        [Ignore]
+        public List<MailAccountAlias> Aliases { get; set; }
 
         /// <summary>
         /// Account preferences.
