@@ -473,6 +473,71 @@ namespace Wino.Core.Synchronizers
             }
         }
 
+        /// <summary>
+        /// Get the user's profile picture
+        /// </summary>
+        /// <returns>Base64 encoded profile picture.</returns>
+        private async Task<string> GetUserProfilePictureAsync()
+        {
+            try
+            {
+                var photoStream = await _graphClient.Me.Photos["48x48"].Content.GetAsync();
+
+                using var memoryStream = new MemoryStream();
+                await photoStream.CopyToAsync(memoryStream);
+                var byteArray = memoryStream.ToArray();
+
+                return Convert.ToBase64String(byteArray);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error occurred while getting user profile picture.");
+                return string.Empty;
+            }
+        }
+
+        private async Task<string> GetSenderNameAsync()
+        {
+            try
+            {
+                var userInfo = await _graphClient.Users["me"].GetAsync();
+
+                return userInfo.DisplayName;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to get sender name.");
+                return string.Empty;
+            }
+        }
+
+        protected override async Task SynchronizeProfileInformationAsync()
+        {
+            // Outlook profile info synchronizes Sender Name and Profile Picture.
+            string senderName = Account.SenderName, base64ProfilePicture = Account.ProfilePictureBase64;
+
+            var profilePictureData = await GetUserProfilePictureAsync().ConfigureAwait(false);
+            senderName = await GetSenderNameAsync().ConfigureAwait(false);
+
+            bool shouldUpdateAccountProfile = (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
+                   || (!string.IsNullOrEmpty(profilePictureData) && Account.ProfilePictureBase64 != base64ProfilePicture);
+
+            if (!string.IsNullOrEmpty(profilePictureData) && Account.ProfilePictureBase64 != profilePictureData)
+            {
+                Account.ProfilePictureBase64 = profilePictureData;
+            }
+
+            if (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
+            {
+                Account.SenderName = senderName;
+            }
+
+            if (shouldUpdateAccountProfile)
+            {
+                await _outlookChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+            }
+        }
+
         #region Mail Integration
 
         public override bool DelaySendOperationSynchronization() => true;
