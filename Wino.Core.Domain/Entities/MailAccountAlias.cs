@@ -9,6 +9,7 @@ namespace Wino.Core.Domain.Entities
         public Guid Id { get; set; }
         public Guid AccountId { get; set; }
         public string AliasAddress { get; set; }
+        public string ReplyToAddress { get; set; }
         public bool IsPrimary { get; set; }
         public bool IsVerified { get; set; }
     }

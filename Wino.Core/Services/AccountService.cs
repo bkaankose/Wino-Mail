@@ -251,6 +251,7 @@ namespace Wino.Core.Services
                     AccountId = accountId,
                     IsPrimary = true,
                     AliasAddress = primaryAccountAddress,
+                    ReplyToAddress = primaryAccountAddress,
                     IsVerified = true,
                 };
 
