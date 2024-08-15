@@ -70,7 +70,7 @@ namespace Wino.Core.Synchronizers
 
         protected override async Task SynchronizeProfileInformationAsync()
         {
-            // Gmail profile info synchronizes Alias and Profile Picture.
+            // Gmail profile info synchronizes Sender Name, Alias and Profile Picture.
 
             try
             {
