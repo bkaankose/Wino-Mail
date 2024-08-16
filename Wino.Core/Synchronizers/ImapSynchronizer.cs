@@ -922,7 +922,7 @@ namespace Wino.Core.Synchronizers
                 }
 
                 // In case of the high input, we'll batch them by 50 to reflect changes quickly.
-                var batchedMissingMailIds = missingMailIds.Batch(50).Select(a => new UniqueIdSet(a, SortOrder.Ascending));
+                var batchedMissingMailIds = missingMailIds.Batch(50).Select(a => new UniqueIdSet(a, SortOrder.Descending));
 
                 foreach (var batchMissingMailIds in batchedMissingMailIds)
                 {
