@@ -8,7 +8,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
-using MimeKit.Utils;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -21,6 +20,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -112,6 +112,7 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoRequestDelegator _worker;
         public readonly IFontService FontService;
         public readonly IPreferencesService PreferencesService;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         public readonly IContactService ContactService;
 
         public ComposePageViewModel(IDialogService dialogService,
@@ -124,7 +125,8 @@ namespace Wino.Mail.ViewModels
                                     IWinoRequestDelegator worker,
                                     IContactService contactService,
                                     IFontService fontService,
-                                    IPreferencesService preferencesService) : base(dialogService)
+                                    IPreferencesService preferencesService,
+                                    IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             NativeAppService = nativeAppService;
             _folderService = folderService;
@@ -139,6 +141,7 @@ namespace Wino.Mail.ViewModels
 
             SelectedToolbarSection = ToolbarSections[0];
             PreferencesService = preferencesService;
+            _winoServerConnectionManager = winoServerConnectionManager;
         }
 
         [RelayCommand]
@@ -297,24 +300,6 @@ namespace Wino.Mail.ViewModels
 
             ToItems.CollectionChanged -= ContactListCollectionChanged;
             ToItems.CollectionChanged += ContactListCollectionChanged;
-
-            // Check if there is any delivering mail address from protocol launch.
-
-            if (_launchProtocolService.MailToUri != null)
-            {
-                // TODO
-                //var requestedMailContact = await GetAddressInformationAsync(_launchProtocolService.MailtoParameters, ToItems);
-
-                //if (requestedMailContact != null)
-                //{
-                //    ToItems.Add(requestedMailContact);
-                //}
-                //else
-                //    DialogService.InfoBarMessage("Invalid Address", "Address is not a valid e-mail address.", InfoBarMessageType.Warning);
-
-                // Clear the address.
-                _launchProtocolService.MailToUri = null;
-            }
         }
 
         private void ContactListCollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -375,6 +360,8 @@ namespace Wino.Mail.ViewModels
                 return;
             }
 
+        retry:
+
             // Replying existing message.
             MimeMessageInformation mimeMessageInformation = null;
 
@@ -386,18 +373,24 @@ namespace Wino.Mail.ViewModels
             {
                 if (downloadIfNeeded)
                 {
-                    // TODO: Folder id needs to be passed.
-                    // TODO: Send mail retrieve request.
-                    // _worker.Queue(new FetchSingleItemRequest(ComposingAccount.Id, CurrentMailDraftItem.Id, string.Empty));
+                    downloadIfNeeded = false;
+
+                    var package = new DownloadMissingMessageRequested(CurrentMailDraftItem.AssignedAccount.Id, CurrentMailDraftItem.MailCopy);
+                    var downloadResponse = await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
+
+                    if (downloadResponse.IsSuccess)
+                    {
+                        goto retry;
+                    }
                 }
-                //else
-                //    DialogService.ShowMIMENotFoundMessage();
+                else
+                    DialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
 
                 return;
             }
             catch (IOException)
             {
-                DialogService.InfoBarMessage("Busy", "Mail is being processed. Please wait a moment and try again.", InfoBarMessageType.Warning);
+                DialogService.InfoBarMessage(Translator.Busy, Translator.Exception_MailProcessing, InfoBarMessageType.Warning);
             }
             catch (ComposerMimeNotFoundException)
             {

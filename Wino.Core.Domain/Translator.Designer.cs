@@ -584,6 +584,11 @@ namespace Wino.Core.Domain
 		public static string Draft => Resources.GetTranslatedString(@"Draft");	
 	
         /// <summary>
+		/// Busy
+		/// </summary>
+		public static string Busy => Resources.GetTranslatedString(@"Busy");	
+	
+        /// <summary>
 		/// Draw
 		/// </summary>
 		public static string EditorToolbarOption_Draw => Resources.GetTranslatedString(@"EditorToolbarOption_Draw");	
@@ -637,6 +642,11 @@ namespace Wino.Core.Domain
 		/// Wino server failed.
 		/// </summary>
 		public static string Exception_WinoServerException => Resources.GetTranslatedString(@"Exception_WinoServerException");	
+	
+        /// <summary>
+		/// This mail is still being processed. Please try again after few seconds.
+		/// </summary>
+		public static string Exception_MailProcessing => Resources.GetTranslatedString(@"Exception_MailProcessing");	
 	
         /// <summary>
 		/// Couldn't find mailbox settings.
