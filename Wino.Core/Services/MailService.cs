@@ -729,6 +729,14 @@ namespace Wino.Core.Services
                     message.Cc.AddRange(referenceMessage.Cc.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
                 }
 
+                // Self email can be present at this step, when replying to own message. It should be removed only in case there no other recipients.
+                if (message.To.Count > 1)
+                {
+                    var self = message.To.FirstOrDefault(x => x is MailboxAddress mailboxAddress && mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase));
+                    if (self != null)
+                        message.To.Remove(self);
+                }
+
                 // Manage "ThreadId-ConversationId"
                 if (!string.IsNullOrEmpty(referenceMessage.MessageId))
                 {
