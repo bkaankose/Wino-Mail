@@ -443,7 +443,6 @@
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
                         IsEditable="False"
-                        IsEnabled="False"
                         ItemsSource="{x:Bind ViewModel.Accounts}"
                         SelectedItem="{x:Bind ViewModel.ComposingAccount, Mode=TwoWay}">
                         <ComboBox.ItemTemplate>

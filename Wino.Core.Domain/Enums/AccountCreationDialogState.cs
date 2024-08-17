@@ -9,6 +9,7 @@
         ManuelSetupWaiting,
         TestingConnection,
         AutoDiscoverySetup,
-        AutoDiscoveryInProgress
+        AutoDiscoveryInProgress,
+        FetchingProfileInformation
     }
 }

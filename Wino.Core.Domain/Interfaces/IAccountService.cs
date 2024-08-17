@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces
 {
@@ -102,11 +103,41 @@ namespace Wino.Core.Domain.Interfaces
         Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair);
 
         /// <summary>
+        /// Returns the account aliases.
+        /// </summary>
+        /// <param name="accountId">Account id.</param>
+        /// <returns>A list of MailAccountAlias that has e-mail aliases.</returns>
+        Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId);
+
+        /// <summary>
         /// Updated account's aliases.
         /// </summary>
         /// <param name="accountId">Account id to update aliases for.</param>
         /// <param name="aliases">Full list of updated aliases.</param>
         /// <returns></returns>
-        Task UpdateAccountAliases(Guid accountId, List<MailAccountAlias> aliases);
+        Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases);
+
+        /// <summary>
+        /// Delete account alias.
+        /// </summary>
+        /// <param name="aliasId">Alias to remove.</param>
+        Task DeleteAccountAliasAsync(Guid aliasId);
+
+        /// <summary>
+        /// Updated profile information of the account.
+        /// </summary>
+        /// <param name="accountId">Account id to update info for.</param>
+        /// <param name="profileInformation">Info data.</param>
+        /// <returns></returns>
+        Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation);
+
+
+        /// <summary>
+        /// Creates a root + primary alias for the account.
+        /// This is only called when the account is created.
+        /// </summary>
+        /// <param name="accountId">Account id.</param>
+        /// <param name="address">Address to create root primary alias from.</param>
+        Task CreateRootAliasAsync(Guid accountId, string address);
     }
 }

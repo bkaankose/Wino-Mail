@@ -88,6 +88,8 @@ namespace Wino.Services
                     return typeof(SettingOptionsPage);
                 case WinoPage.AppPreferencesPage:
                     return typeof(AppPreferencesPage);
+                case WinoPage.AliasManagementPage:
+                    return typeof(AliasManagementPage);
                 default:
                     return null;
             }

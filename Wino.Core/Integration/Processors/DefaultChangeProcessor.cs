@@ -40,6 +40,8 @@ namespace Wino.Core.Integration.Processors
         /// <returns>All folders.</returns>
         Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId);
 
+        Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId);
+
         Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
 
         Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
@@ -179,6 +181,9 @@ namespace Wino.Core.Integration.Processors
             => AccountService.UpdateAccountAsync(account);
 
         public Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
-            => AccountService.UpdateAccountAliases(accountId, aliases);
+            => AccountService.UpdateAccountAliasesAsync(accountId, aliases);
+
+        public Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
+            => AccountService.GetAccountAliasesAsync(accountId);
     }
 }

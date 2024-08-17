@@ -44,6 +44,7 @@ namespace Wino.Views
                 WinoPage.SignatureManagementPage => typeof(SignatureManagementPage),
                 WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
                 WinoPage.MergedAccountDetailsPage => typeof(MergedAccountDetailsPage),
+                WinoPage.AliasManagementPage => typeof(AliasManagementPage),
                 _ => null,
             };
         }

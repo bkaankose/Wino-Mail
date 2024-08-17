@@ -50,7 +50,7 @@ namespace Wino.Core.MenuItems
         public string Base64ProfilePicture
         {
             get => Parameter.Name;
-            set => SetProperty(Parameter.ProfilePictureBase64, value, Parameter, (u, n) => u.ProfilePictureBase64 = n);
+            set => SetProperty(Parameter.Base64ProfilePictureData, value, Parameter, (u, n) => u.Base64ProfilePictureData = n);
         }
 
         public IEnumerable<MailAccount> HoldingAccounts => new List<MailAccount> { Parameter };
@@ -65,7 +65,7 @@ namespace Wino.Core.MenuItems
             Parameter = account;
             AccountName = account.Name;
             AttentionReason = account.AttentionReason;
-            Base64ProfilePicture = account.ProfilePictureBase64;
+            Base64ProfilePicture = account.Base64ProfilePictureData;
 
             if (SubMenuItems == null) return;
 

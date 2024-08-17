@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using MailKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 
@@ -42,6 +43,13 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Result summary of synchronization.</returns>
         Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Synchronizes profile information with the server.
+        /// Sender name and 
+        /// </summary>
+        /// <returns></returns>
+        Task<ProfileInformation> SynchronizeProfileInformationAsync();
 
         /// <summary>
         /// Downloads a single MIME message from the server and saves it to disk.

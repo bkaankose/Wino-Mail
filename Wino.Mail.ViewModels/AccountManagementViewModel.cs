@@ -154,15 +154,12 @@ namespace Wino.Mail.ViewModels
                 {
                     creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
-                    // _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
-
                     CustomServerInformation customServerInformation = null;
 
                     createdAccount = new MailAccount()
                     {
                         ProviderType = accountCreationDialogResult.ProviderType,
                         Name = accountCreationDialogResult.AccountName,
-                        SenderName = accountCreationDialogResult.SenderName,
                         AccountColorHex = accountCreationDialogResult.AccountColorHex,
                         Id = Guid.NewGuid()
                     };
@@ -208,30 +205,59 @@ namespace Wino.Mail.ViewModels
                     await _accountService.CreateAccountAsync(createdAccount, tokenInformation, customServerInformation);
 
                     // Local account has been created.
-                    // Create new synchronizer and start synchronization.
+
+                    // Start profile information synchronization.
+                    // Profile info is not updated in the database yet.
+
+                    var profileSyncOptions = new SynchronizationOptions()
+                    {
+                        AccountId = createdAccount.Id,
+                        Type = SynchronizationType.UpdateProfile
+                    };
+
+                    var profileSynchronizationResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+
+                    var profileSynchronizationResult = profileSynchronizationResponse.Data;
+
+                    if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
+
+                    createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
+                    createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
+
+                    await _accountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
 
                     if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
                         customServerAccountCreationDialog.ShowPreparingFolders();
                     else
                         creationDialog.State = AccountCreationDialogState.PreparingFolders;
 
-                    var options = new SynchronizationOptions()
+                    // Start synchronizing folders.
+                    var folderSyncOptions = new SynchronizationOptions()
                     {
                         AccountId = createdAccount.Id,
                         Type = SynchronizationType.FoldersOnly
                     };
 
-                    var synchronizationResultResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+                    var folderSynchronizationResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
 
-                    var synchronizationResult = synchronizationResultResponse.Data;
-                    if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                    var folderSynchronizationResult = folderSynchronizationResponse.Data;
+
+                    if (folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
-                    // Check if Inbox folder is available for the account after synchronization.
-                    var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+                    // Create root primary alias for the account.
+                    // This is the first alias for the account and it's primary.
 
-                    if (!isInboxAvailable)
-                        throw new Exception(Translator.Exception_InboxNotAvailable);
+                    await _accountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
+
+                    // TODO: Temporary disabled. Is this even needed? Users can configure special folders manually later on if discovery fails.
+                    // Check if Inbox folder is available for the account after synchronization.
+
+                    //var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+
+                    //if (!isInboxAvailable)
+                    //    throw new Exception(Translator.Exception_InboxNotAvailable);
 
                     // Send changes to listeners.
                     ReportUIChange(new AccountCreatedMessage(createdAccount));

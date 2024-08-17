@@ -9,6 +9,7 @@ using SqlKata;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Extensions;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
@@ -226,43 +227,37 @@ namespace Wino.Core.Services
                 if (account.MergedInboxId != null)
                     account.MergedInbox = await GetMergedInboxInformationAsync(account.MergedInboxId.Value);
 
-                // Load aliases
-                account.Aliases = await GetAccountAliases(account.Id, account.Address);
-
                 account.Preferences = await GetAccountPreferencesAsync(account.Id);
             }
 
             return accounts;
         }
 
-        private async Task<List<MailAccountAlias>> GetAccountAliases(Guid accountId, string primaryAccountAddress)
+        public async Task CreateRootAliasAsync(Guid accountId, string address)
         {
-            // By default all accounts must have at least 1 primary alias to create drafts for.
-            // If there's no alias, create one from the existing account address. Migration doesn't exists to create one for older messages.
-
-            var aliases = await Connection
-                .Table<MailAccountAlias>()
-                .Where(a => a.AccountId == accountId)
-                .ToListAsync()
-                .ConfigureAwait(false);
-
-            if (!aliases.Any())
+            var rootAlias = new MailAccountAlias()
             {
-                var primaryAccountAlias = new MailAccountAlias()
-                {
-                    Id = Guid.NewGuid(),
-                    AccountId = accountId,
-                    IsPrimary = true,
-                    AliasAddress = primaryAccountAddress,
-                    ReplyToAddress = primaryAccountAddress,
-                    IsVerified = true,
-                };
+                AccountId = accountId,
+                AliasAddress = address,
+                IsPrimary = true,
+                IsRootAlias = true,
+                IsVerified = true,
+                ReplyToAddress = address,
+                Id = Guid.NewGuid()
+            };
 
-                await Connection.InsertAsync(primaryAccountAlias).ConfigureAwait(false);
-                aliases.Add(primaryAccountAlias);
-            }
+            await Connection.InsertAsync(rootAlias).ConfigureAwait(false);
 
-            return aliases;
+            Log.Information("Created root alias for the account {AccountId}", accountId);
+        }
+
+        public async Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
+        {
+            var query = new Query(nameof(MailAccountAlias))
+                .Where(nameof(MailAccountAlias.AccountId), accountId)
+                .OrderByDesc(nameof(MailAccountAlias.IsRootAlias));
+
+            return await Connection.QueryAsync<MailAccountAlias>(query.GetRawQuery()).ConfigureAwait(false);
         }
 
         private Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)
@@ -277,6 +272,7 @@ namespace Wino.Core.Services
             await Connection.Table<TokenInformation>().Where(a => a.AccountId == account.Id).DeleteAsync();
             await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
             await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
+            await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id);
 
             // Account belongs to a merged inbox.
             // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.
@@ -327,6 +323,19 @@ namespace Wino.Core.Services
             ReportUIChange(new AccountRemovedMessage(account));
         }
 
+        public async Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation)
+        {
+            var account = await GetAccountAsync(accountId).ConfigureAwait(false);
+
+            if (account != null)
+            {
+                account.SenderName = profileInformation.SenderName;
+                account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+
+                await UpdateAccountAsync(account).ConfigureAwait(false);
+            }
+        }
+
         public async Task<MailAccount> GetAccountAsync(Guid accountId)
         {
             var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
@@ -359,7 +368,7 @@ namespace Wino.Core.Services
             ReportUIChange(new AccountUpdatedMessage(account));
         }
 
-        public async Task UpdateAccountAliases(Guid accountId, List<MailAccountAlias> aliases)
+        public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
         {
             // Delete existing ones.
             await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == accountId).ConfigureAwait(false);
@@ -369,6 +378,17 @@ namespace Wino.Core.Services
             {
                 await Connection.InsertAsync(alias).ConfigureAwait(false);
             }
+        }
+
+        public async Task DeleteAccountAliasAsync(Guid aliasId)
+        {
+            // Create query to delete alias.
+
+            var query = new Query("MailAccountAlias")
+                .Where("Id", aliasId)
+                .AsDelete();
+
+            await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
         }
 
         public async Task CreateAccountAsync(MailAccount account, TokenInformation tokenInformation, CustomServerInformation customServerInformation)
@@ -424,7 +444,7 @@ namespace Wino.Core.Services
             // Outlook token cache is managed by MSAL.
             // Don't save it to database.
 
-            if (tokenInformation != null && account.ProviderType != MailProviderType.Outlook)
+            if (tokenInformation != null && (account.ProviderType != MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365))
                 await Connection.InsertAsync(tokenInformation);
         }
 

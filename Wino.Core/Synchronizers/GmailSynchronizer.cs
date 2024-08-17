@@ -19,6 +19,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
@@ -68,67 +69,45 @@ namespace Wino.Core.Synchronizers
 
         public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
 
-        protected override async Task SynchronizeProfileInformationAsync()
+        public override async Task<ProfileInformation> SynchronizeProfileInformationAsync()
         {
-            // Gmail profile info synchronizes Sender Name, Alias and Profile Picture.
+            var profileRequest = _peopleService.People.Get("people/me");
+            profileRequest.PersonFields = "names,photos";
 
-            try
+            string senderName = string.Empty, base64ProfilePicture = string.Empty;
+
+            var userProfile = await profileRequest.ExecuteAsync();
+
+            senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
+
+            var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
+
+            if (!string.IsNullOrEmpty(profilePicture))
             {
-                var profileRequest = _peopleService.People.Get("people/me");
-                profileRequest.PersonFields = "names,photos";
-
-                string senderName = Account.SenderName, base64ProfilePicture = Account.ProfilePictureBase64;
-
-                var userProfile = await profileRequest.ExecuteAsync();
-
-                senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
-
-                var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
-
-                if (!string.IsNullOrEmpty(profilePicture))
-                {
-                    base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
-                }
-
-                bool shouldUpdateAccountProfile = (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
-                    || (!string.IsNullOrEmpty(profilePicture) && Account.ProfilePictureBase64 != base64ProfilePicture);
-
-                if (!string.IsNullOrEmpty(senderName) && Account.SenderName != senderName)
-                {
-                    Account.SenderName = senderName;
-                }
-
-                if (!string.IsNullOrEmpty(profilePicture) && Account.ProfilePictureBase64 != base64ProfilePicture)
-                {
-                    Account.ProfilePictureBase64 = base64ProfilePicture;
-                }
-
-                // Sync aliases
-
-                var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
-                var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
-
-                var updatedAliases = sendAsListResponse.GetMailAliases(Account);
-
-                bool shouldUpdateAliases =
-                    Account.Aliases.Any(a => updatedAliases.Any(b => a.Id == b.Id) == false) ||
-                    updatedAliases.Any(a => Account.Aliases.Any(b => a.Id == b.Id) == false);
-
-                if (shouldUpdateAliases)
-                {
-                    Account.Aliases = updatedAliases;
-
-                    await _gmailChangeProcessor.UpdateAccountAliasesAsync(Account.Id, updatedAliases);
-                }
-
-                if (shouldUpdateAccountProfile)
-                {
-                    await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
-                }
+                base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
             }
-            catch (Exception ex)
+
+            return new ProfileInformation(senderName, base64ProfilePicture);
+        }
+
+        protected override async Task SynchronizeAliasesAsync()
+        {
+            // Sync aliases
+
+            var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
+            var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
+
+            var localAliases = await _gmailChangeProcessor.GetAccountAliasesAsync(Account.Id).ConfigureAwait(false);
+
+            var updatedAliases = sendAsListResponse.GetMailAliases(localAliases, Account);
+
+            bool shouldUpdateAliases =
+                localAliases.Any(a => updatedAliases.Any(b => a.Id == b.Id) == false) ||
+                updatedAliases.Any(a => localAliases.Any(b => a.Id == b.Id) == false);
+
+            if (shouldUpdateAliases)
             {
-                Logger.Error(ex, "Error while synchronizing profile information for {Name}", Account.Name);
+                await _gmailChangeProcessor.UpdateAccountAliasesAsync(Account.Id, updatedAliases);
             }
         }
 

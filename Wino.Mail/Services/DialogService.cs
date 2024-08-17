@@ -216,6 +216,18 @@ namespace Wino.Services
             return storeDialog;
         }
 
+        public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
+        {
+            var createAccountAliasDialog = new CreateAccountAliasDialog()
+            {
+                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(createAccountAliasDialog);
+
+            return createAccountAliasDialog;
+        }
+
         public async Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
         {
             try

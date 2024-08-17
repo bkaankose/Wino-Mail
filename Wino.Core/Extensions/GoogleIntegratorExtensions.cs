@@ -205,21 +205,22 @@ namespace Wino.Core.Extensions
             };
         }
 
-        public static List<MailAccountAlias> GetMailAliases(this ListSendAsResponse response, MailAccount currentAccount)
+        public static List<MailAccountAlias> GetMailAliases(this ListSendAsResponse response, List<MailAccountAlias> currentAliases, MailAccount account)
         {
-            if (response == null || response.SendAs == null) return currentAccount.Aliases;
+            if (response == null || response.SendAs == null) return currentAliases;
 
             var remoteAliases = response.SendAs.Select(a => new MailAccountAlias()
             {
-                AccountId = currentAccount.Id,
+                AccountId = account.Id,
                 AliasAddress = a.SendAsEmail,
                 IsPrimary = a.IsPrimary.GetValueOrDefault(),
-                ReplyToAddress = string.IsNullOrEmpty(a.ReplyToAddress) ? currentAccount.Address : a.ReplyToAddress,
+                ReplyToAddress = string.IsNullOrEmpty(a.ReplyToAddress) ? account.Address : a.ReplyToAddress,
                 IsVerified = string.IsNullOrEmpty(a.VerificationStatus) ? true : a.VerificationStatus == "accepted",
+                IsRootAlias = account.Address == a.SendAsEmail,
                 Id = Guid.NewGuid()
             }).ToList();
 
-            return EntityExtensions.GetFinalAliasList(currentAccount.Aliases, remoteAliases);
+            return EntityExtensions.GetFinalAliasList(currentAliases, remoteAliases);
         }
     }
 }

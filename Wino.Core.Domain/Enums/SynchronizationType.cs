@@ -7,5 +7,6 @@
         Inbox, // Only Inbox
         Custom, // Only sync folders that are specified in the options.
         Full, // Synchronize everything
+        UpdateProfile, // Only update profile information
     }
 }

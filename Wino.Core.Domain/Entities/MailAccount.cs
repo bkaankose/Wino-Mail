@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Enums;
 
@@ -48,7 +47,7 @@ namespace Wino.Core.Domain.Entities
         /// <summary>
         /// Base64 encoded profile picture of the account.
         /// </summary>
-        public string ProfilePictureBase64 { get; set; }
+        public string Base64ProfilePictureData { get; set; }
 
         /// <summary>
         /// Gets or sets the listing order of the account in the accounts list.
@@ -84,8 +83,8 @@ namespace Wino.Core.Domain.Entities
         /// It's only synchronized for Gmail right now.
         /// Other provider types are manually added by users and not verified.
         /// </summary>
-        [Ignore]
-        public List<MailAccountAlias> Aliases { get; set; }
+        //[Ignore]
+        //public List<MailAccountAlias> Aliases { get; set; }
 
         /// <summary>
         /// Account preferences.

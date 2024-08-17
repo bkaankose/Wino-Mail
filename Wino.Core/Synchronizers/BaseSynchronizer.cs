@@ -13,6 +13,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration;
@@ -71,10 +72,16 @@ namespace Wino.Core.Synchronizers
         public abstract Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Refreshed remote mail account profile if possible.
-        /// Aliases, profile pictures, mailbox settings will be handled in this step.
+        /// Refreshes remote mail account profile if possible.
+        /// Profile picture, sender name and mailbox settings (todo) will be handled in this step.
         /// </summary>
-        protected virtual Task SynchronizeProfileInformationAsync() => Task.CompletedTask;
+        public virtual Task<ProfileInformation> SynchronizeProfileInformationAsync() => default;
+
+        /// <summary>
+        /// Refreshes the aliases of the account.
+        /// Only available for Gmail right now.
+        /// </summary>
+        protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
 
         /// <summary>
         /// Returns the base64 encoded profile picture of the account from the given URL.
@@ -99,6 +106,33 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Synchronization result that contains summary of the sync.</returns>
         protected abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Safely updates account's profile information.
+        /// Database changes are reflected after this call.
+        /// Null returns mean that the operation failed.
+        /// </summary>
+        private async Task<ProfileInformation> SynchronizeProfileInformationInternalAsync()
+        {
+            try
+            {
+                var profileInformation = await SynchronizeProfileInformationAsync();
+
+                if (profileInformation != null)
+                {
+                    Account.SenderName = profileInformation.SenderName;
+                    Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+                }
+
+                return profileInformation;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to update profile information for account '{Name}'", Account.Name);
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
@@ -139,12 +173,16 @@ namespace Wino.Core.Synchronizers
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
-                if (options.Type == SynchronizationType.Full)
+                if (options.Type == SynchronizationType.UpdateProfile)
                 {
-                    // Refresh profile information and mailbox settings on full synchronization.
+                    // Refresh profile information on full synchronization.
                     // Exceptions here is not critical. Therefore, they are ignored.
 
-                    await SynchronizeProfileInformationAsync();
+                    var newprofileInformation = await SynchronizeProfileInformationInternalAsync();
+
+                    if (newprofileInformation == null) return SynchronizationResult.Failed;
+
+                    return SynchronizationResult.Completed(null, newprofileInformation);
                 }
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
