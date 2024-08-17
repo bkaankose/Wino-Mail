@@ -795,7 +795,7 @@ namespace Wino.Mail.ViewModels
         }
 
         protected override void OnAccountRemoved(MailAccount removedAccount)
-            => Messenger.Send(new AccountsMenuRefreshRequested(true));
+            => Messenger.Send(new AccountsMenuRefreshRequested(false));
 
         protected override async void OnAccountCreated(MailAccount createdAccount)
         {
@@ -877,12 +877,9 @@ namespace Wino.Mail.ViewModels
         {
             await RecreateMenuItemsAsync();
 
-            if (message.AutomaticallyNavigateFirstItem)
+            if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
             {
-                if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
-                {
-                    await ChangeLoadedAccountAsync(firstAccount);
-                }
+                await ChangeLoadedAccountAsync(firstAccount, message.AutomaticallyNavigateFirstItem);
             }
         }
 
