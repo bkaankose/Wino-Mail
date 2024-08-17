@@ -16,17 +16,6 @@ namespace Wino.Core.Domain.Models.MailItem
         private MimeMessage mime;
 
         [JsonIgnore]
-        public MimeMessage Mime
-        {
-            get
-            {
-                if (mime == null)
-                {
-                    mime = Base64MimeMessage.GetMimeMessageFromBase64();
-                }
-
-                return mime;
-            }
-        }
+        public MimeMessage Mime => mime ??= Base64MimeMessage.GetMimeMessageFromBase64();
     }
 }
