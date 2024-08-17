@@ -559,5 +559,14 @@ namespace Wino.Core.Services
 
             Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
         }
+
+        public async Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId)
+        {
+            var aliases = await GetAccountAliasesAsync(accountId);
+
+            if (aliases == null || aliases.Count == 0) return null;
+
+            return aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.First();
+        }
     }
 }

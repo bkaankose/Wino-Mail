@@ -729,16 +729,25 @@ namespace Wino.Mail.ViewModels
                     operationAccount = accounts.FirstOrDefault();
                 else
                 {
-                    // There are multiple accounts and there is no selection.
-                    // Don't list all accounts, but only accounts that belong to Merged Inbox.
-
                     if (latestSelectedAccountMenuItem is MergedAccountMenuItem selectedMergedAccountMenuItem)
                     {
+                        // There are multiple accounts and there is no selection.
+                        // Don't list all accounts, but only accounts that belong to Merged Inbox.
+
                         var mergedAccounts = accounts.Where(a => a.MergedInboxId == selectedMergedAccountMenuItem.EntityId);
 
                         if (!mergedAccounts.Any()) return;
 
                         Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(mergedAccounts.ToList()));
+                    }
+                    else if (latestSelectedAccountMenuItem is AccountMenuItem selectedAccountMenuItem)
+                    {
+                        operationAccount = selectedAccountMenuItem.HoldingAccounts.ElementAt(0);
+                    }
+                    else
+                    {
+                        // User is at some other page. List all accounts.
+                        Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(accounts));
                     }
                 }
             }

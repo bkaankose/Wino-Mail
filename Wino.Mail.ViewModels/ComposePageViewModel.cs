@@ -69,6 +69,12 @@ namespace Wino.Mail.ViewModels
         private MailAccount composingAccount;
 
         [ObservableProperty]
+        private List<MailAccountAlias> availableAliases;
+
+        [ObservableProperty]
+        private MailAccountAlias selectedAlias;
+
+        [ObservableProperty]
         private bool isDraggingOverComposerGrid;
 
         [ObservableProperty]
@@ -166,6 +172,12 @@ namespace Wino.Mail.ViewModels
                 if (!isConfirmed) return;
             }
 
+            if (SelectedAlias == null)
+            {
+                DialogService.InfoBarMessage(Translator.DialogMessage_AliasNotSelectedTitle, Translator.DialogMessage_AliasNotSelectedMessage, InfoBarMessageType.Error);
+                return;
+            }
+
             // Save mime changes before sending.
             await UpdateMimeChangesAsync().ConfigureAwait(false);
 
@@ -180,7 +192,12 @@ namespace Wino.Mail.ViewModels
             int count = (int)memoryStream.Length;
 
             var base64EncodedMessage = Convert.ToBase64String(buffer);
-            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy, sentFolder, CurrentMailDraftItem.AssignedFolder, CurrentMailDraftItem.AssignedAccount.Preferences, base64EncodedMessage);
+            var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
+                                                                              SelectedAlias,
+                                                                              sentFolder,
+                                                                              CurrentMailDraftItem.AssignedFolder,
+                                                                              CurrentMailDraftItem.AssignedAccount.Preferences,
+                                                                              base64EncodedMessage);
 
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }
@@ -197,6 +214,8 @@ namespace Wino.Mail.ViewModels
 
             SaveImportance();
             SaveSubject();
+            SaveFromAddress();
+            SaveReplyToAddress();
 
             await SaveAttachmentsAsync();
             await SaveBodyAsync();
@@ -210,6 +229,7 @@ namespace Wino.Mail.ViewModels
         {
             CurrentMailDraftItem.Subject = CurrentMimeMessage.Subject;
             CurrentMailDraftItem.PreviewText = CurrentMimeMessage.TextBody;
+            CurrentMailDraftItem.FromAddress = SelectedAlias.AliasAddress;
 
             // Update database.
             await _mailService.UpdateMailAsync(CurrentMailDraftItem.MailCopy);
@@ -227,7 +247,10 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void SaveImportance() { CurrentMimeMessage.Importance = IsImportanceSelected ? SelectedMessageImportance : MessageImportance.Normal; }
+        private void SaveImportance()
+        {
+            CurrentMimeMessage.Importance = IsImportanceSelected ? SelectedMessageImportance : MessageImportance.Normal;
+        }
 
         private void SaveSubject()
         {
@@ -285,14 +308,12 @@ namespace Wino.Mail.ViewModels
             await UpdateMimeChangesAsync().ConfigureAwait(false);
         }
 
-        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        public override void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
 
             if (parameters != null && parameters is MailItemViewModel mailItem)
             {
-                await LoadAccountsAsync();
-
                 CurrentMailDraftItem = mailItem;
 
                 _ = TryPrepareComposeAsync(true);
@@ -321,46 +342,52 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private async Task LoadAccountsAsync()
-        {
-            // Load accounts
-
-            var accounts = await _accountService.GetAccountsAsync();
-
-            foreach (var account in accounts)
-            {
-                Accounts.Add(account);
-            }
-        }
-
         private async Task<bool> InitializeComposerAccountAsync()
         {
+            if (CurrentMailDraftItem == null) return false;
+
             if (ComposingAccount != null) return true;
 
-            if (CurrentMailDraftItem == null)
-                return false;
+            var composingAccount = await _accountService.GetAccountAsync(CurrentMailDraftItem.AssignedAccount.Id).ConfigureAwait(false);
+            if (composingAccount == null) return false;
+
+            var aliases = await _accountService.GetAccountAliasesAsync(composingAccount.Id).ConfigureAwait(false);
+
+            if (aliases == null || !aliases.Any()) return false;
+
+            // MailAccountAlias primaryAlias = aliases.Find(a => a.IsPrimary) ?? aliases.First();
+
+            // Auto-select the correct alias from the message itself.
+            // If can't, fallback to primary alias.
+
+            MailAccountAlias primaryAlias = null;
+
+            if (!string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
+            {
+                primaryAlias = aliases.Find(a => a.AliasAddress == CurrentMailDraftItem.FromAddress);
+            }
+
+            primaryAlias ??= await _accountService.GetPrimaryAccountAliasAsync(ComposingAccount.Id).ConfigureAwait(false);
 
             await ExecuteUIThread(() =>
             {
-                ComposingAccount = Accounts.FirstOrDefault(a => a.Id == CurrentMailDraftItem.AssignedAccount.Id);
+                ComposingAccount = composingAccount;
+                AvailableAliases = aliases;
+                SelectedAlias = primaryAlias;
             });
 
-            return ComposingAccount != null;
+            return true;
         }
 
         private async Task TryPrepareComposeAsync(bool downloadIfNeeded)
         {
-            if (CurrentMailDraftItem == null)
-                return;
+            if (CurrentMailDraftItem == null) return;
 
             bool isComposerInitialized = await InitializeComposerAccountAsync();
 
-            if (!isComposerInitialized)
-            {
-                return;
-            }
+            if (!isComposerInitialized) return;
 
-        retry:
+            retry:
 
             // Replying existing message.
             MimeMessageInformation mimeMessageInformation = null;
@@ -449,6 +476,31 @@ namespace Wino.Mail.ViewModels
                     collection.Add(mailboxAddress.ToAddressInformation());
                 else if (item is GroupAddress groupAddress)
                     LoadAddressInfo(groupAddress.Members, collection);
+            }
+        }
+
+        private void SaveFromAddress()
+        {
+            if (SelectedAlias == null || CurrentMimeMessage == null) return;
+
+
+            CurrentMimeMessage.From.Clear();
+            CurrentMimeMessage.From.Add(new MailboxAddress(ComposingAccount.SenderName, SelectedAlias.AliasAddress));
+
+
+        }
+
+        private void SaveReplyToAddress()
+        {
+            if (SelectedAlias == null || CurrentMimeMessage == null) return;
+
+            if (!string.IsNullOrEmpty(SelectedAlias.ReplyToAddress))
+            {
+                if (!CurrentMimeMessage.ReplyTo.Any(a => a is MailboxAddress mailboxAddress && mailboxAddress.Address == SelectedAlias.ReplyToAddress))
+                {
+                    CurrentMimeMessage.ReplyTo.Clear();
+                    CurrentMimeMessage.ReplyTo.Add(new MailboxAddress(SelectedAlias.ReplyToAddress, SelectedAlias.ReplyToAddress));
+                }
             }
         }
 

@@ -7,19 +7,22 @@ namespace Wino.Core.Domain.Models.MailItem
 {
     public class SendDraftPreparationRequest
     {
-        public MailCopy MailItem { get; set; }
-        public string Base64MimeMessage { get; set; }
-        public MailItemFolder SentFolder { get; set; }
-        public MailItemFolder DraftFolder { get; set; }
-        public MailAccountPreferences AccountPreferences { get; set; }
+        public MailCopy MailItem { get; }
+        public string Base64MimeMessage { get; }
+        public MailItemFolder SentFolder { get; }
+        public MailItemFolder DraftFolder { get; }
+        public MailAccountPreferences AccountPreferences { get; }
+        public MailAccountAlias SendingAlias { get; set; }
 
         public SendDraftPreparationRequest(MailCopy mailItem,
+                                           MailAccountAlias sendingAlias,
                                            MailItemFolder sentFolder,
                                            MailItemFolder draftFolder,
                                            MailAccountPreferences accountPreferences,
                                            string base64MimeMessage)
         {
             MailItem = mailItem;
+            SendingAlias = sendingAlias;
             SentFolder = sentFolder;
             DraftFolder = draftFolder;
             AccountPreferences = accountPreferences;

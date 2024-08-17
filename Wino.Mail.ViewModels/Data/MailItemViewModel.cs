@@ -18,7 +18,6 @@ namespace Wino.Mail.ViewModels.Data
         public string MessageId => ((IMailItem)MailCopy).MessageId;
         public string FromName => ((IMailItem)MailCopy).FromName ?? FromAddress;
         public DateTime CreationDate => ((IMailItem)MailCopy).CreationDate;
-        public string FromAddress => ((IMailItem)MailCopy).FromAddress;
         public bool HasAttachments => ((IMailItem)MailCopy).HasAttachments;
         public string References => ((IMailItem)MailCopy).References;
         public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
@@ -75,6 +74,12 @@ namespace Wino.Mail.ViewModels.Data
         {
             get => MailCopy.PreviewText;
             set => SetProperty(MailCopy.PreviewText, value, MailCopy, (u, n) => u.PreviewText = n);
+        }
+
+        public string FromAddress
+        {
+            get => MailCopy.FromAddress;
+            set => SetProperty(MailCopy.FromAddress, value, MailCopy, (u, n) => u.FromAddress = n);
         }
 
         public MailItemFolder AssignedFolder => ((IMailItem)MailCopy).AssignedFolder;

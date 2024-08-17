@@ -359,6 +359,16 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_AccountLimitTitle => Resources.GetTranslatedString(@"DialogMessage_AccountLimitTitle");	
 	
         /// <summary>
+		/// Missing Alias
+		/// </summary>
+		public static string DialogMessage_AliasNotSelectedTitle => Resources.GetTranslatedString(@"DialogMessage_AliasNotSelectedTitle");	
+	
+        /// <summary>
+		/// You must select an alias before sending a message.
+		/// </summary>
+		public static string DialogMessage_AliasNotSelectedMessage => Resources.GetTranslatedString(@"DialogMessage_AliasNotSelectedMessage");	
+	
+        /// <summary>
 		/// Existing Alias
 		/// </summary>
 		public static string DialogMessage_AliasExistsTitle => Resources.GetTranslatedString(@"DialogMessage_AliasExistsTitle");	
@@ -687,6 +697,11 @@ namespace Wino.Core.Domain
 		/// Failed to synchronize aliases
 		/// </summary>
 		public static string Exception_FailedToSynchronizeAliases => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeAliases");	
+	
+        /// <summary>
+		/// Primary alias does not exist for this account. Creating draft failed.
+		/// </summary>
+		public static string Exception_MissingAlias => Resources.GetTranslatedString(@"Exception_MissingAlias");	
 	
         /// <summary>
 		/// Failed to synchronize profile information

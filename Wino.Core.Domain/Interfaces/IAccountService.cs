@@ -146,5 +146,14 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="remoteAccountAliases">Remotely fetched basic alias info from synchronizer.</param>
         /// <param name="account">Account to update remote aliases for..</param>
         Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
+
+        /// <summary>
+        /// Gets the primary account alias for the given account id.
+        /// Used when creating draft messages.
+        /// </summary>
+        /// <param name="accountId">Account id.</param>
+        /// <returns>Primary alias for the account.</returns>
+        Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId);
+
     }
 }
