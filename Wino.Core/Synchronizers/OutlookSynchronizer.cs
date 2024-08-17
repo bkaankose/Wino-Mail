@@ -496,7 +496,7 @@ namespace Wino.Core.Synchronizers
             return userInfo.DisplayName;
         }
 
-        public override async Task<ProfileInformation> SynchronizeProfileInformationAsync()
+        public override async Task<ProfileInformation> GetProfileInformationAsync()
         {
             var profilePictureData = await GetUserProfilePictureAsync().ConfigureAwait(false);
             var senderName = await GetSenderNameAsync().ConfigureAwait(false);

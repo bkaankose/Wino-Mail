@@ -69,7 +69,7 @@ namespace Wino.Core.Synchronizers
 
         public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
 
-        public override async Task<ProfileInformation> SynchronizeProfileInformationAsync()
+        public override async Task<ProfileInformation> GetProfileInformationAsync()
         {
             var profileRequest = _peopleService.People.Get("people/me");
             profileRequest.PersonFields = "names,photos";
@@ -92,23 +92,11 @@ namespace Wino.Core.Synchronizers
 
         protected override async Task SynchronizeAliasesAsync()
         {
-            // Sync aliases
-
             var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
             var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
+            var remoteAliases = sendAsListResponse.GetRemoteAliases();
 
-            var localAliases = await _gmailChangeProcessor.GetAccountAliasesAsync(Account.Id).ConfigureAwait(false);
-
-            var updatedAliases = sendAsListResponse.GetMailAliases(localAliases, Account);
-
-            bool shouldUpdateAliases =
-                localAliases.Any(a => updatedAliases.Any(b => a.Id == b.Id) == false) ||
-                updatedAliases.Any(a => localAliases.Any(b => a.Id == b.Id) == false);
-
-            if (shouldUpdateAliases)
-            {
-                await _gmailChangeProcessor.UpdateAccountAliasesAsync(Account.Id, updatedAliases);
-            }
+            await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
         }
 
         protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)

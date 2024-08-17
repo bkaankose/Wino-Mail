@@ -71,7 +71,7 @@
 
         <ListView
             Grid.Row="2"
-            Margin="0,12"
+            
             Padding="0"
             ItemTemplate="{StaticResource NewMailProviderTemplate}"
             ItemsSource="{x:Bind Providers}"

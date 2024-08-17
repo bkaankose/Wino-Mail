@@ -40,7 +40,6 @@ namespace Wino.Core.Integration.Processors
         /// <returns>All folders.</returns>
         Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId);
 
-        Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId);
 
         Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
 
@@ -48,7 +47,7 @@ namespace Wino.Core.Integration.Processors
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
 
         Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
-        Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases);
+        Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
     }
 
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -180,10 +179,7 @@ namespace Wino.Core.Integration.Processors
         public Task UpdateAccountAsync(MailAccount account)
             => AccountService.UpdateAccountAsync(account);
 
-        public Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
-            => AccountService.UpdateAccountAliasesAsync(accountId, aliases);
-
-        public Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
-            => AccountService.GetAccountAliasesAsync(accountId);
+        public Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
+            => AccountService.UpdateRemoteAliasInformationAsync(account, remoteAccountAliases);
     }
 }

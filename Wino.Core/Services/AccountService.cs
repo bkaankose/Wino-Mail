@@ -380,6 +380,69 @@ namespace Wino.Core.Services
             }
         }
 
+        public async Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
+        {
+            var localAliases = await GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+            var rootAlias = localAliases.Find(a => a.IsRootAlias);
+
+            foreach (var remoteAlias in remoteAccountAliases)
+            {
+                var existingAlias = localAliases.Find(a => a.AccountId == account.Id && a.AliasAddress == remoteAlias.AliasAddress);
+
+                if (existingAlias == null)
+                {
+                    // Create new alias.
+                    var newAlias = new MailAccountAlias()
+                    {
+                        AccountId = account.Id,
+                        AliasAddress = remoteAlias.AliasAddress,
+                        IsPrimary = remoteAlias.IsPrimary,
+                        IsVerified = remoteAlias.IsVerified,
+                        ReplyToAddress = remoteAlias.ReplyToAddress,
+                        Id = Guid.NewGuid(),
+                        IsRootAlias = remoteAlias.IsRootAlias
+                    };
+
+                    await Connection.InsertAsync(newAlias);
+                    localAliases.Add(newAlias);
+                }
+                else
+                {
+                    // Update existing alias.
+                    existingAlias.IsPrimary = remoteAlias.IsPrimary;
+                    existingAlias.IsVerified = remoteAlias.IsVerified;
+                    existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
+
+                    await Connection.UpdateAsync(existingAlias);
+                }
+            }
+
+            // Make sure there is only 1 root alias and 1 primary alias selected.
+
+            bool shouldUpdatePrimary = localAliases.Count(a => a.IsPrimary) != 1;
+            bool shouldUpdateRoot = localAliases.Count(a => a.IsRootAlias) != 1;
+
+            if (shouldUpdatePrimary)
+            {
+                localAliases.ForEach(a => a.IsPrimary = false);
+
+                var idealPrimaryAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
+
+                idealPrimaryAlias.IsPrimary = true;
+                await Connection.UpdateAsync(idealPrimaryAlias).ConfigureAwait(false);
+            }
+
+            if (shouldUpdateRoot)
+            {
+                localAliases.ForEach(a => a.IsRootAlias = false);
+
+                var idealRootAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
+
+                idealRootAlias.IsRootAlias = true;
+                await Connection.UpdateAsync(idealRootAlias).ConfigureAwait(false);
+            }
+        }
+
         public async Task DeleteAccountAliasAsync(Guid aliasId)
         {
             // Create query to delete alias.

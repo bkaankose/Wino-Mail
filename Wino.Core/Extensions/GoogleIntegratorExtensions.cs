@@ -6,7 +6,6 @@ using Google.Apis.Gmail.v1.Data;
 using MimeKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Extensions
 {
@@ -205,22 +204,16 @@ namespace Wino.Core.Extensions
             };
         }
 
-        public static List<MailAccountAlias> GetMailAliases(this ListSendAsResponse response, List<MailAccountAlias> currentAliases, MailAccount account)
+        public static List<RemoteAccountAlias> GetRemoteAliases(this ListSendAsResponse response)
         {
-            if (response == null || response.SendAs == null) return currentAliases;
-
-            var remoteAliases = response.SendAs.Select(a => new MailAccountAlias()
+            return response?.SendAs?.Select(a => new RemoteAccountAlias()
             {
-                AccountId = account.Id,
                 AliasAddress = a.SendAsEmail,
+                IsRootAlias = a.IsDefault.GetValueOrDefault(),
                 IsPrimary = a.IsPrimary.GetValueOrDefault(),
-                ReplyToAddress = string.IsNullOrEmpty(a.ReplyToAddress) ? account.Address : a.ReplyToAddress,
-                IsVerified = string.IsNullOrEmpty(a.VerificationStatus) ? true : a.VerificationStatus == "accepted",
-                IsRootAlias = account.Address == a.SendAsEmail,
-                Id = Guid.NewGuid()
+                ReplyToAddress = a.ReplyToAddress,
+                IsVerified = a.VerificationStatus == "accepted" || a.IsDefault.GetValueOrDefault(),
             }).ToList();
-
-            return EntityExtensions.GetFinalAliasList(currentAliases, remoteAliases);
         }
     }
 }

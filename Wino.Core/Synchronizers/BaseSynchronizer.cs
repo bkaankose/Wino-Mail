@@ -75,7 +75,7 @@ namespace Wino.Core.Synchronizers
         /// Refreshes remote mail account profile if possible.
         /// Profile picture, sender name and mailbox settings (todo) will be handled in this step.
         /// </summary>
-        public virtual Task<ProfileInformation> SynchronizeProfileInformationAsync() => default;
+        public virtual Task<ProfileInformation> GetProfileInformationAsync() => default;
 
         /// <summary>
         /// Refreshes the aliases of the account.
@@ -110,28 +110,18 @@ namespace Wino.Core.Synchronizers
         /// <summary>
         /// Safely updates account's profile information.
         /// Database changes are reflected after this call.
-        /// Null returns mean that the operation failed.
         /// </summary>
         private async Task<ProfileInformation> SynchronizeProfileInformationInternalAsync()
         {
-            try
-            {
-                var profileInformation = await SynchronizeProfileInformationAsync();
+            var profileInformation = await GetProfileInformationAsync();
 
-                if (profileInformation != null)
-                {
-                    Account.SenderName = profileInformation.SenderName;
-                    Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
-                }
-
-                return profileInformation;
-            }
-            catch (Exception ex)
+            if (profileInformation != null)
             {
-                Log.Error(ex, "Failed to update profile information for account '{Name}'", Account.Name);
+                Account.SenderName = profileInformation.SenderName;
+                Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
             }
 
-            return null;
+            return profileInformation;
         }
 
         /// <summary>
@@ -173,16 +163,46 @@ namespace Wino.Core.Synchronizers
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
+                // Handle special synchronization types.
+
+                // Profile information sync.
                 if (options.Type == SynchronizationType.UpdateProfile)
                 {
-                    // Refresh profile information on full synchronization.
-                    // Exceptions here is not critical. Therefore, they are ignored.
+                    if (!Account.IsProfileInfoSyncSupported) return SynchronizationResult.Empty;
 
-                    var newprofileInformation = await SynchronizeProfileInformationInternalAsync();
+                    ProfileInformation newProfileInformation = null;
 
-                    if (newprofileInformation == null) return SynchronizationResult.Failed;
+                    try
+                    {
+                        newProfileInformation = await SynchronizeProfileInformationInternalAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to update profile information for {Name}", Account.Name);
 
-                    return SynchronizationResult.Completed(null, newprofileInformation);
+                        return SynchronizationResult.Failed;
+                    }
+
+                    return SynchronizationResult.Completed(null, newProfileInformation);
+                }
+
+                // Alias sync.
+                if (options.Type == SynchronizationType.Alias)
+                {
+                    if (!Account.IsAliasSyncSupported) return SynchronizationResult.Empty;
+
+                    try
+                    {
+                        await SynchronizeAliasesAsync();
+
+                        return SynchronizationResult.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to update aliases for {Name}", Account.Name);
+
+                        return SynchronizationResult.Failed;
+                    }
                 }
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.

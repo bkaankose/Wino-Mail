@@ -206,26 +206,29 @@ namespace Wino.Mail.ViewModels
 
                     // Local account has been created.
 
-                    // Start profile information synchronization.
-                    // Profile info is not updated in the database yet.
-
-                    var profileSyncOptions = new SynchronizationOptions()
+                    if (createdAccount.ProviderType != MailProviderType.IMAP4)
                     {
-                        AccountId = createdAccount.Id,
-                        Type = SynchronizationType.UpdateProfile
-                    };
+                        // Start profile information synchronization.
+                        // It's only available for Outlook and Gmail synchronizers.
 
-                    var profileSynchronizationResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+                        var profileSyncOptions = new SynchronizationOptions()
+                        {
+                            AccountId = createdAccount.Id,
+                            Type = SynchronizationType.UpdateProfile
+                        };
 
-                    var profileSynchronizationResult = profileSynchronizationResponse.Data;
+                        var profileSynchronizationResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
 
-                    if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
+                        var profileSynchronizationResult = profileSynchronizationResponse.Data;
 
-                    createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
-                    createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
+                        if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                            throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
 
-                    await _accountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
+                        createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
+                        createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
+
+                        await _accountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
+                    }
 
                     if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
                         customServerAccountCreationDialog.ShowPreparingFolders();
@@ -246,10 +249,29 @@ namespace Wino.Mail.ViewModels
                     if (folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
-                    // Create root primary alias for the account.
-                    // This is the first alias for the account and it's primary.
+                    if (createdAccount.IsAliasSyncSupported)
+                    {
+                        // Try to synchronize aliases for the account.
 
-                    await _accountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
+                        var aliasSyncOptions = new SynchronizationOptions()
+                        {
+                            AccountId = createdAccount.Id,
+                            Type = SynchronizationType.Alias
+                        };
+
+                        var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+                        var aliasSynchronizationResult = folderSynchronizationResponse.Data;
+
+                        if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                            throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
+                    }
+                    else
+                    {
+                        // Create root primary alias for the account.
+                        // This is only available for accounts that do not support alias synchronization.
+
+                        await _accountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
+                    }
 
                     // TODO: Temporary disabled. Is this even needed? Users can configure special folders manually later on if discovery fails.
                     // Check if Inbox folder is available for the account after synchronization.

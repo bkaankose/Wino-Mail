@@ -134,6 +134,16 @@ namespace Wino.Core.Domain
 		public static string Buttons_AddAccount => Resources.GetTranslatedString(@"Buttons_AddAccount");	
 	
         /// <summary>
+		/// Add New Alias
+		/// </summary>
+		public static string Buttons_AddNewAlias => Resources.GetTranslatedString(@"Buttons_AddNewAlias");	
+	
+        /// <summary>
+		/// Synchronize Aliases
+		/// </summary>
+		public static string Buttons_SyncAliases => Resources.GetTranslatedString(@"Buttons_SyncAliases");	
+	
+        /// <summary>
 		/// Apply Theme
 		/// </summary>
 		public static string Buttons_ApplyTheme => Resources.GetTranslatedString(@"Buttons_ApplyTheme");	
@@ -662,6 +672,11 @@ namespace Wino.Core.Domain
 		/// Failed to synchronize folders
 		/// </summary>
 		public static string Exception_FailedToSynchronizeFolders => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeFolders");	
+	
+        /// <summary>
+		/// Failed to synchronize aliases
+		/// </summary>
+		public static string Exception_FailedToSynchronizeAliases => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeAliases");	
 	
         /// <summary>
 		/// Failed to synchronize profile information

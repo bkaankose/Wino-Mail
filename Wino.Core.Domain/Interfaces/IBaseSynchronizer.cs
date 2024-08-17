@@ -49,7 +49,7 @@ namespace Wino.Core.Domain.Interfaces
         /// Sender name and 
         /// </summary>
         /// <returns></returns>
-        Task<ProfileInformation> SynchronizeProfileInformationAsync();
+        Task<ProfileInformation> GetProfileInformationAsync();
 
         /// <summary>
         /// Downloads a single MIME message from the server and saves it to disk.

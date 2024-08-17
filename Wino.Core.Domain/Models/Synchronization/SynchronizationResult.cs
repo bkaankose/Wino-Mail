@@ -25,7 +25,12 @@ namespace Wino.Core.Domain.Models.Synchronization
         public static SynchronizationResult Empty => new() { CompletedState = SynchronizationCompletedState.Success };
 
         public static SynchronizationResult Completed(IEnumerable<IMailItem> downloadedMessages, ProfileInformation profileInformation = null)
-            => new() { DownloadedMessages = downloadedMessages, ProfileInformation = profileInformation, CompletedState = SynchronizationCompletedState.Success };
+            => new()
+            {
+                DownloadedMessages = downloadedMessages,
+                ProfileInformation = profileInformation,
+                CompletedState = SynchronizationCompletedState.Success
+            };
 
         public static SynchronizationResult Canceled => new() { CompletedState = SynchronizationCompletedState.Canceled };
         public static SynchronizationResult Failed => new() { CompletedState = SynchronizationCompletedState.Failed };

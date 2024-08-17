@@ -139,5 +139,12 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="accountId">Account id.</param>
         /// <param name="address">Address to create root primary alias from.</param>
         Task CreateRootAliasAsync(Guid accountId, string address);
+
+        /// <summary>
+        /// Will compare local-remote aliases and update the local ones or add/delete new ones.
+        /// </summary>
+        /// <param name="remoteAccountAliases">Remotely fetched basic alias info from synchronizer.</param>
+        /// <param name="account">Account to update remote aliases for..</param>
+        Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
     }
 }

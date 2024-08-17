@@ -10,21 +10,30 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
     public partial class AliasManagementPageViewModel : BaseViewModel
     {
         private readonly IAccountService _accountService;
-
-        public MailAccount Account { get; set; }
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
+        private MailAccount account;
 
         [ObservableProperty]
         private List<MailAccountAlias> accountAliases = [];
 
-        public AliasManagementPageViewModel(IDialogService dialogService, IAccountService accountService) : base(dialogService)
+        public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
+
+        public AliasManagementPageViewModel(IDialogService dialogService,
+                                            IAccountService accountService,
+                                            IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             _accountService = accountService;
+            _winoServerConnectionManager = winoServerConnectionManager;
         }
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -56,6 +65,25 @@ namespace Wino.Mail.ViewModels
 
             await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
             await LoadAliasesAsync();
+        }
+
+        [RelayCommand]
+        private async Task SyncAliasesAsync()
+        {
+            if (!CanSynchronizeAliases) return;
+
+            var aliasSyncOptions = new SynchronizationOptions()
+            {
+                AccountId = Account.Id,
+                Type = SynchronizationType.Alias
+            };
+
+            var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+
+            if (aliasSyncResponse.IsSuccess)
+                await LoadAliasesAsync();
+            else
+                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
         }
 
         [RelayCommand]
