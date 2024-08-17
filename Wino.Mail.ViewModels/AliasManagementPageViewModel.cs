@@ -103,7 +103,7 @@ namespace Wino.Mail.ViewModels
             }
 
             // Validate all addresses.
-            if (!EmailValidator.Validate(newAlias.ReplyToAddress) || !EmailValidator.Validate(newAlias.AliasAddress))
+            if (!EmailValidator.Validate(newAlias.AliasAddress) || (!string.IsNullOrEmpty(newAlias.ReplyToAddress) && !EmailValidator.Validate(newAlias.ReplyToAddress)))
             {
                 await DialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage, Translator.DialogMessage_InvalidAliasTitle);
                 return;
