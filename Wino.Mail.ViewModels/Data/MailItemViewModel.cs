@@ -18,7 +18,6 @@ namespace Wino.Mail.ViewModels.Data
         public string MessageId => ((IMailItem)MailCopy).MessageId;
         public string FromName => ((IMailItem)MailCopy).FromName ?? FromAddress;
         public DateTime CreationDate => ((IMailItem)MailCopy).CreationDate;
-        public bool HasAttachments => ((IMailItem)MailCopy).HasAttachments;
         public string References => ((IMailItem)MailCopy).References;
         public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
 
@@ -82,6 +81,12 @@ namespace Wino.Mail.ViewModels.Data
             set => SetProperty(MailCopy.FromAddress, value, MailCopy, (u, n) => u.FromAddress = n);
         }
 
+        public bool HasAttachments
+        {
+            get => MailCopy.HasAttachments;
+            set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
+        }
+
         public MailItemFolder AssignedFolder => ((IMailItem)MailCopy).AssignedFolder;
 
         public MailAccount AssignedAccount => ((IMailItem)MailCopy).AssignedAccount;
@@ -99,6 +104,8 @@ namespace Wino.Mail.ViewModels.Data
             OnPropertyChanged(nameof(DraftId));
             OnPropertyChanged(nameof(Subject));
             OnPropertyChanged(nameof(PreviewText));
+            OnPropertyChanged(nameof(FromAddress));
+            OnPropertyChanged(nameof(HasAttachments));
         }
 
         public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };

@@ -109,12 +109,9 @@ namespace Wino.Core.Services
                 var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
                 var completeFilePath = GetEMLPath(resourcePath);
 
-                var fileStream = File.Create(completeFilePath);
+                using var fileStream = File.Open(completeFilePath, FileMode.OpenOrCreate);
 
-                using (fileStream)
-                {
-                    await mimeMessage.WriteToAsync(fileStream).ConfigureAwait(false);
-                }
+                await mimeMessage.WriteToAsync(fileStream).ConfigureAwait(false);
 
                 return true;
             }

@@ -39,7 +39,8 @@ namespace Wino.Views
     public sealed partial class ComposePage : ComposePageAbstract,
         IRecipient<NavigationPaneModeChanged>,
         IRecipient<CreateNewComposeMailRequested>,
-        IRecipient<ApplicationThemeChanged>
+        IRecipient<ApplicationThemeChanged>,
+        IRecipient<KillChromiumRequested>
     {
         public bool IsComposerDarkMode
         {
@@ -237,12 +238,9 @@ namespace Wino.Views
             // Convert files to MailAttachmentViewModel.
             foreach (var file in files)
             {
-                if (!ViewModel.IncludedAttachments.Any(a => a.FileName == file.Path))
-                {
-                    var attachmentViewModel = await file.ToAttachmentViewModelAsync();
+                var attachmentViewModel = await file.ToAttachmentViewModelAsync();
 
-                    ViewModel.IncludedAttachments.Add(attachmentViewModel);
-                }
+                await ViewModel.IncludeAttachmentAsync(attachmentViewModel);
             }
         }
 
@@ -417,13 +415,6 @@ namespace Wino.Views
             return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
-        protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
-        {
-            base.OnNavigatingFrom(e);
-
-            DisposeDisposables();
-            DisposeWebView2();
-        }
 
         private void DisposeWebView2()
         {
@@ -699,6 +690,12 @@ namespace Wino.Views
                 isInitialFocusHandled = true;
                 ToBox.Focus(FocusState.Programmatic);
             }
+        }
+
+        public void Receive(KillChromiumRequested message)
+        {
+            DisposeDisposables();
+            DisposeWebView2();
         }
     }
 }

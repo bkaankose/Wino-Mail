@@ -135,19 +135,19 @@ namespace Wino.Mail.ViewModels
                                     IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             NativeAppService = nativeAppService;
-            _folderService = folderService;
             ContactService = contactService;
             FontService = fontService;
+            PreferencesService = preferencesService;
 
+            _folderService = folderService;
             _mailService = mailService;
             _launchProtocolService = launchProtocolService;
             _mimeFileService = mimeFileService;
             _accountService = accountService;
             _worker = worker;
+            _winoServerConnectionManager = winoServerConnectionManager;
 
             SelectedToolbarSection = ToolbarSections[0];
-            PreferencesService = preferencesService;
-            _winoServerConnectionManager = winoServerConnectionManager;
         }
 
         [RelayCommand]
@@ -202,6 +202,16 @@ namespace Wino.Mail.ViewModels
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }
 
+        public async Task IncludeAttachmentAsync(MailAttachmentViewModel viewModel)
+        {
+            //if (bodyBuilder == null) return;
+
+            //bodyBuilder.Attachments.Add(viewModel.FileName, new MemoryStream(viewModel.Content));
+
+            //LoadAttachments();
+            IncludedAttachments.Add(viewModel);
+        }
+
         private async Task UpdateMimeChangesAsync()
         {
             if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
@@ -230,6 +240,7 @@ namespace Wino.Mail.ViewModels
             CurrentMailDraftItem.Subject = CurrentMimeMessage.Subject;
             CurrentMailDraftItem.PreviewText = CurrentMimeMessage.TextBody;
             CurrentMailDraftItem.FromAddress = SelectedAlias.AliasAddress;
+            CurrentMailDraftItem.HasAttachments = CurrentMimeMessage.Attachments.Any();
 
             // Update database.
             await _mailService.UpdateMailAsync(CurrentMailDraftItem.MailCopy);
@@ -260,6 +271,31 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        private void ClearCurrentMimeAttachments()
+        {
+            var attachments = new List<MimePart>();
+            var multiparts = new List<Multipart>();
+            var iter = new MimeIterator(CurrentMimeMessage);
+
+            // collect our list of attachments and their parent multiparts
+            while (iter.MoveNext())
+            {
+                var multipart = iter.Parent as Multipart;
+                var part = iter.Current as MimePart;
+
+                if (multipart != null && part != null && part.IsAttachment)
+                {
+                    // keep track of each attachment's parent multipart
+                    multiparts.Add(multipart);
+                    attachments.Add(part);
+                }
+            }
+
+            // now remove each attachment from its parent multipart...
+            for (int i = 0; i < attachments.Count; i++)
+                multiparts[i].Remove(attachments[i]);
+        }
+
         private async Task SaveBodyAsync()
         {
             if (GetHTMLBodyFunction != null)
@@ -267,8 +303,7 @@ namespace Wino.Mail.ViewModels
                 bodyBuilder.SetHtmlBody(await GetHTMLBodyFunction());
             }
 
-            if (bodyBuilder.HtmlBody != null && bodyBuilder.TextBody != null)
-                CurrentMimeMessage.Body = bodyBuilder.ToMessageBody();
+            CurrentMimeMessage.Body = bodyBuilder.ToMessageBody();
         }
 
         [RelayCommand(CanExecute = nameof(canSendMail))]
@@ -306,9 +341,11 @@ namespace Wino.Mail.ViewModels
             base.OnNavigatedFrom(mode, parameters);
 
             await UpdateMimeChangesAsync().ConfigureAwait(false);
+
+            Messenger.Send(new KillChromiumRequested());
         }
 
-        public override void OnNavigatedTo(NavigationMode mode, object parameters)
+        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
 
@@ -316,29 +353,7 @@ namespace Wino.Mail.ViewModels
             {
                 CurrentMailDraftItem = mailItem;
 
-                _ = TryPrepareComposeAsync(true);
-            }
-
-            ToItems.CollectionChanged -= ContactListCollectionChanged;
-            ToItems.CollectionChanged += ContactListCollectionChanged;
-        }
-
-        private void ContactListCollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
-            {
-                // Prevent duplicates.
-                if (!(sender is ObservableCollection<AddressInformation> list))
-                    return;
-
-                foreach (var item in e.NewItems)
-                {
-                    if (item is AddressInformation addedInfo && list.Count(a => a == addedInfo) > 1)
-                    {
-                        var addedIndex = list.IndexOf(addedInfo);
-                        list.RemoveAt(addedIndex);
-                    }
-                }
+                await TryPrepareComposeAsync(true);
             }
         }
 
@@ -436,6 +451,8 @@ namespace Wino.Mail.ViewModels
             {
                 // Extract information
 
+                CurrentMimeMessage = replyingMime;
+
                 ToItems.Clear();
                 CCItems.Clear();
                 BCCItems.Clear();
@@ -444,22 +461,22 @@ namespace Wino.Mail.ViewModels
                 LoadAddressInfo(replyingMime.Cc, CCItems);
                 LoadAddressInfo(replyingMime.Bcc, BCCItems);
 
-                LoadAttachments(replyingMime.Attachments);
+                LoadAttachments();
 
                 if (replyingMime.Cc.Any() || replyingMime.Bcc.Any())
                     IsCCBCCVisible = true;
 
                 Subject = replyingMime.Subject;
 
-                CurrentMimeMessage = replyingMime;
-
                 Messenger.Send(new CreateNewComposeMailRequested(renderModel));
             });
         }
 
-        private void LoadAttachments(IEnumerable<MimeEntity> mimeEntities)
+        private void LoadAttachments()
         {
-            foreach (var attachment in mimeEntities)
+            if (CurrentMimeMessage == null) return;
+
+            foreach (var attachment in CurrentMimeMessage.Attachments)
             {
                 if (attachment.IsAttachment && attachment is MimePart attachmentPart)
                 {
@@ -481,18 +498,15 @@ namespace Wino.Mail.ViewModels
 
         private void SaveFromAddress()
         {
-            if (SelectedAlias == null || CurrentMimeMessage == null) return;
-
+            if (SelectedAlias == null) return;
 
             CurrentMimeMessage.From.Clear();
             CurrentMimeMessage.From.Add(new MailboxAddress(ComposingAccount.SenderName, SelectedAlias.AliasAddress));
-
-
         }
 
         private void SaveReplyToAddress()
         {
-            if (SelectedAlias == null || CurrentMimeMessage == null) return;
+            if (SelectedAlias == null) return;
 
             if (!string.IsNullOrEmpty(SelectedAlias.ReplyToAddress))
             {

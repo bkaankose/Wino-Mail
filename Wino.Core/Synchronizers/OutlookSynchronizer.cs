@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Graph;
+using Microsoft.Graph.Me.SendMail;
 using Microsoft.Graph.Models;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
@@ -17,8 +18,8 @@ using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
 using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
+using Newtonsoft.Json.Linq;
 using Serilog;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -633,49 +634,32 @@ namespace Wino.Core.Synchronizers
             var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
             var mimeMessage = sendDraftPreparationRequest.Mime;
 
-            var batchDeleteRequest = new BatchDeleteRequest(new List<IRequest>()
-            {
+            var batchDeleteRequest = new BatchDeleteRequest(
+            [
                 new DeleteRequest(sendDraftPreparationRequest.MailItem)
-            });
+            ]);
 
             var deleteBundle = Delete(batchDeleteRequest).ElementAt(0);
 
-            mimeMessage.Prepare(EncodingConstraint.None);
+            // Convert mime message to Outlook message.
+            // Outlook synchronizer does not send MIME messages directly anymore.
+            // Alias support is lacking with direct MIMEs.
+            // Therefore we convert the MIME message to Outlook message and use proper APIs.
 
-            var plainTextBytes = Encoding.UTF8.GetBytes(mimeMessage.ToString());
-            var base64Encoded = Convert.ToBase64String(plainTextBytes);
+            var outlookMessage = mimeMessage.AsOutlookMessage(sendDraftPreparationRequest.MailItem.ThreadId);
 
-            var outlookMessage = new Message()
-            {
-                ConversationId = sendDraftPreparationRequest.MailItem.ThreadId
-            };
-
-            // Apply importance here as well just in case.
-            if (mimeMessage.Importance != MessageImportance.Normal)
-                outlookMessage.Importance = mimeMessage.Importance == MessageImportance.High ? Importance.High : Importance.Low;
-
-            var body = new Microsoft.Graph.Me.SendMail.SendMailPostRequestBody()
+            var sendMailPostRequest = _graphClient.Me.SendMail.ToPostRequestInformation(new SendMailPostRequestBody()
             {
                 Message = outlookMessage
-            };
+            });
 
-            var sendRequest = _graphClient.Me.SendMail.ToPostRequestInformation(body);
-
-            sendRequest.Headers.Clear();
-            sendRequest.Headers.Add("Content-Type", "text/plain");
-
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded));
-            sendRequest.SetStreamContent(stream, "text/plain");
-
-            var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendRequest, request);
+            var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendMailPostRequest, request);
 
             return [deleteBundle, sendMailRequest];
         }
 
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
             => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
-
-
 
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
                                                                MailKit.ITransferProgress transferProgress = null,
@@ -774,7 +758,10 @@ namespace Wino.Core.Synchronizers
 
             if (!httpResponseMessage.IsSuccessStatusCode)
             {
-                throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));
+                var content = await httpResponseMessage.Content.ReadAsStringAsync();
+                var errorJson = JObject.Parse(content);
+
+                throw new SynchronizerException($"({httpResponseMessage.StatusCode}) {errorJson["error"]["code"]} - {errorJson["error"]["message"]}");
             }
             else if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
             {
