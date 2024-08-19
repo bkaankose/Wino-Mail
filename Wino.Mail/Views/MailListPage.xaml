@@ -332,11 +332,6 @@
                         Padding="2,0"
                         Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                         CornerRadius="8">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="48" />
-                            <RowDefinition Height="2" />
-                        </Grid.RowDefinitions>
-
                         <!--  Commands  -->
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -478,12 +473,6 @@
                                 </Button.Flyout>
                             </Button>
                         </Grid>
-
-                        <muxc:ProgressBar
-                            x:Name="LoadingProgressBar"
-                            Grid.Row="1"
-                            x:Load="{x:Bind ViewModel.IsInitializingFolder, Mode=OneWay}"
-                            IsIndeterminate="True" />
                     </Grid>
 
                     <!--  Pivot + Sync + Multi Select  -->

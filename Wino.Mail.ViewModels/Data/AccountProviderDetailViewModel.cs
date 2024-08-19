@@ -23,6 +23,8 @@ namespace Wino.Mail.ViewModels.Data
 
         public int HoldingAccountCount => 1;
 
+        public bool HasProfilePicture => !string.IsNullOrEmpty(Account.Base64ProfilePictureData);
+
         public AccountProviderDetailViewModel(IProviderDetail providerDetail, MailAccount account)
         {
             ProviderDetail = providerDetail;

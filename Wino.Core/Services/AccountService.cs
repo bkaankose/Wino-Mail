@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
@@ -10,6 +9,7 @@ using SqlKata;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Extensions;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
@@ -233,6 +233,33 @@ namespace Wino.Core.Services
             return accounts;
         }
 
+        public async Task CreateRootAliasAsync(Guid accountId, string address)
+        {
+            var rootAlias = new MailAccountAlias()
+            {
+                AccountId = accountId,
+                AliasAddress = address,
+                IsPrimary = true,
+                IsRootAlias = true,
+                IsVerified = true,
+                ReplyToAddress = address,
+                Id = Guid.NewGuid()
+            };
+
+            await Connection.InsertAsync(rootAlias).ConfigureAwait(false);
+
+            Log.Information("Created root alias for the account {AccountId}", accountId);
+        }
+
+        public async Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
+        {
+            var query = new Query(nameof(MailAccountAlias))
+                .Where(nameof(MailAccountAlias.AccountId), accountId)
+                .OrderByDesc(nameof(MailAccountAlias.IsRootAlias));
+
+            return await Connection.QueryAsync<MailAccountAlias>(query.GetRawQuery()).ConfigureAwait(false);
+        }
+
         private Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)
             => Connection.Table<MergedInbox>().FirstOrDefaultAsync(a => a.Id == mergedInboxId);
 
@@ -245,6 +272,7 @@ namespace Wino.Core.Services
             await Connection.Table<TokenInformation>().Where(a => a.AccountId == account.Id).DeleteAsync();
             await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
             await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
+            await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id);
 
             // Account belongs to a merged inbox.
             // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.
@@ -295,6 +323,19 @@ namespace Wino.Core.Services
             ReportUIChange(new AccountRemovedMessage(account));
         }
 
+        public async Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation)
+        {
+            var account = await GetAccountAsync(accountId).ConfigureAwait(false);
+
+            if (account != null)
+            {
+                account.SenderName = profileInformation.SenderName;
+                account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+
+                await UpdateAccountAsync(account).ConfigureAwait(false);
+            }
+        }
+
         public async Task<MailAccount> GetAccountAsync(Guid accountId)
         {
             var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
@@ -321,15 +362,96 @@ namespace Wino.Core.Services
 
         public async Task UpdateAccountAsync(MailAccount account)
         {
-            if (account.Preferences == null)
-            {
-                Debugger.Break();
-            }
-
-            await Connection.UpdateAsync(account.Preferences);
-            await Connection.UpdateAsync(account);
+            await Connection.UpdateAsync(account.Preferences).ConfigureAwait(false);
+            await Connection.UpdateAsync(account).ConfigureAwait(false);
 
             ReportUIChange(new AccountUpdatedMessage(account));
+        }
+
+        public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
+        {
+            // Delete existing ones.
+            await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == accountId).ConfigureAwait(false);
+
+            // Insert new ones.
+            foreach (var alias in aliases)
+            {
+                await Connection.InsertAsync(alias).ConfigureAwait(false);
+            }
+        }
+
+        public async Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
+        {
+            var localAliases = await GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+            var rootAlias = localAliases.Find(a => a.IsRootAlias);
+
+            foreach (var remoteAlias in remoteAccountAliases)
+            {
+                var existingAlias = localAliases.Find(a => a.AccountId == account.Id && a.AliasAddress == remoteAlias.AliasAddress);
+
+                if (existingAlias == null)
+                {
+                    // Create new alias.
+                    var newAlias = new MailAccountAlias()
+                    {
+                        AccountId = account.Id,
+                        AliasAddress = remoteAlias.AliasAddress,
+                        IsPrimary = remoteAlias.IsPrimary,
+                        IsVerified = remoteAlias.IsVerified,
+                        ReplyToAddress = remoteAlias.ReplyToAddress,
+                        Id = Guid.NewGuid(),
+                        IsRootAlias = remoteAlias.IsRootAlias
+                    };
+
+                    await Connection.InsertAsync(newAlias);
+                    localAliases.Add(newAlias);
+                }
+                else
+                {
+                    // Update existing alias.
+                    existingAlias.IsPrimary = remoteAlias.IsPrimary;
+                    existingAlias.IsVerified = remoteAlias.IsVerified;
+                    existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
+
+                    await Connection.UpdateAsync(existingAlias);
+                }
+            }
+
+            // Make sure there is only 1 root alias and 1 primary alias selected.
+
+            bool shouldUpdatePrimary = localAliases.Count(a => a.IsPrimary) != 1;
+            bool shouldUpdateRoot = localAliases.Count(a => a.IsRootAlias) != 1;
+
+            if (shouldUpdatePrimary)
+            {
+                localAliases.ForEach(a => a.IsPrimary = false);
+
+                var idealPrimaryAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
+
+                idealPrimaryAlias.IsPrimary = true;
+                await Connection.UpdateAsync(idealPrimaryAlias).ConfigureAwait(false);
+            }
+
+            if (shouldUpdateRoot)
+            {
+                localAliases.ForEach(a => a.IsRootAlias = false);
+
+                var idealRootAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
+
+                idealRootAlias.IsRootAlias = true;
+                await Connection.UpdateAsync(idealRootAlias).ConfigureAwait(false);
+            }
+        }
+
+        public async Task DeleteAccountAliasAsync(Guid aliasId)
+        {
+            // Create query to delete alias.
+
+            var query = new Query("MailAccountAlias")
+                .Where("Id", aliasId)
+                .AsDelete();
+
+            await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
         }
 
         public async Task CreateAccountAsync(MailAccount account, TokenInformation tokenInformation, CustomServerInformation customServerInformation)
@@ -385,7 +507,7 @@ namespace Wino.Core.Services
             // Outlook token cache is managed by MSAL.
             // Don't save it to database.
 
-            if (tokenInformation != null && account.ProviderType != MailProviderType.Outlook)
+            if (tokenInformation != null && (account.ProviderType != MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365))
                 await Connection.InsertAsync(tokenInformation);
         }
 
@@ -436,6 +558,15 @@ namespace Wino.Core.Services
             }
 
             Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
+        }
+
+        public async Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId)
+        {
+            var aliases = await GetAccountAliasesAsync(accountId);
+
+            if (aliases == null || aliases.Count == 0) return null;
+
+            return aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.First();
         }
     }
 }

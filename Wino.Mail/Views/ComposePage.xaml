@@ -443,17 +443,9 @@
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
                         IsEditable="False"
-                        IsEnabled="False"
-                        ItemsSource="{x:Bind ViewModel.Accounts}"
-                        SelectedItem="{x:Bind ViewModel.ComposingAccount, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="entities:MailAccount">
-                                <TextBlock>
-                                    <Run Text="{x:Bind Name}" /><Run Text=" (" /><Run Text="{x:Bind Address}" /><Run Text=")" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                        ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
+                        DisplayMemberPath="AliasAddress"
+                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}" />
 
                     <!--  To  -->
                     <TextBlock

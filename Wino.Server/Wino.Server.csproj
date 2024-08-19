@@ -31,8 +31,8 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-	  <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.0" />
-	  <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.0.3" />
+	  <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.2" />
+	  <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

@@ -10,6 +10,7 @@ using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Comparers;
@@ -62,12 +63,14 @@ namespace Wino.Core.Services
             // This header will be used to map the local draft copy with the remote draft copy.
             var mimeUniqueId = createdDraftMimeMessage.Headers[Constants.WinoLocalDraftHeader];
 
+            var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(accountId).ConfigureAwait(false);
+
             var copy = new MailCopy
             {
                 UniqueId = Guid.Parse(mimeUniqueId),
                 Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
                 CreationDate = DateTime.UtcNow,
-                FromAddress = composerAccount.Address,
+                FromAddress = primaryAlias?.AliasAddress ?? composerAccount.Address,
                 FromName = composerAccount.SenderName,
                 HasAttachments = false,
                 Importance = MailImportance.Normal,
@@ -621,11 +624,16 @@ namespace Wino.Core.Services
             // This unique id is stored in mime headers for Wino to identify remote message with local copy.
             // Same unique id will be used for the local copy as well.
             // Synchronizer will map this unique id to the local draft copy after synchronization.
+
             var message = new MimeMessage()
             {
                 Headers = { { Constants.WinoLocalDraftHeader, Guid.NewGuid().ToString() } },
-                From = { new MailboxAddress(account.SenderName, account.Address) }
             };
+
+            var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
+
+            // Set FromName and FromAddress by alias.
+            message.From.Add(new MailboxAddress(account.SenderName, primaryAlias.AliasAddress));
 
             var builder = new BodyBuilder();
 

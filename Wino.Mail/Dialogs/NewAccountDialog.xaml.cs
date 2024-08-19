@@ -49,7 +49,7 @@ namespace Wino.Dialogs
 
             if (IsSecondaryButtonEnabled)
             {
-                Result = new AccountCreationDialogResult(SelectedMailProvider.Type, AccountNameTextbox.Text.Trim(), SenderNameTextbox.Text.Trim());
+                Result = new AccountCreationDialogResult(SelectedMailProvider.Type, AccountNameTextbox.Text.Trim());
                 Hide();
             }
         }
@@ -68,8 +68,7 @@ namespace Wino.Dialogs
         {
             bool shouldEnable = SelectedMailProvider != null
                 && SelectedMailProvider.IsSupported
-                && !string.IsNullOrEmpty(AccountNameTextbox.Text)
-                && (SelectedMailProvider.RequireSenderNameOnCreationDialog ? !string.IsNullOrEmpty(SenderNameTextbox.Text) : true);
+                && !string.IsNullOrEmpty(AccountNameTextbox.Text);
 
             IsPrimaryButtonEnabled = shouldEnable;
         }
@@ -77,7 +76,6 @@ namespace Wino.Dialogs
         private void ValidateNames()
         {
             AccountNameTextbox.IsEnabled = SelectedMailProvider != null;
-            SenderNameTextbox.IsEnabled = SelectedMailProvider != null && SelectedMailProvider.Type != Core.Domain.Enums.MailProviderType.IMAP4;
         }
 
         private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args) => Validate();

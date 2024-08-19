@@ -56,7 +56,11 @@ namespace Wino.Mail.ViewModels
 
         [RelayCommand]
         private void EditSignature()
-            => Messenger.Send(new BreadcrumbNavigationRequested("Signature", WinoPage.SignatureManagementPage, Account.Id));
+            => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsSignature_Title, WinoPage.SignatureManagementPage, Account.Id));
+
+        [RelayCommand]
+        private void EditAliases()
+            => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
 
         public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
             => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
