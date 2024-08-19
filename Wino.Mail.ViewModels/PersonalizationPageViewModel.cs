@@ -25,36 +25,23 @@ namespace Wino.Mail.ViewModels
 
         public bool IsSelectedWindowsAccentColor => SelectedAppColor == Colors.LastOrDefault();
 
-        public ObservableCollection<AppColorViewModel> Colors { get; set; } = new ObservableCollection<AppColorViewModel>();
+        public ObservableCollection<AppColorViewModel> Colors { get; set; } = [];
 
-        public List<ElementThemeContainer> ElementThemes { get; set; } = new List<ElementThemeContainer>()
-        {
+        public List<ElementThemeContainer> ElementThemes { get; set; } =
+        [
             new ElementThemeContainer(ApplicationElementTheme.Light, Translator.ElementTheme_Light),
             new ElementThemeContainer(ApplicationElementTheme.Dark, Translator.ElementTheme_Dark),
             new ElementThemeContainer(ApplicationElementTheme.Default, Translator.ElementTheme_Default),
-        };
+        ];
 
-        public List<MailListPaneLengthPreferences> PaneLengths { get; set; } = new List<MailListPaneLengthPreferences>()
-        {
-            new MailListPaneLengthPreferences(Translator.PaneLengthOption_Micro, 300),
-            new MailListPaneLengthPreferences(Translator.PaneLengthOption_Small, 350),
-            new MailListPaneLengthPreferences(Translator.PaneLengthOption_Default, 420),
-            new MailListPaneLengthPreferences(Translator.PaneLengthOption_Medium, 700),
-            new MailListPaneLengthPreferences(Translator.PaneLengthOption_Large, 900),
-            new MailListPaneLengthPreferences(Translator.PaneLengthOption_ExtraLarge, 1200),
-        };
-
-        public List<MailListDisplayMode> InformationDisplayModes { get; set; } = new List<MailListDisplayMode>()
-        {
+        public List<MailListDisplayMode> InformationDisplayModes { get; set; } =
+        [
             MailListDisplayMode.Compact,
             MailListDisplayMode.Medium,
             MailListDisplayMode.Spacious
-        };
+        ];
 
         public List<AppThemeBase> AppThemes { get; set; }
-
-        [ObservableProperty]
-        private MailListPaneLengthPreferences selectedMailListPaneLength;
 
         [ObservableProperty]
         private ElementThemeContainer selectedElementTheme;
@@ -123,6 +110,13 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
+        [RelayCommand]
+        private void ResetMailListPaneLength()
+        {
+            StatePersistanceService.MailListPaneLength = 420;
+            DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
+        }
+
         public AsyncRelayCommand CreateCustomThemeCommand { get; set; }
         public PersonalizationPageViewModel(IDialogService dialogService,
                                             IStatePersistanceService statePersistanceService,
@@ -179,7 +173,6 @@ namespace Wino.Mail.ViewModels
         {
             SelectedElementTheme = ElementThemes.Find(a => a.NativeTheme == _themeService.RootTheme);
             SelectedInfoDisplayMode = PreferencesService.MailItemDisplayMode;
-            SelectedMailListPaneLength = PaneLengths.Find(a => a.Length == StatePersistanceService.MailListPaneLength);
 
             var currentAccentColor = _themeService.AccentColor;
 
@@ -289,8 +282,6 @@ namespace Wino.Mail.ViewModels
             {
                 _themeService.CurrentApplicationThemeId = SelectedAppTheme.Id;
             }
-            else if (e.PropertyName == nameof(SelectedMailListPaneLength) && SelectedMailListPaneLength != null)
-                StatePersistanceService.MailListPaneLength = SelectedMailListPaneLength.Length;
             else
             {
                 if (e.PropertyName == nameof(SelectedInfoDisplayMode))

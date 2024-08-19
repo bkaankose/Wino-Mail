@@ -6,6 +6,7 @@
     xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:converters="using:Wino.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
@@ -20,9 +21,8 @@
     xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino"
-    xmlns:converters="using:Wino.Converters"
     x:Name="root"
-    Loaded="MailListPageLoaded"
+    SizeChanged="PageSizeChanged"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -181,11 +181,11 @@
                 <DataTemplate x:DataType="viewModelData:ThreadMailItemViewModel">
                     <controls:WinoExpander
                         x:Name="ThreadExpander"
+                        Padding="0"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
                         BackgroundSizing="InnerBorderEdge"
                         BorderThickness="0"
-                        Padding="0"
                         IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
                         <muxc:Expander.Header>
                             <controls:MailItemDisplayInformationControl
@@ -276,9 +276,9 @@
 
             <AutoSuggestBox
                 x:Name="SearchBar"
+                Margin="2,0,-2,0"
                 VerticalAlignment="Center"
                 BorderBrush="Transparent"
-                Margin="2,0,-2,0"
                 GotFocus="SearchBoxFocused"
                 LostFocus="SearchBarUnfocused"
                 PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
@@ -296,23 +296,20 @@
 
     <Grid x:Name="RootGrid" Padding="0,0,0,7">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition
-                x:Name="ReaderColumn"
-                Width="*"
-                MaxWidth="{x:Bind ViewModel.StatePersistanceService.MailListPaneLength, Mode=OneWay}" />
+            <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind ViewModel.MailListLength, Mode=OneWay, Converter={StaticResource GridLengthConverter}}" />
             <ColumnDefinition x:Name="RendererColumn" Width="*" />
         </Grid.ColumnDefinitions>
 
         <!--  Mail Items  -->
         <Border
-            x:Name="ReaderGridContainer"
+            x:Name="MailListContainer"
             Grid.Column="0"
             Padding="5,0,0,0"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="7">
-            <Grid x:Name="ReaderGrid">
+            <Grid x:Name="MailListGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -604,11 +601,11 @@
                     <SemanticZoom x:Name="SemanticZoomContainer" CanChangeViews="{x:Bind ViewModel.PreferencesService.IsSemanticZoomEnabled, Mode=OneWay}">
                         <SemanticZoom.ZoomedInView>
                             <listview:WinoListView
-                                ui:ScrollViewerExtensions.VerticalScrollBarMargin="0"
                                 x:Name="MailListView"
                                 HorizontalContentAlignment="Stretch"
-                                ui:ScrollViewerExtensions.EnableMiddleClickScrolling="True"
                                 ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                                ui:ScrollViewerExtensions.EnableMiddleClickScrolling="True"
+                                ui:ScrollViewerExtensions.VerticalScrollBarMargin="0"
                                 ItemDeletedCommand="{x:Bind ViewModel.MailOperationCommand}"
                                 ItemTemplateSelector="{StaticResource MailItemDisplaySelector}"
                                 ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
@@ -684,74 +681,39 @@
 
             </Grid>
         </Border>
+        <controls1:PropertySizer
+            x:Name="MailListSizer"
+            Grid.Column="1"
+            Width="16"
+            HorizontalAlignment="Left"
+            Binding="{x:Bind ViewModel.MailListLength, Mode=TwoWay}"
+            Canvas.ZIndex="20"
+            ManipulationCompleted="MailListSizerManipulationCompleted"
+            Maximum="{x:Bind ViewModel.MaxMailListLength, Mode=OneWay}"
+            Minimum="270"
+            Opacity="0" />
 
-        <Grid Grid.Column="1" x:Name="RenderingGrid">
+        <Grid x:Name="RenderingGrid" Grid.Column="1">
             <!--  Mail Rendering Frame  -->
             <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
 
             <!--  No Mail Selected Message  -->
             <StackPanel
                 x:Name="NoMailSelectedPanel"
-                Opacity="0.5"
-                Spacing="6"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Center">
+                VerticalAlignment="Center"
+                Opacity="0.5"
+                Spacing="6">
 
-                <controls:WinoFontIcon Icon="Mail" FontSize="80" />
+                <controls:WinoFontIcon FontSize="80" Icon="Mail" />
 
                 <TextBlock
+                    x:Name="CountTextBlock"
                     HorizontalAlignment="Center"
                     FontSize="31"
-                    Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}"
                     Style="{StaticResource SubheaderTextBlockStyle}"
-                    x:Name="CountTextBlock" />
+                    Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}" />
             </StackPanel>
         </Grid>
-
-
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="AdaptiveStates" CurrentStateChanged="AdaptivenessChanged">
-                <VisualState x:Name="NormalState">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="{x:Bind helpers:XamlHelpers.MailListAdaptivityConverter(ViewModel.StatePersistanceService.MailListPaneLength), Mode=OneWay}" />
-                    </VisualState.StateTriggers>
-                </VisualState>
-
-                <VisualState x:Name="NarrowState">
-                    <VisualState.Setters>
-                        <Setter Target="ReaderGrid.MaxWidth" Value="10000" />
-                    </VisualState.Setters>
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="0" />
-                    </VisualState.StateTriggers>
-                </VisualState>
-            </VisualStateGroup>
-
-            <!--  Pane open adjustments  -->
-            <VisualStateGroup x:Name="PaneStates">
-                <VisualState x:Name="PaneOpened">
-                    <VisualState.Setters>
-                        <!--<Setter Target="RootGrid.Margin" Value="-6,0,0,0" />-->
-                        <Setter Target="ReaderGrid.Margin" Value="-4,0,0,0" />
-                    </VisualState.Setters>
-                    <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind PreferencesService.IsNavigationPaneOpened, Mode=OneWay}" />
-                    </VisualState.StateTriggers>
-                </VisualState>
-                <VisualState x:Name="PaneClosed" />
-            </VisualStateGroup>
-
-            <!--  Mail reader states  -->
-            <VisualStateGroup x:Name="ReaderStates">
-                <VisualState x:Name="ReaderActive">
-                    <VisualState.Setters>
-                        <Setter Target="ReaderGrid.CornerRadius" Value="0" />
-                    </VisualState.Setters>
-                    <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind StatePersistanceService.IsReadingMail, Mode=OneWay}" />
-                    </VisualState.StateTriggers>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:MailListPageAbstract>

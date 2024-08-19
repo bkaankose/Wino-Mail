@@ -249,6 +249,11 @@ namespace Wino.Core.Domain
 		public static string Buttons_Yes => Resources.GetTranslatedString(@"Buttons_Yes");	
 	
         /// <summary>
+		/// Reset
+		/// </summary>
+		public static string Buttons_Reset => Resources.GetTranslatedString(@"Buttons_Reset");	
+	
+        /// <summary>
 		/// Center
 		/// </summary>
 		public static string Center => Resources.GetTranslatedString(@"Center");	
@@ -1414,6 +1419,11 @@ namespace Wino.Core.Domain
 		public static string Info_CantDeletePrimaryAliasMessage => Resources.GetTranslatedString(@"Info_CantDeletePrimaryAliasMessage");	
 	
         /// <summary>
+		/// The Mail List size has been reset.
+		/// </summary>
+		public static string Info_MailListSizeResetSuccessMessage => Resources.GetTranslatedString(@"Info_MailListSizeResetSuccessMessage");	
+	
+        /// <summary>
 		/// Authentication method
 		/// </summary>
 		public static string ImapAdvancedSetupDialog_AuthenticationMethod => Resources.GetTranslatedString(@"ImapAdvancedSetupDialog_AuthenticationMethod");	
@@ -2424,14 +2434,14 @@ namespace Wino.Core.Domain
 		public static string SettingsNotifications_Title => Resources.GetTranslatedString(@"SettingsNotifications_Title");	
 	
         /// <summary>
-		/// Change the width of the mail list.
+		/// Reset the size of the mail list to original if you have issues with it.
 		/// </summary>
-		public static string SettingsPaneLength_Description => Resources.GetTranslatedString(@"SettingsPaneLength_Description");	
+		public static string SettingsPaneLengthReset_Description => Resources.GetTranslatedString(@"SettingsPaneLengthReset_Description");	
 	
         /// <summary>
-		/// Mail List Pane Length
+		/// Reset Mail List Size
 		/// </summary>
-		public static string SettingsPaneLength_Title => Resources.GetTranslatedString(@"SettingsPaneLength_Title");	
+		public static string SettingsPaneLengthReset_Title => Resources.GetTranslatedString(@"SettingsPaneLengthReset_Title");	
 	
         /// <summary>
 		/// Show much more love ❤️ All donations are appreciated.

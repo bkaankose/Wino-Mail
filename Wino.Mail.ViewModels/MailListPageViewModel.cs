@@ -68,7 +68,7 @@ namespace Wino.Mail.ViewModels
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
 
         public IWinoNavigationService NavigationService { get; }
-        public IStatePersistanceService StatePersistanceService { get; }
+        public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
         private readonly IMailService _mailService;
@@ -121,6 +121,12 @@ namespace Wino.Mail.ViewModels
         private string barMessage;
 
         [ObservableProperty]
+        private double mailListLength = 420;
+
+        [ObservableProperty]
+        private double maxMailListLength = 1200;
+
+        [ObservableProperty]
         private string barTitle;
 
         [ObservableProperty]
@@ -141,7 +147,7 @@ namespace Wino.Mail.ViewModels
         public MailListPageViewModel(IDialogService dialogService,
                                      IWinoNavigationService navigationService,
                                      IMailService mailService,
-                                     IStatePersistanceService statePersistanceService,
+                                     IStatePersistanceService statePersistenceService,
                                      IFolderService folderService,
                                      IThreadingStrategyProvider threadingStrategyProvider,
                                      IContextMenuItemService contextMenuItemService,
@@ -152,7 +158,7 @@ namespace Wino.Mail.ViewModels
         {
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;
-            StatePersistanceService = statePersistanceService;
+            StatePersistenceService = statePersistenceService;
             NavigationService = navigationService;
 
             _mailService = mailService;
@@ -164,6 +170,8 @@ namespace Wino.Mail.ViewModels
 
             SelectedFilterOption = FilterOptions[0];
             SelectedSortingOption = SortingOptions[0];
+
+            mailListLength = statePersistenceService.MailListPaneLength;
 
             selectionChangedObservable = Observable.FromEventPattern<NotifyCollectionChangedEventArgs>(SelectedItems, nameof(SelectedItems.CollectionChanged));
             selectionChangedObservable
@@ -257,7 +265,7 @@ namespace Wino.Mail.ViewModels
         {
             if (_activeMailItem == selectedMailItemViewModel) return;
 
-            // Don't update active mail item if Ctrl key is pressed or multi selection is ennabled.
+            // Don't update active mail item if Ctrl key is pressed or multi selection is enabled.
             // User is probably trying to select multiple items.
             // This is not the same behavior in Windows Mail,
             // but it's a trash behavior.
@@ -266,7 +274,7 @@ namespace Wino.Mail.ViewModels
 
             bool isMultiSelecting = isCtrlKeyPressed || IsMultiSelectionModeEnabled;
 
-            if (isMultiSelecting ? StatePersistanceService.IsReaderNarrowed : false)
+            if (isMultiSelecting && StatePersistenceService.IsReaderNarrowed)
             {
                 // Don't change the active mail item if the reader is narrowed, but just update the shell.
                 Messenger.Send(new ShellStateUpdated());

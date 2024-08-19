@@ -40,11 +40,9 @@ namespace Wino.Views
         IRecipient<ShellStateUpdated>,
         IRecipient<DisposeRenderingFrameRequested>
     {
-        private const string NarrowVisualStateKey = "NarrowState";
-        private const string AdaptivenessStatesKey = "AdaptiveStates";
+        private const double RENDERING_COLUMN_MIN_WIDTH = 300;
 
-        private IStatePersistanceService StatePersistanceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
-        private IPreferencesService PreferencesService { get; } = App.Current.Services.GetService<IPreferencesService>();
+        private IStatePersistanceService StatePersistenceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
         private IKeyPressService KeyPressService { get; } = App.Current.Services.GetService<IKeyPressService>();
 
         public MailListPage()
@@ -90,7 +88,7 @@ namespace Wino.Views
             SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
         }
 
-        private void SelectionModeToggleChecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectionModeToggleChecked(object sender, RoutedEventArgs e)
         {
             ChangeSelectionMode(ListViewSelectionMode.Multiple);
         }
@@ -132,91 +130,20 @@ namespace Wino.Views
             }
         }
 
-        private void SelectionModeToggleUnchecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectionModeToggleUnchecked(object sender, RoutedEventArgs e)
         {
             ChangeSelectionMode(ListViewSelectionMode.Extended);
         }
 
-        private void SelectAllCheckboxChecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
         {
             MailListView.SelectAllWino();
         }
 
-        private void SelectAllCheckboxUnchecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
         {
             MailListView.ClearSelections();
         }
-
-        #region Mostly UI
-
-        private void UpdateAdaptiveness()
-        {
-
-            bool shouldDisplayNoMessagePanel, shouldDisplayMailingList, shouldDisplayRenderingFrame;
-
-            // This is the smallest state UI can get.
-            // Either mailing list or rendering grid is visible.
-            if (StatePersistanceService.IsReaderNarrowed)
-            {
-                // Start visibility checks by no message panel.
-
-                bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled || KeyPressService.IsCtrlKeyPressed();
-
-                shouldDisplayMailingList = isMultiSelectionEnabled ? true : (!ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections);
-                shouldDisplayNoMessagePanel = shouldDisplayMailingList ? false : !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
-                shouldDisplayRenderingFrame = shouldDisplayMailingList ? false : !shouldDisplayNoMessagePanel;
-            }
-            else
-            {
-                shouldDisplayMailingList = true;
-                shouldDisplayNoMessagePanel = !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
-                shouldDisplayRenderingFrame = !shouldDisplayNoMessagePanel;
-            }
-
-            ReaderGridContainer.Visibility = shouldDisplayMailingList ? Visibility.Visible : Visibility.Collapsed;
-            RenderingFrame.Visibility = shouldDisplayRenderingFrame ? Visibility.Visible : Visibility.Collapsed;
-            NoMailSelectedPanel.Visibility = shouldDisplayNoMessagePanel ? Visibility.Visible : Visibility.Collapsed;
-
-            if (StatePersistanceService.IsReaderNarrowed)
-            {
-                if (RenderingFrame.Visibility == Visibility.Visible && ReaderGridContainer.Visibility == Visibility.Collapsed)
-                {
-                    // Extend rendering frame to full width.
-                    Grid.SetColumn(RenderingGrid, 0);
-                    Grid.SetColumnSpan(RenderingGrid, 2);
-
-                    Grid.SetColumn(ReaderGrid, 0);
-                    Grid.SetColumnSpan(ReaderGrid, 2);
-                }
-                else if (RenderingFrame.Visibility == Visibility.Collapsed && NoMailSelectedPanel.Visibility == Visibility.Collapsed)
-                {
-                    // Only mail list is available.
-                    // Extend the mailing list.
-                    Grid.SetColumn(ReaderGridContainer, 0);
-                    Grid.SetColumnSpan(ReaderGridContainer, 2);
-                }
-            }
-            else
-            {
-                // Mailing list is always visible on the first part.
-
-                Grid.SetColumn(ReaderGridContainer, 0);
-                Grid.SetColumnSpan(ReaderGridContainer, 1);
-
-                // Rendering grid should take the rest of the space.
-                Grid.SetColumn(RenderingGrid, 1);
-                Grid.SetColumnSpan(RenderingGrid, 1);
-            }
-        }
-
-        private void AdaptivenessChanged(object sender, VisualStateChangedEventArgs e)
-        {
-            StatePersistanceService.IsReaderNarrowed = e.NewState.Name == "NarrowState";
-
-            UpdateAdaptiveness();
-        }
-
-        #endregion
 
         void IRecipient<ResetSingleMailItemSelectionEvent>.Receive(ResetSingleMailItemSelectionEvent message)
         {
@@ -446,21 +373,6 @@ namespace Wino.Views
             SearchBar.PlaceholderText = Translator.SearchBarPlaceholder;
         }
 
-        private void MailListPageLoaded(object sender, RoutedEventArgs e)
-        {
-            // App might open with narrowed state.
-            // VSM will not trigger in this case.
-            // Set values to force updating adaptiveness.
-
-            var groups = VisualStateManager.GetVisualStateGroups(RootGrid);
-            var adaptiveState = groups.FirstOrDefault(a => a.Name == AdaptivenessStatesKey);
-
-            if (adaptiveState == null) return;
-
-            // This should force UpdateAdaptiveness call.
-            StatePersistanceService.IsReaderNarrowed = adaptiveState.CurrentState.Name == NarrowVisualStateKey;
-        }
-
         private void ProcessMailItemKeyboardAccelerator(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
         {
             if (args.Key == Windows.System.VirtualKey.Delete)
@@ -567,6 +479,90 @@ namespace Wino.Views
         public void Receive(DisposeRenderingFrameRequested message)
         {
             ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
+        }
+
+        private void PageSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            ViewModel.MaxMailListLength = e.NewSize.Width - RENDERING_COLUMN_MIN_WIDTH;
+
+            StatePersistenceService.IsReaderNarrowed = e.NewSize.Width < StatePersistenceService.MailListPaneLength + RENDERING_COLUMN_MIN_WIDTH;
+
+            UpdateAdaptiveness();
+        }
+
+        private void MailListSizerManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            StatePersistenceService.MailListPaneLength = ViewModel.MailListLength;
+        }
+
+        private void UpdateAdaptiveness()
+        {
+            bool shouldDisplayNoMessagePanel, shouldDisplayMailingList, shouldDisplayRenderingFrame;
+
+            bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled || KeyPressService.IsCtrlKeyPressed();
+
+            // This is the smallest state UI can get.
+            // Either mailing list or rendering grid is visible.
+            if (StatePersistenceService.IsReaderNarrowed)
+            {
+                // Start visibility checks by no message panel.
+                shouldDisplayMailingList = isMultiSelectionEnabled ? true : (!ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections);
+                shouldDisplayNoMessagePanel = shouldDisplayMailingList ? false : !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
+                shouldDisplayRenderingFrame = shouldDisplayMailingList ? false : !shouldDisplayNoMessagePanel;
+            }
+            else
+            {
+                shouldDisplayMailingList = true;
+                shouldDisplayNoMessagePanel = !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
+                shouldDisplayRenderingFrame = !shouldDisplayNoMessagePanel;
+            }
+
+            MailListContainer.Visibility = shouldDisplayMailingList ? Visibility.Visible : Visibility.Collapsed;
+            RenderingFrame.Visibility = shouldDisplayRenderingFrame ? Visibility.Visible : Visibility.Collapsed;
+            NoMailSelectedPanel.Visibility = shouldDisplayNoMessagePanel ? Visibility.Visible : Visibility.Collapsed;
+
+            if (StatePersistenceService.IsReaderNarrowed == true)
+            {
+                if (ViewModel.HasSingleItemSelection && !isMultiSelectionEnabled)
+                {
+                    MailListColumn.Width = new GridLength(0);
+                    RendererColumn.Width = new GridLength(1, GridUnitType.Star);
+
+                    Grid.SetColumn(MailListContainer, 0);
+                    Grid.SetColumnSpan(RenderingGrid, 2);
+                    MailListContainer.Visibility = Visibility.Collapsed;
+                    RenderingGrid.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    MailListColumn.Width = new GridLength(1, GridUnitType.Star);
+                    RendererColumn.Width = new GridLength(0);
+
+                    Grid.SetColumnSpan(MailListContainer, 2);
+                    MailListContainer.Margin = new Thickness(7, 0, 7, 0);
+                    MailListContainer.Visibility = Visibility.Visible;
+                    RenderingGrid.Visibility = Visibility.Collapsed;
+                    SearchBar.Margin = new Thickness(8, 0, -2, 0);
+                    MailListSizer.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                MailListColumn.Width = new GridLength(StatePersistenceService.MailListPaneLength);
+                RendererColumn.Width = new GridLength(1, GridUnitType.Star);
+
+                MailListContainer.Margin = new Thickness(0, 0, 0, 0);
+
+                Grid.SetColumn(MailListContainer, 0);
+                Grid.SetColumn(RenderingGrid, 1);
+                Grid.SetColumnSpan(MailListContainer, 1);
+                Grid.SetColumnSpan(RenderingGrid, 1);
+
+                MailListContainer.Visibility = Visibility.Visible;
+                RenderingGrid.Visibility = Visibility.Visible;
+                SearchBar.Margin = new Thickness(2, 0, -2, 0);
+                MailListSizer.Visibility = Visibility.Visible;
+            }
         }
     }
 }
