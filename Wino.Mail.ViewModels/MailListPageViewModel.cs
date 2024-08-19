@@ -121,6 +121,12 @@ namespace Wino.Mail.ViewModels
         private string barMessage;
 
         [ObservableProperty]
+        private double mailListLength = 300;
+
+        [ObservableProperty]
+        private double maxMailListLength = 1200;
+
+        [ObservableProperty]
         private string barTitle;
 
         [ObservableProperty]

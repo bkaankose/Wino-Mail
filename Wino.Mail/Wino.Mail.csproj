@@ -246,6 +246,7 @@
     <Compile Include="Controls\WinoFontIconSource.cs" />
     <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoSwipeControlItems.cs" />
+    <Compile Include="Converters\GridLengthConverter.cs" />
     <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
       <DependentUpon>AccountEditDialog.xaml</DependentUpon>
     </Compile>
