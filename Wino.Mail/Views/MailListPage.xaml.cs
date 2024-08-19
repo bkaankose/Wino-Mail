@@ -481,7 +481,7 @@ namespace Wino.Views
             ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         }
 
-        private void Page_SizeChanged(object sender, SizeChangedEventArgs e)
+        private void PageSizeChanged(object sender, SizeChangedEventArgs e)
         {
             ViewModel.MaxMailListLength = e.NewSize.Width - RENDERING_COLUMN_MIN_WIDTH;
 
@@ -490,7 +490,7 @@ namespace Wino.Views
             UpdateAdaptiveness();
         }
 
-        private void PropertySizer_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        private void MailListSizerManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
         {
             StatePersistenceService.MailListPaneLength = ViewModel.MailListLength;
         }
@@ -540,9 +540,10 @@ namespace Wino.Views
                     RendererColumn.Width = new GridLength(0);
 
                     Grid.SetColumnSpan(MailListContainer, 2);
-                    MailListContainer.Margin = new Thickness(7,0,7,0);
+                    MailListContainer.Margin = new Thickness(7, 0, 7, 0);
                     MailListContainer.Visibility = Visibility.Visible;
                     RenderingGrid.Visibility = Visibility.Collapsed;
+                    SearchBar.Margin = new Thickness(8, 0, -2, 0);
                 }
             }
             else
@@ -559,6 +560,7 @@ namespace Wino.Views
 
                 MailListContainer.Visibility = Visibility.Visible;
                 RenderingGrid.Visibility = Visibility.Visible;
+                SearchBar.Margin = new Thickness(2, 0, -2, 0);
             }
         }
     }

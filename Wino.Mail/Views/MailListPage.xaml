@@ -22,7 +22,7 @@
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino"
     x:Name="root"
-    SizeChanged="Page_SizeChanged"
+    SizeChanged="PageSizeChanged"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -687,7 +687,7 @@
             HorizontalAlignment="Left"
             Binding="{x:Bind ViewModel.MailListLength, Mode=TwoWay}"
             Canvas.ZIndex="20"
-            ManipulationCompleted="PropertySizer_ManipulationCompleted"
+            ManipulationCompleted="MailListSizerManipulationCompleted"
             Maximum="{x:Bind ViewModel.MaxMailListLength, Mode=OneWay}"
             Minimum="270"
             Opacity="0" />
