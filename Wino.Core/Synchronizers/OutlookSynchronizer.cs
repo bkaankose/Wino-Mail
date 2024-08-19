@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +17,6 @@ using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
 using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
-using Newtonsoft.Json.Linq;
 using Serilog;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -801,7 +801,7 @@ namespace Wino.Core.Synchronizers
                         if (!httpResponseMessage.IsSuccessStatusCode)
                         {
                             var content = await httpResponseMessage.Content.ReadAsStringAsync();
-                            var errorJson = JObject.Parse(content);
+                            var errorJson = JsonObject.Parse(content);
                             var errorString = $"({httpResponseMessage.StatusCode}) {errorJson["error"]["code"]} - {errorJson["error"]["message"]}";
 
                             exceptionBag.Add(errorString);
