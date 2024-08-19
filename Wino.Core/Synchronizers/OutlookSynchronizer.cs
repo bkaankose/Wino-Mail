@@ -488,6 +488,10 @@ namespace Wino.Core.Synchronizers
             return Convert.ToBase64String(byteArray);
         }
 
+        /// <summary>
+        /// Get the user's display name.
+        /// </summary>
+        /// <returns>Display name of the user.</returns>
         private async Task<string> GetSenderNameAsync()
         {
             var userInfo = await _graphClient.Users["me"].GetAsync();
@@ -629,19 +633,6 @@ namespace Wino.Core.Synchronizers
                         {
                             Message = message
                         });
-                        //createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.Prepare(EncodingConstraint.None);
-
-                        //var plainTextBytes = Encoding.UTF8.GetBytes(createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.ToString());
-                        //var base64Encoded = Convert.ToBase64String(plainTextBytes);
-
-                        //var requestInformation = _graphClient.Me.Messages.ToPostRequestInformation(new Message());
-
-                        //requestInformation.Headers.Clear();// replace the json content header
-                        //requestInformation.Headers.Add("Content-Type", "text/plain");
-
-                        //requestInformation.SetStreamContent(new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded)), "text/plain");
-
-                        //return requestInformation;
                     }
                 }
 

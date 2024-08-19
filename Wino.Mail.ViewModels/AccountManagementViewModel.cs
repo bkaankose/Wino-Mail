@@ -206,7 +206,8 @@ namespace Wino.Mail.ViewModels
 
                     // Local account has been created.
 
-                    if (createdAccount.ProviderType != MailProviderType.IMAP4)
+                    // Sync profile information if supported.
+                    if (createdAccount.IsProfileInfoSyncSupported)
                     {
                         // Start profile information synchronization.
                         // It's only available for Outlook and Gmail synchronizers.
@@ -249,6 +250,7 @@ namespace Wino.Mail.ViewModels
                     if (folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
+                    // Sync aliases if supported.
                     if (createdAccount.IsAliasSyncSupported)
                     {
                         // Try to synchronize aliases for the account.
