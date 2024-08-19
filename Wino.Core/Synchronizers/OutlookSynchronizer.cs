@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -660,20 +660,11 @@ namespace Wino.Core.Synchronizers
             var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
             var mimeMessage = sendDraftPreparationRequest.Mime;
 
-            var batchDeleteRequest = new BatchDeleteRequest(
-            [
-                new DeleteRequest(sendDraftPreparationRequest.MailItem)
-            ]);
-
-            var deleteBundle = Delete(batchDeleteRequest).ElementAt(0);
-
             // Convert mime message to Outlook message.
             // Outlook synchronizer does not send MIME messages directly anymore.
             // Alias support is lacking with direct MIMEs.
             // Therefore we convert the MIME message to Outlook message and use proper APIs.
 
-
-            // sendDraftPreparationRequest.MailItem.ThreadId
             var outlookMessage = mimeMessage.AsOutlookMessage(false);
 
             // Update draft.
@@ -683,18 +674,24 @@ namespace Wino.Core.Synchronizers
 
             // Send draft.
 
-            var sendDraftRequest = _graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation();
+            // POST requests are handled differently in batches in Graph SDK.
+            // Batch basically ignores the step's coontent-type and body.
+            // Manually create a POST request with empty body and send it.
+
+            var sendDraftRequest = _graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation((config) =>
+            {
+                config.Headers.Add("Content-Type", "application/json");
+            });
+
+            sendDraftRequest.Headers.Clear();
+
+            sendDraftRequest.Content = new MemoryStream(Encoding.UTF8.GetBytes("{}"));
+            sendDraftRequest.HttpMethod = Method.POST;
+            sendDraftRequest.Headers.Add("Content-Type", "application/json");
+
             var sendDraftRequestBundle = new HttpRequestBundle<RequestInformation>(sendDraftRequest, request);
 
-            //var sendMailPostRequest = _graphClient.Me.SendMail.ToPostRequestInformation(new SendMailPostRequestBody()
-            //{
-            //    Message = outlookMessage
-            //});
-
-            //var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendMailPostRequest, request);
-
-            return [sendDraftRequestBundle];
-            //return [deleteBundle, sendMailRequest];
+            return [patchDraftRequestBundle, sendDraftRequestBundle];
         }
 
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
@@ -756,7 +753,7 @@ namespace Wino.Core.Synchronizers
                     // Map BundleId to batch request step's key.
                     // This is how we can identify which step succeeded or failed in the bundle.
 
-                    bundle.BundleId = batchRequestId;//batchContent.BatchRequestSteps.ElementAt(i).Key;
+                    bundle.BundleId = batchRequestId;
                 }
 
                 if (!batchContent.BatchRequestSteps.Any())
@@ -778,14 +775,14 @@ namespace Wino.Core.Synchronizers
                 }
 
                 // Execute batch. This will collect responses from network call for each batch step.
-                var batchRequestResponse = await _graphClient.Batch.PostAsync(batchContent).ConfigureAwait(false);
+                var batchRequestResponse = await _graphClient.Batch.PostAsync(batchContent, cancellationToken).ConfigureAwait(false);
 
                 // Check responses for each bundle id.
                 // Each bundle id must return some HttpResponseMessage ideally.
 
                 var bundleIds = batchContent.BatchRequestSteps.Select(a => a.Key);
 
-                // TODO: Handling responses. They used to work in v1 core, but not in v2.
+                var exceptionBag = new List<string>();
 
                 foreach (var bundleId in bundleIds)
                 {
@@ -796,49 +793,31 @@ namespace Wino.Core.Synchronizers
 
                     var httpResponseMessage = await batchRequestResponse.GetResponseByIdAsync(bundleId);
 
-                    var codes = await batchRequestResponse.GetResponsesStatusCodesAsync();
+                    if (httpResponseMessage == null)
+                        continue;
+
                     using (httpResponseMessage)
                     {
-                        await ProcessSingleNativeRequestResponseAsync(bundle, httpResponseMessage, cancellationToken).ConfigureAwait(false);
+                        if (!httpResponseMessage.IsSuccessStatusCode)
+                        {
+                            var content = await httpResponseMessage.Content.ReadAsStringAsync();
+                            var errorJson = JObject.Parse(content);
+                            var errorString = $"({httpResponseMessage.StatusCode}) {errorJson["error"]["code"]} - {errorJson["error"]["message"]}";
+
+                            exceptionBag.Add(errorString);
+                        }
                     }
+                }
+
+                if (exceptionBag.Any())
+                {
+                    var formattedErrorString = string.Join("\n", exceptionBag.Select((item, index) => $"{index + 1}. {item}"));
+
+                    throw new SynchronizerException(formattedErrorString);
                 }
             }
         }
 
-        private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<RequestInformation> bundle,
-                                                                   HttpResponseMessage httpResponseMessage,
-                                                                   CancellationToken cancellationToken = default)
-        {
-            if (httpResponseMessage == null) return;
-
-            if (!httpResponseMessage.IsSuccessStatusCode)
-            {
-                var content = await httpResponseMessage.Content.ReadAsStringAsync();
-                var errorJson = JObject.Parse(content);
-
-                throw new SynchronizerException($"({httpResponseMessage.StatusCode}) {errorJson["error"]["code"]} - {errorJson["error"]["message"]}");
-            }
-            else if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
-            {
-                var outlookMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken);
-
-                if (outlookMessage == null) return;
-
-                // TODO: Handle new message added or updated.
-            }
-            else if (bundle is HttpRequestBundle<RequestInformation, Microsoft.Graph.Models.MailFolder> folderBundle)
-            {
-                var outlookFolder = await folderBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken);
-
-                if (outlookFolder == null) return;
-
-                // TODO: Handle new folder added or updated.
-            }
-            else if (bundle is HttpRequestBundle<RequestInformation, MimeMessage> mimeBundle)
-            {
-                // TODO: Handle mime retrieve message.
-            }
-        }
 
         private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
         {
