@@ -68,7 +68,7 @@ namespace Wino.Mail.ViewModels
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
 
         public IWinoNavigationService NavigationService { get; }
-        public IStatePersistanceService StatePersistanceService { get; }
+        public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
         private readonly IMailService _mailService;
@@ -158,7 +158,7 @@ namespace Wino.Mail.ViewModels
         {
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;
-            StatePersistanceService = statePersistenceService;
+            StatePersistenceService = statePersistenceService;
             NavigationService = navigationService;
 
             _mailService = mailService;
@@ -274,7 +274,7 @@ namespace Wino.Mail.ViewModels
 
             bool isMultiSelecting = isCtrlKeyPressed || IsMultiSelectionModeEnabled;
 
-            if (isMultiSelecting && StatePersistanceService.IsReaderNarrowed)
+            if (isMultiSelecting && StatePersistenceService.IsReaderNarrowed)
             {
                 // Don't change the active mail item if the reader is narrowed, but just update the shell.
                 Messenger.Send(new ShellStateUpdated());
