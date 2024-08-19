@@ -66,7 +66,7 @@ namespace Wino.Core.Extensions
             return mailCopy;
         }
 
-        public static Message AsOutlookMessage(this MimeMessage mime, string threadId)
+        public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders)
         {
             var fromAddress = GetRecipients(mime.From).ElementAt(0);
             var toAddresses = GetRecipients(mime.To).ToList();
@@ -85,12 +85,18 @@ namespace Wino.Core.Extensions
                 CcRecipients = ccAddresses,
                 BccRecipients = bccAddresses,
                 From = fromAddress,
-                InternetMessageId = GetMessageIdHeader(mime.MessageId),
-                ConversationId = threadId,
-                InternetMessageHeaders = GetHeaderList(mime),
+                InternetMessageId = GetProperId(mime.MessageId),
                 ReplyTo = replyToAddresses,
                 Attachments = []
             };
+
+            // Headers are only included when creating the draft.
+            // When sending, they are not included. Graph will throw an error.
+
+            if (includeInternetHeaders)
+            {
+                message.InternetMessageHeaders = GetHeaderList(mime);
+            }
 
             foreach (var part in mime.BodyParts)
             {
@@ -172,7 +178,10 @@ namespace Wino.Core.Extensions
             // Here we'll try to ignore some headers that are not neccessary.
             // Outlook API will generate them automatically.
 
+            // Some headers also require to start with X- or x-.
+
             string[] headersToIgnore = ["Date", "To", "MIME-Version", "From", "Subject", "Message-Id"];
+            string[] headersToModify = ["In-Reply-To", "Reply-To", "References", "Thread-Topic"];
 
             var headers = new List<InternetMessageHeader>();
 
@@ -182,7 +191,15 @@ namespace Wino.Core.Extensions
             {
                 if (!headersToIgnore.Contains(header.Field))
                 {
-                    headers.Add(new InternetMessageHeader() { Name = header.Field, Value = header.Value });
+                    if (headersToModify.Contains(header.Field))
+                    {
+                        headers.Add(new InternetMessageHeader() { Name = $"X-{header.Field}", Value = header.Value });
+                    }
+                    else
+                    {
+                        headers.Add(new InternetMessageHeader() { Name = header.Field, Value = header.Value });
+                    }
+
                     includedHeaderCount++;
                 }
 
@@ -192,15 +209,15 @@ namespace Wino.Core.Extensions
             return headers;
         }
 
-        private static string GetMessageIdHeader(string messageId)
+        private static string GetProperId(string id)
         {
-            // Message-Id header must always start with "X-" or "x-".
-            if (string.IsNullOrEmpty(messageId)) return string.Empty;
+            // Outlook requires some identifiers to start with "X-" or "x-".
+            if (string.IsNullOrEmpty(id)) return string.Empty;
 
-            if (!messageId.StartsWith("x-") || !messageId.StartsWith("X-"))
-                return $"X-{messageId}";
+            if (!id.StartsWith("x-") || !id.StartsWith("X-"))
+                return $"X-{id}";
 
-            return messageId;
+            return id;
         }
         #endregion
     }

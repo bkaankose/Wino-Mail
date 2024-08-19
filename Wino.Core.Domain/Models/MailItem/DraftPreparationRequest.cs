@@ -2,13 +2,18 @@
 using System.Text.Json.Serialization;
 using MimeKit;
 using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
 public class DraftPreparationRequest
 {
-    public DraftPreparationRequest(MailAccount account, MailCopy createdLocalDraftCopy, string base64EncodedMimeMessage, MailCopy referenceMailCopy = null)
+    public DraftPreparationRequest(MailAccount account,
+                                   MailCopy createdLocalDraftCopy,
+                                   string base64EncodedMimeMessage,
+                                   DraftCreationReason reason,
+                                   MailCopy referenceMailCopy = null)
     {
         Account = account ?? throw new ArgumentNullException(nameof(account));
 
@@ -19,6 +24,7 @@ public class DraftPreparationRequest
         // This is additional work when deserialization needed, but not much to do atm.
 
         Base64LocalDraftMimeMessage = base64EncodedMimeMessage;
+        Reason = reason;
     }
 
     [JsonConstructor]
@@ -29,6 +35,7 @@ public class DraftPreparationRequest
     public MailCopy ReferenceMailCopy { get; set; }
 
     public string Base64LocalDraftMimeMessage { get; set; }
+    public DraftCreationReason Reason { get; set; }
 
     [JsonIgnore]
     private MimeMessage createdLocalDraftMimeMessage;
@@ -44,5 +51,5 @@ public class DraftPreparationRequest
         }
     }
 
-    public MailAccount Account { get; }
+    public MailAccount Account { get; set; }
 }

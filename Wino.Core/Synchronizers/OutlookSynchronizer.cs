@@ -5,12 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Graph;
-using Microsoft.Graph.Me.SendMail;
 using Microsoft.Graph.Models;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
@@ -604,22 +602,50 @@ namespace Wino.Core.Synchronizers
             {
                 if (item is CreateDraftRequest createDraftRequest)
                 {
-                    createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.Prepare(EncodingConstraint.None);
+                    var reason = createDraftRequest.DraftPreperationRequest.Reason;
+                    var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
 
-                    var plainTextBytes = Encoding.UTF8.GetBytes(createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.ToString());
-                    var base64Encoded = Convert.ToBase64String(plainTextBytes);
+                    if (reason == DraftCreationReason.Empty)
+                    {
+                        return _graphClient.Me.Messages.ToPostRequestInformation(message);
+                    }
+                    else if (reason == DraftCreationReason.Reply)
+                    {
+                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReply.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReply.CreateReplyPostRequestBody()
+                        {
+                            Message = message
+                        });
+                    }
+                    else if (reason == DraftCreationReason.ReplyAll)
+                    {
+                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReplyAll.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReplyAll.CreateReplyAllPostRequestBody()
+                        {
+                            Message = message
+                        });
+                    }
+                    else if (reason == DraftCreationReason.Forward)
+                    {
+                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateForward.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateForward.CreateForwardPostRequestBody()
+                        {
+                            Message = message
+                        });
+                        //createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.Prepare(EncodingConstraint.None);
 
-                    var requestInformation = _graphClient.Me.Messages.ToPostRequestInformation(new Message());
+                        //var plainTextBytes = Encoding.UTF8.GetBytes(createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.ToString());
+                        //var base64Encoded = Convert.ToBase64String(plainTextBytes);
 
-                    requestInformation.Headers.Clear();// replace the json content header
-                    requestInformation.Headers.Add("Content-Type", "text/plain");
+                        //var requestInformation = _graphClient.Me.Messages.ToPostRequestInformation(new Message());
 
-                    requestInformation.SetStreamContent(new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded)), "text/plain");
+                        //requestInformation.Headers.Clear();// replace the json content header
+                        //requestInformation.Headers.Add("Content-Type", "text/plain");
 
-                    return requestInformation;
+                        //requestInformation.SetStreamContent(new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded)), "text/plain");
+
+                        //return requestInformation;
+                    }
                 }
 
-                return default;
+                throw new Exception("Invalid create draft request type.");
             });
         }
 
@@ -646,16 +672,29 @@ namespace Wino.Core.Synchronizers
             // Alias support is lacking with direct MIMEs.
             // Therefore we convert the MIME message to Outlook message and use proper APIs.
 
-            var outlookMessage = mimeMessage.AsOutlookMessage(sendDraftPreparationRequest.MailItem.ThreadId);
 
-            var sendMailPostRequest = _graphClient.Me.SendMail.ToPostRequestInformation(new SendMailPostRequestBody()
-            {
-                Message = outlookMessage
-            });
+            // sendDraftPreparationRequest.MailItem.ThreadId
+            var outlookMessage = mimeMessage.AsOutlookMessage(false);
 
-            var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendMailPostRequest, request);
+            // Update draft.
 
-            return [deleteBundle, sendMailRequest];
+            var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
+            var patchDraftRequestBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request);
+
+            // Send draft.
+
+            var sendDraftRequest = _graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation();
+            var sendDraftRequestBundle = new HttpRequestBundle<RequestInformation>(sendDraftRequest, request);
+
+            //var sendMailPostRequest = _graphClient.Me.SendMail.ToPostRequestInformation(new SendMailPostRequestBody()
+            //{
+            //    Message = outlookMessage
+            //});
+
+            //var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendMailPostRequest, request);
+
+            return [sendDraftRequestBundle];
+            //return [deleteBundle, sendMailRequest];
         }
 
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
@@ -712,16 +751,31 @@ namespace Wino.Core.Synchronizers
 
                     request.ApplyUIChanges();
 
-                    await batchContent.AddBatchRequestStepAsync(nativeRequest).ConfigureAwait(false);
+                    var batchRequestId = await batchContent.AddBatchRequestStepAsync(nativeRequest).ConfigureAwait(false);
 
                     // Map BundleId to batch request step's key.
                     // This is how we can identify which step succeeded or failed in the bundle.
 
-                    bundle.BundleId = batchContent.BatchRequestSteps.ElementAt(i).Key;
+                    bundle.BundleId = batchRequestId;//batchContent.BatchRequestSteps.ElementAt(i).Key;
                 }
 
                 if (!batchContent.BatchRequestSteps.Any())
                     continue;
+
+                // Set execution type to serial instead of parallel if needed.
+                // Each step will depend on the previous one.
+
+                if (itemCount > 1)
+                {
+                    for (int i = 1; i < itemCount; i++)
+                    {
+                        var currentStep = batchContent.BatchRequestSteps.ElementAt(i);
+                        var previousStep = batchContent.BatchRequestSteps.ElementAt(i - 1);
+
+                        currentStep.Value.DependsOn = [previousStep.Key];
+                    }
+
+                }
 
                 // Execute batch. This will collect responses from network call for each batch step.
                 var batchRequestResponse = await _graphClient.Batch.PostAsync(batchContent).ConfigureAwait(false);
@@ -742,6 +796,7 @@ namespace Wino.Core.Synchronizers
 
                     var httpResponseMessage = await batchRequestResponse.GetResponseByIdAsync(bundleId);
 
+                    var codes = await batchRequestResponse.GetResponsesStatusCodesAsync();
                     using (httpResponseMessage)
                     {
                         await ProcessSingleNativeRequestResponseAsync(bundle, httpResponseMessage, cancellationToken).ConfigureAwait(false);
