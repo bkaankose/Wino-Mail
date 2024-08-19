@@ -33,11 +33,13 @@ namespace Wino.Core.Integration
         // Later on maybe we can make it configurable and leave it to the user with passing
         // real implementation details.
 
-        private readonly ImapImplementation _implementation = new ImapImplementation()
+        private readonly ImapImplementation _implementation = new()
         {
-            Version = "1.0",
+            Version = "1.8.0",
             OS = "Windows",
-            Vendor = "Wino"
+            Vendor = "Wino",
+            SupportUrl = "https://www.winomail.app",
+            Name = "Wino Mail User",
         };
 
         private readonly int MinimumPoolSize = 5;

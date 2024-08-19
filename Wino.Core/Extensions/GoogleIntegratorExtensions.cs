@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Web;
 using Google.Apis.Gmail.v1.Data;
@@ -205,44 +204,16 @@ namespace Wino.Core.Extensions
             };
         }
 
-        public static Tuple<MailCopy, MimeMessage, IEnumerable<string>> GetMailDetails(this Message message)
+        public static List<RemoteAccountAlias> GetRemoteAliases(this ListSendAsResponse response)
         {
-            MimeMessage mimeMessage = message.GetGmailMimeMessage();
-
-            if (mimeMessage == null)
+            return response?.SendAs?.Select(a => new RemoteAccountAlias()
             {
-                // This should never happen.
-                Debugger.Break();
-
-                return default;
-            }
-
-            bool isUnread = message.GetIsUnread();
-            bool isFocused = message.GetIsFocused();
-            bool isFlagged = message.GetIsFlagged();
-            bool isDraft = message.GetIsDraft();
-
-            var mailCopy = new MailCopy()
-            {
-                CreationDate = mimeMessage.Date.UtcDateTime,
-                Subject = HttpUtility.HtmlDecode(mimeMessage.Subject),
-                FromName = MailkitClientExtensions.GetActualSenderName(mimeMessage),
-                FromAddress = MailkitClientExtensions.GetActualSenderAddress(mimeMessage),
-                PreviewText = HttpUtility.HtmlDecode(message.Snippet),
-                ThreadId = message.ThreadId,
-                Importance = (MailImportance)mimeMessage.Importance,
-                Id = message.Id,
-                IsDraft = isDraft,
-                HasAttachments = mimeMessage.Attachments.Any(),
-                IsRead = !isUnread,
-                IsFlagged = isFlagged,
-                IsFocused = isFocused,
-                InReplyTo = mimeMessage.InReplyTo,
-                MessageId = mimeMessage.MessageId,
-                References = mimeMessage.References.GetReferences()
-            };
-
-            return new Tuple<MailCopy, MimeMessage, IEnumerable<string>>(mailCopy, mimeMessage, message.LabelIds);
+                AliasAddress = a.SendAsEmail,
+                IsRootAlias = a.IsDefault.GetValueOrDefault(),
+                IsPrimary = a.IsPrimary.GetValueOrDefault(),
+                ReplyToAddress = a.ReplyToAddress,
+                IsVerified = a.VerificationStatus == "accepted" || a.IsDefault.GetValueOrDefault(),
+            }).ToList();
         }
     }
 }

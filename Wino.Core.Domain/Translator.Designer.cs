@@ -39,6 +39,11 @@ namespace Wino.Core.Domain
 		public static string AccountCreationDialog_SigninIn => Resources.GetTranslatedString(@"AccountCreationDialog_SigninIn");	
 	
         /// <summary>
+		/// Fetching profile details.
+		/// </summary>
+		public static string AccountCreationDialog_FetchingProfileInformation => Resources.GetTranslatedString(@"AccountCreationDialog_FetchingProfileInformation");	
+	
+        /// <summary>
 		/// Account Name
 		/// </summary>
 		public static string AccountEditDialog_Message => Resources.GetTranslatedString(@"AccountEditDialog_Message");	
@@ -127,6 +132,16 @@ namespace Wino.Core.Domain
 		/// Add Account
 		/// </summary>
 		public static string Buttons_AddAccount => Resources.GetTranslatedString(@"Buttons_AddAccount");	
+	
+        /// <summary>
+		/// Add New Alias
+		/// </summary>
+		public static string Buttons_AddNewAlias => Resources.GetTranslatedString(@"Buttons_AddNewAlias");	
+	
+        /// <summary>
+		/// Synchronize Aliases
+		/// </summary>
+		public static string Buttons_SyncAliases => Resources.GetTranslatedString(@"Buttons_SyncAliases");	
 	
         /// <summary>
 		/// Apply Theme
@@ -344,6 +359,56 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_AccountLimitTitle => Resources.GetTranslatedString(@"DialogMessage_AccountLimitTitle");	
 	
         /// <summary>
+		/// Missing Alias
+		/// </summary>
+		public static string DialogMessage_AliasNotSelectedTitle => Resources.GetTranslatedString(@"DialogMessage_AliasNotSelectedTitle");	
+	
+        /// <summary>
+		/// You must select an alias before sending a message.
+		/// </summary>
+		public static string DialogMessage_AliasNotSelectedMessage => Resources.GetTranslatedString(@"DialogMessage_AliasNotSelectedMessage");	
+	
+        /// <summary>
+		/// Existing Alias
+		/// </summary>
+		public static string DialogMessage_AliasExistsTitle => Resources.GetTranslatedString(@"DialogMessage_AliasExistsTitle");	
+	
+        /// <summary>
+		/// This alias is already in use.
+		/// </summary>
+		public static string DialogMessage_AliasExistsMessage => Resources.GetTranslatedString(@"DialogMessage_AliasExistsMessage");	
+	
+        /// <summary>
+		/// Invalid Alias
+		/// </summary>
+		public static string DialogMessage_InvalidAliasTitle => Resources.GetTranslatedString(@"DialogMessage_InvalidAliasTitle");	
+	
+        /// <summary>
+		/// This alias is not valid. Make sure all addresses of the alias are valid e-mail addresses.
+		/// </summary>
+		public static string DialogMessage_InvalidAliasMessage => Resources.GetTranslatedString(@"DialogMessage_InvalidAliasMessage");	
+	
+        /// <summary>
+		/// Can't Delete Alias
+		/// </summary>
+		public static string DialogMessage_CantDeleteRootAliasTitle => Resources.GetTranslatedString(@"DialogMessage_CantDeleteRootAliasTitle");	
+	
+        /// <summary>
+		/// Root alias can't be deleted. This is your main identity associated with your account setup.
+		/// </summary>
+		public static string DialogMessage_CantDeleteRootAliasMessage => Resources.GetTranslatedString(@"DialogMessage_CantDeleteRootAliasMessage");	
+	
+        /// <summary>
+		/// Created New Alias
+		/// </summary>
+		public static string DialogMessage_AliasCreatedTitle => Resources.GetTranslatedString(@"DialogMessage_AliasCreatedTitle");	
+	
+        /// <summary>
+		/// New alias is succesfully created.
+		/// </summary>
+		public static string DialogMessage_AliasCreatedMessage => Resources.GetTranslatedString(@"DialogMessage_AliasCreatedMessage");	
+	
+        /// <summary>
 		/// Do you want to permanently delete all the mails in this folder?
 		/// </summary>
 		public static string DialogMessage_CleanupFolderMessage => Resources.GetTranslatedString(@"DialogMessage_CleanupFolderMessage");	
@@ -434,7 +499,7 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_UnlinkAccountsConfirmationTitle => Resources.GetTranslatedString(@"DialogMessage_UnlinkAccountsConfirmationTitle");	
 	
         /// <summary>
-		/// Missin Subject
+		/// Missing Subject
 		/// </summary>
 		public static string DialogMessage_EmptySubjectConfirmation => Resources.GetTranslatedString(@"DialogMessage_EmptySubjectConfirmation");	
 	
@@ -484,6 +549,36 @@ namespace Wino.Core.Domain
 		public static string Dialog_DontAskAgain => Resources.GetTranslatedString(@"Dialog_DontAskAgain");	
 	
         /// <summary>
+		/// Create Account Alias
+		/// </summary>
+		public static string CreateAccountAliasDialog_Title => Resources.GetTranslatedString(@"CreateAccountAliasDialog_Title");	
+	
+        /// <summary>
+		/// Make sure your outgoing server allows sending mails from this alias.
+		/// </summary>
+		public static string CreateAccountAliasDialog_Description => Resources.GetTranslatedString(@"CreateAccountAliasDialog_Description");	
+	
+        /// <summary>
+		/// Address
+		/// </summary>
+		public static string CreateAccountAliasDialog_AliasAddress => Resources.GetTranslatedString(@"CreateAccountAliasDialog_AliasAddress");	
+	
+        /// <summary>
+		/// eg. support@mydomain.com
+		/// </summary>
+		public static string CreateAccountAliasDialog_AliasAddressPlaceholder => Resources.GetTranslatedString(@"CreateAccountAliasDialog_AliasAddressPlaceholder");	
+	
+        /// <summary>
+		/// Reply-To Address
+		/// </summary>
+		public static string CreateAccountAliasDialog_ReplyToAddress => Resources.GetTranslatedString(@"CreateAccountAliasDialog_ReplyToAddress");	
+	
+        /// <summary>
+		/// admin@mydomain.com
+		/// </summary>
+		public static string CreateAccountAliasDialog_ReplyToAddressPlaceholder => Resources.GetTranslatedString(@"CreateAccountAliasDialog_ReplyToAddressPlaceholder");	
+	
+        /// <summary>
 		/// Wino doesn't have it's own Discord server, but special 'wino-mail' channel is hosted at 'Developer Sanctuary' server. To get the updates about Wino please join Developer Sanctuary server and follow 'wino-mail' channel under 'Community Projects'  You will be directed to server URL since Discord doesn't support channel invites.
 		/// </summary>
 		public static string DiscordChannelDisclaimerMessage => Resources.GetTranslatedString(@"DiscordChannelDisclaimerMessage");	
@@ -497,6 +592,11 @@ namespace Wino.Core.Domain
 		/// Draft
 		/// </summary>
 		public static string Draft => Resources.GetTranslatedString(@"Draft");	
+	
+        /// <summary>
+		/// Busy
+		/// </summary>
+		public static string Busy => Resources.GetTranslatedString(@"Busy");	
 	
         /// <summary>
 		/// Draw
@@ -554,6 +654,11 @@ namespace Wino.Core.Domain
 		public static string Exception_WinoServerException => Resources.GetTranslatedString(@"Exception_WinoServerException");	
 	
         /// <summary>
+		/// This mail is still being processed. Please try again after few seconds.
+		/// </summary>
+		public static string Exception_MailProcessing => Resources.GetTranslatedString(@"Exception_MailProcessing");	
+	
+        /// <summary>
 		/// Couldn't find mailbox settings.
 		/// </summary>
 		public static string Exception_ImapAutoDiscoveryFailed => Resources.GetTranslatedString(@"Exception_ImapAutoDiscoveryFailed");	
@@ -587,6 +692,21 @@ namespace Wino.Core.Domain
 		/// Failed to synchronize folders
 		/// </summary>
 		public static string Exception_FailedToSynchronizeFolders => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeFolders");	
+	
+        /// <summary>
+		/// Failed to synchronize aliases
+		/// </summary>
+		public static string Exception_FailedToSynchronizeAliases => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeAliases");	
+	
+        /// <summary>
+		/// Primary alias does not exist for this account. Creating draft failed.
+		/// </summary>
+		public static string Exception_MissingAlias => Resources.GetTranslatedString(@"Exception_MissingAlias");	
+	
+        /// <summary>
+		/// Failed to synchronize profile information
+		/// </summary>
+		public static string Exception_FailedToSynchronizeProfileInformation => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeProfileInformation");	
 	
         /// <summary>
 		/// Callback uri is null on activation.
@@ -1287,6 +1407,11 @@ namespace Wino.Core.Domain
 		/// Failed to unsubscribe
 		/// </summary>
 		public static string Info_UnsubscribeErrorMessage => Resources.GetTranslatedString(@"Info_UnsubscribeErrorMessage");	
+	
+        /// <summary>
+		/// Primary alias can't be deleted. Please change your alias before deleting this one
+		/// </summary>
+		public static string Info_CantDeletePrimaryAliasMessage => Resources.GetTranslatedString(@"Info_CantDeletePrimaryAliasMessage");	
 	
         /// <summary>
 		/// Authentication method
@@ -2004,6 +2129,16 @@ namespace Wino.Core.Domain
 		public static string SettingsFolderOptions_Description => Resources.GetTranslatedString(@"SettingsFolderOptions_Description");	
 	
         /// <summary>
+		/// Aliases
+		/// </summary>
+		public static string SettingsManageAliases_Title => Resources.GetTranslatedString(@"SettingsManageAliases_Title");	
+	
+        /// <summary>
+		/// See e-mail aliases assigned for this account, update or delete them.
+		/// </summary>
+		public static string SettingsManageAliases_Description => Resources.GetTranslatedString(@"SettingsManageAliases_Description");	
+	
+        /// <summary>
 		/// Center Action
 		/// </summary>
 		public static string SettingsHoverActionCenter => Resources.GetTranslatedString(@"SettingsHoverActionCenter");	
@@ -2052,6 +2187,31 @@ namespace Wino.Core.Domain
 		/// Categories
 		/// </summary>
 		public static string CategoriesFolderNameOverride => Resources.GetTranslatedString(@"CategoriesFolderNameOverride");	
+	
+        /// <summary>
+		/// Verified
+		/// </summary>
+		public static string AccountAlias_Column_Verified => Resources.GetTranslatedString(@"AccountAlias_Column_Verified");	
+	
+        /// <summary>
+		/// Alias
+		/// </summary>
+		public static string AccountAlias_Column_Alias => Resources.GetTranslatedString(@"AccountAlias_Column_Alias");	
+	
+        /// <summary>
+		/// Primary
+		/// </summary>
+		public static string AccountAlias_Column_IsPrimaryAlias => Resources.GetTranslatedString(@"AccountAlias_Column_IsPrimaryAlias");	
+	
+        /// <summary>
+		/// Wino can only import aliases for your Gmail accounts.
+		/// </summary>
+		public static string AccountAlias_Disclaimer_FirstLine => Resources.GetTranslatedString(@"AccountAlias_Disclaimer_FirstLine");	
+	
+        /// <summary>
+		/// If you want to use aliases for your Outlook or IMAP account, please add them yourself.
+		/// </summary>
+		public static string AccountAlias_Disclaimer_SecondLine => Resources.GetTranslatedString(@"AccountAlias_Disclaimer_SecondLine");	
 	
         /// <summary>
 		/// More

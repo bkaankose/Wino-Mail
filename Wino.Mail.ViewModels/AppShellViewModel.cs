@@ -729,16 +729,25 @@ namespace Wino.Mail.ViewModels
                     operationAccount = accounts.FirstOrDefault();
                 else
                 {
-                    // There are multiple accounts and there is no selection.
-                    // Don't list all accounts, but only accounts that belong to Merged Inbox.
-
                     if (latestSelectedAccountMenuItem is MergedAccountMenuItem selectedMergedAccountMenuItem)
                     {
+                        // There are multiple accounts and there is no selection.
+                        // Don't list all accounts, but only accounts that belong to Merged Inbox.
+
                         var mergedAccounts = accounts.Where(a => a.MergedInboxId == selectedMergedAccountMenuItem.EntityId);
 
                         if (!mergedAccounts.Any()) return;
 
                         Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(mergedAccounts.ToList()));
+                    }
+                    else if (latestSelectedAccountMenuItem is AccountMenuItem selectedAccountMenuItem)
+                    {
+                        operationAccount = selectedAccountMenuItem.HoldingAccounts.ElementAt(0);
+                    }
+                    else
+                    {
+                        // User is at some other page. List all accounts.
+                        Messenger.Send(new CreateNewMailWithMultipleAccountsRequested(accounts));
                     }
                 }
             }
@@ -779,7 +788,7 @@ namespace Wino.Mail.ViewModels
 
             var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(account.Id, draftOptions).ConfigureAwait(false);
 
-            var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage);
+            var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
             await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
         }
 
@@ -795,7 +804,7 @@ namespace Wino.Mail.ViewModels
         }
 
         protected override void OnAccountRemoved(MailAccount removedAccount)
-            => Messenger.Send(new AccountsMenuRefreshRequested(true));
+            => Messenger.Send(new AccountsMenuRefreshRequested(false));
 
         protected override async void OnAccountCreated(MailAccount createdAccount)
         {
@@ -877,12 +886,9 @@ namespace Wino.Mail.ViewModels
         {
             await RecreateMenuItemsAsync();
 
-            if (message.AutomaticallyNavigateFirstItem)
+            if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
             {
-                if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
-                {
-                    await ChangeLoadedAccountAsync(firstAccount);
-                }
+                await ChangeLoadedAccountAsync(firstAccount, message.AutomaticallyNavigateFirstItem);
             }
         }
 

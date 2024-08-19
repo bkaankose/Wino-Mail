@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -12,6 +13,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration;
@@ -69,8 +71,65 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token</param>
         public abstract Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
 
-        public abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Refreshes remote mail account profile if possible.
+        /// Profile picture, sender name and mailbox settings (todo) will be handled in this step.
+        /// </summary>
+        public virtual Task<ProfileInformation> GetProfileInformationAsync() => default;
 
+        /// <summary>
+        /// Refreshes the aliases of the account.
+        /// Only available for Gmail right now.
+        /// </summary>
+        protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
+
+        /// <summary>
+        /// Returns the base64 encoded profile picture of the account from the given URL.
+        /// </summary>
+        /// <param name="url">URL to retrieve picture from.</param>
+        /// <returns>base64 encoded profile picture</returns>
+        protected async Task<string> GetProfilePictureBase64EncodedAsync(string url)
+        {
+            using var client = new HttpClient();
+
+            var response = await client.GetAsync(url).ConfigureAwait(false);
+            var byteContent = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+
+            return Convert.ToBase64String(byteContent);
+        }
+
+        /// <summary>
+        /// Internally synchronizes the account with the given options.
+        /// Not exposed and overriden for each synchronizer.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
+        protected abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Safely updates account's profile information.
+        /// Database changes are reflected after this call.
+        /// </summary>
+        private async Task<ProfileInformation> SynchronizeProfileInformationInternalAsync()
+        {
+            var profileInformation = await GetProfileInformationAsync();
+
+            if (profileInformation != null)
+            {
+                Account.SenderName = profileInformation.SenderName;
+                Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+            }
+
+            return profileInformation;
+        }
+
+        /// <summary>
+        /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
         public async Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             try
@@ -103,6 +162,48 @@ namespace Wino.Core.Synchronizers
                 State = AccountSynchronizerState.Synchronizing;
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
+
+                // Handle special synchronization types.
+
+                // Profile information sync.
+                if (options.Type == SynchronizationType.UpdateProfile)
+                {
+                    if (!Account.IsProfileInfoSyncSupported) return SynchronizationResult.Empty;
+
+                    ProfileInformation newProfileInformation = null;
+
+                    try
+                    {
+                        newProfileInformation = await SynchronizeProfileInformationInternalAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to update profile information for {Name}", Account.Name);
+
+                        return SynchronizationResult.Failed;
+                    }
+
+                    return SynchronizationResult.Completed(null, newProfileInformation);
+                }
+
+                // Alias sync.
+                if (options.Type == SynchronizationType.Alias)
+                {
+                    if (!Account.IsAliasSyncSupported) return SynchronizationResult.Empty;
+
+                    try
+                    {
+                        await SynchronizeAliasesAsync();
+
+                        return SynchronizationResult.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to update aliases for {Name}", Account.Name);
+
+                        return SynchronizationResult.Failed;
+                    }
+                }
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
 
@@ -150,6 +251,10 @@ namespace Wino.Core.Synchronizers
         private void PublishUnreadItemChanges()
             => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
 
+        /// <summary>
+        /// Sends a message to the shell to update the synchronization progress.
+        /// </summary>
+        /// <param name="progress">Percentage of the progress.</param>
         public void PublishSynchronizationProgress(double progress)
             => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 

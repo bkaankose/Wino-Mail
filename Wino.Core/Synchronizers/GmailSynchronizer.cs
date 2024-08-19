@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Http;
+using Google.Apis.PeopleService.v1;
 using Google.Apis.Requests;
 using Google.Apis.Services;
 using MailKit;
@@ -18,6 +19,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
@@ -37,8 +39,10 @@ namespace Wino.Core.Synchronizers
         // https://github.com/googleapis/google-api-dotnet-client/issues/2603
         private const uint MaximumAllowedBatchRequestSize = 10;
 
-        private readonly ConfigurableHttpClient _gmailHttpClient;
+        private readonly ConfigurableHttpClient _googleHttpClient;
         private readonly GmailService _gmailService;
+        private readonly PeopleServiceService _peopleService;
+
         private readonly IAuthenticator _authenticator;
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
         private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
@@ -54,15 +58,48 @@ namespace Wino.Core.Synchronizers
                 HttpClientFactory = this
             };
 
-            _gmailHttpClient = new ConfigurableHttpClient(messageHandler);
+            _googleHttpClient = new ConfigurableHttpClient(messageHandler);
+
             _gmailService = new GmailService(initializer);
+            _peopleService = new PeopleServiceService(initializer);
+
             _authenticator = authenticator;
             _gmailChangeProcessor = gmailChangeProcessor;
         }
 
-        public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _gmailHttpClient;
+        public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
 
-        public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        public override async Task<ProfileInformation> GetProfileInformationAsync()
+        {
+            var profileRequest = _peopleService.People.Get("people/me");
+            profileRequest.PersonFields = "names,photos";
+
+            string senderName = string.Empty, base64ProfilePicture = string.Empty;
+
+            var userProfile = await profileRequest.ExecuteAsync();
+
+            senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
+
+            var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
+
+            if (!string.IsNullOrEmpty(profilePicture))
+            {
+                base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
+            }
+
+            return new ProfileInformation(senderName, base64ProfilePicture);
+        }
+
+        protected override async Task SynchronizeAliasesAsync()
+        {
+            var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
+            var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
+            var remoteAliases = sendAsListResponse.GetRemoteAliases();
+
+            await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
+        }
+
+        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             _logger.Information("Internal synchronization started for {Name}", Account.Name);
 

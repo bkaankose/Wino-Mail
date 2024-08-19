@@ -23,5 +23,6 @@
         LanguageTimePage,
         AppPreferencesPage,
         SettingOptionsPage,
+        AliasManagementPage
     }
 }

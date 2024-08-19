@@ -52,7 +52,7 @@ namespace Wino.Server.MessageHandlers
             {
                 var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options, cancellationToken).ConfigureAwait(false);
 
-                if (synchronizationResult.DownloadedMessages.Any())
+                if (synchronizationResult.DownloadedMessages?.Any() ?? false || !synchronizer.Account.Preferences.IsNotificationsEnabled)
                 {
                     var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
 

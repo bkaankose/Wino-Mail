@@ -53,5 +53,6 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <returns>Signature information. Null if canceled.</returns>
         Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null);
+        Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync();
     }
 }

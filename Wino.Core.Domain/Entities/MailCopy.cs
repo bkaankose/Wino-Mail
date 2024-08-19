@@ -141,7 +141,7 @@ namespace Wino.Core.Domain.Entities
         /// </summary>
         [Ignore]
         public MailAccount AssignedAccount { get; set; }
-        public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
+        public IEnumerable<Guid> GetContainingIds() => [UniqueId];
         public override string ToString() => $"{Subject} <-> {Id}";
     }
 }

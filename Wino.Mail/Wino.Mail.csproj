@@ -169,6 +169,9 @@
     <PackageReference Include="CommunityToolkit.Uwp.Animations">
       <Version>8.0.240109</Version>
     </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Behaviors">
+      <Version>8.0.240109</Version>
+    </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
       <Version>8.0.240109</Version>
     </PackageReference>
@@ -268,6 +271,9 @@
     <Compile Include="Dialogs\NewImapSetupDialog.xaml.cs">
       <DependentUpon>NewImapSetupDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Dialogs\CreateAccountAliasDialog.xaml.cs">
+      <DependentUpon>CreateAccountAliasDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Dialogs\StoreRatingDialog.xaml.cs">
       <DependentUpon>StoreRatingDialog.xaml</DependentUpon>
     </Compile>
@@ -340,6 +346,7 @@
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AliasManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppPreferencesPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\ComposePageAbstract.cs" />
@@ -422,6 +429,9 @@
     </Compile>
     <Compile Include="Views\Settings\SettingOptionsPage.xaml.cs">
       <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\AliasManagementPage.xaml.cs">
+      <DependentUpon>AliasManagementPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\SignatureManagementPage.xaml.cs">
       <DependentUpon>SignatureManagementPage.xaml</DependentUpon>
@@ -508,6 +518,10 @@
     <Page Include="Dialogs\NewImapSetupDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\CreateAccountAliasDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Dialogs\StoreRatingDialog.xaml">
       <SubType>Designer</SubType>
@@ -656,6 +670,10 @@
     <Page Include="Views\Settings\SettingOptionsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\AliasManagementPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\Settings\SignatureManagementPage.xaml">
       <SubType>Designer</SubType>
