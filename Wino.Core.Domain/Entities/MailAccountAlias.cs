@@ -22,7 +22,6 @@ namespace Wino.Core.Domain.Entities
 
         /// <summary>
         /// Whether the alias is verified by the server.
-        /// Non-verified aliases will show an info tip to users during sending.
         /// Only Gmail aliases are verified for now.
         /// Non-verified alias messages might be rejected by SMTP server.
         /// </summary>
