@@ -46,9 +46,9 @@ namespace Wino.Core.Domain.Interfaces
 
         /// <summary>
         /// Synchronizes profile information with the server.
-        /// Sender name and 
+        /// Sender name and Profile picture are updated.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Profile information model that holds the values.</returns>
         Task<ProfileInformation> GetProfileInformationAsync();
 
         /// <summary>
