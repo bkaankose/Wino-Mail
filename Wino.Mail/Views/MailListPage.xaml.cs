@@ -40,11 +40,9 @@ namespace Wino.Views
         IRecipient<ShellStateUpdated>,
         IRecipient<DisposeRenderingFrameRequested>
     {
-        private const string NarrowVisualStateKey = "NarrowState";
-        private const string AdaptivenessStatesKey = "AdaptiveStates";
         private const int RENDERING_COLUMN_MIN_WIDTH = 300;
 
-        private IStatePersistanceService StatePersistanceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
+        private IStatePersistanceService StatePersistenceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
         private IPreferencesService PreferencesService { get; } = App.Current.Services.GetService<IPreferencesService>();
         private IKeyPressService KeyPressService { get; } = App.Current.Services.GetService<IKeyPressService>();
 
@@ -259,7 +257,7 @@ namespace Wino.Views
                 }
             }
 
-            UpdateAdaptiveness1();
+            UpdateAdaptiveness();
         }
 
         private bool IsRenderingPageActive() => RenderingFrame.Content is MailRenderingPage;
@@ -309,7 +307,7 @@ namespace Wino.Views
 
         public void Receive(ActiveMailFolderChangedEvent message)
         {
-            UpdateAdaptiveness1();
+            UpdateAdaptiveness();
         }
 
         public async void Receive(SelectMailItemContainerEvent message)
@@ -363,7 +361,7 @@ namespace Wino.Views
 
         public void Receive(ShellStateUpdated message)
         {
-            UpdateAdaptiveness1();
+            UpdateAdaptiveness();
         }
 
         private void SearchBoxFocused(object sender, RoutedEventArgs e)
@@ -488,18 +486,23 @@ namespace Wino.Views
         {
             ViewModel.MaxMailListLength = e.NewSize.Width - RENDERING_COLUMN_MIN_WIDTH;
 
-            StatePersistanceService.IsReaderNarrowed = e.NewSize.Width < StatePersistanceService.MailListPaneLength + RENDERING_COLUMN_MIN_WIDTH;
+            StatePersistenceService.IsReaderNarrowed = e.NewSize.Width < StatePersistenceService.MailListPaneLength + RENDERING_COLUMN_MIN_WIDTH;
 
-            UpdateAdaptiveness1();
+            UpdateAdaptiveness();
         }
 
-        private void UpdateAdaptiveness1()
+        private void PropertySizer_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            StatePersistenceService.MailListPaneLength = ViewModel.MailListLength;
+        }
+
+        private void UpdateAdaptiveness()
         {
             bool shouldDisplayNoMessagePanel, shouldDisplayMailingList, shouldDisplayRenderingFrame;
 
             // This is the smallest state UI can get.
             // Either mailing list or rendering grid is visible.
-            if (StatePersistanceService.IsReaderNarrowed)
+            if (StatePersistenceService.IsReaderNarrowed)
             {
                 // Start visibility checks by no message panel.
 
@@ -520,9 +523,9 @@ namespace Wino.Views
             RenderingFrame.Visibility = shouldDisplayRenderingFrame ? Visibility.Visible : Visibility.Collapsed;
             NoMailSelectedPanel.Visibility = shouldDisplayNoMessagePanel ? Visibility.Visible : Visibility.Collapsed;
 
-            if (StatePersistanceService.IsReaderNarrowed == true)
+            if (StatePersistenceService.IsReaderNarrowed == true)
             {
-                if (ViewModel.HasSelectedItems)
+                if (ViewModel.HasSingleItemSelection)
                 {
                     MailListColumn.Width = new GridLength(0);
                     RendererColumn.Width = new GridLength(1, GridUnitType.Star);
@@ -544,7 +547,7 @@ namespace Wino.Views
             }
             else
             {
-                MailListColumn.Width = new GridLength(StatePersistanceService.MailListPaneLength);
+                MailListColumn.Width = new GridLength(StatePersistenceService.MailListPaneLength);
                 RendererColumn.Width = new GridLength(1, GridUnitType.Star);
 
                 Grid.SetColumn(MailListContainer, 0);
@@ -555,11 +558,6 @@ namespace Wino.Views
                 MailListContainer.Visibility = Visibility.Visible;
                 RenderingGrid.Visibility = Visibility.Visible;
             }
-        }
-
-        private void PropertySizer_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
-        {
-            StatePersistanceService.MailListPaneLength = ViewModel.MailListLength;
         }
     }
 }
