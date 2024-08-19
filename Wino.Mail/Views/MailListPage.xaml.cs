@@ -499,14 +499,13 @@ namespace Wino.Views
         {
             bool shouldDisplayNoMessagePanel, shouldDisplayMailingList, shouldDisplayRenderingFrame;
 
+            bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled || KeyPressService.IsCtrlKeyPressed();
+
             // This is the smallest state UI can get.
             // Either mailing list or rendering grid is visible.
             if (StatePersistenceService.IsReaderNarrowed)
             {
                 // Start visibility checks by no message panel.
-
-                bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled || KeyPressService.IsCtrlKeyPressed();
-
                 shouldDisplayMailingList = isMultiSelectionEnabled ? true : (!ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections);
                 shouldDisplayNoMessagePanel = shouldDisplayMailingList ? false : !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
                 shouldDisplayRenderingFrame = shouldDisplayMailingList ? false : !shouldDisplayNoMessagePanel;
@@ -524,7 +523,7 @@ namespace Wino.Views
 
             if (StatePersistenceService.IsReaderNarrowed == true)
             {
-                if (ViewModel.HasSingleItemSelection)
+                if (ViewModel.HasSingleItemSelection && !isMultiSelectionEnabled)
                 {
                     MailListColumn.Width = new GridLength(0);
                     RendererColumn.Width = new GridLength(1, GridUnitType.Star);
@@ -544,6 +543,7 @@ namespace Wino.Views
                     MailListContainer.Visibility = Visibility.Visible;
                     RenderingGrid.Visibility = Visibility.Collapsed;
                     SearchBar.Margin = new Thickness(8, 0, -2, 0);
+                    MailListSizer.Visibility = Visibility.Collapsed;
                 }
             }
             else
@@ -561,6 +561,7 @@ namespace Wino.Views
                 MailListContainer.Visibility = Visibility.Visible;
                 RenderingGrid.Visibility = Visibility.Visible;
                 SearchBar.Margin = new Thickness(2, 0, -2, 0);
+                MailListSizer.Visibility = Visibility.Visible;
             }
         }
     }

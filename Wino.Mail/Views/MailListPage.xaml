@@ -682,6 +682,7 @@
             </Grid>
         </Border>
         <controls1:PropertySizer
+            x:Name="MailListSizer"
             Grid.Column="1"
             Width="16"
             HorizontalAlignment="Left"
