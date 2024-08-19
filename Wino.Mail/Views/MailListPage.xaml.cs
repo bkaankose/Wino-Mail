@@ -40,10 +40,9 @@ namespace Wino.Views
         IRecipient<ShellStateUpdated>,
         IRecipient<DisposeRenderingFrameRequested>
     {
-        private const int RENDERING_COLUMN_MIN_WIDTH = 300;
+        private const double RENDERING_COLUMN_MIN_WIDTH = 300;
 
         private IStatePersistanceService StatePersistenceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
-        private IPreferencesService PreferencesService { get; } = App.Current.Services.GetService<IPreferencesService>();
         private IKeyPressService KeyPressService { get; } = App.Current.Services.GetService<IKeyPressService>();
 
         public MailListPage()
@@ -89,7 +88,7 @@ namespace Wino.Views
             SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
         }
 
-        private void SelectionModeToggleChecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectionModeToggleChecked(object sender, RoutedEventArgs e)
         {
             ChangeSelectionMode(ListViewSelectionMode.Multiple);
         }
@@ -131,17 +130,17 @@ namespace Wino.Views
             }
         }
 
-        private void SelectionModeToggleUnchecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectionModeToggleUnchecked(object sender, RoutedEventArgs e)
         {
             ChangeSelectionMode(ListViewSelectionMode.Extended);
         }
 
-        private void SelectAllCheckboxChecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
         {
             MailListView.SelectAllWino();
         }
 
-        private void SelectAllCheckboxUnchecked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
         {
             MailListView.ClearSelections();
         }
@@ -541,6 +540,7 @@ namespace Wino.Views
                     RendererColumn.Width = new GridLength(0);
 
                     Grid.SetColumnSpan(MailListContainer, 2);
+                    MailListContainer.Margin = new Thickness(7,0,7,0);
                     MailListContainer.Visibility = Visibility.Visible;
                     RenderingGrid.Visibility = Visibility.Collapsed;
                 }
@@ -549,6 +549,8 @@ namespace Wino.Views
             {
                 MailListColumn.Width = new GridLength(StatePersistenceService.MailListPaneLength);
                 RendererColumn.Width = new GridLength(1, GridUnitType.Star);
+
+                MailListContainer.Margin = new Thickness(0, 0, 0, 0);
 
                 Grid.SetColumn(MailListContainer, 0);
                 Grid.SetColumn(RenderingGrid, 1);
