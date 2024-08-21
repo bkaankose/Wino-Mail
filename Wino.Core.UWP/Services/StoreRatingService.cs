@@ -11,7 +11,7 @@ namespace Wino.Core.UWP.Services
 {
     public class StoreRatingService : IStoreRatingService
     {
-        private const string RatedStorageKey = "a"; // nameof(RatedStorageKey);
+        private const string RatedStorageKey = nameof(RatedStorageKey);
         private const string LatestAskedKey = nameof(LatestAskedKey);
 
         private readonly IConfigurationService _configurationService;

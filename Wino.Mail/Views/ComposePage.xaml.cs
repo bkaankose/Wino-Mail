@@ -449,7 +449,6 @@ namespace Wino.Views
             Disposables.Add(GetSuggestionBoxDisposable(CCBox));
             Disposables.Add(GetSuggestionBoxDisposable(BccBox));
 
-            Chromium.Unloaded += Chromium_Unloaded;
             Chromium.CoreWebView2Initialized -= ChromiumInitialized;
             Chromium.CoreWebView2Initialized += ChromiumInitialized;
 
@@ -465,11 +464,6 @@ namespace Wino.Views
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
 
             IsComposerDarkMode = underlyingThemeService.IsUnderlyingThemeDark();
-        }
-
-        private void Chromium_Unloaded(object sender, RoutedEventArgs e)
-        {
-
         }
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
