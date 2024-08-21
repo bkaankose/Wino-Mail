@@ -387,11 +387,6 @@ namespace Wino.Core.Services
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
 
-            var account = await _accountService.GetAccountAsync(accountId);
-
-            if (account == null)
-                throw new ArgumentNullException(nameof(account));
-
             // Update system folders for this account.
 
             await Task.WhenAll(UpdateSystemFolderInternalAsync(configuration.SentFolder, SpecialFolderType.Sent),
@@ -400,9 +395,8 @@ namespace Wino.Core.Services
                                UpdateSystemFolderInternalAsync(configuration.TrashFolder, SpecialFolderType.Deleted),
                                UpdateSystemFolderInternalAsync(configuration.ArchiveFolder, SpecialFolderType.Archive));
 
-            await _accountService.UpdateAccountAsync(account);
 
-            return account;
+            return await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
         }
 
         private Task UpdateSystemFolderInternalAsync(MailItemFolder folder, SpecialFolderType assignedSpecialFolderType)
@@ -489,13 +483,6 @@ namespace Wino.Core.Services
             {
                 _logger.Warning("Folder is null. Cannot update.");
 
-                return;
-            }
-
-            var account = await _accountService.GetAccountAsync(folder.MailAccountId).ConfigureAwait(false);
-            if (account == null)
-            {
-                _logger.Warning("Account with id {MailAccountId} does not exist. Cannot update folder.", folder.MailAccountId);
                 return;
             }
 

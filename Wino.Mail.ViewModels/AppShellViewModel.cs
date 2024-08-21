@@ -38,7 +38,8 @@ namespace Wino.Mail.ViewModels
         IRecipient<LanguageChanged>,
         IRecipient<AccountMenuItemsReordered>,
         IRecipient<AccountSynchronizationProgressUpdatedMessage>,
-        IRecipient<NavigateAppPreferencesRequested>
+        IRecipient<NavigateAppPreferencesRequested>,
+        IRecipient<AccountFolderConfigurationUpdated>
     {
         #region Menu Items
 
@@ -631,6 +632,9 @@ namespace Wino.Mail.ViewModels
 
             await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
 
+            // Load account folder structure and replace the visible folders.
+            var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+
             await ExecuteUIThread(() =>
             {
                 clickedBaseAccountMenuItem.IsEnabled = false;
@@ -643,12 +647,10 @@ namespace Wino.Mail.ViewModels
                 clickedBaseAccountMenuItem.IsSelected = true;
 
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
+
+                MenuItems.ReplaceFolders(folders);
             });
 
-            // Load account folder structure and replace the visible folders.
-            var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
-
-            await MenuItems.ReplaceFoldersAsync(folders);
             await UpdateUnreadItemCountAsync();
             await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
 
@@ -952,6 +954,16 @@ namespace Wino.Mail.ViewModels
             if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
             {
                 await ChangeLoadedAccountAsync(firstAccount, message.AutomaticallyNavigateFirstItem);
+            }
+        }
+
+        public async void Receive(AccountFolderConfigurationUpdated message)
+        {
+            // Reloading of folders is needed to re-create folder tree if the account is loaded.
+
+            if (MenuItems.TryGetAccountMenuItem(message.AccountId, out IAccountMenuItem accountMenuItem))
+            {
+                await ChangeLoadedAccountAsync(accountMenuItem, true);
             }
         }
 
