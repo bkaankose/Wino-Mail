@@ -139,8 +139,8 @@ namespace Wino
                     // Starting the server is fine, but check if server termination behavior is set to terminate.
                     // This state will kill the server once the app is terminated.
 
-                    isGoToAppPreferencesRequested = await _dialogService.ShowWinoCustomMessageDialogAsync("Background Synchronization",
-                                                                     "You are terminating Wino Mail and your app close behavior is set to 'Terminate'.\nThis will stop all background synchronizations and notifications.\nDo you want to go to App Preferences to set Wino Mail to run minimized or in the background?",
+                    isGoToAppPreferencesRequested = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                                                                     $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
                                                                      Translator.Buttons_Yes,
                                                                      WinoCustomMessageDialogIcon.Warning,
                                                                      Translator.Buttons_No,
@@ -151,8 +151,8 @@ namespace Wino
                 {
                     // Startup behavior is not enabled.
 
-                    isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync("Background Synchronization",
-                                                                     "Application has not been set to launch on Windows startup.\nThis may impact notifications and background synchronization.\nDo you want to go to App Preferences page to enable it?",
+                    isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                                                                     $"{Translator.AppCloseStartupLaunchDisabledWarningMessageFirstLine}\n{Translator.AppCloseStartupLaunchDisabledWarningMessageSecondLine}\n\n{Translator.AppCloseStartupLaunchDisabledWarningMessageThirdLine}",
                                                                      Translator.Buttons_Yes,
                                                                      WinoCustomMessageDialogIcon.Warning,
                                                                      Translator.Buttons_No,
