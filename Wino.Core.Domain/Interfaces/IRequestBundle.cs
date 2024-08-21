@@ -48,7 +48,7 @@ namespace Wino.Core.Domain.Interfaces
         /// We add small delay for the following synchronization after executing current requests to overcome this issue.
         /// Default is false.
         /// </summary>
-        bool DelayExecution { get; }
+        int ResynchronizationDelay { get; }
     }
 
     public interface IRequest : IRequestBase

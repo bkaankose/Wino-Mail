@@ -531,7 +531,6 @@ namespace Wino.Core.Services
 
             if (shouldUpdateIdentifier)
             {
-                _logger.Debug("Updating synchronization identifier for {Name}. From: {SynchronizationDeltaIdentifier} To: {NewIdentifier}", account.Name, account.SynchronizationDeltaIdentifier, newIdentifier);
                 account.SynchronizationDeltaIdentifier = newIdentifier;
 
                 await UpdateAccountAsync(account);

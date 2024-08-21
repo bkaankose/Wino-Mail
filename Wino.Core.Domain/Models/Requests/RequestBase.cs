@@ -12,7 +12,7 @@ namespace Wino.Core.Domain.Models.Requests
         public abstract void ApplyUIChanges();
         public abstract void RevertUIChanges();
 
-        public virtual bool DelayExecution => false;
+        public virtual int ResynchronizationDelay => 0;
     }
 
     public abstract record FolderRequestBase(MailItemFolder Folder, MailSynchronizerOperation Operation) : IFolderRequest
@@ -20,7 +20,7 @@ namespace Wino.Core.Domain.Models.Requests
         public abstract void ApplyUIChanges();
         public abstract void RevertUIChanges();
 
-        public virtual bool DelayExecution => false;
+        public virtual int ResynchronizationDelay => 0;
     }
 
     public abstract record BatchRequestBase(IEnumerable<IRequest> Items, MailSynchronizerOperation Operation) : IBatchChangeRequest
@@ -28,6 +28,7 @@ namespace Wino.Core.Domain.Models.Requests
         public abstract void ApplyUIChanges();
         public abstract void RevertUIChanges();
 
-        public virtual bool DelayExecution => false;
+        public virtual int ResynchronizationDelay => 0;
+        public virtual bool ExecuteSerialBatch => false;
     }
 }

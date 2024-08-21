@@ -45,7 +45,8 @@ namespace Wino.Core.Requests
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public record BatchSendDraftRequestRequest(IEnumerable<IRequest> Items, SendDraftPreparationRequest Request) : BatchRequestBase(Items, MailSynchronizerOperation.Send)
+    public record BatchSendDraftRequestRequest(IEnumerable<IRequest> Items,
+                                               SendDraftPreparationRequest Request) : BatchRequestBase(Items, MailSynchronizerOperation.Send)
     {
         public override void ApplyUIChanges()
         {
@@ -57,6 +58,7 @@ namespace Wino.Core.Requests
             Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
 
-        public override bool DelayExecution => true;
+        public override int ResynchronizationDelay => 10000;
+        public override bool ExecuteSerialBatch => true;
     }
 }

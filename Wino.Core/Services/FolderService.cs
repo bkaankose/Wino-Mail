@@ -558,36 +558,11 @@ namespace Wino.Core.Services
         public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)
             => GetMailFolderPairMetadatasAsync(new List<string>() { mailCopyId });
 
-
         public async Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
         {
             var folders = new List<MailItemFolder>();
 
-            if (options.Type == SynchronizationType.Inbox)
-            {
-                var inboxFolder = await GetSpecialFolderByAccountIdAsync(options.AccountId, SpecialFolderType.Inbox);
-                var sentFolder = await GetSpecialFolderByAccountIdAsync(options.AccountId, SpecialFolderType.Sent);
-                var draftFolder = await GetSpecialFolderByAccountIdAsync(options.AccountId, SpecialFolderType.Draft);
-
-                // For properly creating threads we need Sent and Draft to be synchronized as well.
-
-                if (sentFolder != null && sentFolder.IsSynchronizationEnabled)
-                {
-                    folders.Add(sentFolder);
-                }
-
-                if (draftFolder != null && draftFolder.IsSynchronizationEnabled)
-                {
-                    folders.Add(draftFolder);
-                }
-
-                // User might've disabled inbox synchronization somehow...
-                if (inboxFolder != null && inboxFolder.IsSynchronizationEnabled)
-                {
-                    folders.Add(inboxFolder);
-                }
-            }
-            else if (options.Type == SynchronizationType.Full)
+            if (options.Type == SynchronizationType.Full)
             {
                 // Only get sync enabled folders.
 
@@ -598,19 +573,75 @@ namespace Wino.Core.Services
 
                 folders.AddRange(synchronizationFolders);
             }
-            else if (options.Type == SynchronizationType.Custom)
+            else
             {
-                // Only get the specified and enabled folders.
+                // Inbox, Sent and Draft folders must always be synchronized regardless of whether they are enabled or not.
+                // Custom folder sync will add additional folders to the list if not specified.
 
-                var synchronizationFolders = await Connection.Table<MailItemFolder>()
-                    .Where(a => a.MailAccountId == options.AccountId && a.IsSynchronizationEnabled && options.SynchronizationFolderIds.Contains(a.Id))
-                    .ToListAsync();
+                var mustHaveFolders = await GetInboxSynchronizationFoldersAsync(options.AccountId);
 
-                // Order is important for moving.
-                // By implementation, removing mail folders must be synchronized first. Requests are made in that order for custom sync.
-                // eg. Moving item from Folder A to Folder B. If we start syncing Folder B first, we might miss adding assignment for Folder A.
+                if (options.Type == SynchronizationType.Inbox)
+                {
+                    return mustHaveFolders;
+                }
+                else if (options.Type == SynchronizationType.Custom)
+                {
+                    // Only get the specified and enabled folders.
 
-                folders.AddRange(synchronizationFolders.OrderBy(a => options.SynchronizationFolderIds.IndexOf(a.Id)));
+                    var synchronizationFolders = await Connection.Table<MailItemFolder>()
+                        .Where(a => a.MailAccountId == options.AccountId && options.SynchronizationFolderIds.Contains(a.Id))
+                        .ToListAsync();
+
+                    // Order is important for moving.
+                    // By implementation, removing mail folders must be synchronized first. Requests are made in that order for custom sync.
+                    // eg. Moving item from Folder A to Folder B. If we start syncing Folder B first, we might miss adding assignment for Folder A.
+
+                    var orderedCustomFolders = synchronizationFolders.OrderBy(a => options.SynchronizationFolderIds.IndexOf(a.Id));
+
+                    foreach (var item in orderedCustomFolders)
+                    {
+                        if (!mustHaveFolders.Any(a => a.Id == item.Id))
+                        {
+                            mustHaveFolders.Add(item);
+                        }
+                    }
+                }
+
+                return mustHaveFolders;
+            }
+
+            return folders;
+        }
+
+        private async Task<List<MailItemFolder>> GetInboxSynchronizationFoldersAsync(Guid accountId)
+        {
+            var folders = new List<MailItemFolder>();
+
+            var inboxFolder = await GetSpecialFolderByAccountIdAsync(accountId, SpecialFolderType.Inbox);
+            var sentFolder = await GetSpecialFolderByAccountIdAsync(accountId, SpecialFolderType.Sent);
+            var draftFolder = await GetSpecialFolderByAccountIdAsync(accountId, SpecialFolderType.Draft);
+            var deletedFolder = await GetSpecialFolderByAccountIdAsync(accountId, SpecialFolderType.Deleted);
+
+            if (deletedFolder != null)
+            {
+                folders.Add(deletedFolder);
+            }
+
+            if (inboxFolder != null)
+            {
+                folders.Add(inboxFolder);
+            }
+
+            // For properly creating threads we need Sent and Draft to be synchronized as well.
+
+            if (sentFolder != null)
+            {
+                folders.Add(sentFolder);
+            }
+
+            if (draftFolder != null)
+            {
+                folders.Add(draftFolder);
             }
 
             return folders;

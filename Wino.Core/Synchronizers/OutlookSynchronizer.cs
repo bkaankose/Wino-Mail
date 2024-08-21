@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -145,8 +146,7 @@ namespace Wino.Core.Synchronizers
                 {
                     var synchronizationFolders = await _outlookChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
-                    _logger.Information("Found {Count} folders to synchronize.", synchronizationFolders.Count);
-                    _logger.Information(string.Format("Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName))));
+                    _logger.Information(string.Format("{1} Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName)), synchronizationFolders.Count));
 
                     for (int i = 0; i < synchronizationFolders.Count; i++)
                     {
@@ -184,8 +184,6 @@ namespace Wino.Core.Synchronizers
         {
             var downloadedMessageIds = new List<string>();
 
-            _logger.Debug("Started synchronization for folder {FolderName}", folder.FolderName);
-
             cancellationToken.ThrowIfCancellationRequested();
 
             string latestDeltaLink = string.Empty;
@@ -193,6 +191,8 @@ namespace Wino.Core.Synchronizers
             bool isInitialSync = string.IsNullOrEmpty(folder.DeltaToken);
 
             Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse messageCollectionPage = null;
+
+            _logger.Debug("Synchronizing {FolderName}", folder.FolderName);
 
             if (isInitialSync)
             {
@@ -210,9 +210,6 @@ namespace Wino.Core.Synchronizers
             else
             {
                 var currentDeltaToken = folder.DeltaToken;
-
-                _logger.Debug("Sync identifier found for Folder {FolderName}. Performing delta sync.", folder.FolderName);
-                _logger.Debug("Current delta token: {CurrentDeltaToken}", currentDeltaToken);
 
                 var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
                 {
@@ -256,9 +253,6 @@ namespace Wino.Core.Synchronizers
             {
                 _logger.Debug("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
             }
-
-            _logger.Debug("Iterator completed for folder {FolderName}", folder.FolderName);
-            _logger.Debug("Extracted latest delta link is {LatestDeltaLink}", latestDeltaLink);
 
             //Store delta link for tracking new changes.
             if (!string.IsNullOrEmpty(latestDeltaLink))
@@ -507,6 +501,27 @@ namespace Wino.Core.Synchronizers
             return new ProfileInformation(senderName, profilePictureData);
         }
 
+        /// <summary>
+        /// POST requests are handled differently in batches in Graph SDK.
+        /// Batch basically ignores the step's coontent-type and body.
+        /// Manually create a POST request with empty body and send it.
+        /// </summary>
+        /// <param name="requestInformation">Post request information.</param>
+        /// <param name="content">Content object to serialize.</param>
+        /// <returns>Updated post request information.</returns>
+        private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, object content = null)
+        {
+            requestInformation.Headers.Clear();
+
+            string contentJson = content == null ? "{}" : JsonSerializer.Serialize(content);
+
+            requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
+            requestInformation.HttpMethod = Method.POST;
+            requestInformation.Headers.Add("Content-Type", "application/json");
+
+            return requestInformation;
+        }
+
         #region Mail Integration
 
         public override bool DelaySendOperationSynchronization() => true;
@@ -520,7 +535,8 @@ namespace Wino.Core.Synchronizers
 
             return CreateBatchedHttpBundle(request, (item) =>
             {
-                return _graphClient.Me.Messages[item.Item.Id.ToString()].Move.ToPostRequestInformation(requestBody);
+                return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id.ToString()].Move.ToPostRequestInformation(requestBody),
+                                                     requestBody);
             });
         }
 
@@ -665,20 +681,8 @@ namespace Wino.Core.Synchronizers
 
             // Send draft.
 
-            // POST requests are handled differently in batches in Graph SDK.
-            // Batch basically ignores the step's coontent-type and body.
-            // Manually create a POST request with empty body and send it.
 
-            var sendDraftRequest = _graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation((config) =>
-            {
-                config.Headers.Add("Content-Type", "application/json");
-            });
-
-            sendDraftRequest.Headers.Clear();
-
-            sendDraftRequest.Content = new MemoryStream(Encoding.UTF8.GetBytes("{}"));
-            sendDraftRequest.HttpMethod = Method.POST;
-            sendDraftRequest.Headers.Add("Content-Type", "application/json");
+            var sendDraftRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
 
             var sendDraftRequestBundle = new HttpRequestBundle<RequestInformation>(sendDraftRequest, request);
 
@@ -724,6 +728,8 @@ namespace Wino.Core.Synchronizers
         {
             var batchRequestInformations = BatchExtension.Batch(batchedRequests, (int)MaximumAllowedBatchRequestSize);
 
+            bool serializeRequests = false;
+
             foreach (var batch in batchRequestInformations)
             {
                 var batchContent = new BatchRequestContentCollection(_graphClient);
@@ -733,6 +739,14 @@ namespace Wino.Core.Synchronizers
                 for (int i = 0; i < itemCount; i++)
                 {
                     var bundle = batch.ElementAt(i);
+
+                    if (bundle.Request is BatchRequestBase batchBundleRequest && batchBundleRequest.ExecuteSerialBatch)
+                    {
+                        // This bundle needs to run every request in serial.
+                        // By default requests are executed in parallel.
+
+                        serializeRequests = true;
+                    }
 
                     var request = bundle.Request;
                     var nativeRequest = bundle.NativeRequest;
@@ -753,7 +767,7 @@ namespace Wino.Core.Synchronizers
                 // Set execution type to serial instead of parallel if needed.
                 // Each step will depend on the previous one.
 
-                if (itemCount > 1)
+                if (serializeRequests)
                 {
                     for (int i = 1; i < itemCount; i++)
                     {
@@ -762,7 +776,6 @@ namespace Wino.Core.Synchronizers
 
                         currentStep.Value.DependsOn = [previousStep.Key];
                     }
-
                 }
 
                 // Execute batch. This will collect responses from network call for each batch step.
@@ -791,9 +804,11 @@ namespace Wino.Core.Synchronizers
                     {
                         if (!httpResponseMessage.IsSuccessStatusCode)
                         {
+                            bundle.Request.RevertUIChanges();
+
                             var content = await httpResponseMessage.Content.ReadAsStringAsync();
                             var errorJson = JsonObject.Parse(content);
-                            var errorString = $"({httpResponseMessage.StatusCode}) {errorJson["error"]["code"]} - {errorJson["error"]["message"]}";
+                            var errorString = $"{httpResponseMessage.StatusCode} [{bundle.Request.GetType().Name}]\n{errorJson["error"]["code"]} - {errorJson["error"]["message"]}\n";
 
                             exceptionBag.Add(errorString);
                         }
@@ -818,12 +833,6 @@ namespace Wino.Core.Synchronizers
 
         public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
         {
-            bool isMailExists = await _outlookChangeProcessor.IsMailExistsAsync(message.Id);
-
-            if (isMailExists)
-            {
-                return null;
-            }
 
             var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
             var mailCopy = message.AsMailCopy();

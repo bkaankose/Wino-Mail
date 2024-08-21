@@ -31,8 +31,6 @@ namespace Wino.Core.Requests
             }
         }
 
-        public override bool DelayExecution => false;
-
         public List<Guid> SynchronizationFolderIds => [Folder.Id];
     }
 }

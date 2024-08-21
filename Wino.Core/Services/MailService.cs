@@ -395,7 +395,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            _logger.Debug("Inserting mail {MailCopyId} to Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
+            _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
             await Connection.InsertAsync(mailCopy).ConfigureAwait(false);
 
@@ -427,7 +427,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            _logger.Debug("Deleting mail {Id} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
+            _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
             await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
 
@@ -473,6 +473,8 @@ namespace Wino.Core.Services
         public Task ChangeReadStatusAsync(string mailCopyId, bool isRead)
             => UpdateAllMailCopiesAsync(mailCopyId, (item) =>
             {
+                if (item.IsRead == isRead) return false;
+
                 item.IsRead = isRead;
 
                 return true;
@@ -481,6 +483,8 @@ namespace Wino.Core.Services
         public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
             => UpdateAllMailCopiesAsync(mailCopyId, (item) =>
             {
+                if (item.IsFlagged == isFlagged) return false;
+
                 item.IsFlagged = isFlagged;
 
                 return true;

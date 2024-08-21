@@ -206,12 +206,18 @@ namespace Wino.Core.Synchronizers
                 }
 
                 // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
+                // Bug: if Outlook can't create the message in Sent Items folder before this delay,
+                // message will not appear in user's inbox since it's not in the Sent Items folder.
 
-                bool shouldDelayExecution = batches.Any(a => a.DelayExecution);
+                bool shouldDelayExecution =
+                    (Account.ProviderType == MailProviderType.Outlook || Account.ProviderType == MailProviderType.Office365)
+                    && batches.Any(a => a.ResynchronizationDelay > 0);
 
                 if (shouldDelayExecution)
                 {
-                    await Task.Delay(2000);
+                    var maxDelay = batches.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
+
+                    await Task.Delay(maxDelay);
                 }
 
                 // Start the internal synchronization.
