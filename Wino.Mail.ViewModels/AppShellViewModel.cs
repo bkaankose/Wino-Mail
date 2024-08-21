@@ -252,6 +252,15 @@ namespace Wino.Mail.ViewModels
         {
             if (!_configurationService.Get<bool>(IsActivateStartupLaunchAskedKey, false))
             {
+                var currentBehavior = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+
+                // User somehow already enabled Wino before the first launch.
+                if (currentBehavior == StartupBehaviorResult.Enabled)
+                {
+                    _configurationService.Set(IsActivateStartupLaunchAskedKey, true);
+                    return;
+                }
+
                 bool isAccepted = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
                                                                                        Translator.DialogMessage_EnableStartupLaunchMessage,
                                                                                        Translator.Buttons_Yes,
