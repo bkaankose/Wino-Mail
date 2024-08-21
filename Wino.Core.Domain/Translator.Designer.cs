@@ -584,6 +584,21 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_UnsubscribeConfirmationMailtoMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationMailtoMessage");	
 	
         /// <summary>
+		/// Enable Startup Launch
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchTitle => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchTitle");	
+	
+        /// <summary>
+		/// Let Wino Mail automatically launch minimized on Windows startup to not miss any notifications.  Do you want to enable startup launch?
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchMessage => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchMessage");	
+	
+        /// <summary>
+		/// You can enable startup launch from Settings -> App Preferences.
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchDeniedMessage => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchDeniedMessage");	
+	
+        /// <summary>
 		/// Don't ask again
 		/// </summary>
 		public static string Dialog_DontAskAgain => Resources.GetTranslatedString(@"Dialog_DontAskAgain");	

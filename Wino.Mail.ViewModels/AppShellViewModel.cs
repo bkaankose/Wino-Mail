@@ -60,6 +60,8 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
+        private const string IsActivateStartupLaunchAskedKey = nameof(IsActivateStartupLaunchAskedKey);
+
         public IStatePersistanceService StatePersistenceService { get; }
         public IWinoServerConnectionManager ServerConnectionManager { get; }
         public IPreferencesService PreferencesService { get; }
@@ -67,6 +69,7 @@ namespace Wino.Mail.ViewModels
 
         private readonly IFolderService _folderService;
         private readonly IConfigurationService _configurationService;
+        private readonly IStartupBehaviorService _startupBehaviorService;
         private readonly IAccountService _accountService;
         private readonly IContextMenuItemService _contextMenuItemService;
         private readonly IStoreRatingService _storeRatingService;
@@ -101,7 +104,8 @@ namespace Wino.Mail.ViewModels
                                  IFolderService folderService,
                                  IStatePersistanceService statePersistanceService,
                                  IWinoServerConnectionManager serverConnectionManager,
-                                 IConfigurationService configurationService) : base(dialogService)
+                                 IConfigurationService configurationService,
+                                 IStartupBehaviorService startupBehaviorService) : base(dialogService)
         {
             StatePersistenceService = statePersistanceService;
             ServerConnectionManager = serverConnectionManager;
@@ -119,6 +123,7 @@ namespace Wino.Mail.ViewModels
             NavigationService = navigationService;
 
             _configurationService = configurationService;
+            _startupBehaviorService = startupBehaviorService;
             _backgroundTaskService = backgroundTaskService;
             _mimeFileService = mimeFileService;
             _nativeAppService = nativeAppService;
@@ -239,7 +244,39 @@ namespace Wino.Mail.ViewModels
             await ProcessLaunchOptionsAsync();
 
             await ForceAllAccountSynchronizationsAsync();
+            await MakeSureEnableStartupLaunchAsync();
             ConfigureBackgroundTasks();
+        }
+
+        private async Task MakeSureEnableStartupLaunchAsync()
+        {
+            if (!_configurationService.Get<bool>(IsActivateStartupLaunchAskedKey, false))
+            {
+                bool isAccepted = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
+                                                                                       Translator.DialogMessage_EnableStartupLaunchMessage,
+                                                                                       Translator.Buttons_Yes,
+                                                                                       WinoCustomMessageDialogIcon.Information,
+                                                                                       Translator.Buttons_No);
+
+                bool shouldDisplayLaterOnMessage = !isAccepted;
+
+                if (isAccepted)
+                {
+                    var behavior = await _startupBehaviorService.ToggleStartupBehavior(true);
+
+                    shouldDisplayLaterOnMessage = behavior != StartupBehaviorResult.Enabled;
+                }
+
+                if (shouldDisplayLaterOnMessage)
+                {
+                    await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
+                                                                        Translator.DialogMessage_EnableStartupLaunchDeniedMessage,
+                                                                        Translator.Buttons_Close,
+                                                                        WinoCustomMessageDialogIcon.Information);
+                }
+
+                _configurationService.Set(IsActivateStartupLaunchAskedKey, true);
+            }
         }
 
         private void ConfigureBackgroundTasks()
@@ -809,16 +846,11 @@ namespace Wino.Mail.ViewModels
 
         protected override async void OnAccountUpdated(MailAccount updatedAccount)
         {
-            await ExecuteUIThread(async () =>
+            await ExecuteUIThread(() =>
             {
                 if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
                 {
                     foundAccountMenuItem.UpdateAccount(updatedAccount);
-
-                    if (latestSelectedAccountMenuItem == foundAccountMenuItem)
-                    {
-                        await ChangeLoadedAccountAsync(foundAccountMenuItem, false);
-                    }
                 }
             });
         }
