@@ -95,7 +95,9 @@ namespace Wino.Mail.ViewModels
                 {
                     // Discord disclaimer message about server.
                     if (stringUrl == DiscordChannelUrl)
-                        await DialogService.ShowMessageAsync(Translator.DiscordChannelDisclaimerMessage, Translator.DiscordChannelDisclaimerTitle);
+                        await DialogService.ShowMessageAsync(Translator.DiscordChannelDisclaimerMessage,
+                                                             Translator.DiscordChannelDisclaimerTitle,
+                                                             WinoCustomMessageDialogIcon.Warning);
 
                     await _nativeAppService.LaunchUriAsync(new Uri(stringUrl));
                 }

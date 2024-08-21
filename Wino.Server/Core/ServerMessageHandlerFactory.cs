@@ -21,6 +21,7 @@ namespace Wino.Server.Core
                 nameof(ProtocolAuthorizationCallbackReceived) => App.Current.Services.GetService<ProtocolAuthActivationHandler>(),
                 nameof(SynchronizationExistenceCheckRequest) => App.Current.Services.GetService<SyncExistenceHandler>(),
                 nameof(ServerTerminationModeChanged) => App.Current.Services.GetService<ServerTerminationModeHandler>(),
+                nameof(TerminateServerRequested) => App.Current.Services.GetService<TerminateServerRequestHandler>(),
                 _ => throw new Exception($"Server handler for {typeName} is not registered."),
             };
         }
@@ -36,6 +37,7 @@ namespace Wino.Server.Core
             serviceCollection.AddTransient<ProtocolAuthActivationHandler>();
             serviceCollection.AddTransient<SyncExistenceHandler>();
             serviceCollection.AddTransient<ServerTerminationModeHandler>();
+            serviceCollection.AddTransient<TerminateServerRequestHandler>();
         }
     }
 }

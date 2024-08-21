@@ -15,11 +15,10 @@ namespace Wino.Core.Domain.Interfaces
         Task<byte[]> PickWindowsFileContentAsync(params object[] typeFilters);
         Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle);
         Task<bool> ShowHardDeleteConfirmationAsync();
-        Task<IStoreRatingDialog> ShowRatingDialogAsync();
         Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);
         Task<bool> ShowCustomThemeBuilderDialogAsync();
 
-        Task ShowMessageAsync(string message, string title);
+        Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon);
         void InfoBarMessage(string title, string message, InfoBarMessageType messageType);
         void InfoBarMessage(string title, string message, InfoBarMessageType messageType, string actionButtonText, Action action);
 
@@ -53,6 +52,17 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <returns>Signature information. Null if canceled.</returns>
         Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null);
+
+        /// <summary>
+        /// Presents a dialog to the user for account alias creation/modification.
+        /// </summary>
+        /// <returns>Created alias model if not canceled.</returns>
         Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync();
+        Task<bool> ShowWinoCustomMessageDialogAsync(string title,
+                                                    string description,
+                                                    string approveButtonText,
+                                                    WinoCustomMessageDialogIcon? icon,
+                                                    string cancelButtonText = "",
+                                                    string dontAskAgainConfigurationKey = "");
     }
 }

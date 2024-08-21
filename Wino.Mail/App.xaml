@@ -4,7 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
     xmlns:selectors="using:Wino.Selectors"
-    xmlns:wino="using:Wino">
+    xmlns:wino="using:Wino"
+    xmlns:dialogs="using:Wino.Core.Domain.Models.Dialogs"
+    xmlns:styles="using:Wino.Styles">
 
     <Application.Resources>
         <ResourceDictionary>
@@ -18,6 +20,7 @@
                 <ResourceDictionary Source="/Styles/CommandBarItems.xaml" />
                 <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
+                <styles:CustomMessageDialogStyles />
 
                 <ResourceDictionary>
 
@@ -165,6 +168,10 @@
                             </Setter.Value>
                         </Setter>
                     </Style>
+
+
+
+                    <!--  Attachment Icon Templates  -->
 
                     <DataTemplate x:Key="NoneTemplate">
                         <Image Source="/Assets/FileTypes/type_none.png" />

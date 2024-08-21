@@ -8,6 +8,7 @@ using Microsoft.Toolkit.Uwp.Helpers;
 using Serilog;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
@@ -29,26 +30,21 @@ namespace Wino.Services
         private SemaphoreSlim _presentationSemaphore = new SemaphoreSlim(1);
 
         private readonly IThemeService _themeService;
+        private readonly IConfigurationService _configurationService;
 
-        public DialogService(IThemeService themeService)
+        public DialogService(IThemeService themeService, IConfigurationService configurationService)
         {
             _themeService = themeService;
+            _configurationService = configurationService;
         }
 
         public void ShowNotSupportedMessage()
-        {
-            InfoBarMessage(Translator.Info_UnsupportedFunctionalityTitle, Translator.Info_UnsupportedFunctionalityDescription, InfoBarMessageType.Error);
-        }
+            => InfoBarMessage(Translator.Info_UnsupportedFunctionalityTitle,
+                              Translator.Info_UnsupportedFunctionalityDescription,
+                              InfoBarMessageType.Error);
 
-        public async Task ShowMessageAsync(string message, string title)
-        {
-            var dialog = new WinoMessageDialog()
-            {
-                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
-            };
-
-            await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, message));
-        }
+        public Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon = WinoCustomMessageDialogIcon.Information)
+            => ShowWinoCustomMessageDialogAsync(title, message, Translator.Buttons_Close, icon);
 
         /// <summary>
         /// Waits for PopupRoot to be available before presenting the dialog and returns the result after presentation.
@@ -75,40 +71,8 @@ namespace Wino.Services
             return ContentDialogResult.None;
         }
 
-        /// <summary>
-        /// Waits for PopupRoot to be available before executing the given Task that returns customized result.
-        /// </summary>
-        /// <param name="executionTask">Task that presents the dialog and returns result.</param>
-        /// <returns>Dialog result from the custom dialog.</returns>
-        private async Task<bool> HandleDialogPresentation(Func<Task<bool>> executionTask)
-        {
-            await _presentationSemaphore.WaitAsync();
-
-            try
-            {
-                return await executionTask();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Handling dialog service failed.");
-            }
-            finally
-            {
-                _presentationSemaphore.Release();
-            }
-
-            return false;
-        }
-
-        public async Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle)
-        {
-            var dialog = new ConfirmationDialog()
-            {
-                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
-            };
-
-            return await HandleDialogPresentation(() => dialog.ShowDialogAsync(title, question, confirmationButtonTitle));
-        }
+        public Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle)
+            => ShowWinoCustomMessageDialogAsync(title, question, confirmationButtonTitle, WinoCustomMessageDialogIcon.Question, Translator.Buttons_Cancel, string.Empty);
 
         public async Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders)
         {
@@ -204,18 +168,6 @@ namespace Wino.Services
             return editAccountDialog.IsSaved ? editAccountDialog.Account : null;
         }
 
-        public async Task<IStoreRatingDialog> ShowRatingDialogAsync()
-        {
-            var storeDialog = new StoreRatingDialog()
-            {
-                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme()
-            };
-
-            await HandleDialogPresentationAsync(storeDialog);
-
-            return storeDialog;
-        }
-
         public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
         {
             var createAccountAliasDialog = new CreateAccountAliasDialog()
@@ -247,6 +199,8 @@ namespace Wino.Services
                 {
                     var updatedAccount = await folderService.UpdateSystemFolderConfigurationAsync(accountId, configuration);
 
+                    InfoBarMessage(Translator.SystemFolderConfigSetupSuccess_Title, Translator.SystemFolderConfigSetupSuccess_Message, InfoBarMessageType.Success);
+
                     // Update account menu item and force re-synchronization.
                     WeakReferenceMessenger.Default.Send(new AccountUpdatedMessage(updatedAccount));
 
@@ -257,11 +211,6 @@ namespace Wino.Services
                     };
 
                     WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
-                }
-
-                if (configuration != null)
-                {
-                    InfoBarMessage(Translator.SystemFolderConfigSetupSuccess_Title, Translator.SystemFolderConfigSetupSuccess_Message, InfoBarMessageType.Success);
                 }
             }
             catch (Exception ex)
@@ -331,7 +280,12 @@ namespace Wino.Services
             return await file.ReadBytesAsync();
         }
 
-        public Task<bool> ShowHardDeleteConfirmationAsync() => ShowConfirmationDialogAsync(Translator.DialogMessage_HardDeleteConfirmationMessage, Translator.DialogMessage_HardDeleteConfirmationTitle, Translator.Buttons_Yes);
+        public Task<bool> ShowHardDeleteConfirmationAsync()
+            => ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_HardDeleteConfirmationMessage,
+                                               Translator.DialogMessage_HardDeleteConfirmationTitle,
+                                               Translator.Buttons_Yes,
+                                               WinoCustomMessageDialogIcon.Warning,
+                                               Translator.Buttons_No);
 
         public async Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
         {
@@ -376,6 +330,104 @@ namespace Wino.Services
             };
 
             await HandleDialogPresentationAsync(accountReorderDialog);
+        }
+
+        public async Task<bool> ShowWinoCustomMessageDialogAsync(string title,
+                                                                 string description,
+                                                                 string approveButtonText,
+                                                                 WinoCustomMessageDialogIcon? icon,
+                                                                 string cancelButtonText = "",
+                                                                 string dontAskAgainConfigurationKey = "")
+
+        {
+            // This config key has been marked as don't ask again already.
+            // Return immidiate result without presenting the dialog.
+
+            bool isDontAskEnabled = !string.IsNullOrEmpty(dontAskAgainConfigurationKey);
+
+            if (isDontAskEnabled && _configurationService.Get(dontAskAgainConfigurationKey, false)) return false;
+
+            var informationContainer = new CustomMessageDialogInformationContainer(title, description, icon.Value, isDontAskEnabled);
+
+            var dialog = new ContentDialog
+            {
+                Style = (Style)App.Current.Resources["WinoDialogStyle"],
+                RequestedTheme = _themeService.RootTheme.ToWindowsElementTheme(),
+                DefaultButton = ContentDialogButton.Primary,
+                PrimaryButtonText = approveButtonText,
+                ContentTemplate = (DataTemplate)App.Current.Resources["CustomWinoContentDialogContentTemplate"],
+                Content = informationContainer
+            };
+
+            if (!string.IsNullOrEmpty(cancelButtonText))
+            {
+                dialog.SecondaryButtonText = cancelButtonText;
+            }
+
+            var dialogResult = await HandleDialogPresentationAsync(dialog);
+
+            // Mark this key to not ask again if user checked the checkbox.
+            if (informationContainer.IsDontAskChecked)
+            {
+                _configurationService.Set(dontAskAgainConfigurationKey, true);
+            }
+
+            return dialogResult == ContentDialogResult.Primary;
+        }
+
+        private object GetDontAskDialogContentWithIcon(string description, WinoCustomMessageDialogIcon icon, string dontAskKey = "")
+        {
+            var iconPresenter = new ContentPresenter()
+            {
+                ContentTemplate = (DataTemplate)App.Current.Resources[$"WinoCustomMessageDialog{icon}IconTemplate"],
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            var viewBox = new Viewbox
+            {
+                Child = iconPresenter,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+
+            var descriptionTextBlock = new TextBlock()
+            {
+                Text = description,
+                TextWrapping = TextWrapping.WrapWholeWords,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var containerGrid = new Grid()
+            {
+                Children =
+                {
+                    viewBox,
+                    descriptionTextBlock
+                },
+                RowSpacing = 6,
+                ColumnSpacing = 12
+            };
+
+            containerGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(32, GridUnitType.Pixel) });
+            containerGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
+
+            Grid.SetColumn(descriptionTextBlock, 1);
+
+            // Add don't ask again checkbox if key is provided.
+            if (!string.IsNullOrEmpty(dontAskKey))
+            {
+                var dontAskCheckBox = new CheckBox() { Content = Translator.Dialog_DontAskAgain };
+
+                dontAskCheckBox.Checked += (c, r) => { _configurationService.Set(dontAskKey, dontAskCheckBox.IsChecked.GetValueOrDefault()); };
+
+                containerGrid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Auto) });
+                containerGrid.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Auto) });
+
+                Grid.SetRow(dontAskCheckBox, 1);
+                Grid.SetColumnSpan(dontAskCheckBox, 2);
+                containerGrid.Children.Add(dontAskCheckBox);
+            }
+
+            return containerGrid;
         }
     }
 }

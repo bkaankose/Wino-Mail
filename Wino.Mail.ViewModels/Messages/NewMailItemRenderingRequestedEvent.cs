@@ -6,13 +6,6 @@ namespace Wino.Mail.ViewModels.Messages
     /// When the rendering page is active, but new item is requested to be rendered.
     /// To not trigger navigation again and re-use existing Chromium.
     /// </summary>
-    public class NewMailItemRenderingRequestedEvent
-    {
-        public NewMailItemRenderingRequestedEvent(MailItemViewModel mailItemViewModel)
-        {
-            MailItemViewModel = mailItemViewModel;
-        }
-
-        public MailItemViewModel MailItemViewModel { get; }
-    }
+    /// <param name="MailItemViewModel"></param>
+    public record NewMailItemRenderingRequestedEvent(MailItemViewModel MailItemViewModel);
 }

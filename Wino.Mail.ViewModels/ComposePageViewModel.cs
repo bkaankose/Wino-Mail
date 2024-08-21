@@ -161,7 +161,9 @@ namespace Wino.Mail.ViewModels
 
             if (!ToItems.Any())
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_ComposerMissingRecipientMessage, Translator.DialogMessage_ComposerValidationFailedTitle);
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_ComposerMissingRecipientMessage,
+                                                     Translator.DialogMessage_ComposerValidationFailedTitle,
+                                                     WinoCustomMessageDialogIcon.Warning);
                 return;
             }
 

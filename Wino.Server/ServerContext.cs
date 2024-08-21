@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Windows.ApplicationModel;
@@ -308,10 +309,26 @@ namespace Wino.Server
                 case nameof(ServerTerminationModeChanged):
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ServerTerminationModeChanged>(messageJson, _jsonSerializerOptions));
                     break;
+
+                case nameof(TerminateServerRequested):
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<TerminateServerRequested>(messageJson, _jsonSerializerOptions));
+
+                    KillServer();
+                    break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");
                     break;
             }
+        }
+
+        private void KillServer()
+        {
+            DisposeConnection();
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Application.Current.Shutdown();
+            });
         }
 
         /// <summary>
