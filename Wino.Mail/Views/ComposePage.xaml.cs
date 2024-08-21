@@ -239,7 +239,7 @@ namespace Wino.Views
             {
                 var attachmentViewModel = await file.ToAttachmentViewModelAsync();
 
-                await ViewModel.IncludeAttachmentAsync(attachmentViewModel);
+                ViewModel.IncludedAttachments.Add(attachmentViewModel);
             }
         }
 

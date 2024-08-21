@@ -204,16 +204,6 @@ namespace Wino.Mail.ViewModels
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }
 
-        public async Task IncludeAttachmentAsync(MailAttachmentViewModel viewModel)
-        {
-            //if (bodyBuilder == null) return;
-
-            //bodyBuilder.Attachments.Add(viewModel.FileName, new MemoryStream(viewModel.Content));
-
-            //LoadAttachments();
-            IncludedAttachments.Add(viewModel);
-        }
-
         public async Task UpdateMimeChangesAsync()
         {
             if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
