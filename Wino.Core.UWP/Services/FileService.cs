@@ -1,7 +1,9 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression;
 using System.Threading.Tasks;
 using Windows.Storage;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.UWP.Services
@@ -33,6 +35,28 @@ namespace Wino.Core.UWP.Services
             var createdFile = await folder.CreateFileAsync(fileName, CreationCollisionOption.ReplaceExisting);
 
             return await createdFile.OpenStreamForWriteAsync();
+        }
+
+        public async Task<bool> SaveLogsToFolderAsync(string logsFolder, string destinationFolder)
+        {
+            var logFiles = Directory.GetFiles(logsFolder, "*.log");
+
+            if (logFiles.Length == 0) return false;
+
+            using var fileStream = await GetFileStreamAsync(destinationFolder, Constants.LogArchiveFileName);
+            using var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, true);
+
+            foreach (var logFile in logFiles)
+            {
+                using FileStream logFileStream = File.Open(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+
+                var zipArchiveEntry = archive.CreateEntry(Path.GetFileName(logFile), CompressionLevel.Fastest);
+                using var zipStream = zipArchiveEntry.Open();
+
+                await logFileStream.CopyToAsync(zipStream);
+            }
+
+            return true;
         }
     }
 }

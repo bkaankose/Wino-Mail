@@ -13,5 +13,6 @@
 
         public const string ClientLogFile = "Client_.log";
         public const string ServerLogFile = "Server_.log";
+        public const string LogArchiveFileName = "WinoLogs.zip";
     }
 }
