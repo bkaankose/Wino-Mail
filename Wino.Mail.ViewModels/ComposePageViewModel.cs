@@ -214,7 +214,7 @@ namespace Wino.Mail.ViewModels
             IncludedAttachments.Add(viewModel);
         }
 
-        private async Task UpdateMimeChangesAsync()
+        public async Task UpdateMimeChangesAsync()
         {
             if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
 
@@ -338,13 +338,12 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        public override async void OnNavigatedFrom(NavigationMode mode, object parameters)
+        public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
 
-            await UpdateMimeChangesAsync().ConfigureAwait(false);
-
-            Messenger.Send(new KillChromiumRequested());
+            /// Do not put any code here.
+            /// Make sure to use Page's OnNavigatedTo instead.
         }
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)

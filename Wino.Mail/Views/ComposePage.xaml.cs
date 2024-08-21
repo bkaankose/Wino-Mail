@@ -39,8 +39,7 @@ namespace Wino.Views
     public sealed partial class ComposePage : ComposePageAbstract,
         IRecipient<NavigationPaneModeChanged>,
         IRecipient<CreateNewComposeMailRequested>,
-        IRecipient<ApplicationThemeChanged>,
-        IRecipient<KillChromiumRequested>
+        IRecipient<ApplicationThemeChanged>
     {
         public bool IsComposerDarkMode
         {
@@ -415,7 +414,6 @@ namespace Wino.Views
             return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
-
         private void DisposeWebView2()
         {
             if (Chromium == null) return;
@@ -451,6 +449,7 @@ namespace Wino.Views
             Disposables.Add(GetSuggestionBoxDisposable(CCBox));
             Disposables.Add(GetSuggestionBoxDisposable(BccBox));
 
+            Chromium.Unloaded += Chromium_Unloaded;
             Chromium.CoreWebView2Initialized -= ChromiumInitialized;
             Chromium.CoreWebView2Initialized += ChromiumInitialized;
 
@@ -466,6 +465,11 @@ namespace Wino.Views
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
 
             IsComposerDarkMode = underlyingThemeService.IsUnderlyingThemeDark();
+        }
+
+        private void Chromium_Unloaded(object sender, RoutedEventArgs e)
+        {
+
         }
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
@@ -692,8 +696,12 @@ namespace Wino.Views
             }
         }
 
-        public void Receive(KillChromiumRequested message)
+        protected override async void OnNavigatingFrom(NavigatingCancelEventArgs e)
         {
+            base.OnNavigatingFrom(e);
+
+            await ViewModel.UpdateMimeChangesAsync();
+
             DisposeDisposables();
             DisposeWebView2();
         }
