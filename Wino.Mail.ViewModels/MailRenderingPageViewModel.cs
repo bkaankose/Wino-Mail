@@ -108,9 +108,9 @@ namespace Wino.Mail.ViewModels
         private DateTime creationDate;
 
 
-        public ObservableCollection<AddressInformation> ToItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> CCItemsItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> BCCItems { get; set; } = new ObservableCollection<AddressInformation>();
+        public ObservableCollection<AccountContact> ToItems { get; set; } = new ObservableCollection<AccountContact>();
+        public ObservableCollection<AccountContact> CCItemsItems { get; set; } = new ObservableCollection<AccountContact>();
+        public ObservableCollection<AccountContact> BCCItems { get; set; } = new ObservableCollection<AccountContact>();
         public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
         public ObservableCollection<MailOperationMenuItem> MenuItems { get; set; } = new ObservableCollection<MailOperationMenuItem>();
 
@@ -470,7 +470,7 @@ namespace Wino.Mail.ViewModels
             StatePersistenceService.IsReadingMail = false;
         }
 
-        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)
+        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AccountContact> collection)
         {
             collection.Clear();
 

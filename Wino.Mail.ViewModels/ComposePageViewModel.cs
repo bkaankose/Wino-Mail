@@ -85,9 +85,9 @@ namespace Wino.Mail.ViewModels
 
         public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
         public ObservableCollection<MailAccount> Accounts { get; set; } = [];
-        public ObservableCollection<AddressInformation> ToItems { get; set; } = [];
-        public ObservableCollection<AddressInformation> CCItems { get; set; } = [];
-        public ObservableCollection<AddressInformation> BCCItems { get; set; } = [];
+        public ObservableCollection<AccountContact> ToItems { get; set; } = [];
+        public ObservableCollection<AccountContact> CCItems { get; set; } = [];
+        public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
 
 
         public List<EditorToolbarSection> ToolbarSections { get; set; } =
@@ -476,7 +476,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)
+        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AccountContact> collection)
         {
             foreach (var item in list)
             {
@@ -509,7 +509,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void SaveAddressInfo(IEnumerable<AddressInformation> addresses, InternetAddressList list)
+        private void SaveAddressInfo(IEnumerable<AccountContact> addresses, InternetAddressList list)
         {
             list.Clear();
 
@@ -517,7 +517,7 @@ namespace Wino.Mail.ViewModels
                 list.Add(new MailboxAddress(item.Name, item.Address));
         }
 
-        public async Task<AddressInformation> GetAddressInformationAsync(string tokenText, ObservableCollection<AddressInformation> collection)
+        public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
         {
             // Get model from the service. This will make sure the name is properly included if there is any record.
 
@@ -550,7 +550,7 @@ namespace Wino.Mail.ViewModels
             {
                 await ExecuteUIThread(() =>
                 {
-                    CurrentMailDraftItem.Update(updatedMail);
+                    CurrentMailDraftItem.MailCopy = updatedMail;
 
                     DiscardCommand.NotifyCanExecuteChanged();
                     SendCommand.NotifyCanExecuteChanged();

@@ -193,7 +193,7 @@ namespace Wino.Mail.ViewModels.Collections
 
                                 if (item is MailItemViewModel itemViewModel)
                                 {
-                                    await ExecuteUIThread(() => { itemViewModel.Update(addedItem); });
+                                    await ExecuteUIThread(() => { itemViewModel.MailCopy = addedItem; });
 
                                     UpdateUniqueIdHashes(itemViewModel, false);
                                     UpdateUniqueIdHashes(addedItem, true);
@@ -230,7 +230,7 @@ namespace Wino.Mail.ViewModels.Collections
                             UpdateUniqueIdHashes(itemViewModel, false);
                             UpdateUniqueIdHashes(addedItem, true);
 
-                            await ExecuteUIThread(() => { itemViewModel.Update(addedItem); });
+                            await ExecuteUIThread(() => { itemViewModel.MailCopy = addedItem; });
 
                             shouldExit = true;
                         }
@@ -349,7 +349,10 @@ namespace Wino.Mail.ViewModels.Collections
                     UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
                 }
 
-                itemContainer.ItemViewModel?.Update(updatedMailCopy);
+                if (itemContainer.ItemViewModel != null)
+                {
+                    itemContainer.ItemViewModel.MailCopy = updatedMailCopy;
+                }
 
                 UpdateUniqueIdHashes(updatedMailCopy, true);
 

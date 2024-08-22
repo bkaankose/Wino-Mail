@@ -1,6 +1,9 @@
 ﻿using System;
+using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Fernandezja.ColorHashSharp;
+using Serilog;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -23,6 +26,16 @@ namespace Wino.Controls
         public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
         public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
         public static readonly DependencyProperty IsKnownProperty = DependencyProperty.Register(nameof(IsKnown), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(false));
+        public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnAddressInformationChanged)));
+
+        /// <summary>
+        /// Gets or sets base64 string of the sender contact picture.
+        /// </summary>
+        public string SenderContactPicture
+        {
+            get { return (string)GetValue(SenderContactPictureProperty); }
+            set { SetValue(SenderContactPictureProperty, value); }
+        }
 
         public string FromName
         {
@@ -41,8 +54,6 @@ namespace Wino.Controls
             get { return (bool)GetValue(IsKnownProperty); }
             set { SetValue(IsKnownProperty, value); }
         }
-
-
 
         #endregion
 
@@ -74,7 +85,8 @@ namespace Wino.Controls
                 control.UpdateInformation();
         }
 
-        private void UpdateInformation()
+
+        private async void UpdateInformation()
         {
             if (KnownHostImage == null || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
                 return;
@@ -104,13 +116,53 @@ namespace Wino.Controls
                 KnownHostImage.Visibility = Visibility.Collapsed;
                 InitialsGrid.Visibility = Visibility.Visible;
 
-                var colorHash = new ColorHash();
-                var rgb = colorHash.Rgb(FromAddress);
+                bool isContactImageLoadingHandled = !string.IsNullOrEmpty(SenderContactPicture) && await TryUpdateProfileImageAsync();
 
-                Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
+                if (!isContactImageLoadingHandled)
+                {
+                    var colorHash = new ColorHash();
+                    var rgb = colorHash.Rgb(FromAddress);
 
-                InitialsTextblock.Text = ExtractInitialsFromName(FromName);
+                    Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
+                    InitialsTextblock.Text = ExtractInitialsFromName(FromName);
+                }
             }
+        }
+
+        /// <summary>
+        /// Tries to update contact image with the provided base64 image string.
+        /// </summary>
+        /// <returns>True if updated, false if not.</returns>
+        private async Task<bool> TryUpdateProfileImageAsync()
+        {
+            try
+            {
+                // Load the image from base64 string.
+                var bitmapImage = new BitmapImage();
+
+                var imageArray = Convert.FromBase64String(SenderContactPicture);
+                var imageStream = new MemoryStream(imageArray);
+                var randomAccessImageStream = imageStream.AsRandomAccessStream();
+
+                randomAccessImageStream.Seek(0);
+
+                await bitmapImage.SetSourceAsync(randomAccessImageStream);
+
+                Ellipse.Fill = new ImageBrush()
+                {
+                    ImageSource = bitmapImage
+                };
+
+                InitialsTextblock.Text = string.Empty;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to load contact image from base64 string.");
+            }
+
+            return false;
         }
 
         public string ExtractInitialsFromName(string name)

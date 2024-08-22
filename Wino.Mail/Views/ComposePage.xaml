@@ -20,7 +20,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="TokenBoxTemplate" x:DataType="entities:AddressInformation">
+        <DataTemplate x:Key="TokenBoxTemplate" x:DataType="entities:AccountContact">
             <Grid>
                 <ToolTipService.ToolTip>
                     <ToolTip Content="{x:Bind Address}" />
@@ -37,7 +37,7 @@
                     Text="{x:Bind Name}" />
             </Grid>
         </DataTemplate>
-        <DataTemplate x:Key="SuggestionBoxTemplate" x:DataType="entities:AddressInformation">
+        <DataTemplate x:Key="SuggestionBoxTemplate" x:DataType="entities:AccountContact">
             <Grid Margin="0,12" ColumnSpacing="6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

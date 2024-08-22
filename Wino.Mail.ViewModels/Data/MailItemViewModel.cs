@@ -11,12 +11,13 @@ namespace Wino.Mail.ViewModels.Data
     /// </summary>
     public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
     {
-        public MailCopy MailCopy { get; private set; } = mailCopy;
+        [ObservableProperty]
+        private MailCopy mailCopy = mailCopy;
+        // public MailCopy MailCopy { get; private set; } = mailCopy;
 
         public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
         public string ThreadId => ((IMailItem)MailCopy).ThreadId;
         public string MessageId => ((IMailItem)MailCopy).MessageId;
-        public string FromName => ((IMailItem)MailCopy).FromName ?? FromAddress;
         public DateTime CreationDate => ((IMailItem)MailCopy).CreationDate;
         public string References => ((IMailItem)MailCopy).References;
         public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
@@ -31,6 +32,12 @@ namespace Wino.Mail.ViewModels.Data
         {
             get => MailCopy.IsFlagged;
             set => SetProperty(MailCopy.IsFlagged, value, MailCopy, (u, n) => u.IsFlagged = n);
+        }
+
+        public string FromName
+        {
+            get => string.IsNullOrEmpty(MailCopy.FromName) ? MailCopy.FromAddress : MailCopy.FromName;
+            set => SetProperty(MailCopy.FromName, value, MailCopy, (u, n) => u.FromName = n);
         }
 
         public bool IsFocused
@@ -93,20 +100,22 @@ namespace Wino.Mail.ViewModels.Data
 
         public Guid FileId => ((IMailItem)MailCopy).FileId;
 
-        public void Update(MailCopy updatedMailItem)
-        {
-            MailCopy = updatedMailItem;
+        public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
 
-            OnPropertyChanged(nameof(IsRead));
-            OnPropertyChanged(nameof(IsFocused));
-            OnPropertyChanged(nameof(IsFlagged));
-            OnPropertyChanged(nameof(IsDraft));
-            OnPropertyChanged(nameof(DraftId));
-            OnPropertyChanged(nameof(Subject));
-            OnPropertyChanged(nameof(PreviewText));
-            OnPropertyChanged(nameof(FromAddress));
-            OnPropertyChanged(nameof(HasAttachments));
-        }
+        //public void Update(MailCopy updatedMailItem)
+        //{
+        //    MailCopy = updatedMailItem;
+
+        //    //OnPropertyChanged(nameof(IsRead));
+        //    //OnPropertyChanged(nameof(IsFocused));
+        //    //OnPropertyChanged(nameof(IsFlagged));
+        //    //OnPropertyChanged(nameof(IsDraft));
+        //    //OnPropertyChanged(nameof(DraftId));
+        //    //OnPropertyChanged(nameof(Subject));
+        //    //OnPropertyChanged(nameof(PreviewText));
+        //    //OnPropertyChanged(nameof(FromAddress));
+        //    //OnPropertyChanged(nameof(HasAttachments));
+        //}
 
         public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
     }

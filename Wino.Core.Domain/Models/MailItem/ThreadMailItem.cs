@@ -85,6 +85,8 @@ namespace Wino.Core.Domain.Models.MailItem
 
         public Guid FileId => LatestMailItem?.FileId ?? Guid.Empty;
 
+        public AccountContact SenderContact => LatestMailItem?.SenderContact;
+
         #endregion
     }
 }

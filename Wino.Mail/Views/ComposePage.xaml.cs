@@ -574,7 +574,7 @@ namespace Wino.Views
 
             var deferal = args.GetDeferral();
 
-            AddressInformation addedItem = null;
+            AccountContact addedItem = null;
 
             var boxTag = sender.Tag?.ToString();
 
@@ -644,8 +644,8 @@ namespace Wino.Views
                 {
                     var boxTag = tokenizingTextBox.Tag?.ToString();
 
-                    AddressInformation addedItem = null;
-                    ObservableCollection<AddressInformation> addressCollection = null;
+                    AccountContact addedItem = null;
+                    ObservableCollection<AccountContact> addressCollection = null;
 
                     if (boxTag == "ToBox")
                         addressCollection = ViewModel.ToItems;
