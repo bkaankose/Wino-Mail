@@ -13,8 +13,7 @@ const joditConfig = {
     "uploader": {
         "insertImageAsBase64URI": true
     },
-    "enter": "DIV",
-    "minHeight": 200
+    "enter": "DIV"
 }
 
 // This method should be called first all the time. 
