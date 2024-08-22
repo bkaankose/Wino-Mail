@@ -161,7 +161,9 @@ namespace Wino.Mail.ViewModels
 
             if (!ToItems.Any())
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_ComposerMissingRecipientMessage, Translator.DialogMessage_ComposerValidationFailedTitle);
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_ComposerMissingRecipientMessage,
+                                                     Translator.DialogMessage_ComposerValidationFailedTitle,
+                                                     WinoCustomMessageDialogIcon.Warning);
                 return;
             }
 
@@ -202,17 +204,7 @@ namespace Wino.Mail.ViewModels
             await _worker.ExecuteAsync(draftSendPreparationRequest);
         }
 
-        public async Task IncludeAttachmentAsync(MailAttachmentViewModel viewModel)
-        {
-            //if (bodyBuilder == null) return;
-
-            //bodyBuilder.Attachments.Add(viewModel.FileName, new MemoryStream(viewModel.Content));
-
-            //LoadAttachments();
-            IncludedAttachments.Add(viewModel);
-        }
-
-        private async Task UpdateMimeChangesAsync()
+        public async Task UpdateMimeChangesAsync()
         {
             if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
 
@@ -336,13 +328,12 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        public override async void OnNavigatedFrom(NavigationMode mode, object parameters)
+        public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
 
-            await UpdateMimeChangesAsync().ConfigureAwait(false);
-
-            Messenger.Send(new KillChromiumRequested());
+            /// Do not put any code here.
+            /// Make sure to use Page's OnNavigatedTo instead.
         }
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)

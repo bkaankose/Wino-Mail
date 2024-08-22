@@ -31,6 +31,16 @@ namespace Wino.Views
 
             var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage);
             PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
+
+            if (e.Parameter is WinoPage parameterPage)
+            {
+                switch (parameterPage)
+                {
+                    case WinoPage.AppPreferencesPage:
+                        WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsAppPreferences_Title, WinoPage.AppPreferencesPage));
+                        break;
+                }
+            }
         }
 
         public override void OnLanguageChanged()

@@ -785,6 +785,7 @@ namespace Wino.Core.Synchronizers
             EventHandler<MessageFlagsChangedEventArgs> MessageFlagsChangedHandler = async (s, e) =>
             {
                 if (imapFolder == null) return;
+                if (e.UniqueId == null) return;
 
                 var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, e.UniqueId.Value.Id);
 

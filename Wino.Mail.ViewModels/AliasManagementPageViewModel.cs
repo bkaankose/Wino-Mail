@@ -98,14 +98,18 @@ namespace Wino.Mail.ViewModels
             // Check existence.
             if (AccountAliases.Any(a => a.AliasAddress == newAlias.AliasAddress))
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle, Translator.DialogMessage_AliasExistsMessage);
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle,
+                                                     Translator.DialogMessage_AliasExistsMessage,
+                                                     WinoCustomMessageDialogIcon.Warning);
                 return;
             }
 
             // Validate all addresses.
             if (!EmailValidator.Validate(newAlias.AliasAddress) || (!string.IsNullOrEmpty(newAlias.ReplyToAddress) && !EmailValidator.Validate(newAlias.ReplyToAddress)))
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage, Translator.DialogMessage_InvalidAliasTitle);
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage,
+                                                     Translator.DialogMessage_InvalidAliasTitle,
+                                                     WinoCustomMessageDialogIcon.Warning);
                 return;
             }
 
@@ -125,14 +129,18 @@ namespace Wino.Mail.ViewModels
             // Primary aliases can't be deleted.
             if (alias.IsPrimary)
             {
-                await DialogService.ShowMessageAsync(Translator.Info_CantDeletePrimaryAliasMessage, Translator.GeneralTitle_Warning);
+                await DialogService.ShowMessageAsync(Translator.Info_CantDeletePrimaryAliasMessage,
+                                                     Translator.GeneralTitle_Warning,
+                                                     WinoCustomMessageDialogIcon.Warning);
                 return;
             }
 
             // Root aliases can't be deleted.
             if (alias.IsRootAlias)
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_CantDeleteRootAliasTitle, Translator.DialogMessage_CantDeleteRootAliasMessage);
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_CantDeleteRootAliasTitle,
+                                                     Translator.DialogMessage_CantDeleteRootAliasMessage,
+                                                     WinoCustomMessageDialogIcon.Warning);
                 return;
             }
 

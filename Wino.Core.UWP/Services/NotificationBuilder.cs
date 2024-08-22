@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI.Notifications;
+using Serilog;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.Core.Domain;
@@ -38,83 +39,90 @@ namespace Wino.Core.UWP.Services
         {
             var mailCount = downloadedMailItems.Count();
 
-            // If there are more than 3 mails, just display 1 general toast.
-            if (mailCount > 3)
+            try
             {
-                var builder = new ToastContentBuilder();
-                builder.SetToastScenario(ToastScenario.Default);
-
-                builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
-                builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
-
-                builder.AddButton(GetDismissButton());
-
-                builder.Show();
-            }
-            else
-            {
-                var validItems = new List<IMailItem>();
-
-                // Fetch mails again to fill up assigned folder data and latest statuses.
-                // They've been marked as read by executing synchronizer tasks until inital sync finishes.
-
-                foreach (var item in downloadedMailItems)
+                // If there are more than 3 mails, just display 1 general toast.
+                if (mailCount > 3)
                 {
-                    var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
-
-                    if (mailItem != null && mailItem.AssignedFolder != null)
-                    {
-                        validItems.Add(mailItem);
-                    }
-                }
-
-                foreach (var mailItem in validItems)
-                {
-                    //if (mailItem.IsRead)
-                    //    continue;
-
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
 
-                    var host = ThumbnailService.GetHost(mailItem.FromAddress);
+                    builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
+                    builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
 
-                    var knownTuple = ThumbnailService.CheckIsKnown(host);
-
-                    bool isKnown = knownTuple.Item1;
-                    host = knownTuple.Item2;
-
-                    if (isKnown)
-                        builder.AddAppLogoOverride(new System.Uri(ThumbnailService.GetKnownHostImage(host)), hintCrop: ToastGenericAppLogoCrop.Default);
-                    else
-                    {
-                        // TODO: https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/adaptive-interactive-toasts?tabs=toolkit
-                        // Follow official guides for icons/theme.
-
-                        bool isOSDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
-                        string profileLogoName = isOSDarkTheme ? "profile-dark.png" : "profile-light.png";
-
-                        builder.AddAppLogoOverride(new System.Uri($"ms-appx:///Assets/NotificationIcons/{profileLogoName}"), hintCrop: ToastGenericAppLogoCrop.Circle);
-                    }
-
-                    // Override system notification timetamp with received date of the mail.
-                    // It may create confusion for some users, but still it's the truth...
-                    builder.AddCustomTimeStamp(mailItem.CreationDate.ToLocalTime());
-
-                    builder.AddText(mailItem.FromName);
-                    builder.AddText(mailItem.Subject);
-                    builder.AddText(mailItem.PreviewText);
-
-                    builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
-                    builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
-
-                    builder.AddButton(GetMarkedAsRead(mailItem.UniqueId));
-                    builder.AddButton(GetDeleteButton(mailItem.UniqueId));
                     builder.AddButton(GetDismissButton());
 
                     builder.Show();
                 }
+                else
+                {
+                    var validItems = new List<IMailItem>();
 
-                await UpdateTaskbarIconBadgeAsync();
+                    // Fetch mails again to fill up assigned folder data and latest statuses.
+                    // They've been marked as read by executing synchronizer tasks until inital sync finishes.
+
+                    foreach (var item in downloadedMailItems)
+                    {
+                        var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
+
+                        if (mailItem != null && mailItem.AssignedFolder != null)
+                        {
+                            validItems.Add(mailItem);
+                        }
+                    }
+
+                    foreach (var mailItem in validItems)
+                    {
+                        if (mailItem.IsRead)
+                            continue;
+
+                        var builder = new ToastContentBuilder();
+                        builder.SetToastScenario(ToastScenario.Default);
+
+                        var host = ThumbnailService.GetHost(mailItem.FromAddress);
+
+                        var knownTuple = ThumbnailService.CheckIsKnown(host);
+
+                        bool isKnown = knownTuple.Item1;
+                        host = knownTuple.Item2;
+
+                        if (isKnown)
+                            builder.AddAppLogoOverride(new System.Uri(ThumbnailService.GetKnownHostImage(host)), hintCrop: ToastGenericAppLogoCrop.Default);
+                        else
+                        {
+                            // TODO: https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/adaptive-interactive-toasts?tabs=toolkit
+                            // Follow official guides for icons/theme.
+
+                            bool isOSDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
+                            string profileLogoName = isOSDarkTheme ? "profile-dark.png" : "profile-light.png";
+
+                            builder.AddAppLogoOverride(new System.Uri($"ms-appx:///Assets/NotificationIcons/{profileLogoName}"), hintCrop: ToastGenericAppLogoCrop.Circle);
+                        }
+
+                        // Override system notification timetamp with received date of the mail.
+                        // It may create confusion for some users, but still it's the truth...
+                        builder.AddCustomTimeStamp(mailItem.CreationDate.ToLocalTime());
+
+                        builder.AddText(mailItem.FromName);
+                        builder.AddText(mailItem.Subject);
+                        builder.AddText(mailItem.PreviewText);
+
+                        builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
+                        builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
+
+                        builder.AddButton(GetMarkedAsRead(mailItem.UniqueId));
+                        builder.AddButton(GetDeleteButton(mailItem.UniqueId));
+                        builder.AddButton(GetDismissButton());
+
+                        builder.Show();
+                    }
+
+                    await UpdateTaskbarIconBadgeAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to create notifications.");
             }
         }
 
@@ -142,10 +150,10 @@ namespace Wino.Core.UWP.Services
         public async Task UpdateTaskbarIconBadgeAsync()
         {
             int totalUnreadCount = 0;
-            var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication();
 
             try
             {
+                var badgeUpdater = BadgeUpdateManager.CreateBadgeUpdaterForApplication();
                 var accounts = await _accountService.GetAccountsAsync();
 
                 foreach (var account in accounts)
@@ -178,11 +186,9 @@ namespace Wino.Core.UWP.Services
                 else
                     badgeUpdater.Clear();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                // TODO: Log exceptions.
-
-                badgeUpdater.Clear();
+                Log.Error(ex, "Error while updating taskbar badge.");
             }
         }
 

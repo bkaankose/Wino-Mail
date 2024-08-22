@@ -3,9 +3,9 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
-	<RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-	<!-- UWP WAM Authentication on Xbox needs this. -->
-	<UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <!-- UWP WAM Authentication on Xbox needs this. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
   </PropertyGroup>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -89,7 +89,7 @@
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
     <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
     <Use64BitCompiler>true</Use64BitCompiler>
-	<ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
     <OutOfProcPDB>true</OutOfProcPDB>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -119,7 +119,6 @@
     <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="AdaptiveTriggerLibrary">
       <Version>1.2.2</Version>
@@ -230,6 +229,7 @@
       <DependentUpon>AccountReorderDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
+    <Compile Include="Dialogs\CustomMessageDialogInformationContainer.cs" />
     <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
       <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
     </Compile>
@@ -245,14 +245,8 @@
     <Compile Include="Dialogs\CreateAccountAliasDialog.xaml.cs">
       <DependentUpon>CreateAccountAliasDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Dialogs\StoreRatingDialog.xaml.cs">
-      <DependentUpon>StoreRatingDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Dialogs\SystemFolderConfigurationDialog.xaml.cs">
       <DependentUpon>SystemFolderConfigurationDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\WinoMessageDialog.xaml.cs">
-      <DependentUpon>WinoMessageDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\TextInputDialog.xaml.cs">
       <DependentUpon>TextInputDialog.xaml</DependentUpon>
@@ -290,9 +284,6 @@
     <Compile Include="Controls\WinoInfoBar.cs" />
     <Compile Include="Controls\WinoNavigationViewItem.cs" />
     <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
-    <Compile Include="Dialogs\ConfirmationDialog.xaml.cs">
-      <DependentUpon>ConfirmationDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
       <DependentUpon>NewAccountDialog.xaml</DependentUpon>
     </Compile>
@@ -302,6 +293,7 @@
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
     <Compile Include="Selectors\AccountReorderTemplateSelector.cs" />
     <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
+    <Compile Include="Selectors\CustomWinoMessageDialogIconSelector.cs" />
     <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
     <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
@@ -313,6 +305,9 @@
     <Compile Include="Services\WinoNavigationService.cs" />
     <Compile Include="Styles\CommandBarItems.xaml.cs">
       <DependentUpon>CommandBarItems.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
+      <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
@@ -494,25 +489,13 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Dialogs\StoreRatingDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Dialogs\SystemFolderConfigurationDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Dialogs\WinoMessageDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="Dialogs\TextInputDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\ConfirmationDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Dialogs\NewAccountDialog.xaml">
       <SubType>Designer</SubType>
@@ -527,6 +510,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\Converters.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\CustomMessageDialogStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -39,8 +39,7 @@ namespace Wino.Views
     public sealed partial class ComposePage : ComposePageAbstract,
         IRecipient<NavigationPaneModeChanged>,
         IRecipient<CreateNewComposeMailRequested>,
-        IRecipient<ApplicationThemeChanged>,
-        IRecipient<KillChromiumRequested>
+        IRecipient<ApplicationThemeChanged>
     {
         public bool IsComposerDarkMode
         {
@@ -240,7 +239,7 @@ namespace Wino.Views
             {
                 var attachmentViewModel = await file.ToAttachmentViewModelAsync();
 
-                await ViewModel.IncludeAttachmentAsync(attachmentViewModel);
+                ViewModel.IncludedAttachments.Add(attachmentViewModel);
             }
         }
 
@@ -414,7 +413,6 @@ namespace Wino.Views
             int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
             return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
-
 
         private void DisposeWebView2()
         {
@@ -692,8 +690,12 @@ namespace Wino.Views
             }
         }
 
-        public void Receive(KillChromiumRequested message)
+        protected override async void OnNavigatingFrom(NavigatingCancelEventArgs e)
         {
+            base.OnNavigatingFrom(e);
+
+            await ViewModel.UpdateMimeChangesAsync();
+
             DisposeDisposables();
             DisposeWebView2();
         }

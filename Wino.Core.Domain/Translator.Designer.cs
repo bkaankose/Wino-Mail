@@ -79,6 +79,41 @@ namespace Wino.Core.Domain
 		public static string AutoDiscoveryProgressMessage => Resources.GetTranslatedString(@"AutoDiscoveryProgressMessage");	
 	
         /// <summary>
+		/// Background Synchronization
+		/// </summary>
+		public static string AppCloseBackgroundSynchronizationWarningTitle => Resources.GetTranslatedString(@"AppCloseBackgroundSynchronizationWarningTitle");	
+	
+        /// <summary>
+		/// You are terminating Wino Mail and your app close behavior is set to 'Terminate'.
+		/// </summary>
+		public static string AppCloseTerminateBehaviorWarningMessageFirstLine => Resources.GetTranslatedString(@"AppCloseTerminateBehaviorWarningMessageFirstLine");	
+	
+        /// <summary>
+		/// This will stop all background synchronizations and notifications.
+		/// </summary>
+		public static string AppCloseTerminateBehaviorWarningMessageSecondLine => Resources.GetTranslatedString(@"AppCloseTerminateBehaviorWarningMessageSecondLine");	
+	
+        /// <summary>
+		/// Do you want to go to App Preferences to set Wino Mail to run minimized or in the background?
+		/// </summary>
+		public static string AppCloseTerminateBehaviorWarningMessageThirdLine => Resources.GetTranslatedString(@"AppCloseTerminateBehaviorWarningMessageThirdLine");	
+	
+        /// <summary>
+		/// Application has not been set to launch on Windows startup.
+		/// </summary>
+		public static string AppCloseStartupLaunchDisabledWarningMessageFirstLine => Resources.GetTranslatedString(@"AppCloseStartupLaunchDisabledWarningMessageFirstLine");	
+	
+        /// <summary>
+		/// This will cause you to miss notifications when you restart your computer.
+		/// </summary>
+		public static string AppCloseStartupLaunchDisabledWarningMessageSecondLine => Resources.GetTranslatedString(@"AppCloseStartupLaunchDisabledWarningMessageSecondLine");	
+	
+        /// <summary>
+		/// Do you want to go to App Preferences page to enable it?
+		/// </summary>
+		public static string AppCloseStartupLaunchDisabledWarningMessageThirdLine => Resources.GetTranslatedString(@"AppCloseStartupLaunchDisabledWarningMessageThirdLine");	
+	
+        /// <summary>
 		/// Advanced Configuration
 		/// </summary>
 		public static string BasicIMAPSetupDialog_AdvancedConfiguration => Resources.GetTranslatedString(@"BasicIMAPSetupDialog_AdvancedConfiguration");	
@@ -547,6 +582,21 @@ namespace Wino.Core.Domain
 		/// Do you want to stop getting messages from {0}? Wino will unsubscribe for you by sending an email from your email account to {1}.
 		/// </summary>
 		public static string DialogMessage_UnsubscribeConfirmationMailtoMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationMailtoMessage");	
+	
+        /// <summary>
+		/// Enable Startup Launch
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchTitle => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchTitle");	
+	
+        /// <summary>
+		/// Let Wino Mail automatically launch minimized on Windows startup to not miss any notifications.  Do you want to enable startup launch?
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchMessage => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchMessage");	
+	
+        /// <summary>
+		/// You can enable startup launch from Settings -> App Preferences.
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchDeniedMessage => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchDeniedMessage");	
 	
         /// <summary>
 		/// Don't ask again

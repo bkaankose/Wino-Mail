@@ -37,7 +37,9 @@ namespace Wino.Mail.ViewModels
         IRecipient<MergedInboxRenamed>,
         IRecipient<LanguageChanged>,
         IRecipient<AccountMenuItemsReordered>,
-        IRecipient<AccountSynchronizationProgressUpdatedMessage>
+        IRecipient<AccountSynchronizationProgressUpdatedMessage>,
+        IRecipient<NavigateAppPreferencesRequested>,
+        IRecipient<AccountFolderConfigurationUpdated>
     {
         #region Menu Items
 
@@ -59,12 +61,16 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
+        private const string IsActivateStartupLaunchAskedKey = nameof(IsActivateStartupLaunchAskedKey);
+
         public IStatePersistanceService StatePersistenceService { get; }
         public IWinoServerConnectionManager ServerConnectionManager { get; }
         public IPreferencesService PreferencesService { get; }
         public IWinoNavigationService NavigationService { get; }
 
         private readonly IFolderService _folderService;
+        private readonly IConfigurationService _configurationService;
+        private readonly IStartupBehaviorService _startupBehaviorService;
         private readonly IAccountService _accountService;
         private readonly IContextMenuItemService _contextMenuItemService;
         private readonly IStoreRatingService _storeRatingService;
@@ -98,7 +104,9 @@ namespace Wino.Mail.ViewModels
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IFolderService folderService,
                                  IStatePersistanceService statePersistanceService,
-                                 IWinoServerConnectionManager serverConnectionManager) : base(dialogService)
+                                 IWinoServerConnectionManager serverConnectionManager,
+                                 IConfigurationService configurationService,
+                                 IStartupBehaviorService startupBehaviorService) : base(dialogService)
         {
             StatePersistenceService = statePersistanceService;
             ServerConnectionManager = serverConnectionManager;
@@ -115,6 +123,8 @@ namespace Wino.Mail.ViewModels
             PreferencesService = preferencesService;
             NavigationService = navigationService;
 
+            _configurationService = configurationService;
+            _startupBehaviorService = startupBehaviorService;
             _backgroundTaskService = backgroundTaskService;
             _mimeFileService = mimeFileService;
             _nativeAppService = nativeAppService;
@@ -229,14 +239,54 @@ namespace Wino.Mail.ViewModels
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
-
             await CreateFooterItemsAsync();
 
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
             await ForceAllAccountSynchronizationsAsync();
+            await MakeSureEnableStartupLaunchAsync();
             ConfigureBackgroundTasks();
+        }
+
+        private async Task MakeSureEnableStartupLaunchAsync()
+        {
+            if (!_configurationService.Get<bool>(IsActivateStartupLaunchAskedKey, false))
+            {
+                var currentBehavior = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+
+                // User somehow already enabled Wino before the first launch.
+                if (currentBehavior == StartupBehaviorResult.Enabled)
+                {
+                    _configurationService.Set(IsActivateStartupLaunchAskedKey, true);
+                    return;
+                }
+
+                bool isAccepted = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
+                                                                                       Translator.DialogMessage_EnableStartupLaunchMessage,
+                                                                                       Translator.Buttons_Yes,
+                                                                                       WinoCustomMessageDialogIcon.Information,
+                                                                                       Translator.Buttons_No);
+
+                bool shouldDisplayLaterOnMessage = !isAccepted;
+
+                if (isAccepted)
+                {
+                    var behavior = await _startupBehaviorService.ToggleStartupBehavior(true);
+
+                    shouldDisplayLaterOnMessage = behavior != StartupBehaviorResult.Enabled;
+                }
+
+                if (shouldDisplayLaterOnMessage)
+                {
+                    await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_EnableStartupLaunchTitle,
+                                                                        Translator.DialogMessage_EnableStartupLaunchDeniedMessage,
+                                                                        Translator.Buttons_Close,
+                                                                        WinoCustomMessageDialogIcon.Information);
+                }
+
+                _configurationService.Set(IsActivateStartupLaunchAskedKey, true);
+            }
         }
 
         private void ConfigureBackgroundTasks()
@@ -527,7 +577,7 @@ namespace Wino.Mail.ViewModels
             StatePersistenceService.CoreWindowTitle = "Wino Mail";
         }
 
-        public async Task MenuItemInvokedOrSelectedAsync(IMenuItem clickedMenuItem)
+        public async Task MenuItemInvokedOrSelectedAsync(IMenuItem clickedMenuItem, object parameter = null)
         {
             if (clickedMenuItem == null) return;
 
@@ -561,11 +611,11 @@ namespace Wino.Mail.ViewModels
             }
             else if (clickedMenuItem is SettingsItem)
             {
-                NavigationService.Navigate(WinoPage.SettingsPage);
+                NavigationService.Navigate(WinoPage.SettingsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
             }
             else if (clickedMenuItem is ManageAccountsMenuItem)
             {
-                NavigationService.Navigate(WinoPage.AccountManagementPage);
+                NavigationService.Navigate(WinoPage.AccountManagementPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
             }
             else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem && latestSelectedAccountMenuItem != clickedAccountMenuItem)
             {
@@ -582,6 +632,9 @@ namespace Wino.Mail.ViewModels
 
             await MenuItems.SetAccountMenuItemEnabledStatusAsync(false);
 
+            // Load account folder structure and replace the visible folders.
+            var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
+
             await ExecuteUIThread(() =>
             {
                 clickedBaseAccountMenuItem.IsEnabled = false;
@@ -594,12 +647,10 @@ namespace Wino.Mail.ViewModels
                 clickedBaseAccountMenuItem.IsSelected = true;
 
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
+
+                MenuItems.ReplaceFolders(folders);
             });
 
-            // Load account folder structure and replace the visible folders.
-            var folders = await _folderService.GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem);
-
-            await MenuItems.ReplaceFoldersAsync(folders);
             await UpdateUnreadItemCountAsync();
             await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);
 
@@ -721,7 +772,19 @@ namespace Wino.Mail.ViewModels
 
                 if (!accounts.Any())
                 {
-                    await DialogService.ShowMessageAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage, Translator.DialogMessage_NoAccountsForCreateMailTitle);
+                    var isManageAccountClicked = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage,
+                                                                                                      Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                                                                                                      Translator.MenuManageAccounts,
+                                                                                                      WinoCustomMessageDialogIcon.Information,
+                                                                                                      string.Empty);
+
+
+
+                    if (isManageAccountClicked)
+                    {
+                        SelectedMenuItem = ManageAccountsMenuItem;
+                    }
+
                     return;
                 }
 
@@ -850,7 +913,9 @@ namespace Wino.Mail.ViewModels
 
             if (!accounts.Any())
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage, Translator.DialogMessage_NoAccountsForCreateMailTitle);
+                await DialogService.ShowMessageAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage,
+                                                     Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                                                     WinoCustomMessageDialogIcon.Warning);
             }
             else if (accounts.Count == 1)
             {
@@ -889,6 +954,16 @@ namespace Wino.Mail.ViewModels
             if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
             {
                 await ChangeLoadedAccountAsync(firstAccount, message.AutomaticallyNavigateFirstItem);
+            }
+        }
+
+        public async void Receive(AccountFolderConfigurationUpdated message)
+        {
+            // Reloading of folders is needed to re-create folder tree if the account is loaded.
+
+            if (MenuItems.TryGetAccountMenuItem(message.AccountId, out IAccountMenuItem accountMenuItem))
+            {
+                await ChangeLoadedAccountAsync(accountMenuItem, true);
             }
         }
 
@@ -960,6 +1035,11 @@ namespace Wino.Mail.ViewModels
             if (accountMenuItem == null) return;
 
             await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = message.Progress; });
+        }
+
+        public async void Receive(NavigateAppPreferencesRequested message)
+        {
+            await MenuItemInvokedOrSelectedAsync(SettingsItem, WinoPage.AppPreferencesPage);
         }
     }
 }
