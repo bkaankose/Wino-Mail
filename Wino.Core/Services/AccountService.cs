@@ -332,6 +332,17 @@ namespace Wino.Core.Services
                 account.SenderName = profileInformation.SenderName;
                 account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
 
+                // Forcefully add or update a contact data with the provided information.
+
+                var accountContact = new AccountContact()
+                {
+                    Address = account.Address,
+                    Name = account.SenderName,
+                    Base64ContactPicture = account.Base64ProfilePictureData
+                };
+
+                await Connection.InsertOrReplaceAsync(accountContact).ConfigureAwait(false);
+
                 await UpdateAccountAsync(account).ConfigureAwait(false);
             }
         }
