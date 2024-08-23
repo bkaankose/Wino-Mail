@@ -21,6 +21,7 @@ using Windows.Storage.Pickers;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
@@ -60,6 +61,19 @@ namespace Wino.Views
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
+        }
+
+        private async void GlobalFocusManagerGotFocus(object sender, FocusManagerGotFocusEventArgs e)
+        {
+            // In order to delegate cursor to the inner editor for WebView2.
+            // When the control got focus, we invoke script to focus the editor.
+            // This is not done on the WebView2 handlers, because somehow it is
+            // repeatedly focusing itself, even though when it has the focus already.
+
+            if (e.NewFocusedElement == Chromium)
+            {
+                await FocusEditorAsync(false);
+            }
         }
 
         private static async void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
@@ -356,19 +370,26 @@ namespace Wino.Views
             await InvokeScriptSafeAsync("imageInput.click();");
         }
 
-        private async Task FocusEditorAsync()
+        /// <summary>
+        /// Places the cursor in the composer.
+        /// </summary>
+        /// <param name="focusControlAsWell">Whether control itself should be focused as well or not.</param>
+        private async Task FocusEditorAsync(bool focusControlAsWell)
         {
             await InvokeScriptSafeAsync("editor.selection.focus();");
 
-            Chromium.Focus(FocusState.Keyboard);
-            Chromium.Focus(FocusState.Programmatic);
+            if (focusControlAsWell)
+            {
+                Chromium.Focus(FocusState.Keyboard);
+                Chromium.Focus(FocusState.Programmatic);
+            }
         }
 
         private async void EmojiButtonClicked(object sender, RoutedEventArgs e)
         {
             CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
 
-            await FocusEditorAsync();
+            await FocusEditorAsync(focusControlAsWell: true);
         }
 
         public async Task UpdateEditorThemeAsync()
@@ -439,6 +460,8 @@ namespace Wino.Views
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+
+            FocusManager.GotFocus += GlobalFocusManagerGotFocus;
 
             var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
             anim?.TryStart(Chromium);
@@ -694,6 +717,7 @@ namespace Wino.Views
         {
             base.OnNavigatingFrom(e);
 
+            FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
             await ViewModel.UpdateMimeChangesAsync();
 
             DisposeDisposables();
