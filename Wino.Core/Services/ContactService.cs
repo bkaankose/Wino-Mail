@@ -33,11 +33,8 @@ namespace Wino.Core.Services
             return Connection.QueryAsync<AccountContact>(rawLikeQuery);
         }
 
-        public async Task<AccountContact> GetAddressInformationByAddressAsync(string address)
-        {
-            return await Connection.Table<AccountContact>().Where(a => a.Address == address).FirstOrDefaultAsync()
-                ?? new AccountContact() { Name = address, Address = address };
-        }
+        public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
+            => Connection.Table<AccountContact>().Where(a => a.Address == address).FirstOrDefaultAsync();
 
         public async Task SaveAddressInformationAsync(MimeMessage message)
         {
@@ -48,7 +45,15 @@ namespace Wino.Core.Services
             var addressInformations = recipients.Select(a => new AccountContact() { Name = a.Name, Address = a.Address });
 
             foreach (var info in addressInformations)
+            {
+                var currentContact = await GetAddressInformationByAddressAsync(info.Address).ConfigureAwait(false);
+
+                if (currentContact == null)
+                {
+                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                }
                 await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+            }
         }
     }
 }

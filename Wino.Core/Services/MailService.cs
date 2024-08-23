@@ -296,7 +296,11 @@ namespace Wino.Core.Services
                     if (!isContactCached && accountAssignment != null)
                     {
                         contactAssignment = await GetSenderContactForAccountAsync(accountAssignment, mailCopy.FromAddress).ConfigureAwait(false);
-                        _ = contactCache.TryAdd(mailCopy.FromAddress, contactAssignment);
+
+                        if (contactAssignment != null)
+                        {
+                            _ = contactCache.TryAdd(mailCopy.FromAddress, contactAssignment);
+                        }
                     }
 
                     mailCopy.AssignedFolder = folderAssignment;
@@ -320,6 +324,7 @@ namespace Wino.Core.Services
 
         private Task<AccountContact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
         {
+            // Make sure to return the latest up to date contact information for the original account.
             if (fromAddress == account.Address)
             {
                 return Task.FromResult(new AccountContact() { Address = account.Address, Name = account.SenderName, Base64ContactPicture = account.Base64ProfilePictureData });
