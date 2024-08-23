@@ -52,7 +52,10 @@ namespace Wino.Core.Services
                 {
                     await Connection.InsertAsync(info).ConfigureAwait(false);
                 }
-                await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+                {
+                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                }
             }
         }
     }

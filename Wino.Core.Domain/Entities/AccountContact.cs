@@ -17,6 +17,7 @@ namespace Wino.Core.Domain.Entities
         public string Address { get; set; }
         public string Name { get; set; }
         public string Base64ContactPicture { get; set; }
+        public bool IsRootContact { get; set; }
 
         public string DisplayName => Address == Name ? Address : $"{Name} <{Address}>";
 

@@ -338,7 +338,8 @@ namespace Wino.Core.Services
                 {
                     Address = account.Address,
                     Name = account.SenderName,
-                    Base64ContactPicture = account.Base64ProfilePictureData
+                    Base64ContactPicture = account.Base64ProfilePictureData,
+                    IsRootContact = true
                 };
 
                 await Connection.InsertOrReplaceAsync(accountContact).ConfigureAwait(false);

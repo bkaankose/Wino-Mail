@@ -305,7 +305,7 @@ namespace Wino.Core.Services
 
                     mailCopy.AssignedFolder = folderAssignment;
                     mailCopy.AssignedAccount = accountAssignment;
-                    mailCopy.SenderContact = contactAssignment;
+                    mailCopy.SenderContact = contactAssignment ?? new AccountContact() { Name = mailCopy.FromName, Address = mailCopy.FromAddress };
                 }
             }
         }
