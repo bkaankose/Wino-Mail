@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Fernandezja.ColorHashSharp;
-using Serilog;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -25,7 +26,6 @@ namespace Wino.Controls
 
         public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
         public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
-        public static readonly DependencyProperty IsKnownProperty = DependencyProperty.Register(nameof(IsKnown), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(false));
         public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnAddressInformationChanged)));
 
         /// <summary>
@@ -49,18 +49,13 @@ namespace Wino.Controls
             set { SetValue(FromAddressProperty, value); }
         }
 
-        public bool IsKnown
-        {
-            get { return (bool)GetValue(IsKnownProperty); }
-            set { SetValue(IsKnownProperty, value); }
-        }
-
         #endregion
 
         private Ellipse Ellipse;
         private Grid InitialsGrid;
         private TextBlock InitialsTextblock;
         private Image KnownHostImage;
+        private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
 
         public ImagePreviewControl()
         {
@@ -86,22 +81,31 @@ namespace Wino.Controls
         }
 
 
+
         private async void UpdateInformation()
         {
             if (KnownHostImage == null || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
                 return;
 
+            // Cancel active image loading if exists.
+            if (!contactPictureLoadingCancellationTokenSource?.IsCancellationRequested ?? false)
+            {
+                contactPictureLoadingCancellationTokenSource.Cancel();
+            }
+
             var host = ThumbnailService.GetHost(FromAddress);
+
+            bool isKnownHost = false;
 
             if (!string.IsNullOrEmpty(host))
             {
                 var tuple = ThumbnailService.CheckIsKnown(host);
 
-                IsKnown = tuple.Item1;
+                isKnownHost = tuple.Item1;
                 host = tuple.Item2;
             }
 
-            if (IsKnown)
+            if (isKnownHost)
             {
                 // Unrealize others.
 
@@ -116,9 +120,27 @@ namespace Wino.Controls
                 KnownHostImage.Visibility = Visibility.Collapsed;
                 InitialsGrid.Visibility = Visibility.Visible;
 
-                bool isContactImageLoadingHandled = !string.IsNullOrEmpty(SenderContactPicture) && await TryUpdateProfileImageAsync();
+                if (!string.IsNullOrEmpty(SenderContactPicture))
+                {
+                    contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
 
-                if (!isContactImageLoadingHandled)
+                    try
+                    {
+                        var brush = await GetContactImageBrushAsync();
+
+                        if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
+                        {
+                            Ellipse.Fill = brush;
+                            InitialsTextblock.Text = string.Empty;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // Log exception.
+                        Debugger.Break();
+                    }
+                }
+                else
                 {
                     var colorHash = new ColorHash();
                     var rgb = colorHash.Rgb(FromAddress);
@@ -129,40 +151,21 @@ namespace Wino.Controls
             }
         }
 
-        /// <summary>
-        /// Tries to update contact image with the provided base64 image string.
-        /// </summary>
-        /// <returns>True if updated, false if not.</returns>
-        private async Task<bool> TryUpdateProfileImageAsync()
+        private async Task<ImageBrush> GetContactImageBrushAsync()
         {
-            try
-            {
-                // Load the image from base64 string.
-                var bitmapImage = new BitmapImage();
+            // Load the image from base64 string.
+            var bitmapImage = new BitmapImage();
 
-                var imageArray = Convert.FromBase64String(SenderContactPicture);
-                var imageStream = new MemoryStream(imageArray);
-                var randomAccessImageStream = imageStream.AsRandomAccessStream();
+            var imageArray = Convert.FromBase64String(SenderContactPicture);
+            var imageStream = new MemoryStream(imageArray);
+            var randomAccessImageStream = imageStream.AsRandomAccessStream();
 
-                randomAccessImageStream.Seek(0);
+            randomAccessImageStream.Seek(0);
 
-                await bitmapImage.SetSourceAsync(randomAccessImageStream);
 
-                Ellipse.Fill = new ImageBrush()
-                {
-                    ImageSource = bitmapImage
-                };
+            await bitmapImage.SetSourceAsync(randomAccessImageStream);
 
-                InitialsTextblock.Text = string.Empty;
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to load contact image from base64 string.");
-            }
-
-            return false;
+            return new ImageBrush() { ImageSource = bitmapImage };
         }
 
         public string ExtractInitialsFromName(string name)
