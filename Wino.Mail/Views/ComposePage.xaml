@@ -60,8 +60,7 @@
                 <controls:ImagePreviewControl
                     FromAddress="{x:Bind Address}"
                     FromName="{x:Bind Name}"
-                    SenderContactPicture="{x:Bind Base64ContactPicture}"
-                    IsKnown="False" />
+                    SenderContactPicture="{x:Bind Base64ContactPicture}" />
                 <TextBlock Grid.Column="1">
                     <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
                 </TextBlock>
