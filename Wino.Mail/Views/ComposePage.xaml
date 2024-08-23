@@ -22,14 +22,28 @@
     <Page.Resources>
         <DataTemplate x:Key="TokenBoxTemplate" x:DataType="entities:AccountContact">
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
                 <ToolTipService.ToolTip>
                     <ToolTip Content="{x:Bind Address}" />
                 </ToolTipService.ToolTip>
-                <Grid.ContextFlyout>
+
+                <!--  TODO: Display contact info.  -->
+                <!--<Grid.ContextFlyout>
                     <MenuFlyout Placement="RightEdgeAlignedBottom">
                         <MenuFlyoutItem Text="{x:Bind domain:Translator.ViewContactDetails}" />
                     </MenuFlyout>
-                </Grid.ContextFlyout>
+                </Grid.ContextFlyout>-->
+
+                <Viewbox Width="24">
+                    <controls:ImagePreviewControl
+                        SenderContactPicture="{x:Bind Base64ContactPicture}"
+                        FromAddress="{x:Bind Address}"
+                        FromName="{x:Bind Name}" />
+                </Viewbox>
+
                 <TextBlock
                     Grid.Column="1"
                     Margin="6,0,8,0"
@@ -46,6 +60,7 @@
                 <controls:ImagePreviewControl
                     FromAddress="{x:Bind Address}"
                     FromName="{x:Bind Name}"
+                    SenderContactPicture="{x:Bind Base64ContactPicture}"
                     IsKnown="False" />
                 <TextBlock Grid.Column="1">
                     <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
