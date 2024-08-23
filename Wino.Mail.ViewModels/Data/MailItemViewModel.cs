@@ -13,7 +13,6 @@ namespace Wino.Mail.ViewModels.Data
     {
         [ObservableProperty]
         private MailCopy mailCopy = mailCopy;
-        // public MailCopy MailCopy { get; private set; } = mailCopy;
 
         public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
         public string ThreadId => ((IMailItem)MailCopy).ThreadId;
@@ -101,21 +100,6 @@ namespace Wino.Mail.ViewModels.Data
         public Guid FileId => ((IMailItem)MailCopy).FileId;
 
         public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
-
-        //public void Update(MailCopy updatedMailItem)
-        //{
-        //    MailCopy = updatedMailItem;
-
-        //    //OnPropertyChanged(nameof(IsRead));
-        //    //OnPropertyChanged(nameof(IsFocused));
-        //    //OnPropertyChanged(nameof(IsFlagged));
-        //    //OnPropertyChanged(nameof(IsDraft));
-        //    //OnPropertyChanged(nameof(DraftId));
-        //    //OnPropertyChanged(nameof(Subject));
-        //    //OnPropertyChanged(nameof(PreviewText));
-        //    //OnPropertyChanged(nameof(FromAddress));
-        //    //OnPropertyChanged(nameof(HasAttachments));
-        //}
 
         public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
     }
