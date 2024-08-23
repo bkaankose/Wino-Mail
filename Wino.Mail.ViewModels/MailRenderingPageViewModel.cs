@@ -105,6 +105,9 @@ namespace Wino.Mail.ViewModels
         private string fromName;
 
         [ObservableProperty]
+        private string contactPicture;
+
+        [ObservableProperty]
         private DateTime creationDate;
 
 
@@ -417,6 +420,7 @@ namespace Wino.Mail.ViewModels
                 FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
                 FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
                 CreationDate = message.Date.DateTime;
+                ContactPicture = initializedMailItemViewModel.SenderContact?.Base64ContactPicture;
 
                 // Extract to,cc and bcc
                 await LoadAddressInfoAsync(message.To, ToItems);
