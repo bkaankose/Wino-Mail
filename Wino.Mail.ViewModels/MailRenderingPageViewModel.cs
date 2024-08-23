@@ -20,7 +20,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -39,6 +38,7 @@ namespace Wino.Mail.ViewModels
         private readonly Core.Domain.Interfaces.IMailService _mailService;
         private readonly IFileService _fileService;
         private readonly IWinoRequestDelegator _requestDelegator;
+        private readonly IContactService _contactService;
         private readonly IClipboardService _clipboardService;
         private readonly IUnsubscriptionService _unsubscriptionService;
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
@@ -128,6 +128,7 @@ namespace Wino.Mail.ViewModels
                                           IFileService fileService,
                                           IWinoRequestDelegator requestDelegator,
                                           IStatePersistanceService statePersistenceService,
+                                          IContactService contactService,
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService,
@@ -135,6 +136,7 @@ namespace Wino.Mail.ViewModels
         {
             NativeAppService = nativeAppService;
             StatePersistenceService = statePersistenceService;
+            _contactService = contactService;
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;
             _clipboardService = clipboardService;
@@ -402,9 +404,12 @@ namespace Wino.Mail.ViewModels
 
             var renderingOptions = PreferencesService.GetRenderingOptions();
 
-            await ExecuteUIThread(() =>
+            await ExecuteUIThread(async () =>
             {
                 Attachments.Clear();
+                ToItems.Clear();
+                CCItemsItems.Clear();
+                BCCItems.Clear();
 
                 Subject = message.Subject;
 
@@ -414,9 +419,9 @@ namespace Wino.Mail.ViewModels
                 CreationDate = message.Date.DateTime;
 
                 // Extract to,cc and bcc
-                LoadAddressInfo(message.To, ToItems);
-                LoadAddressInfo(message.Cc, CCItemsItems);
-                LoadAddressInfo(message.Bcc, BCCItems);
+                await LoadAddressInfoAsync(message.To, ToItems);
+                await LoadAddressInfoAsync(message.Cc, CCItemsItems);
+                await LoadAddressInfoAsync(message.Bcc, BCCItems);
 
                 // Automatically disable images for Junk folder to prevent pixel tracking.
                 // This can only work for selected mail item rendering, not for EML file rendering.
@@ -470,16 +475,19 @@ namespace Wino.Mail.ViewModels
             StatePersistenceService.IsReadingMail = false;
         }
 
-        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AccountContact> collection)
+        private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
         {
-            collection.Clear();
-
             foreach (var item in list)
             {
                 if (item is MailboxAddress mailboxAddress)
-                    collection.Add(mailboxAddress.ToAddressInformation());
+                {
+                    var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
+                        ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+
+                    await ExecuteUIThread(() => { collection.Add(foundContact); });
+                }
                 else if (item is GroupAddress groupAddress)
-                    LoadAddressInfo(groupAddress.Members, collection);
+                    await LoadAddressInfoAsync(groupAddress.Members, collection);
             }
         }
 
