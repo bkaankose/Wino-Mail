@@ -136,6 +136,8 @@ namespace Wino.Core.Extensions
             if (message == null)
                 return string.Empty;
 
+            return message.From.Mailboxes.FirstOrDefault()?.Name ?? message.Sender?.Name ?? Translator.UnknownSender;
+
             // From MimeKit
 
             // The "From" header specifies the author(s) of the message.
@@ -145,43 +147,44 @@ namespace Wino.Core.Extensions
 
             // Also handle: https://stackoverflow.com/questions/46474030/mailkit-from-address
 
-            if (message.Sender != null)
-                return string.IsNullOrEmpty(message.Sender.Name) ? message.Sender.Address : message.Sender.Name;
-            else if (message.From?.Mailboxes != null)
-            {
-                var firstAvailableName = message.From.Mailboxes.FirstOrDefault(a => !string.IsNullOrEmpty(a.Name))?.Name;
+            //if (message.Sender != null)
+            //    return string.IsNullOrEmpty(message.Sender.Name) ? message.Sender.Address : message.Sender.Name;
+            //else if (message.From?.Mailboxes != null)
+            //{
+            //    var firstAvailableName = message.From.Mailboxes.FirstOrDefault(a => !string.IsNullOrEmpty(a.Name))?.Name;
 
-                if (string.IsNullOrEmpty(firstAvailableName))
-                {
-                    var firstAvailableAddress = message.From.Mailboxes.FirstOrDefault(a => !string.IsNullOrEmpty(a.Address))?.Address;
+            //    if (string.IsNullOrEmpty(firstAvailableName))
+            //    {
+            //        var firstAvailableAddress = message.From.Mailboxes.FirstOrDefault(a => !string.IsNullOrEmpty(a.Address))?.Address;
 
-                    if (!string.IsNullOrEmpty(firstAvailableAddress))
-                    {
-                        return firstAvailableAddress;
-                    }
-                }
+            //        if (!string.IsNullOrEmpty(firstAvailableAddress))
+            //        {
+            //            return firstAvailableAddress;
+            //        }
+            //    }
 
-                return firstAvailableName;
-            }
+            //    return firstAvailableName;
+            //}
 
-            // No sender, no from, I don't know what to do.
-            return Translator.UnknownSender;
+            //// No sender, no from, I don't know what to do.
+            //return Translator.UnknownSender;
         }
 
         // TODO: This is wrong.
-        public static string GetActualSenderAddress(MimeMessage mime)
+        public static string GetActualSenderAddress(MimeMessage message)
         {
-            if (mime == null)
-                return string.Empty;
+            return message.From.Mailboxes.FirstOrDefault()?.Address ?? message.Sender?.Address ?? Translator.UnknownSender;
+            //if (mime == null)
+            //    return string.Empty;
 
-            bool hasSingleFromMailbox = mime.From.Mailboxes.Count() == 1;
+            //bool hasSingleFromMailbox = mime.From.Mailboxes.Count() == 1;
 
-            if (hasSingleFromMailbox)
-                return mime.From.Mailboxes.First().GetAddress(idnEncode: true);
-            else if (mime.Sender != null)
-                return mime.Sender.GetAddress(idnEncode: true);
-            else
-                return Translator.UnknownSender;
+            //if (hasSingleFromMailbox)
+            //    return mime.From.Mailboxes.First().GetAddress(idnEncode: true);
+            //else if (mime.Sender != null)
+            //    return mime.Sender.GetAddress(idnEncode: true);
+            //else
+            //    return Translator.UnknownSender;
         }
     }
 }
