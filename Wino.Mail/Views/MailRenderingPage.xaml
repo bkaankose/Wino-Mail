@@ -286,7 +286,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <ItemsWrapGrid Orientation="Horizontal" />
+                                    <controls2:WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -308,7 +308,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <ItemsWrapGrid Orientation="Horizontal" />
+                                    <controls2:WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -332,7 +332,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <ItemsWrapGrid Orientation="Horizontal" />
+                                    <controls2:WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
