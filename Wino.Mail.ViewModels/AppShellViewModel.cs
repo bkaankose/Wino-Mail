@@ -889,7 +889,14 @@ namespace Wino.Mail.ViewModels
 
             Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
 
-            await _nativeAppService.PinAppToTaskbarAsync();
+            try
+            {
+                await _nativeAppService.PinAppToTaskbarAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to pin Wino to taskbar.");
+            }
         }
 
         // TODO: Handle by messaging.
