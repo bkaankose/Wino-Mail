@@ -971,7 +971,8 @@ namespace Wino.Mail.ViewModels
         {
             // Reloading of folders is needed to re-create folder tree if the account is loaded.
 
-            if (MenuItems.TryGetAccountMenuItem(message.AccountId, out IAccountMenuItem accountMenuItem))
+            if (MenuItems.TryGetAccountMenuItem(message.AccountId, out IAccountMenuItem accountMenuItem) &&
+                latestSelectedAccountMenuItem == accountMenuItem)
             {
                 await ChangeLoadedAccountAsync(accountMenuItem, true);
             }

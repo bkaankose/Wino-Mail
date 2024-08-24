@@ -19,9 +19,9 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
-using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Services
 {
@@ -197,6 +197,8 @@ namespace Wino.Services
 
                 if (configuration != null)
                 {
+                    await folderService.UpdateSystemFolderConfigurationAsync(accountId, configuration);
+
                     InfoBarMessage(Translator.SystemFolderConfigSetupSuccess_Title, Translator.SystemFolderConfigSetupSuccess_Message, InfoBarMessageType.Success);
 
                     WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));

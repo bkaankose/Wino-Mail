@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
@@ -21,6 +22,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Mime;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
@@ -716,6 +718,11 @@ namespace Wino.Core.Synchronizers
                 foreach (var folder in updatedFolders)
                 {
                     await _imapChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
+                }
+
+                if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
+                {
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
                 }
             }
             catch (Exception ex)

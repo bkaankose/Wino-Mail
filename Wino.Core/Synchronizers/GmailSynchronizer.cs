@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Http;
@@ -27,6 +28,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
@@ -365,6 +367,11 @@ namespace Wino.Core.Synchronizers
                 {
                     await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
                 }
+
+                if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
+                {
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                }
             }
             catch (Exception)
             {
@@ -374,7 +381,10 @@ namespace Wino.Core.Synchronizers
 
         private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)
         {
-            bool isNameChanged = !existingLocalFolder.FolderName.Equals(GoogleIntegratorExtensions.GetFolderName(remoteFolder), StringComparison.OrdinalIgnoreCase);
+            var remoteFolderName = GoogleIntegratorExtensions.GetFolderName(remoteFolder.Name);
+            var localFolderName = GoogleIntegratorExtensions.GetFolderName(existingLocalFolder.FolderName);
+
+            bool isNameChanged = !localFolderName.Equals(remoteFolderName, StringComparison.OrdinalIgnoreCase);
             bool isColorChanged = existingLocalFolder.BackgroundColorHex != remoteFolder.Color?.BackgroundColor ||
                     existingLocalFolder.TextColorHex != remoteFolder.Color?.TextColor;
 

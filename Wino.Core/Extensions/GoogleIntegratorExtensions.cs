@@ -76,9 +76,7 @@ namespace Wino.Core.Extensions
 
         public static MailItemFolder GetLocalFolder(this Label label, ListLabelsResponse labelsResponse, Guid accountId)
         {
-
-
-            var normalizedLabelName = GetFolderName(label);
+            var normalizedLabelName = GetFolderName(label.Name);
 
             // Even though we normalize the label name, check is done by capitalizing the label name.
             var capitalNormalizedLabelName = normalizedLabelName.ToUpper();
@@ -155,14 +153,14 @@ namespace Wino.Core.Extensions
             return labelsResponse.Labels.FirstOrDefault(a => a.Name == parentLabelName)?.Id ?? string.Empty;
         }
 
-        public static string GetFolderName(Label label)
+        public static string GetFolderName(string fullFolderName)
         {
-            if (string.IsNullOrEmpty(label.Name)) return string.Empty;
+            if (string.IsNullOrEmpty(fullFolderName)) return string.Empty;
 
             // Folders with "//" at the end has "/" as the name.
-            if (label.Name.EndsWith(FOLDER_SEPERATOR_STRING)) return FOLDER_SEPERATOR_STRING;
+            if (fullFolderName.EndsWith(FOLDER_SEPERATOR_STRING)) return FOLDER_SEPERATOR_STRING;
 
-            string[] parts = label.Name.Split(FOLDER_SEPERATOR_CHAR);
+            string[] parts = fullFolderName.Split(FOLDER_SEPERATOR_CHAR);
 
             var lastPart = parts[parts.Length - 1];
 
