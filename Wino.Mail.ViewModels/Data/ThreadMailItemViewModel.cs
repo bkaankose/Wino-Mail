@@ -14,17 +14,18 @@ namespace Wino.Mail.ViewModels.Data
     /// </summary>
     public partial class ThreadMailItemViewModel : ObservableObject, IMailItemThread, IComparable<string>, IComparable<DateTime>
     {
-        public ObservableCollection<IMailItem> ThreadItems => ((IMailItemThread)_threadMailItem).ThreadItems;
-        public AccountContact SenderContact => ((IMailItemThread)_threadMailItem).SenderContact;
+        public ObservableCollection<IMailItem> ThreadItems => ((IMailItemThread)MailItem).ThreadItems;
+        public AccountContact SenderContact => ((IMailItemThread)MailItem).SenderContact;
 
-        private readonly ThreadMailItem _threadMailItem;
+        [ObservableProperty]
+        private ThreadMailItem mailItem;
 
         [ObservableProperty]
         private bool isThreadExpanded;
 
         public ThreadMailItemViewModel(ThreadMailItem threadMailItem)
         {
-            _threadMailItem = new ThreadMailItem();
+            MailItem = new ThreadMailItem();
 
             // Local copies
             foreach (var item in threadMailItem.ThreadItems)
@@ -33,7 +34,7 @@ namespace Wino.Mail.ViewModels.Data
             }
         }
 
-        public ThreadMailItem GetThreadMailItem() => _threadMailItem;
+        public ThreadMailItem GetThreadMailItem() => MailItem;
 
         public IEnumerable<MailCopy> GetMailCopies()
             => ThreadItems.OfType<MailItemViewModel>().Select(a => a.MailCopy);
@@ -43,9 +44,9 @@ namespace Wino.Mail.ViewModels.Data
             if (mailItem == null) return;
 
             if (mailItem is MailCopy mailCopy)
-                _threadMailItem.AddThreadItem(new MailItemViewModel(mailCopy));
+                MailItem.AddThreadItem(new MailItemViewModel(mailCopy));
             else if (mailItem is MailItemViewModel mailItemViewModel)
-                _threadMailItem.AddThreadItem(mailItemViewModel);
+                MailItem.AddThreadItem(mailItemViewModel);
             else
                 Debugger.Break();
         }
@@ -76,46 +77,43 @@ namespace Wino.Mail.ViewModels.Data
 
         public void NotifyPropertyChanges()
         {
-            OnPropertyChanged(nameof(Subject));
-            OnPropertyChanged(nameof(PreviewText));
-            OnPropertyChanged(nameof(FromName));
-            OnPropertyChanged(nameof(FromAddress));
-            OnPropertyChanged(nameof(HasAttachments));
+            // TODO
+            // Stupid temporary fix for not updating UI.
+            // This view model must be reworked with ThreadMailItem together.
 
-            OnPropertyChanged(nameof(IsFlagged));
-            OnPropertyChanged(nameof(IsDraft));
-            OnPropertyChanged(nameof(IsRead));
-            OnPropertyChanged(nameof(IsFocused));
-            OnPropertyChanged(nameof(CreationDate));
+            var current = MailItem;
+
+            MailItem = null;
+            MailItem = current;
         }
 
-        public IMailItem LatestMailItem => ((IMailItemThread)_threadMailItem).LatestMailItem;
-        public IMailItem FirstMailItem => ((IMailItemThread)_threadMailItem).FirstMailItem;
+        public IMailItem LatestMailItem => ((IMailItemThread)MailItem).LatestMailItem;
+        public IMailItem FirstMailItem => ((IMailItemThread)MailItem).FirstMailItem;
 
-        public string Id => ((IMailItem)_threadMailItem).Id;
-        public string Subject => ((IMailItem)_threadMailItem).Subject;
-        public string ThreadId => ((IMailItem)_threadMailItem).ThreadId;
-        public string MessageId => ((IMailItem)_threadMailItem).MessageId;
-        public string References => ((IMailItem)_threadMailItem).References;
-        public string PreviewText => ((IMailItem)_threadMailItem).PreviewText;
-        public string FromName => ((IMailItem)_threadMailItem).FromName;
-        public DateTime CreationDate => ((IMailItem)_threadMailItem).CreationDate;
-        public string FromAddress => ((IMailItem)_threadMailItem).FromAddress;
-        public bool HasAttachments => ((IMailItem)_threadMailItem).HasAttachments;
-        public bool IsFlagged => ((IMailItem)_threadMailItem).IsFlagged;
-        public bool IsFocused => ((IMailItem)_threadMailItem).IsFocused;
-        public bool IsRead => ((IMailItem)_threadMailItem).IsRead;
-        public bool IsDraft => ((IMailItem)_threadMailItem).IsDraft;
+        public string Id => ((IMailItem)MailItem).Id;
+        public string Subject => ((IMailItem)MailItem).Subject;
+        public string ThreadId => ((IMailItem)MailItem).ThreadId;
+        public string MessageId => ((IMailItem)MailItem).MessageId;
+        public string References => ((IMailItem)MailItem).References;
+        public string PreviewText => ((IMailItem)MailItem).PreviewText;
+        public string FromName => ((IMailItem)MailItem).FromName;
+        public DateTime CreationDate => ((IMailItem)MailItem).CreationDate;
+        public string FromAddress => ((IMailItem)MailItem).FromAddress;
+        public bool HasAttachments => ((IMailItem)MailItem).HasAttachments;
+        public bool IsFlagged => ((IMailItem)MailItem).IsFlagged;
+        public bool IsFocused => ((IMailItem)MailItem).IsFocused;
+        public bool IsRead => ((IMailItem)MailItem).IsRead;
+        public bool IsDraft => ((IMailItem)MailItem).IsDraft;
         public string DraftId => string.Empty;
-        public string InReplyTo => ((IMailItem)_threadMailItem).InReplyTo;
+        public string InReplyTo => ((IMailItem)MailItem).InReplyTo;
 
-        public MailItemFolder AssignedFolder => ((IMailItem)_threadMailItem).AssignedFolder;
+        public MailItemFolder AssignedFolder => ((IMailItem)MailItem).AssignedFolder;
 
-        public MailAccount AssignedAccount => ((IMailItem)_threadMailItem).AssignedAccount;
+        public MailAccount AssignedAccount => ((IMailItem)MailItem).AssignedAccount;
 
-        public Guid UniqueId => ((IMailItem)_threadMailItem).UniqueId;
+        public Guid UniqueId => ((IMailItem)MailItem).UniqueId;
 
-        public Guid FileId => ((IMailItem)_threadMailItem).FileId;
+        public Guid FileId => ((IMailItem)MailItem).FileId;
 
         public int CompareTo(DateTime other) => CreationDate.CompareTo(other);
         public int CompareTo(string other) => FromName.CompareTo(other);
@@ -123,6 +121,6 @@ namespace Wino.Mail.ViewModels.Data
         // Get single mail item view model out of the only item in thread items.
         public MailItemViewModel GetSingleItemViewModel() => ThreadItems.First() as MailItemViewModel;
 
-        public IEnumerable<Guid> GetContainingIds() => ((IMailItemThread)_threadMailItem).GetContainingIds();
+        public IEnumerable<Guid> GetContainingIds() => ((IMailItemThread)MailItem).GetContainingIds();
     }
 }

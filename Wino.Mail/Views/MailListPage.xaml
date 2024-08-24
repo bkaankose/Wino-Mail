@@ -181,7 +181,7 @@
                                 IsHitTestVisible="True"
                                 IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
                                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
-                                MailItem="{Binding Mode=OneWay}"
+                                MailItem="{x:Bind MailItem, Mode=OneWay}"
                                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
                                 ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
