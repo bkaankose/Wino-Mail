@@ -13,10 +13,27 @@ namespace Wino.Core.Domain.Entities
     // Do it.
     public class AccountContact : IEquatable<AccountContact>
     {
+        /// <summary>
+        /// E-mail address of the contact.
+        /// </summary>
         [PrimaryKey]
         public string Address { get; set; }
+
+        /// <summary>
+        /// Display name of the contact.
+        /// </summary>
         public string Name { get; set; }
+
+        /// <summary>
+        /// Base64 encoded profile image of the contact.
+        /// </summary>
         public string Base64ContactPicture { get; set; }
+
+        /// <summary>
+        /// All registered accounts have their contacts registered as root.
+        /// Root contacts must not be overridden by any configuration.
+        /// They are created on account creation.
+        /// </summary>
         public bool IsRootContact { get; set; }
 
         public string DisplayName => Address == Name ? Address : $"{Name} <{Address}>";
