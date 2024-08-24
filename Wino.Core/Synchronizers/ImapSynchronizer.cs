@@ -998,6 +998,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="remoteFolder">Remote folder</param>
         /// <param name="localFolder">Local folder.</param>
-        public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder) => remoteFolder.Name != localFolder.FolderName;
+        public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
+            => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
     }
 }
