@@ -15,6 +15,7 @@ namespace Wino.Mail.ViewModels.Data
     public partial class ThreadMailItemViewModel : ObservableObject, IMailItemThread, IComparable<string>, IComparable<DateTime>
     {
         public ObservableCollection<IMailItem> ThreadItems => ((IMailItemThread)_threadMailItem).ThreadItems;
+        public AccountContact SenderContact => ((IMailItemThread)_threadMailItem).SenderContact;
 
         private readonly ThreadMailItem _threadMailItem;
 

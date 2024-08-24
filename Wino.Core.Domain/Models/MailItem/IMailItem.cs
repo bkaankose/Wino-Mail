@@ -29,5 +29,6 @@ namespace Wino.Core.Domain.Models.MailItem
 
         MailItemFolder AssignedFolder { get; }
         MailAccount AssignedAccount { get; }
+        AccountContact SenderContact { get; }
     }
 }

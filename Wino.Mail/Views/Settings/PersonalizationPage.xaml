@@ -7,6 +7,7 @@
     xmlns:controls1="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    x:Name="root"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -141,28 +142,22 @@
         <DataTemplate x:Key="CompactDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Compact"
-                FromName="{x:Bind domain:Translator.SettingsPersonalizationMailDisplayCompactMode}"
-                ShowPreviewText="False"
-                Snippet="Thank you for using Wino Mail."
-                Subject="Welcome to Wino Mail" />
+                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
+                ShowPreviewText="False" />
         </DataTemplate>
 
         <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Medium"
-                FromName="{x:Bind domain:Translator.SettingsPersonalizationMailDisplayMediumMode}"
                 ShowPreviewText="True"
-                Snippet="Thank you for using Wino Mail."
-                Subject="Welcome to Wino Mail" />
+                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}" />
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Spacious"
-                FromName="{x:Bind domain:Translator.SettingsPersonalizationMailDisplaySpaciousMode}"
-                ShowPreviewText="True"
-                Snippet="Thank you for using Wino Mail."
-                Subject="Welcome to Wino Mail" />
+                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
+                ShowPreviewText="True" />
         </DataTemplate>
 
         <selectors:MailItemDisplayModePreviewTemplateSelector

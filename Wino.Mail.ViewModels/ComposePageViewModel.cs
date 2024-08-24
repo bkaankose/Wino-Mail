@@ -85,9 +85,9 @@ namespace Wino.Mail.ViewModels
 
         public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
         public ObservableCollection<MailAccount> Accounts { get; set; } = [];
-        public ObservableCollection<AddressInformation> ToItems { get; set; } = [];
-        public ObservableCollection<AddressInformation> CCItems { get; set; } = [];
-        public ObservableCollection<AddressInformation> BCCItems { get; set; } = [];
+        public ObservableCollection<AccountContact> ToItems { get; set; } = [];
+        public ObservableCollection<AccountContact> CCItems { get; set; } = [];
+        public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
 
 
         public List<EditorToolbarSection> ToolbarSections { get; set; } =
@@ -438,7 +438,7 @@ namespace Wino.Mail.ViewModels
 
             var renderModel = _mimeFileService.GetMailRenderModel(replyingMime, mimeFilePath);
 
-            await ExecuteUIThread(() =>
+            await ExecuteUIThread(async () =>
             {
                 // Extract information
 
@@ -448,9 +448,9 @@ namespace Wino.Mail.ViewModels
                 CCItems.Clear();
                 BCCItems.Clear();
 
-                LoadAddressInfo(replyingMime.To, ToItems);
-                LoadAddressInfo(replyingMime.Cc, CCItems);
-                LoadAddressInfo(replyingMime.Bcc, BCCItems);
+                await LoadAddressInfoAsync(replyingMime.To, ToItems);
+                await LoadAddressInfoAsync(replyingMime.Cc, CCItems);
+                await LoadAddressInfoAsync(replyingMime.Bcc, BCCItems);
 
                 LoadAttachments();
 
@@ -476,14 +476,19 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)
+        private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
         {
             foreach (var item in list)
             {
                 if (item is MailboxAddress mailboxAddress)
-                    collection.Add(mailboxAddress.ToAddressInformation());
+                {
+                    var foundContact = await ContactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
+                        ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+
+                    await ExecuteUIThread(() => { collection.Add(foundContact); });
+                }
                 else if (item is GroupAddress groupAddress)
-                    LoadAddressInfo(groupAddress.Members, collection);
+                    await LoadAddressInfoAsync(groupAddress.Members, collection);
             }
         }
 
@@ -509,7 +514,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void SaveAddressInfo(IEnumerable<AddressInformation> addresses, InternetAddressList list)
+        private void SaveAddressInfo(IEnumerable<AccountContact> addresses, InternetAddressList list)
         {
             list.Clear();
 
@@ -517,11 +522,12 @@ namespace Wino.Mail.ViewModels
                 list.Add(new MailboxAddress(item.Name, item.Address));
         }
 
-        public async Task<AddressInformation> GetAddressInformationAsync(string tokenText, ObservableCollection<AddressInformation> collection)
+        public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
         {
             // Get model from the service. This will make sure the name is properly included if there is any record.
 
-            var info = await ContactService.GetAddressInformationByAddressAsync(tokenText);
+            var info = await ContactService.GetAddressInformationByAddressAsync(tokenText)
+                ?? new AccountContact() { Name = tokenText, Address = tokenText };
 
             // Don't add if there is already that address in the collection.
             if (collection.Any(a => a.Address == info.Address))
@@ -550,7 +556,7 @@ namespace Wino.Mail.ViewModels
             {
                 await ExecuteUIThread(() =>
                 {
-                    CurrentMailDraftItem.Update(updatedMail);
+                    CurrentMailDraftItem.MailCopy = updatedMail;
 
                     DiscardCommand.NotifyCanExecuteChanged();
                     SendCommand.NotifyCanExecuteChanged();

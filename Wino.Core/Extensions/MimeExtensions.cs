@@ -7,8 +7,6 @@ using MimeKit;
 using MimeKit.IO;
 using MimeKit.IO.Filters;
 using MimeKit.Utils;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
 
 namespace Wino.Core.Extensions
 {
@@ -41,16 +39,6 @@ namespace Wino.Core.Extensions
             }
         }
 
-        public static AddressInformation ToAddressInformation(this MailboxAddress address)
-        {
-            if (address == null)
-                return new AddressInformation() { Name = Translator.UnknownSender, Address = Translator.UnknownAddress };
-
-            if (string.IsNullOrEmpty(address.Name))
-                address.Name = address.Address;
-
-            return new AddressInformation() { Name = address.Name, Address = address.Address };
-        }
 
         /// <summary>
         /// Sets html body replacing base64 images with cid linked resources.

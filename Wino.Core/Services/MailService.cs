@@ -201,6 +201,7 @@ namespace Wino.Core.Services
 
             Dictionary<Guid, MailItemFolder> folderCache = [];
             Dictionary<Guid, MailAccount> accountCache = [];
+            Dictionary<string, AccountContact> contactCache = [];
 
             // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
             // This is needed to execute threading strategy by account type.
@@ -255,7 +256,9 @@ namespace Wino.Core.Services
             return threadedItems;
 
             // Recursive function to populate folder and account assignments for each mail item.
-            async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache)
+            async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail,
+                                                            Dictionary<Guid, MailItemFolder> folderCache,
+                                                            Dictionary<Guid, MailAccount> accountCache)
             {
                 if (mail is ThreadMailItem threadMailItem)
                 {
@@ -276,6 +279,7 @@ namespace Wino.Core.Services
                         folderAssignment = await _folderService.GetFolderAsync(mailCopy.FolderId).ConfigureAwait(false);
                         _ = folderCache.TryAdd(mailCopy.FolderId, folderAssignment);
                     }
+
                     if (folderAssignment != null)
                     {
                         var isAccountCached = accountCache.TryGetValue(folderAssignment.MailAccountId, out accountAssignment);
@@ -283,11 +287,25 @@ namespace Wino.Core.Services
                         {
                             accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
                             _ = accountCache.TryAdd(folderAssignment.MailAccountId, accountAssignment);
+
+                        }
+                    }
+
+                    bool isContactCached = contactCache.TryGetValue(mailCopy.FromAddress, out AccountContact contactAssignment);
+
+                    if (!isContactCached && accountAssignment != null)
+                    {
+                        contactAssignment = await GetSenderContactForAccountAsync(accountAssignment, mailCopy.FromAddress).ConfigureAwait(false);
+
+                        if (contactAssignment != null)
+                        {
+                            _ = contactCache.TryAdd(mailCopy.FromAddress, contactAssignment);
                         }
                     }
 
                     mailCopy.AssignedFolder = folderAssignment;
                     mailCopy.AssignedAccount = accountAssignment;
+                    mailCopy.SenderContact = contactAssignment ?? new AccountContact() { Name = mailCopy.FromName, Address = mailCopy.FromAddress };
                 }
             }
         }
@@ -304,11 +322,24 @@ namespace Wino.Core.Services
             return mailCopies;
         }
 
+        private Task<AccountContact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
+        {
+            // Make sure to return the latest up to date contact information for the original account.
+            if (fromAddress == account.Address)
+            {
+                return Task.FromResult(new AccountContact() { Address = account.Address, Name = account.SenderName, Base64ContactPicture = account.Base64ProfilePictureData });
+            }
+            else
+            {
+                return _contactService.GetAddressInformationByAddressAsync(fromAddress);
+            }
+        }
+
         private async Task LoadAssignedPropertiesAsync(MailCopy mailCopy)
         {
             if (mailCopy == null) return;
 
-            // Load AssignedAccount and AssignedFolder.
+            // Load AssignedAccount, AssignedFolder and SenderContact.
 
             var folder = await _folderService.GetFolderAsync(mailCopy.FolderId);
 
@@ -320,6 +351,7 @@ namespace Wino.Core.Services
 
             mailCopy.AssignedAccount = account;
             mailCopy.AssignedFolder = folder;
+            mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         }
 
         public async Task<MailCopy> GetSingleMailItemWithoutFolderAssignmentAsync(string mailCopyId)
@@ -579,6 +611,7 @@ namespace Wino.Core.Services
             mailCopy.UniqueId = Guid.NewGuid();
             mailCopy.AssignedAccount = account;
             mailCopy.AssignedFolder = assignedFolder;
+            mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
             mailCopy.FolderId = assignedFolder.Id;
 
             // Only save MIME files if they don't exists.

@@ -304,7 +304,7 @@ namespace Wino
         {
             base.OnWindowCreated(args);
 
-            LogActivation("Window is created.");
+            LogActivation($"OnWindowCreated -> IsWindowNull: {args.Window == null}");
 
             ConfigureTitleBar();
             TryRegisterAppCloseChange();
@@ -336,7 +336,7 @@ namespace Wino
         {
             base.OnFileActivated(args);
 
-            Log.Information($"File activation for {args.Files.Count} item(s).");
+            LogActivation($"OnFileActivated -> ItemCount: {args.Files.Count}, Kind: {args.Kind}, PreviousExecutionState: {args.PreviousExecutionState}");
 
             await ActivateWinoAsync(args);
         }
@@ -356,6 +356,8 @@ namespace Wino
 
             if (args.TaskInstance.TriggerDetails is AppServiceTriggerDetails appServiceTriggerDetails)
             {
+                LogActivation("OnBackgroundActivated -> AppServiceTriggerDetails received.");
+
                 // Only accept connections from callers in the same package
                 if (appServiceTriggerDetails.CallerPackageFamilyName == Package.Current.Id.FamilyName)
                 {
@@ -372,6 +374,8 @@ namespace Wino
             else if (args.TaskInstance.TriggerDetails is ToastNotificationActionTriggerDetail toastNotificationActionTriggerDetail)
             {
                 // Notification action is triggered and the app is not running.
+
+                LogActivation("OnBackgroundActivated -> ToastNotificationActionTriggerDetail received.");
 
                 toastActionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
                 args.TaskInstance.Canceled += OnToastActionClickedBackgroundTaskCanceled;

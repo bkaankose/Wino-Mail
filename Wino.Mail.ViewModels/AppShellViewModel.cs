@@ -246,7 +246,7 @@ namespace Wino.Mail.ViewModels
 
             await ForceAllAccountSynchronizationsAsync();
             await MakeSureEnableStartupLaunchAsync();
-            ConfigureBackgroundTasks();
+            await ConfigureBackgroundTasksAsync();
         }
 
         private async Task MakeSureEnableStartupLaunchAsync()
@@ -289,11 +289,14 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private void ConfigureBackgroundTasks()
+        private async Task ConfigureBackgroundTasksAsync()
         {
             try
             {
+                // This will only unregister once. Safe to execute multiple times.
                 _backgroundTaskService.UnregisterAllBackgroundTask();
+
+                await _backgroundTaskService.RegisterBackgroundTasksAsync();
             }
             catch (Exception ex)
             {
@@ -623,7 +626,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private async Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
+        public async Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true)
         {
             if (clickedBaseAccountMenuItem == null) return;
 

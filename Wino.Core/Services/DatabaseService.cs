@@ -57,7 +57,7 @@ namespace Wino.Core.Services
                 typeof(MailItemFolder),
                 typeof(MailAccount),
                 typeof(TokenInformation),
-                typeof(AddressInformation),
+                typeof(AccountContact),
                 typeof(CustomServerInformation),
                 typeof(AccountSignature),
                 typeof(MergedInbox),
