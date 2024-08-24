@@ -376,7 +376,7 @@ namespace Wino.Views
         /// <param name="focusControlAsWell">Whether control itself should be focused as well or not.</param>
         private async Task FocusEditorAsync(bool focusControlAsWell)
         {
-            await InvokeScriptSafeAsync("editor.selection.focus();");
+            await InvokeScriptSafeAsync("editor.selection.setCursorIn(editor.editor.firstChild, true)");
 
             if (focusControlAsWell)
             {
