@@ -31,8 +31,8 @@
 
         <DataTemplate x:Key="InternetAddressTemplate" x:DataType="entities:AccountContact">
             <HyperlinkButton
-                Padding="4,2"
                 Margin="-2,-2"
+                Padding="4,2"
                 Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
                 CommandParameter="{x:Bind Address}"
                 Content="{x:Bind DisplayName}" />
@@ -229,9 +229,9 @@
                                 Width="36"
                                 Height="36"
                                 FontSize="16"
-                                SenderContactPicture="{x:Bind ViewModel.ContactPicture, Mode=OneWay}"
                                 FromAddress="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
-                                FromName="{x:Bind ViewModel.FromName, Mode=OneWay}" />
+                                FromName="{x:Bind ViewModel.FromName, Mode=OneWay}"
+                                SenderContactPicture="{x:Bind ViewModel.ContactPicture, Mode=OneWay}" />
 
                             <Grid
                                 Grid.Column="1"
@@ -239,8 +239,8 @@
                                 VerticalAlignment="Center">
                                 <StackPanel Spacing="1">
                                     <HyperlinkButton
-                                        Padding="4,2"
                                         Margin="-6,-2"
+                                        Padding="4,2"
                                         Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
                                         CommandParameter="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
                                         FontWeight="SemiBold">
@@ -291,7 +291,7 @@
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
                     </Grid>
-                    <Grid ColumnSpacing="6" Grid.Row="1">
+                    <Grid Grid.Row="1" ColumnSpacing="6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -363,11 +363,11 @@
                     </ListView>
 
                     <HyperlinkButton
-                        Content="{x:Bind domain:Translator.Reader_SaveAllAttachmentButtonText}"
-                        Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
-                        Visibility="{x:Bind ViewModel.HasMultipleAttachments, Mode=OneWay}"
                         Grid.Column="1"
-                        VerticalAlignment="Center" />
+                        VerticalAlignment="Center"
+                        Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
+                        Content="{x:Bind domain:Translator.Reader_SaveAllAttachmentButtonText}"
+                        Visibility="{x:Bind ViewModel.HasMultipleAttachments, Mode=OneWay}" />
                 </Grid>
 
 

@@ -3,10 +3,10 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
-    xmlns:selectors="using:Wino.Selectors"
-    xmlns:wino="using:Wino"
     xmlns:dialogs="using:Wino.Core.Domain.Models.Dialogs"
-    xmlns:styles="using:Wino.Styles">
+    xmlns:selectors="using:Wino.Selectors"
+    xmlns:styles="using:Wino.Styles"
+    xmlns:wino="using:Wino">
 
     <Application.Resources>
         <ResourceDictionary>
@@ -44,7 +44,7 @@
                     </Style>
 
                     <!--  Border style for each page's root border for separation of zones.  -->
-                    <Style TargetType="Border" x:Key="PageRootBorderStyle">
+                    <Style x:Key="PageRootBorderStyle" TargetType="Border">
                         <Setter Property="Margin" Value="7,0,7,7" />
                         <Setter Property="Background" Value="{ThemeResource WinoContentZoneBackgroud}" />
                         <Setter Property="BorderBrush" Value="{StaticResource CardStrokeColorDefaultBrush}" />
@@ -53,7 +53,7 @@
                     </Style>
 
                     <!--  Custom Grid style for info panels.  -->
-                    <Style TargetType="Grid" x:Key="InformationAreaGridStyle">
+                    <Style x:Key="InformationAreaGridStyle" TargetType="Grid">
                         <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
                         <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
                         <Setter Property="CornerRadius" Value="8" />

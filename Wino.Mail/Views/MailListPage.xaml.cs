@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Analytics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
@@ -352,9 +351,6 @@ namespace Wino.Views
                     }
 
                 }
-
-                if (!isSelected)
-                    Analytics.TrackEvent("Mail Selection Failed");
             });
         }
 

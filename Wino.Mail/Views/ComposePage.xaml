@@ -39,9 +39,9 @@
 
                 <Viewbox Width="24">
                     <controls:ImagePreviewControl
-                        SenderContactPicture="{x:Bind Base64ContactPicture}"
                         FromAddress="{x:Bind Address}"
-                        FromName="{x:Bind Name}" />
+                        FromName="{x:Bind Name}"
+                        SenderContactPicture="{x:Bind Base64ContactPicture}" />
                 </Viewbox>
 
                 <TextBlock
@@ -456,9 +456,9 @@
                     <ComboBox
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
+                        DisplayMemberPath="AliasAddress"
                         IsEditable="False"
                         ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
-                        DisplayMemberPath="AliasAddress"
                         SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}" />
 
                     <!--  To  -->
