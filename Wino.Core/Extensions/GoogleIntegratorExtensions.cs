@@ -76,7 +76,7 @@ namespace Wino.Core.Extensions
 
         public static MailItemFolder GetLocalFolder(this Label label, ListLabelsResponse labelsResponse, Guid accountId)
         {
-            bool isAllCapital = label.Name.All(a => char.IsUpper(a));
+
 
             var normalizedLabelName = GetFolderName(label);
 
@@ -92,10 +92,10 @@ namespace Wino.Core.Extensions
             // without realizing that they are hidden in Gmail settings. Therefore, it makes more sense to ignore Gmail's configuration
             // since Wino allows folder visibility configuration separately.
 
-            // Overridden hidden labels are shown in the UI, but they have their synchronization disabled.
-            // This is mainly because 'All Mails' label is hidden by default in Gmail, but there is no point to download all mails.
+            // Overridden hidden labels are shown in the UI.
+            // Also Gmail does not support folder sync enable/disable options due to history changes.
+            // By default all folders will be enabled for synchronization.
 
-            bool shouldEnableSynchronization = label.LabelListVisibility != FOLDER_HIDE_IDENTIFIER;
             bool isHidden = false;
 
             bool isChildOfCategoryFolder = label.Name.StartsWith(CATEGORY_PREFIX);
@@ -114,7 +114,7 @@ namespace Wino.Core.Extensions
                 RemoteFolderId = label.Id,
                 Id = Guid.NewGuid(),
                 MailAccountId = accountId,
-                IsSynchronizationEnabled = shouldEnableSynchronization,
+                IsSynchronizationEnabled = true,
                 SpecialFolderType = specialFolderType,
                 IsSystemFolder = isSystemFolder,
                 IsSticky = isSticky,
