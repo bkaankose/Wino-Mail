@@ -487,7 +487,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            _logger.Information("Updating {MailCopyCount} mail copies with Id {MailCopyId}", mailCopies.Count, mailCopyId);
+            _logger.Debug("Updating {MailCopyCount} mail copies with Id {MailCopyId}", mailCopies.Count, mailCopyId);
 
             foreach (var mailCopy in mailCopies)
             {
@@ -498,7 +498,7 @@ namespace Wino.Core.Services
                     await UpdateMailAsync(mailCopy).ConfigureAwait(false);
                 }
                 else
-                    _logger.Information("Skipped updating mail because it is already in the desired state.");
+                    _logger.Debug("Skipped updating mail because it is already in the desired state.");
             }
         }
 
