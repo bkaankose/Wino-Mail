@@ -19,7 +19,11 @@ namespace Wino.Core.Services
 
         public void RefreshLoggingLevel()
         {
-            _levelSwitch.MinimumLevel = _preferencesService.IsLoggingEnabled ? Serilog.Events.LogEventLevel.Debug : Serilog.Events.LogEventLevel.Fatal;
+#if DEBUG
+            _levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
+#else
+            _levelSwitch.MinimumLevel = _preferencesService.IsLoggingEnabled ? Serilog.Events.LogEventLevel.Information : Serilog.Events.LogEventLevel.Fatal;
+#endif
         }
 
         public void SetupLogger(string fullLogFilePath)
