@@ -168,8 +168,6 @@ namespace Wino.Core.Integration.Processors
         public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
             => MailService.GetDownloadedUnreadMailsAsync(accountId, downloadedMailCopyIds);
 
-
-
         public Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
             => _mimeFileService.SaveMimeMessageAsync(fileId, mimeMessage, accountId);
 
