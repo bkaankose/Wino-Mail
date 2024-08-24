@@ -341,6 +341,9 @@ namespace Wino.Core.Synchronizers
                         if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
                         {
                             existingLocalFolder.FolderName = remoteFolder.Name;
+                            existingLocalFolder.TextColorHex = remoteFolder.Color?.TextColor;
+                            existingLocalFolder.BackgroundColorHex = remoteFolder.Color?.BackgroundColor;
+
                             updatedFolders.Add(existingLocalFolder);
                         }
                         else
@@ -370,7 +373,13 @@ namespace Wino.Core.Synchronizers
         }
 
         private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)
-            => existingLocalFolder.FolderName.Equals(GoogleIntegratorExtensions.GetFolderName(remoteFolder), StringComparison.OrdinalIgnoreCase) == false;
+        {
+            bool isNameChanged = !existingLocalFolder.FolderName.Equals(GoogleIntegratorExtensions.GetFolderName(remoteFolder), StringComparison.OrdinalIgnoreCase);
+            bool isColorChanged = existingLocalFolder.BackgroundColorHex != remoteFolder.Color?.BackgroundColor ||
+                    existingLocalFolder.TextColorHex != remoteFolder.Color?.TextColor;
+
+            return isNameChanged || isColorChanged;
+        }
 
         /// <summary>
         /// Returns a single get request to retrieve the raw message with the given id
