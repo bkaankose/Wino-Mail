@@ -146,7 +146,7 @@ namespace Wino.Core.MenuItems
             accountMenuItem ??= this.OfType<MergedAccountMenuItem>()
                 .FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId))?.SubMenuItems
                 .OfType<AccountMenuItem>()
-                .FirstOrDefault();
+                .FirstOrDefault(a => a.AccountId == accountId);
 
             return accountMenuItem;
         }
