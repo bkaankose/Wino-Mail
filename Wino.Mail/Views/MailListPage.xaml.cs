@@ -26,8 +26,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
