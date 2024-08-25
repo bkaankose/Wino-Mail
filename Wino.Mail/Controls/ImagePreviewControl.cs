@@ -1,6 +1,11 @@
 ﻿using System;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Fernandezja.ColorHashSharp;
+using Windows.Graphics.Display;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -140,6 +145,51 @@ namespace Wino.Controls
             }
 
             return initials.ToUpperInvariant();
+        }
+
+
+        /// <summary>
+        /// Directly get preview image rather than re-searching it through the Thumbnail service
+        /// </summary>
+        /// <returns><see langword="Null"/> if there is no image set</returns>
+        public async Task<BitmapImage> GetKnownHostImageAsync()
+        {
+            if (KnownHostImage == null || KnownHostImage.Visibility == Visibility.Collapsed) { return null; }
+
+            var bmp = new RenderTargetBitmap();
+
+            await bmp.RenderAsync(KnownHostImage);
+
+            InMemoryRandomAccessStream stream = new InMemoryRandomAccessStream();
+            var buffer = await bmp.GetPixelsAsync();
+            //  await stream.ReadAsync(buffer, (uint)buffer.Length, InputStreamOptions.None);
+            BitmapImage img = new BitmapImage();
+            var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
+            encoder.SetPixelData(
+                BitmapPixelFormat.Bgra8,
+                BitmapAlphaMode.Straight,
+                (uint)bmp.PixelWidth,
+                (uint)bmp.PixelHeight,
+                DisplayInformation.GetForCurrentView().LogicalDpi,
+                DisplayInformation.GetForCurrentView().LogicalDpi,
+                buffer.ToArray());
+            await encoder.FlushAsync();
+            await img.SetSourceAsync(stream);
+
+            return img;
+        }
+
+        /// <summary>
+        /// Set thumbnail image directly using a bitmap rather than going through ThumbnailService
+        /// </summary>
+        /// <param name="img"></param>
+        public void SetThumbnailImage(BitmapImage img)
+        {
+            if (KnownHostImage == null)
+            {
+                KnownHostImage = new Image();
+            }
+            KnownHostImage.Source = img;
         }
     }
 }

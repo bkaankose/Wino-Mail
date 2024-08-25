@@ -241,6 +241,9 @@
       <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controls\ControlConstants.cs" />
+    <Compile Include="Controls\MailItemDragPopup.xaml.cs">
+      <DependentUpon>MailItemDragPopup.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\SettingsMenuItemControl.cs" />
     <Compile Include="Controls\Advanced\WinoListView.cs" />
     <Compile Include="Controls\WinoFontIconSource.cs" />
@@ -472,6 +475,10 @@
       <SubType>Designer</SubType>
     </Content>
     <Page Include="Controls\Advanced\WinoAppTitleBar.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controls\MailItemDragPopup.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

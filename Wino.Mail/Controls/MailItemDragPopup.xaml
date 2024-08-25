@@ -1,0 +1,155 @@
+﻿<UserControl
+    x:Class="Wino.Controls.MailItemDragPopup"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Wino.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:ui="using:CommunityToolkit.WinUI"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    Loaded="UserControl_Loaded"
+    Opacity="0"
+    d:Opacity="1"
+    mc:Ignorable="d"
+    d:DesignHeight="300"
+    d:DesignWidth="400">
+    <Grid x:Name="PopupRootGrid">
+        <Grid.Resources>
+            <Storyboard x:Name="DragPopupFadeOutAnimation">
+                <DoubleAnimation From="0.5" To="0" Duration="00:00:00.15" Storyboard.TargetName="PopupRootGrid" Storyboard.TargetProperty="Opacity" />
+            </Storyboard>
+            <Storyboard x:Name="DragPopupDroppedAnimation">
+                <DoubleAnimation From="0.5" To="0" Duration="00:00:00.2" Storyboard.TargetName="PopupRootGrid" Storyboard.TargetProperty="Opacity">
+                    <DoubleAnimation.EasingFunction>
+                        <QuadraticEase EasingMode="EaseIn"/>
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation From="1" To="0.1" Duration="00:00:00.2" Storyboard.TargetName="DragPopupScaleTransform" Storyboard.TargetProperty="ScaleX">
+                    <DoubleAnimation.EasingFunction>
+                        <QuadraticEase EasingMode="EaseIn"/>
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation From="1" To="0.1" Duration="00:00:00.2" Storyboard.TargetName="DragPopupScaleTransform" Storyboard.TargetProperty="ScaleY">
+                    <DoubleAnimation.EasingFunction>
+                        <QuadraticEase EasingMode="EaseIn"/>
+                    </DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+            </Storyboard>
+        </Grid.Resources>
+
+        <Grid.RenderTransform>
+            <ScaleTransform x:Name="DragPopupScaleTransform" ScaleX="1" ScaleY="1" CenterX="0" CenterY="0" />
+        </Grid.RenderTransform>
+
+        <Grid x:Name="SingleItemGrid" HorizontalAlignment="Left" VerticalAlignment="Top" d:Visibility="Visible">
+            <Border x:Name="DragPopup"
+                BorderThickness="0"
+                Padding="14,7,0,7"
+                Width="300"
+                Height="50"
+                Opacity="1"
+                IsHitTestVisible="False"
+                CornerRadius="5"
+                HorizontalAlignment="center"
+                VerticalAlignment="center" Background="{StaticResource SystemAccentColor}">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Spacing="10">
+                    <controls:ImagePreviewControl
+                        x:Name="DragPopupImage"
+                        Height="30"
+                        Width="30"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        />
+                    <StackPanel Orientation="Vertical" Width="232">
+                        <TextBlock x:Name="DragPopupHeaderText" d:Text="This is a single item" FontSize="14px" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="DragPopupSubjectText" d:Text="Subject goes here..." FontSize="13px" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" Margin="0,-2,0,0" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border x:Name="SingleSelectCaption" Margin="0 10 0 0" HorizontalAlignment="Center" VerticalAlignment="bottom" Background="{StaticResource SystemAccentColor}" CornerRadius="7.5" Padding="10 3">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="26" />
+                </Border.RenderTransform>
+                <StackPanel x:Name="SingleSelectCaptionStackpanel" Orientation="Horizontal" VerticalAlignment="center" HorizontalAlignment="center" Spacing="0">
+                    <FontIcon x:Name="SingleSelectCaptionIcon" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" FontSize="11" Visibility="Collapsed" VerticalAlignment="center"/>
+                    <TextBlock x:Name="SingleSelectCaptionText" d:Text="Caption Text Goes Here" FontSize="12px" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" VerticalAlignment="center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="MultiItemGrid" HorizontalAlignment="Left" VerticalAlignment="Top" d:Visibility="Visible" d:Margin="0 100 0 0">
+            <Border
+                x:Name="MultiDragPopup3"
+                Margin="0 0 0 0"
+                BorderThickness="0"
+                Padding="14 7 25 7"
+                Width="280"
+                Height="50"
+                Opacity="0.2"
+                IsHitTestVisible="False"
+                CornerRadius="5"
+                HorizontalAlignment="center"
+                VerticalAlignment="center" Background="{StaticResource SystemAccentColor}">
+                <Border.RenderTransform>
+                    <CompositeTransform TranslateY="12"/>
+                </Border.RenderTransform>
+            </Border>
+            
+            <Border
+                x:Name="MultiDragPopup2"
+                Margin="0 0 0 0"
+                BorderThickness="0"
+                Padding="14 7 25 7"
+                Width="290"
+                Height="50"
+                Opacity="0.6"
+                IsHitTestVisible="False"
+                CornerRadius="5"
+                HorizontalAlignment="center"
+                VerticalAlignment="center" Background="{StaticResource SystemAccentColor}">
+                <Border.RenderTransform>
+                    <CompositeTransform TranslateY="6"/>
+                </Border.RenderTransform>
+            </Border>
+            
+            <Border x:Name="DragPopup2"
+                BorderThickness="0"
+                Padding="14 7 0 7"
+                Width="300"
+                Height="50"
+                Opacity="1"
+                IsHitTestVisible="False"
+                CornerRadius="5"
+                HorizontalAlignment="center"
+                VerticalAlignment="center" Background="{StaticResource SystemAccentColor}">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Spacing="10">
+                    <controls:ImagePreviewControl
+                    x:Name="DragPopupImage2"
+                    Height="30"
+                    Width="30"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    FontSize="10"
+                    />
+                    <StackPanel Orientation="Vertical" Width="232">
+                        <TextBlock x:Name="DragPopupHeaderText2" d:Text="This is a group of items" FontSize="14px" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" FontWeight="Bold"/>
+                        <TextBlock x:Name="DragPopupSubjectText2" d:Text="Subject goes here..." FontSize="13px" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" Margin="0,-2,0,0" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Margin="0 10 0 0" HorizontalAlignment="Center" VerticalAlignment="bottom" Background="{StaticResource SystemAccentColor}" CornerRadius="7.5" Padding="10 3">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="26" />
+                </Border.RenderTransform>
+                <StackPanel x:Name="MultiSelectCaptionStackpanel" Orientation="Horizontal" VerticalAlignment="center" HorizontalAlignment="center" Spacing="0" d:Spacing="6">
+                    <FontIcon x:Name="MultiSelectCaptionIcon" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" FontSize="11" Visibility="Collapsed" d:Visibility="Visible" d:Glyph="&#xE735;" VerticalAlignment="center"/>
+                    <TextBlock x:Name="MultiSelectCaptionText" d:Text="It can have an icon too!" FontSize="12px" Foreground="{StaticResource TextOnAccentFillColorSelectedTextBrush}" VerticalAlignment="center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

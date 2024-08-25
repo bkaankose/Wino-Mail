@@ -1,11 +1,13 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Numerics;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media.Imaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
@@ -277,6 +279,11 @@ namespace Wino.Controls
         private void ThirdActionClicked(object sender, RoutedEventArgs e)
         {
             ExecuteHoverAction(RightHoverAction);
+        }
+
+        public async Task<BitmapImage> getThumbnailImageAsync()
+        {
+            return await ContactImage.GetKnownHostImageAsync();
         }
     }
 }

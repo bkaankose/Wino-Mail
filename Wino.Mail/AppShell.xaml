@@ -185,6 +185,7 @@
                 DragEnter="ItemDragEnterOnFolder"
                 DragLeave="ItemDragLeaveFromFolder"
                 Drop="ItemDroppedOnFolder"
+                OnDragOverBackground="{ThemeResource AccentFillColorSecondaryBrush}"
                 FontSize="50"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -531,5 +532,8 @@
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
             ReadingPaneLength="{x:Bind ViewModel.StatePersistenceService.MailListPaneLength, Mode=OneWay}"
             SystemReserved="180" />
+
+        <!-- Use this to Render things above all other UI like popups and effects -->
+        <Canvas x:Name="ShellOverlayCanvas" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Column="1" Grid.Row="1" />
     </Grid>
 </abstract:AppShellAbstract>

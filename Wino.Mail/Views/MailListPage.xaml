@@ -250,7 +250,11 @@
                     RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
                     ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
                     Snippet="{x:Bind PreviewText}"
-                    Subject="{x:Bind Subject}" />
+                    Subject="{x:Bind Subject}"
+                    CanDrag="True"
+                    Tapped="MailItemDisplayInformationControl_Tapped"
+                    DragStarting="MailItemDisplayInformationControl_DragStarting"
+                    />
             </muxc:SwipeControl>
         </DataTemplate>
 
@@ -832,7 +836,7 @@
             </StackPanel>
         </Grid>
 
-
+        
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="AdaptiveStates" CurrentStateChanged="AdaptivenessChanged">
                 <VisualState x:Name="NormalState">

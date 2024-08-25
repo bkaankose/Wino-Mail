@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using DynamicData;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Windows.Foundation;
+using Windows.System;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -24,6 +28,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Messages.Mails;
 using Wino.Core.Messages.Shell;
+using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.MenuFlyouts.Context;
@@ -47,6 +52,8 @@ namespace Wino.Views
         private IPreferencesService PreferencesService { get; } = App.Current.Services.GetService<IPreferencesService>();
         private IKeyPressService KeyPressService { get; } = App.Current.Services.GetService<IKeyPressService>();
 
+        private MailItemDragPopup DragPopup = null;
+
         public MailListPage()
         {
             InitializeComponent();
@@ -58,6 +65,23 @@ namespace Wino.Views
 
             // Bindings.Update();
 
+            var windowContent = (Frame)Window.Current.Content;
+
+            windowContent.AllowDrop = true;
+            windowContent.DragOver += MailListView_DragOver;
+            windowContent.Drop += root_Drop;
+
+            // Here we add a new MailItemDragPopup to the overlay canvas in the AppShell.xaml container Page for more a aesthetically pleasing
+            // and easier to work with drag+drop UI. We put it in the container page so that the drag popup control can be seen over
+            // all other elements as well as go to any part of the page without being clipped by the bounds of this child page.
+            //
+            // TODO: In the future, create a better way to add things to the overlay canvas, maybe some sort of
+            //       API so that more things can be added to the overlay like tooltips and popups.
+
+            var overlayCanvas = ((AppShell)windowContent.Content).GetChildByName<Canvas>("ShellOverlayCanvas");
+            DragPopup = new MailItemDragPopup() { Name = "DragPopupOverlay" };
+            overlayCanvas.Children.Add(DragPopup);
+
             // Delegate to ViewModel.
             if (e.Parameter is NavigateMailFolderEventArgs folderNavigationArgs)
             {
@@ -68,6 +92,12 @@ namespace Wino.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+
+            var windowContent = (Frame)Window.Current.Content;
+
+            windowContent.AllowDrop = false;
+            windowContent.DragOver -= MailListView_DragOver;
+            windowContent.Drop -= root_Drop;
 
             this.Bindings.StopTracking();
 
@@ -475,11 +505,13 @@ namespace Wino.Views
         /// Thread header is mail info display control and it can be dragged spearately out of ListView.
         /// We need to prepare a drag package for it from the items inside.
         /// </summary>
-        private void ThreadHeaderDragStart(UIElement sender, DragStartingEventArgs args)
+        private async void ThreadHeaderDragStart(UIElement sender, DragStartingEventArgs args)
         {
             if (sender is MailItemDisplayInformationControl control
                 && control.ConnectedExpander?.Content is WinoListView contentListView)
             {
+                var def = args.GetDeferral();
+
                 var allItems = contentListView.Items.Where(a => a is IMailItem);
 
                 // Highlight all items.
@@ -491,9 +523,15 @@ namespace Wino.Views
                 var dragPackage = new MailDragPackage(allItems.Cast<IMailItem>());
 
                 args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
-                args.DragUI.SetContentFromDataPackage();
+                args.Data.Properties["DragPopup"] = DragPopup;
+
+                var thumbnail = await ((MailItemDisplayInformationControl)sender).getThumbnailImageAsync();
+                var img = await DragPopup.InitializeAndRenderDragPopupAsync(allItems.Cast<IMailItem>().ToArray(), thumbnail);
+                args.DragUI.SetContentFromBitmapImage(img, new Point(0, 0));
 
                 control.ConnectedExpander.IsExpanded = true;
+
+                def.Complete();
             }
         }
 
@@ -567,6 +605,122 @@ namespace Wino.Views
         public void Receive(DisposeRenderingFrameRequested message)
         {
             ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
+        }
+
+        private void MailItemDisplayInformationControl_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            // Because adding drag-events to the listview item prevents the default multiselection behavior
+            // we have to manually implement them here :(
+            if (Window.Current.CoreWindow.GetKeyState(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down))
+            {
+                if (Window.Current.CoreWindow.GetKeyState(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down)) // Ctrl + Shift Click
+                {
+                    var targetItemIndex = MailListView.IndexFromContainer(MailListView.ContainerFromItem(((MailItemDisplayInformationControl)sender).DataContext));
+                    MailListView.SelectRange(targetItemIndex, deselect: false);
+                }
+                else
+                {
+                    if (MailListView.SelectedItems.Contains(((MailItemDisplayInformationControl)sender).DataContext))
+                    {
+                        MailListView.SelectedItems.Remove(((MailItemDisplayInformationControl)sender).DataContext);
+                    }
+                    else
+                    {
+                        MailListView.SelectSingleItem((IMailItem)((MailItemDisplayInformationControl)sender).DataContext);
+                    }
+                }
+            }
+            else if (Window.Current.CoreWindow.GetKeyState(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down))
+            {
+                var targetItemIndex = MailListView.IndexFromContainer(MailListView.ContainerFromItem(((MailItemDisplayInformationControl)sender).DataContext));
+                MailListView.SelectRange(targetItemIndex);
+            }
+            else
+            {
+                MailListView.SelectedItems.Clear();
+                MailListView.SelectSingleItem((IMailItem)((MailItemDisplayInformationControl)sender).DataContext);
+            }
+        }
+
+        async private void MailItemDisplayInformationControl_DragStarting(UIElement sender, DragStartingEventArgs args)
+        {
+            var def = args.GetDeferral();
+            var mailitem = (IMailItem)((MailItemDisplayInformationControl)sender).DataContext;
+
+            MailDragPackage dragPackage;
+
+            if (MailListView.SelectedItems.Contains(mailitem))
+            {
+                List<IMailItem> mailItems = new List<IMailItem>();
+                foreach (IMailItem item in MailListView.SelectedItems)
+                {
+                    mailItems.Add(item);
+                }
+                dragPackage = new MailDragPackage(mailItems);
+            }
+            else
+            {
+                dragPackage = new MailDragPackage(mailitem);
+            }
+
+            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
+            args.Data.Properties.Add("DragPopup", DragPopup);
+
+            // get all selected mail items
+            IMailItem[] selectedItems;
+            if (MailListView.SelectedItems.Contains(mailitem))
+            {
+                selectedItems = new IMailItem[MailListView.SelectedItems.Count];
+                selectedItems = new IMailItem[MailListView.SelectedItems.Count];
+                for (int i = 0; i < selectedItems.Length; i++)
+                {
+                    selectedItems[i] = MailListView.SelectedItems[i] as IMailItem;
+                }
+            }
+            else
+            {
+                selectedItems = new IMailItem[] { mailitem };
+            }
+
+            // update dragui image
+            var thumbnail = await (sender as MailItemDisplayInformationControl).getThumbnailImageAsync();
+            var img = await DragPopup.InitializeAndRenderDragPopupAsync(selectedItems.ToArray(), thumbnail);
+            args.DragUI.SetContentFromBitmapImage(img, new Point(0, 0));
+
+            def.Complete();
+        }
+
+        private async void MailListView_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.DataView.Properties.ContainsKey("DragPopup"))
+            {
+                // no logic is actually done here, all we do is hide the caption and glyph on the dragged over mail item
+                var def = e.GetDeferral();
+
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+                e.DragUIOverride.IsCaptionVisible = false;
+                e.DragUIOverride.IsGlyphVisible = false;
+
+                // for some reason, image doesn't update when drag leaves folder
+                // this fixes that by regenerating & applying image
+                e.DragUIOverride.SetContentFromBitmapImage(await DragPopup.GenerateBitmap(), new Point(0, 0));
+
+                def.Complete();
+            }
+        }
+
+        private void root_Drop(object sender, DragEventArgs e)
+        {
+            if (e.DataView.Properties.ContainsKey("DragPopup"))
+            {
+                if (e.Handled) return;
+                var def = e.GetDeferral();
+
+                DragPopup.MoveToMouse(e);
+                DragPopup.Hide(MailItemDragPopup.HideAnimation.FadeOut);
+
+                def.Complete();
+            }
         }
     }
 }

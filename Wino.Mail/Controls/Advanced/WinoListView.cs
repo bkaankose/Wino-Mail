@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Serilog;
@@ -25,6 +26,10 @@ namespace Wino.Controls.Advanced
 
         private const string PART_ScrollViewer = "ScrollViewer";
         private ScrollViewer internalScrollviewer;
+
+        // These two variables are used for Shift-Click logic
+        private int selectRangePivot = -1;
+        private int selectRangeLastSelected = -1;
 
         /// <summary>
         /// Gets or sets whether this ListView belongs to thread items.
@@ -54,7 +59,7 @@ namespace Wino.Controls.Advanced
 
         public WinoListView()
         {
-            CanDragItems = true;
+            CanDragItems = false;
             IsItemClickEnabled = true;
             IsMultiSelectCheckBoxEnabled = true;
             IsRightTapEnabled = true;
@@ -280,6 +285,65 @@ namespace Wino.Controls.Advanced
             });
         }
 
+        /// <summary>
+        /// Assuming one or more item is already selected, selects all items from a 'pivot item' to a specified end index
+        /// <para>Used for implementing default UWP "Shift" select behavior</para>
+        /// </summary>
+        /// <param name="endIndex">Index of last item in range</param>
+        /// <param name="deselect">Whether or not to deselect previously selected items</param>
+        public void SelectRange(int endIndex, bool deselect = true)
+        {
+            if (SelectedItems.Count == 0)
+            {
+                SelectedItems.Add(Items[endIndex]);
+                return;
+            }
+
+            if (selectRangePivot == -1)
+            {
+                // set to first selected item
+                selectRangePivot = IndexFromContainer(ContainerFromItem(SelectedItems.First()));
+            }
+
+            // selected range pivot should be less than endIndex
+            var originalPivot = selectRangePivot; // used for preserving pivot
+            var adjustedPivot = selectRangePivot; // used for ensuring start index < end index
+            if (endIndex < selectRangePivot)
+            {
+                var temp = selectRangePivot;
+                adjustedPivot = endIndex;
+                endIndex = temp;
+            }
+
+            if (deselect)
+            {
+                this.DeselectAll();
+            }
+
+            for (int i = adjustedPivot; i <= endIndex; i++)
+            {
+                this.SelectedItems.Add(this.Items[i]);
+
+                //if (i == endIndex)
+                //{
+                //    selectRangeLastSelected = i;
+                //}
+            }
+
+            selectRangePivot = originalPivot; // preserve pivot
+
+            // You'd this we could do something like this:
+            //
+            // SelectRange(new Windows.UI.Xaml.Data.ItemIndexRange(selectRangePivot, count));
+            // uint count = (uint)(endIndex - selectRangePivot) + 1;
+            //
+            // But to fully emulate the default ListView multi-select behavior, we need to Deselect all
+            // before selecting the new range. However, running DeselectAll() or DeselectRange() before SelectRange
+            // causes the SelectRange to not take effect!
+            //
+            // The only workaround I found was to manually set the SelectedItems list
+        }
+
         // SelectedItems changed.
         private void SelectedItemsChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -348,6 +412,28 @@ namespace Wino.Controls.Advanced
                     }
                 }
             }
+
+            if (SelectedItems.Count == 0)
+            {
+                selectRangePivot = -1;
+                selectRangeLastSelected = -1;
+            } else
+            {
+                selectRangeLastSelected = IndexFromContainer(ContainerFromItem(SelectedItems.Last()));
+            }
+        }
+
+        public void SelectSingleItem(IMailItem mailitem)
+        {
+            var newItemIndex = IndexFromContainer(ContainerFromItem(mailitem));
+
+            if (newItemIndex > selectRangeLastSelected + 1 || newItemIndex < selectRangeLastSelected - 1)
+            {
+                selectRangePivot = newItemIndex;
+                selectRangeLastSelected = newItemIndex;
+            }
+
+            SelectedItems.Add(mailitem);
         }
 
         private WinoListView GetThreadInternalListView(ThreadMailItemViewModel threadMailItemViewModel)
