@@ -184,43 +184,44 @@ namespace Wino.Mail.ViewModels
 
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
-            // Group accounts by merged account.
-            var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId).OrderBy(a => a.Key != null);
+            List<Guid> initializedAccountIds = new();
 
-            foreach (var group in groupedAccounts)
+            foreach (var account in accounts)
             {
-                var mergedInboxId = group.Key;
+                // Already initialized with one of the previous merged accounts.
 
-                if (mergedInboxId == null)
+                if (initializedAccountIds.Contains(account.Id)) continue;
+
+                bool isMergedAccount = account.MergedInboxId != null;
+
+                if (isMergedAccount)
                 {
-                    // Single accounts.
-                    // Preserve the order while listing.
+                    var mergedAccountId = account.MergedInboxId.Value;
+                    var mergedAccounts = accounts.Where(a => a.MergedInboxId == mergedAccountId);
+                    var mergedInbox = mergedAccounts.First().MergedInbox;
 
-                    var orderedGroup = group.OrderBy(a => a.Order);
+                    var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, mergedAccounts, null);
 
-                    foreach (var account in orderedGroup)
+                    foreach (var mergedAccount in mergedAccounts)
                     {
-                        await ExecuteUIThread(() =>
-                        {
-                            MenuItems.Add(new AccountMenuItem(account, null));
-                        });
-                    }
-                }
-                else
-                {
-                    // Merged accounts.
-                    var mergedInbox = group.First().MergedInbox;
-                    var mergedAccountMenuItem = new MergedAccountMenuItem(mergedInbox, group, null);
-
-                    foreach (var accountItem in group)
-                    {
-                        mergedAccountMenuItem.SubMenuItems.Add(new AccountMenuItem(accountItem, mergedAccountMenuItem));
+                        initializedAccountIds.Add(mergedAccount.Id);
+                        mergedAccountMenuItem.SubMenuItems.Add(new AccountMenuItem(mergedAccount, mergedAccountMenuItem));
                     }
 
                     await ExecuteUIThread(() =>
                     {
                         MenuItems.Add(mergedAccountMenuItem);
                     });
+
+                }
+                else
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        MenuItems.Add(new AccountMenuItem(account, null));
+                    });
+
+                    initializedAccountIds.Add(account.Id);
                 }
             }
 
@@ -1004,7 +1005,8 @@ namespace Wino.Mail.ViewModels
             {
                 if (!MenuItems.TryGetAccountMenuItem(item.Key, out IAccountMenuItem menuItem)) return;
 
-                MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value);
+                // Adding +1 since first item is always reserved for CreateMailMenuItem.
+                MenuItems.Move(MenuItems.IndexOf(menuItem), item.Value + 1);
             }
         }
 
