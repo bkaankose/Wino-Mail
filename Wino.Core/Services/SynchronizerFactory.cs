@@ -13,6 +13,7 @@ namespace Wino.Core.Services
         private bool isInitialized = false;
 
         private readonly IAccountService _accountService;
+        private readonly IApplicationConfiguration _applicationConfiguration;
         private readonly IOutlookChangeProcessor _outlookChangeProcessor;
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
         private readonly IImapChangeProcessor _imapChangeProcessor;
@@ -26,7 +27,8 @@ namespace Wino.Core.Services
                                    IImapChangeProcessor imapChangeProcessor,
                                    IOutlookAuthenticator outlookAuthenticator,
                                    IGmailAuthenticator gmailAuthenticator,
-                                   IAccountService accountService)
+                                   IAccountService accountService,
+                                   IApplicationConfiguration applicationConfiguration)
         {
             _outlookChangeProcessor = outlookChangeProcessor;
             _gmailChangeProcessor = gmailChangeProcessor;
@@ -34,6 +36,7 @@ namespace Wino.Core.Services
             _outlookAuthenticator = outlookAuthenticator;
             _gmailAuthenticator = gmailAuthenticator;
             _accountService = accountService;
+            _applicationConfiguration = applicationConfiguration;
         }
 
         public async Task<IBaseSynchronizer> GetAccountSynchronizerAsync(Guid accountId)
@@ -67,7 +70,7 @@ namespace Wino.Core.Services
                 case Domain.Enums.MailProviderType.Gmail:
                     return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor);
                 case Domain.Enums.MailProviderType.IMAP4:
-                    return new ImapSynchronizer(mailAccount, _imapChangeProcessor);
+                    return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration);
                 default:
                     break;
             }

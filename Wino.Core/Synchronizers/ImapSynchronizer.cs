@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,6 +37,7 @@ namespace Wino.Core.Synchronizers
         private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
         private readonly ImapClientPool _clientPool;
         private readonly IImapChangeProcessor _imapChangeProcessor;
+        private readonly IApplicationConfiguration _applicationConfiguration;
 
         // Minimum summary items to Fetch for mail synchronization from IMAP.
         private readonly MessageSummaryItems mailSynchronizationFlags =
@@ -63,12 +65,28 @@ namespace Wino.Core.Synchronizers
         public override uint BatchModificationSize => 1000;
         public override uint InitialMessageDownloadCountPerFolder => 250;
 
-        public ImapSynchronizer(MailAccount account, IImapChangeProcessor imapChangeProcessor) : base(account)
+        public ImapSynchronizer(MailAccount account,
+                                IImapChangeProcessor imapChangeProcessor,
+                                IApplicationConfiguration applicationConfiguration) : base(account)
         {
-            _clientPool = new ImapClientPool(Account.ServerInformation);
+            // Create client pool with account protocol log.
             _imapChangeProcessor = imapChangeProcessor;
+            _applicationConfiguration = applicationConfiguration;
 
+            _clientPool = new ImapClientPool(Account.ServerInformation, CreateAccountProtocolLogFileStream());
             idleDoneToken = new CancellationTokenSource();
+        }
+
+        private Stream CreateAccountProtocolLogFileStream()
+        {
+            if (Account == null) throw new ArgumentNullException(nameof(Account));
+
+            var logFile = Path.Combine(_applicationConfiguration.ApplicationDataFolderPath, $"Protocol_{Account.Address}.log");
+
+            // Each session should start a new log.
+            if (File.Exists(logFile)) File.Delete(logFile);
+
+            return new FileStream(logFile, FileMode.CreateNew);
         }
 
         // TODO
@@ -265,7 +283,6 @@ namespace Wino.Core.Synchronizers
         {
             return CreateTaskBundle(async (ImapClient client) =>
             {
-
                 var remoteDraftFolder = await client.GetFolderAsync(request.DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId).ConfigureAwait(false);
 
                 await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
