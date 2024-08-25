@@ -614,8 +614,6 @@ namespace Wino.Mail.ViewModels
 
             try
             {
-                await listManipulationSemepahore.WaitAsync();
-
                 if (ActiveFolder == null) return;
 
                 // At least accounts must match.
@@ -630,6 +628,8 @@ namespace Wino.Mail.ViewModels
 
                 // Item should be prevented from being added to the list due to filter.
                 if (!shouldPreventIgnoringFilter && ShouldPreventItemAdd(addedMail)) return;
+
+                await listManipulationSemepahore.WaitAsync();
 
                 await MailCollection.AddAsync(addedMail);
 
@@ -762,12 +762,17 @@ namespace Wino.Mail.ViewModels
                 // Folder is changed during initialization.
                 // Just cancel the existing one and wait for new initialization.
 
-                if (listManipulationSemepahore.CurrentCount == 0)
-                {
-                    Debug.WriteLine("Canceling initialization of mails.");
+                //if (listManipulationSemepahore.CurrentCount == 0)
+                //{
+                //    Debug.WriteLine("Canceling initialization of mails.");
 
+                //    listManipulationCancellationTokenSource.Cancel();
+                //    listManipulationCancellationTokenSource.Token.ThrowIfCancellationRequested();
+                //}
+
+                if (!listManipulationCancellationTokenSource.IsCancellationRequested)
+                {
                     listManipulationCancellationTokenSource.Cancel();
-                    listManipulationCancellationTokenSource.Token.ThrowIfCancellationRequested();
                 }
 
                 listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -794,15 +799,18 @@ namespace Wino.Mail.ViewModels
                                                                               SearchQuery,
                                                                               MailCollection.MailCopyIdHashSet);
 
-                var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
+                var items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 
-                // Here they are already threaded if needed.
-                // We don't need to insert them one by one.
-                // Just create VMs and do bulk insert.
+                if (!listManipulationCancellationTokenSource.IsCancellationRequested)
+                {
+                    // Here they are already threaded if needed.
+                    // We don't need to insert them one by one.
+                    // Just create VMs and do bulk insert.
 
-                var viewModels = PrepareMailViewModels(items);
+                    var viewModels = PrepareMailViewModels(items);
 
-                await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, true); });
+                    await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, true); });
+                }
             }
             catch (OperationCanceledException)
             {

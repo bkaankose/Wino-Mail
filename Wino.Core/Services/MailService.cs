@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
@@ -193,7 +194,7 @@ namespace Wino.Core.Services
             return query.GetRawQuery();
         }
 
-        public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options)
+        public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
         {
             var query = BuildMailFetchQuery(options);
 
@@ -216,6 +217,8 @@ namespace Wino.Core.Services
 
             if (!options.CreateThreads)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Threading is disabled. Just return everything as it is.
                 mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
 
@@ -229,6 +232,8 @@ namespace Wino.Core.Services
             // Each account items must be threaded separately.
             foreach (var group in mails.GroupBy(a => a.AssignedAccount.Id))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var accountId = group.Key;
                 var groupAccount = mails.First(a => a.AssignedAccount.Id == accountId).AssignedAccount;
 
@@ -242,6 +247,7 @@ namespace Wino.Core.Services
                 // Almost everything already should be in cache from initial population.
                 foreach (var mail in accountThreadedItems)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache).ConfigureAwait(false);
                 }
 
@@ -252,6 +258,7 @@ namespace Wino.Core.Services
             }
 
             threadedItems.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
+            cancellationToken.ThrowIfCancellationRequested();
 
             return threadedItems;
 

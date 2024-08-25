@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using MimeKit;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Models.MailItem;
 
@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Interfaces
     {
         Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
         Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId);
-        Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options);
+        Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Deletes all mail copies for all folders.
