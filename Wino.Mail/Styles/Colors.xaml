@@ -9,6 +9,9 @@
 
     <SolidColorBrush x:Key="FolderSyncBrush">#1abc9c</SolidColorBrush>
 
+    <SolidColorBrush x:Key="AliasUnverifiedBrush">#ff7675</SolidColorBrush>
+    <SolidColorBrush x:Key="AliasVerifiedBrush">#1abc9c</SolidColorBrush>
+
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>

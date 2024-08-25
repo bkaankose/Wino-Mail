@@ -1,16 +1,16 @@
 ﻿using System;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
-using Newtonsoft.Json;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Views.Settings;
 
 namespace Wino.Dialogs
@@ -19,7 +19,11 @@ namespace Wino.Dialogs
     {
         private Func<Task<string>> _getHTMLBodyFunction;
         private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
+
         private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
+        private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
+        private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+
         public AccountSignature Result;
 
         public bool IsComposerDarkMode
@@ -36,7 +40,7 @@ namespace Wino.Dialogs
 
             SignatureNameTextBox.Header = Translator.SignatureEditorDialog_SignatureName_TitleNew;
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,FontAccess");
 
             // TODO: Should be added additional logic to enable/disable primary button when webview content changed.
             IsPrimaryButtonEnabled = true;
@@ -74,7 +78,7 @@ namespace Wino.Dialogs
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonConvert.DeserializeObject<string>(editorContent);
+                return JsonSerializer.Deserialize<string>(editorContent);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -189,7 +193,7 @@ namespace Wino.Dialogs
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";
@@ -275,6 +279,7 @@ namespace Wino.Dialogs
             await _domLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
+            await InitializeEditorAsync();
 
             if (string.IsNullOrEmpty(htmlBody))
             {
@@ -286,6 +291,16 @@ namespace Wino.Dialogs
 
                 await FocusEditorAsync();
             }
+        }
+
+        private async Task<string> InitializeEditorAsync()
+        {
+            var fonts = _fontService.GetFonts();
+            var composerFont = _preferencesService.ComposerFont;
+            int composerFontSize = _preferencesService.ComposerFontSize;
+            var readerFont = _preferencesService.ReaderFont;
+            int readerFontSize = _preferencesService.ReaderFontSize;
+            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
         private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
@@ -312,43 +327,43 @@ namespace Wino.Dialogs
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
 
-            if (change.type == "bold")
+            if (change.Type == "bold")
             {
-                BoldButton.IsChecked = change.value == "true";
+                BoldButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "italic")
+            else if (change.Type == "italic")
             {
-                ItalicButton.IsChecked = change.value == "true";
+                ItalicButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "underline")
+            else if (change.Type == "underline")
             {
-                UnderlineButton.IsChecked = change.value == "true";
+                UnderlineButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "strikethrough")
+            else if (change.Type == "strikethrough")
             {
-                StrokeButton.IsChecked = change.value == "true";
+                StrokeButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "ol")
+            else if (change.Type == "ol")
             {
-                OrderedListButton.IsChecked = change.value == "true";
+                OrderedListButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "ul")
+            else if (change.Type == "ul")
             {
-                BulletListButton.IsChecked = change.value == "true";
+                BulletListButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "indent")
+            else if (change.Type == "indent")
             {
-                IncreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+                IncreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
             }
-            else if (change.type == "outdent")
+            else if (change.Type == "outdent")
             {
-                DecreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+                DecreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
             }
-            else if (change.type == "alignment")
+            else if (change.Type == "alignment")
             {
-                var parsedValue = change.value switch
+                var parsedValue = change.Value switch
                 {
                     "jodit-icon_left" => 0,
                     "jodit-icon_center" => 1,

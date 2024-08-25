@@ -1,10 +1,11 @@
-﻿using System.Threading.Tasks;
-using System.Web;
+﻿using System;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Authorization;
-using Wino.Core.Messages.Shell;
+using Wino.Core.Domain.Models.Launch;
+using Wino.Messaging.Client.Authorization;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Activation
 {
@@ -25,7 +26,6 @@ namespace Wino.Activation
         protected override Task HandleInternalAsync(ProtocolActivatedEventArgs args)
         {
             // Check URI prefix.
-
             var protocolString = args.Uri.AbsoluteUri;
 
             // Google OAuth Response
@@ -37,11 +37,7 @@ namespace Wino.Activation
             else if (protocolString.StartsWith(MailtoProtocolTag))
             {
                 // mailto activation. Try to parse params.
-
-                var replaced = protocolString.Replace(MailtoProtocolTag, "mailto=");
-                replaced = Wino.Core.Extensions.StringExtensions.ReplaceFirst(replaced, "?", "&");
-
-                _launchProtocolService.MailtoParameters = HttpUtility.ParseQueryString(replaced);
+                _launchProtocolService.MailToUri = new MailToUri(protocolString);
 
                 if (_nativeAppService.IsAppRunning())
                 {
@@ -51,6 +47,22 @@ namespace Wino.Activation
             }
 
             return Task.CompletedTask;
+        }
+
+        protected override bool CanHandleInternal(ProtocolActivatedEventArgs args)
+        {
+            // Validate the URI scheme.
+
+            try
+            {
+                var uriGet = args.Uri;
+            }
+            catch (UriFormatException)
+            {
+                return false;
+            }
+
+            return base.CanHandleInternal(args);
         }
     }
 }

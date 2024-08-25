@@ -4,8 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,14 +14,16 @@ using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
@@ -73,20 +76,60 @@ namespace Wino.Core.Synchronizers
         {
             var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
-            // Add immutable id preffered client.
+            // Update request handlers for Graph client.
             var handlers = GraphClientFactory.CreateDefaultHandlers();
-            handlers.Add(new MicrosoftImmutableIdHandler());
+
+            handlers.Add(GetMicrosoftImmutableIdHandler());
+
+            // Remove existing RetryHandler and add a new one with custom options.
+            var existingRetryHandler = handlers.FirstOrDefault(a => a is RetryHandler);
+            if (existingRetryHandler != null)
+                handlers.Remove(existingRetryHandler);
+
+            // Add custom one.
+            handlers.Add(GetRetryHandler());
 
             var httpClient = GraphClientFactory.Create(handlers);
-
             _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
+
             _outlookChangeProcessor = outlookChangeProcessor;
 
             // Specify to use TLS 1.2 as default connection
-            System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
 
-        public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        #region MS Graph Handlers
+
+        private MicrosoftImmutableIdHandler GetMicrosoftImmutableIdHandler() => new();
+
+        private RetryHandler GetRetryHandler()
+        {
+            var options = new RetryHandlerOption()
+            {
+                ShouldRetry = (delay, attempt, httpResponse) =>
+                {
+                    var statusCode = httpResponse.StatusCode;
+
+                    return statusCode switch
+                    {
+                        HttpStatusCode.ServiceUnavailable => true,
+                        HttpStatusCode.GatewayTimeout => true,
+                        (HttpStatusCode)429 => true,
+                        HttpStatusCode.Unauthorized => true,
+                        _ => false
+                    };
+                },
+                Delay = 3,
+                MaxRetry = 3
+            };
+
+            return new RetryHandler(options);
+        }
+
+        #endregion
+
+
+        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             var downloadedMessageIds = new List<string>();
 
@@ -95,7 +138,7 @@ namespace Wino.Core.Synchronizers
 
             try
             {
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 1);
+                PublishSynchronizationProgress(1);
 
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
@@ -103,15 +146,14 @@ namespace Wino.Core.Synchronizers
                 {
                     var synchronizationFolders = await _outlookChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
-                    _logger.Information("Found {Count} folders to synchronize.", synchronizationFolders.Count);
-                    _logger.Information(string.Format("Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName))));
+                    _logger.Information(string.Format("{1} Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName)), synchronizationFolders.Count));
 
                     for (int i = 0; i < synchronizationFolders.Count; i++)
                     {
                         var folder = synchronizationFolders[i];
                         var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                        options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                        PublishSynchronizationProgress(progress);
 
                         var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
                         downloadedMessageIds.AddRange(folderDownloadedMessageIds);
@@ -120,13 +162,14 @@ namespace Wino.Core.Synchronizers
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+                _logger.Error(ex, "Synchronizing folders for {Name}", Account.Name);
+                Debugger.Break();
 
                 throw;
             }
             finally
             {
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
+                PublishSynchronizationProgress(100);
             }
 
             // Get all unred new downloaded items and return in the result.
@@ -141,8 +184,6 @@ namespace Wino.Core.Synchronizers
         {
             var downloadedMessageIds = new List<string>();
 
-            _logger.Debug("Started synchronization for folder {FolderName}", folder.FolderName);
-
             cancellationToken.ThrowIfCancellationRequested();
 
             string latestDeltaLink = string.Empty;
@@ -150,6 +191,8 @@ namespace Wino.Core.Synchronizers
             bool isInitialSync = string.IsNullOrEmpty(folder.DeltaToken);
 
             Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse messageCollectionPage = null;
+
+            _logger.Debug("Synchronizing {FolderName}", folder.FolderName);
 
             if (isInitialSync)
             {
@@ -167,9 +210,6 @@ namespace Wino.Core.Synchronizers
             else
             {
                 var currentDeltaToken = folder.DeltaToken;
-
-                _logger.Debug("Sync identifier found for Folder {FolderName}. Performing delta sync.", folder.FolderName);
-                _logger.Debug("Current delta token: {CurrentDeltaToken}", currentDeltaToken);
 
                 var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
                 {
@@ -214,9 +254,6 @@ namespace Wino.Core.Synchronizers
                 _logger.Debug("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
             }
 
-            _logger.Debug("Iterator completed for folder {FolderName}", folder.FolderName);
-            _logger.Debug("Extracted latest delta link is {LatestDeltaLink}", latestDeltaLink);
-
             //Store delta link for tracking new changes.
             if (!string.IsNullOrEmpty(latestDeltaLink))
             {
@@ -238,19 +275,11 @@ namespace Wino.Core.Synchronizers
         private bool IsResourceDeleted(IDictionary<string, object> additionalData)
             => additionalData != null && additionalData.ContainsKey("@removed");
 
-        private bool IsResourceUpdated(IDictionary<string, object> additionalData)
-            => additionalData == null || !additionalData.Any();
-
         private async Task<bool> HandleFolderRetrievedAsync(MailFolder folder, OutlookSpecialFolderIdInformation outlookSpecialFolderIdInformation, CancellationToken cancellationToken = default)
         {
             if (IsResourceDeleted(folder.AdditionalData))
             {
                 await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, folder.Id).ConfigureAwait(false);
-            }
-            else if (IsResourceUpdated(folder.AdditionalData))
-            {
-                // TODO
-                Debugger.Break();
             }
             else
             {
@@ -297,38 +326,45 @@ namespace Wino.Core.Synchronizers
 
                 await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
             }
-            else if (IsResourceUpdated(item.AdditionalData))
-            {
-                // Some of the properties of the item are updated.
-
-                if (item.IsRead != null)
-                {
-                    await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
-                }
-
-                if (item.Flag?.FlagStatus != null)
-                {
-                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
-                                                 .ConfigureAwait(false);
-                }
-            }
             else
             {
-                // Package may return null on some cases mapping the remote draft to existing local draft.
+                // If the item exists in the local database, it means that it's already downloaded. Process as an Update.
 
-                var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
+                var isMailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(item.Id, folder.Id);
 
-                if (newMailPackages != null)
+                if (isMailExists)
                 {
-                    foreach (var package in newMailPackages)
-                    {
-                        // Only add to downloaded message ids if it's inserted successfuly.
-                        // Updates should not be added to the list because they are not new.
-                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                    // Some of the properties of the item are updated.
 
-                        if (isInserted)
+                    if (item.IsRead != null)
+                    {
+                        await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
+                    }
+
+                    if (item.Flag?.FlagStatus != null)
+                    {
+                        await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
+                                                     .ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    // Package may return null on some cases mapping the remote draft to existing local draft.
+
+                    var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
+
+                    if (newMailPackages != null)
+                    {
+                        foreach (var package in newMailPackages)
                         {
-                            downloadedMessageIds.Add(package.Copy.Id);
+                            // Only add to downloaded message ids if it's inserted successfuly.
+                            // Updates should not be added to the list because they are not new.
+                            bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                            if (isInserted)
+                            {
+                                downloadedMessageIds.Add(package.Copy.Id);
+                            }
                         }
                     }
                 }
@@ -339,11 +375,12 @@ namespace Wino.Core.Synchronizers
 
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
         {
-            // Gather special folders by default.
-            // Others will be other type.
+        // Gather special folders by default.
+        // Others will be other type.
 
-            // Get well known folder ids by batch.
+        // Get well known folder ids by batch.
 
+        retry:
             var wellKnownFolderIdBatch = new BatchRequestContentCollection(_graphClient);
 
             var inboxRequest = _graphClient.Me.MailFolders[INBOX_NAME].ToGetRequestInformation((t) => { t.QueryParameters.Select = ["id"]; });
@@ -394,9 +431,19 @@ namespace Wino.Core.Synchronizers
 
                 deltaRequest.UrlTemplate = deltaRequest.UrlTemplate.Insert(deltaRequest.UrlTemplate.Length - 1, ",%24deltaToken");
                 deltaRequest.QueryParameters.Add("%24deltaToken", currentDeltaLink);
-                graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
+
+                try
+                {
+                    graphFolders = await _graphClient.RequestAdapter.SendAsync(deltaRequest,
                     Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
+                catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
+                {
+                    Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor.ResetAccountDeltaTokenAsync(Account.Id);
+
+                    goto retry;
+                }
             }
 
             var iterator = PageIterator<MailFolder, Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, graphFolders, (folder) =>
@@ -420,6 +467,61 @@ namespace Wino.Core.Synchronizers
             }
         }
 
+        /// <summary>
+        /// Get the user's profile picture
+        /// </summary>
+        /// <returns>Base64 encoded profile picture.</returns>
+        private async Task<string> GetUserProfilePictureAsync()
+        {
+            var photoStream = await _graphClient.Me.Photos["48x48"].Content.GetAsync();
+
+            using var memoryStream = new MemoryStream();
+            await photoStream.CopyToAsync(memoryStream);
+            var byteArray = memoryStream.ToArray();
+
+            return Convert.ToBase64String(byteArray);
+        }
+
+        /// <summary>
+        /// Get the user's display name.
+        /// </summary>
+        /// <returns>Display name of the user.</returns>
+        private async Task<string> GetSenderNameAsync()
+        {
+            var userInfo = await _graphClient.Users["me"].GetAsync();
+
+            return userInfo.DisplayName;
+        }
+
+        public override async Task<ProfileInformation> GetProfileInformationAsync()
+        {
+            var profilePictureData = await GetUserProfilePictureAsync().ConfigureAwait(false);
+            var senderName = await GetSenderNameAsync().ConfigureAwait(false);
+
+            return new ProfileInformation(senderName, profilePictureData);
+        }
+
+        /// <summary>
+        /// POST requests are handled differently in batches in Graph SDK.
+        /// Batch basically ignores the step's coontent-type and body.
+        /// Manually create a POST request with empty body and send it.
+        /// </summary>
+        /// <param name="requestInformation">Post request information.</param>
+        /// <param name="content">Content object to serialize.</param>
+        /// <returns>Updated post request information.</returns>
+        private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, object content = null)
+        {
+            requestInformation.Headers.Clear();
+
+            string contentJson = content == null ? "{}" : JsonSerializer.Serialize(content);
+
+            requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
+            requestInformation.HttpMethod = Method.POST;
+            requestInformation.Headers.Add("Content-Type", "application/json");
+
+            return requestInformation;
+        }
+
         #region Mail Integration
 
         public override bool DelaySendOperationSynchronization() => true;
@@ -433,7 +535,8 @@ namespace Wino.Core.Synchronizers
 
             return CreateBatchedHttpBundle(request, (item) =>
             {
-                return _graphClient.Me.Messages[item.Item.Id.ToString()].Move.ToPostRequestInformation(requestBody);
+                return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id.ToString()].Move.ToPostRequestInformation(requestBody),
+                                                     requestBody);
             });
         }
 
@@ -519,22 +622,37 @@ namespace Wino.Core.Synchronizers
             {
                 if (item is CreateDraftRequest createDraftRequest)
                 {
-                    createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.Prepare(EncodingConstraint.None);
+                    var reason = createDraftRequest.DraftPreperationRequest.Reason;
+                    var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
 
-                    var plainTextBytes = Encoding.UTF8.GetBytes(createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.ToString());
-                    var base64Encoded = Convert.ToBase64String(plainTextBytes);
-
-                    var requestInformation = _graphClient.Me.Messages.ToPostRequestInformation(new Message());
-
-                    requestInformation.Headers.Clear();// replace the json content header
-                    requestInformation.Headers.Add("Content-Type", "text/plain");
-
-                    requestInformation.SetStreamContent(new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded)), "text/plain");
-
-                    return requestInformation;
+                    if (reason == DraftCreationReason.Empty)
+                    {
+                        return _graphClient.Me.Messages.ToPostRequestInformation(message);
+                    }
+                    else if (reason == DraftCreationReason.Reply)
+                    {
+                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReply.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReply.CreateReplyPostRequestBody()
+                        {
+                            Message = message
+                        });
+                    }
+                    else if (reason == DraftCreationReason.ReplyAll)
+                    {
+                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReplyAll.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReplyAll.CreateReplyAllPostRequestBody()
+                        {
+                            Message = message
+                        });
+                    }
+                    else if (reason == DraftCreationReason.Forward)
+                    {
+                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateForward.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateForward.CreateForwardPostRequestBody()
+                        {
+                            Message = message
+                        });
+                    }
                 }
 
-                return default;
+                throw new Exception("Invalid create draft request type.");
             });
         }
 
@@ -549,49 +667,30 @@ namespace Wino.Core.Synchronizers
             var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
             var mimeMessage = sendDraftPreparationRequest.Mime;
 
-            var batchDeleteRequest = new BatchDeleteRequest(new List<IRequest>()
-            {
-                new DeleteRequest(sendDraftPreparationRequest.MailItem)
-            });
+            // Convert mime message to Outlook message.
+            // Outlook synchronizer does not send MIME messages directly anymore.
+            // Alias support is lacking with direct MIMEs.
+            // Therefore we convert the MIME message to Outlook message and use proper APIs.
 
-            var deleteBundle = Delete(batchDeleteRequest).ElementAt(0);
+            var outlookMessage = mimeMessage.AsOutlookMessage(false);
 
-            mimeMessage.Prepare(EncodingConstraint.None);
+            // Update draft.
 
-            var plainTextBytes = Encoding.UTF8.GetBytes(mimeMessage.ToString());
-            var base64Encoded = Convert.ToBase64String(plainTextBytes);
+            var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
+            var patchDraftRequestBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request);
 
-            var outlookMessage = new Message()
-            {
-                ConversationId = sendDraftPreparationRequest.MailItem.ThreadId
-            };
+            // Send draft.
 
-            // Apply importance here as well just in case.
-            if (mimeMessage.Importance != MessageImportance.Normal)
-                outlookMessage.Importance = mimeMessage.Importance == MessageImportance.High ? Importance.High : Importance.Low;
 
-            var body = new Microsoft.Graph.Me.SendMail.SendMailPostRequestBody()
-            {
-                Message = outlookMessage
-            };
+            var sendDraftRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
 
-            var sendRequest = _graphClient.Me.SendMail.ToPostRequestInformation(body);
+            var sendDraftRequestBundle = new HttpRequestBundle<RequestInformation>(sendDraftRequest, request);
 
-            sendRequest.Headers.Clear();
-            sendRequest.Headers.Add("Content-Type", "text/plain");
-
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(base64Encoded));
-            sendRequest.SetStreamContent(stream, "text/plain");
-
-            var sendMailRequest = new HttpRequestBundle<RequestInformation>(sendRequest, request);
-
-            return [deleteBundle, sendMailRequest];
+            return [patchDraftRequestBundle, sendDraftRequestBundle];
         }
 
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
             => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
-
-
 
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
                                                                MailKit.ITransferProgress transferProgress = null,
@@ -629,6 +728,8 @@ namespace Wino.Core.Synchronizers
         {
             var batchRequestInformations = BatchExtension.Batch(batchedRequests, (int)MaximumAllowedBatchRequestSize);
 
+            bool serializeRequests = false;
+
             foreach (var batch in batchRequestInformations)
             {
                 var batchContent = new BatchRequestContentCollection(_graphClient);
@@ -639,31 +740,53 @@ namespace Wino.Core.Synchronizers
                 {
                     var bundle = batch.ElementAt(i);
 
+                    if (bundle.Request is BatchRequestBase batchBundleRequest && batchBundleRequest.ExecuteSerialBatch)
+                    {
+                        // This bundle needs to run every request in serial.
+                        // By default requests are executed in parallel.
+
+                        serializeRequests = true;
+                    }
+
                     var request = bundle.Request;
                     var nativeRequest = bundle.NativeRequest;
 
                     request.ApplyUIChanges();
 
-                    await batchContent.AddBatchRequestStepAsync(nativeRequest).ConfigureAwait(false);
+                    var batchRequestId = await batchContent.AddBatchRequestStepAsync(nativeRequest).ConfigureAwait(false);
 
                     // Map BundleId to batch request step's key.
                     // This is how we can identify which step succeeded or failed in the bundle.
 
-                    bundle.BundleId = batchContent.BatchRequestSteps.ElementAt(i).Key;
+                    bundle.BundleId = batchRequestId;
                 }
 
                 if (!batchContent.BatchRequestSteps.Any())
                     continue;
 
+                // Set execution type to serial instead of parallel if needed.
+                // Each step will depend on the previous one.
+
+                if (serializeRequests)
+                {
+                    for (int i = 1; i < itemCount; i++)
+                    {
+                        var currentStep = batchContent.BatchRequestSteps.ElementAt(i);
+                        var previousStep = batchContent.BatchRequestSteps.ElementAt(i - 1);
+
+                        currentStep.Value.DependsOn = [previousStep.Key];
+                    }
+                }
+
                 // Execute batch. This will collect responses from network call for each batch step.
-                var batchRequestResponse = await _graphClient.Batch.PostAsync(batchContent).ConfigureAwait(false);
+                var batchRequestResponse = await _graphClient.Batch.PostAsync(batchContent, cancellationToken).ConfigureAwait(false);
 
                 // Check responses for each bundle id.
                 // Each bundle id must return some HttpResponseMessage ideally.
 
                 var bundleIds = batchContent.BatchRequestSteps.Select(a => a.Key);
 
-                // TODO: Handling responses. They used to work in v1 core, but not in v2.
+                var exceptionBag = new List<string>();
 
                 foreach (var bundleId in bundleIds)
                 {
@@ -674,43 +797,33 @@ namespace Wino.Core.Synchronizers
 
                     var httpResponseMessage = await batchRequestResponse.GetResponseByIdAsync(bundleId);
 
+                    if (httpResponseMessage == null)
+                        continue;
+
                     using (httpResponseMessage)
                     {
-                        await ProcessSingleNativeRequestResponseAsync(bundle, httpResponseMessage, cancellationToken).ConfigureAwait(false);
+                        if (!httpResponseMessage.IsSuccessStatusCode)
+                        {
+                            bundle.Request.RevertUIChanges();
+
+                            var content = await httpResponseMessage.Content.ReadAsStringAsync();
+                            var errorJson = JsonObject.Parse(content);
+                            var errorString = $"{httpResponseMessage.StatusCode} [{bundle.Request.GetType().Name}]\n{errorJson["error"]["code"]} - {errorJson["error"]["message"]}\n";
+
+                            exceptionBag.Add(errorString);
+                        }
                     }
+                }
+
+                if (exceptionBag.Any())
+                {
+                    var formattedErrorString = string.Join("\n", exceptionBag.Select((item, index) => $"{index + 1}. {item}"));
+
+                    throw new SynchronizerException(formattedErrorString);
                 }
             }
         }
 
-        private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<RequestInformation> bundle,
-                                                                   HttpResponseMessage httpResponseMessage,
-                                                                   CancellationToken cancellationToken = default)
-        {
-            if (!httpResponseMessage.IsSuccessStatusCode)
-            {
-                throw new SynchronizerException(string.Format(Translator.Exception_SynchronizerFailureHTTP, httpResponseMessage.StatusCode));
-            }
-            else if (bundle is HttpRequestBundle<RequestInformation, Message> messageBundle)
-            {
-                var outlookMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken);
-
-                if (outlookMessage == null) return;
-
-                // TODO: Handle new message added or updated.
-            }
-            else if (bundle is HttpRequestBundle<RequestInformation, Microsoft.Graph.Models.MailFolder> folderBundle)
-            {
-                var outlookFolder = await folderBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken);
-
-                if (outlookFolder == null) return;
-
-                // TODO: Handle new folder added or updated.
-            }
-            else if (bundle is HttpRequestBundle<RequestInformation, MimeMessage> mimeBundle)
-            {
-                // TODO: Handle mime retrieve message.
-            }
-        }
 
         private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
         {
@@ -720,12 +833,6 @@ namespace Wino.Core.Synchronizers
 
         public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
         {
-            bool isMailExists = await _outlookChangeProcessor.IsMailExistsAsync(message.Id);
-
-            if (isMailExists)
-            {
-                return null;
-            }
 
             var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
             var mailCopy = message.AsMailCopy();

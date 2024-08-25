@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Extensions;
 using MimeKit;
@@ -10,11 +11,13 @@ using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
-using Wino.Core.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Services
 {
@@ -28,7 +31,7 @@ namespace Wino.Core.Services
         private readonly ISignatureService _signatureService;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
         private readonly IMimeFileService _mimeFileService;
-
+        private readonly IPreferencesService _preferencesService;
 
         private readonly ILogger _logger = Log.ForContext<MailService>();
 
@@ -38,7 +41,8 @@ namespace Wino.Core.Services
                            IAccountService accountService,
                            ISignatureService signatureService,
                            IThreadingStrategyProvider threadingStrategyProvider,
-                           IMimeFileService mimeFileService) : base(databaseService)
+                           IMimeFileService mimeFileService,
+                           IPreferencesService preferencesService) : base(databaseService)
         {
             _folderService = folderService;
             _contactService = contactService;
@@ -46,18 +50,13 @@ namespace Wino.Core.Services
             _signatureService = signatureService;
             _threadingStrategyProvider = threadingStrategyProvider;
             _mimeFileService = mimeFileService;
+            _preferencesService = preferencesService;
         }
 
-        public async Task<MailCopy> CreateDraftAsync(MailAccount composerAccount,
-            MimeMessage createdDraftMimeMessage,
-            MimeMessage replyingMimeMessage = null,
-            IMailItem replyingMailItem = null)
+        public async Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
         {
-            bool isImapAccount = composerAccount.ServerInformation != null;
-
-            string fromName;
-
-            fromName = composerAccount.SenderName;
+            var composerAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+            var createdDraftMimeMessage = await CreateDraftMimeAsync(composerAccount, draftCreationOptions);
 
             var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
@@ -65,13 +64,15 @@ namespace Wino.Core.Services
             // This header will be used to map the local draft copy with the remote draft copy.
             var mimeUniqueId = createdDraftMimeMessage.Headers[Constants.WinoLocalDraftHeader];
 
+            var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(accountId).ConfigureAwait(false);
+
             var copy = new MailCopy
             {
                 UniqueId = Guid.Parse(mimeUniqueId),
                 Id = Guid.NewGuid().ToString(), // This will be replaced after network call with the remote draft id.
                 CreationDate = DateTime.UtcNow,
-                FromAddress = composerAccount.Address,
-                FromName = fromName,
+                FromAddress = primaryAlias?.AliasAddress ?? composerAccount.Address,
+                FromName = composerAccount.SenderName,
                 HasAttachments = false,
                 Importance = MailImportance.Normal,
                 Subject = createdDraftMimeMessage.Subject,
@@ -86,28 +87,25 @@ namespace Wino.Core.Services
             };
 
             // If replying, add In-Reply-To, ThreadId and References.
-            bool isReplying = replyingMimeMessage != null;
-
-            if (isReplying)
+            if (draftCreationOptions.ReferencedMessage != null)
             {
-                if (replyingMimeMessage.References != null)
-                    copy.References = string.Join(",", replyingMimeMessage.References);
+                if (draftCreationOptions.ReferencedMessage.MimeMessage.References != null)
+                    copy.References = string.Join(",", draftCreationOptions.ReferencedMessage.MimeMessage.References);
 
-                if (!string.IsNullOrEmpty(replyingMimeMessage.MessageId))
-                    copy.InReplyTo = replyingMimeMessage.MessageId;
+                if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MimeMessage.MessageId))
+                    copy.InReplyTo = draftCreationOptions.ReferencedMessage.MimeMessage.MessageId;
 
-                if (!string.IsNullOrEmpty(replyingMailItem?.ThreadId))
-                    copy.ThreadId = replyingMailItem.ThreadId;
+                if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
+                    copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
             }
 
             await Connection.InsertAsync(copy);
-
 
             await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
 
             ReportUIChange(new DraftCreated(copy, composerAccount));
 
-            return copy;
+            return (copy, createdDraftMimeMessage.GetBase64MimeMessage());
         }
 
         public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
@@ -196,7 +194,7 @@ namespace Wino.Core.Services
             return query.GetRawQuery();
         }
 
-        public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options)
+        public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
         {
             var query = BuildMailFetchQuery(options);
 
@@ -204,6 +202,7 @@ namespace Wino.Core.Services
 
             Dictionary<Guid, MailItemFolder> folderCache = [];
             Dictionary<Guid, MailAccount> accountCache = [];
+            Dictionary<string, AccountContact> contactCache = [];
 
             // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
             // This is needed to execute threading strategy by account type.
@@ -218,6 +217,8 @@ namespace Wino.Core.Services
 
             if (!options.CreateThreads)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Threading is disabled. Just return everything as it is.
                 mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
 
@@ -231,6 +232,8 @@ namespace Wino.Core.Services
             // Each account items must be threaded separately.
             foreach (var group in mails.GroupBy(a => a.AssignedAccount.Id))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var accountId = group.Key;
                 var groupAccount = mails.First(a => a.AssignedAccount.Id == accountId).AssignedAccount;
 
@@ -244,6 +247,7 @@ namespace Wino.Core.Services
                 // Almost everything already should be in cache from initial population.
                 foreach (var mail in accountThreadedItems)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache).ConfigureAwait(false);
                 }
 
@@ -254,11 +258,14 @@ namespace Wino.Core.Services
             }
 
             threadedItems.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
+            cancellationToken.ThrowIfCancellationRequested();
 
             return threadedItems;
 
             // Recursive function to populate folder and account assignments for each mail item.
-            async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache)
+            async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail,
+                                                            Dictionary<Guid, MailItemFolder> folderCache,
+                                                            Dictionary<Guid, MailAccount> accountCache)
             {
                 if (mail is ThreadMailItem threadMailItem)
                 {
@@ -279,6 +286,7 @@ namespace Wino.Core.Services
                         folderAssignment = await _folderService.GetFolderAsync(mailCopy.FolderId).ConfigureAwait(false);
                         _ = folderCache.TryAdd(mailCopy.FolderId, folderAssignment);
                     }
+
                     if (folderAssignment != null)
                     {
                         var isAccountCached = accountCache.TryGetValue(folderAssignment.MailAccountId, out accountAssignment);
@@ -286,11 +294,25 @@ namespace Wino.Core.Services
                         {
                             accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
                             _ = accountCache.TryAdd(folderAssignment.MailAccountId, accountAssignment);
+
+                        }
+                    }
+
+                    bool isContactCached = contactCache.TryGetValue(mailCopy.FromAddress, out AccountContact contactAssignment);
+
+                    if (!isContactCached && accountAssignment != null)
+                    {
+                        contactAssignment = await GetSenderContactForAccountAsync(accountAssignment, mailCopy.FromAddress).ConfigureAwait(false);
+
+                        if (contactAssignment != null)
+                        {
+                            _ = contactCache.TryAdd(mailCopy.FromAddress, contactAssignment);
                         }
                     }
 
                     mailCopy.AssignedFolder = folderAssignment;
                     mailCopy.AssignedAccount = accountAssignment;
+                    mailCopy.SenderContact = contactAssignment ?? new AccountContact() { Name = mailCopy.FromName, Address = mailCopy.FromAddress };
                 }
             }
         }
@@ -307,11 +329,24 @@ namespace Wino.Core.Services
             return mailCopies;
         }
 
+        private Task<AccountContact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
+        {
+            // Make sure to return the latest up to date contact information for the original account.
+            if (fromAddress == account.Address)
+            {
+                return Task.FromResult(new AccountContact() { Address = account.Address, Name = account.SenderName, Base64ContactPicture = account.Base64ProfilePictureData });
+            }
+            else
+            {
+                return _contactService.GetAddressInformationByAddressAsync(fromAddress);
+            }
+        }
+
         private async Task LoadAssignedPropertiesAsync(MailCopy mailCopy)
         {
             if (mailCopy == null) return;
 
-            // Load AssignedAccount and AssignedFolder.
+            // Load AssignedAccount, AssignedFolder and SenderContact.
 
             var folder = await _folderService.GetFolderAsync(mailCopy.FolderId);
 
@@ -323,6 +358,7 @@ namespace Wino.Core.Services
 
             mailCopy.AssignedAccount = account;
             mailCopy.AssignedFolder = folder;
+            mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         }
 
         public async Task<MailCopy> GetSingleMailItemWithoutFolderAssignmentAsync(string mailCopyId)
@@ -398,7 +434,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            _logger.Debug("Inserting mail {MailCopyId} to Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
+            _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
             await Connection.InsertAsync(mailCopy).ConfigureAwait(false);
 
@@ -430,7 +466,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            _logger.Debug("Deleting mail {Id} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
+            _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
             await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
 
@@ -458,7 +494,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            _logger.Information("Updating {MailCopyCount} mail copies with Id {MailCopyId}", mailCopies.Count, mailCopyId);
+            _logger.Debug("Updating {MailCopyCount} mail copies with Id {MailCopyId}", mailCopies.Count, mailCopyId);
 
             foreach (var mailCopy in mailCopies)
             {
@@ -469,13 +505,15 @@ namespace Wino.Core.Services
                     await UpdateMailAsync(mailCopy).ConfigureAwait(false);
                 }
                 else
-                    _logger.Information("Skipped updating mail because it is already in the desired state.");
+                    _logger.Debug("Skipped updating mail because it is already in the desired state.");
             }
         }
 
         public Task ChangeReadStatusAsync(string mailCopyId, bool isRead)
             => UpdateAllMailCopiesAsync(mailCopyId, (item) =>
             {
+                if (item.IsRead == isRead) return false;
+
                 item.IsRead = isRead;
 
                 return true;
@@ -484,6 +522,8 @@ namespace Wino.Core.Services
         public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
             => UpdateAllMailCopiesAsync(mailCopyId, (item) =>
             {
+                if (item.IsFlagged == isFlagged) return false;
+
                 item.IsFlagged = isFlagged;
 
                 return true;
@@ -578,6 +618,7 @@ namespace Wino.Core.Services
             mailCopy.UniqueId = Guid.NewGuid();
             mailCopy.AssignedAccount = account;
             mailCopy.AssignedFolder = assignedFolder;
+            mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
             mailCopy.FolderId = assignedFolder.Id;
 
             // Only save MIME files if they don't exists.
@@ -622,83 +663,47 @@ namespace Wino.Core.Services
             }
         }
 
-        public async Task<MimeMessage> CreateDraftMimeMessageAsync(Guid accountId, DraftCreationOptions draftCreationOptions)
+        private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
         {
             // This unique id is stored in mime headers for Wino to identify remote message with local copy.
             // Same unique id will be used for the local copy as well.
             // Synchronizer will map this unique id to the local draft copy after synchronization.
 
-            var messageUniqueId = Guid.NewGuid();
-
             var message = new MimeMessage()
             {
-                Headers = { { Constants.WinoLocalDraftHeader, messageUniqueId.ToString() } }
+                Headers = { { Constants.WinoLocalDraftHeader, Guid.NewGuid().ToString() } },
             };
+
+            var primaryAlias = await _accountService.GetPrimaryAccountAliasAsync(account.Id) ?? throw new MissingAliasException();
+
+            // Set FromName and FromAddress by alias.
+            message.From.Add(new MailboxAddress(account.SenderName, primaryAlias.AliasAddress));
 
             var builder = new BodyBuilder();
 
-            var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+            var signature = await GetSignature(account, draftCreationOptions.Reason);
 
-            if (account == null)
+            _ = draftCreationOptions.Reason switch
             {
-                _logger.Warning("Can't create draft mime message because account {AccountId} does not exist.", accountId);
+                DraftCreationReason.Empty => CreateEmptyDraft(builder, message, draftCreationOptions, signature),
+                _ => CreateReferencedDraft(builder, message, draftCreationOptions, account, signature),
+            };
 
-                return null;
-            }
+            builder.SetHtmlBody(builder.HtmlBody);
 
-            var reason = draftCreationOptions.Reason;
-            var referenceMessage = draftCreationOptions.ReferenceMimeMessage;
+            message.Body = builder.ToMessageBody();
 
-            message.From.Add(new MailboxAddress(account.SenderName, account.Address));
+            return message;
+        }
 
-            // Manage "To"
-            if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
-            {
-                // Reply to the sender of the message
+        private string CreateHtmlGap()
+        {
+            var template = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px"><br></div>""";
+            return string.Concat(Enumerable.Repeat(template, 2));
+        }
 
-                if (referenceMessage.ReplyTo.Count > 0)
-                    message.To.AddRange(referenceMessage.ReplyTo);
-                else if (referenceMessage.From.Count > 0)
-                    message.To.AddRange(referenceMessage.From);
-                else if (referenceMessage.Sender != null)
-                    message.To.Add(referenceMessage.Sender);
-
-                if (reason == DraftCreationReason.ReplyAll)
-                {
-                    // Include all of the other original recipients
-                    message.To.AddRange(referenceMessage.To);
-
-                    // Find self and remove
-                    var self = message.To.FirstOrDefault(a => a is MailboxAddress mailboxAddress && mailboxAddress.Address == account.Address);
-
-                    if (self != null)
-                        message.To.Remove(self);
-
-                    message.Cc.AddRange(referenceMessage.Cc);
-                }
-
-                // Manage "ThreadId-ConversationId"
-                if (!string.IsNullOrEmpty(referenceMessage.MessageId))
-                {
-                    message.InReplyTo = referenceMessage.MessageId;
-
-                    foreach (var id in referenceMessage.References)
-                        message.References.Add(id);
-
-                    message.References.Add(referenceMessage.MessageId);
-                }
-
-                message.Headers.Add("Thread-Topic", referenceMessage.Subject);
-
-                builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
-            }
-
-            if (reason == DraftCreationReason.Forward)
-            {
-                builder.HtmlBody = CreateHtmlForReferencingMessage(referenceMessage);
-            }
-
-            // Append signatures if needed.
+        private async Task<string> GetSignature(MailAccount account, DraftCreationReason reason)
+        {
             if (account.Preferences.IsSignatureEnabled)
             {
                 var signatureId = reason == DraftCreationReason.Empty ?
@@ -709,22 +714,96 @@ namespace Wino.Core.Services
                 {
                     var signature = await _signatureService.GetSignatureAsync(signatureId.Value);
 
-                    if (string.IsNullOrWhiteSpace(builder.HtmlBody))
-                    {
-                        builder.HtmlBody = $"<br><br><br>{signature.HtmlBody}";
-                    }
-                    else
-                    {
-                        builder.HtmlBody = $"<br><br><br>{signature.HtmlBody}" + builder.HtmlBody;
-                    }
+                    return signature.HtmlBody;
                 }
+            }
+
+            return null;
+        }
+
+        private MimeMessage CreateEmptyDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, string signature)
+        {
+            builder.HtmlBody = CreateHtmlGap();
+            if (draftCreationOptions.MailToUri != null)
+            {
+                if (draftCreationOptions.MailToUri.Subject != null)
+                    message.Subject = draftCreationOptions.MailToUri.Subject;
+
+                if (draftCreationOptions.MailToUri.Body != null)
+                {
+                    builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{draftCreationOptions.MailToUri.Body}</div>""" + builder.HtmlBody;
+                }
+
+                if (draftCreationOptions.MailToUri.To.Any())
+                    message.To.AddRange(draftCreationOptions.MailToUri.To.Select(x => new MailboxAddress(x, x)));
+
+                if (draftCreationOptions.MailToUri.Cc.Any())
+                    message.Cc.AddRange(draftCreationOptions.MailToUri.Cc.Select(x => new MailboxAddress(x, x)));
+
+                if (draftCreationOptions.MailToUri.Bcc.Any())
+                    message.Bcc.AddRange(draftCreationOptions.MailToUri.Bcc.Select(x => new MailboxAddress(x, x)));
+            }
+
+            if (signature != null)
+                builder.HtmlBody += signature;
+
+            return message;
+        }
+
+        private MimeMessage CreateReferencedDraft(BodyBuilder builder, MimeMessage message, DraftCreationOptions draftCreationOptions, MailAccount account, string signature)
+        {
+            var reason = draftCreationOptions.Reason;
+            var referenceMessage = draftCreationOptions.ReferencedMessage.MimeMessage;
+
+            var gap = CreateHtmlGap();
+            builder.HtmlBody = gap + CreateHtmlForReferencingMessage(referenceMessage);
+
+            if (signature != null)
+            {
+                builder.HtmlBody = gap + signature + builder.HtmlBody;
+            }
+
+            // Manage "To"
+            if (reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll)
+            {
+                // Reply to the sender of the message
+                if (referenceMessage.ReplyTo.Count > 0)
+                    message.To.AddRange(referenceMessage.ReplyTo);
+                else if (referenceMessage.From.Count > 0)
+                    message.To.AddRange(referenceMessage.From);
+                else if (referenceMessage.Sender != null)
+                    message.To.Add(referenceMessage.Sender);
+
+                if (reason == DraftCreationReason.ReplyAll)
+                {
+                    // Include all of the other original recipients
+                    message.To.AddRange(referenceMessage.To.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
+                    message.Cc.AddRange(referenceMessage.Cc.Where(x => x is MailboxAddress mailboxAddress && !mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase)));
+                }
+
+                // Self email can be present at this step, when replying to own message. It should be removed only in case there no other recipients.
+                if (message.To.Count > 1)
+                {
+                    var self = message.To.FirstOrDefault(x => x is MailboxAddress mailboxAddress && mailboxAddress.Address.Equals(account.Address, StringComparison.OrdinalIgnoreCase));
+                    if (self != null)
+                        message.To.Remove(self);
+                }
+
+                // Manage "ThreadId-ConversationId"
+                if (!string.IsNullOrEmpty(referenceMessage.MessageId))
+                {
+                    message.InReplyTo = referenceMessage.MessageId;
+                    message.References.AddRange(referenceMessage.References);
+                    message.References.Add(referenceMessage.MessageId);
+                }
+
+                message.Headers.Add("Thread-Topic", referenceMessage.Subject);
             }
 
             // Manage Subject
             if (reason == DraftCreationReason.Forward && !referenceMessage.Subject.StartsWith("FW: ", StringComparison.OrdinalIgnoreCase))
                 message.Subject = $"FW: {referenceMessage.Subject}";
-            else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) &&
-                !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
+            else if ((reason == DraftCreationReason.Reply || reason == DraftCreationReason.ReplyAll) && !referenceMessage.Subject.StartsWith("RE: ", StringComparison.OrdinalIgnoreCase))
                 message.Subject = $"RE: {referenceMessage.Subject}";
             else if (referenceMessage != null)
                 message.Subject = referenceMessage.Subject;
@@ -738,55 +817,6 @@ namespace Wino.Core.Services
                 }
             }
 
-            if (!string.IsNullOrEmpty(builder.HtmlBody))
-            {
-                builder.TextBody = HtmlAgilityPackExtensions.GetPreviewText(builder.HtmlBody);
-            }
-
-            message.Body = builder.ToMessageBody();
-
-            // Apply mail-to protocol parameters if exists.
-
-            if (draftCreationOptions.MailtoParameters != null)
-            {
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoSubjectParameterKey, out string subjectParameter))
-                    message.Subject = subjectParameter;
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoBodyParameterKey, out string bodyParameter))
-                {
-                    builder.TextBody = bodyParameter;
-                    builder.HtmlBody = bodyParameter;
-
-                    message.Body = builder.ToMessageBody();
-                }
-
-                static InternetAddressList ExtractRecipients(string parameterValue)
-                {
-                    var list = new InternetAddressList();
-
-                    var splittedRecipients = parameterValue.Split(',');
-
-                    foreach (var recipient in splittedRecipients)
-                        list.Add(new MailboxAddress(recipient, recipient));
-
-                    return list;
-
-                }
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoToParameterKey, out string toParameter))
-                    message.To.AddRange(ExtractRecipients(toParameter));
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoCCParameterKey, out string ccParameter))
-                    message.Cc.AddRange(ExtractRecipients(ccParameter));
-
-                if (draftCreationOptions.TryGetMailtoValue(DraftCreationOptions.MailtoBCCParameterKey, out string bccParameter))
-                    message.Bcc.AddRange(ExtractRecipients(bccParameter));
-            }
-            else
-            {
-                // Update TextBody from existing HtmlBody if exists.
-            }
-
             return message;
 
             // Generates html representation of To/Cc/From/Time and so on from referenced message.
@@ -794,24 +824,24 @@ namespace Wino.Core.Services
             {
                 var htmlMimeInfo = string.Empty;
                 // Separation Line
-                htmlMimeInfo += "<br><br><hr style='display:inline-block;width:100%' tabindex='-1'>";
+                htmlMimeInfo += "<hr style='display:inline-block;width:100%' tabindex='-1'>";
 
                 var visitor = _mimeFileService.CreateHTMLPreviewVisitor(referenceMessage, string.Empty);
                 visitor.Visit(referenceMessage);
 
                 htmlMimeInfo += $"""
-                        <div id="divRplyFwdMsg" dir="ltr">
-                          <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
-                            <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
-                            <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
-                            <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
-                            {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
-                            <b>Subject:</b> {referenceMessage.Subject}
-                          </font>
-                          <div>&nbsp;</div>
-                          {visitor.HtmlBody}
-                        </div>
-                        """;
+                    <div id="divRplyFwdMsg" dir="ltr">
+                      <font face="Calibri, sans-serif" style="font-size: 11pt;" color="#000000">
+                        <b>From:</b> {ParticipantsToHtml(referenceMessage.From)}<br>
+                        <b>Sent:</b> {referenceMessage.Date.ToLocalTime()}<br>
+                        <b>To:</b> {ParticipantsToHtml(referenceMessage.To)}<br>
+                        {(referenceMessage.Cc.Count > 0 ? $"<b>Cc:</b> {ParticipantsToHtml(referenceMessage.Cc)}<br>" : string.Empty)}
+                        <b>Subject:</b> {referenceMessage.Subject}
+                      </font>
+                      <div>&nbsp;</div>
+                      {visitor.HtmlBody}
+                    </div>
+                    """;
 
                 return htmlMimeInfo;
             }
@@ -904,5 +934,8 @@ namespace Wino.Core.Services
 
         public Task<bool> IsMailExistsAsync(string mailCopyId)
             => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
+
+        public Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
+            => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ? AND FolderId = ?)", mailCopyId, folderId);
     }
 }

@@ -45,6 +45,11 @@ namespace Wino.Core.Domain.Entities
         public string AccountColorHex { get; set; }
 
         /// <summary>
+        /// Base64 encoded profile picture of the account.
+        /// </summary>
+        public string Base64ProfilePictureData { get; set; }
+
+        /// <summary>
         /// Gets or sets the listing order of the account in the accounts list.
         /// </summary>
         public int Order { get; set; }
@@ -78,5 +83,15 @@ namespace Wino.Core.Domain.Entities
         /// </summary>
         [Ignore]
         public MailAccountPreferences Preferences { get; set; }
+
+        /// <summary>
+        /// Gets whether the account can perform ProfileInformation sync type.
+        /// </summary>
+        public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Office365 || ProviderType == MailProviderType.Gmail;
+
+        /// <summary>
+        /// Gets whether the account can perform AliasInformation sync type.
+        /// </summary>
+        public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail;
     }
 }

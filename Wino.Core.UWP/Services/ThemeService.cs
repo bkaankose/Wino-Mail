@@ -4,10 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Helpers;
-using Newtonsoft.Json;
 using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -20,10 +20,10 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.Messages.Shell;
 using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Models.Personalization;
 using Wino.Core.UWP.Services;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services
 {
@@ -167,6 +167,7 @@ namespace Wino.Services
             await ApplyCustomThemeAsync(true);
 
             // Registering to color changes, thus we notice when user changes theme system wide
+            uiSettings.ColorValuesChanged -= UISettingsColorChanged;
             uiSettings.ColorValuesChanged += UISettingsColorChanged;
         }
 
@@ -410,7 +411,7 @@ namespace Wino.Services
             // Save metadata.
             var metadataFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.json", CreationCollisionOption.ReplaceExisting);
 
-            var serialized = JsonConvert.SerializeObject(newTheme);
+            var serialized = JsonSerializer.Serialize(newTheme);
             await FileIO.WriteTextAsync(metadataFile, serialized);
 
             return newTheme;
@@ -442,7 +443,7 @@ namespace Wino.Services
         {
             var fileContent = await FileIO.ReadTextAsync(file);
 
-            return JsonConvert.DeserializeObject<CustomThemeMetadata>(fileContent);
+            return JsonSerializer.Deserialize<CustomThemeMetadata>(fileContent);
         }
 
         public string GetSystemAccentColorHex()

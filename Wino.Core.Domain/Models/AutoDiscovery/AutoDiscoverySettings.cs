@@ -1,19 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 using Wino.Core.Domain.Entities;
 
 namespace Wino.Core.Domain.Models.AutoDiscovery
 {
     public class AutoDiscoverySettings
     {
-        [JsonProperty("domain")]
+        [JsonPropertyName("domain")]
         public string Domain { get; set; }
 
-        [JsonProperty("password")]
+        [JsonPropertyName("password")]
         public string Password { get; set; }
 
-        [JsonProperty("settings")]
+        [JsonPropertyName("settings")]
         public List<AutoDiscoveryProviderSetting> Settings { get; set; }
 
         /// <summary>

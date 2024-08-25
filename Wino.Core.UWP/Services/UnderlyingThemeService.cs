@@ -1,5 +1,5 @@
 ﻿using Windows.UI.ViewManagement;
-using Windows.UI.Xaml;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.UWP.Services
@@ -21,12 +21,12 @@ namespace Wino.Core.UWP.Services
 
         public bool IsUnderlyingThemeDark()
         {
-            var currentTheme = _configurationService.Get(SelectedAppThemeKey, ElementTheme.Default);
+            var currentTheme = _configurationService.Get(SelectedAppThemeKey, ApplicationElementTheme.Default);
 
-            if (currentTheme == ElementTheme.Default)
+            if (currentTheme == ApplicationElementTheme.Default)
                 return uiSettings.GetColorValue(UIColorType.Background).ToString() == "#FF000000";
             else
-                return currentTheme == ElementTheme.Dark;
+                return currentTheme == ApplicationElementTheme.Dark;
         }
     }
 }

@@ -122,14 +122,24 @@ namespace Wino.Core.Domain.Interfaces
         AppLanguage CurrentLanguage { get; set; }
 
         /// <summary>
-        /// Setting: Display font for the mail reader. Not composer.
+        /// Setting: Display font for the mail reader.
         /// </summary>
-        ReaderFont ReaderFont { get; set; }
+        string ReaderFont { get; set; }
 
         /// <summary>
-        /// Setting: Font size for the mail reader. Not composer.
+        /// Setting: Font size for the mail reader.
         /// </summary>
         int ReaderFontSize { get; set; }
+
+        /// <summary>
+        /// Setting: Display font for the mail composer.
+        /// </summary>
+        string ComposerFont { get; set; }
+
+        /// <summary>
+        /// Setting: Font size for the mail composer.
+        /// </summary>
+        int ComposerFontSize { get; set; }
 
         /// <summary>
         /// Setting: Whether the navigation pane is opened on the last session or not.
@@ -140,5 +150,10 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Whether the next item should be automatically selected once the current item is moved or removed.
         /// </summary>
         bool AutoSelectNextItem { get; set; }
+
+        /// <summary>
+        /// Setting: Gets or sets what should happen to server app when the client is terminated.
+        /// </summary>
+        ServerBackgroundMode ServerTerminationBehavior { get; set; }
     }
 }

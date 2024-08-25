@@ -6,9 +6,8 @@ using Wino.Core.Extensions;
 
 namespace Wino.Mail.ViewModels.Data
 {
-    public class MailAttachmentViewModel : ObservableObject
+    public partial class MailAttachmentViewModel : ObservableObject
     {
-        private bool isBusy;
         private readonly MimePart _mimePart;
 
         public MailAttachmentType AttachmentType { get; }
@@ -22,23 +21,21 @@ namespace Wino.Mail.ViewModels.Data
         /// <summary>
         /// Gets or sets whether attachment is busy with opening or saving etc.
         /// </summary>
-        public bool IsBusy
-        {
-            get => isBusy;
-            set => SetProperty(ref isBusy, value);
-        }
+        [ObservableProperty]
+        private bool isBusy;
 
         public MailAttachmentViewModel(MimePart mimePart)
         {
             _mimePart = mimePart;
 
-            var array = new byte[_mimePart.Content.Stream.Length];
-            _mimePart.Content.Stream.Read(array, 0, (int)_mimePart.Content.Stream.Length);
+            var memoryStream = new MemoryStream();
 
-            Content = array;
+            using (memoryStream) mimePart.Content.DecodeTo(memoryStream);
+
+            Content = memoryStream.ToArray();
 
             FileName = mimePart.FileName;
-            ReadableSize = mimePart.Content.Stream.Length.GetBytesReadable();
+            ReadableSize = ((long)Content.Length).GetBytesReadable();
 
             var extension = Path.GetExtension(FileName);
             AttachmentType = GetAttachmentType(extension);

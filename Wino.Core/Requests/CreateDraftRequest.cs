@@ -7,10 +7,11 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests
 {
-    public record CreateDraftRequest(DraftPreperationRequest DraftPreperationRequest)
+    public record CreateDraftRequest(DraftPreparationRequest DraftPreperationRequest)
         : RequestBase<BatchCreateDraftRequest>(DraftPreperationRequest.CreatedLocalDraftCopy, MailSynchronizerOperation.CreateDraft),
         ICustomFolderSynchronizationRequest
     {
@@ -35,7 +36,7 @@ namespace Wino.Core.Requests
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public record class BatchCreateDraftRequest(IEnumerable<IRequest> Items, DraftPreperationRequest DraftPreperationRequest)
+    public record class BatchCreateDraftRequest(IEnumerable<IRequest> Items, DraftPreparationRequest DraftPreperationRequest)
         : BatchRequestBase(Items, MailSynchronizerOperation.CreateDraft)
     {
         public override void ApplyUIChanges()

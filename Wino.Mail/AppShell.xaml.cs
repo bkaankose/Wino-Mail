@@ -17,13 +17,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Messages.Accounts;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
+using Wino.Messaging.Client.Accounts;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views
@@ -181,8 +181,6 @@ namespace Wino.Views
 
                 if (ViewModel.MenuItems.TryGetFolderMenuItem(message.FolderId, out IBaseFolderMenuItem foundMenuItem))
                 {
-                    if (foundMenuItem == null) return;
-
                     foundMenuItem.Expand();
 
                     await ViewModel.NavigateFolderAsync(foundMenuItem);
@@ -192,7 +190,27 @@ namespace Wino.Views
                     if (message.NavigateMailItem == null) return;
 
                     // At this point folder is navigated and items are loaded.
-                    WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(message.NavigateMailItem.UniqueId));
+                    WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(message.NavigateMailItem.UniqueId, ScrollToItem: true));
+                }
+                else if (ViewModel.MenuItems.TryGetAccountMenuItem(message.NavigateMailItem.AssignedAccount.Id, out IAccountMenuItem accountMenuItem))
+                {
+                    // Loaded account is different. First change the folder items and navigate.
+
+                    await ViewModel.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: false);
+
+                    // Find the folder.
+
+                    if (ViewModel.MenuItems.TryGetFolderMenuItem(message.FolderId, out IBaseFolderMenuItem accountFolderMenuItem))
+                    {
+                        accountFolderMenuItem.Expand();
+
+                        await ViewModel.NavigateFolderAsync(accountFolderMenuItem);
+
+                        navigationView.SelectedItem = accountFolderMenuItem;
+
+                        // At this point folder is navigated and items are loaded.
+                        WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(message.NavigateMailItem.UniqueId, ScrollToItem: true));
+                    }
                 }
             });
         }
@@ -247,7 +265,6 @@ namespace Wino.Views
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
             WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
             WeakReferenceMessenger.Default.Send(new ShellStateUpdated());
-
         }
 
         private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)

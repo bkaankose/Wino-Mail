@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Settings;
@@ -72,8 +73,8 @@ namespace Wino.Services
                     return typeof(PersonalizationPage);
                 case WinoPage.MessageListPage:
                     return typeof(MessageListPage);
-                case WinoPage.ReadingPanePage:
-                    return typeof(ReadingPanePage);
+                case WinoPage.ReadComposePanePage:
+                    return typeof(ReadComposePanePage);
                 case WinoPage.MailRenderingPage:
                     return typeof(MailRenderingPage);
                 case WinoPage.ComposePage:
@@ -86,6 +87,10 @@ namespace Wino.Services
                     return typeof(WelcomePage);
                 case WinoPage.SettingOptionsPage:
                     return typeof(SettingOptionsPage);
+                case WinoPage.AppPreferencesPage:
+                    return typeof(AppPreferencesPage);
+                case WinoPage.AliasManagementPage:
+                    return typeof(AliasManagementPage);
                 default:
                     return null;
             }
@@ -112,6 +117,7 @@ namespace Wino.Services
                 {
                     // No need for new navigation, just refresh the folder.
                     WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
+                    WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
 
                     return true;
                 }
@@ -133,6 +139,13 @@ namespace Wino.Services
                         && page != WinoPage.ComposePage)
                     {
                         WeakReferenceMessenger.Default.Send(new NewMailItemRenderingRequestedEvent(mailItemViewModel));
+                    }
+                    else if (listingFrame.Content != null
+                        && listingFrame.Content.GetType() == GetPageType(WinoPage.IdlePage)
+                        && pageType == typeof(IdlePage))
+                    {
+                        // Idle -> Idle navigation. Ignore.
+                        return true;
                     }
                     else
                     {

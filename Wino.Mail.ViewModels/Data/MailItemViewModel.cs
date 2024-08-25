@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Models.MailItem;
@@ -10,15 +11,13 @@ namespace Wino.Mail.ViewModels.Data
     /// </summary>
     public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
     {
-        public MailCopy MailCopy { get; private set; } = mailCopy;
+        [ObservableProperty]
+        private MailCopy mailCopy = mailCopy;
 
         public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
         public string ThreadId => ((IMailItem)MailCopy).ThreadId;
         public string MessageId => ((IMailItem)MailCopy).MessageId;
-        public string FromName => ((IMailItem)MailCopy).FromName ?? FromAddress;
         public DateTime CreationDate => ((IMailItem)MailCopy).CreationDate;
-        public string FromAddress => ((IMailItem)MailCopy).FromAddress;
-        public bool HasAttachments => ((IMailItem)MailCopy).HasAttachments;
         public string References => ((IMailItem)MailCopy).References;
         public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
 
@@ -32,6 +31,12 @@ namespace Wino.Mail.ViewModels.Data
         {
             get => MailCopy.IsFlagged;
             set => SetProperty(MailCopy.IsFlagged, value, MailCopy, (u, n) => u.IsFlagged = n);
+        }
+
+        public string FromName
+        {
+            get => string.IsNullOrEmpty(MailCopy.FromName) ? MailCopy.FromAddress : MailCopy.FromName;
+            set => SetProperty(MailCopy.FromName, value, MailCopy, (u, n) => u.FromName = n);
         }
 
         public bool IsFocused
@@ -76,23 +81,26 @@ namespace Wino.Mail.ViewModels.Data
             set => SetProperty(MailCopy.PreviewText, value, MailCopy, (u, n) => u.PreviewText = n);
         }
 
+        public string FromAddress
+        {
+            get => MailCopy.FromAddress;
+            set => SetProperty(MailCopy.FromAddress, value, MailCopy, (u, n) => u.FromAddress = n);
+        }
+
+        public bool HasAttachments
+        {
+            get => MailCopy.HasAttachments;
+            set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
+        }
+
         public MailItemFolder AssignedFolder => ((IMailItem)MailCopy).AssignedFolder;
 
         public MailAccount AssignedAccount => ((IMailItem)MailCopy).AssignedAccount;
 
         public Guid FileId => ((IMailItem)MailCopy).FileId;
 
-        public void Update(MailCopy updatedMailItem)
-        {
-            MailCopy = updatedMailItem;
+        public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
 
-            OnPropertyChanged(nameof(IsRead));
-            OnPropertyChanged(nameof(IsFocused));
-            OnPropertyChanged(nameof(IsFlagged));
-            OnPropertyChanged(nameof(IsDraft));
-            OnPropertyChanged(nameof(DraftId));
-            OnPropertyChanged(nameof(Subject));
-            OnPropertyChanged(nameof(PreviewText));
-        }
+        public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
     }
 }

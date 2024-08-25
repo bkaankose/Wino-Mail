@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -11,60 +13,16 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Synchronization;
 using Wino.Core.Misc;
 using Wino.Core.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public interface IBaseSynchronizer
-    {
-        /// <summary>
-        /// Account that is assigned for this synchronizer.
-        /// </summary>
-        MailAccount Account { get; }
-
-        /// <summary>
-        /// Synchronizer state.
-        /// </summary>
-        AccountSynchronizerState State { get; }
-
-        /// <summary>
-        /// Queues a single request to be executed in the next synchronization.
-        /// </summary>
-        /// <param name="request">Request to queue.</param>
-        void QueueRequest(IRequestBase request);
-
-        /// <summary>
-        /// TODO
-        /// </summary>
-        /// <returns>Whether active synchronization is stopped or not.</returns>
-        bool CancelActiveSynchronization();
-
-        /// <summary>
-        /// Performs a full synchronization with the server with given options.
-        /// This will also prepares batch requests for execution.
-        /// Requests are executed in the order they are queued and happens before the synchronization.
-        /// Result of the execution queue is processed during the synchronization.
-        /// </summary>
-        /// <param name="options">Options for synchronization.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>Result summary of synchronization.</returns>
-        Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Downloads a single MIME message from the server and saves it to disk.
-        /// </summary>
-        /// <param name="mailItem">Mail item to download from server.</param>
-        /// <param name="transferProgress">Optional progress reporting for download operation.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        Task DownloadMissingMimeMessageAsync(IMailItem mailItem, ITransferProgress transferProgress, CancellationToken cancellationToken = default);
-    }
-
     public abstract class BaseSynchronizer<TBaseRequest, TMessageType> : BaseMailIntegrator<TBaseRequest>, IBaseSynchronizer
     {
         private SemaphoreSlim synchronizationSemaphore = new(1);
@@ -88,7 +46,7 @@ namespace Wino.Core.Synchronizers
             {
                 state = value;
 
-                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(this, value));
+                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(Account.Id, value));
             }
         }
 
@@ -113,8 +71,65 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token</param>
         public abstract Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
 
-        public abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Refreshes remote mail account profile if possible.
+        /// Profile picture, sender name and mailbox settings (todo) will be handled in this step.
+        /// </summary>
+        public virtual Task<ProfileInformation> GetProfileInformationAsync() => default;
 
+        /// <summary>
+        /// Refreshes the aliases of the account.
+        /// Only available for Gmail right now.
+        /// </summary>
+        protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
+
+        /// <summary>
+        /// Returns the base64 encoded profile picture of the account from the given URL.
+        /// </summary>
+        /// <param name="url">URL to retrieve picture from.</param>
+        /// <returns>base64 encoded profile picture</returns>
+        protected async Task<string> GetProfilePictureBase64EncodedAsync(string url)
+        {
+            using var client = new HttpClient();
+
+            var response = await client.GetAsync(url).ConfigureAwait(false);
+            var byteContent = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+
+            return Convert.ToBase64String(byteContent);
+        }
+
+        /// <summary>
+        /// Internally synchronizes the account with the given options.
+        /// Not exposed and overriden for each synchronizer.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
+        protected abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Safely updates account's profile information.
+        /// Database changes are reflected after this call.
+        /// </summary>
+        private async Task<ProfileInformation> SynchronizeProfileInformationInternalAsync()
+        {
+            var profileInformation = await GetProfileInformationAsync();
+
+            if (profileInformation != null)
+            {
+                Account.SenderName = profileInformation.SenderName;
+                Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+            }
+
+            return profileInformation;
+        }
+
+        /// <summary>
+        /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
         public async Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             try
@@ -148,13 +163,61 @@ namespace Wino.Core.Synchronizers
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
-                // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
+                // Handle special synchronization types.
 
-                bool shouldDelayExecution = batches.Any(a => a.DelayExecution);
+                // Profile information sync.
+                if (options.Type == SynchronizationType.UpdateProfile)
+                {
+                    if (!Account.IsProfileInfoSyncSupported) return SynchronizationResult.Empty;
+
+                    ProfileInformation newProfileInformation = null;
+
+                    try
+                    {
+                        newProfileInformation = await SynchronizeProfileInformationInternalAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to update profile information for {Name}", Account.Name);
+
+                        return SynchronizationResult.Failed;
+                    }
+
+                    return SynchronizationResult.Completed(null, newProfileInformation);
+                }
+
+                // Alias sync.
+                if (options.Type == SynchronizationType.Alias)
+                {
+                    if (!Account.IsAliasSyncSupported) return SynchronizationResult.Empty;
+
+                    try
+                    {
+                        await SynchronizeAliasesAsync();
+
+                        return SynchronizationResult.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to update aliases for {Name}", Account.Name);
+
+                        return SynchronizationResult.Failed;
+                    }
+                }
+
+                // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
+                // Bug: if Outlook can't create the message in Sent Items folder before this delay,
+                // message will not appear in user's inbox since it's not in the Sent Items folder.
+
+                bool shouldDelayExecution =
+                    (Account.ProviderType == MailProviderType.Outlook || Account.ProviderType == MailProviderType.Office365)
+                    && batches.Any(a => a.ResynchronizationDelay > 0);
 
                 if (shouldDelayExecution)
                 {
-                    await Task.Delay(2000);
+                    var maxDelay = batches.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
+
+                    await Task.Delay(maxDelay);
                 }
 
                 // Start the internal synchronization.
@@ -166,18 +229,21 @@ namespace Wino.Core.Synchronizers
             }
             catch (OperationCanceledException)
             {
-                Logger.Warning("Synchronization cancelled.");
+                Logger.Warning("Synchronization canceled.");
+
                 return SynchronizationResult.Canceled;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Disable maybe?
+                Logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+                Debugger.Break();
+
                 throw;
             }
             finally
             {
                 // Reset account progress to hide the progress.
-                options.ProgressListener?.AccountProgressUpdated(Account.Id, 0);
+                PublishSynchronizationProgress(0);
 
                 State = AccountSynchronizerState.Idle;
                 synchronizationSemaphore.Release();
@@ -190,6 +256,13 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         private void PublishUnreadItemChanges()
             => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
+
+        /// <summary>
+        /// Sends a message to the shell to update the synchronization progress.
+        /// </summary>
+        /// <param name="progress">Percentage of the progress.</param>
+        public void PublishSynchronizationProgress(double progress)
+            => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 
         /// <summary>
         /// 1. Group all requests by operation type.
@@ -302,20 +375,31 @@ namespace Wino.Core.Synchronizers
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
         private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> requests)
         {
-            bool isAllCustomSynchronizationRequests = requests.All(a => a is ICustomFolderSynchronizationRequest);
+            List<Guid> synchronizationFolderIds = new();
+
+            if (requests.All(a => a is IBatchChangeRequest))
+            {
+                var requestsInsideBatches = requests.Cast<IBatchChangeRequest>().SelectMany(b => b.Items);
+
+                // Gather FolderIds to synchronize.
+                synchronizationFolderIds = requestsInsideBatches
+                    .Where(a => a is ICustomFolderSynchronizationRequest)
+                    .Cast<ICustomFolderSynchronizationRequest>()
+                    .SelectMany(a => a.SynchronizationFolderIds)
+                    .ToList();
+            }
 
             var options = new SynchronizationOptions()
             {
                 AccountId = Account.Id,
-                Type = SynchronizationType.FoldersOnly
             };
 
-            if (isAllCustomSynchronizationRequests)
+            if (synchronizationFolderIds.Count > 0)
             {
                 // Gather FolderIds to synchronize.
 
                 options.Type = SynchronizationType.Custom;
-                options.SynchronizationFolderIds = requests.Cast<ICustomFolderSynchronizationRequest>().SelectMany(a => a.SynchronizationFolderIds).ToList();
+                options.SynchronizationFolderIds = synchronizationFolderIds;
             }
             else
             {

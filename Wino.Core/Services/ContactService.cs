@@ -10,8 +10,8 @@ namespace Wino.Core.Services
 {
     public interface IContactService
     {
-        Task<List<AddressInformation>> GetAddressInformationAsync(string queryText);
-        Task<AddressInformation> GetAddressInformationByAddressAsync(string address);
+        Task<List<AccountContact>> GetAddressInformationAsync(string queryText);
+        Task<AccountContact> GetAddressInformationByAddressAsync(string address);
         Task SaveAddressInformationAsync(MimeMessage message);
     }
 
@@ -19,25 +19,22 @@ namespace Wino.Core.Services
     {
         public ContactService(IDatabaseService databaseService) : base(databaseService) { }
 
-        public Task<List<AddressInformation>> GetAddressInformationAsync(string queryText)
+        public Task<List<AccountContact>> GetAddressInformationAsync(string queryText)
         {
             if (queryText == null || queryText.Length < 2)
-                return Task.FromResult<List<AddressInformation>>(null);
+                return Task.FromResult<List<AccountContact>>(null);
 
-            var query = new Query(nameof(AddressInformation));
+            var query = new Query(nameof(AccountContact));
             query.WhereContains("Address", queryText);
             query.OrWhereContains("Name", queryText);
 
             var rawLikeQuery = query.GetRawQuery();
 
-            return Connection.QueryAsync<AddressInformation>(rawLikeQuery);
+            return Connection.QueryAsync<AccountContact>(rawLikeQuery);
         }
 
-        public async Task<AddressInformation> GetAddressInformationByAddressAsync(string address)
-        {
-            return await Connection.Table<AddressInformation>().Where(a => a.Address == address).FirstOrDefaultAsync()
-                ?? new AddressInformation() { Name = address, Address = address };
-        }
+        public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
+            => Connection.Table<AccountContact>().Where(a => a.Address == address).FirstOrDefaultAsync();
 
         public async Task SaveAddressInformationAsync(MimeMessage message)
         {
@@ -45,10 +42,21 @@ namespace Wino.Core.Services
                         .GetRecipients(true)
                         .Where(a => !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.Address));
 
-            var addressInformations = recipients.Select(a => new AddressInformation() { Name = a.Name, Address = a.Address });
+            var addressInformations = recipients.Select(a => new AccountContact() { Name = a.Name, Address = a.Address });
 
             foreach (var info in addressInformations)
-                await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+            {
+                var currentContact = await GetAddressInformationByAddressAsync(info.Address).ConfigureAwait(false);
+
+                if (currentContact == null)
+                {
+                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                }
+                else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+                {
+                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                }
+            }
         }
     }
 }

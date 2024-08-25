@@ -56,14 +56,6 @@
             PlaceholderText="{x:Bind domain:Translator.NewAccountDialog_AccountNamePlaceholder}"
             TextChanged="AccountNameChanged" />
 
-        <!--  Sender Name  -->
-        <TextBox
-            x:Name="SenderNameTextbox"
-            Grid.Row="1"
-            Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName}"
-            PlaceholderText="{x:Bind domain:Translator.AccountSettingsDialog_AccountNamePlaceholder}"
-            TextChanged="SenderNameChanged" />
-
         <!--
             TODO: Move Name, Sender Name and Color Picker to another Frame.
             Provider selection should be first, then account details.
@@ -79,7 +71,7 @@
 
         <ListView
             Grid.Row="2"
-            Margin="0,12"
+            
             Padding="0"
             ItemTemplate="{StaticResource NewMailProviderTemplate}"
             ItemsSource="{x:Bind Providers}"

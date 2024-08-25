@@ -8,7 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
-using Wino.Core.Messages.Mails;
+using Wino.Messaging.Client.Mails;
 
 
 namespace Wino.Views.ImapSetup

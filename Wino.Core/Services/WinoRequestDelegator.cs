@@ -11,26 +11,26 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Synchronization;
 using Wino.Core.Requests;
+using Wino.Messaging.Server;
 
 namespace Wino.Core.Services
 {
     public class WinoRequestDelegator : IWinoRequestDelegator
     {
         private readonly IWinoRequestProcessor _winoRequestProcessor;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private readonly IFolderService _folderService;
         private readonly IDialogService _dialogService;
         private readonly ILogger _logger = Log.ForContext<WinoRequestDelegator>();
 
         public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                    IWinoSynchronizerFactory winoSynchronizerFactory,
+                                    IWinoServerConnectionManager winoServerConnectionManager,
                                     IFolderService folderService,
                                     IDialogService dialogService)
         {
             _winoRequestProcessor = winoRequestProcessor;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
+            _winoServerConnectionManager = winoServerConnectionManager;
             _folderService = folderService;
             _dialogService = dialogService;
         }
@@ -77,10 +77,10 @@ namespace Wino.Core.Services
             {
                 foreach (var accountRequest in accountId)
                 {
-                    QueueRequest(accountRequest, accountId.Key);
+                    await QueueRequestAsync(accountRequest, accountId.Key);
                 }
 
-                QueueSynchronization(accountId.Key);
+                await QueueSynchronizationAsync(accountId.Key);
             }
         }
 
@@ -107,54 +107,57 @@ namespace Wino.Core.Services
 
             if (request == null) return;
 
-            QueueRequest(request, accountId);
-            QueueSynchronization(accountId);
+            await QueueRequestAsync(request, accountId);
+            await QueueSynchronizationAsync(accountId);
         }
 
-        public Task ExecuteAsync(DraftPreperationRequest draftPreperationRequest)
+        public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
         {
             var request = new CreateDraftRequest(draftPreperationRequest);
 
-            QueueRequest(request, draftPreperationRequest.Account.Id);
-            QueueSynchronization(draftPreperationRequest.Account.Id);
-
-            return Task.CompletedTask;
+            await QueueRequestAsync(request, draftPreperationRequest.Account.Id);
+            await QueueSynchronizationAsync(draftPreperationRequest.Account.Id);
         }
 
-        public Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
+        public async Task ExecuteAsync(SendDraftPreparationRequest sendDraftPreperationRequest)
         {
             var request = new SendDraftRequest(sendDraftPreperationRequest);
 
-            QueueRequest(request, sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
-            QueueSynchronization(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
-
-            return Task.CompletedTask;
+            await QueueRequestAsync(request, sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
+            await QueueSynchronizationAsync(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
         }
 
-        private void QueueRequest(IRequestBase request, Guid accountId)
+        private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
         {
-            var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
-
-            if (synchronizer == null)
+            try
             {
-                _logger.Warning("Synchronizer not found for account {AccountId}.", accountId);
-                _logger.Warning("Skipping queueing request {Operation}.", request.Operation);
-
-                return;
+                await EnsureServerConnectedAsync();
+                await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
             }
-
-            synchronizer.QueueRequest(request);
+            catch (WinoServerException serverException)
+            {
+                _dialogService.InfoBarMessage("Wino Server Exception", serverException.Message, InfoBarMessageType.Error);
+            }
         }
 
-        private void QueueSynchronization(Guid accountId)
+        private async Task QueueSynchronizationAsync(Guid accountId)
         {
+            await EnsureServerConnectedAsync();
+
             var options = new SynchronizationOptions()
             {
                 AccountId = accountId,
                 Type = SynchronizationType.ExecuteRequests
             };
 
-            WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options));
+            WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+        }
+
+        private async Task EnsureServerConnectedAsync()
+        {
+            if (_winoServerConnectionManager.Status == WinoServerConnectionStatus.Connected) return;
+
+            await _winoServerConnectionManager.ConnectAsync();
         }
     }
 }

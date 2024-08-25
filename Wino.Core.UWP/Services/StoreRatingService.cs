@@ -23,9 +23,6 @@ namespace Wino.Core.UWP.Services
             _dialogService = dialogService;
         }
 
-        private void SetRated()
-            => _configurationService.SetRoaming(RatedStorageKey, true);
-
         private bool IsAskingThresholdExceeded()
         {
             var latestAskedDate = _configurationService.Get(LatestAskedKey, DateTime.MinValue);
@@ -62,15 +59,14 @@ namespace Wino.Core.UWP.Services
                 {
                     if (!IsAskingThresholdExceeded()) return;
 
-                    var ratingDialogResult = await _dialogService.ShowRatingDialogAsync();
+                    var isRateWinoApproved = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.StoreRatingDialog_Title,
+                        Translator.StoreRatingDialog_MessageFirstLine,
+                        Translator.Buttons_RateWino,
+                        Domain.Enums.WinoCustomMessageDialogIcon.Question,
+                        Translator.Buttons_No,
+                        RatedStorageKey);
 
-                    if (ratingDialogResult == null)
-                        return;
-
-                    if (ratingDialogResult.DontAskAgain)
-                        SetRated();
-
-                    if (ratingDialogResult.RateWinoClicked)
+                    if (isRateWinoApproved)
                     {
                         // In case of failure of this call, we will navigate users to Store page directly.
 
@@ -107,7 +103,7 @@ namespace Wino.Core.UWP.Services
                     else
                         _dialogService.InfoBarMessage(Translator.Info_ReviewSuccessTitle, Translator.Info_ReviewNewMessage, Domain.Enums.InfoBarMessageType.Success);
 
-                    SetRated();
+                    _configurationService.Set(RatedStorageKey, true);
                     break;
                 case StoreRateAndReviewStatus.CanceledByUser:
                     break;

@@ -6,8 +6,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Requests;
-using Wino.Core.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -72,9 +71,7 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnFolderRenamed(IMailItemFolder mailItemFolder) { }
         protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
 
-        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
-            => Messenger.Send(message);
-
+        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
         void IRecipient<AccountCreatedMessage>.Receive(AccountCreatedMessage message) => OnAccountCreated(message.Account);
         void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message) => OnAccountRemoved(message.Account);
         void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message) => OnAccountUpdated(message.Account);

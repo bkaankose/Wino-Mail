@@ -9,7 +9,6 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Requests;
 
 namespace Wino.Core.Services
@@ -92,6 +91,7 @@ namespace Wino.Core.Services
 
             var requests = new List<IRequest>();
 
+            // TODO: Fix: Collection was modified; enumeration operation may not execute
             foreach (var item in preperationRequest.MailItems)
             {
                 var singleRequest = await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution);

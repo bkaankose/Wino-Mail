@@ -24,12 +24,13 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
-using Wino.Core.Messages.Synchronization;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -67,17 +68,16 @@ namespace Wino.Mail.ViewModels
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
 
         public IWinoNavigationService NavigationService { get; }
-        public IStatePersistanceService StatePersistanceService { get; }
+        public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
         private readonly IMailService _mailService;
         private readonly IFolderService _folderService;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
         private readonly IContextMenuItemService _contextMenuItemService;
         private readonly IWinoRequestDelegator _winoRequestDelegator;
         private readonly IKeyPressService _keyPressService;
-
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private MailItemViewModel _activeMailItem;
 
         public List<SortingOption> SortingOptions { get; } =
@@ -121,6 +121,12 @@ namespace Wino.Mail.ViewModels
         private string barMessage;
 
         [ObservableProperty]
+        private double mailListLength = 420;
+
+        [ObservableProperty]
+        private double maxMailListLength = 1200;
+
+        [ObservableProperty]
         private string barTitle;
 
         [ObservableProperty]
@@ -141,22 +147,22 @@ namespace Wino.Mail.ViewModels
         public MailListPageViewModel(IDialogService dialogService,
                                      IWinoNavigationService navigationService,
                                      IMailService mailService,
-                                     IStatePersistanceService statePersistanceService,
+                                     IStatePersistanceService statePersistenceService,
                                      IFolderService folderService,
-                                     IWinoSynchronizerFactory winoSynchronizerFactory,
                                      IThreadingStrategyProvider threadingStrategyProvider,
                                      IContextMenuItemService contextMenuItemService,
                                      IWinoRequestDelegator winoRequestDelegator,
                                      IKeyPressService keyPressService,
-                                     IPreferencesService preferencesService) : base(dialogService)
+                                     IPreferencesService preferencesService,
+                                     IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             PreferencesService = preferencesService;
-            StatePersistanceService = statePersistanceService;
+            _winoServerConnectionManager = winoServerConnectionManager;
+            StatePersistenceService = statePersistenceService;
             NavigationService = navigationService;
 
             _mailService = mailService;
             _folderService = folderService;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
             _threadingStrategyProvider = threadingStrategyProvider;
             _contextMenuItemService = contextMenuItemService;
             _winoRequestDelegator = winoRequestDelegator;
@@ -165,6 +171,8 @@ namespace Wino.Mail.ViewModels
             SelectedFilterOption = FilterOptions[0];
             SelectedSortingOption = SortingOptions[0];
 
+            mailListLength = statePersistenceService.MailListPaneLength;
+
             selectionChangedObservable = Observable.FromEventPattern<NotifyCollectionChangedEventArgs>(SelectedItems, nameof(SelectedItems.CollectionChanged));
             selectionChangedObservable
                 .Throttle(TimeSpan.FromMilliseconds(100))
@@ -172,6 +180,24 @@ namespace Wino.Mail.ViewModels
                 {
                     await ExecuteUIThread(() => { SelectedItemCollectionUpdated(a.EventArgs); });
                 });
+
+            MailCollection.MailItemRemoved += (c, removedItem) =>
+            {
+                if (removedItem is ThreadMailItemViewModel removedThreadViewModelItem)
+                {
+                    foreach (var viewModel in removedThreadViewModelItem.ThreadItems.Cast<MailItemViewModel>())
+                    {
+                        if (SelectedItems.Contains(viewModel))
+                        {
+                            SelectedItems.Remove(viewModel);
+                        }
+                    }
+                }
+                else if (removedItem is MailItemViewModel removedMailItemViewModel && SelectedItems.Contains(removedMailItemViewModel))
+                {
+                    SelectedItems.Remove(removedMailItemViewModel);
+                }
+            };
         }
 
         #region Properties
@@ -239,7 +265,7 @@ namespace Wino.Mail.ViewModels
         {
             if (_activeMailItem == selectedMailItemViewModel) return;
 
-            // Don't update active mail item if Ctrl key is pressed or multi selection is ennabled.
+            // Don't update active mail item if Ctrl key is pressed or multi selection is enabled.
             // User is probably trying to select multiple items.
             // This is not the same behavior in Windows Mail,
             // but it's a trash behavior.
@@ -248,7 +274,7 @@ namespace Wino.Mail.ViewModels
 
             bool isMultiSelecting = isCtrlKeyPressed || IsMultiSelectionModeEnabled;
 
-            if (isMultiSelecting ? StatePersistanceService.IsReaderNarrowed : false)
+            if (isMultiSelecting && StatePersistenceService.IsReaderNarrowed)
             {
                 // Don't change the active mail item if the reader is narrowed, but just update the shell.
                 Messenger.Send(new ShellStateUpdated());
@@ -309,25 +335,6 @@ namespace Wino.Mail.ViewModels
 
             MailCollection.CoreDispatcher = Dispatcher;
         }
-
-        //protected override async void OnFolderUpdated(MailItemFolder updatedFolder, MailAccount account)
-        //{
-        //    base.OnFolderUpdated(updatedFolder, account);
-
-        //    // Don't need to update if the folder update does not belong to the current folder menu item.
-        //    if (ActiveFolder == null || updatedFolder == null || !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedFolder.Id)) return;
-
-        //    await ExecuteUIThread(() =>
-        //    {
-        //        ActiveFolder.UpdateFolder(updatedFolder);
-
-        //        OnPropertyChanged(nameof(CanSynchronize));
-        //        OnPropertyChanged(nameof(IsFolderSynchronizationEnabled));
-        //    });
-
-        //    // Force synchronization after enabling the folder.
-        //    SyncFolder();
-        //}
 
         private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
         {
@@ -451,7 +458,7 @@ namespace Wino.Mail.ViewModels
                     GroupedSynchronizationTrackingId = trackingSynchronizationId
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options));
+                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 
@@ -603,11 +610,14 @@ namespace Wino.Mail.ViewModels
         {
             base.OnMailAdded(addedMail);
 
+            if (addedMail.AssignedAccount == null || addedMail.AssignedFolder == null) return;
+
             try
             {
-                await listManipulationSemepahore.WaitAsync();
-
                 if (ActiveFolder == null) return;
+
+                // At least accounts must match.
+                if (ActiveFolder.HandlingFolders.Any(a => a.MailAccountId != addedMail.AssignedAccount.Id)) return;
 
                 // Messages coming to sent or draft folder must be inserted regardless of the filter.
                 bool shouldPreventIgnoringFilter = addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
@@ -616,14 +626,14 @@ namespace Wino.Mail.ViewModels
                 // Item does not belong to this folder and doesn't have special type to be inserted.
                 if (!shouldPreventIgnoringFilter && !ActiveFolder.HandlingFolders.Any(a => a.Id == addedMail.AssignedFolder.Id)) return;
 
+                // Item should be prevented from being added to the list due to filter.
                 if (!shouldPreventIgnoringFilter && ShouldPreventItemAdd(addedMail)) return;
 
-                await ExecuteUIThread(async () =>
-                {
-                    await MailCollection.AddAsync(addedMail);
+                await listManipulationSemepahore.WaitAsync();
 
-                    NotifyItemFoundState();
-                });
+                await MailCollection.AddAsync(addedMail);
+
+                await ExecuteUIThread(() => { NotifyItemFoundState(); });
             }
             catch { }
             finally
@@ -693,6 +703,7 @@ namespace Wino.Mail.ViewModels
                 gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
             }
         }
+
         protected override async void OnDraftCreated(MailCopy draftMail, MailAccount account)
         {
             base.OnDraftCreated(draftMail, account);
@@ -704,10 +715,10 @@ namespace Wino.Mail.ViewModels
                 await listManipulationSemepahore.WaitAsync();
 
                 // Create the item. Draft folder navigation is already done at this point.
-                await ExecuteUIThread(async () =>
-                {
-                    await MailCollection.AddAsync(draftMail);
+                await MailCollection.AddAsync(draftMail);
 
+                await ExecuteUIThread(() =>
+                {
                     // New draft is created by user. Select the item.
                     Messenger.Send(new MailItemNavigationRequested(draftMail.UniqueId, ScrollToItem: true));
 
@@ -751,12 +762,17 @@ namespace Wino.Mail.ViewModels
                 // Folder is changed during initialization.
                 // Just cancel the existing one and wait for new initialization.
 
-                if (listManipulationSemepahore.CurrentCount == 0)
-                {
-                    Debug.WriteLine("Canceling initialization of mails.");
+                //if (listManipulationSemepahore.CurrentCount == 0)
+                //{
+                //    Debug.WriteLine("Canceling initialization of mails.");
 
+                //    listManipulationCancellationTokenSource.Cancel();
+                //    listManipulationCancellationTokenSource.Token.ThrowIfCancellationRequested();
+                //}
+
+                if (!listManipulationCancellationTokenSource.IsCancellationRequested)
+                {
                     listManipulationCancellationTokenSource.Cancel();
-                    listManipulationCancellationTokenSource.Token.ThrowIfCancellationRequested();
                 }
 
                 listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -783,15 +799,18 @@ namespace Wino.Mail.ViewModels
                                                                               SearchQuery,
                                                                               MailCollection.MailCopyIdHashSet);
 
-                var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
+                var items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 
-                // Here they are already threaded if needed.
-                // We don't need to insert them one by one.
-                // Just create VMs and do bulk insert.
+                if (!listManipulationCancellationTokenSource.IsCancellationRequested)
+                {
+                    // Here they are already threaded if needed.
+                    // We don't need to insert them one by one.
+                    // Just create VMs and do bulk insert.
 
-                var viewModels = PrepareMailViewModels(items);
+                    var viewModels = PrepareMailViewModels(items);
 
-                await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, true); });
+                    await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, true); });
+                }
             }
             catch (OperationCanceledException)
             {
@@ -846,9 +865,6 @@ namespace Wino.Mail.ViewModels
             trackingSynchronizationId = null;
             completedTrackingSynchronizationCount = 0;
 
-            // Check whether the account synchronizer that this folder belongs to is already in synchronization.
-            await CheckIfAccountIsSynchronizingAsync();
-
             // Notify change for archive-unarchive app bar button.
             OnPropertyChanged(nameof(IsArchiveSpecialFolder));
 
@@ -866,8 +882,13 @@ namespace Wino.Mail.ViewModels
                 await Task.Delay(100);
             }
 
+            // Check whether the account synchronizer that this folder belongs to is already in synchronization.
+            await CheckIfAccountIsSynchronizingAsync();
+
             // Let awaiters know about the completion of mail init.
             message.FolderInitLoadAwaitTask?.TrySetResult(true);
+
+            await Task.Yield();
 
             isChangingFolder = false;
 
@@ -917,6 +938,7 @@ namespace Wino.Mail.ViewModels
 
         void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
         {
+            Debug.WriteLine($"Mail item navigation requested");
             // Find mail item and add to selected items.
 
             MailItemViewModel navigatingMailItem = null;
@@ -940,8 +962,6 @@ namespace Wino.Mail.ViewModels
 
             if (navigatingMailItem != null)
                 WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(navigatingMailItem, message.ScrollToItem));
-            else
-                Debugger.Break();
         }
 
         #endregion
@@ -980,13 +1000,9 @@ namespace Wino.Mail.ViewModels
 
                 foreach (var accountId in accountIds)
                 {
-                    var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(accountId);
+                    var serverResponse = await _winoServerConnectionManager.GetResponseAsync<bool, SynchronizationExistenceCheckRequest>(new SynchronizationExistenceCheckRequest(accountId));
 
-                    if (synchronizer == null) continue;
-
-                    bool isAccountSynchronizing = synchronizer.State != AccountSynchronizerState.Idle;
-
-                    if (isAccountSynchronizing)
+                    if (serverResponse.IsSuccess && serverResponse.Data == true)
                     {
                         isAnyAccountSynchronizing = true;
                         break;

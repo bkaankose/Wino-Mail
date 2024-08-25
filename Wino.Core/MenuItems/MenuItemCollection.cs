@@ -146,20 +146,17 @@ namespace Wino.Core.MenuItems
             accountMenuItem ??= this.OfType<MergedAccountMenuItem>()
                 .FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == accountId))?.SubMenuItems
                 .OfType<AccountMenuItem>()
-                .FirstOrDefault();
+                .FirstOrDefault(a => a.AccountId == accountId);
 
             return accountMenuItem;
         }
 
-        public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
+        public void ReplaceFolders(IEnumerable<IMenuItem> folders)
         {
-            await _dispatcher.ExecuteOnUIThread(() =>
-            {
-                ClearFolderAreaMenuItems();
+            ClearFolderAreaMenuItems();
 
-                Items.Add(new SeperatorItem());
-                AddRange(folders);
-            });
+            Items.Add(new SeperatorItem());
+            AddRange(folders);
         }
 
         /// <summary>
@@ -194,9 +191,11 @@ namespace Wino.Core.MenuItems
             {
                 item.IsExpanded = false;
                 item.IsSelected = false;
+
+                Remove(item);
             });
 
-            RemoveRange(itemsToRemove);
+            // RemoveRange(itemsToRemove);
         }
     }
 }

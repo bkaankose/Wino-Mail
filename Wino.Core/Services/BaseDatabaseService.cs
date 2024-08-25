@@ -1,6 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using SQLite;
-using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Services
 {

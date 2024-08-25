@@ -10,13 +10,6 @@ using Wino.Core.Synchronizers;
 
 namespace Wino.Core
 {
-    public interface IWinoSynchronizerFactory : IInitializeAsync
-    {
-        IBaseSynchronizer GetAccountSynchronizer(Guid accountId);
-        IBaseSynchronizer CreateNewSynchronizer(MailAccount account);
-        void DeleteSynchronizer(MailAccount account);
-    }
-
     /// <summary>
     /// Factory that keeps track of all integrator with associated mail accounts.
     /// Synchronizer per-account makes sense because re-generating synchronizers are not ideal.
@@ -82,7 +75,6 @@ namespace Wino.Core
                     return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor);
                 case Domain.Enums.MailProviderType.Gmail:
                     var gmailAuthenticator = new GmailAuthenticator(_tokenService, _nativeAppService);
-
                     return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor);
                 case Domain.Enums.MailProviderType.Office365:
                     break;

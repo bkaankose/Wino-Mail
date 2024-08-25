@@ -7,7 +7,7 @@ using Serilog;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Accounts;
+using Wino.Messaging.Client.Accounts;
 
 namespace Wino.Activation
 {
@@ -39,7 +39,7 @@ namespace Wino.Activation
             // Otherwise we'll save it and handle it when the shell loads all accounts.
 
             // Parse the mail unique id and perform above actions.
-            if (Guid.TryParse(_toastArguments[Constants.ToastMailItemIdKey], out Guid mailItemUniqueId))
+            if (Guid.TryParse(_toastArguments[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
             {
                 var account = await _mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
                 if (account == null) return;
@@ -65,7 +65,7 @@ namespace Wino.Activation
                 _toastArguments = ToastArguments.Parse(args.Argument);
 
                 return
-                    _toastArguments.Contains(Constants.ToastMailItemIdKey) &&
+                    _toastArguments.Contains(Constants.ToastMailUniqueIdKey) &&
                     _toastArguments.Contains(Constants.ToastActionKey);
             }
             catch (Exception ex)

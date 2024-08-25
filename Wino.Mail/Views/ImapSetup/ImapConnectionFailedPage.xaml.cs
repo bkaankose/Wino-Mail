@@ -6,7 +6,7 @@ using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
+using Wino.Messaging.Client.Mails;
 
 namespace Wino.Views.ImapSetup
 {

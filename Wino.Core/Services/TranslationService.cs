@@ -1,14 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Newtonsoft.Json;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
-using Wino.Core.Messages.Shell;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino.Core.Services
 {
@@ -44,7 +44,7 @@ namespace Wino.Core.Services
 
             var stremValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
 
-            var translationLookups = JsonConvert.DeserializeObject<Dictionary<string, string>>(stremValue);
+            var translationLookups = JsonSerializer.Deserialize<Dictionary<string, string>>(stremValue);
 
             // Insert new translation key-value pairs.
             // Overwrite existing values for the same keys.
@@ -77,6 +77,7 @@ namespace Wino.Core.Services
                 new AppLanguageModel(AppLanguage.Deutsch, "Deutsch"),
                 new AppLanguageModel(AppLanguage.English, "English"),
                 new AppLanguageModel(AppLanguage.French, "French"),
+                new AppLanguageModel(AppLanguage.Italian, "Italian"),
                 new AppLanguageModel(AppLanguage.Greek, "Greek"),
                 new AppLanguageModel(AppLanguage.Indonesian, "Indonesian"),
                 new AppLanguageModel(AppLanguage.Polish, "Polski"),

@@ -10,7 +10,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
-using Wino.Core.Messages.Mails;
+using Wino.Messaging.Client.Mails;
 
 
 namespace Wino.Views.ImapSetup

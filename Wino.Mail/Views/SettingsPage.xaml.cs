@@ -7,8 +7,8 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Messages.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Navigation;
 using Wino.Views.Abstract;
 using Wino.Views.Settings;
 
@@ -31,6 +31,16 @@ namespace Wino.Views
 
             var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage);
             PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
+
+            if (e.Parameter is WinoPage parameterPage)
+            {
+                switch (parameterPage)
+                {
+                    case WinoPage.AppPreferencesPage:
+                        WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsAppPreferences_Title, WinoPage.AppPreferencesPage));
+                        break;
+                }
+            }
         }
 
         public override void OnLanguageChanged()
@@ -51,8 +61,9 @@ namespace Wino.Views
             WinoPage.AboutPage => typeof(AboutPage),
             WinoPage.PersonalizationPage => typeof(PersonalizationPage),
             WinoPage.MessageListPage => typeof(MessageListPage),
-            WinoPage.ReadingPanePage => typeof(ReadingPanePage),
+            WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
+            WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
             _ => null,
         };
 

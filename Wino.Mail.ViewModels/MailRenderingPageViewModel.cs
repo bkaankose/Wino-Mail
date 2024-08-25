@@ -20,11 +20,11 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Extensions;
-using Wino.Core.Messages.Mails;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
@@ -37,11 +37,11 @@ namespace Wino.Mail.ViewModels
         private readonly IMimeFileService _mimeFileService;
         private readonly Core.Domain.Interfaces.IMailService _mailService;
         private readonly IFileService _fileService;
-        private readonly IWinoSynchronizerFactory _winoSynchronizerFactory;
         private readonly IWinoRequestDelegator _requestDelegator;
+        private readonly IContactService _contactService;
         private readonly IClipboardService _clipboardService;
         private readonly IUnsubscriptionService _unsubscriptionService;
-
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private bool forceImageLoading = false;
 
         private MailItemViewModel initializedMailItemViewModel = null;
@@ -81,6 +81,8 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        public bool HasMultipleAttachments => Attachments.Count > 1;
+
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
         private bool isIndetermineProgress;
@@ -103,19 +105,22 @@ namespace Wino.Mail.ViewModels
         private string fromName;
 
         [ObservableProperty]
+        private string contactPicture;
+
+        [ObservableProperty]
         private DateTime creationDate;
 
 
-        public ObservableCollection<AddressInformation> ToItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> CCItemsItems { get; set; } = new ObservableCollection<AddressInformation>();
-        public ObservableCollection<AddressInformation> BCCItems { get; set; } = new ObservableCollection<AddressInformation>();
+        public ObservableCollection<AccountContact> ToItems { get; set; } = new ObservableCollection<AccountContact>();
+        public ObservableCollection<AccountContact> CCItemsItems { get; set; } = new ObservableCollection<AccountContact>();
+        public ObservableCollection<AccountContact> BCCItems { get; set; } = new ObservableCollection<AccountContact>();
         public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
         public ObservableCollection<MailOperationMenuItem> MenuItems { get; set; } = new ObservableCollection<MailOperationMenuItem>();
 
         #endregion
 
         public INativeAppService NativeAppService { get; }
-        public IStatePersistanceService StatePersistanceService { get; }
+        public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
         public MailRenderingPageViewModel(IDialogService dialogService,
@@ -124,24 +129,25 @@ namespace Wino.Mail.ViewModels
                                           IMimeFileService mimeFileService,
                                           Core.Domain.Interfaces.IMailService mailService,
                                           IFileService fileService,
-                                          IWinoSynchronizerFactory winoSynchronizerFactory,
                                           IWinoRequestDelegator requestDelegator,
-                                          IStatePersistanceService statePersistanceService,
+                                          IStatePersistanceService statePersistenceService,
+                                          IContactService contactService,
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
-                                          IPreferencesService preferencesService) : base(dialogService)
+                                          IPreferencesService preferencesService,
+                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             NativeAppService = nativeAppService;
-            StatePersistanceService = statePersistanceService;
+            StatePersistenceService = statePersistenceService;
+            _contactService = contactService;
             PreferencesService = preferencesService;
-
+            _winoServerConnectionManager = winoServerConnectionManager;
             _clipboardService = clipboardService;
             _unsubscriptionService = unsubscriptionService;
             _underlyingThemeService = underlyingThemeService;
             _mimeFileService = mimeFileService;
             _mailService = mailService;
             _fileService = fileService;
-            _winoSynchronizerFactory = winoSynchronizerFactory;
             _requestDelegator = requestDelegator;
         }
 
@@ -168,10 +174,7 @@ namespace Wino.Mail.ViewModels
 
             if (initializedMailItemViewModel == null && initializedMimeMessageInformation == null) return;
 
-            if (initializedMailItemViewModel != null)
-                await RenderAsync(initializedMimeMessageInformation);
-            else
-                await RenderAsync(initializedMimeMessageInformation);
+            await RenderAsync(initializedMimeMessageInformation);
         }
 
         [RelayCommand]
@@ -257,35 +260,27 @@ namespace Wino.Mail.ViewModels
                 if (initializedMailItemViewModel == null) return;
 
                 // Create new draft.
-                var draftOptions = new DraftCreationOptions();
-
-                if (operation == MailOperation.Reply)
-                    draftOptions.Reason = DraftCreationReason.Reply;
-                else if (operation == MailOperation.ReplyAll)
-                    draftOptions.Reason = DraftCreationReason.ReplyAll;
-                else if (operation == MailOperation.Forward)
-                    draftOptions.Reason = DraftCreationReason.Forward;
-
-                // TODO: Separate mailto related stuff out of DraftCreationOptions and provide better
-                // model for draft preperation request. Right now it's a mess.
-
-                draftOptions.ReferenceMailCopy = initializedMailItemViewModel.MailCopy;
-                draftOptions.ReferenceMimeMessage = initializedMimeMessageInformation.MimeMessage;
-
-                var createdMimeMessage = await _mailService.CreateDraftMimeMessageAsync(initializedMailItemViewModel.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
-
-                var createdDraftMailMessage = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount,
-                                                                                  createdMimeMessage,
-                                                                                  initializedMimeMessageInformation.MimeMessage,
-                                                                                  initializedMailItemViewModel).ConfigureAwait(false);
-
-                var draftPreperationRequest = new DraftPreperationRequest(initializedMailItemViewModel.AssignedAccount, createdDraftMailMessage, createdMimeMessage)
+                var draftOptions = new DraftCreationOptions()
                 {
-                    ReferenceMimeMessage = initializedMimeMessageInformation.MimeMessage,
-                    ReferenceMailCopy = initializedMailItemViewModel.MailCopy
+                    Reason = operation switch
+                    {
+                        MailOperation.Reply => DraftCreationReason.Reply,
+                        MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+                        MailOperation.Forward => DraftCreationReason.Forward,
+                        _ => DraftCreationReason.Empty
+                    },
+                    ReferencedMessage = new ReferencedMessage()
+                    {
+                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
+                        MailCopy = initializedMailItemViewModel.MailCopy
+                    }
                 };
 
-                await _requestDelegator.ExecuteAsync(draftPreperationRequest);
+                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
+
+                await _requestDelegator.ExecuteAsync(draftPreparationRequest);
 
             }
             else if (initializedMailItemViewModel != null)
@@ -301,6 +296,9 @@ namespace Wino.Mail.ViewModels
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
+
+            Attachments.CollectionChanged -= AttachmentsUpdated;
+            Attachments.CollectionChanged += AttachmentsUpdated;
 
             renderCancellationTokenSource.Cancel();
 
@@ -344,17 +342,20 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        private async void AttachmentsUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            await ExecuteUIThread(() => { OnPropertyChanged(nameof(HasMultipleAttachments)); });
+        }
 
         private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
         {
-            var synchronizer = _winoSynchronizerFactory.GetAccountSynchronizer(mailItemViewModel.AssignedAccount.Id);
-
             try
             {
                 // To show the progress on the UI.
                 CurrentDownloadPercentage = 1;
 
-                await synchronizer.DownloadMissingMimeMessageAsync(mailItemViewModel.MailCopy, this, renderCancellationTokenSource.Token);
+                var package = new DownloadMissingMessageRequested(mailItemViewModel.AssignedAccount.Id, mailItemViewModel.MailCopy);
+                await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
             }
             catch (OperationCanceledException)
             {
@@ -406,9 +407,12 @@ namespace Wino.Mail.ViewModels
 
             var renderingOptions = PreferencesService.GetRenderingOptions();
 
-            await ExecuteUIThread(() =>
+            await ExecuteUIThread(async () =>
             {
                 Attachments.Clear();
+                ToItems.Clear();
+                CCItemsItems.Clear();
+                BCCItems.Clear();
 
                 Subject = message.Subject;
 
@@ -416,11 +420,12 @@ namespace Wino.Mail.ViewModels
                 FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
                 FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
                 CreationDate = message.Date.DateTime;
+                ContactPicture = initializedMailItemViewModel.SenderContact?.Base64ContactPicture;
 
                 // Extract to,cc and bcc
-                LoadAddressInfo(message.To, ToItems);
-                LoadAddressInfo(message.Cc, CCItemsItems);
-                LoadAddressInfo(message.Bcc, BCCItems);
+                await LoadAddressInfoAsync(message.To, ToItems);
+                await LoadAddressInfoAsync(message.Cc, CCItemsItems);
+                await LoadAddressInfoAsync(message.Bcc, BCCItems);
 
                 // Automatically disable images for Junk folder to prevent pixel tracking.
                 // This can only work for selected mail item rendering, not for EML file rendering.
@@ -447,13 +452,15 @@ namespace Wino.Mail.ViewModels
 
                 OnPropertyChanged(nameof(IsImageRenderingDisabled));
 
-                StatePersistanceService.IsReadingMail = true;
+                StatePersistenceService.IsReadingMail = true;
             });
         }
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
+
+            Attachments.CollectionChanged -= AttachmentsUpdated;
 
             renderCancellationTokenSource.Cancel();
             CurrentDownloadPercentage = 0d;
@@ -469,19 +476,22 @@ namespace Wino.Mail.ViewModels
             Attachments.Clear();
             MenuItems.Clear();
 
-            StatePersistanceService.IsReadingMail = false;
+            StatePersistenceService.IsReadingMail = false;
         }
 
-        private void LoadAddressInfo(InternetAddressList list, ObservableCollection<AddressInformation> collection)
+        private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
         {
-            collection.Clear();
-
             foreach (var item in list)
             {
                 if (item is MailboxAddress mailboxAddress)
-                    collection.Add(mailboxAddress.ToAddressInformation());
+                {
+                    var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
+                        ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+
+                    await ExecuteUIThread(() => { collection.Add(foundContact); });
+                }
                 else if (item is GroupAddress groupAddress)
-                    LoadAddressInfo(groupAddress.Members, collection);
+                    await LoadAddressInfoAsync(groupAddress.Members, collection);
             }
         }
 
@@ -634,6 +644,32 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        [RelayCommand]
+        private async Task SaveAllAttachmentsAsync()
+        {
+            var pickedPath = await DialogService.PickWindowsFolderAsync();
+
+            if (string.IsNullOrEmpty(pickedPath)) return;
+
+            try
+            {
+
+                foreach (var attachmentViewModel in Attachments)
+                {
+                    await SaveAttachmentInternalAsync(attachmentViewModel, pickedPath);
+                }
+
+                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, WinoErrors.SaveAttachment);
+                Crashes.TrackError(ex);
+
+                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+            }
+        }
+
         // Returns created file path.
         private async Task<string> SaveAttachmentInternalAsync(MailAttachmentViewModel attachmentViewModel, string saveFolderPath)
         {
@@ -666,6 +702,23 @@ namespace Wino.Mail.ViewModels
         // For upload.
         void ITransferProgress.Report(long bytesTransferred) { }
 
-        public async void Receive(NewMailItemRenderingRequestedEvent message) => await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
+        public async void Receive(NewMailItemRenderingRequestedEvent message)
+        {
+            try
+            {
+                await RenderAsync(message.MailItemViewModel, renderCancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Information("Canceled mail rendering.");
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+
+                Crashes.TrackError(ex);
+                Log.Error(ex, "Render Failed");
+            }
+        }
     }
 }

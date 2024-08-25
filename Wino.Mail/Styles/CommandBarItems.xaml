@@ -1,9 +1,9 @@
 ﻿<ResourceDictionary
+    x:Class="Wino.Styles.CommandBarItems"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:domain="using:Wino.Core.Domain"
-    x:Class="Wino.Styles.CommandBarItems"
-    xmlns:controls="using:Wino.Controls">
+    xmlns:controls="using:Wino.Controls"
+    xmlns:domain="using:Wino.Core.Domain">
 
     <!--  TODO: Localize  -->
 

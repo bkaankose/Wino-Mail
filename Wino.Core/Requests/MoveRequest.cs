@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests
 {
@@ -41,5 +42,7 @@ namespace Wino.Core.Requests
         {
             Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
+
+        public override int ResynchronizationDelay => 3000;
     }
 }

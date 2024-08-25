@@ -5,9 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
-using Wino.Core.Messages.Shell;
 using Wino.Core.UWP;
 using Wino.Mail.ViewModels;
+using Wino.Messaging.Client.Shell;
 
 namespace Wino
 {

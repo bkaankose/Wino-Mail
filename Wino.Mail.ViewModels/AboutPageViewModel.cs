@@ -1,18 +1,17 @@
 ﻿using System;
-using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
 
 namespace Wino.Mail.ViewModels
 {
-    public class AboutPageViewModel : BaseViewModel
+    public partial class AboutPageViewModel : BaseViewModel
     {
         private readonly IStoreRatingService _storeRatingService;
         private readonly INativeAppService _nativeAppService;
-        private readonly IAppInitializerService _appInitializerService;
+        private readonly IApplicationConfiguration _appInitializerService;
         private readonly IFileService _fileService;
         private readonly ILogInitializer _logInitializer;
 
@@ -22,16 +21,13 @@ namespace Wino.Mail.ViewModels
         public string PrivacyPolicyUrl => "https://www.winomail.app/privacy_policy.html";
         public string PaypalUrl => "https://paypal.me/bkaankose?country.x=PL&locale.x=en_US";
 
-        public AsyncRelayCommand<object> NavigateCommand { get; set; }
-        public AsyncRelayCommand ShareWinoLogCommand { get; set; }
-        public AsyncRelayCommand ShareProtocolLogCommand { get; set; }
         public IPreferencesService PreferencesService { get; }
 
         public AboutPageViewModel(IStoreRatingService storeRatingService,
                                   IDialogService dialogService,
                                   INativeAppService nativeAppService,
                                   IPreferencesService preferencesService,
-                                  IAppInitializerService appInitializerService,
+                                  IApplicationConfiguration appInitializerService,
                                   IFileService fileService,
                                   ILogInitializer logInitializer) : base(dialogService)
         {
@@ -42,9 +38,6 @@ namespace Wino.Mail.ViewModels
             _fileService = fileService;
 
             PreferencesService = preferencesService;
-            NavigateCommand = new AsyncRelayCommand<object>(Navigate);
-            ShareWinoLogCommand = new AsyncRelayCommand(ShareWinoLogAsync);
-            ShareProtocolLogCommand = new AsyncRelayCommand(ShareProtocolLogAsync);
         }
 
         protected override void OnActivated()
@@ -70,34 +63,28 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        private Task ShareProtocolLogAsync()
-            => SaveLogInternalAsync(ImapTestService.ProtocolLogFileName);
-        private Task ShareWinoLogAsync()
-            => SaveLogInternalAsync(LogInitializer.WinoLogFileName);
-
-        private async Task SaveLogInternalAsync(string sourceFileName)
+        [RelayCommand]
+        private async Task ShareWinoLogAsync()
         {
-            var appDataFolder = _appInitializerService.GetApplicationDataFolder();
-
-            var logFile = Path.Combine(appDataFolder, sourceFileName);
-
-            if (!File.Exists(logFile))
-            {
-                DialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, Core.Domain.Enums.InfoBarMessageType.Warning);
-                return;
-            }
+            var appDataFolder = _appInitializerService.ApplicationDataFolderPath;
 
             var selectedFolderPath = await DialogService.PickWindowsFolderAsync();
 
             if (string.IsNullOrEmpty(selectedFolderPath)) return;
 
-            var copiedFilePath = await _fileService.CopyFileAsync(logFile, selectedFolderPath);
+            var areLogsSaved = await _fileService.SaveLogsToFolderAsync(appDataFolder, selectedFolderPath).ConfigureAwait(false);
 
-            var copiedFileName = Path.GetFileName(copiedFilePath);
-
-            DialogService.InfoBarMessage(Translator.Info_LogsSavedTitle, string.Format(Translator.Info_LogsSavedMessage, copiedFileName), Core.Domain.Enums.InfoBarMessageType.Success);
+            if (areLogsSaved)
+            {
+                DialogService.InfoBarMessage(Translator.Info_LogsSavedTitle, string.Format(Translator.Info_LogsSavedMessage, Constants.LogArchiveFileName), InfoBarMessageType.Success);
+            }
+            else
+            {
+                DialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, InfoBarMessageType.Error);
+            }
         }
 
+        [RelayCommand]
         private async Task Navigate(object url)
         {
             if (url is string stringUrl)
@@ -108,7 +95,9 @@ namespace Wino.Mail.ViewModels
                 {
                     // Discord disclaimer message about server.
                     if (stringUrl == DiscordChannelUrl)
-                        await DialogService.ShowMessageAsync(Translator.DiscordChannelDisclaimerMessage, Translator.DiscordChannelDisclaimerTitle);
+                        await DialogService.ShowMessageAsync(Translator.DiscordChannelDisclaimerMessage,
+                                                             Translator.DiscordChannelDisclaimerTitle,
+                                                             WinoCustomMessageDialogIcon.Warning);
 
                     await _nativeAppService.LaunchUriAsync(new Uri(stringUrl));
                 }

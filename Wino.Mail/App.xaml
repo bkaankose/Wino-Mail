@@ -3,7 +3,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
+    xmlns:dialogs="using:Wino.Core.Domain.Models.Dialogs"
     xmlns:selectors="using:Wino.Selectors"
+    xmlns:styles="using:Wino.Styles"
     xmlns:wino="using:Wino">
 
     <Application.Resources>
@@ -18,6 +20,7 @@
                 <ResourceDictionary Source="/Styles/CommandBarItems.xaml" />
                 <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
+                <styles:CustomMessageDialogStyles />
 
                 <ResourceDictionary>
 
@@ -41,12 +44,20 @@
                     </Style>
 
                     <!--  Border style for each page's root border for separation of zones.  -->
-                    <Style TargetType="Border" x:Key="PageRootBorderStyle">
+                    <Style x:Key="PageRootBorderStyle" TargetType="Border">
                         <Setter Property="Margin" Value="7,0,7,7" />
                         <Setter Property="Background" Value="{ThemeResource WinoContentZoneBackgroud}" />
                         <Setter Property="BorderBrush" Value="{StaticResource CardStrokeColorDefaultBrush}" />
                         <Setter Property="CornerRadius" Value="7" />
                         <Setter Property="BorderThickness" Value="1" />
+                    </Style>
+
+                    <!--  Custom Grid style for info panels.  -->
+                    <Style x:Key="InformationAreaGridStyle" TargetType="Grid">
+                        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                        <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Setter Property="CornerRadius" Value="8" />
+                        <Setter Property="Padding" Value="16" />
                     </Style>
 
                     <!--  Default StackPanel animation.  -->
@@ -157,6 +168,10 @@
                             </Setter.Value>
                         </Setter>
                     </Style>
+
+
+
+                    <!--  Attachment Icon Templates  -->
 
                     <DataTemplate x:Key="NoneTemplate">
                         <Image Source="/Assets/FileTypes/type_none.png" />

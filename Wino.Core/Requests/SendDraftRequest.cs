@@ -7,11 +7,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests
 {
     public record SendDraftRequest(SendDraftPreparationRequest Request)
-        : RequestBase<BatchMarkReadRequest>(Request.MailItem, MailSynchronizerOperation.Send),
+        : RequestBase<BatchSendDraftRequestRequest>(Request.MailItem, MailSynchronizerOperation.Send),
         ICustomFolderSynchronizationRequest
     {
         public List<Guid> SynchronizationFolderIds
@@ -44,7 +45,8 @@ namespace Wino.Core.Requests
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public record BatchSendDraftRequestRequest(IEnumerable<IRequest> Items, SendDraftPreparationRequest Request) : BatchRequestBase(Items, MailSynchronizerOperation.Send)
+    public record BatchSendDraftRequestRequest(IEnumerable<IRequest> Items,
+                                               SendDraftPreparationRequest Request) : BatchRequestBase(Items, MailSynchronizerOperation.Send)
     {
         public override void ApplyUIChanges()
         {
@@ -56,6 +58,7 @@ namespace Wino.Core.Requests
             Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
 
-        public override bool DelayExecution => true;
+        public override int ResynchronizationDelay => 10000;
+        public override bool ExecuteSerialBatch => true;
     }
 }

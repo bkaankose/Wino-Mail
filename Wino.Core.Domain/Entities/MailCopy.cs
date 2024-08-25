@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
@@ -141,6 +142,15 @@ namespace Wino.Core.Domain.Entities
         [Ignore]
         public MailAccount AssignedAccount { get; set; }
 
+        /// <summary>
+        /// Contact information of the sender if exists.
+        /// Warning: This field is not populated by queries.
+        /// Services or View Models are responsible for populating this field.
+        /// </summary>
+        [Ignore]
+        public AccountContact SenderContact { get; set; }
+
+        public IEnumerable<Guid> GetContainingIds() => [UniqueId];
         public override string ToString() => $"{Subject} <-> {Id}";
     }
 }

@@ -39,6 +39,11 @@ namespace Wino.Core.Domain
 		public static string AccountCreationDialog_SigninIn => Resources.GetTranslatedString(@"AccountCreationDialog_SigninIn");	
 	
         /// <summary>
+		/// Fetching profile details.
+		/// </summary>
+		public static string AccountCreationDialog_FetchingProfileInformation => Resources.GetTranslatedString(@"AccountCreationDialog_FetchingProfileInformation");	
+	
+        /// <summary>
 		/// Account Name
 		/// </summary>
 		public static string AccountEditDialog_Message => Resources.GetTranslatedString(@"AccountEditDialog_Message");	
@@ -72,6 +77,41 @@ namespace Wino.Core.Domain
 		/// Searching for mail settings...
 		/// </summary>
 		public static string AutoDiscoveryProgressMessage => Resources.GetTranslatedString(@"AutoDiscoveryProgressMessage");	
+	
+        /// <summary>
+		/// Background Synchronization
+		/// </summary>
+		public static string AppCloseBackgroundSynchronizationWarningTitle => Resources.GetTranslatedString(@"AppCloseBackgroundSynchronizationWarningTitle");	
+	
+        /// <summary>
+		/// You are terminating Wino Mail and your app close behavior is set to 'Terminate'.
+		/// </summary>
+		public static string AppCloseTerminateBehaviorWarningMessageFirstLine => Resources.GetTranslatedString(@"AppCloseTerminateBehaviorWarningMessageFirstLine");	
+	
+        /// <summary>
+		/// This will stop all background synchronizations and notifications.
+		/// </summary>
+		public static string AppCloseTerminateBehaviorWarningMessageSecondLine => Resources.GetTranslatedString(@"AppCloseTerminateBehaviorWarningMessageSecondLine");	
+	
+        /// <summary>
+		/// Do you want to go to App Preferences to set Wino Mail to run minimized or in the background?
+		/// </summary>
+		public static string AppCloseTerminateBehaviorWarningMessageThirdLine => Resources.GetTranslatedString(@"AppCloseTerminateBehaviorWarningMessageThirdLine");	
+	
+        /// <summary>
+		/// Application has not been set to launch on Windows startup.
+		/// </summary>
+		public static string AppCloseStartupLaunchDisabledWarningMessageFirstLine => Resources.GetTranslatedString(@"AppCloseStartupLaunchDisabledWarningMessageFirstLine");	
+	
+        /// <summary>
+		/// This will cause you to miss notifications when you restart your computer.
+		/// </summary>
+		public static string AppCloseStartupLaunchDisabledWarningMessageSecondLine => Resources.GetTranslatedString(@"AppCloseStartupLaunchDisabledWarningMessageSecondLine");	
+	
+        /// <summary>
+		/// Do you want to go to App Preferences page to enable it?
+		/// </summary>
+		public static string AppCloseStartupLaunchDisabledWarningMessageThirdLine => Resources.GetTranslatedString(@"AppCloseStartupLaunchDisabledWarningMessageThirdLine");	
 	
         /// <summary>
 		/// Advanced Configuration
@@ -127,6 +167,16 @@ namespace Wino.Core.Domain
 		/// Add Account
 		/// </summary>
 		public static string Buttons_AddAccount => Resources.GetTranslatedString(@"Buttons_AddAccount");	
+	
+        /// <summary>
+		/// Add New Alias
+		/// </summary>
+		public static string Buttons_AddNewAlias => Resources.GetTranslatedString(@"Buttons_AddNewAlias");	
+	
+        /// <summary>
+		/// Synchronize Aliases
+		/// </summary>
+		public static string Buttons_SyncAliases => Resources.GetTranslatedString(@"Buttons_SyncAliases");	
 	
         /// <summary>
 		/// Apply Theme
@@ -232,6 +282,11 @@ namespace Wino.Core.Domain
 		/// Yes
 		/// </summary>
 		public static string Buttons_Yes => Resources.GetTranslatedString(@"Buttons_Yes");	
+	
+        /// <summary>
+		/// Reset
+		/// </summary>
+		public static string Buttons_Reset => Resources.GetTranslatedString(@"Buttons_Reset");	
 	
         /// <summary>
 		/// Center
@@ -344,6 +399,56 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_AccountLimitTitle => Resources.GetTranslatedString(@"DialogMessage_AccountLimitTitle");	
 	
         /// <summary>
+		/// Missing Alias
+		/// </summary>
+		public static string DialogMessage_AliasNotSelectedTitle => Resources.GetTranslatedString(@"DialogMessage_AliasNotSelectedTitle");	
+	
+        /// <summary>
+		/// You must select an alias before sending a message.
+		/// </summary>
+		public static string DialogMessage_AliasNotSelectedMessage => Resources.GetTranslatedString(@"DialogMessage_AliasNotSelectedMessage");	
+	
+        /// <summary>
+		/// Existing Alias
+		/// </summary>
+		public static string DialogMessage_AliasExistsTitle => Resources.GetTranslatedString(@"DialogMessage_AliasExistsTitle");	
+	
+        /// <summary>
+		/// This alias is already in use.
+		/// </summary>
+		public static string DialogMessage_AliasExistsMessage => Resources.GetTranslatedString(@"DialogMessage_AliasExistsMessage");	
+	
+        /// <summary>
+		/// Invalid Alias
+		/// </summary>
+		public static string DialogMessage_InvalidAliasTitle => Resources.GetTranslatedString(@"DialogMessage_InvalidAliasTitle");	
+	
+        /// <summary>
+		/// This alias is not valid. Make sure all addresses of the alias are valid e-mail addresses.
+		/// </summary>
+		public static string DialogMessage_InvalidAliasMessage => Resources.GetTranslatedString(@"DialogMessage_InvalidAliasMessage");	
+	
+        /// <summary>
+		/// Can't Delete Alias
+		/// </summary>
+		public static string DialogMessage_CantDeleteRootAliasTitle => Resources.GetTranslatedString(@"DialogMessage_CantDeleteRootAliasTitle");	
+	
+        /// <summary>
+		/// Root alias can't be deleted. This is your main identity associated with your account setup.
+		/// </summary>
+		public static string DialogMessage_CantDeleteRootAliasMessage => Resources.GetTranslatedString(@"DialogMessage_CantDeleteRootAliasMessage");	
+	
+        /// <summary>
+		/// Created New Alias
+		/// </summary>
+		public static string DialogMessage_AliasCreatedTitle => Resources.GetTranslatedString(@"DialogMessage_AliasCreatedTitle");	
+	
+        /// <summary>
+		/// New alias is succesfully created.
+		/// </summary>
+		public static string DialogMessage_AliasCreatedMessage => Resources.GetTranslatedString(@"DialogMessage_AliasCreatedMessage");	
+	
+        /// <summary>
 		/// Do you want to permanently delete all the mails in this folder?
 		/// </summary>
 		public static string DialogMessage_CleanupFolderMessage => Resources.GetTranslatedString(@"DialogMessage_CleanupFolderMessage");	
@@ -434,7 +539,7 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_UnlinkAccountsConfirmationTitle => Resources.GetTranslatedString(@"DialogMessage_UnlinkAccountsConfirmationTitle");	
 	
         /// <summary>
-		/// Missin Subject
+		/// Missing Subject
 		/// </summary>
 		public static string DialogMessage_EmptySubjectConfirmation => Resources.GetTranslatedString(@"DialogMessage_EmptySubjectConfirmation");	
 	
@@ -479,9 +584,54 @@ namespace Wino.Core.Domain
 		public static string DialogMessage_UnsubscribeConfirmationMailtoMessage => Resources.GetTranslatedString(@"DialogMessage_UnsubscribeConfirmationMailtoMessage");	
 	
         /// <summary>
+		/// Enable Startup Launch
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchTitle => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchTitle");	
+	
+        /// <summary>
+		/// Let Wino Mail automatically launch minimized on Windows startup to not miss any notifications.  Do you want to enable startup launch?
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchMessage => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchMessage");	
+	
+        /// <summary>
+		/// You can enable startup launch from Settings -> App Preferences.
+		/// </summary>
+		public static string DialogMessage_EnableStartupLaunchDeniedMessage => Resources.GetTranslatedString(@"DialogMessage_EnableStartupLaunchDeniedMessage");	
+	
+        /// <summary>
 		/// Don't ask again
 		/// </summary>
 		public static string Dialog_DontAskAgain => Resources.GetTranslatedString(@"Dialog_DontAskAgain");	
+	
+        /// <summary>
+		/// Create Account Alias
+		/// </summary>
+		public static string CreateAccountAliasDialog_Title => Resources.GetTranslatedString(@"CreateAccountAliasDialog_Title");	
+	
+        /// <summary>
+		/// Make sure your outgoing server allows sending mails from this alias.
+		/// </summary>
+		public static string CreateAccountAliasDialog_Description => Resources.GetTranslatedString(@"CreateAccountAliasDialog_Description");	
+	
+        /// <summary>
+		/// Address
+		/// </summary>
+		public static string CreateAccountAliasDialog_AliasAddress => Resources.GetTranslatedString(@"CreateAccountAliasDialog_AliasAddress");	
+	
+        /// <summary>
+		/// eg. support@mydomain.com
+		/// </summary>
+		public static string CreateAccountAliasDialog_AliasAddressPlaceholder => Resources.GetTranslatedString(@"CreateAccountAliasDialog_AliasAddressPlaceholder");	
+	
+        /// <summary>
+		/// Reply-To Address
+		/// </summary>
+		public static string CreateAccountAliasDialog_ReplyToAddress => Resources.GetTranslatedString(@"CreateAccountAliasDialog_ReplyToAddress");	
+	
+        /// <summary>
+		/// admin@mydomain.com
+		/// </summary>
+		public static string CreateAccountAliasDialog_ReplyToAddressPlaceholder => Resources.GetTranslatedString(@"CreateAccountAliasDialog_ReplyToAddressPlaceholder");	
 	
         /// <summary>
 		/// Wino doesn't have it's own Discord server, but special 'wino-mail' channel is hosted at 'Developer Sanctuary' server. To get the updates about Wino please join Developer Sanctuary server and follow 'wino-mail' channel under 'Community Projects'  You will be directed to server URL since Discord doesn't support channel invites.
@@ -497,6 +647,11 @@ namespace Wino.Core.Domain
 		/// Draft
 		/// </summary>
 		public static string Draft => Resources.GetTranslatedString(@"Draft");	
+	
+        /// <summary>
+		/// Busy
+		/// </summary>
+		public static string Busy => Resources.GetTranslatedString(@"Busy");	
 	
         /// <summary>
 		/// Draw
@@ -549,6 +704,16 @@ namespace Wino.Core.Domain
 		public static string Emoji => Resources.GetTranslatedString(@"Emoji");	
 	
         /// <summary>
+		/// Wino server failed.
+		/// </summary>
+		public static string Exception_WinoServerException => Resources.GetTranslatedString(@"Exception_WinoServerException");	
+	
+        /// <summary>
+		/// This mail is still being processed. Please try again after few seconds.
+		/// </summary>
+		public static string Exception_MailProcessing => Resources.GetTranslatedString(@"Exception_MailProcessing");	
+	
+        /// <summary>
 		/// Couldn't find mailbox settings.
 		/// </summary>
 		public static string Exception_ImapAutoDiscoveryFailed => Resources.GetTranslatedString(@"Exception_ImapAutoDiscoveryFailed");	
@@ -582,6 +747,21 @@ namespace Wino.Core.Domain
 		/// Failed to synchronize folders
 		/// </summary>
 		public static string Exception_FailedToSynchronizeFolders => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeFolders");	
+	
+        /// <summary>
+		/// Failed to synchronize aliases
+		/// </summary>
+		public static string Exception_FailedToSynchronizeAliases => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeAliases");	
+	
+        /// <summary>
+		/// Primary alias does not exist for this account. Creating draft failed.
+		/// </summary>
+		public static string Exception_MissingAlias => Resources.GetTranslatedString(@"Exception_MissingAlias");	
+	
+        /// <summary>
+		/// Failed to synchronize profile information
+		/// </summary>
+		public static string Exception_FailedToSynchronizeProfileInformation => Resources.GetTranslatedString(@"Exception_FailedToSynchronizeProfileInformation");	
 	
         /// <summary>
 		/// Callback uri is null on activation.
@@ -1284,6 +1464,16 @@ namespace Wino.Core.Domain
 		public static string Info_UnsubscribeErrorMessage => Resources.GetTranslatedString(@"Info_UnsubscribeErrorMessage");	
 	
         /// <summary>
+		/// Primary alias can't be deleted. Please change your alias before deleting this one
+		/// </summary>
+		public static string Info_CantDeletePrimaryAliasMessage => Resources.GetTranslatedString(@"Info_CantDeletePrimaryAliasMessage");	
+	
+        /// <summary>
+		/// The Mail List size has been reset.
+		/// </summary>
+		public static string Info_MailListSizeResetSuccessMessage => Resources.GetTranslatedString(@"Info_MailListSizeResetSuccessMessage");	
+	
+        /// <summary>
 		/// Authentication method
 		/// </summary>
 		public static string ImapAdvancedSetupDialog_AuthenticationMethod => Resources.GetTranslatedString(@"ImapAdvancedSetupDialog_AuthenticationMethod");	
@@ -1699,6 +1889,11 @@ namespace Wino.Core.Domain
 		public static string Right => Resources.GetTranslatedString(@"Right");	
 	
         /// <summary>
+		/// Save all attachments
+		/// </summary>
+		public static string Reader_SaveAllAttachmentButtonText => Resources.GetTranslatedString(@"Reader_SaveAllAttachmentButtonText");	
+	
+        /// <summary>
 		/// up to date
 		/// </summary>
 		public static string SynchronizationFolderReport_Success => Resources.GetTranslatedString(@"SynchronizationFolderReport_Success");	
@@ -1994,6 +2189,16 @@ namespace Wino.Core.Domain
 		public static string SettingsFolderOptions_Description => Resources.GetTranslatedString(@"SettingsFolderOptions_Description");	
 	
         /// <summary>
+		/// Aliases
+		/// </summary>
+		public static string SettingsManageAliases_Title => Resources.GetTranslatedString(@"SettingsManageAliases_Title");	
+	
+        /// <summary>
+		/// See e-mail aliases assigned for this account, update or delete them.
+		/// </summary>
+		public static string SettingsManageAliases_Description => Resources.GetTranslatedString(@"SettingsManageAliases_Description");	
+	
+        /// <summary>
 		/// Center Action
 		/// </summary>
 		public static string SettingsHoverActionCenter => Resources.GetTranslatedString(@"SettingsHoverActionCenter");	
@@ -2042,6 +2247,31 @@ namespace Wino.Core.Domain
 		/// Categories
 		/// </summary>
 		public static string CategoriesFolderNameOverride => Resources.GetTranslatedString(@"CategoriesFolderNameOverride");	
+	
+        /// <summary>
+		/// Verified
+		/// </summary>
+		public static string AccountAlias_Column_Verified => Resources.GetTranslatedString(@"AccountAlias_Column_Verified");	
+	
+        /// <summary>
+		/// Alias
+		/// </summary>
+		public static string AccountAlias_Column_Alias => Resources.GetTranslatedString(@"AccountAlias_Column_Alias");	
+	
+        /// <summary>
+		/// Primary
+		/// </summary>
+		public static string AccountAlias_Column_IsPrimaryAlias => Resources.GetTranslatedString(@"AccountAlias_Column_IsPrimaryAlias");	
+	
+        /// <summary>
+		/// Wino can only import aliases for your Gmail accounts.
+		/// </summary>
+		public static string AccountAlias_Disclaimer_FirstLine => Resources.GetTranslatedString(@"AccountAlias_Disclaimer_FirstLine");	
+	
+        /// <summary>
+		/// If you want to use aliases for your Outlook or IMAP account, please add them yourself.
+		/// </summary>
+		public static string AccountAlias_Disclaimer_SecondLine => Resources.GetTranslatedString(@"AccountAlias_Disclaimer_SecondLine");	
 	
         /// <summary>
 		/// More
@@ -2112,6 +2342,71 @@ namespace Wino.Core.Domain
 		/// Manage Account Settings
 		/// </summary>
 		public static string SettingsManageAccountSettings_Title => Resources.GetTranslatedString(@"SettingsManageAccountSettings_Title");	
+	
+        /// <summary>
+		/// App Preferences
+		/// </summary>
+		public static string SettingsAppPreferences_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_Title");	
+	
+        /// <summary>
+		/// General settings / preferences for Wino Mail.
+		/// </summary>
+		public static string SettingsAppPreferences_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_Description");	
+	
+        /// <summary>
+		/// Application close behavior
+		/// </summary>
+		public static string SettingsAppPreferences_CloseBehavior_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_CloseBehavior_Title");	
+	
+        /// <summary>
+		/// What should happen when you close the app?
+		/// </summary>
+		public static string SettingsAppPreferences_CloseBehavior_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_CloseBehavior_Description");	
+	
+        /// <summary>
+		/// Start minimized on Windows startup
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Title");	
+	
+        /// <summary>
+		/// Allow Wino Mail to launch minimized when Windows starts. Always allow it to receive notifications.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Description");	
+	
+        /// <summary>
+		/// Wino Mail successfully set to be launched in the background on Windows startup.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Enabled => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Enabled");	
+	
+        /// <summary>
+		/// Wino Mail will not be launched on Windows startup. This will cause you to miss notifications when you restart your computer.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Disabled => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Disabled");	
+	
+        /// <summary>
+		/// Your administrator or group policies disabled running applications on startup. Thus, Wino Mail can't be set to launch on Windows startup.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_DisabledByPolicy => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_DisabledByPolicy");	
+	
+        /// <summary>
+		/// Please go to Task Manager -> Startup tab to allow Wino Mail to launch on Windows startup.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_DisabledByUser => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_DisabledByUser");	
+	
+        /// <summary>
+		/// Fatal error occurred while changing the startup mode for Wino Mail.
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_FatalError => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_FatalError");	
+	
+        /// <summary>
+		/// Enable
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Enable => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Enable");	
+	
+        /// <summary>
+		/// Disable
+		/// </summary>
+		public static string SettingsAppPreferences_StartupBehavior_Disable => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Disable");	
 	
         /// <summary>
 		/// Reorder Accounts
@@ -2189,14 +2484,14 @@ namespace Wino.Core.Domain
 		public static string SettingsNotifications_Title => Resources.GetTranslatedString(@"SettingsNotifications_Title");	
 	
         /// <summary>
-		/// Change the width of the mail list.
+		/// Reset the size of the mail list to original if you have issues with it.
 		/// </summary>
-		public static string SettingsPaneLength_Description => Resources.GetTranslatedString(@"SettingsPaneLength_Description");	
+		public static string SettingsPaneLengthReset_Description => Resources.GetTranslatedString(@"SettingsPaneLengthReset_Description");	
 	
         /// <summary>
-		/// Mail List Pane Length
+		/// Reset Mail List Size
 		/// </summary>
-		public static string SettingsPaneLength_Title => Resources.GetTranslatedString(@"SettingsPaneLength_Title");	
+		public static string SettingsPaneLengthReset_Title => Resources.GetTranslatedString(@"SettingsPaneLengthReset_Title");	
 	
         /// <summary>
 		/// Show much more love ❤️ All donations are appreciated.
@@ -2244,14 +2539,24 @@ namespace Wino.Core.Domain
 		public static string SettingsPrivacyPolicy_Title => Resources.GetTranslatedString(@"SettingsPrivacyPolicy_Title");	
 	
         /// <summary>
-		/// Mail rendering options.
+		/// Reader
 		/// </summary>
-		public static string SettingsReadingPane_Description => Resources.GetTranslatedString(@"SettingsReadingPane_Description");	
+		public static string SettingsReader_Title => Resources.GetTranslatedString(@"SettingsReader_Title");	
 	
         /// <summary>
-		/// Reading Pane
+		/// Composer
 		/// </summary>
-		public static string SettingsReadingPane_Title => Resources.GetTranslatedString(@"SettingsReadingPane_Title");	
+		public static string SettingsComposer_Title => Resources.GetTranslatedString(@"SettingsComposer_Title");	
+	
+        /// <summary>
+		/// Fonts, external content.
+		/// </summary>
+		public static string SettingsReadComposePane_Description => Resources.GetTranslatedString(@"SettingsReadComposePane_Description");	
+	
+        /// <summary>
+		/// Reader & Composer
+		/// </summary>
+		public static string SettingsReadComposePane_Title => Resources.GetTranslatedString(@"SettingsReadComposePane_Title");	
 	
         /// <summary>
 		/// Default Reader Font
@@ -2632,5 +2937,55 @@ namespace Wino.Core.Domain
 		/// None
 		/// </summary>
 		public static string SettingsSignature_NoneSignatureName => Resources.GetTranslatedString(@"SettingsSignature_NoneSignatureName");	
+	
+        /// <summary>
+		/// Minimize to system tray
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title");	
+	
+        /// <summary>
+		/// Wino Mail will keep running on the system tray. Available to launch by clicking on an icon. You will be notified as new mails arrive.
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Description");	
+	
+        /// <summary>
+		/// Run in the background
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title");	
+	
+        /// <summary>
+		/// Wino Mail will keep running in the background. You will be notified as new mails arrive.
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Invisible_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Invisible_Description");	
+	
+        /// <summary>
+		/// Terminate
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title");	
+	
+        /// <summary>
+		/// Wino Mail will not keep running anywhere. You will not be notified as new mails arrive. Launch Wino Mail again to continue mail synchronization.
+		/// </summary>
+		public static string SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_ServerBackgroundingMode_Terminate_Description");	
+	
+        /// <summary>
+		/// no connection
+		/// </summary>
+		public static string TitleBarServerDisconnectedButton_Title => Resources.GetTranslatedString(@"TitleBarServerDisconnectedButton_Title");	
+	
+        /// <summary>
+		/// Wino is disconnected from the network. Click reconnect to restore connection.
+		/// </summary>
+		public static string TitleBarServerDisconnectedButton_Description => Resources.GetTranslatedString(@"TitleBarServerDisconnectedButton_Description");	
+	
+        /// <summary>
+		/// reconnect
+		/// </summary>
+		public static string TitleBarServerReconnectButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectButton_Title");	
+	
+        /// <summary>
+		/// connecting
+		/// </summary>
+		public static string TitleBarServerReconnectingButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectingButton_Title");	
 	}
 }

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Synchronization
 {
@@ -26,11 +25,6 @@ namespace Wino.Core.Domain.Models.Synchronization
         /// Collection of FolderId to perform SynchronizationType.Custom type sync.
         /// </summary>
         public List<Guid> SynchronizationFolderIds { get; set; }
-
-        /// <summary>
-        /// A listener to be notified about the progress of the synchronization.
-        /// </summary>
-        public ISynchronizationProgress ProgressListener { get; set; }
 
         /// <summary>
         /// When doing a linked inbox synchronization, we must ignore reporting completion to the caller for each folder.

@@ -3,8 +3,9 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
-    <PackageCertificateThumbprint>
-    </PackageCertificateThumbprint>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <!-- UWP WAM Authentication on Xbox needs this. -->
+    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
   </PropertyGroup>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -28,7 +29,7 @@
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86|x64|arm</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
@@ -63,33 +64,6 @@
     <OutOfProcPDB>true</OutOfProcPDB>
     <!-- Opt-in to generate PDB's out of process -->
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\ARM\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>full</DebugType>
-    <PlatformTarget>ARM</PlatformTarget>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>true</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM'">
-    <OutputPath>bin\ARM\Release\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>ARM</PlatformTarget>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>true</Prefer32Bit>
-    <!-- .NET Native Shit -->
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
-    <Use64BitCompiler>true</Use64BitCompiler>
-    <OutOfProcPDB>true</OutOfProcPDB>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\ARM64\Debug\</OutputPath>
@@ -100,7 +74,6 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
     <OutputPath>bin\ARM64\Release\</OutputPath>
@@ -116,6 +89,7 @@
     <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
     <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
     <Use64BitCompiler>true</Use64BitCompiler>
+    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
     <OutOfProcPDB>true</OutOfProcPDB>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -145,11 +119,6 @@
     <Use64BitCompiler>true</Use64BitCompiler>
     <OutOfProcPDB>true</OutOfProcPDB>
   </PropertyGroup>
-  <PropertyGroup>
-    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-    <!-- UWP WAM Authentication on Xbox needs this. -->
-    <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
-  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AdaptiveTriggerLibrary">
       <Version>1.2.2</Version>
@@ -167,6 +136,9 @@
       <Version>8.2.2</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Animations">
+      <Version>8.0.240109</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Behaviors">
       <Version>8.0.240109</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
@@ -228,7 +200,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Activation\ActivationHandler.cs" />
-    <Compile Include="Activation\BackgroundActivationHandler.cs" />
     <Compile Include="Activation\DefaultActivationHandler.cs" />
     <Compile Include="Activation\FileActivationHandler.cs" />
     <Compile Include="Activation\ProtocolActivationHandler.cs" />
@@ -246,9 +217,11 @@
     </Compile>
     <Compile Include="Controls\SettingsMenuItemControl.cs" />
     <Compile Include="Controls\Advanced\WinoListView.cs" />
+    <Compile Include="Controls\WinoExpander.cs" />
     <Compile Include="Controls\WinoFontIconSource.cs" />
     <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoSwipeControlItems.cs" />
+    <Compile Include="Converters\GridLengthConverter.cs" />
     <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
       <DependentUpon>AccountEditDialog.xaml</DependentUpon>
     </Compile>
@@ -259,6 +232,7 @@
       <DependentUpon>AccountReorderDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
+    <Compile Include="Dialogs\CustomMessageDialogInformationContainer.cs" />
     <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
       <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
     </Compile>
@@ -271,14 +245,11 @@
     <Compile Include="Dialogs\NewImapSetupDialog.xaml.cs">
       <DependentUpon>NewImapSetupDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Dialogs\StoreRatingDialog.xaml.cs">
-      <DependentUpon>StoreRatingDialog.xaml</DependentUpon>
+    <Compile Include="Dialogs\CreateAccountAliasDialog.xaml.cs">
+      <DependentUpon>CreateAccountAliasDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\SystemFolderConfigurationDialog.xaml.cs">
       <DependentUpon>SystemFolderConfigurationDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\WinoMessageDialog.xaml.cs">
-      <DependentUpon>WinoMessageDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\TextInputDialog.xaml.cs">
       <DependentUpon>TextInputDialog.xaml</DependentUpon>
@@ -301,14 +272,12 @@
     <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
       <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Helpers\JsonHelpers.cs" />
     <Compile Include="Extensions\AnimationExtensions.cs" />
     <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
     <Compile Include="Extensions\CompositionExtensions.Size.cs" />
     <Compile Include="Extensions\CompositionEnums.cs" />
     <Compile Include="Extensions\EnumerableExtensions.cs" />
     <Compile Include="Extensions\UtilExtensions.cs" />
-    <Compile Include="Helpers\SettingsStorageExtensions.cs" />
     <Compile Include="MenuFlyouts\FilterMenuFlyout.cs" />
     <Compile Include="Controls\ImagePreviewControl.cs" />
     <Compile Include="Controls\MailItemDisplayInformationControl.xaml.cs">
@@ -318,9 +287,6 @@
     <Compile Include="Controls\WinoInfoBar.cs" />
     <Compile Include="Controls\WinoNavigationViewItem.cs" />
     <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
-    <Compile Include="Dialogs\ConfirmationDialog.xaml.cs">
-      <DependentUpon>ConfirmationDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
       <DependentUpon>NewAccountDialog.xaml</DependentUpon>
     </Compile>
@@ -330,6 +296,7 @@
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
     <Compile Include="Selectors\AccountReorderTemplateSelector.cs" />
     <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
+    <Compile Include="Selectors\CustomWinoMessageDialogIconSelector.cs" />
     <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
     <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
@@ -338,17 +305,18 @@
     <Compile Include="Selectors\RendererCommandBarItemTemplateSelector.cs" />
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
-    <Compile Include="Services\LaunchProtocolService.cs" />
-    <Compile Include="Services\PreferencesService.cs" />
-    <Compile Include="Services\StatePersistenceService.cs" />
-    <Compile Include="Services\ToastActivationService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />
     <Compile Include="Styles\CommandBarItems.xaml.cs">
       <DependentUpon>CommandBarItems.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
+      <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AliasManagementPageAbstract.cs" />
+    <Compile Include="Views\Abstract\AppPreferencesPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\ComposePageAbstract.cs" />
     <Compile Include="Views\Abstract\IdlePageAbstract.cs" />
@@ -359,7 +327,7 @@
     <Compile Include="Views\Abstract\MessageListPageAbstract.cs" />
     <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
-    <Compile Include="Views\Abstract\ReadingPanePageAbstract.cs" />
+    <Compile Include="Views\Abstract\ReadComposePanePageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageBase.cs" />
@@ -410,6 +378,9 @@
     <Compile Include="Views\Settings\AboutPage.xaml.cs">
       <DependentUpon>AboutPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\Settings\AppPreferencesPage.xaml.cs">
+      <DependentUpon>AppPreferencesPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\Settings\LanguageTimePage.xaml.cs">
       <DependentUpon>LanguageTimePage.xaml</DependentUpon>
     </Compile>
@@ -422,11 +393,14 @@
     <Compile Include="AppShell.xaml.cs">
       <DependentUpon>AppShell.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\Settings\ReadingPanePage.xaml.cs">
-      <DependentUpon>ReadingPanePage.xaml</DependentUpon>
+    <Compile Include="Views\Settings\ReadComposePanePage.xaml.cs">
+      <DependentUpon>ReadComposePanePage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\SettingOptionsPage.xaml.cs">
       <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\AliasManagementPage.xaml.cs">
+      <DependentUpon>AliasManagementPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\SignatureManagementPage.xaml.cs">
       <DependentUpon>SignatureManagementPage.xaml</DependentUpon>
@@ -518,25 +492,17 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Dialogs\StoreRatingDialog.xaml">
-      <SubType>Designer</SubType>
+    <Page Include="Dialogs\CreateAccountAliasDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Dialogs\SystemFolderConfigurationDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Dialogs\WinoMessageDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="Dialogs\TextInputDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\ConfirmationDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Dialogs\NewAccountDialog.xaml">
       <SubType>Designer</SubType>
@@ -551,6 +517,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\Converters.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\CustomMessageDialogStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -638,6 +608,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Views\Settings\AppPreferencesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\Settings\LanguageTimePage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -654,13 +628,17 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Views\Settings\ReadingPanePage.xaml">
+    <Page Include="Views\Settings\ReadComposePanePage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\Settings\SettingOptionsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\AliasManagementPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\Settings\SignatureManagementPage.xaml">
       <SubType>Designer</SubType>
@@ -777,7 +755,6 @@
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
-    <None Include="Wino.Mail_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Thumbnails\uber.com.png" />
@@ -809,6 +786,10 @@
       <Project>{d62f1c03-da57-4709-a640-0283296a8e66}</Project>
       <Name>Wino.Mail.ViewModels</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messaging</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">
@@ -818,70 +799,6 @@
   <ItemGroup />
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|x86'">
-    <OutputPath>bin\x86\Debug .NET Native\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
-    <Optimize>false</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <NoStdLib>true</NoStdLib>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>true</Prefer32Bit>
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
-    <!-- .NET Native Shit -->
-    <Use64BitCompiler>true</Use64BitCompiler>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <SingleThreadNUTC>true</SingleThreadNUTC>
-    <UseDotNetNativeToolchain>true</UseDotNetNativeToolchain>
-    <EnableGatekeeperAnalysis>true</EnableGatekeeperAnalysis>
-    <ShortcutGenericAnalysis>true</ShortcutGenericAnalysis>
-    <!-- Can help stop runaway analysis of generic types and reduce overall generation requirements. -->
-    <OutOfProcPDB>true</OutOfProcPDB>
-    <!-- Opt-in to generate PDB's out of process -->
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|ARM'">
-    <OutputPath>bin\ARM\Debug .NET Native\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <NoStdLib>true</NoStdLib>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>ARM</PlatformTarget>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>true</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|ARM64'">
-    <OutputPath>bin\ARM64\Debug .NET Native\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <NoStdLib>true</NoStdLib>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>ARM64</PlatformTarget>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>true</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug .NET Native|x64'">
-    <OutputPath>bin\x64\Debug .NET Native\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <NoStdLib>true</NoStdLib>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

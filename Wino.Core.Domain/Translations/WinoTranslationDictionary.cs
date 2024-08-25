@@ -39,6 +39,7 @@ namespace Wino.Core.Domain.Translations
                 AppLanguage.Chinese => "zh_CN",
                 AppLanguage.Spanish => "es_ES",
                 AppLanguage.Indonesian => "id_ID",
+                AppLanguage.Italian => "it_IT",
                 AppLanguage.Greek => "el_GR",
                 AppLanguage.PortugeseBrazil => "pt_BR",
                 _ => "en_US",

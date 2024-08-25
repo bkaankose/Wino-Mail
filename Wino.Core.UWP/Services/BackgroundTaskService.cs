@@ -1,136 +1,63 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Serilog;
 using Windows.ApplicationModel.Background;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Exceptions;
 
 namespace Wino.Core.UWP.Services
 {
     public class BackgroundTaskService : IBackgroundTaskService
     {
-        private const string IsBackgroundExecutionDeniedMessageKey = nameof(IsBackgroundExecutionDeniedMessageKey);
-
-        public const string BackgroundSynchronizationTimerTaskNameEx = nameof(BackgroundSynchronizationTimerTaskNameEx);
-        public const string ToastActivationTaskEx = nameof(ToastActivationTaskEx);
-
-        private const string SessionConnectedTaskEntryPoint = "Wino.BackgroundTasks.SessionConnectedTask";
-        private const string SessionConnectedTaskName = "SessionConnectedTask";
+        private const string IsBackgroundTasksUnregisteredKey = nameof(IsBackgroundTasksUnregisteredKey);
+        public const string ToastNotificationActivationHandlerTaskName = "ToastNotificationActivationHandlerTask";
 
         private readonly IConfigurationService _configurationService;
-        private readonly List<string> registeredBackgroundTaskNames = new List<string>();
 
         public BackgroundTaskService(IConfigurationService configurationService)
         {
             _configurationService = configurationService;
-
-            LoadRegisteredTasks();
         }
-
-        // Calling WinRT all the time for registered tasks might be slow. Cache them on ctor.
-        private void LoadRegisteredTasks()
-        {
-            foreach (var task in BackgroundTaskRegistration.AllTasks)
-            {
-                registeredBackgroundTaskNames.Add(task.Value.Name);
-            }
-
-            Log.Information($"Found {registeredBackgroundTaskNames.Count} registered background tasks. [{string.Join(',', registeredBackgroundTaskNames)}]");
-        }
-
-        public async Task HandleBackgroundTaskRegistrations()
-        {
-            var response = await BackgroundExecutionManager.RequestAccessAsync();
-
-            if (response == BackgroundAccessStatus.DeniedBySystemPolicy ||
-                response == BackgroundAccessStatus.DeniedByUser)
-            {
-                // Only notify users about disabled background execution once.
-
-                bool isNotifiedBefore = _configurationService.Get(IsBackgroundExecutionDeniedMessageKey, false);
-
-                if (!isNotifiedBefore)
-                {
-                    _configurationService.Set(IsBackgroundExecutionDeniedMessageKey, true);
-
-                    throw new BackgroundTaskExecutionRequestDeniedException();
-                }
-            }
-            else
-            {
-                RegisterSessionConnectedTask();
-                RegisterTimerSynchronizationTask();
-                RegisterToastNotificationHandlerBackgroundTask();
-            }
-        }
-
-        private bool IsBackgroundTaskRegistered(string taskName)
-            => registeredBackgroundTaskNames.Contains(taskName);
 
         public void UnregisterAllBackgroundTask()
         {
-            foreach (var task in BackgroundTaskRegistration.AllTasks)
+            if (_configurationService.Get(IsBackgroundTasksUnregisteredKey, false))
             {
-                task.Value.Unregister(true);
+                foreach (var task in BackgroundTaskRegistration.AllTasks)
+                {
+                    task.Value.Unregister(true);
+                }
+
+                Log.Information("Unregistered all background tasks.");
+                _configurationService.Set(IsBackgroundTasksUnregisteredKey, true);
             }
         }
 
-        private void LogBackgroundTaskRegistration(string taskName)
+        public Task RegisterBackgroundTasksAsync()
         {
-            Log.Information($"Registered new background task -> {taskName}");
-
-            registeredBackgroundTaskNames.Add($"{taskName}");
+            return RegisterToastNotificationHandlerBackgroundTaskAsync();
         }
 
-        private BackgroundTaskRegistration RegisterSessionConnectedTask()
+        public async Task RegisterToastNotificationHandlerBackgroundTaskAsync()
         {
-            if (IsBackgroundTaskRegistered(SessionConnectedTaskName)) return null;
+            // If background task is already registered, do nothing.
+            if (BackgroundTaskRegistration.AllTasks.Any(i => i.Value.Name.Equals(ToastNotificationActivationHandlerTaskName)))
+                return;
 
-            var builder = new BackgroundTaskBuilder
+            // Otherwise request access
+            BackgroundAccessStatus status = await BackgroundExecutionManager.RequestAccessAsync();
+
+            // Create the background task
+            BackgroundTaskBuilder builder = new BackgroundTaskBuilder()
             {
-                Name = SessionConnectedTaskName,
-                TaskEntryPoint = SessionConnectedTaskEntryPoint
+                Name = ToastNotificationActivationHandlerTaskName
             };
 
-            builder.SetTrigger(new SystemTrigger(SystemTriggerType.SessionConnected, false));
-
-            LogBackgroundTaskRegistration(SessionConnectedTaskName);
-
-            return builder.Register();
-        }
-
-        private BackgroundTaskRegistration RegisterToastNotificationHandlerBackgroundTask()
-        {
-            if (IsBackgroundTaskRegistered(ToastActivationTaskEx)) return null;
-
-            var builder = new BackgroundTaskBuilder
-            {
-                Name = ToastActivationTaskEx
-            };
-
+            // Assign the toast action trigger
             builder.SetTrigger(new ToastNotificationActionTrigger());
 
-            LogBackgroundTaskRegistration(ToastActivationTaskEx);
-
-            return builder.Register();
-        }
-
-        private BackgroundTaskRegistration RegisterTimerSynchronizationTask()
-        {
-            if (IsBackgroundTaskRegistered(BackgroundSynchronizationTimerTaskNameEx)) return null;
-
-            var builder = new BackgroundTaskBuilder
-            {
-                Name = BackgroundSynchronizationTimerTaskNameEx
-            };
-
-            builder.SetTrigger(new TimeTrigger(15, false));
-            builder.AddCondition(new SystemCondition(SystemConditionType.InternetAvailable));
-
-            LogBackgroundTaskRegistration(BackgroundSynchronizationTimerTaskNameEx);
-
-            return builder.Register();
+            // And register the task
+            BackgroundTaskRegistration registration = builder.Register();
         }
     }
 }

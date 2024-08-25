@@ -61,9 +61,9 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.ActionIcon>
                     <PathIcon
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Data="{StaticResource OpenInNewWindowPathIcon}" />
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="{StaticResource OpenInNewWindowPathIcon}" />
                 </controls:SettingsCard.ActionIcon>
             </controls:SettingsCard>
 
@@ -81,9 +81,9 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.ActionIcon>
                     <PathIcon
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Data="{StaticResource OpenInNewWindowPathIcon}" />
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="{StaticResource OpenInNewWindowPathIcon}" />
                 </controls:SettingsCard.ActionIcon>
             </controls:SettingsCard>
 
@@ -98,9 +98,9 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.ActionIcon>
                     <PathIcon
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Data="{StaticResource OpenInNewWindowPathIcon}" />
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="{StaticResource OpenInNewWindowPathIcon}" />
                 </controls:SettingsCard.ActionIcon>
             </controls:SettingsCard>
 
@@ -118,9 +118,9 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.ActionIcon>
                     <PathIcon
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Data="{StaticResource OpenInNewWindowPathIcon}" />
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Data="{StaticResource OpenInNewWindowPathIcon}" />
                 </controls:SettingsCard.ActionIcon>
             </controls:SettingsCard>
 
@@ -135,15 +135,8 @@
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}" Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Button Content="Share" Command="{x:Bind ViewModel.ShareWinoLogCommand}" />
+                            <Button Content="{x:Bind domain:Translator.Buttons_Share}" Command="{x:Bind ViewModel.ShareWinoLogCommand}" />
                             <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
-                        </StackPanel>
-                    </controls:SettingsCard>
-
-                    <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsEnableIMAPLogs_Title}" Description="{x:Bind domain:Translator.SettingsEnableIMAPLogs_Description}">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Button Content="{x:Bind domain:Translator.Buttons_Share}" Command="{x:Bind ViewModel.ShareProtocolLogCommand}" />
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsMailkitProtocolLoggerEnabled, Mode=TwoWay}" />
                         </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -13,7 +14,6 @@ using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
-using Newtonsoft.Json;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
@@ -21,17 +21,18 @@ using Windows.Storage.Pickers;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Requests;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
+using Wino.Core.Domain.Models.Reader;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views
@@ -60,6 +61,19 @@ namespace Wino.Views
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
+        }
+
+        private async void GlobalFocusManagerGotFocus(object sender, FocusManagerGotFocusEventArgs e)
+        {
+            // In order to delegate cursor to the inner editor for WebView2.
+            // When the control got focus, we invoke script to focus the editor.
+            // This is not done on the WebView2 handlers, because somehow it is
+            // repeatedly focusing itself, even though when it has the focus already.
+
+            if (e.NewFocusedElement == Chromium)
+            {
+                await FocusEditorAsync(false);
+            }
         }
 
         private static async void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
@@ -167,7 +181,7 @@ namespace Wino.Views
 
                 foreach (var file in files)
                 {
-                    if (ValidateImageFile(file))
+                    if (IsValidImageFile(file))
                     {
                         isValid = true;
                     }
@@ -200,15 +214,21 @@ namespace Wino.Views
                     var storageItems = await e.DataView.GetStorageItemsAsync();
                     var files = storageItems.OfType<StorageFile>();
 
-                    var imageDataURLs = new List<string>();
+                    var imagesInformation = new List<ImageInfo>();
 
                     foreach (var file in files)
                     {
-                        if (ValidateImageFile(file))
-                            imageDataURLs.Add(await GetDataURL(file));
+                        if (IsValidImageFile(file))
+                        {
+                            imagesInformation.Add(new ImageInfo
+                            {
+                                Data = await GetDataURL(file),
+                                Name = file.Name
+                            });
+                        }
                     }
 
-                    await InvokeScriptSafeAsync($"insertImages({JsonConvert.SerializeObject(imageDataURLs)});");
+                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation)});");
                 }
             }
             // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -231,16 +251,13 @@ namespace Wino.Views
             // Convert files to MailAttachmentViewModel.
             foreach (var file in files)
             {
-                if (!ViewModel.IncludedAttachments.Any(a => a.FileName == file.Path))
-                {
-                    var attachmentViewModel = await file.ToAttachmentViewModelAsync();
+                var attachmentViewModel = await file.ToAttachmentViewModelAsync();
 
-                    ViewModel.IncludedAttachments.Add(attachmentViewModel);
-                }
+                ViewModel.IncludedAttachments.Add(attachmentViewModel);
             }
         }
 
-        private bool ValidateImageFile(StorageFile file)
+        private bool IsValidImageFile(StorageFile file)
         {
             string[] allowedTypes = new string[] { ".jpg", ".jpeg", ".png" };
             var fileType = file.FileType.ToLower();
@@ -321,7 +338,7 @@ namespace Wino.Views
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";
@@ -353,19 +370,26 @@ namespace Wino.Views
             await InvokeScriptSafeAsync("imageInput.click();");
         }
 
-        private async Task FocusEditorAsync()
+        /// <summary>
+        /// Places the cursor in the composer.
+        /// </summary>
+        /// <param name="focusControlAsWell">Whether control itself should be focused as well or not.</param>
+        private async Task FocusEditorAsync(bool focusControlAsWell)
         {
-            await InvokeScriptSafeAsync("editor.selection.focus();");
+            await InvokeScriptSafeAsync("editor.selection.setCursorIn(editor.editor.firstChild, true)");
 
-            Chromium.Focus(FocusState.Keyboard);
-            Chromium.Focus(FocusState.Programmatic);
+            if (focusControlAsWell)
+            {
+                Chromium.Focus(FocusState.Keyboard);
+                Chromium.Focus(FocusState.Programmatic);
+            }
         }
 
         private async void EmojiButtonClicked(object sender, RoutedEventArgs e)
         {
             CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
 
-            await FocusEditorAsync();
+            await FocusEditorAsync(focusControlAsWell: true);
         }
 
         public async Task UpdateEditorThemeAsync()
@@ -389,6 +413,7 @@ namespace Wino.Views
             await DOMLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
+            await InitializeEditorAsync();
 
             if (string.IsNullOrEmpty(htmlBody))
             {
@@ -400,12 +425,14 @@ namespace Wino.Views
             }
         }
 
-        protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+        private async Task<string> InitializeEditorAsync()
         {
-            base.OnNavigatingFrom(e);
-
-            DisposeDisposables();
-            DisposeWebView2();
+            var fonts = ViewModel.FontService.GetFonts();
+            var composerFont = ViewModel.PreferencesService.ComposerFont;
+            int composerFontSize = ViewModel.PreferencesService.ComposerFontSize;
+            var readerFont = ViewModel.PreferencesService.ReaderFont;
+            int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
+            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
         }
 
         private void DisposeWebView2()
@@ -434,6 +461,8 @@ namespace Wino.Views
         {
             base.OnNavigatedTo(e);
 
+            FocusManager.GotFocus += GlobalFocusManagerGotFocus;
+
             var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
             anim?.TryStart(Chromium);
 
@@ -452,7 +481,7 @@ namespace Wino.Views
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonConvert.DeserializeObject<string>(editorContent);
+                return JsonSerializer.Deserialize<string>(editorContent);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -476,43 +505,43 @@ namespace Wino.Views
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonConvert.DeserializeObject<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
 
-            if (change.type == "bold")
+            if (change.Type == "bold")
             {
-                BoldButton.IsChecked = change.value == "true";
+                BoldButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "italic")
+            else if (change.Type == "italic")
             {
-                ItalicButton.IsChecked = change.value == "true";
+                ItalicButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "underline")
+            else if (change.Type == "underline")
             {
-                UnderlineButton.IsChecked = change.value == "true";
+                UnderlineButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "strikethrough")
+            else if (change.Type == "strikethrough")
             {
-                StrokeButton.IsChecked = change.value == "true";
+                StrokeButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "ol")
+            else if (change.Type == "ol")
             {
-                OrderedListButton.IsChecked = change.value == "true";
+                OrderedListButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "ul")
+            else if (change.Type == "ul")
             {
-                BulletListButton.IsChecked = change.value == "true";
+                BulletListButton.IsChecked = change.Value == "true";
             }
-            else if (change.type == "indent")
+            else if (change.Type == "indent")
             {
-                IncreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+                IncreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
             }
-            else if (change.type == "outdent")
+            else if (change.Type == "outdent")
             {
-                DecreaseIndentButton.IsEnabled = change.value == "disabled" ? false : true;
+                DecreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
             }
-            else if (change.type == "alignment")
+            else if (change.Type == "alignment")
             {
-                var parsedValue = change.value switch
+                var parsedValue = change.Value switch
                 {
                     "jodit-icon_left" => 0,
                     "jodit-icon_center" => 1,
@@ -551,12 +580,7 @@ namespace Wino.Views
 
         private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
         {
-            CCBCCShowButton.Visibility = Visibility.Collapsed;
-
-            CCTextBlock.Visibility = Visibility.Visible;
-            CCBox.Visibility = Visibility.Visible;
-            BccTextBlock.Visibility = Visibility.Visible;
-            BccBox.Visibility = Visibility.Visible;
+            ViewModel.IsCCBCCVisible = true;
         }
 
         private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
@@ -573,14 +597,14 @@ namespace Wino.Views
 
             var deferal = args.GetDeferral();
 
-            AddressInformation addedItem = null;
+            AccountContact addedItem = null;
 
             var boxTag = sender.Tag?.ToString();
 
             if (boxTag == "ToBox")
                 addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.ToItems);
             else if (boxTag == "CCBox")
-                addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.CCItemsItems);
+                addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.CCItems);
             else if (boxTag == "BCCBox")
                 addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.BCCItems);
 
@@ -643,13 +667,13 @@ namespace Wino.Views
                 {
                     var boxTag = tokenizingTextBox.Tag?.ToString();
 
-                    AddressInformation addedItem = null;
-                    ObservableCollection<AddressInformation> addressCollection = null;
+                    AccountContact addedItem = null;
+                    ObservableCollection<AccountContact> addressCollection = null;
 
                     if (boxTag == "ToBox")
                         addressCollection = ViewModel.ToItems;
                     else if (boxTag == "CCBox")
-                        addressCollection = ViewModel.CCItemsItems;
+                        addressCollection = ViewModel.CCItems;
                     else if (boxTag == "BCCBox")
                         addressCollection = ViewModel.BCCItems;
 
@@ -687,6 +711,17 @@ namespace Wino.Views
                 isInitialFocusHandled = true;
                 ToBox.Focus(FocusState.Programmatic);
             }
+        }
+
+        protected override async void OnNavigatingFrom(NavigatingCancelEventArgs e)
+        {
+            base.OnNavigatingFrom(e);
+
+            FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
+            await ViewModel.UpdateMimeChangesAsync();
+
+            DisposeDisposables();
+            DisposeWebView2();
         }
     }
 }

@@ -21,7 +21,7 @@
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="1.7.6.0" />
+    Version="1.7.8.0" />
 
   <mp:PhoneIdentity PhoneProductId="0f6f3c1b-6ffd-4212-9c91-a16e8d1fa437" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -50,20 +50,13 @@
         Description="Mail client designed for Windows 11"
         BackgroundColor="transparent">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
-        <uap:SplashScreen Image="Assets\SplashScreen.png"  BackgroundColor="transparent"/>
+        <uap:SplashScreen Image="Assets\SplashScreen.png"  BackgroundColor="transparent" uap5:Optional="true" />
         <uap:LockScreen BadgeLogo="Assets\BadgeLogo.png" Notification="badgeAndTileText"/>
       </uap:VisualElements>
       <Extensions>
 		<!-- App updated task. Notifies about new version after each Store update. -->
 		<Extension Category="windows.updateTask" EntryPoint="Wino.BackgroundTasks.AppUpdatedTask" />
-
-		<!-- SessionConnected task for background synchronization on startup. -->
-		<Extension Category="windows.backgroundTasks" EntryPoint="Wino.BackgroundTasks.SessionConnectedTask">
-			<BackgroundTasks>
-				<Task Type="systemEvent" />
-			</BackgroundTasks>
-		</Extension>
-
+		  
 		<!-- Protocol activation: mailto -->
 		<uap:Extension Category="windows.protocol">
 			<uap:Protocol Name="mailto" />
@@ -92,13 +85,6 @@
 			    Enabled="false"
 			    DisplayName="Wino Startup Service" />
 		</uap5:Extension>
-		  
-		<!-- Registration of full trust backend application. -->
-		<!--<uap:Extension Category="windows.appService">
-			<uap:AppService Name="Wino.AppService" />
-		</uap:Extension>-->
-		  
-		<!--<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.AppService.exe" />-->
       </Extensions>
     </Application>
   </Applications>

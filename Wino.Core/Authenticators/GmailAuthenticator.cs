@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Net.Http;
 using System.Text;
-using System.Threading;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using Nito.AsyncEx;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -13,11 +11,10 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Services;
-using Xamarin.Essentials;
 
 namespace Wino.Core.Authenticators
 {
-    public class GmailAuthenticator : BaseAuthenticator, IAuthenticator
+    public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     {
         public string ClientId { get; } = "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
 
@@ -26,9 +23,6 @@ namespace Wino.Core.Authenticators
         private const string UserInfoEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
 
         public override MailProviderType ProviderType => MailProviderType.Gmail;
-
-        private TaskCompletionSource<Uri> _authorizationCompletionSource = null;
-        private CancellationTokenSource _authorizationCancellationTokenSource = null;
 
         private readonly INativeAppService _nativeAppService;
 
@@ -64,14 +58,14 @@ namespace Wino.Core.Authenticators
             if (!response.IsSuccessStatusCode)
                 throw new GoogleAuthenticationException(Translator.Exception_GoogleAuthorizationCodeExchangeFailed);
 
-            var parsed = JObject.Parse(responseString);
+            var parsed = JsonNode.Parse(responseString).AsObject();
 
             if (parsed.ContainsKey("error"))
-                throw new GoogleAuthenticationException(parsed["error"]["message"].Value<string>());
+                throw new GoogleAuthenticationException(parsed["error"]["message"].GetValue<string>());
 
-            var accessToken = parsed["access_token"].Value<string>();
-            var refreshToken = parsed["refresh_token"].Value<string>();
-            var expiresIn = parsed["expires_in"].Value<long>();
+            var accessToken = parsed["access_token"].GetValue<string>();
+            var refreshToken = parsed["refresh_token"].GetValue<string>();
+            var expiresIn = parsed["expires_in"].GetValue<long>();
 
             var expirationDate = DateTime.UtcNow.AddSeconds(expiresIn);
 
@@ -82,12 +76,12 @@ namespace Wino.Core.Authenticators
             var userinfoResponse = await client.GetAsync(UserInfoEndpoint);
             string userinfoResponseContent = await userinfoResponse.Content.ReadAsStringAsync();
 
-            var parsedUserInfo = JObject.Parse(userinfoResponseContent);
+            var parsedUserInfo = JsonNode.Parse(userinfoResponseContent).AsObject();
 
             if (parsedUserInfo.ContainsKey("error"))
-                throw new GoogleAuthenticationException(parsedUserInfo["error"]["message"].Value<string>());
+                throw new GoogleAuthenticationException(parsedUserInfo["error"]["message"].GetValue<string>());
 
-            var username = parsedUserInfo["emailAddress"].Value<string>();
+            var username = parsedUserInfo["emailAddress"].GetValue<string>();
 
             return new TokenInformation()
             {
@@ -98,8 +92,6 @@ namespace Wino.Core.Authenticators
                 ExpiresAt = expirationDate
             };
         }
-
-        public void ContinueAuthorization(Uri authorizationResponseUri) => _authorizationCompletionSource?.TrySetResult(authorizationResponseUri);
 
         public async Task<TokenInformation> GetTokenAsync(MailAccount account)
         {
@@ -127,28 +119,18 @@ namespace Wino.Core.Authenticators
         {
             var authRequest = _nativeAppService.GetGoogleAuthorizationRequest();
 
-            _authorizationCompletionSource = new TaskCompletionSource<Uri>();
-            _authorizationCancellationTokenSource = new CancellationTokenSource();
-
             var authorizationUri = authRequest.BuildRequest(ClientId);
-
-            await Browser.OpenAsync(authorizationUri, BrowserLaunchMode.SystemPreferred);
 
             Uri responseRedirectUri = null;
 
             try
             {
-                responseRedirectUri = await _authorizationCompletionSource.Task.WaitAsync(_authorizationCancellationTokenSource.Token);
+                //await _authorizationCompletionSource.Task.WaitAsync(_authorizationCancellationTokenSource.Token);
+                responseRedirectUri = await _nativeAppService.GetAuthorizationResponseUriAsync(this, authorizationUri);
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
                 throw new AuthenticationException(Translator.Exception_AuthenticationCanceled);
-            }
-            finally
-            {
-                _authorizationCancellationTokenSource.Dispose();
-                _authorizationCancellationTokenSource = null;
-                _authorizationCompletionSource = null;
             }
 
             authRequest.ValidateAuthorizationCode(responseRedirectUri);
@@ -184,13 +166,13 @@ namespace Wino.Core.Authenticators
 
             string responseString = await response.Content.ReadAsStringAsync();
 
-            var parsed = JObject.Parse(responseString);
+            var parsed = JsonNode.Parse(responseString).AsObject();
 
             // TODO: Error parsing is incorrect.
             if (parsed.ContainsKey("error"))
-                throw new GoogleAuthenticationException(parsed["error_description"].Value<string>());
+                throw new GoogleAuthenticationException(parsed["error_description"].GetValue<string>());
 
-            var accessToken = parsed["access_token"].Value<string>();
+            var accessToken = parsed["access_token"].GetValue<string>();
 
             string activeRefreshToken = refresh_token;
 
@@ -200,10 +182,10 @@ namespace Wino.Core.Authenticators
 
             if (parsed.ContainsKey("refresh_token"))
             {
-                activeRefreshToken = parsed["refresh_token"].Value<string>();
+                activeRefreshToken = parsed["refresh_token"].GetValue<string>();
             }
 
-            var expiresIn = parsed["expires_in"].Value<long>();
+            var expiresIn = parsed["expires_in"].GetValue<long>();
             var expirationDate = DateTime.UtcNow.AddSeconds(expiresIn);
 
             return new TokenInformationBase()
@@ -213,7 +195,5 @@ namespace Wino.Core.Authenticators
                 RefreshToken = activeRefreshToken
             };
         }
-
-        public void CancelAuthorization() => _authorizationCancellationTokenSource?.Cancel();
     }
 }

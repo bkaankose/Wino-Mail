@@ -9,10 +9,17 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Shell;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
+using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain;
+
+
+
+#if WINDOWS_UWP
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+#endif
 
 namespace Wino.Services
 {
@@ -20,8 +27,18 @@ namespace Wino.Services
     {
         private string _mimeMessagesFolder;
         private string _editorBundlePath;
+        private TaskCompletionSource<Uri> authorizationCompletedTaskSource;
 
-        public string GetWebAuthenticationBrokerUri() => WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+        public Func<IntPtr> GetCoreWindowHwnd { get; set; }
+
+        public string GetWebAuthenticationBrokerUri()
+        {
+#if WINDOWS_UWP
+            return WebAuthenticationBroker.GetCurrentApplicationCallbackUri().AbsoluteUri;
+#endif
+
+            return string.Empty;
+        }
 
         public async Task<string> GetMimeMessageStoragePath()
         {
@@ -91,7 +108,16 @@ namespace Wino.Services
             return _editorBundlePath;
         }
 
-        public bool IsAppRunning() => (Window.Current?.Content as Frame)?.Content != null;
+        [Obsolete("This should be removed. There should be no functionality.")]
+        public bool IsAppRunning()
+        {
+#if WINDOWS_UWP
+            return (Window.Current?.Content as Frame)?.Content != null;
+#endif
+
+            return true;
+        }
+
 
         public async Task LaunchFileAsync(string filePath)
         {
@@ -100,7 +126,7 @@ namespace Wino.Services
             await Launcher.LaunchFileAsync(file);
         }
 
-        public Task LaunchUriAsync(Uri uri) => Xamarin.Essentials.Launcher.OpenAsync(uri);
+        public Task LaunchUriAsync(Uri uri) => Launcher.LaunchUriAsync(uri).AsTask();
 
         public string GetFullAppVersion()
         {
@@ -126,6 +152,29 @@ namespace Wino.Services
             if (await taskbarManager.IsCurrentAppPinnedAsync()) return;
 
             await taskbarManager.RequestPinCurrentAppAsync();
+        }
+
+        public async Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri)
+        {
+            if (authorizationCompletedTaskSource != null)
+            {
+                authorizationCompletedTaskSource.TrySetException(new AuthenticationException(Translator.Exception_AuthenticationCanceled));
+                authorizationCompletedTaskSource = null;
+            }
+
+            authorizationCompletedTaskSource = new TaskCompletionSource<Uri>();
+
+            await LaunchUriAsync(new Uri(authorizationUri));
+
+            return await authorizationCompletedTaskSource.Task;
+        }
+
+        public void ContinueAuthorization(Uri authorizationResponseUri)
+        {
+            if (authorizationCompletedTaskSource != null)
+            {
+                authorizationCompletedTaskSource.TrySetResult(authorizationResponseUri);
+            }
         }
     }
 }

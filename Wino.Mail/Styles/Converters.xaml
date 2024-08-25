@@ -4,4 +4,5 @@
     xmlns:converters="using:Wino.Converters">
     <converters:ReverseBooleanToVisibilityConverter x:Key="ReverseBooleanToVisibilityConverter" />
     <converters:ReverseBooleanConverter x:Key="ReverseBooleanConverter" />
+    <converters:GridLengthConverter x:Key="GridLengthConverter" />
 </ResourceDictionary>

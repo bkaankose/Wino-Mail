@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
-using Newtonsoft.Json;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -15,9 +15,9 @@ using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Messages.Mails;
-using Wino.Core.Messages.Shell;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views
@@ -29,7 +29,7 @@ namespace Wino.Views
         IRecipient<ApplicationThemeChanged>,
         IRecipient<SaveAsPDFRequested>
     {
-        private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
+        private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
         private readonly IDialogService _dialogService = App.Current.Services.GetService<IDialogService>();
 
         private bool isRenderingInProgress = false;
@@ -70,7 +70,7 @@ namespace Wino.Views
             string script = functionName + "(";
             for (int i = 0; i < parameters.Length; i++)
             {
-                script += JsonConvert.SerializeObject(parameters[i]);
+                script += JsonSerializer.Serialize(parameters[i]);
                 if (i < parameters.Length - 1)
                 {
                     script += ", ";
@@ -174,7 +174,7 @@ namespace Wino.Views
             // We don't have shell initialized here. It's only standalone EML viewing.
             // Shift command bar from top to adjust the design.
 
-            if (ViewModel.StatePersistanceService.ShouldShiftMailRenderingDesign)
+            if (ViewModel.StatePersistenceService.ShouldShiftMailRenderingDesign)
                 RendererGridFrame.Margin = new Thickness(0, 24, 0, 0);
             else
                 RendererGridFrame.Margin = new Thickness(0, 0, 0, 0);
@@ -270,15 +270,13 @@ namespace Wino.Views
 
         private async Task UpdateReaderFontPropertiesAsync()
         {
-            await ExecuteScriptFunctionAsync("ChangeFontSize", _fontService.GetCurrentReaderFontSize());
+            await ExecuteScriptFunctionAsync("ChangeFontSize", _preferencesService.ReaderFontSize);
 
             // Prepare font family name with fallback to sans-serif by default.
-            var fontName = _fontService.GetCurrentReaderFont()?.FontFamilyName ?? "Arial";
+            var fontName = _preferencesService.ReaderFont;
 
             // If font family name is not supported by the browser, fallback to sans-serif.
             fontName += ", sans-serif";
-
-            // var fontName = "Starborn";
 
             await ExecuteScriptFunctionAsync("ChangeFontFamily", fontName);
         }

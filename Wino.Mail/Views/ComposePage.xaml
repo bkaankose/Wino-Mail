@@ -20,16 +20,30 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="TokenBoxTemplate" x:DataType="entities:AddressInformation">
+        <DataTemplate x:Key="TokenBoxTemplate" x:DataType="entities:AccountContact">
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
                 <ToolTipService.ToolTip>
                     <ToolTip Content="{x:Bind Address}" />
                 </ToolTipService.ToolTip>
-                <Grid.ContextFlyout>
+
+                <!--  TODO: Display contact info.  -->
+                <!--<Grid.ContextFlyout>
                     <MenuFlyout Placement="RightEdgeAlignedBottom">
                         <MenuFlyoutItem Text="{x:Bind domain:Translator.ViewContactDetails}" />
                     </MenuFlyout>
-                </Grid.ContextFlyout>
+                </Grid.ContextFlyout>-->
+
+                <Viewbox Width="24">
+                    <controls:ImagePreviewControl
+                        FromAddress="{x:Bind Address}"
+                        FromName="{x:Bind Name}"
+                        SenderContactPicture="{x:Bind Base64ContactPicture}" />
+                </Viewbox>
+
                 <TextBlock
                     Grid.Column="1"
                     Margin="6,0,8,0"
@@ -37,7 +51,7 @@
                     Text="{x:Bind Name}" />
             </Grid>
         </DataTemplate>
-        <DataTemplate x:Key="SuggestionBoxTemplate" x:DataType="entities:AddressInformation">
+        <DataTemplate x:Key="SuggestionBoxTemplate" x:DataType="entities:AccountContact">
             <Grid Margin="0,12" ColumnSpacing="6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -46,7 +60,7 @@
                 <controls:ImagePreviewControl
                     FromAddress="{x:Bind Address}"
                     FromName="{x:Bind Name}"
-                    IsKnown="False" />
+                    SenderContactPicture="{x:Bind Base64ContactPicture}" />
                 <TextBlock Grid.Column="1">
                     <Run FontWeight="SemiBold" Text="{x:Bind Name}" /><LineBreak /><Run Text="{x:Bind Address}" />
                 </TextBlock>
@@ -442,18 +456,10 @@
                     <ComboBox
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
+                        DisplayMemberPath="AliasAddress"
                         IsEditable="False"
-                        IsEnabled="False"
-                        ItemsSource="{x:Bind ViewModel.Accounts}"
-                        SelectedItem="{x:Bind ViewModel.ComposingAccount, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="entities:MailAccount">
-                                <TextBlock>
-                                    <Run Text="{x:Bind Name}" /><Run Text=" (" /><Run Text="{x:Bind Address}" /><Run Text=")" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                        ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}" />
 
                     <!--  To  -->
                     <TextBlock
@@ -493,7 +499,7 @@
                             VerticalAlignment="Center"
                             Click="ShowCCBCCClicked"
                             GotFocus="CCBBCGotFocus"
-                            Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}">
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCCBCCVisible), Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon
                                     HorizontalAlignment="Center"
@@ -512,13 +518,14 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="Cc: "
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <controls1:TokenizingTextBox
                         x:Name="CCBox"
                         Grid.Row="2"
                         Grid.Column="1"
                         VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.CCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
@@ -526,7 +533,7 @@
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource TokenBoxTemplate}"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <TextBlock
                         x:Name="BccTextBlock"
@@ -534,13 +541,14 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Text="Bcc: "
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <controls1:TokenizingTextBox
                         x:Name="BccBox"
                         Grid.Row="3"
                         Grid.Column="1"
                         VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
                         SuggestedItemTemplate="{StaticResource SuggestionBoxTemplate}"
@@ -548,7 +556,7 @@
                         TokenDelimiter=";"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource TokenBoxTemplate}"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(CCBCCShowButton.Visibility), Mode=OneWay}" />
+                        Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
                     <!--  Subject  -->
                     <TextBlock

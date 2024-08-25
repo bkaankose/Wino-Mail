@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
@@ -21,6 +22,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Mime;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
@@ -405,23 +407,21 @@ namespace Wino.Core.Synchronizers
             ];
         }
 
-        public override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
         {
-            // options.Type = SynchronizationType.FoldersOnly;
-
             var downloadedMessageIds = new List<string>();
 
             _logger.Information("Internal synchronization started for {Name}", Account.Name);
             _logger.Information("Options: {Options}", options);
 
-            options.ProgressListener?.AccountProgressUpdated(Account.Id, 1);
+            PublishSynchronizationProgress(1);
 
-            // Only do folder sync for these types.
-            // Opening folder and checking their UidValidity is slow.
-            // Therefore this should be avoided as many times as possible.
+            bool shouldDoFolderSync = options.Type == SynchronizationType.Full || options.Type == SynchronizationType.FoldersOnly;
 
-            // This may create some inconsistencies, but nothing we can do...
-            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            if (shouldDoFolderSync)
+            {
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            }
 
             if (options.Type != SynchronizationType.FoldersOnly)
             {
@@ -432,14 +432,14 @@ namespace Wino.Core.Synchronizers
                     var folder = synchronizationFolders[i];
                     var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                    options.ProgressListener?.AccountProgressUpdated(Account.Id, progress);
+                    PublishSynchronizationProgress(progress);
 
                     var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
                     downloadedMessageIds.AddRange(folderDownloadedMessageIds);
                 }
             }
 
-            options.ProgressListener?.AccountProgressUpdated(Account.Id, 100);
+            PublishSynchronizationProgress(100);
 
             // Get all unread new downloaded items and return in the result.
             // This is primarily used in notifications.
@@ -719,6 +719,11 @@ namespace Wino.Core.Synchronizers
                 {
                     await _imapChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
                 }
+
+                if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
+                {
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                }
             }
             catch (Exception ex)
             {
@@ -787,6 +792,7 @@ namespace Wino.Core.Synchronizers
             EventHandler<MessageFlagsChangedEventArgs> MessageFlagsChangedHandler = async (s, e) =>
             {
                 if (imapFolder == null) return;
+                if (e.UniqueId == null) return;
 
                 var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, e.UniqueId.Value.Id);
 
@@ -924,7 +930,7 @@ namespace Wino.Core.Synchronizers
                 }
 
                 // In case of the high input, we'll batch them by 50 to reflect changes quickly.
-                var batchedMissingMailIds = missingMailIds.Batch(50).Select(a => new UniqueIdSet(a, SortOrder.Descending));
+                var batchedMissingMailIds = missingMailIds.Batch(50).Select(a => new UniqueIdSet(a, SortOrder.Ascending));
 
                 foreach (var batchMissingMailIds in batchedMissingMailIds)
                 {
@@ -943,7 +949,12 @@ namespace Wino.Core.Synchronizers
 
                         foreach (var mailPackage in createdMailPackages)
                         {
-                            await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage).ConfigureAwait(false);
+                            bool isCreated = await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage).ConfigureAwait(false);
+
+                            if (isCreated)
+                            {
+                                downloadedMessageIds.Add(mailPackage.Copy.Id);
+                            }
                         }
                     }
                 }
@@ -994,6 +1005,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="remoteFolder">Remote folder</param>
         /// <param name="localFolder">Local folder.</param>
-        public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder) => remoteFolder.Name != localFolder.FolderName;
+        public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
+            => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
     }
 }

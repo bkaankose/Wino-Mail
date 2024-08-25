@@ -34,9 +34,9 @@
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
-                BindingData="{x:Bind}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                BindingData="{x:Bind}"
                 DataContext="{x:Bind}"
                 IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -247,15 +247,15 @@
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="menu:MergedAccountMenuItem">
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
-                BindingData="{x:Bind}"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                BindingData="{x:Bind}"
                 DataContext="{x:Bind}"
                 IsActiveAccount="{x:Bind IsSelected, Mode=TwoWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 MenuItemsSource="{x:Bind SubMenuItems}"
-                Style="{StaticResource SingleAccountNavigationViewItemTemplate}"
-                SelectsOnInvoked="False">
+                SelectsOnInvoked="False"
+                Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
@@ -524,6 +524,7 @@
             Grid.ColumnSpan="2"
             BackButtonClicked="BackButtonClicked"
             Canvas.ZIndex="150"
+            ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"
             IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
             IsNavigationPaneOpen="{x:Bind navigationView.IsPaneOpen, Mode=TwoWay}"
@@ -531,6 +532,7 @@
             NavigationViewDisplayMode="{x:Bind navigationView.DisplayMode, Mode=OneWay}"
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
             ReadingPaneLength="{x:Bind ViewModel.StatePersistenceService.MailListPaneLength, Mode=OneWay}"
+            ReconnectCommand="{x:Bind ViewModel.ReconnectServerCommand}"
             SystemReserved="180" />
 
         <!-- Use this to Render things above all other UI like popups and effects -->

@@ -5,6 +5,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests
 {
@@ -29,8 +30,6 @@ namespace Wino.Core.Requests
                 WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
             }
         }
-
-        public override bool DelayExecution => false;
 
         public List<Guid> SynchronizationFolderIds => [Folder.Id];
     }

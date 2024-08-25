@@ -14,20 +14,10 @@
             fill: black;
         }
 
-        #editor {
-            height: 100%;
-        }
-
-
-
         .jodit-container:not(.jodit_inline) {
             background-color: transparent;
             border: none;
             border-radius: initial;
-        }
-
-        .jodit-wysiwyg {
-            min-height: 200px
         }
 
         /* Hide taskbar in css. Should not be hidden from configuration, because it's used to sync state with native buttons. */
@@ -35,8 +25,8 @@
             display: none;
         }
 
-        body {
-            margin: 8px;
+        html, body, .jodit-container, .jodit-workplace {
+            height: 100%;
         }
     </style>
 </head>

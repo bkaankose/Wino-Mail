@@ -1,16 +1,16 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces
 {
+    /// <summary>
+    /// Service to access available fonts.
+    /// </summary>
     public interface IFontService
     {
-        List<ReaderFontModel> GetReaderFonts();
-        ReaderFontModel GetCurrentReaderFont();
-        int GetCurrentReaderFontSize();
-
-        void ChangeReaderFont(ReaderFont font);
-        void ChangeReaderFontSize(int size);
+        /// <summary>
+        /// Get available fonts. Default + installed system fonts.
+        /// Fonts initialized only once. To refresh fonts, restart the application.
+        /// </summary>
+        List<string> GetFonts();
     }
 }

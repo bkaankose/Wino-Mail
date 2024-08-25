@@ -17,10 +17,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Messages.Authorization;
-using Wino.Core.Messages.Navigation;
-using Wino.Core.Requests;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Authorization;
+using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
@@ -35,7 +36,7 @@ namespace Wino.Mail.ViewModels
         private readonly IStoreManagementService _storeManagementService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAuthenticationProvider _authenticationProvider;
-        private readonly IWinoSynchronizerFactory _synchronizerFactory;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
 
         public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
 
@@ -60,22 +61,22 @@ namespace Wino.Mail.ViewModels
 
         public AccountManagementViewModel(IDialogService dialogService,
                                           IWinoNavigationService navigationService,
-                                          IWinoSynchronizerFactory synchronizerFactory,
                                           IAccountService accountService,
                                           IProviderService providerService,
                                           IFolderService folderService,
                                           IStoreManagementService storeManagementService,
                                           IPreferencesService preferencesService,
-                                          IAuthenticationProvider authenticationProvider) : base(dialogService)
+                                          IAuthenticationProvider authenticationProvider,
+                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             _accountService = accountService;
-            _synchronizerFactory = synchronizerFactory;
             _dialogService = dialogService;
             _providerService = providerService;
             _folderService = folderService;
             _storeManagementService = storeManagementService;
             _preferencesService = preferencesService;
             _authenticationProvider = authenticationProvider;
+            _winoServerConnectionManager = winoServerConnectionManager;
         }
 
         [RelayCommand]
@@ -153,15 +154,12 @@ namespace Wino.Mail.ViewModels
                 {
                     creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
-                    _accountService.ExternalAuthenticationAuthenticator = _authenticationProvider.GetAuthenticator(accountCreationDialogResult.ProviderType);
-
                     CustomServerInformation customServerInformation = null;
 
                     createdAccount = new MailAccount()
                     {
                         ProviderType = accountCreationDialogResult.ProviderType,
                         Name = accountCreationDialogResult.AccountName,
-                        SenderName = accountCreationDialogResult.SenderName,
                         AccountColorHex = accountCreationDialogResult.AccountColorHex,
                         Id = Guid.NewGuid()
                     };
@@ -193,9 +191,13 @@ namespace Wino.Mail.ViewModels
                     {
                         // For OAuth authentications, we just generate token and assign it to the MailAccount.
 
-                        tokenInformation = await _accountService.ExternalAuthenticationAuthenticator.GenerateTokenAsync(createdAccount, false)
-                        ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
+                        var tokenInformationResponse = await _winoServerConnectionManager.GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType, createdAccount));
 
+                        tokenInformationResponse.ThrowIfFailed();
+
+                        // ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
+
+                        tokenInformation = tokenInformationResponse.Data;
                         createdAccount.Address = tokenInformation.Address;
                         tokenInformation.AccountId = createdAccount.Id;
                     }
@@ -203,31 +205,83 @@ namespace Wino.Mail.ViewModels
                     await _accountService.CreateAccountAsync(createdAccount, tokenInformation, customServerInformation);
 
                     // Local account has been created.
-                    // Create new synchronizer and start synchronization.
 
-                    var synchronizer = _synchronizerFactory.CreateNewSynchronizer(createdAccount);
+                    // Sync profile information if supported.
+                    if (createdAccount.IsProfileInfoSyncSupported)
+                    {
+                        // Start profile information synchronization.
+                        // It's only available for Outlook and Gmail synchronizers.
+
+                        var profileSyncOptions = new SynchronizationOptions()
+                        {
+                            AccountId = createdAccount.Id,
+                            Type = SynchronizationType.UpdateProfile
+                        };
+
+                        var profileSynchronizationResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+
+                        var profileSynchronizationResult = profileSynchronizationResponse.Data;
+
+                        if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                            throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
+
+                        createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
+                        createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
+
+                        await _accountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
+                    }
 
                     if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
                         customServerAccountCreationDialog.ShowPreparingFolders();
                     else
                         creationDialog.State = AccountCreationDialogState.PreparingFolders;
 
-                    var options = new SynchronizationOptions()
+                    // Start synchronizing folders.
+                    var folderSyncOptions = new SynchronizationOptions()
                     {
                         AccountId = createdAccount.Id,
                         Type = SynchronizationType.FoldersOnly
                     };
 
-                    var synchronizationResult = await synchronizer.SynchronizeAsync(options);
+                    var folderSynchronizationResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
 
-                    if (synchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                    var folderSynchronizationResult = folderSynchronizationResponse.Data;
+
+                    if (folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
-                    // Check if Inbox folder is available for the account after synchronization.
-                    var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+                    // Sync aliases if supported.
+                    if (createdAccount.IsAliasSyncSupported)
+                    {
+                        // Try to synchronize aliases for the account.
 
-                    if (!isInboxAvailable)
-                        throw new Exception(Translator.Exception_InboxNotAvailable);
+                        var aliasSyncOptions = new SynchronizationOptions()
+                        {
+                            AccountId = createdAccount.Id,
+                            Type = SynchronizationType.Alias
+                        };
+
+                        var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+                        var aliasSynchronizationResult = folderSynchronizationResponse.Data;
+
+                        if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                            throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
+                    }
+                    else
+                    {
+                        // Create root primary alias for the account.
+                        // This is only available for accounts that do not support alias synchronization.
+
+                        await _accountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
+                    }
+
+                    // TODO: Temporary disabled. Is this even needed? Users can configure special folders manually later on if discovery fails.
+                    // Check if Inbox folder is available for the account after synchronization.
+
+                    //var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
+
+                    //if (!isInboxAvailable)
+                    //    throw new Exception(Translator.Exception_InboxNotAvailable);
 
                     // Send changes to listeners.
                     ReportUIChange(new AccountCreatedMessage(createdAccount));
@@ -377,11 +431,10 @@ namespace Wino.Mail.ViewModels
             return new AccountProviderDetailViewModel(provider, account);
         }
 
-        public void Receive(ProtocolAuthorizationCallbackReceived message)
+        public async void Receive(ProtocolAuthorizationCallbackReceived message)
         {
-            // Authorization must be completed in account service.
-
-            _accountService.ExternalAuthenticationAuthenticator?.ContinueAuthorization(message.AuthorizationResponseUri);
+            // Authorization must be completed in the server.
+            await _winoServerConnectionManager.GetResponseAsync<bool, ProtocolAuthorizationCallbackReceived>(message);
         }
     }
 }

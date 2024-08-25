@@ -19,8 +19,10 @@
         PersonalizationPage,
         MessageListPage,
         MailListPage,
-        ReadingPanePage,
+        ReadComposePanePage,
         LanguageTimePage,
+        AppPreferencesPage,
         SettingOptionsPage,
+        AliasManagementPage
     }
 }

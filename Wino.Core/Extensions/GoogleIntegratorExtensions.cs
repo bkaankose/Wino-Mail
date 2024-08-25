@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Web;
 using Google.Apis.Gmail.v1.Data;
@@ -77,9 +76,7 @@ namespace Wino.Core.Extensions
 
         public static MailItemFolder GetLocalFolder(this Label label, ListLabelsResponse labelsResponse, Guid accountId)
         {
-            bool isAllCapital = label.Name.All(a => char.IsUpper(a));
-
-            var normalizedLabelName = GetFolderName(label);
+            var normalizedLabelName = GetFolderName(label.Name);
 
             // Even though we normalize the label name, check is done by capitalizing the label name.
             var capitalNormalizedLabelName = normalizedLabelName.ToUpper();
@@ -93,10 +90,10 @@ namespace Wino.Core.Extensions
             // without realizing that they are hidden in Gmail settings. Therefore, it makes more sense to ignore Gmail's configuration
             // since Wino allows folder visibility configuration separately.
 
-            // Overridden hidden labels are shown in the UI, but they have their synchronization disabled.
-            // This is mainly because 'All Mails' label is hidden by default in Gmail, but there is no point to download all mails.
+            // Overridden hidden labels are shown in the UI.
+            // Also Gmail does not support folder sync enable/disable options due to history changes.
+            // By default all folders will be enabled for synchronization.
 
-            bool shouldEnableSynchronization = label.LabelListVisibility != FOLDER_HIDE_IDENTIFIER;
             bool isHidden = false;
 
             bool isChildOfCategoryFolder = label.Name.StartsWith(CATEGORY_PREFIX);
@@ -115,7 +112,7 @@ namespace Wino.Core.Extensions
                 RemoteFolderId = label.Id,
                 Id = Guid.NewGuid(),
                 MailAccountId = accountId,
-                IsSynchronizationEnabled = shouldEnableSynchronization,
+                IsSynchronizationEnabled = true,
                 SpecialFolderType = specialFolderType,
                 IsSystemFolder = isSystemFolder,
                 IsSticky = isSticky,
@@ -156,14 +153,14 @@ namespace Wino.Core.Extensions
             return labelsResponse.Labels.FirstOrDefault(a => a.Name == parentLabelName)?.Id ?? string.Empty;
         }
 
-        public static string GetFolderName(Label label)
+        public static string GetFolderName(string fullFolderName)
         {
-            if (string.IsNullOrEmpty(label.Name)) return string.Empty;
+            if (string.IsNullOrEmpty(fullFolderName)) return string.Empty;
 
             // Folders with "//" at the end has "/" as the name.
-            if (label.Name.EndsWith(FOLDER_SEPERATOR_STRING)) return FOLDER_SEPERATOR_STRING;
+            if (fullFolderName.EndsWith(FOLDER_SEPERATOR_STRING)) return FOLDER_SEPERATOR_STRING;
 
-            string[] parts = label.Name.Split(FOLDER_SEPERATOR_CHAR);
+            string[] parts = fullFolderName.Split(FOLDER_SEPERATOR_CHAR);
 
             var lastPart = parts[parts.Length - 1];
 
@@ -205,44 +202,16 @@ namespace Wino.Core.Extensions
             };
         }
 
-        public static Tuple<MailCopy, MimeMessage, IEnumerable<string>> GetMailDetails(this Message message)
+        public static List<RemoteAccountAlias> GetRemoteAliases(this ListSendAsResponse response)
         {
-            MimeMessage mimeMessage = message.GetGmailMimeMessage();
-
-            if (mimeMessage == null)
+            return response?.SendAs?.Select(a => new RemoteAccountAlias()
             {
-                // This should never happen.
-                Debugger.Break();
-
-                return default;
-            }
-
-            bool isUnread = message.GetIsUnread();
-            bool isFocused = message.GetIsFocused();
-            bool isFlagged = message.GetIsFlagged();
-            bool isDraft = message.GetIsDraft();
-
-            var mailCopy = new MailCopy()
-            {
-                CreationDate = mimeMessage.Date.UtcDateTime,
-                Subject = HttpUtility.HtmlDecode(mimeMessage.Subject),
-                FromName = MailkitClientExtensions.GetActualSenderName(mimeMessage),
-                FromAddress = MailkitClientExtensions.GetActualSenderAddress(mimeMessage),
-                PreviewText = HttpUtility.HtmlDecode(message.Snippet),
-                ThreadId = message.ThreadId,
-                Importance = (MailImportance)mimeMessage.Importance,
-                Id = message.Id,
-                IsDraft = isDraft,
-                HasAttachments = mimeMessage.Attachments.Any(),
-                IsRead = !isUnread,
-                IsFlagged = isFlagged,
-                IsFocused = isFocused,
-                InReplyTo = mimeMessage.InReplyTo,
-                MessageId = mimeMessage.MessageId,
-                References = mimeMessage.References.GetReferences()
-            };
-
-            return new Tuple<MailCopy, MimeMessage, IEnumerable<string>>(mailCopy, mimeMessage, message.LabelIds);
+                AliasAddress = a.SendAsEmail,
+                IsRootAlias = a.IsDefault.GetValueOrDefault(),
+                IsPrimary = a.IsPrimary.GetValueOrDefault(),
+                ReplyToAddress = a.ReplyToAddress,
+                IsVerified = a.VerificationStatus == "accepted" || a.IsDefault.GetValueOrDefault(),
+            }).ToList();
         }
     }
 }
