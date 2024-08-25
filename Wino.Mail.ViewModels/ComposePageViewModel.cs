@@ -15,7 +15,6 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -89,29 +88,11 @@ namespace Wino.Mail.ViewModels
         public ObservableCollection<AccountContact> CCItems { get; set; } = [];
         public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
 
-
-        public List<EditorToolbarSection> ToolbarSections { get; set; } =
-        [
-            new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Format },
-            new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Insert },
-            new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Draw },
-            new EditorToolbarSection(){ SectionType = EditorToolbarSectionType.Options }
-        ];
-
-        private EditorToolbarSection selectedToolbarSection;
-
-        public EditorToolbarSection SelectedToolbarSection
-        {
-            get => selectedToolbarSection;
-            set => SetProperty(ref selectedToolbarSection, value);
-        }
-
         #endregion
 
         public INativeAppService NativeAppService { get; }
 
         private readonly IMailService _mailService;
-        private readonly ILaunchProtocolService _launchProtocolService;
         private readonly IMimeFileService _mimeFileService;
         private readonly IFolderService _folderService;
         private readonly IAccountService _accountService;
@@ -123,7 +104,6 @@ namespace Wino.Mail.ViewModels
 
         public ComposePageViewModel(IDialogService dialogService,
                                     IMailService mailService,
-                                    ILaunchProtocolService launchProtocolService,
                                     IMimeFileService mimeFileService,
                                     INativeAppService nativeAppService,
                                     IFolderService folderService,
@@ -141,13 +121,10 @@ namespace Wino.Mail.ViewModels
 
             _folderService = folderService;
             _mailService = mailService;
-            _launchProtocolService = launchProtocolService;
             _mimeFileService = mimeFileService;
             _accountService = accountService;
             _worker = worker;
             _winoServerConnectionManager = winoServerConnectionManager;
-
-            SelectedToolbarSection = ToolbarSections[0];
         }
 
         [RelayCommand]
@@ -261,31 +238,6 @@ namespace Wino.Mail.ViewModels
             {
                 CurrentMimeMessage.Subject = Subject;
             }
-        }
-
-        private void ClearCurrentMimeAttachments()
-        {
-            var attachments = new List<MimePart>();
-            var multiparts = new List<Multipart>();
-            var iter = new MimeIterator(CurrentMimeMessage);
-
-            // collect our list of attachments and their parent multiparts
-            while (iter.MoveNext())
-            {
-                var multipart = iter.Parent as Multipart;
-                var part = iter.Current as MimePart;
-
-                if (multipart != null && part != null && part.IsAttachment)
-                {
-                    // keep track of each attachment's parent multipart
-                    multiparts.Add(multipart);
-                    attachments.Add(part);
-                }
-            }
-
-            // now remove each attachment from its parent multipart...
-            for (int i = 0; i < attachments.Count; i++)
-                multiparts[i].Remove(attachments[i]);
         }
 
         private async Task SaveBodyAsync()

@@ -147,6 +147,9 @@
     <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers">
       <Version>8.0.240109</Version>
     </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar">
+      <Version>8.1.240821</Version>
+    </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox">
       <Version>8.0.240109</Version>
     </PackageReference>

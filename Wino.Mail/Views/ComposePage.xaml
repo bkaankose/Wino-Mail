@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
-    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -14,6 +13,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     x:Name="root"
     d:Background="White"
     Loaded="ComposerLoaded"
@@ -144,26 +144,22 @@
 
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="56" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid
-                    x:Name="TopPanelGrid"
-                    Padding="16,6,6,6"
-                    RowSpacing="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <CommandBar
-                        Grid.Row="1"
-                        DefaultLabelPosition="Right"
-                        DynamicOverflowItemsChanging="BarDynamicOverflowChanging"
-                        IsDynamicOverflowEnabled="True"
-                        OverflowButtonVisibility="Collapsed">
-                        <CommandBar.PrimaryCommands>
+                <!--  Format  -->
+                <toolkit:TabbedCommandBar>
+                    <toolkit:TabbedCommandBar.Resources>
+                        <SolidColorBrush x:Key="TabContentContentBorderBackground" Color="Transparent" />
+                        <SolidColorBrush x:Key="TabContentContentBorderBorderBrush" Color="Transparent" />
+                        <Thickness x:Key="TabContentBorderBorderThickness">0</Thickness>
+                    </toolkit:TabbedCommandBar.Resources>
+                    <toolkit:TabbedCommandBar.PaneCustomContent>
+                        <toolkit:TabbedCommandBarItem
+                            CommandAlignment="Right"
+                            IsDynamicOverflowEnabled="True"
+                            OverflowButtonAlignment="Left">
                             <AppBarButton
                                 Click="InvertComposerThemeClicked"
                                 LabelPosition="Collapsed"
@@ -194,242 +190,216 @@
                                     <controls:WinoFontIcon Icon="Send" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
-                        </CommandBar.PrimaryCommands>
-                        <CommandBar.Content>
-                            <!--  Wino Pivot  -->
-                            <controls:WinoPivotControl
-                                ItemsSource="{x:Bind ViewModel.ToolbarSections}"
-                                SelectedItem="{x:Bind ViewModel.SelectedToolbarSection, Mode=TwoWay}"
-                                SelectorPipeColor="{ThemeResource NavigationViewSelectionIndicatorForeground}">
-                                <controls:WinoPivotControl.DataTemplate>
-                                    <DataTemplate x:DataType="reader:EditorToolbarSection">
-                                        <TextBlock Text="{x:Bind Title}" />
-                                    </DataTemplate>
-                                </controls:WinoPivotControl.DataTemplate>
-                            </controls:WinoPivotControl>
-                        </CommandBar.Content>
-                    </CommandBar>
-                </Grid>
+                        </toolkit:TabbedCommandBarItem>
+                    </toolkit:TabbedCommandBar.PaneCustomContent>
+                    <toolkit:TabbedCommandBar.MenuItems>
+                        <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="{x:Bind domain:Translator.EditorToolbarOption_Format}">
+                            <AppBarToggleButton
+                                x:Name="BoldButton"
+                                Click="BoldButtonClicked"
+                                Label="Bold">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource BoldPathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+                            <AppBarToggleButton
+                                x:Name="ItalicButton"
+                                Click="ItalicButtonClicked"
+                                Label="Italic">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource ItalicPathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+                            <AppBarToggleButton
+                                x:Name="UnderlineButton"
+                                Click="UnderlineButtonClicked"
+                                Label="Underline">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource UnderlinePathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+                            <AppBarToggleButton
+                                x:Name="StrokeButton"
+                                Click="StrokeButtonClicked"
+                                Label="Stroke">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource StrikePathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
 
-                <!--  Editor Options  -->
-                <Grid Grid.Row="1" Padding="26,0,6,6">
-                    <CommandBar
-                        HorizontalAlignment="Left"
-                        DefaultLabelPosition="Collapsed"
-                        IsDynamicOverflowEnabled="True"
-                        Visibility="{x:Bind helpers:XamlHelpers.IsFormatSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                        <AppBarToggleButton
-                            x:Name="BoldButton"
-                            Click="BoldButtonClicked"
-                            Label="Bold">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource BoldPathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
-                        <AppBarToggleButton
-                            x:Name="ItalicButton"
-                            Click="ItalicButtonClicked"
-                            Label="Italic">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource ItalicPathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
-                        <AppBarToggleButton
-                            x:Name="UnderlineButton"
-                            Click="UnderlineButtonClicked"
-                            Label="Underline">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource UnderlinePathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
-                        <AppBarToggleButton
-                            x:Name="StrokeButton"
-                            Click="StrokeButtonClicked"
-                            Label="Stroke">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource StrikePathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
+                            <AppBarSeparator />
 
-                        <AppBarSeparator />
+                            <AppBarToggleButton
+                                x:Name="BulletListButton"
+                                Click="BulletListButtonClicked"
+                                Label="Bullet List">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource BulletedListPathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
 
-                        <AppBarToggleButton
-                            x:Name="BulletListButton"
-                            Click="BulletListButtonClicked"
-                            Label="Bullet List">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource BulletedListPathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
+                            <AppBarToggleButton
+                                x:Name="OrderedListButton"
+                                Click="OrderedListButtonClicked"
+                                Label="Ordered List">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource OrderedListPathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
 
-                        <AppBarToggleButton
-                            x:Name="OrderedListButton"
-                            Click="OrderedListButtonClicked"
-                            Label="Ordered List">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource OrderedListPathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
+                            <AppBarSeparator />
 
-                        <AppBarSeparator />
+                            <AppBarButton
+                                x:Name="DecreaseIndentButton"
+                                Click="DecreaseIndentClicked"
+                                Label="Outdent">
+                                <AppBarButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
+                                    </Viewbox>
+                                </AppBarButton.Content>
+                            </AppBarButton>
 
-                        <AppBarButton
-                            x:Name="DecreaseIndentButton"
-                            Click="DecreaseIndentClicked"
-                            Label="Outdent">
-                            <AppBarButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
-                                </Viewbox>
-                            </AppBarButton.Content>
-                        </AppBarButton>
+                            <AppBarButton
+                                x:Name="IncreaseIndentButton"
+                                Click="IncreaseIndentClicked"
+                                Label="Indent">
+                                <AppBarButton.Content>
+                                    <Viewbox Width="16">
+                                        <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
+                                    </Viewbox>
+                                </AppBarButton.Content>
+                            </AppBarButton>
 
-                        <AppBarButton
-                            x:Name="IncreaseIndentButton"
-                            Click="IncreaseIndentClicked"
-                            Label="Indent">
-                            <AppBarButton.Content>
-                                <Viewbox Width="16">
-                                    <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
-                                </Viewbox>
-                            </AppBarButton.Content>
-                        </AppBarButton>
+                            <AppBarElementContainer HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ComboBox
+                                    x:Name="AlignmentListView"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    SelectionChanged="AlignmentChanged">
+                                    <ComboBoxItem IsSelected="True" Tag="left">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Viewbox Width="16">
+                                                <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
+                                            </Viewbox>
+                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Left}" />
+                                        </StackPanel>
+                                    </ComboBoxItem>
 
-                        <AppBarElementContainer HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ComboBox
-                                x:Name="AlignmentListView"
-                                VerticalAlignment="Center"
-                                Background="Transparent"
-                                BorderBrush="Transparent"
-                                SelectionChanged="AlignmentChanged">
-                                <ComboBoxItem IsSelected="True" Tag="left">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Viewbox Width="16">
-                                            <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
-                                        </Viewbox>
-                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Left}" />
-                                    </StackPanel>
-                                </ComboBoxItem>
+                                    <ComboBoxItem Tag="center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Viewbox Width="16">
+                                                <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
+                                            </Viewbox>
+                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Center}" />
+                                        </StackPanel>
+                                    </ComboBoxItem>
 
-                                <ComboBoxItem Tag="center">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Viewbox Width="16">
-                                            <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
-                                        </Viewbox>
-                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Center}" />
-                                    </StackPanel>
-                                </ComboBoxItem>
+                                    <ComboBoxItem Tag="right">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Viewbox Width="16">
+                                                <PathIcon Data="{StaticResource AlignRightPathIcon}" />
+                                            </Viewbox>
+                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Right}" />
+                                        </StackPanel>
+                                    </ComboBoxItem>
 
-                                <ComboBoxItem Tag="right">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Viewbox Width="16">
-                                            <PathIcon Data="{StaticResource AlignRightPathIcon}" />
-                                        </Viewbox>
-                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Right}" />
-                                    </StackPanel>
-                                </ComboBoxItem>
+                                    <ComboBoxItem Tag="justify">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Viewbox Width="16">
+                                                <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
+                                            </Viewbox>
+                                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Justify}" />
+                                        </StackPanel>
+                                    </ComboBoxItem>
+                                </ComboBox>
+                            </AppBarElementContainer>
 
-                                <ComboBoxItem Tag="justify">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Viewbox Width="16">
-                                            <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
-                                        </Viewbox>
-                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Justify}" />
-                                    </StackPanel>
-                                </ComboBoxItem>
-                            </ComboBox>
-                        </AppBarElementContainer>
+                            <AppBarSeparator />
 
-                        <AppBarSeparator />
+                            <AppBarToggleButton
+                                x:Name="WebviewToolBarButton"
+                                Click="WebViewToggleButtonClicked"
+                                Label="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}">
+                                <AppBarToggleButton.Icon>
+                                    <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
+                        </toolkit:TabbedCommandBarItem>
 
-                        <AppBarToggleButton
-                            x:Name="WebviewToolBarButton"
-                            Click="WebViewToggleButtonClicked"
-                            Label="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}">
-                            <AppBarToggleButton.Icon>
-                                <PathIcon Data="{StaticResource WebviewToolBarPathIcon}" />
-                            </AppBarToggleButton.Icon>
-                        </AppBarToggleButton>
-                    </CommandBar>
+                        <!--  Insert  -->
+                        <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Insert}">
+                            <AppBarButton
+                                x:Name="FilesButton"
+                                Click="AddFilesClicked"
+                                Label="{x:Bind domain:Translator.Files}">
+                                <AppBarButton.Icon>
+                                    <PathIcon Data="{StaticResource AttachPathIcon}" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
 
-                    <!--  Insert Panel  -->
-                    <CommandBar
-                        HorizontalAlignment="Left"
-                        DefaultLabelPosition="Right"
-                        IsDynamicOverflowEnabled="True"
-                        Visibility="{x:Bind helpers:XamlHelpers.IsInsertSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                        <AppBarButton
-                            x:Name="FilesButton"
-                            Click="AddFilesClicked"
-                            Label="{x:Bind domain:Translator.Files}">
-                            <AppBarButton.Icon>
-                                <PathIcon Data="{StaticResource AttachPathIcon}" />
-                            </AppBarButton.Icon>
-                        </AppBarButton>
+                            <AppBarButton
+                                x:Name="AddImageButton"
+                                Click="AddImageClicked"
+                                Label="{x:Bind domain:Translator.Photos}">
+                                <AppBarButton.Icon>
+                                    <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
 
-                        <AppBarButton
-                            x:Name="AddImageButton"
-                            Click="AddImageClicked"
-                            Label="{x:Bind domain:Translator.Photos}">
-                            <AppBarButton.Icon>
-                                <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
-                            </AppBarButton.Icon>
-                        </AppBarButton>
+                            <AppBarButton
+                                x:Name="EmojiButton"
+                                Click="EmojiButtonClicked"
+                                Label="{x:Bind domain:Translator.Emoji}">
+                                <AppBarButton.Icon>
+                                    <PathIcon Data="{StaticResource EmojiPathIcon}" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                        </toolkit:TabbedCommandBarItem>
 
-                        <AppBarButton
-                            x:Name="EmojiButton"
-                            Click="EmojiButtonClicked"
-                            Label="{x:Bind domain:Translator.Emoji}">
-                            <AppBarButton.Icon>
-                                <PathIcon Data="{StaticResource EmojiPathIcon}" />
-                            </AppBarButton.Icon>
-                        </AppBarButton>
-                    </CommandBar>
-
-                    <!--  Draw Panel  -->
-                    <Grid x:Name="DrawPanel" Visibility="{x:Bind helpers:XamlHelpers.IsDrawSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                        <TextBlock Text="{x:Bind domain:Translator.ComingSoon}" />
-                    </Grid>
-
-                    <!--  Options Panel  -->
-                    <Grid x:Name="OptionsPanel" Visibility="{x:Bind helpers:XamlHelpers.IsOptionsSection(ViewModel.SelectedToolbarSection), Mode=OneWay}">
-                        <muxc:ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
-                            <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
-                            <muxc:ToggleSplitButton.Flyout>
-                                <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
-                                    <StackPanel Orientation="Horizontal">
-                                        <StackPanel.Resources>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Padding" Value="4" />
-                                                <Setter Property="MinWidth" Value="0" />
-                                                <Setter Property="MinHeight" Value="0" />
-                                                <Setter Property="Margin" Value="6" />
-                                                <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
-                                            </Style>
-                                        </StackPanel.Resources>
-                                        <Button Click="ImportanceClicked">
-                                            <Button.Tag>
-                                                <mailkit:MessageImportance>High</mailkit:MessageImportance>
-                                            </Button.Tag>
-                                            <SymbolIcon Symbol="Important" />
-                                        </Button>
-                                        <Button Click="ImportanceClicked">
-                                            <Button.Tag>
-                                                <mailkit:MessageImportance>Low</mailkit:MessageImportance>
-                                            </Button.Tag>
-                                            <SymbolIcon Symbol="Download" />
-                                        </Button>
-                                    </StackPanel>
-                                </Flyout>
-                            </muxc:ToggleSplitButton.Flyout>
-                        </muxc:ToggleSplitButton>
-                    </Grid>
-                </Grid>
+                        <!--  Options  -->
+                        <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Options}">
+                            <AppBarElementContainer>
+                                <muxc:ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
+                                    <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
+                                    <muxc:ToggleSplitButton.Flyout>
+                                        <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
+                                            <StackPanel Orientation="Horizontal">
+                                                <StackPanel.Resources>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Padding" Value="4" />
+                                                        <Setter Property="MinWidth" Value="0" />
+                                                        <Setter Property="MinHeight" Value="0" />
+                                                        <Setter Property="Margin" Value="6" />
+                                                        <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+                                                    </Style>
+                                                </StackPanel.Resources>
+                                                <Button Click="ImportanceClicked">
+                                                    <Button.Tag>
+                                                        <mailkit:MessageImportance>High</mailkit:MessageImportance>
+                                                    </Button.Tag>
+                                                    <SymbolIcon Symbol="Important" />
+                                                </Button>
+                                                <Button Click="ImportanceClicked">
+                                                    <Button.Tag>
+                                                        <mailkit:MessageImportance>Low</mailkit:MessageImportance>
+                                                    </Button.Tag>
+                                                    <SymbolIcon Symbol="Download" />
+                                                </Button>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </muxc:ToggleSplitButton.Flyout>
+                                </muxc:ToggleSplitButton>
+                            </AppBarElementContainer>
+                        </toolkit:TabbedCommandBarItem>
+                    </toolkit:TabbedCommandBar.MenuItems>
+                </toolkit:TabbedCommandBar>
 
                 <!--  Mime Info  -->
                 <Grid
-                    Grid.Row="2"
+                    Grid.Row="1"
                     Padding="16,0,16,10"
                     ColumnSpacing="12"
                     RowSpacing="3">
@@ -478,7 +448,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <controls1:TokenizingTextBox
+                        <toolkit:TokenizingTextBox
                             x:Name="ToBox"
                             Grid.Column="0"
                             VerticalAlignment="Center"
@@ -520,7 +490,7 @@
                         Text="Cc: "
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
-                    <controls1:TokenizingTextBox
+                    <toolkit:TokenizingTextBox
                         x:Name="CCBox"
                         Grid.Row="2"
                         Grid.Column="1"
@@ -543,7 +513,7 @@
                         Text="Bcc: "
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
 
-                    <controls1:TokenizingTextBox
+                    <toolkit:TokenizingTextBox
                         x:Name="BccBox"
                         Grid.Row="3"
                         Grid.Column="1"
@@ -586,7 +556,7 @@
                         SelectionMode="None">
                         <ListView.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls1:WrapPanel Orientation="Horizontal" />
+                                <toolkit:WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ListView.ItemsPanel>
                     </ListView>
@@ -595,7 +565,7 @@
                 <!--  Dropzone  -->
                 <Grid
                     Grid.Row="0"
-                    Grid.RowSpan="3"
+                    Grid.RowSpan="2"
                     AllowDrop="True"
                     DragLeave="OnFileDropGridDragLeave"
                     DragOver="OnFileDropGridDragOver"
