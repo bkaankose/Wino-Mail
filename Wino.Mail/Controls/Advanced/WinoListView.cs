@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.UI.Xaml.Controls;
 using MoreLinq;
 using Serilog;
 using Windows.UI.Xaml;
@@ -356,7 +355,7 @@ namespace Wino.Controls.Advanced
 
             if (itemContainer is ListViewItem listItem)
             {
-                var expander = listItem.GetChildByName<Expander>("ThreadExpander");
+                var expander = listItem.GetChildByName<WinoExpander>("ThreadExpander");
 
                 if (expander != null)
                     return expander.Content as WinoListView;

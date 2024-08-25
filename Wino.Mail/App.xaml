@@ -19,7 +19,9 @@
                 <ResourceDictionary Source="/Styles/CommandBarItems.xaml" />
                 <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
+
                 <styles:CustomMessageDialogStyles />
+                <styles:WinoExpanderStyle />
 
                 <ResourceDictionary>
 

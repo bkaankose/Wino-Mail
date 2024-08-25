@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 using System.Windows.Input;
-using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -21,7 +20,7 @@ namespace Wino.Controls
         public static readonly DependencyProperty IsCustomFocusedProperty = DependencyProperty.Register(nameof(IsCustomFocused), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
         public static readonly DependencyProperty IsAvatarVisibleProperty = DependencyProperty.Register(nameof(IsAvatarVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty IsSubjectVisibleProperty = DependencyProperty.Register(nameof(IsSubjectVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-        public static readonly DependencyProperty ConnectedExpanderProperty = DependencyProperty.Register(nameof(ConnectedExpander), typeof(Expander), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty ConnectedExpanderProperty = DependencyProperty.Register(nameof(ConnectedExpander), typeof(WinoExpander), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
         public static readonly DependencyProperty LeftHoverActionProperty = DependencyProperty.Register(nameof(LeftHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
         public static readonly DependencyProperty CenterHoverActionProperty = DependencyProperty.Register(nameof(CenterHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
         public static readonly DependencyProperty RightHoverActionProperty = DependencyProperty.Register(nameof(RightHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
@@ -73,9 +72,9 @@ namespace Wino.Controls
         }
 
 
-        public Expander ConnectedExpander
+        public WinoExpander ConnectedExpander
         {
-            get { return (Expander)GetValue(ConnectedExpanderProperty); }
+            get { return (WinoExpander)GetValue(ConnectedExpanderProperty); }
             set { SetValue(ConnectedExpanderProperty, value); }
         }
 
@@ -167,16 +166,16 @@ namespace Wino.Controls
             // Also hover action button clicks will be delegated here after the execution runs.
             // We should not expand the thread if the reason we are here is for hover actions.
 
-            if (tappedHandlingFlag)
-            {
-                tappedHandlingFlag = false;
-                e.Handled = true;
-                return;
-            }
+            //if (tappedHandlingFlag)
+            //{
+            //    tappedHandlingFlag = false;
+            //    e.Handled = true;
+            //    return;
+            //}
 
-            if (ConnectedExpander == null) return;
+            //if (ConnectedExpander == null) return;
 
-            ConnectedExpander.IsExpanded = !ConnectedExpander.IsExpanded;
+            //ConnectedExpander.IsExpanded = !ConnectedExpander.IsExpanded;
         }
 
         private void FirstActionClicked(object sender, RoutedEventArgs e)
