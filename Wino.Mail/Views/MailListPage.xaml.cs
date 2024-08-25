@@ -39,7 +39,7 @@ namespace Wino.Views
         IRecipient<ShellStateUpdated>,
         IRecipient<DisposeRenderingFrameRequested>
     {
-        private const double RENDERING_COLUMN_MIN_WIDTH = 300;
+        private const double RENDERING_COLUMN_MIN_WIDTH = 375;
 
         private IStatePersistanceService StatePersistenceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
         private IKeyPressService KeyPressService { get; } = App.Current.Services.GetService<IKeyPressService>();

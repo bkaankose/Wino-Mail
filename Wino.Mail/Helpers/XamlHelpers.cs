@@ -12,7 +12,6 @@ using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Helpers
 {
@@ -284,109 +283,60 @@ namespace Wino.Helpers
 
         #endregion
 
-        #region Toolbar Section Initialization
-
-        public static Visibility IsFormatSection(EditorToolbarSection section) => section?.SectionType == EditorToolbarSectionType.Format ? Visibility.Visible : Visibility.Collapsed;
-        public static Visibility IsInsertSection(EditorToolbarSection section) => section?.SectionType == EditorToolbarSectionType.Insert ? Visibility.Visible : Visibility.Collapsed;
-        public static Visibility IsDrawSection(EditorToolbarSection section) => section?.SectionType == EditorToolbarSectionType.Draw ? Visibility.Visible : Visibility.Collapsed;
-        public static Visibility IsOptionsSection(EditorToolbarSection section) => section?.SectionType == EditorToolbarSectionType.Options ? Visibility.Visible : Visibility.Collapsed;
-
-        #endregion
-
         #region Internationalization
 
         public static string GetOperationString(MailOperation operation)
         {
-            switch (operation)
+            return operation switch
             {
-                case MailOperation.None:
-                    return "unknown";
-                case MailOperation.Archive:
-                    return Translator.MailOperation_Archive;
-                case MailOperation.UnArchive:
-                    return Translator.MailOperation_Unarchive;
-                case MailOperation.SoftDelete:
-                    return Translator.MailOperation_Delete;
-                case MailOperation.HardDelete:
-                    return Translator.MailOperation_Delete;
-                case MailOperation.Move:
-                    return Translator.MailOperation_Move;
-                case MailOperation.MoveToJunk:
-                    return Translator.MailOperation_MoveJunk;
-                case MailOperation.MoveToFocused:
-                    return Translator.MailOperation_MoveFocused;
-                case MailOperation.MoveToOther:
-                    return Translator.MailOperation_MoveOther;
-                case MailOperation.AlwaysMoveToOther:
-                    return Translator.MailOperation_AlwaysMoveOther;
-                case MailOperation.AlwaysMoveToFocused:
-                    return Translator.MailOperation_AlwaysMoveFocused;
-                case MailOperation.SetFlag:
-                    return Translator.MailOperation_SetFlag;
-                case MailOperation.ClearFlag:
-                    return Translator.MailOperation_ClearFlag;
-                case MailOperation.MarkAsRead:
-                    return Translator.MailOperation_MarkAsRead;
-                case MailOperation.MarkAsUnread:
-                    return Translator.MailOperation_MarkAsUnread;
-                case MailOperation.MarkAsNotJunk:
-                    return Translator.MailOperation_MarkNotJunk;
-                case MailOperation.Seperator:
-                    return string.Empty;
-                case MailOperation.Ignore:
-                    return Translator.MailOperation_Ignore;
-                case MailOperation.Reply:
-                    return Translator.MailOperation_Reply;
-                case MailOperation.ReplyAll:
-                    return Translator.MailOperation_ReplyAll;
-                case MailOperation.Zoom:
-                    return Translator.MailOperation_Zoom;
-                case MailOperation.SaveAs:
-                    return Translator.MailOperation_SaveAs;
-                case MailOperation.Find:
-                    return Translator.MailOperation_Find;
-                case MailOperation.Forward:
-                    return Translator.MailOperation_Forward;
-                case MailOperation.DarkEditor:
-                    return string.Empty;
-                case MailOperation.LightEditor:
-                    return string.Empty;
-                case MailOperation.Print:
-                    return Translator.MailOperation_Print;
-                case MailOperation.Navigate:
-                    return Translator.MailOperation_Navigate;
-                default:
-                    return "unknown";
-            }
+                MailOperation.None => "unknown",
+                MailOperation.Archive => Translator.MailOperation_Archive,
+                MailOperation.UnArchive => Translator.MailOperation_Unarchive,
+                MailOperation.SoftDelete => Translator.MailOperation_Delete,
+                MailOperation.HardDelete => Translator.MailOperation_Delete,
+                MailOperation.Move => Translator.MailOperation_Move,
+                MailOperation.MoveToJunk => Translator.MailOperation_MoveJunk,
+                MailOperation.MoveToFocused => Translator.MailOperation_MoveFocused,
+                MailOperation.MoveToOther => Translator.MailOperation_MoveOther,
+                MailOperation.AlwaysMoveToOther => Translator.MailOperation_AlwaysMoveOther,
+                MailOperation.AlwaysMoveToFocused => Translator.MailOperation_AlwaysMoveFocused,
+                MailOperation.SetFlag => Translator.MailOperation_SetFlag,
+                MailOperation.ClearFlag => Translator.MailOperation_ClearFlag,
+                MailOperation.MarkAsRead => Translator.MailOperation_MarkAsRead,
+                MailOperation.MarkAsUnread => Translator.MailOperation_MarkAsUnread,
+                MailOperation.MarkAsNotJunk => Translator.MailOperation_MarkNotJunk,
+                MailOperation.Seperator => string.Empty,
+                MailOperation.Ignore => Translator.MailOperation_Ignore,
+                MailOperation.Reply => Translator.MailOperation_Reply,
+                MailOperation.ReplyAll => Translator.MailOperation_ReplyAll,
+                MailOperation.Zoom => Translator.MailOperation_Zoom,
+                MailOperation.SaveAs => Translator.MailOperation_SaveAs,
+                MailOperation.Find => Translator.MailOperation_Find,
+                MailOperation.Forward => Translator.MailOperation_Forward,
+                MailOperation.DarkEditor => string.Empty,
+                MailOperation.LightEditor => string.Empty,
+                MailOperation.Print => Translator.MailOperation_Print,
+                MailOperation.Navigate => Translator.MailOperation_Navigate,
+                _ => "unknown",
+            };
         }
 
         public static string GetOperationString(FolderOperation operation)
         {
-            switch (operation)
+            return operation switch
             {
-                case FolderOperation.None:
-                    break;
-                case FolderOperation.Pin:
-                    return Translator.FolderOperation_Pin;
-                case FolderOperation.Unpin:
-                    return Translator.FolderOperation_Unpin;
-                case FolderOperation.MarkAllAsRead:
-                    return Translator.FolderOperation_MarkAllAsRead;
-                case FolderOperation.DontSync:
-                    return Translator.FolderOperation_DontSync;
-                case FolderOperation.Empty:
-                    return Translator.FolderOperation_Empty;
-                case FolderOperation.Rename:
-                    return Translator.FolderOperation_Rename;
-                case FolderOperation.Delete:
-                    return Translator.FolderOperation_Delete;
-                case FolderOperation.Move:
-                    return Translator.FolderOperation_Move;
-                case FolderOperation.CreateSubFolder:
-                    return Translator.FolderOperation_CreateSubFolder;
-            }
-
-            return string.Empty;
+                FolderOperation.None => string.Empty,
+                FolderOperation.Pin => Translator.FolderOperation_Pin,
+                FolderOperation.Unpin => Translator.FolderOperation_Unpin,
+                FolderOperation.MarkAllAsRead => Translator.FolderOperation_MarkAllAsRead,
+                FolderOperation.DontSync => Translator.FolderOperation_DontSync,
+                FolderOperation.Empty => Translator.FolderOperation_Empty,
+                FolderOperation.Rename => Translator.FolderOperation_Rename,
+                FolderOperation.Delete => Translator.FolderOperation_Delete,
+                FolderOperation.Move => Translator.FolderOperation_Move,
+                FolderOperation.CreateSubFolder => Translator.FolderOperation_CreateSubFolder,
+                _ => string.Empty,
+            };
         }
 
         #endregion

@@ -25,7 +25,6 @@ namespace Wino.Views
     public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IRecipient<HtmlRenderingRequested>,
         IRecipient<CancelRenderingContentRequested>,
-        IRecipient<NavigationPaneModeChanged>,
         IRecipient<ApplicationThemeChanged>,
         IRecipient<SaveAsPDFRequested>
     {
@@ -206,14 +205,6 @@ namespace Wino.Views
             {
                 await RenderInternalAsync(string.Empty);
             }
-        }
-
-        void IRecipient<NavigationPaneModeChanged>.Receive(NavigationPaneModeChanged message)
-        {
-            if (message.NewMode == MenuPaneMode.Hidden)
-                RendererBar.Margin = new Thickness(48, 6, 6, 6);
-            else
-                RendererBar.Margin = new Thickness(16, 6, 6, 6);
         }
 
         private async void WebViewNavigationStarting(WebView2 sender, CoreWebView2NavigationStartingEventArgs args)
