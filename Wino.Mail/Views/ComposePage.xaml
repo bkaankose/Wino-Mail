@@ -180,12 +180,12 @@
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
-                            <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="Discard">
+                            <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
                                 <AppBarButton.Icon>
                                     <controls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
-                            <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="Send">
+                            <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="{x:Bind domain:Translator.Buttons_Send}">
                                 <AppBarButton.Icon>
                                     <controls:WinoFontIcon Icon="Send" />
                                 </AppBarButton.Icon>

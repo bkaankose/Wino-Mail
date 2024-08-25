@@ -289,6 +289,11 @@ namespace Wino.Core.Domain
 		public static string Buttons_Reset => Resources.GetTranslatedString(@"Buttons_Reset");	
 	
         /// <summary>
+		/// Send
+		/// </summary>
+		public static string Buttons_Send => Resources.GetTranslatedString(@"Buttons_Send");	
+	
+        /// <summary>
 		/// Center
 		/// </summary>
 		public static string Center => Resources.GetTranslatedString(@"Center");	
