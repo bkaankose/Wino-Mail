@@ -3,7 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
-    xmlns:dialogs="using:Wino.Core.Domain.Models.Dialogs"
     xmlns:selectors="using:Wino.Selectors"
     xmlns:styles="using:Wino.Styles"
     xmlns:wino="using:Wino">
