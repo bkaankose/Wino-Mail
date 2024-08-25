@@ -363,7 +363,10 @@
                         <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Options}">
                             <AppBarElementContainer>
                                 <muxc:ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
-                                    <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
+                                    <FontIcon
+                                        FontFamily="Segoe Fluent Icons"
+                                        FontSize="16"
+                                        Glyph="&#xE8C9;" />
                                     <muxc:ToggleSplitButton.Flyout>
                                         <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
                                             <StackPanel Orientation="Horizontal">
@@ -380,13 +383,13 @@
                                                     <Button.Tag>
                                                         <mailkit:MessageImportance>High</mailkit:MessageImportance>
                                                     </Button.Tag>
-                                                    <SymbolIcon Symbol="Important" />
+                                                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C9;" />
                                                 </Button>
                                                 <Button Click="ImportanceClicked">
                                                     <Button.Tag>
                                                         <mailkit:MessageImportance>Low</mailkit:MessageImportance>
                                                     </Button.Tag>
-                                                    <SymbolIcon Symbol="Download" />
+                                                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8D0;" />
                                                 </Button>
                                             </StackPanel>
                                         </Flyout>
