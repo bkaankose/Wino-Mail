@@ -5,7 +5,6 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:controls="using:Wino.Controls"
-    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
     xmlns:converters="using:Wino.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
@@ -18,6 +17,7 @@
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:selectors="using:Wino.Selectors"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino"
@@ -44,19 +44,6 @@
 
         <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
         <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
-
-        <DataTemplate x:Key="FolderPivotTemplate" x:DataType="viewModelData:FolderPivotViewModel">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <TextBlock Text="{x:Bind FolderTitle}" />
-                <TextBlock
-                    x:Name="CountTextBlock"
-                    VerticalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
-                    <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
-                </TextBlock>
-            </StackPanel>
-        </DataTemplate>
 
         <!--  Header Templates  -->
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="collections:IReadOnlyObservableGroup">
@@ -471,17 +458,31 @@
                             Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
 
                         <!--  Folders  -->
-                        <controls:WinoPivotControl
-                            x:Name="WinoPivot"
+                        <toolkit:Segmented
                             Grid.Row="1"
                             Grid.Column="1"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            DataTemplate="{StaticResource FolderPivotTemplate}"
                             ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
                             SelectionChanged="FolderPivotChanged"
-                            SelectorPipeColor="{ThemeResource NavigationViewSelectionIndicatorForeground}" />
+                            Style="{StaticResource PivotSegmentedStyle}">
+                            <toolkit:Segmented.ItemTemplate>
+                                <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{x:Bind FolderTitle}" />
+                                        <TextBlock
+                                            x:Name="CountTextBlock"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
+                                            <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </toolkit:Segmented.ItemTemplate>
+                            <toolkit:Segmented.Resources>
+                                <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
+                            </toolkit:Segmented.Resources>
+                        </toolkit:Segmented>
 
                         <!--  Filtering  -->
                         <muxc:DropDownButton
@@ -649,7 +650,7 @@
 
             </Grid>
         </Border>
-        <controls1:PropertySizer
+        <toolkit:PropertySizer
             x:Name="MailListSizer"
             Grid.Column="1"
             Width="16"
