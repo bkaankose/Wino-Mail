@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
+using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
@@ -473,13 +474,27 @@ namespace Wino.Core.Synchronizers
         /// <returns>Base64 encoded profile picture.</returns>
         private async Task<string> GetUserProfilePictureAsync()
         {
-            var photoStream = await _graphClient.Me.Photos["48x48"].Content.GetAsync();
+            try
+            {
+                var photoStream = await _graphClient.Me.Photos["48x48"].Content.GetAsync();
 
-            using var memoryStream = new MemoryStream();
-            await photoStream.CopyToAsync(memoryStream);
-            var byteArray = memoryStream.ToArray();
+                using var memoryStream = new MemoryStream();
+                await photoStream.CopyToAsync(memoryStream);
+                var byteArray = memoryStream.ToArray();
 
-            return Convert.ToBase64String(byteArray);
+                return Convert.ToBase64String(byteArray);
+            }
+            catch (ODataError odataError) when (odataError.Error.Code == "ImageNotFound")
+            {
+                // Accounts without profile picture will throw this error.
+                // At this point nothing we can do. Just return empty string.
+
+                return string.Empty;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         /// <summary>

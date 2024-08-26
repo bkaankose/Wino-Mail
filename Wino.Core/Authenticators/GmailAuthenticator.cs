@@ -26,8 +26,6 @@ namespace Wino.Core.Authenticators
 
         private readonly INativeAppService _nativeAppService;
 
-        public event EventHandler<string> InteractiveAuthenticationRequired;
-
         public GmailAuthenticator(ITokenService tokenService, INativeAppService nativeAppService) : base(tokenService)
         {
             _nativeAppService = nativeAppService;

@@ -28,7 +28,16 @@ namespace Wino.Core.Authenticators
 
         public string ClientId { get; } = "b19c2035-d740-49ff-b297-de6ec561b208";
 
-        private readonly string[] MailScope = ["email", "mail.readwrite", "offline_access", "mail.send", "Mail.Send.Shared", "Mail.ReadWrite.Shared"];
+        private readonly string[] MailScope =
+        [
+            "email",
+            "mail.readwrite",
+            "offline_access",
+            "mail.send",
+            "Mail.Send.Shared",
+            "Mail.ReadWrite.Shared",
+            "User.Read"
+        ];
 
         public override MailProviderType ProviderType => MailProviderType.Outlook;
 

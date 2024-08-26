@@ -221,21 +221,9 @@ namespace Wino.Mail.ViewModels
 
             _themeService.AccentColorChanged -= AccentColorChanged;
             _themeService.ElementThemeChanged -= ElementThemeChanged;
-            _themeService.AccentColorChangedBySystem -= AccentColorChangedBySystem;
 
             _themeService.AccentColorChanged += AccentColorChanged;
             _themeService.ElementThemeChanged += ElementThemeChanged;
-            _themeService.AccentColorChangedBySystem += AccentColorChangedBySystem;
-        }
-
-        private void AccentColorChangedBySystem(object sender, string newAccentColorHex)
-        {
-            var accentInList = Colors.FirstOrDefault(a => a.IsAccentColor);
-
-            if (accentInList != null)
-            {
-                accentInList.Hex = newAccentColorHex;
-            }
         }
 
         private void AccentColorChanged(object sender, string e)
@@ -269,7 +257,6 @@ namespace Wino.Mail.ViewModels
 
             _themeService.AccentColorChanged -= AccentColorChanged;
             _themeService.ElementThemeChanged -= ElementThemeChanged;
-            _themeService.AccentColorChangedBySystem -= AccentColorChangedBySystem;
 
             if (AppThemes != null)
             {
