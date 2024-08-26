@@ -240,11 +240,10 @@ namespace Wino.Controls
         /// <param name="img"></param>
         public void SetThumbnailImage(BitmapImage img)
         {
-            if (KnownHostImage == null)
+            if (KnownHostImage != null)
             {
-                KnownHostImage = new Image();
+                KnownHostImage.Source = img;
             }
-            KnownHostImage.Source = img;
         }
     }
 }
