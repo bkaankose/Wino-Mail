@@ -180,7 +180,7 @@ namespace Wino.Core.Extensions
 
             // Some headers also require to start with X- or x-.
 
-            string[] headersToIgnore = ["Date", "To", "MIME-Version", "From", "Subject", "Message-Id"];
+            string[] headersToIgnore = ["Date", "To", "Cc", "Bcc", "MIME-Version", "From", "Subject", "Message-Id"];
             string[] headersToModify = ["In-Reply-To", "Reply-To", "References", "Thread-Topic"];
 
             var headers = new List<InternetMessageHeader>();
