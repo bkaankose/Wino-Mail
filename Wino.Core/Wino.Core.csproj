@@ -27,9 +27,9 @@
      <PackageReference Include="MailKit" Version="4.7.1.1" />
      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
      <PackageReference Include="Microsoft.Graph" Version="5.56.0" />
-     <PackageReference Include="Microsoft.Identity.Client" Version="4.63.0" />
-     <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.63.0" />
-     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.63.0" />
+     <PackageReference Include="Microsoft.Identity.Client" Version="4.64.0" />
+     <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.64.0" />
+     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.64.0" />
      <PackageReference Include="MimeKit" Version="4.7.1" />
      <PackageReference Include="morelinq" Version="4.1.0" />
      <PackageReference Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
