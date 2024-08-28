@@ -2619,7 +2619,7 @@ namespace Wino.Core.Domain
 		public static string SettingsSemanticZoom_Title => Resources.GetTranslatedString(@"SettingsSemanticZoom_Title");	
 	
         /// <summary>
-		/// Hide/show thepreview text.
+		/// Hide/show the preview text.
 		/// </summary>
 		public static string SettingsShowPreviewText_Description => Resources.GetTranslatedString(@"SettingsShowPreviewText_Description");	
 	
@@ -2689,7 +2689,17 @@ namespace Wino.Core.Domain
 		public static string SettingsThreads_Title => Resources.GetTranslatedString(@"SettingsThreads_Title");	
 	
         /// <summary>
-		/// Remove the link between accounts. This will not delete your accounts.
+		/// Hide/show action bar at top of message list.
+		/// </summary>
+		public static string SettingsMailListActionBar_Description => Resources.GetTranslatedString(@"SettingsMailListActionBar_Description");	
+	
+        /// <summary>
+		/// Show mail list actions
+		/// </summary>
+		public static string SettingsMailListActionBar_Title => Resources.GetTranslatedString(@"SettingsMailListActionBar_Title");	
+	
+        /// <summary>
+		/// Remove the link between accounts. his will not delete your accounts.
 		/// </summary>
 		public static string SettingsUnlinkAccounts_Description => Resources.GetTranslatedString(@"SettingsUnlinkAccounts_Description");	
 	
