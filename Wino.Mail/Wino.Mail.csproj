@@ -276,7 +276,6 @@
     <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
     <Compile Include="Extensions\CompositionExtensions.Size.cs" />
     <Compile Include="Extensions\CompositionEnums.cs" />
-    <Compile Include="Extensions\EnumerableExtensions.cs" />
     <Compile Include="Extensions\UtilExtensions.cs" />
     <Compile Include="MenuFlyouts\FilterMenuFlyout.cs" />
     <Compile Include="Controls\ImagePreviewControl.cs" />

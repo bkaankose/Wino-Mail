@@ -11,6 +11,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
 
+                <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
+
                 <ResourceDictionary Source="/Styles/Converters.xaml" />
                 <ResourceDictionary Source="/Styles/FontIcons.xaml" />
                 <ResourceDictionary Source="/Styles/Colors.xaml" />
