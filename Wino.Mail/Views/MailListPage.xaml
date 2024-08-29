@@ -370,10 +370,7 @@
                 </Grid>
 
                 <!--  Pivot + Sync + Multi Select  -->
-                <Grid
-                    Grid.Row="1"
-                    Padding="0,0,0,2"
-                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsInSearchMode), Mode=OneWay}">
+                <Grid Grid.Row="1" Padding="0,0,0,2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -426,6 +423,8 @@
                         Grid.Column="2"
                         Orientation="Horizontal">
                         <Button
+                            Width="36"
+                            Height="36"
                             Background="Transparent"
                             BorderThickness="0"
                             Command="{x:Bind ViewModel.SyncFolderCommand}"
@@ -433,12 +432,14 @@
                             <Button.Content>
                                 <FontIcon
                                     FontFamily="Segoe Fluent Icons"
-                                    FontSize="16"
+                                    FontSize="14"
                                     Glyph="&#xE895;" />
                             </Button.Content>
                         </Button>
                         <ToggleButton
                             x:Name="SelectionModeToggle"
+                            Width="36"
+                            Height="36"
                             Background="Transparent"
                             BorderThickness="0"
                             Checked="SelectionModeToggleChecked"
@@ -447,11 +448,12 @@
                             <ToggleButton.Content>
                                 <FontIcon
                                     FontFamily="Segoe Fluent Icons"
-                                    FontSize="16"
+                                    FontSize="14"
                                     Glyph="&#xE762;" />
                             </ToggleButton.Content>
                         </ToggleButton>
                         <muxc:DropDownButton
+                            Height="36"
                             Background="Transparent"
                             BorderThickness="0"
                             Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
@@ -582,10 +584,7 @@
                                 </ListView.Resources>
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="ICollectionViewGroup">
-                                        <Grid
-                                            Margin="0,0"
-                                            Background="{ThemeResource MailListHeaderBackgroundColor}"
-                                            CornerRadius="4">
+                                        <Grid Background="{ThemeResource MailListHeaderBackgroundColor}" CornerRadius="4">
                                             <TextBlock
                                                 Margin="12,0"
                                                 HorizontalAlignment="Center"
