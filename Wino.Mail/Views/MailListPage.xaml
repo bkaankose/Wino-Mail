@@ -237,7 +237,7 @@
         <Border
             x:Name="MailListContainer"
             Grid.Column="0"
-            Padding="5"
+            Padding="5,5,5,0"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
