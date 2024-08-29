@@ -595,12 +595,22 @@ namespace Wino.Core.Synchronizers
         {
             return CreateBatchedHttpBundleFromGroup(request, (items) =>
             {
+                // Sent label can't be removed from mails for Gmail.
+                // They are automatically assigned by Gmail.
+                // When you delete sent mail from gmail web portal, it's moved to Trash
+                // but still has Sent label. It's just hidden from the user.
+                // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
                 var batchModifyRequest = new BatchModifyMessagesRequest
                 {
                     Ids = items.Select(a => a.Item.Id.ToString()).ToList(),
-                    AddLabelIds = new[] { request.ToFolder.RemoteFolderId },
-                    RemoveLabelIds = new[] { request.FromFolder.RemoteFolderId }
+                    AddLabelIds = [request.ToFolder.RemoteFolderId]
                 };
+
+                // Only add remove label ids if the source folder is not sent folder.
+                if (request.FromFolder.SpecialFolderType != SpecialFolderType.Sent)
+                {
+                    batchModifyRequest.RemoveLabelIds = [request.FromFolder.RemoteFolderId];
+                }
 
                 return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
             });
