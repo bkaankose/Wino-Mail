@@ -298,7 +298,11 @@ namespace Wino.Core.Services
                         }
                     }
 
-                    bool isContactCached = contactCache.TryGetValue(mailCopy.FromAddress, out AccountContact contactAssignment);
+                    AccountContact contactAssignment = null;
+
+                    bool isContactCached = !string.IsNullOrEmpty(mailCopy.FromAddress) ?
+                        contactCache.TryGetValue(mailCopy.FromAddress, out contactAssignment) :
+                        false;
 
                     if (!isContactCached && accountAssignment != null)
                     {
@@ -312,8 +316,30 @@ namespace Wino.Core.Services
 
                     mailCopy.AssignedFolder = folderAssignment;
                     mailCopy.AssignedAccount = accountAssignment;
-                    mailCopy.SenderContact = contactAssignment ?? new AccountContact() { Name = mailCopy.FromName, Address = mailCopy.FromAddress };
+                    mailCopy.SenderContact = contactAssignment ?? CreateUnknownContact(mailCopy.FromName, mailCopy.FromAddress);
                 }
+            }
+        }
+
+        private AccountContact CreateUnknownContact(string fromName, string fromAddress)
+        {
+            if (string.IsNullOrEmpty(fromName) && string.IsNullOrEmpty(fromAddress))
+            {
+                return new AccountContact()
+                {
+                    Name = Translator.UnknownSender,
+                    Address = Translator.UnknownAddress
+                };
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(fromName)) fromName = fromAddress;
+
+                return new AccountContact()
+                {
+                    Name = fromName,
+                    Address = fromAddress
+                };
             }
         }
 
