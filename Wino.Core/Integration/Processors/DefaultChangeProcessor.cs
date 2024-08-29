@@ -21,7 +21,6 @@ namespace Wino.Core.Integration.Processors
     {
         Task UpdateAccountAsync(MailAccount account);
         Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
-        Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
         Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
         Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead);
         Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
@@ -53,6 +52,7 @@ namespace Wino.Core.Integration.Processors
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
     {
         Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
+        Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     }
 
     public interface IOutlookChangeProcessor : IDefaultChangeProcessor
@@ -135,8 +135,7 @@ namespace Wino.Core.Integration.Processors
         public Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
             => MailService.DeleteAssignmentAsync(accountId, mailCopyId, remoteFolderId);
 
-        public Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
-            => MailService.CreateAssignmentAsync(accountId, mailCopyId, remoteFolderId);
+
 
         public Task DeleteMailAsync(Guid accountId, string mailId)
             => MailService.DeleteMailAsync(accountId, mailId);
