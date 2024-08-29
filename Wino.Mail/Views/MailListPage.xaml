@@ -195,28 +195,6 @@
         </selectors:MailItemDisplaySelector>
 
         <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
-
-        <Style
-            x:Key="TopCommandBarButtonStyle"
-            BasedOn="{StaticResource DefaultButtonStyle}"
-            TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="12" />
-        </Style>
-
-        <Style
-            x:Key="TopCommandBarToggleButtonStyle"
-            BasedOn="{StaticResource DefaultToggleButtonStyle}"
-            TargetType="ToggleButton">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="12" />
-        </Style>
     </Page.Resources>
 
     <wino:BasePage.ShellContent>
@@ -259,7 +237,7 @@
         <Border
             x:Name="MailListContainer"
             Grid.Column="0"
-            Padding="5,0,0,0"
+            Padding="5"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -271,249 +249,240 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!--  Top Area  -->
-                <Grid CornerRadius="8" RowSpacing="4">
+                <!--  Action bar  -->
+                <Grid
+                    Grid.Row="0"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    CornerRadius="8"
+                    Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
+                    <CommandBar
+                        HorizontalAlignment="Left"
+                        DefaultLabelPosition="Collapsed"
+                        OverflowButtonVisibility="Auto">
+                        <AppBarButton
+                            x:Name="ArchiveAppBarButton"
+                            x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsArchiveSpecialFolder), Mode=OneWay}"
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_Archive}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Archive}">
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="Archive" />
+                            </AppBarButton.Icon>
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>Archive</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            x:Name="UnarchiveAppBarButton"
+                            x:Load="{x:Bind ViewModel.IsArchiveSpecialFolder, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_Unarchive}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Unarchive}">
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="UnArchive" />
+                            </AppBarButton.Icon>
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>UnArchive</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_Delete}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Delete}">
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>SoftDelete</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="Delete" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_Move}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Move}">
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>Move</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="Move" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_SetFlag}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_SetFlag}">
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>SetFlag</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="Flag" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_ClearFlag}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_ClearFlag}">
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>ClearFlag</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="ClearFlag" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_MarkAsRead}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_MarkAsRead}">
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>MarkAsRead</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="MarkRead" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+
+                        <AppBarButton
+                            Command="{x:Bind ViewModel.MailOperationCommand}"
+                            IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
+                            Label="{x:Bind domain:Translator.MailOperation_MarkAsUnread}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_MarkAsUnread}">
+                            <AppBarButton.CommandParameter>
+                                <enums:MailOperation>MarkAsUnread</enums:MailOperation>
+                            </AppBarButton.CommandParameter>
+                            <AppBarButton.Icon>
+                                <controls:WinoFontIcon FontSize="18" Icon="MarkUnread" />
+                            </AppBarButton.Icon>
+                        </AppBarButton>
+                    </CommandBar>
+                </Grid>
+
+                <!--  Pivot + Sync + Multi Select  -->
+                <Grid
+                    Grid.Row="1"
+                    Padding="0,0,0,2"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsInSearchMode), Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!--  Top Commands  -->
-                    <Grid
-                        Grid.Row="0"
-                        Margin="0,5,5,0"
-                        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                        CornerRadius="8"
-                        Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
-                        <CommandBar
-                            HorizontalAlignment="Left"
-                            DefaultLabelPosition="Collapsed"
-                            OverflowButtonVisibility="Auto">
-                            <AppBarButton
-                                x:Name="ArchiveAppBarButton"
-                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsArchiveSpecialFolder), Mode=OneWay}"
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_Archive}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Archive}">
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Archive" />
-                                </AppBarButton.Icon>
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>Archive</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                x:Name="UnarchiveAppBarButton"
-                                x:Load="{x:Bind ViewModel.IsArchiveSpecialFolder, Mode=OneWay}"
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_Unarchive}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Unarchive}">
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="UnArchive" />
-                                </AppBarButton.Icon>
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>UnArchive</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_Delete}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Delete}">
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>SoftDelete</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Delete" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_Move}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Move}">
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>Move</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Move" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_SetFlag}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_SetFlag}">
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>SetFlag</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Flag" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_ClearFlag}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_ClearFlag}">
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>ClearFlag</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="ClearFlag" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_MarkAsRead}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_MarkAsRead}">
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>MarkAsRead</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="MarkRead" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-
-                            <AppBarButton
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Label="{x:Bind domain:Translator.MailOperation_MarkAsUnread}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_MarkAsUnread}">
-                                <AppBarButton.CommandParameter>
-                                    <enums:MailOperation>MarkAsUnread</enums:MailOperation>
-                                </AppBarButton.CommandParameter>
-                                <AppBarButton.Icon>
-                                    <controls:WinoFontIcon FontSize="18" Icon="MarkUnread" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-                        </CommandBar>
-                    </Grid>
-
-                    <!--  Pivot + Sync + Multi Select  -->
-                    <Grid
+                    <!--  Select All Checkbox  -->
+                    <CheckBox
+                        x:Name="SelectAllCheckbox"
                         Grid.Row="1"
-                        Margin="0,0,0,5"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsInSearchMode), Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                        MinWidth="0"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Canvas.ZIndex="100"
+                        Checked="SelectAllCheckboxChecked"
+                        Unchecked="SelectAllCheckboxUnchecked"
+                        Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
 
-                        <!--  Select All Checkbox  -->
-                        <CheckBox
-                            x:Name="SelectAllCheckbox"
-                            Grid.Row="1"
-                            MinWidth="0"
-                            Margin="8,0,0,0"
-                            VerticalAlignment="Center"
-                            Canvas.ZIndex="100"
-                            Checked="SelectAllCheckboxChecked"
-                            Unchecked="SelectAllCheckboxUnchecked"
-                            Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
+                    <!--  Folders  -->
+                    <toolkit:Segmented
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
+                        SelectionChanged="FolderPivotChanged"
+                        Style="{StaticResource PivotSegmentedStyle}">
+                        <toolkit:Segmented.ItemTemplate>
+                            <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{x:Bind FolderTitle}" />
+                                    <TextBlock
+                                        x:Name="CountTextBlock"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
+                                        <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </toolkit:Segmented.ItemTemplate>
+                    </toolkit:Segmented>
 
-                        <!--  Folders  -->
-                        <toolkit:Segmented
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
-                            SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
-                            SelectionChanged="FolderPivotChanged"
-                            Style="{StaticResource PivotSegmentedStyle}">
-                            <toolkit:Segmented.ItemTemplate>
-                                <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <TextBlock Text="{x:Bind FolderTitle}" />
-                                        <TextBlock
-                                            x:Name="CountTextBlock"
-                                            VerticalAlignment="Center"
-                                            FontWeight="SemiBold"
-                                            Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
-                                            <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
-                                        </TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </toolkit:Segmented.ItemTemplate>
-                        </toolkit:Segmented>
+                    <!--  Sync + Multi Select + Filtering  -->
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Orientation="Horizontal">
+                        <Button
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{x:Bind ViewModel.SyncFolderCommand}"
+                            IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}">
+                            <Button.Content>
+                                <FontIcon
+                                    FontFamily="Segoe Fluent Icons"
+                                    FontSize="16"
+                                    Glyph="&#xE895;" />
+                            </Button.Content>
+                        </Button>
+                        <ToggleButton
+                            x:Name="SelectionModeToggle"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Checked="SelectionModeToggleChecked"
+                            IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
+                            Unchecked="SelectionModeToggleUnchecked">
+                            <ToggleButton.Content>
+                                <FontIcon
+                                    FontFamily="Segoe Fluent Icons"
+                                    FontSize="16"
+                                    Glyph="&#xE762;" />
+                            </ToggleButton.Content>
+                        </ToggleButton>
+                        <muxc:DropDownButton
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
+                            ToolTipService.ToolTip="Filter">
+                            <muxc:DropDownButton.Flyout>
+                                <menuflyouts:FilterMenuFlyout
+                                    x:Name="FilterMenuFlyout"
+                                    AreOpenCloseAnimationsEnabled="True"
+                                    FilterOptions="{x:Bind ViewModel.FilterOptions, Mode=OneTime}"
+                                    Placement="Bottom"
+                                    SelectedFilterChangedCommand="{x:Bind ViewModel.SelectedFilterChangedCommand}"
+                                    SelectedFilterOption="{x:Bind ViewModel.SelectedFilterOption, Mode=TwoWay}"
+                                    SelectedSortingOption="{x:Bind ViewModel.SelectedSortingOption, Mode=TwoWay}"
+                                    SelectedSortingOptionChangedCommand="{x:Bind ViewModel.SelectedSortingChangedCommand}"
+                                    SortingOptions="{x:Bind ViewModel.SortingOptions, Mode=OneTime}" />
+                            </muxc:DropDownButton.Flyout>
+                        </muxc:DropDownButton>
+                    </StackPanel>
 
-                        <!--  Sync + Multi Select + Filtering  -->
-                        <StackPanel
-                            Grid.Row="1"
-                            Grid.Column="2"
-                            Orientation="Horizontal">
-                            <Button
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Command="{x:Bind ViewModel.SyncFolderCommand}"
-                                IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}">
-                                <Button.Content>
-                                    <FontIcon
-                                        FontFamily="Segoe Fluent Icons"
-                                        FontSize="16"
-                                        Glyph="&#xE895;" />
-                                </Button.Content>
-                            </Button>
-                            <ToggleButton
-                                x:Name="SelectionModeToggle"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Checked="SelectionModeToggleChecked"
-                                IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
-                                Unchecked="SelectionModeToggleUnchecked">
-                                <ToggleButton.Content>
-                                    <FontIcon
-                                        FontFamily="Segoe Fluent Icons"
-                                        FontSize="16"
-                                        Glyph="&#xE762;" />
-                                </ToggleButton.Content>
-                            </ToggleButton>
-                            <muxc:DropDownButton
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
-                                ToolTipService.ToolTip="Filter">
-                                <muxc:DropDownButton.Flyout>
-                                    <menuflyouts:FilterMenuFlyout
-                                        x:Name="FilterMenuFlyout"
-                                        AreOpenCloseAnimationsEnabled="True"
-                                        FilterOptions="{x:Bind ViewModel.FilterOptions, Mode=OneTime}"
-                                        Placement="Bottom"
-                                        SelectedFilterChangedCommand="{x:Bind ViewModel.SelectedFilterChangedCommand}"
-                                        SelectedFilterOption="{x:Bind ViewModel.SelectedFilterOption, Mode=TwoWay}"
-                                        SelectedSortingOption="{x:Bind ViewModel.SelectedSortingOption, Mode=TwoWay}"
-                                        SelectedSortingOptionChangedCommand="{x:Bind ViewModel.SelectedSortingChangedCommand}"
-                                        SortingOptions="{x:Bind ViewModel.SortingOptions, Mode=OneTime}" />
-                                </muxc:DropDownButton.Flyout>
-                            </muxc:DropDownButton>
-                        </StackPanel>
-
-                        <muxc:InfoBar
-                            Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
-                            Grid.Row="0"
-                            Grid.ColumnSpan="3"
-                            IsClosable="True"
-                            IsOpen="{x:Bind ViewModel.IsFolderSynchronizationEnabled, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}"
-                            Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
-                            Severity="Informational">
-                            <muxc:InfoBar.ActionButton>
-                                <Button Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
-                            </muxc:InfoBar.ActionButton>
-                        </muxc:InfoBar>
-                    </Grid>
+                    <muxc:InfoBar
+                        Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
+                        Grid.Row="0"
+                        Grid.ColumnSpan="3"
+                        IsClosable="True"
+                        IsOpen="{x:Bind ViewModel.IsFolderSynchronizationEnabled, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
+                        Severity="Informational">
+                        <muxc:InfoBar.ActionButton>
+                            <Button Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
+                        </muxc:InfoBar.ActionButton>
+                    </muxc:InfoBar>
                 </Grid>
 
                 <!--  No items createria  -->
@@ -614,7 +583,7 @@
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="ICollectionViewGroup">
                                         <Grid
-                                            Margin="4,0"
+                                            Margin="0,0"
                                             Background="{ThemeResource MailListHeaderBackgroundColor}"
                                             CornerRadius="4">
                                             <TextBlock
@@ -636,7 +605,6 @@
                 <controls:WinoInfoBar
                     Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
                     Grid.Row="2"
-                    Margin="6,0,6,6"
                     VerticalAlignment="Bottom"
                     AnimationType="SlideFromBottomToTop"
                     DismissInterval="2"
