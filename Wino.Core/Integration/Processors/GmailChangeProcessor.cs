@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 
@@ -12,5 +13,8 @@ namespace Wino.Core.Integration.Processors
 
         public Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)
             => MailService.MapLocalDraftAsync(mailCopyId, newDraftId, newThreadId);
+
+        public Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
+            => MailService.CreateAssignmentAsync(accountId, mailCopyId, remoteFolderId);
     }
 }

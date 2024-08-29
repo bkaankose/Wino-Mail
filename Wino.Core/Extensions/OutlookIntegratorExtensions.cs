@@ -180,7 +180,7 @@ namespace Wino.Core.Extensions
 
             // Some headers also require to start with X- or x-.
 
-            string[] headersToIgnore = ["Date", "To", "MIME-Version", "From", "Subject", "Message-Id"];
+            string[] headersToIgnore = ["Date", "To", "Cc", "Bcc", "MIME-Version", "From", "Subject", "Message-Id"];
             string[] headersToModify = ["In-Reply-To", "Reply-To", "References", "Thread-Topic"];
 
             var headers = new List<InternetMessageHeader>();
@@ -191,15 +191,12 @@ namespace Wino.Core.Extensions
             {
                 if (!headersToIgnore.Contains(header.Field))
                 {
-                    if (headersToModify.Contains(header.Field))
-                    {
-                        headers.Add(new InternetMessageHeader() { Name = $"X-{header.Field}", Value = header.Value });
-                    }
-                    else
-                    {
-                        headers.Add(new InternetMessageHeader() { Name = header.Field, Value = header.Value });
-                    }
+                    var headerName = headersToModify.Contains(header.Field) ? $"X-{header.Field}" : header.Field;
 
+                    // No header value should exceed 995 characters.
+                    var headerValue = header.Value.Length >= 995 ? header.Value.Substring(0, 995) : header.Value;
+
+                    headers.Add(new InternetMessageHeader() { Name = headerName, Value = headerValue });
                     includedHeaderCount++;
                 }
 

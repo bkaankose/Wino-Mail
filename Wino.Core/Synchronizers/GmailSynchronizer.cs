@@ -595,12 +595,22 @@ namespace Wino.Core.Synchronizers
         {
             return CreateBatchedHttpBundleFromGroup(request, (items) =>
             {
+                // Sent label can't be removed from mails for Gmail.
+                // They are automatically assigned by Gmail.
+                // When you delete sent mail from gmail web portal, it's moved to Trash
+                // but still has Sent label. It's just hidden from the user.
+                // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
                 var batchModifyRequest = new BatchModifyMessagesRequest
                 {
                     Ids = items.Select(a => a.Item.Id.ToString()).ToList(),
-                    AddLabelIds = new[] { request.ToFolder.RemoteFolderId },
-                    RemoveLabelIds = new[] { request.FromFolder.RemoteFolderId }
+                    AddLabelIds = [request.ToFolder.RemoteFolderId]
                 };
+
+                // Only add remove label ids if the source folder is not sent folder.
+                if (request.FromFolder.SpecialFolderType != SpecialFolderType.Sent)
+                {
+                    batchModifyRequest.RemoveLabelIds = [request.FromFolder.RemoteFolderId];
+                }
 
                 return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
             });
@@ -793,6 +803,8 @@ namespace Wino.Core.Synchronizers
 
                 var bundleRequestCount = bundle.Count();
 
+                var bundleTasks = new List<Task>();
+
                 for (int k = 0; k < bundleRequestCount; k++)
                 {
                     var requestBundle = bundle.ElementAt(k);
@@ -802,37 +814,40 @@ namespace Wino.Core.Synchronizers
 
                     request.ApplyUIChanges();
 
-                    // TODO: Queue is synchronous. Create a task bucket to await all processing.
-                    nativeBatchRequest.Queue<object>(nativeRequest, async (content, error, index, message)
-                        => await ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken).ConfigureAwait(false));
+                    nativeBatchRequest.Queue<object>(nativeRequest, (content, error, index, message)
+                        => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
                 }
 
                 await nativeBatchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+                await Task.WhenAll(bundleTasks);
             }
         }
 
-        private void ProcessGmailRequestError(RequestError error)
+        private void ProcessGmailRequestError(RequestError error, IRequestBundle<IClientServiceRequest> bundle)
         {
             if (error == null) return;
 
             // OutOfMemoryException is a known bug in Gmail SDK.
             if (error.Code == 0)
             {
+                bundle?.Request.RevertUIChanges();
                 throw new OutOfMemoryException(error.Message);
             }
 
             // Entity not found.
             if (error.Code == 404)
             {
+                bundle?.Request.RevertUIChanges();
                 throw new SynchronizerEntityNotFoundException(error.Message);
             }
 
             if (!string.IsNullOrEmpty(error.Message))
             {
+                bundle?.Request.RevertUIChanges();
                 error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
 
-                // TODO: Debug
-                // throw new SynchronizerException(error.Message);
+                throw new SynchronizerException(error.Message);
             }
         }
 
@@ -851,7 +866,7 @@ namespace Wino.Core.Synchronizers
         {
             try
             {
-                ProcessGmailRequestError(error);
+                ProcessGmailRequestError(error, null);
             }
             catch (OutOfMemoryException)
             {
@@ -900,7 +915,7 @@ namespace Wino.Core.Synchronizers
                                                                    HttpResponseMessage httpResponseMessage,
                                                                    CancellationToken cancellationToken = default)
         {
-            ProcessGmailRequestError(error);
+            ProcessGmailRequestError(error, bundle);
 
             if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
             {

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Services;
 
@@ -27,7 +28,7 @@ namespace Wino.Core.Integration.Threading
         }
 
         ///<inheritdoc/>
-        public async Task<List<IMailItem>> ThreadItemsAsync(List<MailCopy> items)
+        public async Task<List<IMailItem>> ThreadItemsAsync(List<MailCopy> items, IMailItemFolder threadingForFolder)
         {
             var assignedAccount = items[0].AssignedAccount;
 
@@ -62,11 +63,43 @@ namespace Wino.Core.Integration.Threading
                     }
 
                     var thread = new ThreadMailItem();
+
                     foreach (var childThreadItem in threadItem)
                     {
-                        thread.AddThreadItem(childThreadItem);
+                        if (thread.ThreadItems.Any(a => a.Id == childThreadItem.Id))
+                        {
+                            // Mail already exist in the thread.
+                            // There should be only 1 instance of the mail in the thread.
+                            // Make sure we add the correct one.
+
+                            // Add the one with threading folder.
+                            var threadingFolderItem = threadItem.FirstOrDefault(a => a.Id == childThreadItem.Id && a.FolderId == threadingForFolder.Id);
+
+                            if (threadingFolderItem == null) continue;
+
+                            // Remove the existing one.
+                            thread.ThreadItems.Remove(thread.ThreadItems.First(a => a.Id == childThreadItem.Id));
+
+                            // Add the correct one for listing.
+                            thread.AddThreadItem(threadingFolderItem);
+                        }
+                        else
+                        {
+                            thread.AddThreadItem(childThreadItem);
+                        }
                     }
-                    resultList.Add(thread);
+
+                    if (thread.ThreadItems.Count > 1)
+                    {
+                        resultList.Add(thread);
+                    }
+                    else
+                    {
+                        // Don't make threads if the thread has only one item.
+                        // Gmail has may have multiple assignments for the same item.
+
+                        resultList.Add(thread.ThreadItems.First());
+                    }
                 }
             }
 

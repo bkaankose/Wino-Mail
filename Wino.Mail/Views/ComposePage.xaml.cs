@@ -26,7 +26,6 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Extensions;
@@ -38,7 +37,6 @@ using Wino.Views.Abstract;
 namespace Wino.Views
 {
     public sealed partial class ComposePage : ComposePageAbstract,
-        IRecipient<NavigationPaneModeChanged>,
         IRecipient<CreateNewComposeMailRequested>,
         IRecipient<ApplicationThemeChanged>
     {
@@ -170,6 +168,7 @@ namespace Wino.Views
                 ViewModel.IsDraggingOverFilesDropZone = false;
             }
         }
+
         private void OnImageDropGridDragEnter(object sender, DragEventArgs e)
         {
             bool isValid = false;
@@ -557,25 +556,9 @@ namespace Wino.Views
 
         private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => DOMLoadedTask.TrySetResult(true);
 
-        void IRecipient<NavigationPaneModeChanged>.Receive(NavigationPaneModeChanged message)
-        {
-            if (message.NewMode == MenuPaneMode.Hidden)
-                TopPanelGrid.Padding = new Thickness(48, 6, 6, 6);
-            else
-                TopPanelGrid.Padding = new Thickness(16, 6, 6, 6);
-        }
-
         async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
         {
             await RenderInternalAsync(message.RenderModel.RenderHtml);
-        }
-
-        private void BarDynamicOverflowChanging(CommandBar sender, DynamicOverflowItemsChangingEventArgs args)
-        {
-            if (args.Action == CommandBarDynamicOverflowAction.AddingToOverflow)
-                sender.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Visible;
-            else
-                sender.OverflowButtonVisibility = CommandBarOverflowButtonVisibility.Collapsed;
         }
 
         private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
@@ -641,7 +624,7 @@ namespace Wino.Views
                 var selectedImportance = (MessageImportance)senderButton.Tag;
 
                 ViewModel.SelectedMessageImportance = selectedImportance;
-                (ImportanceSplitButton.Content as SymbolIcon).Symbol = (senderButton.Content as SymbolIcon).Symbol;
+                (ImportanceSplitButton.Content as FontIcon).Glyph = (senderButton.Content as FontIcon).Glyph;
             }
         }
 

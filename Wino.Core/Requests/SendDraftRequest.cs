@@ -58,7 +58,7 @@ namespace Wino.Core.Requests
             Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
 
-        public override int ResynchronizationDelay => 10000;
+        public override int ResynchronizationDelay => 6000;
         public override bool ExecuteSerialBatch => true;
     }
 }

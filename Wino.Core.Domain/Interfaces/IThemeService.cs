@@ -9,7 +9,6 @@ namespace Wino.Core.Domain.Interfaces
     public interface IThemeService : IInitializeAsync
     {
         event EventHandler<ApplicationElementTheme> ElementThemeChanged;
-        event EventHandler<string> AccentColorChangedBySystem;
         event EventHandler<string> AccentColorChanged;
 
         Task<List<AppThemeBase>> GetAvailableThemesAsync();

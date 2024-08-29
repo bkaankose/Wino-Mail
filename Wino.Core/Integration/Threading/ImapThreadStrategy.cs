@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using SqlKata;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
@@ -58,7 +59,7 @@ namespace Wino.Core.Integration.Threading
             return _databaseService.Connection.FindWithQueryAsync<MailCopy>(query.GetRawQuery());
         }
 
-        public async Task<List<IMailItem>> ThreadItemsAsync(List<MailCopy> items)
+        public async Task<List<IMailItem>> ThreadItemsAsync(List<MailCopy> items, IMailItemFolder threadingForFolder)
         {
             var threads = new List<ThreadMailItem>();
 

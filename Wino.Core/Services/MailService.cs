@@ -241,7 +241,7 @@ namespace Wino.Core.Services
 
                 // Only thread items from Draft and Sent folders must present here.
                 // Otherwise this strategy will fetch the items that are in Deleted folder as well.
-                var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group]);
+                var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group], options.Folders.First());
 
                 // Populate threaded items with folder and account assignments.
                 // Almost everything already should be in cache from initial population.
@@ -409,12 +409,11 @@ namespace Wino.Core.Services
 
             foreach (var mailItem in allMails)
             {
-                await DeleteMailInternalAsync(mailItem).ConfigureAwait(false);
-
-                // Delete mime file.
+                // Delete mime file as well.
                 // Even though Gmail might have multiple copies for the same mail, we only have one MIME file for all.
                 // Their FileId is inserted same.
-                await _mimeFileService.DeleteMimeMessageAsync(accountId, mailItem.FileId);
+
+                await DeleteMailInternalAsync(mailItem, preserveMimeFile: false).ConfigureAwait(false);
             }
         }
 
@@ -457,7 +456,7 @@ namespace Wino.Core.Services
             ReportUIChange(new MailUpdatedMessage(mailCopy));
         }
 
-        private async Task DeleteMailInternalAsync(MailCopy mailCopy)
+        private async Task DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile)
         {
             if (mailCopy == null)
             {
@@ -473,7 +472,7 @@ namespace Wino.Core.Services
             // If there are no more copies exists of the same mail, delete the MIME file as well.
             var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
 
-            if (!isMailExists)
+            if (!isMailExists && !preserveMimeFile)
             {
                 await _mimeFileService.DeleteMimeMessageAsync(mailCopy.AssignedAccount.Id, mailCopy.FileId).ConfigureAwait(false);
             }
@@ -554,6 +553,19 @@ namespace Wino.Core.Services
                 return;
             }
 
+            if (mailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent &&
+                localFolder.SpecialFolderType == SpecialFolderType.Deleted)
+            {
+                // Sent item is deleted.
+                // Gmail does not delete the sent items, but moves them to the deleted folder.
+                // API doesn't allow removing Sent label.
+                // Here we intercept this behavior, removing the Sent copy of the mail and adding the Deleted copy.
+                // This way item will only be visible in Trash folder as in Gmail Web UI.
+                // Don't delete MIME file since if exists.
+
+                await DeleteMailInternalAsync(mailCopy, preserveMimeFile: true).ConfigureAwait(false);
+            }
+
             // Copy one of the mail copy and assign it to the new folder.
             // We don't need to create a new MIME pack.
             // Therefore FileId is not changed for the new MailCopy.
@@ -585,7 +597,7 @@ namespace Wino.Core.Services
                 return;
             }
 
-            await DeleteMailInternalAsync(mailItem).ConfigureAwait(false);
+            await DeleteMailInternalAsync(mailItem, preserveMimeFile: false).ConfigureAwait(false);
         }
 
         public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)

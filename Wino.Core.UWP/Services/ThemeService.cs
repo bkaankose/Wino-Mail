@@ -46,7 +46,6 @@ namespace Wino.Services
 
         public event EventHandler<ApplicationElementTheme> ElementThemeChanged;
         public event EventHandler<string> AccentColorChanged;
-        public event EventHandler<string> AccentColorChangedBySystem;
 
         private const string AccentColorKey = nameof(AccentColorKey);
         private const string CurrentApplicationThemeKey = nameof(CurrentApplicationThemeKey);
