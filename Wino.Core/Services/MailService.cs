@@ -241,7 +241,7 @@ namespace Wino.Core.Services
 
                 // Only thread items from Draft and Sent folders must present here.
                 // Otherwise this strategy will fetch the items that are in Deleted folder as well.
-                var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group]);
+                var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group], options.Folders.First());
 
                 // Populate threaded items with folder and account assignments.
                 // Almost everything already should be in cache from initial population.

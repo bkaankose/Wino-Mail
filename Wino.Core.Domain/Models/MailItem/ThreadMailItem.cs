@@ -14,19 +14,19 @@ namespace Wino.Core.Domain.Models.MailItem
         public IMailItem LatestMailItem => ThreadItems.LastOrDefault();
         public IMailItem FirstMailItem => ThreadItems.FirstOrDefault();
 
-        public void AddThreadItem(IMailItem item)
+        public bool AddThreadItem(IMailItem item)
         {
-            if (item == null) return;
+            if (item == null) return false;
 
             if (ThreadItems.Any(a => a.Id == item.Id))
             {
-                return;
+                return false;
             }
 
             if (item != null && item.IsDraft)
             {
                 ThreadItems.Insert(0, item);
-                return;
+                return true;
             }
 
             var insertItem = ThreadItems.FirstOrDefault(a => !a.IsDraft && a.CreationDate < item.CreationDate);
@@ -39,6 +39,8 @@ namespace Wino.Core.Domain.Models.MailItem
 
                 ThreadItems.Insert(index, item);
             }
+
+            return true;
         }
 
         public IEnumerable<Guid> GetContainingIds() => ThreadItems?.Select(a => a.UniqueId) ?? default;
