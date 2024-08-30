@@ -126,7 +126,10 @@
                 MailItem="{x:Bind MailCopy, Mode=OneWay}"
                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
+                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                CanDrag="True"
+                Tapped="MailItemDisplayInformationControl_Tapped"
+                DragStarting="MailItemDisplayInformationControl_DragStarting" />
         </DataTemplate>
 
         <!--  Single Mail Item Template for Threads  -->

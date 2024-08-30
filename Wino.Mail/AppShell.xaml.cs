@@ -55,6 +55,15 @@ namespace Wino.Views
 
                 if (CanContinueDragDrop(droppedContainer, e))
                 {
+                    if (e.DataView.Properties.ContainsKey("DragPopup"))
+                    {
+                        var popup = e.DataView.Properties["DragPopup"] as MailItemDragPopup;
+                        popup.MoveToMouse(e);
+                        popup.Hide(MailItemDragPopup.HideAnimation.DroppedIn);
+                    }
+
+                    e.Handled = true;
+
                     if (droppedContainer.DataContext is IBaseFolderMenuItem draggingFolder)
                     {
                         var mailCopies = new List<MailCopy>();
@@ -83,11 +92,22 @@ namespace Wino.Views
             }
         }
 
-        private void ItemDragLeaveFromFolder(object sender, DragEventArgs e)
+        private async void ItemDragLeaveFromFolder(object sender, DragEventArgs e)
         {
             if (sender is WinoNavigationViewItem leavingContainer)
             {
                 leavingContainer.IsDraggingItemOver = false;
+
+                //var def = e.GetDeferral(); for some reason, having a deferral here causes and invalid memory access exception
+
+                // reset DragUI Caption
+                if (e.DataView.Properties.ContainsKey("DragPopup"))
+                {
+                    var newDragImage = await (e.DataView.Properties["DragPopup"] as MailItemDragPopup).UpdateCaption(null, null);
+                    e.DragUIOverride.SetContentFromBitmapImage(newDragImage, new Point(0, 0));
+                }
+
+                //def.Complete();
             }
         }
 
@@ -120,17 +140,36 @@ namespace Wino.Views
             return true;
         }
 
-        private void ItemDragEnterOnFolder(object sender, DragEventArgs e)
+        private async void ItemDragEnterOnFolder(object sender, DragEventArgs e)
         {
             // Validate package content.
-            if (sender is WinoNavigationViewItem droppedContainer && CanContinueDragDrop(droppedContainer, e))
+            if (sender is WinoNavigationViewItem droppedContainer)
             {
-                droppedContainer.IsDraggingItemOver = true;
+                if (CanContinueDragDrop(droppedContainer, e))
+                {
+                    var def = e.GetDeferral();
+                    droppedContainer.IsDraggingItemOver = true;
 
-                var draggingFolder = droppedContainer.DataContext as IBaseFolderMenuItem;
+                    var draggingFolder = droppedContainer.DataContext as IBaseFolderMenuItem;
 
-                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
-                e.DragUIOverride.Caption = string.Format(Translator.DragMoveToFolderCaption, draggingFolder.FolderName);
+                    e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+                    e.DragUIOverride.IsGlyphVisible = false;
+                    e.DragUIOverride.IsCaptionVisible = false;
+
+                    if (e.DataView.Properties.ContainsKey("DragPopup"))
+                    {
+                        MailItemDragPopup dragPopup = (MailItemDragPopup)e.DataView.Properties["DragPopup"];
+                        var img = await dragPopup.UpdateCaption(string.Format(Translator.DragMoveToFolderCaption, draggingFolder.FolderName), "\uF0B0");
+                        e.DragUIOverride.SetContentFromBitmapImage(img, new Point(0, 0));
+                    }
+                    def.Complete();
+                }
+
+                var childCount = (droppedContainer.DataContext as IBaseFolderMenuItem).SubMenuItems.Count();
+                if (childCount > 0)
+                {
+                    droppedContainer.IsExpanded = true;
+                }
             }
         }
 

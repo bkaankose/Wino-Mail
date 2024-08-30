@@ -226,13 +226,18 @@ namespace Wino.Services
             // Change accent color if specified.
             if (!string.IsNullOrEmpty(hex))
             {
-                var brush = new SolidColorBrush(Microsoft.Toolkit.Uwp.Helpers.ColorHelper.ToColor(hex));
+                var color = Microsoft.Toolkit.Uwp.Helpers.ColorHelper.ToColor(hex);
+                var brush = new SolidColorBrush(color);
+                var brushSecondary = new SolidColorBrush(color) { Opacity = 0.25 };
 
                 if (_applicationResourceManager.ContainsResourceKey("SystemAccentColor"))
                     _applicationResourceManager.ReplaceResource("SystemAccentColor", brush);
 
                 if (_applicationResourceManager.ContainsResourceKey("NavigationViewSelectionIndicatorForeground"))
                     _applicationResourceManager.ReplaceResource("NavigationViewSelectionIndicatorForeground", brush);
+
+                if (_applicationResourceManager.ContainsResourceKey("AccentFillColorSecondaryBrush"))
+                    _applicationResourceManager.ReplaceResource("AccentFillColorSecondaryBrush", brushSecondary);
 
                 RefreshThemeResource();
             }
