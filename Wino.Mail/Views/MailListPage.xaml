@@ -252,6 +252,7 @@
                 <!--  Action bar  -->
                 <Grid
                     Grid.Row="0"
+                    Margin="0,0,0,5"
                     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     CornerRadius="8"
                     Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
@@ -604,6 +605,7 @@
                 <controls:WinoInfoBar
                     Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
                     Grid.Row="2"
+                    Margin="0,0,0,5"
                     VerticalAlignment="Bottom"
                     AnimationType="SlideFromBottomToTop"
                     DismissInterval="2"
