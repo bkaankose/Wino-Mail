@@ -28,6 +28,20 @@ namespace Wino.Controls
         public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailItem), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
         public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+        public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+        public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+
+        public bool IsThreadExpanded
+        {
+            get { return (bool)GetValue(IsThreadExpandedProperty); }
+            set { SetValue(IsThreadExpandedProperty, value); }
+        }
+
+        public bool IsThreadExpanderVisible
+        {
+            get { return (bool)GetValue(IsThreadExpanderVisibleProperty); }
+            set { SetValue(IsThreadExpanderVisibleProperty, value); }
+        }
 
         public bool Prefer24HourTimeFormat
         {

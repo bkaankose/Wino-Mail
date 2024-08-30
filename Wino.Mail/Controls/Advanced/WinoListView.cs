@@ -310,7 +310,7 @@ namespace Wino.Controls.Advanced
                     }
                     else if (addedItem is ThreadMailItemViewModel threadMailItemViewModel)
                     {
-                        threadMailItemViewModel.IsThreadExpanded = true;
+                        // threadMailItemViewModel.IsThreadExpanded = true;
 
                         // Don't select thread containers.
                         SelectedItems.Remove(addedItem);

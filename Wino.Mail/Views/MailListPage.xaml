@@ -176,6 +176,8 @@
                                 IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
                                 IsHitTestVisible="True"
                                 IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                                IsThreadExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}"
+                                IsThreadExpanderVisible="True"
                                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
                                 MailItem="{x:Bind MailItem, Mode=OneWay}"
                                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
