@@ -1,9 +1,8 @@
-﻿using System.Numerics;
+﻿using System.Linq;
+using System.Numerics;
 using System.Windows.Input;
-using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Input;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
@@ -16,12 +15,14 @@ namespace Wino.Controls
     {
         public ImagePreviewControl GetImagePreviewControl() => ContactImage;
 
+        public bool IsRunningHoverAction { get; set; }
+
         public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(nameof(DisplayMode), typeof(MailListDisplayMode), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailListDisplayMode.Spacious));
         public static readonly DependencyProperty ShowPreviewTextProperty = DependencyProperty.Register(nameof(ShowPreviewText), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty IsCustomFocusedProperty = DependencyProperty.Register(nameof(IsCustomFocused), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
         public static readonly DependencyProperty IsAvatarVisibleProperty = DependencyProperty.Register(nameof(IsAvatarVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty IsSubjectVisibleProperty = DependencyProperty.Register(nameof(IsSubjectVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-        public static readonly DependencyProperty ConnectedExpanderProperty = DependencyProperty.Register(nameof(ConnectedExpander), typeof(Expander), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty ConnectedExpanderProperty = DependencyProperty.Register(nameof(ConnectedExpander), typeof(WinoExpander), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
         public static readonly DependencyProperty LeftHoverActionProperty = DependencyProperty.Register(nameof(LeftHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
         public static readonly DependencyProperty CenterHoverActionProperty = DependencyProperty.Register(nameof(CenterHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
         public static readonly DependencyProperty RightHoverActionProperty = DependencyProperty.Register(nameof(RightHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
@@ -29,6 +30,20 @@ namespace Wino.Controls
         public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailItem), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
         public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+        public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+        public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+
+        public bool IsThreadExpanded
+        {
+            get { return (bool)GetValue(IsThreadExpandedProperty); }
+            set { SetValue(IsThreadExpandedProperty, value); }
+        }
+
+        public bool IsThreadExpanderVisible
+        {
+            get { return (bool)GetValue(IsThreadExpanderVisibleProperty); }
+            set { SetValue(IsThreadExpanderVisibleProperty, value); }
+        }
 
         public bool Prefer24HourTimeFormat
         {
@@ -72,10 +87,9 @@ namespace Wino.Controls
             set { SetValue(RightHoverActionProperty, value); }
         }
 
-
-        public Expander ConnectedExpander
+        public WinoExpander ConnectedExpander
         {
-            get { return (Expander)GetValue(ConnectedExpanderProperty); }
+            get { return (WinoExpander)GetValue(ConnectedExpanderProperty); }
             set { SetValue(ConnectedExpanderProperty, value); }
         }
 
@@ -108,8 +122,6 @@ namespace Wino.Controls
             get { return (MailListDisplayMode)GetValue(DisplayModeProperty); }
             set { SetValue(DisplayModeProperty, value); }
         }
-
-        private bool tappedHandlingFlag = false;
 
         public MailItemDisplayInformationControl()
         {
@@ -147,36 +159,20 @@ namespace Wino.Controls
 
         private void ExecuteHoverAction(MailOperation operation)
         {
+            IsRunningHoverAction = true;
+
             MailOperationPreperationRequest package = null;
 
             if (MailItem is MailCopy mailCopy)
                 package = new MailOperationPreperationRequest(operation, mailCopy, toggleExecution: true);
             else if (MailItem is ThreadMailItemViewModel threadMailItemViewModel)
                 package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.GetMailCopies(), toggleExecution: true);
+            else if (MailItem is ThreadMailItem threadMailItem)
+                package = new MailOperationPreperationRequest(operation, threadMailItem.ThreadItems.Cast<MailItemViewModel>().Select(a => a.MailCopy), toggleExecution: true);
 
             if (package == null) return;
 
-            tappedHandlingFlag = true;
-
             HoverActionExecutedCommand?.Execute(package);
-        }
-
-        private void ThreadHeaderTapped(object sender, TappedRoutedEventArgs e)
-        {
-            // Due to CanDrag=True, outer expander doesn't get the click event and it doesn't expand. We expand here manually.
-            // Also hover action button clicks will be delegated here after the execution runs.
-            // We should not expand the thread if the reason we are here is for hover actions.
-
-            if (tappedHandlingFlag)
-            {
-                tappedHandlingFlag = false;
-                e.Handled = true;
-                return;
-            }
-
-            if (ConnectedExpander == null) return;
-
-            ConnectedExpander.IsExpanded = !ConnectedExpander.IsExpanded;
         }
 
         private void FirstActionClicked(object sender, RoutedEventArgs e)

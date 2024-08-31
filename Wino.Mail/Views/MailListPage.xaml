@@ -169,18 +169,14 @@
                 <DataTemplate x:DataType="viewModelData:ThreadMailItemViewModel">
                     <controls:WinoExpander
                         x:Name="ThreadExpander"
-                        Padding="0"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
-                        BackgroundSizing="InnerBorderEdge"
-                        BorderThickness="0"
                         IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
-                        <muxc:Expander.Header>
+                        <controls:WinoExpander.Header>
                             <controls:MailItemDisplayInformationControl
                                 x:DefaultBindMode="OneWay"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                CanDrag="True"
                                 CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
                                 ConnectedExpander="{Binding ElementName=ThreadExpander}"
                                 ContextRequested="MailItemContextRequested"
@@ -191,13 +187,15 @@
                                 IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
                                 IsHitTestVisible="True"
                                 IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                                IsThreadExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}"
+                                IsThreadExpanderVisible="True"
                                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
                                 MailItem="{x:Bind MailItem, Mode=OneWay}"
                                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
                                 ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
-                        </muxc:Expander.Header>
-                        <muxc:Expander.Content>
+                        </controls:WinoExpander.Header>
+                        <controls:WinoExpander.Content>
                             <listview:WinoListView
                                 x:Name="ThreadItemsList"
                                 ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
@@ -212,7 +210,7 @@
                                     </TransitionCollection>
                                 </ListView.ItemContainerTransitions>
                             </listview:WinoListView>
-                        </muxc:Expander.Content>
+                        </controls:WinoExpander.Content>
                     </controls:WinoExpander>
                 </DataTemplate>
             </selectors:MailItemDisplaySelector.ThreadMailItemTemplate>
@@ -261,7 +259,8 @@
         <Border
             x:Name="MailListContainer"
             Grid.Column="0"
-            Padding="5,5,5,0"
+            Padding="5,0,0,0"
+            HorizontalAlignment="Stretch"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -463,6 +462,7 @@
                         <SemanticZoom.ZoomedInView>
                             <listview:WinoListView
                                 x:Name="MailListView"
+                                HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"
                                 ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                                 ui:ScrollViewerExtensions.EnableMiddleClickScrolling="True"

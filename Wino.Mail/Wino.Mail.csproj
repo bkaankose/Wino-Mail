@@ -311,6 +311,9 @@
     <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
       <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Styles\WinoExpanderStyle.xaml.cs">
+      <DependentUpon>WinoExpanderStyle.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
@@ -526,6 +529,10 @@
     <Page Include="Styles\ItemContainerStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\WinoExpanderStyle.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="Styles\WinoInfoBar.xaml">
       <SubType>Designer</SubType>

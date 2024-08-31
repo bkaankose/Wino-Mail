@@ -80,8 +80,6 @@ namespace Wino.Controls
                 control.UpdateInformation();
         }
 
-
-
         private async void UpdateInformation()
         {
             if (KnownHostImage == null || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
