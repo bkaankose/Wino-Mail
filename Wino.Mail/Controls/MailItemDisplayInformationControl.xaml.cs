@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Linq;
+using System.Numerics;
 using System.Windows.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -14,6 +15,8 @@ namespace Wino.Controls
     {
         public ImagePreviewControl GetImagePreviewControl() => ContactImage;
 
+        public bool IsRunningHoverAction { get; set; }
+
         public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(nameof(DisplayMode), typeof(MailListDisplayMode), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailListDisplayMode.Spacious));
         public static readonly DependencyProperty ShowPreviewTextProperty = DependencyProperty.Register(nameof(ShowPreviewText), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty IsCustomFocusedProperty = DependencyProperty.Register(nameof(IsCustomFocused), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
@@ -28,7 +31,7 @@ namespace Wino.Controls
         public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
         public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
-        public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false, new PropertyChangedCallback(OnIsExpandedChanged)));
+        public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
 
         public bool IsThreadExpanded
         {
@@ -138,20 +141,6 @@ namespace Wino.Controls
             RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
         }
 
-        private static void OnIsExpandedChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-        {
-            if (obj is MailItemDisplayInformationControl control)
-            {
-                control.AdjustRotation();
-            }
-        }
-
-        private void AdjustRotation()
-        {
-
-            // ExpanderChevronGrid.Rotation = IsThreadExpanded ? 45 : 0;
-        }
-
         private void ControlPointerEntered(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             if (IsHoverActionsEnabled)
@@ -170,12 +159,16 @@ namespace Wino.Controls
 
         private void ExecuteHoverAction(MailOperation operation)
         {
+            IsRunningHoverAction = true;
+
             MailOperationPreperationRequest package = null;
 
             if (MailItem is MailCopy mailCopy)
                 package = new MailOperationPreperationRequest(operation, mailCopy, toggleExecution: true);
             else if (MailItem is ThreadMailItemViewModel threadMailItemViewModel)
                 package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.GetMailCopies(), toggleExecution: true);
+            else if (MailItem is ThreadMailItem threadMailItem)
+                package = new MailOperationPreperationRequest(operation, threadMailItem.ThreadItems.Cast<MailItemViewModel>().Select(a => a.MailCopy), toggleExecution: true);
 
             if (package == null) return;
 

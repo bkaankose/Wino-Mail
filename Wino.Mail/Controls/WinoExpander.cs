@@ -73,6 +73,16 @@ namespace Wino.Controls
 
         private void HeaderTapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
         {
+            // Tapped is delegated from executing hover action like flag or delete.
+            // No need to toggle the expander.
+
+            if (Header is MailItemDisplayInformationControl itemDisplayInformationControl &&
+                itemDisplayInformationControl.IsRunningHoverAction)
+            {
+                itemDisplayInformationControl.IsRunningHoverAction = false;
+                return;
+            }
+
             IsExpanded = !IsExpanded;
         }
 
