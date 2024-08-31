@@ -142,7 +142,7 @@ namespace Wino.Controls.Advanced
             {
                 args.Handled = true;
 
-                ItemDeletedCommand?.Execute((int)MailOperation.SoftDelete);
+                ItemDeletedCommand?.Execute(MailOperation.SoftDelete);
             }
         }
 

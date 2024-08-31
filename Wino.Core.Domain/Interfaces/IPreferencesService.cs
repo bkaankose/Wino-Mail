@@ -155,5 +155,10 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Gets or sets what should happen to server app when the client is terminated.
         /// </summary>
         ServerBackgroundMode ServerTerminationBehavior { get; set; }
+
+        /// <summary>
+        /// Setting: Whether the mail list action bar is enabled or not.
+        /// </summary>
+        bool IsMailListActionBarEnabled { get; set; }
     }
 }

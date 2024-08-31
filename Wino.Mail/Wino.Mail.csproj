@@ -141,6 +141,9 @@
     <PackageReference Include="CommunityToolkit.Uwp.Behaviors">
       <Version>8.1.240821</Version>
     </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented">
+      <Version>8.1.240821</Version>
+    </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
       <Version>8.1.240821</Version>
     </PackageReference>
@@ -265,9 +268,6 @@
     <Compile Include="MenuFlyouts\WinoOperationFlyout.cs" />
     <Compile Include="MenuFlyouts\WinoOperationFlyoutItem.cs" />
     <Compile Include="Controls\RendererCommandBar.cs" />
-    <Compile Include="Controls\WinoPivotControl.xaml.cs">
-      <DependentUpon>WinoPivotControl.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Converters\ReverseBooleanConverter.cs" />
     <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
       <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
@@ -276,7 +276,6 @@
     <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
     <Compile Include="Extensions\CompositionExtensions.Size.cs" />
     <Compile Include="Extensions\CompositionEnums.cs" />
-    <Compile Include="Extensions\EnumerableExtensions.cs" />
     <Compile Include="Extensions\UtilExtensions.cs" />
     <Compile Include="MenuFlyouts\FilterMenuFlyout.cs" />
     <Compile Include="Controls\ImagePreviewControl.cs" />
@@ -456,10 +455,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controls\MailItemDisplayInformationControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Controls\WinoPivotControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
