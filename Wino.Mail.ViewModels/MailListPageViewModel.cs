@@ -41,8 +41,7 @@ namespace Wino.Mail.ViewModels
         IRecipient<MailItemSelectionRemovedEvent>,
         IRecipient<AccountSynchronizationCompleted>,
         IRecipient<NewSynchronizationRequested>,
-        IRecipient<AccountSynchronizerStateChanged>,
-        IRecipient<SelectedMailItemsChanged>
+        IRecipient<AccountSynchronizerStateChanged>
     {
         private bool isChangingFolder = false;
 
@@ -63,6 +62,7 @@ namespace Wino.Mail.ViewModels
 
         public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
         public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
+        public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = [];
 
         private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -198,6 +198,13 @@ namespace Wino.Mail.ViewModels
                     SelectedItems.Remove(removedMailItemViewModel);
                 }
             };
+        }
+
+        private void SetupTopBarActions()
+        {
+            ActionItems.Clear();
+            var actions = GetAvailableMailActions(SelectedItems);
+            actions.ForEach(a => ActionItems.Add(a));
         }
 
         #region Properties
@@ -365,7 +372,7 @@ namespace Wino.Mail.ViewModels
 
             NotifyItemSelected();
 
-            Messenger.Send(new SelectedMailItemsChanged(SelectedItems.Count));
+            SetupTopBarActions();
         }
 
         private void UpdateFolderPivots()
@@ -415,19 +422,31 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
 
+        [RelayCommand]
+        private async Task ExecuteTopBarAction(MailOperationMenuItem menuItem)
+        {
+            if (menuItem == null || !SelectedItems.Any()) return;
+
+            await HandleMailOperation(menuItem.Operation, SelectedItems);
+        }
+
         /// <summary>
         /// Executes the requested mail operation for currently selected items.
         /// </summary>
         /// <param name="operation">Action to execute for selected items.</param>
         [RelayCommand]
-        private async Task MailOperationAsync(int mailOperationIndex)
+        private async Task ExecuteMailOperation(MailOperation mailOperation)
         {
             if (!SelectedItems.Any()) return;
 
-            // Commands don't like enums. So it has to be int.
-            var operation = (MailOperation)mailOperationIndex;
+            await HandleMailOperation(mailOperation, SelectedItems);
+        }
 
-            var package = new MailOperationPreperationRequest(operation, SelectedItems.Select(a => a.MailCopy));
+        private async Task HandleMailOperation(MailOperation mailOperation, IEnumerable<MailItemViewModel> mailItems)
+        {
+            if (!mailItems.Any()) return;
+
+            var package = new MailOperationPreperationRequest(mailOperation, mailItems.Select(a => a.MailCopy));
 
             await ExecuteMailOperationAsync(package);
         }
@@ -649,6 +668,8 @@ namespace Wino.Mail.ViewModels
             Debug.WriteLine($"Updating {updatedMail.Id}-> {updatedMail.UniqueId}");
 
             await MailCollection.UpdateMailCopy(updatedMail);
+
+            await ExecuteUIThread(() => { SetupTopBarActions(); });
         }
 
         protected override async void OnMailRemoved(MailCopy removedMail)
@@ -1012,7 +1033,5 @@ namespace Wino.Mail.ViewModels
 
             await ExecuteUIThread(() => { IsAccountSynchronizerInSynchronization = isAnyAccountSynchronizing; });
         }
-
-        public void Receive(SelectedMailItemsChanged message) => NotifyItemSelected();
     }
 }

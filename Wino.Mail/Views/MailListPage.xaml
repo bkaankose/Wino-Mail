@@ -5,7 +5,6 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:controls="using:Wino.Controls"
-    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
     xmlns:converters="using:Wino.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
@@ -13,11 +12,14 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:i="using:Microsoft.Xaml.Interactivity"
     xmlns:ic="using:Microsoft.Xaml.Interactions.Core"
+    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:listview="using:Wino.Controls.Advanced"
+    xmlns:local="using:Wino.Behaviors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:selectors="using:Wino.Selectors"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino"
@@ -30,6 +32,28 @@
             x:Name="MailCollectionViewSource"
             IsSourceGrouped="True"
             Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
+
+        <selectors:RendererCommandBarItemTemplateSelector
+            x:Key="RendererCommandBarItemTemplateSelector"
+            Archive="{StaticResource CommandBarItemArchiveTemplate}"
+            ClearFlag="{StaticResource CommandBarItemClearFlagTemplate}"
+            DarkEditor="{StaticResource CommandBarItemDarkEditorTemplate}"
+            Delete="{StaticResource CommandBarItemDeleteTemplate}"
+            Find="{StaticResource CommandBarItemFindTemplate}"
+            Forward="{StaticResource CommandBarItemForwardTemplate}"
+            LightEditor="{StaticResource CommandBarItemLightEditorTemplate}"
+            MarkAsRead="{StaticResource CommandBarItemMarkReadTemplate}"
+            MarkAsUnread="{StaticResource CommandBarItemMarkUnreadTemplate}"
+            Move="{StaticResource CommandBarItemMoveTemplate}"
+            MoveToJunk="{StaticResource CommandBarItemMoveToJunkTemplate}"
+            Print="{StaticResource CommandBarItemPrintTemplate}"
+            Reply="{StaticResource CommandBarItemReplyTemplate}"
+            ReplyAll="{StaticResource CommandBarItemReplyAllTemplate}"
+            SaveAs="{StaticResource CommandBarItemSaveTemplate}"
+            SeperatorTemplate="{StaticResource CommandBarItemSeperatorTemplate}"
+            SetFlag="{StaticResource CommandBarItemSetFlagTemplate}"
+            Unarchive="{StaticResource CommandBarItemUnarchiveTemplate}"
+            Zoom="{StaticResource CommandBarItemZoomTemplate}" />
 
         <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
         <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
@@ -45,23 +69,10 @@
         <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
         <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
 
-        <DataTemplate x:Key="FolderPivotTemplate" x:DataType="viewModelData:FolderPivotViewModel">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <TextBlock Text="{x:Bind FolderTitle}" />
-                <TextBlock
-                    x:Name="CountTextBlock"
-                    VerticalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
-                    <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
-                </TextBlock>
-            </StackPanel>
-        </DataTemplate>
-
         <!--  Header Templates  -->
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="collections:IReadOnlyObservableGroup">
             <Grid
-                Margin="2,2,16,2"
+                Margin="2,2,6,2"
                 AllowFocusOnInteraction="False"
                 Background="{ThemeResource MailListHeaderBackgroundColor}"
                 CornerRadius="6">
@@ -208,28 +219,6 @@
         </selectors:MailItemDisplaySelector>
 
         <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
-
-        <Style
-            x:Key="TopCommandBarButtonStyle"
-            BasedOn="{StaticResource DefaultButtonStyle}"
-            TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="12" />
-        </Style>
-
-        <Style
-            x:Key="TopCommandBarToggleButtonStyle"
-            BasedOn="{StaticResource DefaultToggleButtonStyle}"
-            TargetType="ToggleButton">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="12" />
-        </Style>
     </Page.Resources>
 
     <wino:BasePage.ShellContent>
@@ -272,7 +261,7 @@
         <Border
             x:Name="MailListContainer"
             Grid.Column="0"
-            Padding="5,0,0,0"
+            Padding="5,5,5,0"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -284,209 +273,113 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!--  Top Area  -->
+                <!--  Action bar  -->
                 <Grid
-                    Padding="2,6,4,6"
+                    Margin="0,0,0,5"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     CornerRadius="8"
-                    RowSpacing="4">
+                    Visibility="{x:Bind ViewModel.PreferencesService.IsMailListActionBarEnabled}">
+                    <CommandBar
+                        HorizontalAlignment="Left"
+                        DefaultLabelPosition="Collapsed"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemCount), Mode=OneWay}"
+                        OverflowButtonVisibility="Auto">
+                        <interactivity:Interaction.Behaviors>
+                            <local:BindableCommandBarBehavior
+                                ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
+                                ItemTemplateSelector="{StaticResource RendererCommandBarItemTemplateSelector}"
+                                PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
+                        </interactivity:Interaction.Behaviors>
+                    </CommandBar>
+                </Grid>
+
+                <!--  Pivot + Sync + Multi Select  -->
+                <Grid Grid.Row="1" Padding="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!--  Top Commands  -->
-                    <Grid
-                        Grid.Row="0"
-                        Padding="2,0"
-                        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                        CornerRadius="8">
-                        <!--  Commands  -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <Button
-                                Command="{x:Bind ViewModel.SyncFolderCommand}"
-                                IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}"
-                                Style="{StaticResource TopCommandBarButtonStyle}">
-                                <Button.Content>
-                                    <controls:WinoFontIcon FontSize="16" Icon="Sync" />
-                                </Button.Content>
-                            </Button>
-
-                            <ToggleButton
-                                x:Name="SelectionModeToggle"
-                                Grid.Column="1"
-                                Checked="SelectionModeToggleChecked"
-                                IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
-                                Style="{StaticResource TopCommandBarToggleButtonStyle}"
-                                Unchecked="SelectionModeToggleUnchecked">
-                                <ToggleButton.Content>
-                                    <controls:WinoFontIcon FontSize="18" Icon="MultiSelect" />
-                                </ToggleButton.Content>
-                            </ToggleButton>
-
-                            <AppBarSeparator Grid.Column="2" Margin="2,0" />
-
-                            <Button
-                                x:Name="ArchiveAppBarButton"
-                                Grid.Column="3"
-                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsArchiveSpecialFolder), Mode=OneWay}"
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Style="{StaticResource TopCommandBarButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Archive}">
-                                <Button.Content>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Archive" />
-                                </Button.Content>
-                                <Button.CommandParameter>
-                                    <enums:MailOperation>Archive</enums:MailOperation>
-                                </Button.CommandParameter>
-                            </Button>
-
-                            <Button
-                                x:Name="UnarchiveAppBarButton"
-                                Grid.Column="3"
-                                x:Load="{x:Bind ViewModel.IsArchiveSpecialFolder, Mode=OneWay}"
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Style="{StaticResource TopCommandBarButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Unarchive}">
-                                <Button.Content>
-                                    <controls:WinoFontIcon FontSize="18" Icon="UnArchive" />
-                                </Button.Content>
-                                <Button.CommandParameter>
-                                    <enums:MailOperation>UnArchive</enums:MailOperation>
-                                </Button.CommandParameter>
-                            </Button>
-
-                            <Button
-                                Grid.Column="4"
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Style="{StaticResource TopCommandBarButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Delete}">
-                                <Button.CommandParameter>
-                                    <enums:MailOperation>SoftDelete</enums:MailOperation>
-                                </Button.CommandParameter>
-                                <Button.Content>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Delete" />
-                                </Button.Content>
-                            </Button>
-
-                            <Button
-                                x:Name="MoveButtonAppBarButton"
-                                Grid.Column="5"
-                                Command="{x:Bind ViewModel.MailOperationCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Style="{StaticResource TopCommandBarButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.MailOperation_Move}">
-                                <Button.CommandParameter>
-                                    <enums:MailOperation>Move</enums:MailOperation>
-                                </Button.CommandParameter>
-                                <Button.Content>
-                                    <controls:WinoFontIcon FontSize="18" Icon="Move" />
-                                </Button.Content>
-                            </Button>
-
-                            <Button
-                                Grid.Column="6"
-                                IsEnabled="{x:Bind ViewModel.HasSelectedItems, Mode=OneWay}"
-                                Style="{StaticResource TopCommandBarButtonStyle}">
-                                <Button.Content>
-                                    <controls:WinoFontIcon FontSize="20" Icon="More" />
-                                </Button.Content>
-                                <Button.Flyout>
-                                    <MenuFlyout AreOpenCloseAnimationsEnabled="False" Placement="BottomEdgeAlignedLeft">
-                                        <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_SetFlag}">
-                                            <MenuFlyoutItem.CommandParameter>
-                                                <enums:MailOperation>SetFlag</enums:MailOperation>
-                                            </MenuFlyoutItem.CommandParameter>
-                                            <MenuFlyoutItem.Icon>
-                                                <controls:WinoFontIcon Icon="Flag" />
-                                            </MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                        <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_ClearFlag}">
-                                            <MenuFlyoutItem.CommandParameter>
-                                                <enums:MailOperation>ClearFlag</enums:MailOperation>
-                                            </MenuFlyoutItem.CommandParameter>
-                                            <MenuFlyoutItem.Icon>
-                                                <controls:WinoFontIcon Icon="ClearFlag" />
-                                            </MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                        <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_MarkAsRead}">
-                                            <MenuFlyoutItem.CommandParameter>
-                                                <enums:MailOperation>MarkAsRead</enums:MailOperation>
-                                            </MenuFlyoutItem.CommandParameter>
-                                            <MenuFlyoutItem.Icon>
-                                                <controls:WinoFontIcon Icon="MarkRead" />
-                                            </MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                        <MenuFlyoutItem Command="{x:Bind ViewModel.MailOperationCommand}" Text="{x:Bind domain:Translator.MailOperation_MarkAsUnread}">
-                                            <MenuFlyoutItem.CommandParameter>
-                                                <enums:MailOperation>MarkAsUnread</enums:MailOperation>
-                                            </MenuFlyoutItem.CommandParameter>
-                                            <MenuFlyoutItem.Icon>
-                                                <controls:WinoFontIcon Icon="MarkUnread" />
-                                            </MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                    </MenuFlyout>
-                                </Button.Flyout>
-                            </Button>
-                        </Grid>
-                    </Grid>
-
-                    <!--  Pivot + Sync + Multi Select  -->
-                    <Grid
+                    <!--  Select All Checkbox  -->
+                    <CheckBox
+                        x:Name="SelectAllCheckbox"
                         Grid.Row="1"
-                        Margin="0,0,0,5"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsInSearchMode), Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                        MinWidth="0"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Canvas.ZIndex="100"
+                        Checked="SelectAllCheckboxChecked"
+                        Unchecked="SelectAllCheckboxUnchecked"
+                        Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
 
-                        <!--  Select All Checkbox  -->
-                        <CheckBox
-                            x:Name="SelectAllCheckbox"
-                            Grid.Row="1"
-                            MinWidth="0"
-                            Margin="8,0,0,0"
-                            VerticalAlignment="Center"
-                            Canvas.ZIndex="100"
-                            Checked="SelectAllCheckboxChecked"
-                            Unchecked="SelectAllCheckboxUnchecked"
-                            Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
+                    <!--  Folders  -->
+                    <toolkit:Segmented
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
+                        SelectionChanged="FolderPivotChanged"
+                        Style="{StaticResource PivotSegmentedStyle}">
+                        <toolkit:Segmented.ItemTemplate>
+                            <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{x:Bind FolderTitle}" />
+                                    <TextBlock
+                                        x:Name="CountTextBlock"
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
+                                        <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </toolkit:Segmented.ItemTemplate>
+                    </toolkit:Segmented>
 
-                        <!--  Folders  -->
-                        <controls:WinoPivotControl
-                            x:Name="WinoPivot"
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            DataTemplate="{StaticResource FolderPivotTemplate}"
-                            ItemsSource="{x:Bind ViewModel.PivotFolders, Mode=OneWay}"
-                            SelectedItem="{x:Bind ViewModel.SelectedFolderPivot, Mode=TwoWay}"
-                            SelectionChanged="FolderPivotChanged"
-                            SelectorPipeColor="{ThemeResource NavigationViewSelectionIndicatorForeground}" />
-
-                        <!--  Filtering  -->
+                    <!--  Sync + Multi Select + Filtering  -->
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Orientation="Horizontal">
+                        <Button
+                            Width="36"
+                            Height="36"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Command="{x:Bind ViewModel.SyncFolderCommand}"
+                            IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}">
+                            <Button.Content>
+                                <FontIcon
+                                    FontFamily="Segoe Fluent Icons"
+                                    FontSize="14"
+                                    Glyph="&#xE895;" />
+                            </Button.Content>
+                        </Button>
+                        <ToggleButton
+                            x:Name="SelectionModeToggle"
+                            Width="36"
+                            Height="36"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Checked="SelectionModeToggleChecked"
+                            IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
+                            Unchecked="SelectionModeToggleUnchecked">
+                            <ToggleButton.Content>
+                                <FontIcon
+                                    FontFamily="Segoe Fluent Icons"
+                                    FontSize="14"
+                                    Glyph="&#xE762;" />
+                            </ToggleButton.Content>
+                        </ToggleButton>
                         <muxc:DropDownButton
-                            Grid.Row="1"
-                            Grid.Column="2"
+                            Height="36"
+                            Background="Transparent"
+                            BorderThickness="0"
                             Content="{x:Bind ViewModel.SelectedFilterOption.Title, Mode=OneWay}"
                             ToolTipService.ToolTip="Filter">
                             <muxc:DropDownButton.Flyout>
@@ -502,20 +395,20 @@
                                     SortingOptions="{x:Bind ViewModel.SortingOptions, Mode=OneTime}" />
                             </muxc:DropDownButton.Flyout>
                         </muxc:DropDownButton>
+                    </StackPanel>
 
-                        <muxc:InfoBar
-                            Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
-                            Grid.Row="0"
-                            Grid.ColumnSpan="3"
-                            IsClosable="True"
-                            IsOpen="{x:Bind ViewModel.IsFolderSynchronizationEnabled, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}"
-                            Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
-                            Severity="Informational">
-                            <muxc:InfoBar.ActionButton>
-                                <Button Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
-                            </muxc:InfoBar.ActionButton>
-                        </muxc:InfoBar>
-                    </Grid>
+                    <muxc:InfoBar
+                        Title="{x:Bind domain:Translator.InfoBarTitle_SynchronizationDisabledFolder}"
+                        Grid.Row="0"
+                        Grid.ColumnSpan="3"
+                        IsClosable="True"
+                        IsOpen="{x:Bind ViewModel.IsFolderSynchronizationEnabled, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.InfoBarMessage_SynchronizationDisabledFolder}"
+                        Severity="Informational">
+                        <muxc:InfoBar.ActionButton>
+                            <Button Command="{x:Bind ViewModel.EnableFolderSynchronizationCommand}" Content="Enable" />
+                        </muxc:InfoBar.ActionButton>
+                    </muxc:InfoBar>
                 </Grid>
 
                 <!--  No items createria  -->
@@ -574,7 +467,7 @@
                                 ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                                 ui:ScrollViewerExtensions.EnableMiddleClickScrolling="True"
                                 ui:ScrollViewerExtensions.VerticalScrollBarMargin="0"
-                                ItemDeletedCommand="{x:Bind ViewModel.MailOperationCommand}"
+                                ItemDeletedCommand="{x:Bind ViewModel.ExecuteMailOperationCommand}"
                                 ItemTemplateSelector="{StaticResource MailItemDisplaySelector}"
                                 ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                                 LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
@@ -615,10 +508,7 @@
                                 </ListView.Resources>
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="ICollectionViewGroup">
-                                        <Grid
-                                            Margin="4,0"
-                                            Background="{ThemeResource MailListHeaderBackgroundColor}"
-                                            CornerRadius="4">
+                                        <Grid Background="{ThemeResource MailListHeaderBackgroundColor}" CornerRadius="4">
                                             <TextBlock
                                                 Margin="12,0"
                                                 HorizontalAlignment="Center"
@@ -638,7 +528,7 @@
                 <controls:WinoInfoBar
                     Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
                     Grid.Row="2"
-                    Margin="6,0,6,6"
+                    Margin="0,0,0,5"
                     VerticalAlignment="Bottom"
                     AnimationType="SlideFromBottomToTop"
                     DismissInterval="2"
@@ -649,7 +539,7 @@
 
             </Grid>
         </Border>
-        <controls1:PropertySizer
+        <toolkit:PropertySizer
             x:Name="MailListSizer"
             Grid.Column="1"
             Width="16"

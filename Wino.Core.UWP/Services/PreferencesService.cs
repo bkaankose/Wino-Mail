@@ -64,6 +64,12 @@ namespace Wino.Core.UWP.Services
             set => SetPropertyAndSave(nameof(IsThreadingEnabled), value);
         }
 
+        public bool IsMailListActionBarEnabled
+        {
+            get => _configurationService.Get(nameof(IsMailListActionBarEnabled), false);
+            set => SetPropertyAndSave(nameof(IsMailListActionBarEnabled), value);
+        }
+
         public bool IsShowSenderPicturesEnabled
         {
             get => _configurationService.Get(nameof(IsShowSenderPicturesEnabled), true);
