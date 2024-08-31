@@ -48,7 +48,7 @@ namespace Wino.Controls.Advanced
         }
 
         public static readonly DependencyProperty LoadMoreCommandProperty = DependencyProperty.Register(nameof(LoadMoreCommand), typeof(ICommand), typeof(WinoListView), new PropertyMetadata(null));
-        public static readonly DependencyProperty IsThreadListViewProperty = DependencyProperty.Register(nameof(IsThreadListView), typeof(bool), typeof(WinoListView), new PropertyMetadata(false));
+        public static readonly DependencyProperty IsThreadListViewProperty = DependencyProperty.Register(nameof(IsThreadListView), typeof(bool), typeof(WinoListView), new PropertyMetadata(false, new PropertyChangedCallback(OnIsThreadViewChanged)));
         public static readonly DependencyProperty ItemDeletedCommandProperty = DependencyProperty.Register(nameof(ItemDeletedCommand), typeof(ICommand), typeof(WinoListView), new PropertyMetadata(null));
 
         public WinoListView()
@@ -64,7 +64,6 @@ namespace Wino.Controls.Advanced
             DragItemsCompleted += ItemDragCompleted;
             DragItemsStarting += ItemDragStarting;
             SelectionChanged += SelectedItemsChanged;
-            ItemClick += MailItemClicked;
             ProcessKeyboardAccelerators += ProcessDelKey;
         }
 
@@ -82,6 +81,22 @@ namespace Wino.Controls.Advanced
 
             internalScrollviewer.ViewChanged -= InternalScrollVeiwerViewChanged;
             internalScrollviewer.ViewChanged += InternalScrollVeiwerViewChanged;
+        }
+
+        private static void OnIsThreadViewChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+        {
+            if (obj is WinoListView winoListView)
+            {
+                winoListView.AdjustThreadViewContainerVisuals();
+            }
+        }
+
+        private void AdjustThreadViewContainerVisuals()
+        {
+            if (IsThreadListView)
+            {
+                ItemContainerTransitions.Clear();
+            }
         }
 
         private double lastestRaisedOffset = 0;
@@ -156,19 +171,6 @@ namespace Wino.Controls.Advanced
                 var dragPackage = new MailDragPackage(args.Items.Cast<IMailItem>());
 
                 args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
-            }
-        }
-
-        private void MailItemClicked(object sender, ItemClickEventArgs e)
-        {
-            if (e.ClickedItem is ThreadMailItemViewModel clickedThread)
-            {
-                clickedThread.IsThreadExpanded = !clickedThread.IsThreadExpanded;
-
-                if (!clickedThread.IsThreadExpanded)
-                {
-                    SelectedItems.Clear();
-                }
             }
         }
 
@@ -293,6 +295,10 @@ namespace Wino.Controls.Advanced
                         removedMailItemViewModel.IsSelected = false;
                         WeakReferenceMessenger.Default.Send(new MailItemSelectionRemovedEvent(removedMailItemViewModel));
                     }
+                    else if (removedItem is ThreadMailItemViewModel removedThreadItemViewModel)
+                    {
+                        removedThreadItemViewModel.IsThreadExpanded = false;
+                    }
                 }
             }
 
@@ -313,7 +319,7 @@ namespace Wino.Controls.Advanced
                         // threadMailItemViewModel.IsThreadExpanded = true;
 
                         // Don't select thread containers.
-                        SelectedItems.Remove(addedItem);
+                        // SelectedItems.Remove(addedItem);
                     }
                 }
             }
@@ -341,10 +347,10 @@ namespace Wino.Controls.Advanced
                 {
                     // Tell main list view to unselect all his items.
 
-                    if (SelectedItems[0] is MailItemViewModel selectedMailItemViewModel)
-                    {
-                        WeakReferenceMessenger.Default.Send(new ResetSingleMailItemSelectionEvent(selectedMailItemViewModel));
-                    }
+                    //if (SelectedItems[0] is MailItemViewModel selectedMailItemViewModel)
+                    //{
+                    //    WeakReferenceMessenger.Default.Send(new ResetSingleMailItemSelectionEvent(selectedMailItemViewModel));
+                    //}
                 }
             }
         }
@@ -369,7 +375,6 @@ namespace Wino.Controls.Advanced
             DragItemsCompleted -= ItemDragCompleted;
             DragItemsStarting -= ItemDragStarting;
             SelectionChanged -= SelectedItemsChanged;
-            ItemClick -= MailItemClicked;
             ProcessKeyboardAccelerators -= ProcessDelKey;
 
             if (internalScrollviewer != null)

@@ -6,7 +6,7 @@ namespace Wino.Styles
     {
         public WinoExpanderStyle()
         {
-            this.InitializeComponent();
+            InitializeComponent();
         }
     }
 }

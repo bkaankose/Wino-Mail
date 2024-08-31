@@ -13,65 +13,68 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
+
             <!--  Header  -->
-            <Grid Background="{TemplateBinding Background}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <muxc:AnimatedIcon
-                    xmlns:local="using:Microsoft.UI.Xaml.Controls"
-                    x:Name="ExpandCollapseChevron"
-                    Width="{StaticResource ExpanderChevronGlyphSize}"
-                    Height="{StaticResource ExpanderChevronGlyphSize}"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    local:AnimatedIcon.State="NormalOff"
-                    AutomationProperties.AccessibilityView="Raw"
-                    Foreground="{ThemeResource ExpanderChevronForeground}"
-                    RenderTransformOrigin="0.5, 0.5"
-                    Visibility="Collapsed">
-                    <animatedvisuals:AnimatedChevronRightDownSmallVisualSource />
-                    <muxc:AnimatedIcon.FallbackIconSource>
-                        <muxc:FontIconSource
-                            FontFamily="{StaticResource SymbolThemeFontFamily}"
-                            FontSize="12"
-                            Glyph="{StaticResource ExpanderChevronDownGlyph}"
-                            IsTextScaleFactorEnabled="False" />
-                    </muxc:AnimatedIcon.FallbackIconSource>
-                    <muxc:AnimatedIcon.RenderTransform />
-                </muxc:AnimatedIcon>
-
-
-                <ContentControl
-                    x:Name="HeaderGrid"
-                    Grid.Column="1"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
-                    VerticalContentAlignment="Stretch"
-                    Content="{TemplateBinding Header}" />
-            </Grid>
-
             <ContentControl
-                x:Name="ContentArea"
-                Grid.Row="1"
+                x:Name="HeaderGrid"
+                Grid.Column="1"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
-                Content="{TemplateBinding Content}"
-                Visibility="Collapsed" />
+                Background="{TemplateBinding Background}"
+                Content="{TemplateBinding Header}" />
+
+            <!--  Content  -->
+            <Grid x:Name="ContentAreaWrapper" Grid.Row="1">
+                <ContentControl
+                    x:Name="ContentArea"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    Content="{TemplateBinding Content}"
+                    RenderTransformOrigin="0.5,0.5"
+                    Visibility="Collapsed">
+                    <ContentControl.RenderTransform>
+                        <CompositeTransform />
+                    </ContentControl.RenderTransform>
+                </ContentControl>
+            </Grid>
 
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroup x:Name="OpenCloseStates">
-                    <VisualState x:Name="Collapsed" />
+                    <VisualState x:Name="Collapsed">
+                        <VisualState.Storyboard>
+                            <Storyboard>
+                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentArea" Storyboard.TargetProperty="Visibility">
+                                    <DiscreteObjectKeyFrame KeyTime="0:0:0.111" Value="Collapsed" />
+                                </ObjectAnimationUsingKeyFrames>
+                                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ContentArea" Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.TranslateY)">
+                                    <DiscreteDoubleKeyFrame KeyTime="0" Value="0" />
+                                    <SplineDoubleKeyFrame
+                                        KeySpline="1.0, 1.0, 0.0, 1.0"
+                                        KeyTime="0:0:0.111"
+                                        Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.NegativeContentHeight}" />
+                                </DoubleAnimationUsingKeyFrames>
+                            </Storyboard>
+                        </VisualState.Storyboard>
+                    </VisualState>
                     <VisualState x:Name="Expanded">
-                        <VisualState.Setters>
-                            <Setter Target="ExpandCollapseChevron.(controls:AnimatedIcon.State)" Value="NormalOn" />
-                            <Setter Target="ContentArea.Visibility" Value="Visible" />
-                        </VisualState.Setters>
+                        <VisualState.Storyboard>
+                            <Storyboard>
+                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentArea" Storyboard.TargetProperty="Visibility">
+                                    <DiscreteObjectKeyFrame KeyTime="0" Value="Visible" />
+                                </ObjectAnimationUsingKeyFrames>
+                                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ContentArea" Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.TranslateY)">
+                                    <DiscreteDoubleKeyFrame KeyTime="0" Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.NegativeContentHeight}" />
+                                    <SplineDoubleKeyFrame
+                                        KeySpline="0.0, 0.0, 0.0, 1.0"
+                                        KeyTime="0:0:0.333"
+                                        Value="0" />
+                                </DoubleAnimationUsingKeyFrames>
+                            </Storyboard>
+                        </VisualState.Storyboard>
                     </VisualState>
                 </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>

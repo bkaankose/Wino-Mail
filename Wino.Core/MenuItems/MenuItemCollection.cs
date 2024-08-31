@@ -192,10 +192,12 @@ namespace Wino.Core.MenuItems
                 item.IsExpanded = false;
                 item.IsSelected = false;
 
-                Remove(item);
+                try
+                {
+                    Remove(item);
+                }
+                catch (Exception) { }
             });
-
-            // RemoveRange(itemsToRemove);
         }
     }
 }

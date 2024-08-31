@@ -2,7 +2,6 @@
 using System.Windows.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Input;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
@@ -29,7 +28,7 @@ namespace Wino.Controls
         public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
         public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
-        public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+        public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false, new PropertyChangedCallback(OnIsExpandedChanged)));
 
         public bool IsThreadExpanded
         {
@@ -85,7 +84,6 @@ namespace Wino.Controls
             set { SetValue(RightHoverActionProperty, value); }
         }
 
-
         public WinoExpander ConnectedExpander
         {
             get { return (WinoExpander)GetValue(ConnectedExpanderProperty); }
@@ -122,8 +120,6 @@ namespace Wino.Controls
             set { SetValue(DisplayModeProperty, value); }
         }
 
-        private bool tappedHandlingFlag = false;
-
         public MailItemDisplayInformationControl()
         {
             this.InitializeComponent();
@@ -140,6 +136,20 @@ namespace Wino.Controls
             IconsContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
             RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
+        }
+
+        private static void OnIsExpandedChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+        {
+            if (obj is MailItemDisplayInformationControl control)
+            {
+                control.AdjustRotation();
+            }
+        }
+
+        private void AdjustRotation()
+        {
+
+            // ExpanderChevronGrid.Rotation = IsThreadExpanded ? 45 : 0;
         }
 
         private void ControlPointerEntered(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -169,27 +179,7 @@ namespace Wino.Controls
 
             if (package == null) return;
 
-            tappedHandlingFlag = true;
-
             HoverActionExecutedCommand?.Execute(package);
-        }
-
-        private void ThreadHeaderTapped(object sender, TappedRoutedEventArgs e)
-        {
-            // Due to CanDrag=True, outer expander doesn't get the click event and it doesn't expand. We expand here manually.
-            // Also hover action button clicks will be delegated here after the execution runs.
-            // We should not expand the thread if the reason we are here is for hover actions.
-
-            //if (tappedHandlingFlag)
-            //{
-            //    tappedHandlingFlag = false;
-            //    e.Handled = true;
-            //    return;
-            //}
-
-            //if (ConnectedExpander == null) return;
-
-            //ConnectedExpander.IsExpanded = !ConnectedExpander.IsExpanded;
         }
 
         private void FirstActionClicked(object sender, RoutedEventArgs e)
