@@ -282,6 +282,7 @@
                     <CommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemCount), Mode=OneWay}"
                         OverflowButtonVisibility="Auto">
                         <interactivity:Interaction.Behaviors>
                             <local:BindableCommandBarBehavior
