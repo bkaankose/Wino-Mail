@@ -267,7 +267,6 @@
     <Compile Include="MenuFlyouts\MailOperationMenuFlyoutItem.cs" />
     <Compile Include="MenuFlyouts\WinoOperationFlyout.cs" />
     <Compile Include="MenuFlyouts\WinoOperationFlyoutItem.cs" />
-    <Compile Include="Controls\RendererCommandBar.cs" />
     <Compile Include="Converters\ReverseBooleanConverter.cs" />
     <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
       <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
@@ -289,7 +288,6 @@
     <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
       <DependentUpon>NewAccountDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="MenuFlyouts\RendererCommandBarItem.cs" />
     <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
     <Compile Include="Helpers\XamlHelpers.cs" />
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
@@ -301,7 +299,6 @@
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
     <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
-    <Compile Include="Selectors\RendererCommandBarItemTemplateSelector.cs" />
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />

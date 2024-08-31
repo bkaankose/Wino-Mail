@@ -17,10 +17,6 @@ namespace Wino.Behaviors
             "PrimaryCommands", typeof(object), typeof(BindableCommandBarBehavior),
             new PropertyMetadata(null, UpdateCommands));
 
-        public static readonly DependencyProperty ItemTemplateSelectorProperty = DependencyProperty.Register(
-            "ItemTemplateSelector", typeof(DataTemplateSelector), typeof(BindableCommandBarBehavior),
-            new PropertyMetadata(null, null));
-
         public ICommand ItemClickedCommand
         {
             get { return (ICommand)GetValue(ItemClickedCommandProperty); }
@@ -28,12 +24,6 @@ namespace Wino.Behaviors
         }
 
         public static readonly DependencyProperty ItemClickedCommandProperty = DependencyProperty.Register(nameof(ItemClickedCommand), typeof(ICommand), typeof(BindableCommandBarBehavior), new PropertyMetadata(null));
-
-        public DataTemplateSelector ItemTemplateSelector
-        {
-            get { return (DataTemplateSelector)GetValue(ItemTemplateSelectorProperty); }
-            set { SetValue(ItemTemplateSelectorProperty, value); }
-        }
 
         public object PrimaryCommands
         {
