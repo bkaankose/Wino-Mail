@@ -62,8 +62,7 @@ namespace Wino.Mail.ViewModels
 
         public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
         public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
-
-        public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = new ObservableCollection<MailOperationMenuItem>();
+        public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = [];
 
         private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
@@ -424,7 +423,7 @@ namespace Wino.Mail.ViewModels
         public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
 
         [RelayCommand]
-        private async Task OperationClicked(MailOperationMenuItem menuItem)
+        private async Task ExecuteTopBarAction(MailOperationMenuItem menuItem)
         {
             if (menuItem == null || !SelectedItems.Any()) return;
 
@@ -436,7 +435,7 @@ namespace Wino.Mail.ViewModels
         /// </summary>
         /// <param name="operation">Action to execute for selected items.</param>
         [RelayCommand]
-        private async Task MailOperationAsync(MailOperation mailOperation)
+        private async Task ExecuteMailOperation(MailOperation mailOperation)
         {
             if (!SelectedItems.Any()) return;
 

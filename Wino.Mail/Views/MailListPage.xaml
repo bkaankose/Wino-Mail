@@ -285,7 +285,7 @@
                         OverflowButtonVisibility="Auto">
                         <interactivity:Interaction.Behaviors>
                             <local:BindableCommandBarBehavior
-                                ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}"
+                                ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
                                 ItemTemplateSelector="{StaticResource RendererCommandBarItemTemplateSelector}"
                                 PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
                         </interactivity:Interaction.Behaviors>
@@ -466,7 +466,7 @@
                                 ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                                 ui:ScrollViewerExtensions.EnableMiddleClickScrolling="True"
                                 ui:ScrollViewerExtensions.VerticalScrollBarMargin="0"
-                                ItemDeletedCommand="{x:Bind ViewModel.MailOperationCommand}"
+                                ItemDeletedCommand="{x:Bind ViewModel.ExecuteMailOperationCommand}"
                                 ItemTemplateSelector="{StaticResource MailItemDisplaySelector}"
                                 ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                                 LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
