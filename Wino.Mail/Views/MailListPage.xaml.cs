@@ -375,7 +375,7 @@ namespace Wino.Views
             {
                 args.Handled = true;
 
-                ViewModel?.MailOperationCommand?.Execute((int)MailOperation.SoftDelete);
+                ViewModel?.MailOperationCommand?.Execute(MailOperation.SoftDelete);
             }
         }
 
