@@ -358,18 +358,6 @@ namespace Wino.Controls.Advanced
                     });
                 }
             }
-            else
-            {
-                if (SelectionMode == ListViewSelectionMode.Extended && SelectedItems.Count == 1)
-                {
-                    // Tell main list view to unselect all his items.
-
-                    //if (SelectedItems[0] is MailItemViewModel selectedMailItemViewModel)
-                    //{
-                    //    WeakReferenceMessenger.Default.Send(new ResetSingleMailItemSelectionEvent(selectedMailItemViewModel));
-                    //}
-                }
-            }
         }
 
         public async void SelectFirstItem()
@@ -387,8 +375,6 @@ namespace Wino.Controls.Advanced
                     }
 
                     firstMailItemViewModel.IsSelected = true;
-
-                    // WeakReferenceMessenger.Default.Send(new MailItemSelectedEvent(firstMailItemViewModel));
                 }
             }
         }
