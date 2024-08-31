@@ -93,7 +93,8 @@ namespace Wino.Extensions
 
             if (isVerticalScrolling)
             {
-                scrollViewer.ChangeView(null, position.Y, zoomFactor, !smoothScrolling);
+                // Accomodate for additional header.
+                scrollViewer.ChangeView(null, Math.Max(0, position.Y - 48), zoomFactor, !smoothScrolling);
             }
             else
             {
