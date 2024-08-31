@@ -41,8 +41,7 @@ namespace Wino.Mail.ViewModels
         IRecipient<MailItemSelectionRemovedEvent>,
         IRecipient<AccountSynchronizationCompleted>,
         IRecipient<NewSynchronizationRequested>,
-        IRecipient<AccountSynchronizerStateChanged>,
-        IRecipient<SelectedMailItemsChanged>
+        IRecipient<AccountSynchronizerStateChanged>
     {
         private bool isChangingFolder = false;
 
@@ -375,8 +374,6 @@ namespace Wino.Mail.ViewModels
             NotifyItemSelected();
 
             SetupTopBarActions();
-
-            Messenger.Send(new SelectedMailItemsChanged(SelectedItems.Count));
         }
 
         private void UpdateFolderPivots()
@@ -1037,7 +1034,5 @@ namespace Wino.Mail.ViewModels
 
             await ExecuteUIThread(() => { IsAccountSynchronizerInSynchronization = isAnyAccountSynchronizing; });
         }
-
-        public void Receive(SelectedMailItemsChanged message) => NotifyItemSelected();
     }
 }
