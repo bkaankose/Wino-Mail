@@ -262,7 +262,7 @@
             <VisualStateGroup x:Name="SizingStates">
                 <VisualState x:Name="Compact">
                     <VisualState.Setters>
-                        <Setter Target="RootContainer.Height" Value="50" />
+                        <Setter Target="RootContainer.Height" Value="60" />
                         <Setter Target="ContentGrid.Padding" Value="8,0" />
                         <Setter Target="PreviewTextContainer.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
@@ -274,7 +274,7 @@
                 <!--  Medium  -->
                 <VisualState x:Name="Medium">
                     <VisualState.Setters>
-                        <Setter Target="RootContainer.Height" Value="65" />
+                        <Setter Target="RootContainer.Height" Value="80" />
                         <Setter Target="ContentGrid.Padding" Value="6,0" />
                         <Setter Target="PreviewTextContainer.Visibility" Value="Visible" />
                     </VisualState.Setters>
