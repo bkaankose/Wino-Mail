@@ -80,27 +80,26 @@ namespace Wino.Core.Services
             }
             else
             {
-                bool isAllFlagged = selectedMailItems.All(a => a.IsFlagged);
                 bool isAllRead = selectedMailItems.All(a => a.IsRead);
                 bool isAllUnread = selectedMailItems.All(a => !a.IsRead);
+                bool isAllFlagged = selectedMailItems.All(a => a.IsFlagged);
+                bool isAllNotFlagged = selectedMailItems.All(a => !a.IsFlagged);
 
-                if (isAllRead)
-                    operationList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsUnread));
-                else
+                List<MailOperationMenuItem> readOperations = (isAllRead, isAllUnread) switch
                 {
-                    if (!isAllUnread)
-                        operationList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsUnread));
+                    (true, false) => [MailOperationMenuItem.Create(MailOperation.MarkAsUnread)],
+                    (false, true) => [MailOperationMenuItem.Create(MailOperation.MarkAsRead)],
+                    _ => [MailOperationMenuItem.Create(MailOperation.MarkAsRead), MailOperationMenuItem.Create(MailOperation.MarkAsUnread)]
+                };
+                operationList.AddRange(readOperations);
 
-                    operationList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead));
-                }
-
-                if (isAllFlagged)
-                    operationList.Add(MailOperationMenuItem.Create(MailOperation.ClearFlag));
-                else
+                List<MailOperationMenuItem> flagsOperations =  (isAllFlagged, isAllNotFlagged) switch
                 {
-                    operationList.Add(MailOperationMenuItem.Create(MailOperation.ClearFlag));
-                    operationList.Add(MailOperationMenuItem.Create(MailOperation.SetFlag));
-                }
+                    (true, false) => [MailOperationMenuItem.Create(MailOperation.ClearFlag)],
+                    (false, true) => [MailOperationMenuItem.Create(MailOperation.SetFlag)],
+                    _ => [MailOperationMenuItem.Create(MailOperation.SetFlag), MailOperationMenuItem.Create(MailOperation.ClearFlag)]
+                };
+                operationList.AddRange(flagsOperations);
             }
 
             // Ignore
