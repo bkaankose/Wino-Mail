@@ -115,6 +115,12 @@ namespace Wino.Behaviors
                             DataContext = mailOperationMenuItem,
                         };
 
+                        ToolTip toolTip = new ToolTip
+                        {
+                            Content = label
+                        };
+                        ToolTipService.SetToolTip((DependencyObject)menuItem, toolTip);
+
                         ((AppBarButton)menuItem).Click -= Button_Click;
                         ((AppBarButton)menuItem).Click += Button_Click;
                     }

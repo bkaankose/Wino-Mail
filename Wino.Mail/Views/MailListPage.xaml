@@ -326,11 +326,10 @@
                         Style="{StaticResource PivotSegmentedStyle}">
                         <toolkit:Segmented.ItemTemplate>
                             <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{x:Bind FolderTitle}" />
                                     <TextBlock
-                                        x:Name="CountTextBlock"
-                                        VerticalAlignment="Center"
+                                        Margin="4,0,0,0"
                                         FontWeight="SemiBold"
                                         Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
                                         <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
@@ -566,7 +565,6 @@
                 <controls:WinoFontIcon FontSize="80" Icon="Mail" />
 
                 <TextBlock
-                    x:Name="CountTextBlock"
                     HorizontalAlignment="Center"
                     FontSize="31"
                     Style="{StaticResource SubheaderTextBlockStyle}"
