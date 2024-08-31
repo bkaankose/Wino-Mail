@@ -457,6 +457,7 @@
                 <!--  Mail Items  -->
                 <muxc:RefreshContainer
                     Grid.Row="2"
+                    Margin="0,4,0,0"
                     RefreshRequested="PullToRefreshRequested"
                     Visibility="{x:Bind ViewModel.IsEmpty, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}">
                     <SemanticZoom x:Name="SemanticZoomContainer" CanChangeViews="{x:Bind ViewModel.PreferencesService.IsSemanticZoomEnabled, Mode=OneWay}">
