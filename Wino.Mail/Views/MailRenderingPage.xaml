@@ -38,28 +38,6 @@
                 Content="{x:Bind DisplayName}" />
         </DataTemplate>
 
-        <selectors:RendererCommandBarItemTemplateSelector
-            x:Key="RendererCommandBarItemTemplateSelector"
-            Archive="{StaticResource CommandBarItemArchiveTemplate}"
-            ClearFlag="{StaticResource CommandBarItemClearFlagTemplate}"
-            DarkEditor="{StaticResource CommandBarItemDarkEditorTemplate}"
-            Delete="{StaticResource CommandBarItemDeleteTemplate}"
-            Find="{StaticResource CommandBarItemFindTemplate}"
-            Forward="{StaticResource CommandBarItemForwardTemplate}"
-            LightEditor="{StaticResource CommandBarItemLightEditorTemplate}"
-            MarkAsRead="{StaticResource CommandBarItemMarkReadTemplate}"
-            MarkAsUnread="{StaticResource CommandBarItemMarkUnreadTemplate}"
-            Move="{StaticResource CommandBarItemMoveTemplate}"
-            MoveToJunk="{StaticResource CommandBarItemMoveToJunkTemplate}"
-            Print="{StaticResource CommandBarItemPrintTemplate}"
-            Reply="{StaticResource CommandBarItemReplyTemplate}"
-            ReplyAll="{StaticResource CommandBarItemReplyAllTemplate}"
-            SaveAs="{StaticResource CommandBarItemSaveTemplate}"
-            SeperatorTemplate="{StaticResource CommandBarItemSeperatorTemplate}"
-            SetFlag="{StaticResource CommandBarItemSetFlagTemplate}"
-            Unarchive="{StaticResource CommandBarItemUnarchiveTemplate}"
-            Zoom="{StaticResource CommandBarItemZoomTemplate}" />
-
         <!--  Attachment Template  -->
         <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
         <DataTemplate x:Key="FileAttachmentTemplate" x:DataType="viewModelData:MailAttachmentViewModel">
@@ -208,10 +186,7 @@
                     IsDynamicOverflowEnabled="True"
                     OverflowButtonVisibility="Auto">
                     <interactivity:Interaction.Behaviors>
-                        <local:BindableCommandBarBehavior
-                            ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}"
-                            ItemTemplateSelector="{StaticResource RendererCommandBarItemTemplateSelector}"
-                            PrimaryCommands="{x:Bind ViewModel.MenuItems, Mode=OneWay}" />
+                        <local:BindableCommandBarBehavior ItemClickedCommand="{x:Bind ViewModel.OperationClickedCommand}" PrimaryCommands="{x:Bind ViewModel.MenuItems, Mode=OneWay}" />
                     </interactivity:Interaction.Behaviors>
                     <CommandBar.Content>
                         <Grid Padding="0,5">
