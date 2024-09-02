@@ -33,28 +33,6 @@
             IsSourceGrouped="True"
             Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
 
-        <selectors:RendererCommandBarItemTemplateSelector
-            x:Key="RendererCommandBarItemTemplateSelector"
-            Archive="{StaticResource CommandBarItemArchiveTemplate}"
-            ClearFlag="{StaticResource CommandBarItemClearFlagTemplate}"
-            DarkEditor="{StaticResource CommandBarItemDarkEditorTemplate}"
-            Delete="{StaticResource CommandBarItemDeleteTemplate}"
-            Find="{StaticResource CommandBarItemFindTemplate}"
-            Forward="{StaticResource CommandBarItemForwardTemplate}"
-            LightEditor="{StaticResource CommandBarItemLightEditorTemplate}"
-            MarkAsRead="{StaticResource CommandBarItemMarkReadTemplate}"
-            MarkAsUnread="{StaticResource CommandBarItemMarkUnreadTemplate}"
-            Move="{StaticResource CommandBarItemMoveTemplate}"
-            MoveToJunk="{StaticResource CommandBarItemMoveToJunkTemplate}"
-            Print="{StaticResource CommandBarItemPrintTemplate}"
-            Reply="{StaticResource CommandBarItemReplyTemplate}"
-            ReplyAll="{StaticResource CommandBarItemReplyAllTemplate}"
-            SaveAs="{StaticResource CommandBarItemSaveTemplate}"
-            SeperatorTemplate="{StaticResource CommandBarItemSeperatorTemplate}"
-            SetFlag="{StaticResource CommandBarItemSetFlagTemplate}"
-            Unarchive="{StaticResource CommandBarItemUnarchiveTemplate}"
-            Zoom="{StaticResource CommandBarItemZoomTemplate}" />
-
         <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
         <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
         <Thickness x:Key="ExpanderHeaderBorderThickness">0,0,0,0</Thickness>
@@ -284,10 +262,7 @@
                         IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemCount), Mode=OneWay}"
                         OverflowButtonVisibility="Auto">
                         <interactivity:Interaction.Behaviors>
-                            <local:BindableCommandBarBehavior
-                                ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}"
-                                ItemTemplateSelector="{StaticResource RendererCommandBarItemTemplateSelector}"
-                                PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
+                            <local:BindableCommandBarBehavior ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}" PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
                         </interactivity:Interaction.Behaviors>
                     </CommandBar>
                 </Grid>
@@ -326,11 +301,10 @@
                         Style="{StaticResource PivotSegmentedStyle}">
                         <toolkit:Segmented.ItemTemplate>
                             <DataTemplate x:DataType="viewModelData:FolderPivotViewModel">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{x:Bind FolderTitle}" />
                                     <TextBlock
-                                        x:Name="CountTextBlock"
-                                        VerticalAlignment="Center"
+                                        Margin="4,0,0,0"
                                         FontWeight="SemiBold"
                                         Visibility="{x:Bind ShouldDisplaySelectedItemCount, Mode=OneWay}">
                                         <Run Text="(" /><Run Text="{x:Bind SelectedItemCount, Mode=OneWay}" /><Run Text=")" />
@@ -566,7 +540,6 @@
                 <controls:WinoFontIcon FontSize="80" Icon="Mail" />
 
                 <TextBlock
-                    x:Name="CountTextBlock"
                     HorizontalAlignment="Center"
                     FontSize="31"
                     Style="{StaticResource SubheaderTextBlockStyle}"
