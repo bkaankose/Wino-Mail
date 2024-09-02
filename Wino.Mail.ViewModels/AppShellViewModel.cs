@@ -403,6 +403,11 @@ namespace Wino.Mail.ViewModels
                         await ChangeLoadedAccountAsync(startupAccountMenuItem);
                     }
                 }
+                else
+                {
+                    // Fallback to welcome page if startup entity is not found.
+                    NavigationService.Navigate(WinoPage.WelcomePage);
+                }
             }
         }
 
