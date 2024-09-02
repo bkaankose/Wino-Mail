@@ -776,8 +776,8 @@ namespace Wino.Mail.ViewModels
 
                 if (!accounts.Any())
                 {
-                    var isManageAccountClicked = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_NoAccountsForCreateMailMessage,
-                                                                                                      Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                    var isManageAccountClicked = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_NoAccountsForCreateMailTitle,
+                                                                                                      Translator.DialogMessage_NoAccountsForCreateMailMessage,
                                                                                                       Translator.MenuManageAccounts,
                                                                                                       WinoCustomMessageDialogIcon.Information,
                                                                                                       string.Empty);
