@@ -170,11 +170,9 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task ForceImageLoading()
         {
-            forceImageLoading = true;
-
             if (initializedMailItemViewModel == null && initializedMimeMessageInformation == null) return;
 
-            await RenderAsync(initializedMimeMessageInformation);
+            await RenderAsync(initializedMimeMessageInformation, ignoreJunkFilter: true);
         }
 
         [RelayCommand]
@@ -395,8 +393,10 @@ namespace Wino.Mail.ViewModels
             await RenderAsync(mimeMessageInformation);
         }
 
-        private async Task RenderAsync(MimeMessageInformation mimeMessageInformation)
+        private async Task RenderAsync(MimeMessageInformation mimeMessageInformation, bool ignoreJunkFilter = false)
         {
+            forceImageLoading = ignoreJunkFilter;
+
             var message = mimeMessageInformation.MimeMessage;
             var messagePath = mimeMessageInformation.Path;
 
@@ -436,7 +436,7 @@ namespace Wino.Mail.ViewModels
                 }
 
                 // Load images if forced.
-                if (forceImageLoading)
+                if (ignoreJunkFilter)
                 {
                     renderingOptions.LoadImages = true;
                 }
