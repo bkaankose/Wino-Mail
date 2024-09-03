@@ -83,7 +83,9 @@ namespace Wino.Core.Services
                 new AppLanguageModel(AppLanguage.Polish, "Polski"),
                 new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil"),
                 new AppLanguageModel(AppLanguage.Russian, "Russian"),
-                new AppLanguageModel(AppLanguage.Spanish, "Spanish")
+                new AppLanguageModel(AppLanguage.Romanian, "Romanian"),
+                new AppLanguageModel(AppLanguage.Spanish, "Spanish"),
+                new AppLanguageModel(AppLanguage.Turkish, "Turkish")
             ];
         }
     }
