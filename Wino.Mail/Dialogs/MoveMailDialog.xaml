@@ -51,6 +51,7 @@
             x:Name="FolderTreeView"
             Grid.Row="1"
             CanDragItems="False"
+            CanReorderItems="False"
             SelectedItem="{x:Bind SelectedFolder, Mode=TwoWay}"
             ItemTemplate="{StaticResource FolderStructureMenuFlyoutItemTemplate}"
             ItemsSource="{x:Bind FolderList, Mode=OneWay}"
