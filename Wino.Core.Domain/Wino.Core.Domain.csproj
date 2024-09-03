@@ -30,6 +30,7 @@
     <None Remove="Translations\nl_NL\resources.json" />
     <None Remove="Translations\pl_PL\resources.json" />
     <None Remove="Translations\pt_BR\resources.json" />
+    <None Remove="Translations\ro_RO\resources.json" />
     <None Remove="Translations\ru_RU\resources.json" />
     <None Remove="Translations\uk_UA\resources.json" />
     <None Remove="Translations\zh_CN\resources.json" />
@@ -50,6 +51,7 @@
     <EmbeddedResource Include="Translations\nl_NL\resources.json" />
     <EmbeddedResource Include="Translations\pl_PL\resources.json" />
     <EmbeddedResource Include="Translations\pt_BR\resources.json" />
+    <EmbeddedResource Include="Translations\ro_RO\resources.json" />
     <EmbeddedResource Include="Translations\ru_RU\resources.json" />
     <EmbeddedResource Include="Translations\tr_TR\resources.json" />
     <EmbeddedResource Include="Translations\uk_UA\resources.json" />
