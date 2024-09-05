@@ -656,9 +656,9 @@ namespace Wino.Mail.ViewModels
                 clickedBaseAccountMenuItem.IsSelected = true;
 
                 latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
-
-                MenuItems.ReplaceFolders(folders);
             });
+
+            await MenuItems.ReplaceFoldersAsync(folders);
 
             await UpdateUnreadItemCountAsync();
             await MenuItems.SetAccountMenuItemEnabledStatusAsync(true);

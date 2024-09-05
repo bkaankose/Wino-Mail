@@ -151,12 +151,11 @@ namespace Wino.Core.MenuItems
             return accountMenuItem;
         }
 
-        public void ReplaceFolders(IEnumerable<IMenuItem> folders)
+        public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
         {
-            ClearFolderAreaMenuItems();
-
-            Items.Add(new SeperatorItem());
-            AddRange(folders);
+            await _dispatcher.ExecuteOnUIThread(() => ClearFolderAreaMenuItems());
+            await _dispatcher.ExecuteOnUIThread(() => Items.Add(new SeperatorItem()));
+            await _dispatcher.ExecuteOnUIThread(() => AddRange(folders, System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
         }
 
         /// <summary>
