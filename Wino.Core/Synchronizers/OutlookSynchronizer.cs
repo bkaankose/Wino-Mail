@@ -31,6 +31,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Misc;
 using Wino.Core.Requests;
 
 namespace Wino.Core.Synchronizers
@@ -689,6 +690,11 @@ namespace Wino.Core.Synchronizers
 
             var outlookMessage = mimeMessage.AsOutlookMessage(false);
 
+            // Create attachment requests.
+            // TODO: We need to support large file attachments with sessioned upload at some point.
+
+            var attachmentRequestList = CreateAttachmentUploadBundles(mimeMessage, mailCopyId, request).ToList();
+
             // Update draft.
 
             var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
@@ -696,12 +702,60 @@ namespace Wino.Core.Synchronizers
 
             // Send draft.
 
-
             var sendDraftRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
-
             var sendDraftRequestBundle = new HttpRequestBundle<RequestInformation>(sendDraftRequest, request);
 
-            return [patchDraftRequestBundle, sendDraftRequestBundle];
+            return [.. attachmentRequestList, patchDraftRequestBundle, sendDraftRequestBundle];
+        }
+
+        private IEnumerable<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId, IRequestBase sourceRequest)
+        {
+            var allAttachments = new List<OutlookFileAttachment>();
+
+            foreach (var part in mime.BodyParts)
+            {
+                var isAttachmentOrInline = part.IsAttachment ? true : part.ContentDisposition?.Disposition == "inline";
+
+                if (!isAttachmentOrInline) continue;
+
+                using var memory = new MemoryStream();
+                ((MimePart)part).Content.DecodeTo(memory);
+
+                var base64String = Convert.ToBase64String(memory.ToArray());
+
+                var attachment = new OutlookFileAttachment()
+                {
+                    Base64EncodedContentBytes = base64String,
+                    FileName = part.ContentDisposition?.FileName ?? part.ContentType.Name,
+                    ContentId = part.ContentId,
+                    ContentType = part.ContentType.MimeType,
+                    IsInline = part.ContentDisposition?.Disposition == "inline"
+                };
+
+                allAttachments.Add(attachment);
+            }
+
+            RequestInformation PrepareUploadAttachmentRequest(RequestInformation requestInformation, OutlookFileAttachment outlookFileAttachment)
+            {
+                requestInformation.Headers.Clear();
+
+                string contentJson = JsonSerializer.Serialize(outlookFileAttachment);
+
+                requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
+                requestInformation.HttpMethod = Method.POST;
+                requestInformation.Headers.Add("Content-Type", "application/json");
+
+                return requestInformation;
+            }
+
+            // Prepare attachment upload requests.
+            return allAttachments.Select(outlookAttachment =>
+            {
+                var emptyPostRequest = _graphClient.Me.Messages[mailCopyId].Attachments.ToPostRequestInformation(new Attachment());
+                var modifiedAttachmentUploadRequest = PrepareUploadAttachmentRequest(emptyPostRequest, outlookAttachment);
+
+                return new HttpRequestBundle<RequestInformation>(modifiedAttachmentUploadRequest, sourceRequest);
+            });
         }
 
         public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)

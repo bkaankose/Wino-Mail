@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -236,7 +235,6 @@ namespace Wino.Core.Synchronizers
             catch (Exception ex)
             {
                 Logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
-                Debugger.Break();
 
                 throw;
             }

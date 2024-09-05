@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Microsoft.Graph.Models;
 using MimeKit;
@@ -98,45 +97,6 @@ namespace Wino.Core.Extensions
                 message.InternetMessageHeaders = GetHeaderList(mime);
             }
 
-            foreach (var part in mime.BodyParts)
-            {
-                if (part.IsAttachment)
-                {
-                    // File attachment.
-
-                    using var memory = new MemoryStream();
-                    ((MimePart)part).Content.DecodeTo(memory);
-
-                    var bytes = memory.ToArray();
-
-                    var fileAttachment = new FileAttachment()
-                    {
-                        ContentId = part.ContentId,
-                        Name = part.ContentDisposition?.FileName ?? part.ContentType.Name,
-                        ContentBytes = bytes,
-                    };
-
-                    message.Attachments.Add(fileAttachment);
-                }
-                else if (part.ContentDisposition != null && part.ContentDisposition.Disposition == "inline")
-                {
-                    // Inline attachment.
-
-                    using var memory = new MemoryStream();
-                    ((MimePart)part).Content.DecodeTo(memory);
-
-                    var bytes = memory.ToArray();
-                    var inlineAttachment = new FileAttachment()
-                    {
-                        IsInline = true,
-                        ContentId = part.ContentId,
-                        Name = part.ContentDisposition?.FileName ?? part.ContentType.Name,
-                        ContentBytes = bytes
-                    };
-
-                    message.Attachments.Add(inlineAttachment);
-                }
-            }
 
             return message;
         }
