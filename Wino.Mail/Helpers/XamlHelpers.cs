@@ -28,21 +28,17 @@ namespace Wino.Helpers
         public static bool CountToBooleanConverter(int value) => value > 0;
         public static bool ObjectEquals(object obj1, object obj2) => object.Equals(obj1, obj2);
         public static Visibility CountToVisibilityConverter(int value) => value > 0 ? Visibility.Visible : Visibility.Collapsed;
+        public static Visibility CountToVisibilityConverterWithThreshold(int value, int threshold) => value > threshold ? Visibility.Visible : Visibility.Collapsed;
         public static InfoBarSeverity InfoBarSeverityConverter(InfoBarMessageType messageType)
         {
-            switch (messageType)
+            return messageType switch
             {
-                case InfoBarMessageType.Information:
-                    return InfoBarSeverity.Informational;
-                case InfoBarMessageType.Success:
-                    return InfoBarSeverity.Success;
-                case InfoBarMessageType.Warning:
-                    return InfoBarSeverity.Warning;
-                case InfoBarMessageType.Error:
-                    return InfoBarSeverity.Error;
-                default:
-                    return InfoBarSeverity.Informational;
-            }
+                InfoBarMessageType.Information => InfoBarSeverity.Informational,
+                InfoBarMessageType.Success => InfoBarSeverity.Success,
+                InfoBarMessageType.Warning => InfoBarSeverity.Warning,
+                InfoBarMessageType.Error => InfoBarSeverity.Error,
+                _ => InfoBarSeverity.Informational,
+            };
         }
         public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
         public static Visibility IsSelectionModeMultiple(ListViewSelectionMode mode) => mode == ListViewSelectionMode.Multiple ? Visibility.Visible : Visibility.Collapsed;
@@ -177,95 +173,59 @@ namespace Wino.Helpers
 
         public static WinoIconGlyph GetPathGeometry(FolderOperation operation)
         {
-            switch (operation)
+            return operation switch
             {
-                case FolderOperation.None:
-                    return WinoIconGlyph.None;
-                case FolderOperation.Pin:
-                    return WinoIconGlyph.Pin;
-                case FolderOperation.Unpin:
-                    return WinoIconGlyph.UnPin;
-                case FolderOperation.MarkAllAsRead:
-                    return WinoIconGlyph.MarkRead;
-                case FolderOperation.DontSync:
-                    return WinoIconGlyph.DontSync;
-                case FolderOperation.Empty:
-                    return WinoIconGlyph.EmptyFolder;
-                case FolderOperation.Rename:
-                    return WinoIconGlyph.Rename;
-                case FolderOperation.Delete:
-                    return WinoIconGlyph.Delete;
-                case FolderOperation.Move:
-                    return WinoIconGlyph.Forward;
-                case FolderOperation.TurnOffNotifications:
-                    return WinoIconGlyph.TurnOfNotifications;
-                case FolderOperation.CreateSubFolder:
-                    return WinoIconGlyph.CreateFolder;
-            }
-
-            return WinoIconGlyph.None;
+                FolderOperation.None => WinoIconGlyph.None,
+                FolderOperation.Pin => WinoIconGlyph.Pin,
+                FolderOperation.Unpin => WinoIconGlyph.UnPin,
+                FolderOperation.MarkAllAsRead => WinoIconGlyph.MarkRead,
+                FolderOperation.DontSync => WinoIconGlyph.DontSync,
+                FolderOperation.Empty => WinoIconGlyph.EmptyFolder,
+                FolderOperation.Rename => WinoIconGlyph.Rename,
+                FolderOperation.Delete => WinoIconGlyph.Delete,
+                FolderOperation.Move => WinoIconGlyph.Forward,
+                FolderOperation.TurnOffNotifications => WinoIconGlyph.TurnOfNotifications,
+                FolderOperation.CreateSubFolder => WinoIconGlyph.CreateFolder,
+                _ => WinoIconGlyph.None,
+            };
         }
 
         public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType)
         {
-            switch (specialFolderType)
+            return specialFolderType switch
             {
-                case SpecialFolderType.Inbox:
-                    return WinoIconGlyph.SpecialFolderInbox;
-                case SpecialFolderType.Starred:
-                    return WinoIconGlyph.SpecialFolderStarred;
-                case SpecialFolderType.Important:
-                    return WinoIconGlyph.SpecialFolderImportant;
-                case SpecialFolderType.Sent:
-                    return WinoIconGlyph.SpecialFolderSent;
-                case SpecialFolderType.Draft:
-                    return WinoIconGlyph.SpecialFolderDraft;
-                case SpecialFolderType.Archive:
-                    return WinoIconGlyph.SpecialFolderArchive;
-                case SpecialFolderType.Deleted:
-                    return WinoIconGlyph.SpecialFolderDeleted;
-                case SpecialFolderType.Junk:
-                    return WinoIconGlyph.SpecialFolderJunk;
-                case SpecialFolderType.Chat:
-                    return WinoIconGlyph.SpecialFolderChat;
-                case SpecialFolderType.Category:
-                    return WinoIconGlyph.SpecialFolderCategory;
-                case SpecialFolderType.Unread:
-                    return WinoIconGlyph.SpecialFolderUnread;
-                case SpecialFolderType.Forums:
-                    return WinoIconGlyph.SpecialFolderForums;
-                case SpecialFolderType.Updates:
-                    return WinoIconGlyph.SpecialFolderUpdated;
-                case SpecialFolderType.Personal:
-                    return WinoIconGlyph.SpecialFolderPersonal;
-                case SpecialFolderType.Promotions:
-                    return WinoIconGlyph.SpecialFolderPromotions;
-                case SpecialFolderType.Social:
-                    return WinoIconGlyph.SpecialFolderSocial;
-                case SpecialFolderType.Other:
-                    return WinoIconGlyph.SpecialFolderOther;
-                case SpecialFolderType.More:
-                    return WinoIconGlyph.SpecialFolderMore;
-            }
-
-            return WinoIconGlyph.None;
+                SpecialFolderType.Inbox => WinoIconGlyph.SpecialFolderInbox,
+                SpecialFolderType.Starred => WinoIconGlyph.SpecialFolderStarred,
+                SpecialFolderType.Important => WinoIconGlyph.SpecialFolderImportant,
+                SpecialFolderType.Sent => WinoIconGlyph.SpecialFolderSent,
+                SpecialFolderType.Draft => WinoIconGlyph.SpecialFolderDraft,
+                SpecialFolderType.Archive => WinoIconGlyph.SpecialFolderArchive,
+                SpecialFolderType.Deleted => WinoIconGlyph.SpecialFolderDeleted,
+                SpecialFolderType.Junk => WinoIconGlyph.SpecialFolderJunk,
+                SpecialFolderType.Chat => WinoIconGlyph.SpecialFolderChat,
+                SpecialFolderType.Category => WinoIconGlyph.SpecialFolderCategory,
+                SpecialFolderType.Unread => WinoIconGlyph.SpecialFolderUnread,
+                SpecialFolderType.Forums => WinoIconGlyph.SpecialFolderForums,
+                SpecialFolderType.Updates => WinoIconGlyph.SpecialFolderUpdated,
+                SpecialFolderType.Personal => WinoIconGlyph.SpecialFolderPersonal,
+                SpecialFolderType.Promotions => WinoIconGlyph.SpecialFolderPromotions,
+                SpecialFolderType.Social => WinoIconGlyph.SpecialFolderSocial,
+                SpecialFolderType.Other => WinoIconGlyph.SpecialFolderOther,
+                SpecialFolderType.More => WinoIconGlyph.SpecialFolderMore,
+                _ => WinoIconGlyph.None,
+            };
         }
 
         public static WinoIconGlyph GetProviderIcon(MailProviderType providerType)
         {
-            switch (providerType)
+            return providerType switch
             {
-                case MailProviderType.Outlook:
-                    return WinoIconGlyph.Microsoft;
-                case MailProviderType.Gmail:
-                    return WinoIconGlyph.Google;
-                case MailProviderType.Office365:
-                    return WinoIconGlyph.Microsoft;
-                case MailProviderType.IMAP4:
-                    return WinoIconGlyph.Mail;
-            }
-
-            return WinoIconGlyph.None;
+                MailProviderType.Outlook => WinoIconGlyph.Microsoft,
+                MailProviderType.Gmail => WinoIconGlyph.Google,
+                MailProviderType.Office365 => WinoIconGlyph.Microsoft,
+                MailProviderType.IMAP4 => WinoIconGlyph.Mail,
+                _ => WinoIconGlyph.None,
+            };
         }
 
         public static Geometry GetPathGeometry(string pathMarkup)

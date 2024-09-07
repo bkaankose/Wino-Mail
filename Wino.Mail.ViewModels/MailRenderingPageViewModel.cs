@@ -81,8 +81,6 @@ namespace Wino.Mail.ViewModels
             }
         }
 
-        public bool HasMultipleAttachments => Attachments.Count > 1;
-
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
         private bool isIndetermineProgress;
@@ -295,13 +293,13 @@ namespace Wino.Mail.ViewModels
         {
             base.OnNavigatedTo(mode, parameters);
 
-            Attachments.CollectionChanged -= AttachmentsUpdated;
-            Attachments.CollectionChanged += AttachmentsUpdated;
-
             renderCancellationTokenSource.Cancel();
 
             initializedMailItemViewModel = null;
             initializedMimeMessageInformation = null;
+
+            // Dispose existing content first.
+            Messenger.Send(new CancelRenderingContentRequested());
 
             // This page can be accessed for 2 purposes.
             // 1. Rendering a mail item when the user selects.
@@ -312,8 +310,6 @@ namespace Wino.Mail.ViewModels
 
             // Configure common rendering properties first.
             IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
-
-            await ResetPagePropertiesAsync();
 
             renderCancellationTokenSource = new CancellationTokenSource();
 
@@ -338,11 +334,6 @@ namespace Wino.Mail.ViewModels
                 Crashes.TrackError(ex);
                 Log.Error(ex, "Render Failed");
             }
-        }
-
-        private async void AttachmentsUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            await ExecuteUIThread(() => { OnPropertyChanged(nameof(HasMultipleAttachments)); });
         }
 
         private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
@@ -371,6 +362,7 @@ namespace Wino.Mail.ViewModels
 
         private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)
         {
+            ResetProgress();
             var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
 
             if (!isMimeExists)
@@ -460,8 +452,6 @@ namespace Wino.Mail.ViewModels
         {
             base.OnNavigatedFrom(mode, parameters);
 
-            Attachments.CollectionChanged -= AttachmentsUpdated;
-
             renderCancellationTokenSource.Cancel();
             CurrentDownloadPercentage = 0d;
 
@@ -469,12 +459,6 @@ namespace Wino.Mail.ViewModels
             initializedMimeMessageInformation = null;
 
             forceImageLoading = false;
-
-            ToItems.Clear();
-            CCItemsItems.Clear();
-            BCCItems.Clear();
-            Attachments.Clear();
-            MenuItems.Clear();
 
             StatePersistenceService.IsReadingMail = false;
         }
@@ -499,22 +483,6 @@ namespace Wino.Mail.ViewModels
         {
             CurrentDownloadPercentage = 0;
             IsIndetermineProgress = false;
-        }
-
-        private async Task ResetPagePropertiesAsync()
-        {
-            await ExecuteUIThread(() =>
-            {
-                ResetProgress();
-
-                ToItems.Clear();
-                CCItemsItems.Clear();
-                BCCItems.Clear();
-                Attachments.Clear();
-
-                // Dispose existing content first.
-                Messenger.Send(new CancelRenderingContentRequested());
-            });
         }
 
         private void InitializeCommandBarItems()

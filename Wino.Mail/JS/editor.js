@@ -8,7 +8,7 @@ const joditConfig = {
     "showCharsCounter": false,
     "showWordsCounter": false,
     "showXPathInStatusbar": false,
-    "disablePlugins": "add-new-line",
+    "disablePlugins": "add-new-line,backspace",
     "showPlaceholder": false,
     "uploader": {
         "insertImageAsBase64URI": true

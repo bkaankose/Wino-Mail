@@ -343,14 +343,12 @@
                         VerticalAlignment="Center"
                         Command="{x:Bind ViewModel.SaveAllAttachmentsCommand}"
                         Content="{x:Bind domain:Translator.Reader_SaveAllAttachmentButtonText}"
-                        Visibility="{x:Bind ViewModel.HasMultipleAttachments, Mode=OneWay}" />
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverterWithThreshold(ViewModel.Attachments.Count, 1), Mode=OneWay}" />
                 </Grid>
-
 
                 <muxc:InfoBar
                     x:Name="ImageLoadingDisabledMessage"
                     Grid.Row="4"
-                    Margin="0,2"
                     HorizontalContentAlignment="Stretch"
                     x:Load="{x:Bind ViewModel.IsImageRenderingDisabled, Mode=OneWay}"
                     IsOpen="True"
