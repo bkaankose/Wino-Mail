@@ -142,7 +142,7 @@
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="7">
-            <Grid Margin="8,8,8,0">
+            <Grid Margin="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -165,7 +165,7 @@
 
                     <HyperlinkButton
                         Grid.Column="1"
-                        Padding="5,2,5,2"
+                        Padding="5,1,5,1"
                         VerticalAlignment="Top"
                         Command="{x:Bind ViewModel.UnsubscribeCommand}"
                         Visibility="{x:Bind ViewModel.CanUnsubscribe, Mode=OneWay}">
@@ -235,8 +235,8 @@
                 <Grid
                     x:Name="ToFromInformationPanel"
                     Grid.Row="2"
-                    Margin="5,2,0,0"
-                    RowSpacing="6">
+                    Margin="5,0"
+                    RowSpacing="0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
