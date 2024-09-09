@@ -3,9 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
-    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
-    xmlns:controls1="using:Wino.Controls"
-    xmlns:controls2="using:CommunityToolkit.WinUI.Controls"
+    xmlns:controls="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities"
@@ -15,6 +13,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:selectors="using:Wino.Selectors"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -23,12 +22,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <!--  The Layout specifications used:  -->
-        <controls:StackLayout
-            x:Name="HorizontalStackLayout"
-            Orientation="Horizontal"
-            Spacing="8" />
-
         <DataTemplate x:Key="InternetAddressTemplate" x:DataType="entities:AccountContact">
             <HyperlinkButton
                 Margin="-2,-2"
@@ -122,9 +115,7 @@
                     ShowPaused="False"
                     Visibility="{x:Bind IsBusy, Mode=OneWay}" />
             </Grid>
-
         </DataTemplate>
-
     </Page.Resources>
 
     <!--  Attachments and WebView2  -->
@@ -200,7 +191,7 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <controls1:ImagePreviewControl
+                            <controls:ImagePreviewControl
                                 x:Name="ContactImage"
                                 Width="36"
                                 Height="36"
@@ -232,11 +223,7 @@
                     </CommandBar.Content>
                 </CommandBar>
 
-                <Grid
-                    x:Name="ToFromInformationPanel"
-                    Grid.Row="2"
-                    Margin="5,0"
-                    RowSpacing="0">
+                <Grid Grid.Row="2" Margin="5,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -262,7 +249,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <controls2:WrapPanel Orientation="Horizontal" />
+                                    <toolkit:WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -284,7 +271,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <controls2:WrapPanel Orientation="Horizontal" />
+                                    <toolkit:WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -308,7 +295,7 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <controls2:WrapPanel Orientation="Horizontal" />
+                                    <toolkit:WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -333,7 +320,7 @@
                         SelectionMode="None">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <controls2:WrapPanel Orientation="Horizontal" />
+                                <toolkit:WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ListView>
@@ -383,7 +370,7 @@
             <Grid Margin="1" CornerRadius="7">
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <controls:WebView2
+                <muxc:WebView2
                     x:Name="Chromium"
                     FontFamily="Segoe UI"
                     NavigationStarting="WebViewNavigationStarting" />
@@ -396,18 +383,6 @@
                     IsActive="{x:Bind ViewModel.ShouldDisplayDownloadProgress, Mode=OneWay}" />
             </Grid>
         </Border>
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup x:Name="AdaptiveStates">
-                <VisualState x:Name="NarrowedState">
-                    <VisualState.Setters>
-                        <Setter Target="ToFromInformationPanel.Orientation" Value="Horizontal" />
-                    </VisualState.Setters>
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="1200" />
-                    </VisualState.StateTriggers>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
     </Grid>
 
 </abstract:MailRenderingPageAbstract>
