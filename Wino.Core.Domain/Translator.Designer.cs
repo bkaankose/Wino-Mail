@@ -294,6 +294,16 @@ namespace Wino.Core.Domain
 		public static string Buttons_Send => Resources.GetTranslatedString(@"Buttons_Send");	
 	
         /// <summary>
+		/// Synchronize
+		/// </summary>
+		public static string Buttons_Sync => Resources.GetTranslatedString(@"Buttons_Sync");	
+	
+        /// <summary>
+		/// Select Multiple
+		/// </summary>
+		public static string Buttons_Multiselect => Resources.GetTranslatedString(@"Buttons_Multiselect");	
+	
+        /// <summary>
 		/// Center
 		/// </summary>
 		public static string Center => Resources.GetTranslatedString(@"Center");	

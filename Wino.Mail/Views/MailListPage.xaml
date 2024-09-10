@@ -325,7 +325,8 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Command="{x:Bind ViewModel.SyncFolderCommand}"
-                            IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}">
+                            IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync}">
                             <Button.Content>
                                 <Viewbox Width="14" Height="14">
                                     <PathIcon
@@ -343,6 +344,7 @@
                             BorderThickness="0"
                             Checked="SelectionModeToggleChecked"
                             IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}"
                             Unchecked="SelectionModeToggleUnchecked">
                             <ToggleButton.Content>
                                 <Viewbox Width="14" Height="14">
