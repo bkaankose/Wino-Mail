@@ -624,7 +624,7 @@ namespace Wino.Views
                 var selectedImportance = (MessageImportance)senderButton.Tag;
 
                 ViewModel.SelectedMessageImportance = selectedImportance;
-                (ImportanceSplitButton.Content as FontIcon).Glyph = (senderButton.Content as FontIcon).Glyph;
+                ((ImportanceSplitButton.Content as Viewbox).Child as SymbolIcon).Symbol = (senderButton.Content as SymbolIcon).Symbol;
             }
         }
 
