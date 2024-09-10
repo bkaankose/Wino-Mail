@@ -363,10 +363,9 @@
                         <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Options}">
                             <AppBarElementContainer>
                                 <muxc:ToggleSplitButton x:Name="ImportanceSplitButton" IsChecked="{x:Bind ViewModel.IsImportanceSelected, Mode=TwoWay}">
-                                    <FontIcon
-                                        FontFamily="Segoe Fluent Icons"
-                                        FontSize="16"
-                                        Glyph="&#xE8C9;" />
+                                    <Viewbox Width="16" Height="16">
+                                        <SymbolIcon x:Name="ImportanceSplitButtonContent" Symbol="Important" />
+                                    </Viewbox>
                                     <muxc:ToggleSplitButton.Flyout>
                                         <Flyout x:Name="ImportanceFlyout" Placement="Bottom">
                                             <StackPanel Orientation="Horizontal">
@@ -383,13 +382,13 @@
                                                     <Button.Tag>
                                                         <mailkit:MessageImportance>High</mailkit:MessageImportance>
                                                     </Button.Tag>
-                                                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8C9;" />
+                                                    <SymbolIcon Symbol="Important" />
                                                 </Button>
                                                 <Button Click="ImportanceClicked">
                                                     <Button.Tag>
                                                         <mailkit:MessageImportance>Low</mailkit:MessageImportance>
                                                     </Button.Tag>
-                                                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8D0;" />
+                                                    <SymbolIcon Symbol="Priority" />
                                                 </Button>
                                             </StackPanel>
                                         </Flyout>
