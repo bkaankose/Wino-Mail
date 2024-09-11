@@ -494,7 +494,12 @@ namespace Wino.Core.Synchronizers
             }
             catch (Exception)
             {
-                throw;
+                // Don't throw for profile picture.
+                // Office 365 apps require different permissions for profile picture.
+                // This permission requires admin consent.
+                // We avoid those permissions for now.
+
+                return string.Empty;
             }
         }
 
