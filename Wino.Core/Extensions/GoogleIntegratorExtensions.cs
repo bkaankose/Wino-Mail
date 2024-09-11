@@ -210,6 +210,7 @@ namespace Wino.Core.Extensions
                 IsRootAlias = a.IsDefault.GetValueOrDefault(),
                 IsPrimary = a.IsPrimary.GetValueOrDefault(),
                 ReplyToAddress = a.ReplyToAddress,
+                AliasSenderName = a.DisplayName,
                 IsVerified = a.VerificationStatus == "accepted" || a.IsDefault.GetValueOrDefault(),
             }).ToList();
         }

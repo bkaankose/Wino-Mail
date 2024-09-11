@@ -449,7 +449,11 @@ namespace Wino.Mail.ViewModels
             if (SelectedAlias == null) return;
 
             CurrentMimeMessage.From.Clear();
-            CurrentMimeMessage.From.Add(new MailboxAddress(ComposingAccount.SenderName, SelectedAlias.AliasAddress));
+
+            // Try to get the sender name from the alias. If not, fallback to account sender name.
+            var senderName = SelectedAlias.AliasSenderName ?? ComposingAccount.SenderName;
+
+            CurrentMimeMessage.From.Add(new MailboxAddress(senderName, SelectedAlias.AliasAddress));
         }
 
         private void SaveReplyToAddress()
