@@ -64,6 +64,12 @@ namespace Wino.Server.MessageHandlers
 
                 var isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
 
+                // Update badge count of the notification task.
+                if (isSynchronizationSucceeded)
+                {
+                    await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
+                }
+
                 if (shouldReportSynchronizationResult)
                 {
                     var completedMessage = new AccountSynchronizationCompleted(message.Options.AccountId,
