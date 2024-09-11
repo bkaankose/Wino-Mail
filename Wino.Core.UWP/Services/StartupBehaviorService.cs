@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Serilog;
 using Windows.ApplicationModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,15 +14,23 @@ namespace Wino.Core.UWP.Services
 
         public async Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled)
         {
-            var task = await StartupTask.GetAsync(WinoServerTaskId);
+            try
+            {
+                var task = await StartupTask.GetAsync(WinoServerTaskId);
 
-            if (isEnabled)
-            {
-                await task.RequestEnableAsync();
+                if (isEnabled)
+                {
+                    await task.RequestEnableAsync();
+                }
+                else
+                {
+                    task.Disable();
+                }
             }
-            else
+            catch (Exception)
             {
-                task.Disable();
+                Log.Error("Error toggling startup behavior");
+
             }
 
             return await GetCurrentStartupBehaviorAsync();
@@ -29,9 +38,19 @@ namespace Wino.Core.UWP.Services
 
         public async Task<StartupBehaviorResult> GetCurrentStartupBehaviorAsync()
         {
-            var task = await StartupTask.GetAsync(WinoServerTaskId);
+            try
+            {
+                var task = await StartupTask.GetAsync(WinoServerTaskId);
 
-            return task.State.AsStartupBehaviorResult();
+                return task.State.AsStartupBehaviorResult();
+
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error getting startup behavior");
+
+                return StartupBehaviorResult.Fatal;
+            }
         }
     }
 }
