@@ -412,7 +412,8 @@ namespace Wino.Core.Services
                         IsVerified = remoteAlias.IsVerified,
                         ReplyToAddress = remoteAlias.ReplyToAddress,
                         Id = Guid.NewGuid(),
-                        IsRootAlias = remoteAlias.IsRootAlias
+                        IsRootAlias = remoteAlias.IsRootAlias,
+                        AliasSenderName = remoteAlias.AliasSenderName
                     };
 
                     await Connection.InsertAsync(newAlias);
@@ -424,6 +425,7 @@ namespace Wino.Core.Services
                     existingAlias.IsPrimary = remoteAlias.IsPrimary;
                     existingAlias.IsVerified = remoteAlias.IsVerified;
                     existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
+                    existingAlias.AliasSenderName = remoteAlias.AliasSenderName;
 
                     await Connection.UpdateAsync(existingAlias);
                 }

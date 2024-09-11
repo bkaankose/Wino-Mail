@@ -33,6 +33,13 @@ namespace Wino.Core.Domain.Entities
         /// It can't be deleted or changed.
         /// </summary>
         public bool IsRootAlias { get; set; }
+
+        /// <summary>
+        /// Optional sender name for the alias.
+        /// Falls back to account's sender name if not set when preparing messages.
+        /// Used for Gmail only.
+        /// </summary>
+        public string AliasSenderName { get; set; }
     }
 
     public class MailAccountAlias : RemoteAccountAlias
