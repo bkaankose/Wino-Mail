@@ -319,8 +319,33 @@ namespace Wino.Core.Synchronizers
             return true;
         }
 
+        /// <summary>
+        /// Somehow, Graph API returns Message type item for items like TodoTask, EventMessage and Contact.
+        /// Basically deleted item retention items are stored as Message object in Deleted Items folder.
+        /// Suprisingly, odatatype will also be the same as Message.
+        /// In order to differentiate them from regular messages, we need to check the addresses in the message.
+        /// </summary>
+        /// <param name="item">Retrieved message.</param>
+        /// <returns>Whether the item is non-Message type or not.</returns>
+        private bool IsNotRealMessageType(Message item)
+            => item is EventMessage || item.From?.EmailAddress == null;
+
         private async Task<bool> HandleItemRetrievedAsync(Message item, MailItemFolder folder, IList<string> downloadedMessageIds, CancellationToken cancellationToken = default)
         {
+            if (IsNotRealMessageType(item))
+            {
+                if (item is EventMessage eventMessage)
+                {
+                    Log.Warning("Recieved event message. This is not supported yet. {Id}", eventMessage.Id);
+                }
+                else
+                {
+                    Log.Warning("Recieved either contact or todo item as message This is not supported yet. {Id}", item.Id);
+                }
+
+                return true;
+            }
+
             if (IsResourceDeleted(item.AdditionalData))
             {
                 // Deleting item with this override instead of the other one that deletes all mail copies.
