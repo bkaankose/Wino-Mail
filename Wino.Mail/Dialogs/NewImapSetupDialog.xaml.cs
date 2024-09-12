@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml.Controls;
@@ -37,7 +38,7 @@ namespace Wino.Dialogs
         // Not used for now.
         public AccountCreationDialogState State { get; set; }
 
-        public void Complete()
+        public void Complete(bool cancel)
         {
             if (!_getServerInfoTaskCompletionSource.Task.IsCompleted)
                 _getServerInfoTaskCompletionSource.TrySetResult(null);
@@ -76,7 +77,8 @@ namespace Wino.Dialogs
 
         public void Receive(ImapSetupDismissRequested message) => _getServerInfoTaskCompletionSource.TrySetResult(message.CompletedServerInformation);
 
-        public void ShowDialog() => _ = ShowAsync();
+        public void ShowDialog(CancellationTokenSource cancellationTokenSource)
+            => _ = ShowAsync();
 
         public void ShowPreparingFolders()
         {
