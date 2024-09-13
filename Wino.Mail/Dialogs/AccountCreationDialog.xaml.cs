@@ -1,7 +1,4 @@
-﻿using Wino.Core.Domain.Enums;
-using Wino.Helpers;
-
-namespace Wino.Dialogs
+﻿namespace Wino.Dialogs
 {
     public sealed partial class AccountCreationDialog : BaseAccountCreationDialog
     {
@@ -10,24 +7,9 @@ namespace Wino.Dialogs
             InitializeComponent();
         }
 
-        public override void UpdateState()
+        private void CancelClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            switch (State)
-            {
-                case AccountCreationDialogState.SigningIn:
-                    StatusText.Text = "Account information is being saved.";
-                    DialogIcon.Data = XamlHelpers.GetPathIcon("SavingAccountPathIcon");
-                    break;
-                case AccountCreationDialogState.PreparingFolders:
-                    StatusText.Text = "We are getting folder information at the moment.";
-                    DialogIcon.Data = XamlHelpers.GetPathIcon("PreparingFoldersPathIcon");
-                    break;
-                case AccountCreationDialogState.Completed:
-                    StatusText.Text = "All done.";
-                    break;
-                default:
-                    break;
-            }
+            Complete(true);
         }
     }
 }

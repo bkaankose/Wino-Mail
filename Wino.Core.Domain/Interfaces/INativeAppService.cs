@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Authorization;
 
@@ -10,14 +11,14 @@ namespace Wino.Core.Domain.Interfaces
         Task<string> GetMimeMessageStoragePath();
         Task<string> GetEditorBundlePathAsync();
         Task LaunchFileAsync(string filePath);
-        Task LaunchUriAsync(Uri uri);
+        Task<bool> LaunchUriAsync(Uri uri);
 
         /// <summary>
         /// Launches the default browser with the specified uri and waits for protocol activation to finish.
         /// </summary>
         /// <param name="authenticator"></param>
         /// <returns>Response callback from the browser.</returns>
-        Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri);
+        Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Finalizes GetAuthorizationResponseUriAsync for current IAuthenticator.

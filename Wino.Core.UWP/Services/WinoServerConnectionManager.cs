@@ -275,10 +275,12 @@ namespace Wino.Core.UWP.Services
             queueResponse.ThrowIfFailed();
         }
 
-        public Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType message) where TRequestType : IClientMessage
-            => GetResponseInternalAsync<TResponse, TRequestType>(message);
+        public Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType message, CancellationToken cancellationToken = default) where TRequestType : IClientMessage
+            => GetResponseInternalAsync<TResponse, TRequestType>(message, cancellationToken: cancellationToken);
 
-        private async Task<WinoServerResponse<TResponse>> GetResponseInternalAsync<TResponse, TRequestType>(TRequestType message, Dictionary<string, object> parameters = null)
+        private async Task<WinoServerResponse<TResponse>> GetResponseInternalAsync<TResponse, TRequestType>(TRequestType message,
+                                                                                                            Dictionary<string, object> parameters = null,
+                                                                                                            CancellationToken cancellationToken = default)
         {
             if (Status != WinoServerConnectionStatus.Connected)
                 await ConnectAsync();
@@ -315,7 +317,11 @@ namespace Wino.Core.UWP.Services
                     }
                 }
 
-                response = await Connection.SendMessageAsync(valueSet);
+                response = await Connection.SendMessageAsync(valueSet).AsTask(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return WinoServerResponse<TResponse>.CreateErrorResponse($"Request is canceled by client.");
             }
             catch (Exception serverSendException)
             {

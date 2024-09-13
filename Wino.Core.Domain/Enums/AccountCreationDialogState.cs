@@ -10,6 +10,7 @@
         TestingConnection,
         AutoDiscoverySetup,
         AutoDiscoveryInProgress,
-        FetchingProfileInformation
+        FetchingProfileInformation,
+        Canceled
     }
 }
