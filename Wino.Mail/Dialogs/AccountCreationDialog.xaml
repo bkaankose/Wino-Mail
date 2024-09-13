@@ -8,6 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     x:Name="Root"
+    Closing="DialogClosing"
     CornerRadius="8"
     mc:Ignorable="d">
     <Grid x:Name="RootGrid" RowSpacing="10">
@@ -32,14 +33,53 @@
             TextWrapping="Wrap" />
 
         <Button
+            x:Name="AuthHelpDialogButton"
+            Grid.Row="0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="Collapsed">
+            <Button.Content>
+                <PathIcon Data="F1 M 13.75 6.171875 C 13.75 5.664063 13.649088 5.187176 13.447266 4.741211 C 13.245442 4.295248 12.973633 3.90625 12.631836 3.574219 C 12.290039 3.242188 11.891275 2.980145 11.435547 2.788086 C 10.979817 2.596029 10.501302 2.5 10 2.5 C 9.479166 2.5 8.990885 2.597656 8.535156 2.792969 C 8.079427 2.988281 7.682291 3.255209 7.34375 3.59375 C 7.005208 3.932293 6.738281 4.329428 6.542969 4.785156 C 6.347656 5.240887 6.25 5.729168 6.25 6.25 C 6.25 6.419271 6.188151 6.565756 6.064453 6.689453 C 5.940755 6.813152 5.794271 6.875001 5.625 6.875 C 5.416667 6.875001 5.260417 6.801759 5.15625 6.655273 C 5.052083 6.50879 5 6.341146 5 6.152344 C 5 5.475261 5.135091 4.838867 5.405273 4.243164 C 5.675456 3.647461 6.040039 3.128256 6.499023 2.685547 C 6.958008 2.24284 7.488606 1.892904 8.09082 1.635742 C 8.693033 1.378582 9.329427 1.25 10 1.25 C 10.670572 1.25 11.306966 1.378582 11.90918 1.635742 C 12.511393 1.892904 13.041992 2.24284 13.500977 2.685547 C 13.959961 3.128256 14.324544 3.647461 14.594727 4.243164 C 14.864908 4.838867 14.999999 5.475261 15 6.152344 C 14.999999 6.679688 14.94466 7.1403 14.833984 7.53418 C 14.723307 7.928061 14.563802 8.287761 14.355469 8.613281 C 14.147135 8.938803 13.894856 9.248047 13.598633 9.541016 C 13.302408 9.833984 12.968749 10.146484 12.597656 10.478516 C 12.408854 10.647787 12.223307 10.812175 12.041016 10.97168 C 11.858724 11.131186 11.682942 11.302084 11.513672 11.484375 C 11.298828 11.71875 11.132812 11.944987 11.015625 12.163086 C 10.898438 12.381186 10.810547 12.602539 10.751953 12.827148 C 10.693359 13.051758 10.657552 13.291016 10.644531 13.544922 C 10.63151 13.798828 10.625 14.075521 10.625 14.375 C 10.625 14.544271 10.56315 14.690756 10.439453 14.814453 C 10.315755 14.938151 10.169271 15 10 15 C 9.856771 15 9.744466 14.973959 9.663086 14.921875 C 9.581705 14.869792 9.519856 14.799805 9.477539 14.711914 C 9.435221 14.624023 9.407552 14.52474 9.394531 14.414062 C 9.38151 14.303386 9.375 14.192709 9.375 14.082031 L 9.375 13.75 C 9.375 13.235678 9.436849 12.781576 9.560547 12.387695 C 9.684244 11.993815 9.848633 11.638998 10.053711 11.323242 C 10.258789 11.007487 10.493164 10.721029 10.756836 10.463867 C 11.020508 10.206706 11.289062 9.959311 11.5625 9.72168 C 11.835938 9.48405 12.102864 9.248047 12.363281 9.013672 C 12.623697 8.779297 12.856445 8.523764 13.061523 8.24707 C 13.266602 7.970378 13.432617 7.664389 13.55957 7.329102 C 13.686523 6.993815 13.75 6.608073 13.75 6.171875 Z M 9.0625 17.8125 C 9.0625 17.552084 9.153646 17.330729 9.335938 17.148438 C 9.518229 16.966146 9.739583 16.875 10 16.875 C 10.260416 16.875 10.481771 16.966146 10.664062 17.148438 C 10.846354 17.330729 10.9375 17.552084 10.9375 17.8125 C 10.9375 18.072916 10.846354 18.294271 10.664062 18.476562 C 10.481771 18.658854 10.260416 18.75 10 18.75 C 9.739583 18.75 9.518229 18.658854 9.335938 18.476562 C 9.153646 18.294271 9.0625 18.072916 9.0625 17.8125 Z " />
+            </Button.Content>
+            <Button.Flyout>
+                <Flyout Placement="Bottom">
+                    <Grid MaxWidth="400">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Foreground="Yellow" TextWrapping="WrapWholeWords">
+                            <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row0}" />
+                            <LineBreak />
+                            <LineBreak />
+                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row1}" />
+                            <LineBreak />
+                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row2}" />
+                            <LineBreak />
+                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row3}" />
+                        </TextBlock>
+
+                        <Button
+                            x:Name="CopyClipboard"
+                            Grid.Row="1"
+                            HorizontalAlignment="Center"
+                            Click="CopyClicked"
+                            Content="{x:Bind domain:Translator.Buttons_Copy}" />
+                    </Grid>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+
+        <Button
             x:Name="CancelButton"
             Grid.Row="3"
             HorizontalAlignment="Center"
-            Click="CancelClicked"
             VerticalAlignment="Bottom"
+            Click="CancelClicked"
             Content="{x:Bind domain:Translator.Buttons_Cancel}" />
-
     </Grid>
+
     <VisualStateManager.VisualStateGroups>
         <VisualStateGroup x:Name="DialogStates">
             <VisualState x:Name="PreparingFolders">

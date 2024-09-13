@@ -156,7 +156,9 @@ namespace Wino.Services
             await taskbarManager.RequestPinCurrentAppAsync();
         }
 
-        public async Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri, CancellationToken cancellationToken = default)
+        public async Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator,
+                                                                string authorizationUri,
+                                                                CancellationToken cancellationToken = default)
         {
             if (authorizationCompletedTaskSource != null)
             {

@@ -19,7 +19,7 @@ namespace Wino.Dialogs
         public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(AccountCreationDialogState), typeof(BaseAccountCreationDialog), new PropertyMetadata(AccountCreationDialogState.Idle));
 
         // Prevent users from dismissing it by ESC key.
-        private void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+        public void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
         {
             if (args.Result == ContentDialogResult.None)
             {
