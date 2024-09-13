@@ -187,7 +187,18 @@ namespace Wino
             // We must restore it.
             // Server might be running already, but re-launching it will trigger a new connection attempt.
 
-            await _appServiceConnectionManager.ConnectAsync();
+            try
+            {
+                await _appServiceConnectionManager.ConnectAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to connect to server after resuming the app.");
+            }
         }
 
         private void OnSuspending(object sender, SuspendingEventArgs e)
