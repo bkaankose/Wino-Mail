@@ -166,15 +166,7 @@ namespace Wino.Services
 
             authorizationCompletedTaskSource = new TaskCompletionSource<Uri>();
 
-            var options = new LauncherOptions()
-            {
-                DisplayApplicationPicker = true,
-                DesiredRemainingView = Windows.UI.ViewManagement.ViewSizePreference.UseHalf,
-                LimitPickerToCurrentAppAndAppUriHandlers = true,
-                IgnoreAppUriHandlers = false,
-            };
-
-            bool isLaunched = await Launcher.LaunchUriAsync(new Uri(authorizationUri), options).AsTask();
+            bool isLaunched = await Launcher.LaunchUriAsync(new Uri(authorizationUri)).AsTask(cancellationToken);
 
             if (!isLaunched)
                 throw new WinoServerException("Failed to launch Google Authentication dialog.");
