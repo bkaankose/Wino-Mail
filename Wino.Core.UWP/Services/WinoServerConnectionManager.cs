@@ -18,6 +18,7 @@ using Wino.Core.Integration.Json;
 using Wino.Messaging;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Enums;
+using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services
@@ -252,6 +253,9 @@ namespace Wino.Core.UWP.Services
                     break;
                 case nameof(AccountFolderConfigurationUpdated):
                     WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountFolderConfigurationUpdated>(messageJson));
+                    break;
+                case nameof(CopyAuthURLRequested):
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<CopyAuthURLRequested>(messageJson));
                     break;
                 default:
                     throw new Exception("Invalid data type name passed to client.");

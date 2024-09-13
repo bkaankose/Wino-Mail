@@ -21,9 +21,20 @@ namespace Wino.Server.MessageHandlers
             _authenticationProvider = authenticationProvider;
         }
 
-        protected override async Task<WinoServerResponse<TokenInformation>> HandleAsync(AuthorizationRequested message, CancellationToken cancellationToken = default)
+        protected override async Task<WinoServerResponse<TokenInformation>> HandleAsync(AuthorizationRequested message,
+                                                                                        CancellationToken cancellationToken = default)
         {
             var authenticator = _authenticationProvider.GetAuthenticator(message.MailProviderType);
+
+            // Some users are having issues with Gmail authentication.
+            // Their browsers may never launch to complete authentication.
+            // Offer to copy auth url for them to complete it manually.
+            // Redirection will occur to the app and the token will be saved.
+
+            if (message.ProposeCopyAuthorizationURL && authenticator is IGmailAuthenticator gmailAuthenticator)
+            {
+                gmailAuthenticator.ProposeCopyAuthURL = true;
+            }
 
             // Do not save the token here. Call is coming from account creation and things are atomic there.
             var generatedToken = await authenticator.GenerateTokenAsync(message.CreatedAccount, saveToken: false);

@@ -8,6 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     x:Name="Root"
+    Closing="DialogClosing"
     CornerRadius="8"
     mc:Ignorable="d">
     <Grid x:Name="RootGrid" RowSpacing="10">
@@ -32,14 +33,55 @@
             TextWrapping="Wrap" />
 
         <Button
+            x:Name="AuthHelpDialogButton"
+            Grid.Row="0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="Collapsed">
+            <Button.Content>
+                <Viewbox Width="20">
+                    <PathIcon Data="M960 4q132 0 254 34t228 96 194 150 149 193 97 229 34 254q0 132-34 254t-96 228-150 194-193 149-229 97-254 34q-132 0-254-34t-228-96-194-150-149-193-97-229T4 960q0-132 34-254t96-228 150-194 193-149 229-97T960 4zm0 1792q115 0 222-30t200-84 169-131 130-169 85-200 30-222q0-115-30-222t-84-200-131-169-169-130-200-85-222-30q-115 0-222 30t-200 84-169 131-130 169-85 200-30 222q0 115 30 222t84 200 131 169 169 130 200 85 222 30zm-64-388h128v128H896v-128zm64-960q66 0 124 25t101 69 69 102 26 124q0 60-19 104t-47 81-62 65-61 59-48 63-19 76v64H896v-64q0-60 19-104t47-81 62-65 61-59 48-63 19-76q0-40-15-75t-41-61-61-41-75-15q-40 0-75 15t-61 41-41 61-15 75H640q0-66 25-124t68-101 102-69 125-26z" />
+                </Viewbox>
+            </Button.Content>
+            <Button.Flyout>
+                <Flyout Placement="Bottom">
+                    <Grid MaxWidth="400" RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Foreground="Yellow" TextWrapping="WrapWholeWords">
+                            <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row0}" />
+                            <LineBreak />
+                            <LineBreak />
+                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row1}" />
+                            <LineBreak />
+                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row2}" />
+                            <LineBreak />
+                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row3}" />
+                        </TextBlock>
+
+                        <Button
+                            x:Name="CopyClipboard"
+                            Grid.Row="1"
+                            HorizontalAlignment="Center"
+                            Click="CopyClicked"
+                            Content="{x:Bind domain:Translator.Buttons_Copy}" />
+                    </Grid>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+
+        <Button
             x:Name="CancelButton"
             Grid.Row="3"
             HorizontalAlignment="Center"
-            Click="CancelClicked"
             VerticalAlignment="Bottom"
+            Click="CancelClicked"
             Content="{x:Bind domain:Translator.Buttons_Cancel}" />
-
     </Grid>
+
     <VisualStateManager.VisualStateGroups>
         <VisualStateGroup x:Name="DialogStates">
             <VisualState x:Name="PreparingFolders">

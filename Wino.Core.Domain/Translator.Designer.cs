@@ -44,6 +44,26 @@ namespace Wino.Core.Domain
 		public static string AccountCreationDialog_FetchingProfileInformation => Resources.GetTranslatedString(@"AccountCreationDialog_FetchingProfileInformation");	
 	
         /// <summary>
+		/// If your browser did not launch automatically to complete authentication:
+		/// </summary>
+		public static string AccountCreationDialog_GoogleAuthHelpClipboardText_Row0 => Resources.GetTranslatedString(@"AccountCreationDialog_GoogleAuthHelpClipboardText_Row0");	
+	
+        /// <summary>
+		/// 1) Click the button below to copy the authentication address
+		/// </summary>
+		public static string AccountCreationDialog_GoogleAuthHelpClipboardText_Row1 => Resources.GetTranslatedString(@"AccountCreationDialog_GoogleAuthHelpClipboardText_Row1");	
+	
+        /// <summary>
+		/// 2) Launch your web browser (Edge, Chrome, Firefox etc...)
+		/// </summary>
+		public static string AccountCreationDialog_GoogleAuthHelpClipboardText_Row2 => Resources.GetTranslatedString(@"AccountCreationDialog_GoogleAuthHelpClipboardText_Row2");	
+	
+        /// <summary>
+		/// 3) Paste the copied address and go to the website to complete authentication manually.
+		/// </summary>
+		public static string AccountCreationDialog_GoogleAuthHelpClipboardText_Row3 => Resources.GetTranslatedString(@"AccountCreationDialog_GoogleAuthHelpClipboardText_Row3");	
+	
+        /// <summary>
 		/// Account Name
 		/// </summary>
 		public static string AccountEditDialog_Message => Resources.GetTranslatedString(@"AccountEditDialog_Message");	

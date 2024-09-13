@@ -7,5 +7,5 @@ namespace Wino.Messaging.Server
     /// <summary>
     /// For delegating authentication/authorization to the server app.
     /// </summary>
-    public record AuthorizationRequested(MailProviderType MailProviderType, MailAccount CreatedAccount) : IClientMessage;
+    public record AuthorizationRequested(MailProviderType MailProviderType, MailAccount CreatedAccount, bool ProposeCopyAuthorizationURL) : IClientMessage;
 }

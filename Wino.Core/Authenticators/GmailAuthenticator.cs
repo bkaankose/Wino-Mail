@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
@@ -11,6 +12,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Services;
+using Wino.Messaging.Server;
 
 namespace Wino.Core.Authenticators
 {
@@ -23,6 +25,8 @@ namespace Wino.Core.Authenticators
         private const string UserInfoEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
 
         public override MailProviderType ProviderType => MailProviderType.Gmail;
+
+        public bool ProposeCopyAuthURL { get; set; }
 
         private readonly INativeAppService _nativeAppService;
 
@@ -120,6 +124,11 @@ namespace Wino.Core.Authenticators
             var authorizationUri = authRequest.BuildRequest(ClientId);
 
             Uri responseRedirectUri = null;
+
+            if (ProposeCopyAuthURL)
+            {
+                WeakReferenceMessenger.Default.Send(new CopyAuthURLRequested(authorizationUri));
+            }
 
             try
             {

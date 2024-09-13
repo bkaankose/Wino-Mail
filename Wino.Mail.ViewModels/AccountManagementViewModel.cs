@@ -196,7 +196,8 @@ namespace Wino.Mail.ViewModels
 
                         var tokenInformationResponse = await _winoServerConnectionManager
                             .GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
-                                                                                                                   createdAccount), accountCreationCancellationTokenSource.Token);
+                                                                                                                   createdAccount,
+                                                                                                                   createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
 
                         if (creationDialog.State == AccountCreationDialogState.Canceled)
                             throw new AccountSetupCanceledException();

@@ -42,7 +42,8 @@ namespace Wino.Server
         IRecipient<RefreshUnreadCountsMessage>,
         IRecipient<ServerTerminationModeChanged>,
         IRecipient<AccountSynchronizationProgressUpdatedMessage>,
-        IRecipient<AccountFolderConfigurationUpdated>
+        IRecipient<AccountFolderConfigurationUpdated>,
+        IRecipient<CopyAuthURLRequested>
     {
         private readonly System.Timers.Timer _timer;
         private static object connectionLock = new object();
@@ -138,6 +139,8 @@ namespace Wino.Server
         public async void Receive(AccountSynchronizationProgressUpdatedMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         public async void Receive(AccountFolderConfigurationUpdated message) => await SendMessageAsync(MessageType.UIMessage, message);
+
+        public async void Receive(CopyAuthURLRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
 
