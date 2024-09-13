@@ -123,7 +123,6 @@ namespace Wino.Core.Authenticators
 
             try
             {
-                //await _authorizationCompletionSource.Task.WaitAsync(_authorizationCancellationTokenSource.Token);
                 responseRedirectUri = await _nativeAppService.GetAuthorizationResponseUriAsync(this, authorizationUri);
             }
             catch (Exception)

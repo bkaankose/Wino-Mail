@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Server;
@@ -41,7 +42,7 @@ namespace Wino.Core.Domain.Interfaces
         /// <typeparam name="TRequestType">Request type.</typeparam>
         /// <param name="clientMessage">Request type.</param>
         /// <returns>Response received from the server for the given TResponse type.</returns>
-        Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType clientMessage) where TRequestType : IClientMessage;
+        Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType clientMessage, CancellationToken cancellationToken = default) where TRequestType : IClientMessage;
 
         /// <summary>
         /// Handle for connecting to the server.

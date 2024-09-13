@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Nito.AsyncEx;
 using Windows.ApplicationModel;
 using Windows.Foundation.Metadata;
 using Windows.Security.Authentication.Web;
@@ -9,10 +11,10 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Shell;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
-using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain;
 
 
 
@@ -126,7 +128,7 @@ namespace Wino.Services
             await Launcher.LaunchFileAsync(file);
         }
 
-        public Task LaunchUriAsync(Uri uri) => Launcher.LaunchUriAsync(uri).AsTask();
+        public Task<bool> LaunchUriAsync(Uri uri) => Launcher.LaunchUriAsync(uri).AsTask();
 
         public string GetFullAppVersion()
         {
@@ -154,7 +156,7 @@ namespace Wino.Services
             await taskbarManager.RequestPinCurrentAppAsync();
         }
 
-        public async Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri)
+        public async Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator, string authorizationUri, CancellationToken cancellationToken = default)
         {
             if (authorizationCompletedTaskSource != null)
             {
@@ -164,9 +166,12 @@ namespace Wino.Services
 
             authorizationCompletedTaskSource = new TaskCompletionSource<Uri>();
 
-            await LaunchUriAsync(new Uri(authorizationUri));
+            bool isLaunched = await Launcher.LaunchUriAsync(new Uri(authorizationUri)).AsTask(cancellationToken);
 
-            return await authorizationCompletedTaskSource.Task;
+            if (!isLaunched)
+                throw new WinoServerException("Failed to launch Google Authentication dialog.");
+
+            return await authorizationCompletedTaskSource.Task.WaitAsync(cancellationToken);
         }
 
         public void ContinueAuthorization(Uri authorizationResponseUri)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -150,6 +151,8 @@ namespace Wino.Mail.ViewModels
                 // Select provider.
                 var accountCreationDialogResult = await _dialogService.ShowNewAccountMailProviderDialogAsync(providers);
 
+                var accountCreationCancellationTokenSource = new CancellationTokenSource();
+
                 if (accountCreationDialogResult != null)
                 {
                     creationDialog = _dialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
@@ -164,7 +167,7 @@ namespace Wino.Mail.ViewModels
                         Id = Guid.NewGuid()
                     };
 
-                    creationDialog.ShowDialog();
+                    creationDialog.ShowDialog(accountCreationCancellationTokenSource);
                     creationDialog.State = AccountCreationDialogState.SigningIn;
 
                     TokenInformation tokenInformation = null;
@@ -191,11 +194,14 @@ namespace Wino.Mail.ViewModels
                     {
                         // For OAuth authentications, we just generate token and assign it to the MailAccount.
 
-                        var tokenInformationResponse = await _winoServerConnectionManager.GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType, createdAccount));
+                        var tokenInformationResponse = await _winoServerConnectionManager
+                            .GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
+                                                                                                                   createdAccount), accountCreationCancellationTokenSource.Token);
+
+                        if (creationDialog.State == AccountCreationDialogState.Canceled)
+                            throw new AccountSetupCanceledException();
 
                         tokenInformationResponse.ThrowIfFailed();
-
-                        // ?? throw new AuthenticationException(Translator.Exception_TokenInfoRetrivalFailed);
 
                         tokenInformation = tokenInformationResponse.Data;
                         createdAccount.Address = tokenInformation.Address;
@@ -294,6 +300,10 @@ namespace Wino.Mail.ViewModels
             {
                 // Ignore
             }
+            catch (Exception ex) when (ex.Message.Contains(nameof(AccountSetupCanceledException)))
+            {
+                // Ignore
+            }
             catch (Exception ex)
             {
                 Log.Error(ex, WinoErrors.AccountCreation);
@@ -309,7 +319,7 @@ namespace Wino.Mail.ViewModels
             }
             finally
             {
-                creationDialog?.Complete();
+                creationDialog?.Complete(false);
             }
         }
 

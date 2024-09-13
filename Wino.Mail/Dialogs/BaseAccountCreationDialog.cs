@@ -1,4 +1,5 @@
-﻿using Windows.UI.Xaml;
+﻿using System.Threading;
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,7 +14,9 @@ namespace Wino.Dialogs
             set { SetValue(StateProperty, value); }
         }
 
-        public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(AccountCreationDialogState), typeof(BaseAccountCreationDialog), new PropertyMetadata(AccountCreationDialogState.Idle, OnStateChanged));
+        public CancellationTokenSource CancellationTokenSource { get; private set; }
+
+        public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(AccountCreationDialogState), typeof(BaseAccountCreationDialog), new PropertyMetadata(AccountCreationDialogState.Idle));
 
         // Prevent users from dismissing it by ESC key.
         private void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
@@ -24,29 +27,26 @@ namespace Wino.Dialogs
             }
         }
 
-        public void ShowDialog()
+        public void ShowDialog(CancellationTokenSource cancellationTokenSource)
         {
+            CancellationTokenSource = cancellationTokenSource;
+
             _ = ShowAsync();
         }
 
-        public void Complete()
+        public void Complete(bool cancel)
         {
-            State = AccountCreationDialogState.Completed;
+            State = cancel ? AccountCreationDialogState.Canceled : AccountCreationDialogState.Completed;
 
             // Unregister from closing event.
             Closing -= DialogClosing;
 
+            if (cancel && !CancellationTokenSource.IsCancellationRequested)
+            {
+                CancellationTokenSource.Cancel();
+            }
+
             Hide();
         }
-
-        private static void OnStateChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-        {
-            if (obj is BaseAccountCreationDialog dialog)
-            {
-                dialog.UpdateState();
-            }
-        }
-
-        public abstract void UpdateState();
     }
 }
