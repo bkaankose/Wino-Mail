@@ -114,67 +114,62 @@ namespace Wino
             var deferral = e.GetDeferral();
 
             // Wino should notify user on app close if:
-            // 1. User has at least 1 registered account.
-            // 2. Startup behavior is not Enabled.
-            // 3. Server terminate behavior is set to Terminate.
+            // 1. Startup behavior is not Enabled.
+            // 2. Server terminate behavior is set to Terminate.
 
-            var accountService = Services.GetService<IAccountService>();
+            // User has some accounts. Check if Wino Server runs on system startup.
 
-            var accounts = await accountService.GetAccountsAsync();
+            var dialogService = Services.GetService<IDialogService>();
+            var startupBehaviorService = Services.GetService<IStartupBehaviorService>();
+            var preferencesService = Services.GetService<IPreferencesService>();
 
-            if (accounts.Count > 0)
+            var currentStartupBehavior = await startupBehaviorService.GetCurrentStartupBehaviorAsync();
+
+            bool? isGoToAppPreferencesRequested = null;
+
+            if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
             {
-                // User has some accounts. Check if Wino Server runs on system startup.
+                // Starting the server is fine, but check if server termination behavior is set to terminate.
+                // This state will kill the server once the app is terminated.
 
-                var dialogService = Services.GetService<IDialogService>();
-                var startupBehaviorService = Services.GetService<IStartupBehaviorService>();
-                var preferencesService = Services.GetService<IPreferencesService>();
+                isGoToAppPreferencesRequested = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                                                                 $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
+                                                                 Translator.Buttons_Yes,
+                                                                 WinoCustomMessageDialogIcon.Warning,
+                                                                 Translator.Buttons_No,
+                                                                 "DontAskTerminateServerBehavior");
+            }
 
-                var currentStartupBehavior = await startupBehaviorService.GetCurrentStartupBehaviorAsync();
+            if (isGoToAppPreferencesRequested == null && currentStartupBehavior != StartupBehaviorResult.Enabled)
+            {
+                // Startup behavior is not enabled.
 
-                bool? isGoToAppPreferencesRequested = null;
+                isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                                                                 $"{Translator.AppCloseStartupLaunchDisabledWarningMessageFirstLine}\n{Translator.AppCloseStartupLaunchDisabledWarningMessageSecondLine}\n\n{Translator.AppCloseStartupLaunchDisabledWarningMessageThirdLine}",
+                                                                 Translator.Buttons_Yes,
+                                                                 WinoCustomMessageDialogIcon.Warning,
+                                                                 Translator.Buttons_No,
+                                                                 "DontAskDisabledStartup");
+            }
 
-                if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
+            if (isGoToAppPreferencesRequested == true)
+            {
+                WeakReferenceMessenger.Default.Send(new NavigateAppPreferencesRequested());
+                e.Handled = true;
+            }
+            else if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
+            {
+                try
                 {
-                    // Starting the server is fine, but check if server termination behavior is set to terminate.
-                    // This state will kill the server once the app is terminated.
+                    var isServerKilled = await _appServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
 
-                    isGoToAppPreferencesRequested = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
-                                                                     $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
-                                                                     Translator.Buttons_Yes,
-                                                                     WinoCustomMessageDialogIcon.Warning,
-                                                                     Translator.Buttons_No,
-                                                                     "DontAskTerminateServerBehavior");
+                    isServerKilled.ThrowIfFailed();
+
+                    Log.Information("Server is killed.");
                 }
-
-                if (isGoToAppPreferencesRequested == null && currentStartupBehavior != StartupBehaviorResult.Enabled)
+                catch (Exception ex)
                 {
-                    // Startup behavior is not enabled.
-
-                    isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
-                                                                     $"{Translator.AppCloseStartupLaunchDisabledWarningMessageFirstLine}\n{Translator.AppCloseStartupLaunchDisabledWarningMessageSecondLine}\n\n{Translator.AppCloseStartupLaunchDisabledWarningMessageThirdLine}",
-                                                                     Translator.Buttons_Yes,
-                                                                     WinoCustomMessageDialogIcon.Warning,
-                                                                     Translator.Buttons_No,
-                                                                     "DontAskDisabledStartup");
-                }
-
-                if (isGoToAppPreferencesRequested == true)
-                {
-                    WeakReferenceMessenger.Default.Send(new NavigateAppPreferencesRequested());
-                    e.Handled = true;
-                }
-                else if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
-                {
-                    try
-                    {
-                        var isServerKilled = await _appServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
-                        Log.Information("Server is killed.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex, "Failed to kill server.");
-                    }
+                    Log.Error(ex, "Failed to kill server.");
                 }
             }
 
