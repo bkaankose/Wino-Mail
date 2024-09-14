@@ -303,9 +303,6 @@
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\WinoNavigationService.cs" />
-    <Compile Include="Styles\CommandBarItems.xaml.cs">
-      <DependentUpon>CommandBarItems.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
       <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
     </Compile>
@@ -535,10 +532,6 @@
     <Page Include="Styles\WinoInfoBar.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\CommandBarItems.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
     </Page>
     <Page Include="Styles\Colors.xaml">
       <SubType>Designer</SubType>

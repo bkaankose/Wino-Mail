@@ -18,7 +18,6 @@
                 <ResourceDictionary Source="/Styles/Colors.xaml" />
                 <ResourceDictionary Source="/Styles/ContentPresenters.xaml" />
                 <ResourceDictionary Source="/Styles/ImagePreviewControl.xaml" />
-                <ResourceDictionary Source="/Styles/CommandBarItems.xaml" />
                 <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
 

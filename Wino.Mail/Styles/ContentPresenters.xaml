@@ -26,7 +26,7 @@
             <controls:WinoFontIcon
                 Margin="2,0,0,0"
                 Foreground="{StaticResource AttachmentBrush}"
-                Icon="SpecialFolderCategory" />
+                Icon="Attachment" />
         </Viewbox>
     </DataTemplate>
 </ResourceDictionary>

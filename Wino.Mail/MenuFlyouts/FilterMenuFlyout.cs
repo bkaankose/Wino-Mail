@@ -93,6 +93,7 @@ namespace Wino.MenuFlyouts
             {
                 Text = option.Title,
                 Tag = option,
+                Icon = new WinoFontIcon() { Icon = XamlHelpers.GetWinoIconGlyph(option.Type)},
                 IsChecked = option == SelectedSortingOption
             };
 

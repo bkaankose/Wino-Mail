@@ -104,71 +104,52 @@ namespace Wino.Helpers
 
         public static WinoIconGlyph GetWinoIconGlyph(FilterOptionType type) => type switch
         {
-            FilterOptionType.All => WinoIconGlyph.SpecialFolderCategory,
+            FilterOptionType.All => WinoIconGlyph.Mail,
             FilterOptionType.Unread => WinoIconGlyph.MarkUnread,
             FilterOptionType.Flagged => WinoIconGlyph.Flag,
             FilterOptionType.Mentions => WinoIconGlyph.NewMail,
-            // TODO: Attachments icon should be added to WinoIcons.ttf.
-            FilterOptionType.Files => WinoIconGlyph.None,
+            FilterOptionType.Files => WinoIconGlyph.Attachment,
+            _ => WinoIconGlyph.None,
+        };
+
+        public static WinoIconGlyph GetWinoIconGlyph(SortingOptionType type) => type switch
+        {
+            SortingOptionType.Sender => WinoIconGlyph.SortTextDesc,
+            SortingOptionType.ReceiveDate => WinoIconGlyph.SortLinesDesc,
             _ => WinoIconGlyph.None,
         };
 
         public static WinoIconGlyph GetWinoIconGlyph(MailOperation operation)
         {
-            switch (operation)
+            return operation switch
             {
-                case MailOperation.None:
-                    return WinoIconGlyph.None;
-                case MailOperation.Archive:
-                    return WinoIconGlyph.Archive;
-                case MailOperation.UnArchive:
-                    return WinoIconGlyph.UnArchive;
-                case MailOperation.SoftDelete:
-                case MailOperation.HardDelete:
-                    return WinoIconGlyph.Delete;
-                case MailOperation.Move:
-                    return WinoIconGlyph.Forward;
-                case MailOperation.MoveToJunk:
-                    return WinoIconGlyph.Junk;
-                case MailOperation.MoveToFocused:
-                    break;
-                case MailOperation.MoveToOther:
-                    break;
-                case MailOperation.AlwaysMoveToOther:
-                    break;
-                case MailOperation.AlwaysMoveToFocused:
-                    break;
-                case MailOperation.SetFlag:
-                    return WinoIconGlyph.Flag;
-                case MailOperation.ClearFlag:
-                    return WinoIconGlyph.ClearFlag;
-                case MailOperation.MarkAsRead:
-                    return WinoIconGlyph.MarkRead;
-                case MailOperation.MarkAsUnread:
-                    return WinoIconGlyph.MarkUnread;
-                case MailOperation.MarkAsNotJunk:
-                    return WinoIconGlyph.Junk;
-                case MailOperation.Ignore:
-                    return WinoIconGlyph.Ignore;
-                case MailOperation.Reply:
-                    return WinoIconGlyph.Reply;
-                case MailOperation.ReplyAll:
-                    return WinoIconGlyph.ReplyAll;
-                case MailOperation.Zoom:
-                    return WinoIconGlyph.Zoom;
-                case MailOperation.SaveAs:
-                    return WinoIconGlyph.Save;
-                case MailOperation.Find:
-                    return WinoIconGlyph.Find;
-                case MailOperation.Forward:
-                    return WinoIconGlyph.Forward;
-                case MailOperation.DarkEditor:
-                    return WinoIconGlyph.DarkEditor;
-                case MailOperation.LightEditor:
-                    return WinoIconGlyph.LightEditor;
-            }
-
-            return WinoIconGlyph.None;
+                MailOperation.None => WinoIconGlyph.None,
+                MailOperation.Archive => WinoIconGlyph.Archive,
+                MailOperation.UnArchive => WinoIconGlyph.UnArchive,
+                MailOperation.SoftDelete => WinoIconGlyph.Delete,
+                MailOperation.HardDelete => WinoIconGlyph.Delete,
+                MailOperation.Move => WinoIconGlyph.Forward,
+                MailOperation.MoveToJunk => WinoIconGlyph.Blocked,
+                MailOperation.MoveToFocused => WinoIconGlyph.None,
+                MailOperation.MoveToOther => WinoIconGlyph.None,
+                MailOperation.AlwaysMoveToOther => WinoIconGlyph.None,
+                MailOperation.AlwaysMoveToFocused => WinoIconGlyph.None,
+                MailOperation.SetFlag => WinoIconGlyph.Flag,
+                MailOperation.ClearFlag => WinoIconGlyph.ClearFlag,
+                MailOperation.MarkAsRead => WinoIconGlyph.MarkRead,
+                MailOperation.MarkAsUnread => WinoIconGlyph.MarkUnread,
+                MailOperation.MarkAsNotJunk => WinoIconGlyph.Blocked,
+                MailOperation.Ignore => WinoIconGlyph.Ignore,
+                MailOperation.Reply => WinoIconGlyph.Reply,
+                MailOperation.ReplyAll => WinoIconGlyph.ReplyAll,
+                MailOperation.Zoom => WinoIconGlyph.Zoom,
+                MailOperation.SaveAs => WinoIconGlyph.Save,
+                MailOperation.Find => WinoIconGlyph.Find,
+                MailOperation.Forward => WinoIconGlyph.Forward,
+                MailOperation.DarkEditor => WinoIconGlyph.DarkEditor,
+                MailOperation.LightEditor => WinoIconGlyph.LightEditor,
+                _ => WinoIconGlyph.None,
+            };
         }
 
         public static WinoIconGlyph GetPathGeometry(FolderOperation operation)
@@ -223,7 +204,7 @@ namespace Wino.Helpers
                 MailProviderType.Outlook => WinoIconGlyph.Microsoft,
                 MailProviderType.Gmail => WinoIconGlyph.Google,
                 MailProviderType.Office365 => WinoIconGlyph.Microsoft,
-                MailProviderType.IMAP4 => WinoIconGlyph.Mail,
+                MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
                 _ => WinoIconGlyph.None,
             };
         }

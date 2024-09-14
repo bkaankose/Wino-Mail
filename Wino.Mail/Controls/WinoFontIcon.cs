@@ -37,7 +37,6 @@ namespace Wino.Controls
         Ignore,
         Star,
         CreateFolder,
-        Junk,
         More,
         Find,
         SpecialFolderInbox,
@@ -61,7 +60,16 @@ namespace Wino.Controls
         TurnOfNotifications,
         EmptyFolder,
         Rename,
-        DontSync
+        DontSync,
+        Attachment,
+        SortTextDesc,
+        SortLinesDesc,
+        Certificate,
+        OpenInNewWindow,
+        Blocked,
+        Message,
+        New,
+        IMAP
     }
 
     public class WinoFontIcon : FontIcon
