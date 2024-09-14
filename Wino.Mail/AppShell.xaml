@@ -190,7 +190,8 @@
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
                 MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
-                SelectsOnInvoked="{x:Bind IsMoveTarget, Mode=OneWay}">
+                SelectsOnInvoked="{x:Bind IsMoveTarget, Mode=OneWay}"
+                ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
                 <animations:Implicit.Animations>
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
@@ -210,9 +211,6 @@
                         x:Name="FolderBackgroundGrid"
                         Padding="2"
                         VerticalAlignment="Center">
-                        <ToolTipService.ToolTip>
-                            <ToolTip Content="{x:Bind FolderName, Mode=OneWay}" />
-                        </ToolTipService.ToolTip>
                         <Grid
                             x:Name="BackgroundColorGrid"
                             x:Load="{x:Bind HasTextColor, Mode=OneWay}"
@@ -308,7 +306,8 @@
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
-                SelectsOnInvoked="True">
+                SelectsOnInvoked="True"
+                ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
                 <animations:Implicit.Animations>
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
@@ -327,9 +326,6 @@
                     x:Name="FolderBackgroundGrid"
                     Padding="2"
                     VerticalAlignment="Center">
-                    <ToolTipService.ToolTip>
-                        <ToolTip Content="{x:Bind FolderName, Mode=OneWay}" />
-                    </ToolTipService.ToolTip>
                     <TextBlock
                         x:Name="NormalTitle"
                         VerticalAlignment="Center"

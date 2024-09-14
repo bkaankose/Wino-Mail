@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -109,11 +110,11 @@ namespace Wino.Mail.ViewModels
         private DateTime creationDate;
 
 
-        public ObservableCollection<AccountContact> ToItems { get; set; } = new ObservableCollection<AccountContact>();
-        public ObservableCollection<AccountContact> CCItemsItems { get; set; } = new ObservableCollection<AccountContact>();
-        public ObservableCollection<AccountContact> BCCItems { get; set; } = new ObservableCollection<AccountContact>();
-        public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = new ObservableCollection<MailAttachmentViewModel>();
-        public ObservableCollection<MailOperationMenuItem> MenuItems { get; set; } = new ObservableCollection<MailOperationMenuItem>();
+        public ObservableCollection<AccountContact> ToItems { get; set; } = [];
+        public ObservableCollection<AccountContact> CcItems { get; set; } = [];
+        public ObservableCollection<AccountContact> BccItems { get; set; } = [];
+        public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = [];
+        public ObservableCollection<MailOperationMenuItem> MenuItems { get; set; } = [];
 
         #endregion
 
@@ -399,12 +400,24 @@ namespace Wino.Mail.ViewModels
 
             var renderingOptions = PreferencesService.GetRenderingOptions();
 
-            await ExecuteUIThread(async () =>
+            // Prepare account contacts info in advance, to avoid UI shifts after clearing collections.
+            var toAccountContacts = await GetAccountContacts(message.To);
+            var ccAccountContacts = await GetAccountContacts(message.Cc);
+            var bccAccountContacts = await GetAccountContacts(message.Bcc);
+
+            await ExecuteUIThread(() =>
             {
                 Attachments.Clear();
                 ToItems.Clear();
-                CCItemsItems.Clear();
-                BCCItems.Clear();
+                CcItems.Clear();
+                BccItems.Clear();
+
+                foreach (var item in toAccountContacts)
+                    ToItems.Add(item);
+                foreach (var item in ccAccountContacts)
+                    CcItems.Add(item);
+                foreach (var item in bccAccountContacts)
+                    BccItems.Add(item);
 
                 Subject = message.Subject;
 
@@ -413,11 +426,6 @@ namespace Wino.Mail.ViewModels
                 FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
                 CreationDate = message.Date.DateTime;
                 ContactPicture = initializedMailItemViewModel.SenderContact?.Base64ContactPicture;
-
-                // Extract to,cc and bcc
-                await LoadAddressInfoAsync(message.To, ToItems);
-                await LoadAddressInfoAsync(message.Cc, CCItemsItems);
-                await LoadAddressInfoAsync(message.Bcc, BCCItems);
 
                 // Automatically disable images for Junk folder to prevent pixel tracking.
                 // This can only work for selected mail item rendering, not for EML file rendering.
@@ -448,6 +456,27 @@ namespace Wino.Mail.ViewModels
             });
         }
 
+        private async Task<List<AccountContact>> GetAccountContacts(InternetAddressList internetAddresses)
+        {
+            var accounts = new List<AccountContact>();
+            foreach (var item in internetAddresses)
+            {
+                if (item is MailboxAddress mailboxAddress)
+                {
+                    var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
+                        ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+
+                    accounts.Add(foundContact);
+                }
+                else if (item is GroupAddress groupAddress)
+                {
+                    accounts.AddRange(await GetAccountContacts(groupAddress.Members));
+                }
+            }
+
+            return accounts;
+        }
+
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
             base.OnNavigatedFrom(mode, parameters);
@@ -461,22 +490,6 @@ namespace Wino.Mail.ViewModels
             forceImageLoading = false;
 
             StatePersistenceService.IsReadingMail = false;
-        }
-
-        private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
-        {
-            foreach (var item in list)
-            {
-                if (item is MailboxAddress mailboxAddress)
-                {
-                    var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
-                        ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
-
-                    await ExecuteUIThread(() => { collection.Add(foundContact); });
-                }
-                else if (item is GroupAddress groupAddress)
-                    await LoadAddressInfoAsync(groupAddress.Members, collection);
-            }
         }
 
         private void ResetProgress()
