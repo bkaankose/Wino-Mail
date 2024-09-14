@@ -68,7 +68,8 @@ namespace Wino.Controls
         OpenInNewWindow,
         Blocked,
         Message,
-        New
+        New,
+        IMAP
     }
 
     public class WinoFontIcon : FontIcon

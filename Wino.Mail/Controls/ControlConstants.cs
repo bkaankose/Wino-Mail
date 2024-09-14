@@ -70,7 +70,8 @@ namespace Wino.Controls
             { WinoIconGlyph.OpenInNewWindow, "\uE8A7" },
             { WinoIconGlyph.Message, "\uE8BD" },
             { WinoIconGlyph.New, "\U000F002A" },
-            { WinoIconGlyph.Blocked,"\uF140" }
+            { WinoIconGlyph.Blocked,"\uF140" },
+            { WinoIconGlyph.IMAP, "\uE715" }
         };
     }
 }

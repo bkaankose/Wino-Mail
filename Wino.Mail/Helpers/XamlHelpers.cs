@@ -204,7 +204,7 @@ namespace Wino.Helpers
                 MailProviderType.Outlook => WinoIconGlyph.Microsoft,
                 MailProviderType.Gmail => WinoIconGlyph.Google,
                 MailProviderType.Office365 => WinoIconGlyph.Microsoft,
-                MailProviderType.IMAP4 => WinoIconGlyph.Mail,
+                MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
                 _ => WinoIconGlyph.None,
             };
         }
