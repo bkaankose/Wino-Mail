@@ -332,20 +332,6 @@ namespace Wino.Core.Synchronizers
 
         private async Task<bool> HandleItemRetrievedAsync(Message item, MailItemFolder folder, IList<string> downloadedMessageIds, CancellationToken cancellationToken = default)
         {
-            if (IsNotRealMessageType(item))
-            {
-                if (item is EventMessage eventMessage)
-                {
-                    Log.Warning("Recieved event message. This is not supported yet. {Id}", eventMessage.Id);
-                }
-                else
-                {
-                    Log.Warning("Recieved either contact or todo item as message This is not supported yet. {Id}", item.Id);
-                }
-
-                return true;
-            }
-
             if (IsResourceDeleted(item.AdditionalData))
             {
                 // Deleting item with this override instead of the other one that deletes all mail copies.
@@ -376,6 +362,20 @@ namespace Wino.Core.Synchronizers
                 }
                 else
                 {
+                    if (IsNotRealMessageType(item))
+                    {
+                        if (item is EventMessage eventMessage)
+                        {
+                            Log.Warning("Recieved event message. This is not supported yet. {Id}", eventMessage.Id);
+                        }
+                        else
+                        {
+                            Log.Warning("Recieved either contact or todo item as message This is not supported yet. {Id}", item.Id);
+                        }
+
+                        return true;
+                    }
+
                     // Package may return null on some cases mapping the remote draft to existing local draft.
 
                     var newMailPackages = await CreateNewMailPackagesAsync(item, folder, cancellationToken);
