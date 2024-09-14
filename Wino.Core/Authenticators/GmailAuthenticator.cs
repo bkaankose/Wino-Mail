@@ -12,7 +12,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Services;
-using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.Authenticators
 {
