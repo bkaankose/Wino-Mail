@@ -75,7 +75,10 @@ namespace Wino.Views.ImapSetup
         {
             base.OnNavigatedTo(e);
 
-            // ProtocolLogGrid.Visibility = Visibility.Collapsed;
+            // Don't override settings on back scenarios.
+            // User is trying to try again the same configuration.
+
+            if (e.NavigationMode == NavigationMode.Back) return;
 
             // Connection is succesfull but error occurred.
             // Imap and Smptp settings exists here at this point.

@@ -2,31 +2,102 @@
     x:Class="Wino.Views.ImapSetup.TestingImapConnectionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Wino.Views.ImapSetup"
-    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:controls="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:local="using:Wino.Views.ImapSetup"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
     <Grid>
         <!--  Testing Connection Panel  -->
         <StackPanel
             x:Name="TestingConnectionPanel"
-            VerticalAlignment="Center"
-            HorizontalAlignment="Center">
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
 
             <Viewbox
-                VerticalAlignment="Center"
-                HorizontalAlignment="Center"
                 Width="26"
-                Height="26">
+                Height="26"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
                 <PathIcon Data="F1 M 18.75 18.125 C 18.75 18.294271 18.68815 18.440756 18.564453 18.564453 C 18.440754 18.68815 18.29427 18.75 18.125 18.75 L 13.75 18.75 C 13.75 18.925781 13.717447 19.088541 13.652344 19.238281 C 13.587239 19.388021 13.497721 19.519857 13.383789 19.633789 C 13.269855 19.747721 13.13802 19.83724 12.988281 19.902344 C 12.838541 19.967447 12.675781 20 12.5 20 L 6.25 20 C 6.074219 20 5.909831 19.967447 5.756836 19.902344 C 5.603841 19.83724 5.472005 19.74935 5.361328 19.638672 C 5.250651 19.527994 5.16276 19.396158 5.097656 19.243164 C 5.032552 19.09017 5 18.925781 5 18.75 L 0.625 18.75 C 0.455729 18.75 0.309245 18.68815 0.185547 18.564453 C 0.061849 18.440756 0 18.294271 0 18.125 C 0 17.955729 0.061849 17.809244 0.185547 17.685547 C 0.309245 17.56185 0.455729 17.5 0.625 17.5 L 5 17.5 C 5 17.154949 5.120442 16.86198 5.361328 16.621094 C 5.608724 16.373699 5.904948 16.25 6.25 16.25 L 7.5 16.25 C 7.5 16.074219 7.532552 15.911459 7.597656 15.761719 C 7.66276 15.611979 7.752278 15.480144 7.866211 15.366211 C 7.980143 15.252279 8.111979 15.162761 8.261719 15.097656 C 8.411458 15.032553 8.574219 15 8.75 15 L 8.75 13.75 L 6.875 13.75 C 6.621094 13.75 6.380208 13.701172 6.152344 13.603516 C 5.924479 13.505859 5.724284 13.370769 5.551758 13.198242 C 5.379231 13.025717 5.244141 12.825521 5.146484 12.597656 C 5.048828 12.369792 5 12.128906 5 11.875 L 5 1.875 C 5 1.621094 5.048828 1.380209 5.146484 1.152344 C 5.244141 0.92448 5.379231 0.724285 5.551758 0.551758 C 5.724284 0.379232 5.924479 0.244141 6.152344 0.146484 C 6.380208 0.048828 6.621094 0 6.875 0 L 11.875 0 C 12.128906 0 12.369791 0.048828 12.597656 0.146484 C 12.825521 0.244141 13.025716 0.379232 13.198242 0.551758 C 13.370768 0.724285 13.505859 0.92448 13.603516 1.152344 C 13.701172 1.380209 13.75 1.621094 13.75 1.875 L 13.75 11.875 C 13.75 12.128906 13.701172 12.369792 13.603516 12.597656 C 13.505859 12.825521 13.370768 13.025717 13.198242 13.198242 C 13.025716 13.370769 12.825521 13.505859 12.597656 13.603516 C 12.369791 13.701172 12.128906 13.75 11.875 13.75 L 10 13.75 L 10 15 C 10.169271 15 10.330403 15.032553 10.483398 15.097656 C 10.636393 15.162761 10.769856 15.252279 10.883789 15.366211 C 10.997721 15.480144 11.087239 15.613607 11.152344 15.766602 C 11.217447 15.919597 11.25 16.080729 11.25 16.25 L 12.5 16.25 C 12.669271 16.25 12.828775 16.282553 12.978516 16.347656 C 13.128255 16.41276 13.261719 16.503906 13.378906 16.621094 C 13.626302 16.86849 13.75 17.161459 13.75 17.5 L 18.125 17.5 C 18.29427 17.5 18.440754 17.56185 18.564453 17.685547 C 18.68815 17.809244 18.75 17.955729 18.75 18.125 Z M 11.875 12.5 C 12.04427 12.5 12.190754 12.438151 12.314453 12.314453 C 12.43815 12.190756 12.5 12.044271 12.5 11.875 L 12.5 1.875 C 12.5 1.70573 12.43815 1.559246 12.314453 1.435547 C 12.190754 1.31185 12.04427 1.25 11.875 1.25 L 6.875 1.25 C 6.705729 1.25 6.559244 1.31185 6.435547 1.435547 C 6.311849 1.559246 6.25 1.70573 6.25 1.875 L 6.25 11.875 C 6.25 12.044271 6.311849 12.190756 6.435547 12.314453 C 6.559244 12.438151 6.705729 12.5 6.875 12.5 Z M 10.625 2.5 C 10.794271 2.5 10.940755 2.56185 11.064453 2.685547 C 11.18815 2.809246 11.25 2.95573 11.25 3.125 C 11.25 3.294271 11.18815 3.440756 11.064453 3.564453 C 10.940755 3.688152 10.794271 3.75 10.625 3.75 L 8.125 3.75 C 7.955729 3.75 7.809245 3.688152 7.685547 3.564453 C 7.561849 3.440756 7.5 3.294271 7.5 3.125 C 7.5 2.95573 7.561849 2.809246 7.685547 2.685547 C 7.809245 2.56185 7.955729 2.5 8.125 2.5 Z M 10.625 5 C 10.794271 5.000001 10.940755 5.06185 11.064453 5.185547 C 11.18815 5.309245 11.25 5.455729 11.25 5.625 C 11.25 5.794271 11.18815 5.940756 11.064453 6.064453 C 10.940755 6.188151 10.794271 6.25 10.625 6.25 L 8.125 6.25 C 7.955729 6.25 7.809245 6.188151 7.685547 6.064453 C 7.561849 5.940756 7.5 5.794271 7.5 5.625 C 7.5 5.455729 7.561849 5.309245 7.685547 5.185547 C 7.809245 5.06185 7.955729 5.000001 8.125 5 Z M 12.5 18.75 L 12.5 17.5 L 10.625 17.5 C 10.481771 17.5 10.367838 17.47233 10.283203 17.416992 C 10.198567 17.361654 10.135091 17.290039 10.092773 17.202148 C 10.050455 17.114258 10.022786 17.016602 10.009766 16.90918 C 9.996744 16.801758 9.990234 16.692709 9.990234 16.582031 C 9.990234 16.523438 9.991861 16.466471 9.995117 16.411133 C 9.998372 16.355795 10 16.302084 10 16.25 L 8.75 16.25 L 8.75 16.582031 C 8.75 16.692709 8.743489 16.801758 8.730469 16.90918 C 8.717447 17.016602 8.689778 17.114258 8.647461 17.202148 C 8.605143 17.290039 8.543294 17.361654 8.461914 17.416992 C 8.380533 17.47233 8.268229 17.5 8.125 17.5 L 6.25 17.5 L 6.25 18.75 Z " />
             </Viewbox>
 
             <TextBlock Text="{x:Bind domain:Translator.TestingImapConnectionMessage}" />
 
-            <muxc:ProgressBar IsIndeterminate="True" Margin="0,4,0,0" />
+            <muxc:ProgressBar Margin="0,4,0,0" IsIndeterminate="True" />
         </StackPanel>
+
+        <!--  Allow untrusted certificate dialog  -->
+        <Grid
+            x:Name="CertificateDialog"
+            MaxWidth="600"
+            Padding="20"
+            RowSpacing="12"
+            Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <controls:WinoFontIcon FontSize="46" Icon="Certificate" />
+
+            <TextBlock
+                Grid.Row="1"
+                Margin="0,16,0,6"
+                TextWrapping="WrapWholeWords">
+                <Run Text="{x:Bind domain:Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}" />
+                <LineBreak />
+                <Run Text="{x:Bind domain:Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}" />
+            </TextBlock>
+
+            <!--  Cert details  -->
+            <StackPanel Grid.Row="2" Spacing="6">
+                <TextBlock TextWrapping="Wrap">
+                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_CertificateIssuer}" />
+                    <LineBreak />
+                    <Run x:Name="CertIssuer" />
+                </TextBlock>
+
+                <TextBlock>
+                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_CertificateValidFrom}" />
+                    <LineBreak />
+                    <Run x:Name="CertValidFrom" />
+                </TextBlock>
+
+                <TextBlock>
+                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.IMAPSetupDialog_CertificateValidTo}" />
+                    <LineBreak />
+                    <Run x:Name="CertValidTo" />
+                </TextBlock>
+            </StackPanel>
+
+            <Grid
+                Grid.Row="3"
+                Margin="0,16"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    x:Name="DenyCertificateButton"
+                    HorizontalAlignment="Stretch"
+                    Click="DenyClicked"
+                    Content="{x:Bind domain:Translator.Buttons_Deny}" />
+
+                <Button
+                    x:Name="AllowCertificateButton"
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    Click="AllowClicked"
+                    Content="{x:Bind domain:Translator.Buttons_Allow}"
+                    Style="{StaticResource AccentButtonStyle}" />
+            </Grid>
+        </Grid>
     </Grid>
 </Page>
