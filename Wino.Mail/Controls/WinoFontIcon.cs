@@ -61,7 +61,16 @@ namespace Wino.Controls
         TurnOfNotifications,
         EmptyFolder,
         Rename,
-        DontSync
+        DontSync,
+
+        Attachment,
+        SortTextDesc,
+        SortLinesDesc,
+        Certificate,
+        OpenInNewWindow,
+        Blocked,
+        Message,
+        New
     }
 
     public class WinoFontIcon : FontIcon
