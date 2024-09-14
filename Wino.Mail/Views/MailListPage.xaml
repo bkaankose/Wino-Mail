@@ -291,6 +291,7 @@
                         Unchecked="SelectAllCheckboxUnchecked"
                         Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
 
+                    
                     <!--  Folders  -->
                     <toolkit:Segmented
                         Grid.Row="1"

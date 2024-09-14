@@ -194,6 +194,16 @@ namespace Wino.Core.Domain
 		public static string Buttons_AddNewAlias => Resources.GetTranslatedString(@"Buttons_AddNewAlias");	
 	
         /// <summary>
+		/// Allow
+		/// </summary>
+		public static string Buttons_Allow => Resources.GetTranslatedString(@"Buttons_Allow");	
+	
+        /// <summary>
+		/// Deny
+		/// </summary>
+		public static string Buttons_Deny => Resources.GetTranslatedString(@"Buttons_Deny");	
+	
+        /// <summary>
 		/// Synchronize Aliases
 		/// </summary>
 		public static string Buttons_SyncAliases => Resources.GetTranslatedString(@"Buttons_SyncAliases");	
@@ -1127,6 +1137,46 @@ namespace Wino.Core.Domain
 		/// IMAP connection failed.
 		/// </summary>
 		public static string IMAPSetupDialog_ConnectionFailedMessage => Resources.GetTranslatedString(@"IMAPSetupDialog_ConnectionFailedMessage");	
+	
+        /// <summary>
+		/// This server is requesting a SSL handshake to continue. Please confirm the certificate details below.
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateAllowanceRequired_Row0 => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateAllowanceRequired_Row0");	
+	
+        /// <summary>
+		/// Allow the handshake to continue setting up your account.
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateAllowanceRequired_Row1 => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateAllowanceRequired_Row1");	
+	
+        /// <summary>
+		/// Issuer
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateIssuer => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateIssuer");	
+	
+        /// <summary>
+		/// Subject
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateSubject => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateSubject");	
+	
+        /// <summary>
+		/// Valid from
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateValidFrom => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateValidFrom");	
+	
+        /// <summary>
+		/// Valid to
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateValidTo => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateValidTo");	
+	
+        /// <summary>
+		/// User didn't authorize the handshake with the certificate.
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateDenied => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateDenied");	
+	
+        /// <summary>
+		/// View Certificate
+		/// </summary>
+		public static string IMAPSetupDialog_CertificateView => Resources.GetTranslatedString(@"IMAPSetupDialog_CertificateView");	
 	
         /// <summary>
 		/// Image rendering is disabled for this message.
