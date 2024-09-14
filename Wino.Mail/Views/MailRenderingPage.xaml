@@ -263,12 +263,12 @@
                             VerticalAlignment="Center"
                             FontWeight="SemiBold"
                             Text="Cc:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}" />
+                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}" />
                         <ItemsControl
                             Grid.Column="1"
                             ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.CCItemsItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CCItemsItems.Count), Mode=OneWay}">
+                            ItemsSource="{x:Bind ViewModel.CcItems, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <toolkit:WrapPanel Orientation="Horizontal" />
@@ -286,13 +286,13 @@
                             VerticalAlignment="Center"
                             FontWeight="SemiBold"
                             Text="Bcc:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}" />
+                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}" />
 
                         <ItemsControl
                             Grid.Column="1"
                             ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BCCItems.Count), Mode=OneWay}">
+                            ItemsSource="{x:Bind ViewModel.BccItems, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <toolkit:WrapPanel Orientation="Horizontal" />
