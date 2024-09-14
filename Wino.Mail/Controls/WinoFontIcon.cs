@@ -37,7 +37,6 @@ namespace Wino.Controls
         Ignore,
         Star,
         CreateFolder,
-        Junk,
         More,
         Find,
         SpecialFolderInbox,
@@ -62,7 +61,6 @@ namespace Wino.Controls
         EmptyFolder,
         Rename,
         DontSync,
-
         Attachment,
         SortTextDesc,
         SortLinesDesc,

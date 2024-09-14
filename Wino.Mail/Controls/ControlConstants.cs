@@ -31,7 +31,6 @@ namespace Wino.Controls
             { WinoIconGlyph.UnPin, "\uE985" },
             { WinoIconGlyph.Star, "\uE734" },
             { WinoIconGlyph.Ignore, "\uF5D0" },
-            { WinoIconGlyph.Junk, "\uE907" },
             { WinoIconGlyph.Find, "\uEA7D" },
             { WinoIconGlyph.Zoom, "\uEE8E" },
             { WinoIconGlyph.SpecialFolderInbox, "\uF516" },
