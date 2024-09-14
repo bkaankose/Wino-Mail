@@ -35,7 +35,7 @@ namespace Wino.Views.ImapSetup
 
             if (e.Parameter is ImapConnectionFailedPackage failedPackage)
             {
-                ConnectionFailedMessage.Text = failedPackage.GetErrorMessage();
+                ConnectionFailedMessage.Text = failedPackage.ErrorMessage;
 
                 ProtocolLogGrid.Visibility = !string.IsNullOrEmpty(failedPackage.ProtocolLog) ? Visibility.Visible : Visibility.Collapsed;
                 _protocolLog = failedPackage.ProtocolLog;

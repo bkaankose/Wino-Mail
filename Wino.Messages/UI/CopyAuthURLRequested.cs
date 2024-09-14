@@ -1,6 +1,4 @@
-﻿using Wino.Messaging.UI;
-
-namespace Wino.Messaging.Server
+﻿namespace Wino.Messaging.UI
 {
     /// <summary>
     /// When authenticators are proposed to copy the auth URL on the UI.

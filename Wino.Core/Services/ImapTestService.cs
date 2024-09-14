@@ -34,11 +34,14 @@ namespace Wino.Core.Services
             _protocolLogStream = File.Create(logFile);
         }
 
-        public async Task TestImapConnectionAsync(CustomServerInformation serverInformation)
+        public async Task TestImapConnectionAsync(CustomServerInformation serverInformation, bool allowSSLHandShake)
         {
             EnsureProtocolLogFileExists();
 
-            var clientPool = new ImapClientPool(serverInformation, _protocolLogStream);
+            var clientPool = new ImapClientPool(serverInformation, _protocolLogStream)
+            {
+                ThrowOnSSLHandshakeCallback = !allowSSLHandShake
+            };
 
             using (clientPool)
             {

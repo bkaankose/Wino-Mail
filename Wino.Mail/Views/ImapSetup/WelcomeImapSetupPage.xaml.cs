@@ -59,7 +59,7 @@ namespace Wino.Views.ImapSetup
             {
                 // Couldn't find settings.
 
-                var failurePackage = new ImapConnectionFailedPackage(new Exception(Translator.Exception_ImapAutoDiscoveryFailed), string.Empty, discoverySettings);
+                var failurePackage = new ImapConnectionFailedPackage(Translator.Exception_ImapAutoDiscoveryFailed, string.Empty, discoverySettings);
 
                 WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
             }

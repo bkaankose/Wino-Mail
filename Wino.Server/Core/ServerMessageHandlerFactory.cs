@@ -22,6 +22,7 @@ namespace Wino.Server.Core
                 nameof(SynchronizationExistenceCheckRequest) => App.Current.Services.GetService<SyncExistenceHandler>(),
                 nameof(ServerTerminationModeChanged) => App.Current.Services.GetService<ServerTerminationModeHandler>(),
                 nameof(TerminateServerRequested) => App.Current.Services.GetService<TerminateServerRequestHandler>(),
+                nameof(ImapConnectivityTestRequested) => App.Current.Services.GetService<ImapConnectivityTestHandler>(),
                 _ => throw new Exception($"Server handler for {typeName} is not registered."),
             };
         }
@@ -38,6 +39,7 @@ namespace Wino.Server.Core
             serviceCollection.AddTransient<SyncExistenceHandler>();
             serviceCollection.AddTransient<ServerTerminationModeHandler>();
             serviceCollection.AddTransient<TerminateServerRequestHandler>();
+            serviceCollection.AddTransient<ImapConnectivityTestHandler>();
         }
     }
 }

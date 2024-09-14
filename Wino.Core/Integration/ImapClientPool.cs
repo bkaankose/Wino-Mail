@@ -2,6 +2,8 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +11,7 @@ using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Net.Proxy;
 using MailKit.Security;
+using MimeKit.Cryptography;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities;
@@ -42,6 +45,8 @@ namespace Wino.Core.Integration
             Name = "Wino Mail User",
         };
 
+        public bool ThrowOnSSLHandshakeCallback { get; set; }
+
         private readonly int MinimumPoolSize = 5;
 
         private readonly ConcurrentStack<ImapClient> _clients = [];
@@ -57,6 +62,8 @@ namespace Wino.Core.Integration
 
             // Set the maximum pool size to 5 or the custom value if it's greater.
             _semaphore = new(Math.Max(MinimumPoolSize, customServerInformation.MaxConcurrentClients));
+
+            CryptographyContext.Register(typeof(WindowsSecureMimeContext));
         }
 
         private async Task EnsureConnectivityAsync(ImapClient client, bool isCreatedNew)
@@ -107,6 +114,9 @@ namespace Wino.Core.Integration
             }
             catch (Exception ex)
             {
+                if (ex.InnerException is ImapTestSSLCertificateException imapTestSSLCertificateException)
+                    throw imapTestSSLCertificateException;
+
                 throw new ImapClientPoolException(ex, GetProtocolLogContent());
             }
             finally
@@ -215,9 +225,25 @@ namespace Wino.Core.Integration
         {
             if (client.IsConnected) return;
 
+            client.ServerCertificateValidationCallback = MyServerCertificateValidationCallback;
+
             await client.ConnectAsync(_customServerInformation.IncomingServer,
                                       int.Parse(_customServerInformation.IncomingServerPort),
                                       GetSocketOptions(_customServerInformation.IncomingServerSocketOption));
+        }
+
+        bool MyServerCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            // If there are no errors, then everything went smoothly.
+            if (sslPolicyErrors == SslPolicyErrors.None) return true;
+
+            // Imap connectivity test will throw to alert the user here.
+            if (ThrowOnSSLHandshakeCallback)
+            {
+                throw new ImapTestSSLCertificateException(certificate.Issuer, certificate.GetExpirationDateString(), certificate.GetEffectiveDateString());
+            }
+
+            return true;
         }
 
         public async Task EnsureAuthenticatedAsync(ImapClient client)

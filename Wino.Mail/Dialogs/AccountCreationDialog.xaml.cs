@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Dialogs
 {
