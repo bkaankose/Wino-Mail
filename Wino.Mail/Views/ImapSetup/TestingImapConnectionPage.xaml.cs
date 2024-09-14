@@ -4,33 +4,27 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Server;
 
 
 namespace Wino.Views.ImapSetup
 {
     public sealed partial class TestingImapConnectionPage : Page
     {
-        private IImapTestService _imapTestService = App.Current.Services.GetService<IImapTestService>();
+        private IWinoServerConnectionManager _winoServerConnectionManager = App.Current.Services.GetService<IWinoServerConnectionManager>();
+        private AutoDiscoverySettings autoDiscoverySettings;
+        private CustomServerInformation serverInformationToTest;
 
         public TestingImapConnectionPage()
         {
             InitializeComponent();
-        }
-
-        private async Task TryTestConnectionAsync(CustomServerInformation serverInformation)
-        {
-            await Task.Delay(1000);
-
-            await _imapTestService.TestImapConnectionAsync(serverInformation);
-
-            // All success. Finish setup with validated server information.
-
-            WeakReferenceMessenger.Default.Send(new ImapSetupDismissRequested(serverInformation));
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -47,9 +41,6 @@ namespace Wino.Views.ImapSetup
             {
                 // Test connection
 
-                CustomServerInformation serverInformationToTest = null;
-                AutoDiscoverySettings autoDiscoverySettings = null;
-
                 // Discovery settings are passed.
                 // Create server information out of the discovery settings.
                 if (e.Parameter is AutoDiscoverySettings parameterAutoDiscoverySettings)
@@ -63,19 +54,80 @@ namespace Wino.Views.ImapSetup
                     serverInformationToTest = customServerInformation;
                 }
 
-                try
+                // Make sure that certificate dialog must be present in case of SSL handshake fails.
+                await PerformTestAsync(allowSSLHandshake: false);
+            }
+        }
+
+        private async Task PerformTestAsync(bool allowSSLHandshake)
+        {
+            CertificateDialog.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
+            TestingConnectionPanel.Visibility = Windows.UI.Xaml.Visibility.Visible;
+
+            await Task.Delay(1000);
+
+            var testResultResponse = await _winoServerConnectionManager
+                .GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(serverInformationToTest, allowSSLHandshake));
+
+            if (!testResultResponse.IsSuccess)
+            {
+                // Wino Server is connection is failed.
+                ReturnWithError(testResultResponse.Message);
+            }
+            else
+            {
+                var testResultData = testResultResponse.Data;
+
+                if (testResultData.IsSuccess)
                 {
-                    await TryTestConnectionAsync(serverInformationToTest);
+                    // All success. Finish setup with validated server information.
+                    ReturnWithSuccess();
                 }
-                catch (Exception ex)
+                else
                 {
-                    string protocolLog = ex is ImapClientPoolException clientPoolException ? clientPoolException.ProtocolLog : string.Empty;
+                    // Check if certificate UI is required.
 
-                    var failurePackage = new ImapConnectionFailedPackage(ex, protocolLog, autoDiscoverySettings);
+                    if (testResultData.IsCertificateUIRequired)
+                    {
+                        // Certificate UI is required. Show certificate dialog.
 
-                    WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
+                        CertIssuer.Text = testResultData.CertificateIssuer;
+                        CertValidFrom.Text = testResultData.CertificateValidFromDateString;
+                        CertValidTo.Text = testResultData.CertificateExpirationDateString;
+
+                        TestingConnectionPanel.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
+                        CertificateDialog.Visibility = Windows.UI.Xaml.Visibility.Visible;
+                    }
+                    else
+                    {
+                        // Connection test failed. Show error dialog.
+
+                        var protocolLog = testResultData.FailureProtocolLog;
+
+                        ReturnWithError(testResultData.FailedReason, protocolLog);
+                    }
                 }
             }
+        }
+
+        private void ReturnWithError(string error, string protocolLog = "")
+        {
+            var failurePackage = new ImapConnectionFailedPackage(error, protocolLog, autoDiscoverySettings);
+            WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
+        }
+
+        private void ReturnWithSuccess()
+            => WeakReferenceMessenger.Default.Send(new ImapSetupDismissRequested(serverInformationToTest));
+
+        private void DenyClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+            => ReturnWithError(Translator.IMAPSetupDialog_CertificateDenied, string.Empty);
+
+        private async void AllowClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            // Run the test again, but this time allow SSL handshake.
+            // Any authentication error will be shown to the user after this test.
+
+            await PerformTestAsync(allowSSLHandshake: true);
         }
     }
 }

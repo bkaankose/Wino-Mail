@@ -315,7 +315,9 @@ namespace Wino.Server
                 case nameof(ServerTerminationModeChanged):
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ServerTerminationModeChanged>(messageJson, _jsonSerializerOptions));
                     break;
-
+                case nameof(ImapConnectivityTestRequested):
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ImapConnectivityTestRequested>(messageJson, _jsonSerializerOptions));
+                    break;
                 case nameof(TerminateServerRequested):
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<TerminateServerRequested>(messageJson, _jsonSerializerOptions));
 

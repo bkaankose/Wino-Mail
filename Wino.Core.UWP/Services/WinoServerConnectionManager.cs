@@ -18,7 +18,6 @@ using Wino.Core.Integration.Json;
 using Wino.Messaging;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Enums;
-using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services
