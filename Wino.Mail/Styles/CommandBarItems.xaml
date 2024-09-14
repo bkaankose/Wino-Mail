@@ -127,7 +127,7 @@
     <DataTemplate x:Key="CommandBarItemMoveToJunkTemplate">
         <AppBarButton Label="{x:Bind domain:Translator.MailOperation_MoveJunk}">
             <AppBarButton.Icon>
-                <controls:WinoFontIcon Icon="Junk" />
+                <controls:WinoFontIcon Icon="Blocked" />
             </AppBarButton.Icon>
         </AppBarButton>
     </DataTemplate>
