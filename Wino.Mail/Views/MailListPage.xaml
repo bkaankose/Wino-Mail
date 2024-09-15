@@ -227,7 +227,7 @@
         </Grid>
     </wino:BasePage.ShellContent>
 
-    <Grid x:Name="RootGrid" Padding="0,0,0,7">
+    <Grid x:Name="RootGrid">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind ViewModel.MailListLength, Mode=OneWay, Converter={StaticResource GridLengthConverter}}" />
             <ColumnDefinition x:Name="RendererColumn" Width="*" />
@@ -291,7 +291,7 @@
                         Unchecked="SelectAllCheckboxUnchecked"
                         Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
 
-                    
+
                     <!--  Folders  -->
                     <toolkit:Segmented
                         Grid.Row="1"

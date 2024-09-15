@@ -315,5 +315,17 @@ namespace Wino.Views
                 ShellInfoBar.IsOpen = true;
             });
         }
+
+        private void NavigationViewDisplayModeChanged(Microsoft.UI.Xaml.Controls.NavigationView sender, Microsoft.UI.Xaml.Controls.NavigationViewDisplayModeChangedEventArgs args)
+        {
+            if (args.DisplayMode == Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Minimal)
+            {
+                ShellFrame.Margin = new Thickness(7, 0, 0, 0);
+            }
+            else
+            {
+                ShellFrame.Margin = new Thickness(0);
+            }
+        }
     }
 }

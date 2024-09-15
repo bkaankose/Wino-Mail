@@ -11,8 +11,7 @@
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
-    <Border
-        Style="{StaticResource PageRootBorderStyle}">
+    <Border Style="{StaticResource PageRootBorderStyle}">
         <Grid
             MaxWidth="900"
             Padding="20"

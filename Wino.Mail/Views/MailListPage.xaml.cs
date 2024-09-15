@@ -528,6 +528,7 @@ namespace Wino.Views
                     Grid.SetColumnSpan(RenderingGrid, 2);
                     MailListContainer.Visibility = Visibility.Collapsed;
                     RenderingGrid.Visibility = Visibility.Visible;
+                    RenderingGrid.Margin = new Thickness(0);
                 }
                 else
                 {
@@ -535,19 +536,16 @@ namespace Wino.Views
                     RendererColumn.Width = new GridLength(0);
 
                     Grid.SetColumnSpan(MailListContainer, 2);
-                    MailListContainer.Margin = new Thickness(7, 0, 7, 0);
                     MailListContainer.Visibility = Visibility.Visible;
                     RenderingGrid.Visibility = Visibility.Collapsed;
-                    SearchBar.Margin = new Thickness(8, 0, -2, 0);
                     MailListSizer.Visibility = Visibility.Collapsed;
                 }
             }
             else
             {
+                RenderingGrid.Margin = new Thickness(7,0,0,0);
                 MailListColumn.Width = new GridLength(StatePersistenceService.MailListPaneLength);
                 RendererColumn.Width = new GridLength(1, GridUnitType.Star);
-
-                MailListContainer.Margin = new Thickness(0, 0, 0, 0);
 
                 Grid.SetColumn(MailListContainer, 0);
                 Grid.SetColumn(RenderingGrid, 1);
@@ -556,7 +554,6 @@ namespace Wino.Views
 
                 MailListContainer.Visibility = Visibility.Visible;
                 RenderingGrid.Visibility = Visibility.Visible;
-                SearchBar.Margin = new Thickness(2, 0, -2, 0);
                 MailListSizer.Visibility = Visibility.Visible;
             }
         }

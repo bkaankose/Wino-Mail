@@ -432,6 +432,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
+            DisplayModeChanged="NavigationViewDisplayModeChanged"
             FooterMenuItemsSource="{x:Bind ViewModel.FooterItems, Mode=OneWay}"
             IsBackButtonVisible="Collapsed"
             IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
@@ -463,7 +464,6 @@
             </muxc:NavigationView.PaneFooter>-->
             <Grid ColumnSpacing="0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -482,8 +482,7 @@
                 <!--  Main Content  -->
                 <Frame
                     x:Name="ShellFrame"
-                    Grid.Column="1"
-                    Margin="-8,0,0,0"
+                    Padding="0,0,7,7"
                     IsNavigationStackEnabled="False"
                     Navigated="ShellFrameContentNavigated">
                     <Frame.ContentTransitions>
@@ -496,7 +495,6 @@
                 <!--  InfoBar  -->
                 <controls:WinoInfoBar
                     x:Name="ShellInfoBar"
-                    Grid.Column="1"
                     MaxWidth="700"
                     Margin="0,60,25,0"
                     HorizontalAlignment="Right"
@@ -507,7 +505,6 @@
                 <!--  Teaching Tip  -->
                 <muxc:TeachingTip
                     x:Name="ShellTip"
-                    Grid.Column="1"
                     IsOpen="False"
                     PreferredPlacement="Bottom"
                     Target="{x:Bind ShellInfoBar}" />
