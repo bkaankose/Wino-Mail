@@ -185,8 +185,15 @@ namespace Wino.Core.Mime
             }
             else
             {
-                // pass the tag through to the output
-                ctx.WriteTag(htmlWriter, true);
+                if (ctx.TagId == HtmlTagId.Unknown)
+                {
+                    ctx.DeleteTag = true;
+                    ctx.DeleteEndTag = true;
+                }
+                else
+                {
+                    ctx.WriteTag(htmlWriter, true);
+                }
             }
         }
 
