@@ -122,7 +122,6 @@
     </Page.Resources>
 
     <Grid
-        Padding="7,0"
         AllowDrop="True"
         DragLeave="OnComposeGridDragLeave"
         DragOver="OnComposeGridDragOver"

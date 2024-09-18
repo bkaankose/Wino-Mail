@@ -493,71 +493,29 @@ namespace Wino.Views
 
         private void UpdateAdaptiveness()
         {
-            bool shouldDisplayNoMessagePanel, shouldDisplayMailingList, shouldDisplayRenderingFrame;
-
             bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled || KeyPressService.IsCtrlKeyPressed();
 
-            // This is the smallest state UI can get.
-            // Either mailing list or rendering grid is visible.
             if (StatePersistenceService.IsReaderNarrowed)
-            {
-                // Start visibility checks by no message panel.
-                shouldDisplayMailingList = isMultiSelectionEnabled ? true : (!ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections);
-                shouldDisplayNoMessagePanel = shouldDisplayMailingList ? false : !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
-                shouldDisplayRenderingFrame = shouldDisplayMailingList ? false : !shouldDisplayNoMessagePanel;
-            }
-            else
-            {
-                shouldDisplayMailingList = true;
-                shouldDisplayNoMessagePanel = !ViewModel.HasSelectedItems || ViewModel.HasMultipleItemSelections;
-                shouldDisplayRenderingFrame = !shouldDisplayNoMessagePanel;
-            }
-
-            MailListContainer.Visibility = shouldDisplayMailingList ? Visibility.Visible : Visibility.Collapsed;
-            RenderingFrame.Visibility = shouldDisplayRenderingFrame ? Visibility.Visible : Visibility.Collapsed;
-            NoMailSelectedPanel.Visibility = shouldDisplayNoMessagePanel ? Visibility.Visible : Visibility.Collapsed;
-
-            if (StatePersistenceService.IsReaderNarrowed == true)
             {
                 if (ViewModel.HasSingleItemSelection && !isMultiSelectionEnabled)
                 {
-                    MailListColumn.Width = new GridLength(0);
-                    RendererColumn.Width = new GridLength(1, GridUnitType.Star);
-
-                    Grid.SetColumn(MailListContainer, 0);
-                    Grid.SetColumnSpan(RenderingGrid, 2);
-                    MailListContainer.Visibility = Visibility.Collapsed;
-                    RenderingGrid.Visibility = Visibility.Visible;
+                    VisualStateManager.GoToState(this, "NarrowRenderer", true);
                 }
                 else
                 {
-                    MailListColumn.Width = new GridLength(1, GridUnitType.Star);
-                    RendererColumn.Width = new GridLength(0);
-
-                    Grid.SetColumnSpan(MailListContainer, 2);
-                    MailListContainer.Margin = new Thickness(7, 0, 7, 0);
-                    MailListContainer.Visibility = Visibility.Visible;
-                    RenderingGrid.Visibility = Visibility.Collapsed;
-                    SearchBar.Margin = new Thickness(8, 0, -2, 0);
-                    MailListSizer.Visibility = Visibility.Collapsed;
+                    VisualStateManager.GoToState(this, "NarrowMailList", true);
                 }
             }
             else
             {
-                MailListColumn.Width = new GridLength(StatePersistenceService.MailListPaneLength);
-                RendererColumn.Width = new GridLength(1, GridUnitType.Star);
-
-                MailListContainer.Margin = new Thickness(0, 0, 0, 0);
-
-                Grid.SetColumn(MailListContainer, 0);
-                Grid.SetColumn(RenderingGrid, 1);
-                Grid.SetColumnSpan(MailListContainer, 1);
-                Grid.SetColumnSpan(RenderingGrid, 1);
-
-                MailListContainer.Visibility = Visibility.Visible;
-                RenderingGrid.Visibility = Visibility.Visible;
-                SearchBar.Margin = new Thickness(2, 0, -2, 0);
-                MailListSizer.Visibility = Visibility.Visible;
+                if (ViewModel.HasSingleItemSelection && !isMultiSelectionEnabled)
+                {
+                    VisualStateManager.GoToState(this, "BothPanelsMailSelected", true);
+                }
+                else
+                {
+                    VisualStateManager.GoToState(this, "BothPanelsNoMailSelected", true);
+                }
             }
         }
     }

@@ -227,7 +227,7 @@
         </Grid>
     </wino:BasePage.ShellContent>
 
-    <Grid x:Name="RootGrid" Padding="0,0,0,7">
+    <Grid x:Name="RootGrid">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind ViewModel.MailListLength, Mode=OneWay, Converter={StaticResource GridLengthConverter}}" />
             <ColumnDefinition x:Name="RendererColumn" Width="*" />
@@ -291,7 +291,7 @@
                         Unchecked="SelectAllCheckboxUnchecked"
                         Visibility="{x:Bind helpers:XamlHelpers.IsSelectionModeMultiple(MailListView.SelectionMode), Mode=OneWay}" />
 
-                    
+
                     <!--  Folders  -->
                     <toolkit:Segmented
                         Grid.Row="1"
@@ -518,7 +518,10 @@
             Minimum="270"
             Opacity="0" />
 
-        <Grid x:Name="RenderingGrid" Grid.Column="1">
+        <Grid
+            x:Name="RenderingGrid"
+            Grid.Column="1"
+            Margin="7,0,0,0">
             <!--  Mail Rendering Frame  -->
             <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
 
@@ -539,5 +542,38 @@
                     Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}" />
             </StackPanel>
         </Grid>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="BothPanelsNoMailSelected">
+                    <VisualState.Setters>
+                        <Setter Target="RenderingFrame.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="BothPanelsMailSelected">
+                    <VisualState.Setters>
+                        <Setter Target="NoMailSelectedPanel.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowMailList">
+                    <VisualState.Setters>
+                        <Setter Target="MailListContainer.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="MailListSizer.Visibility" Value="Collapsed" />
+                        <Setter Target="RenderingGrid.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowRenderer">
+                    <VisualState.Setters>
+                        <Setter Target="RenderingGrid.(Grid.Column)" Value="0" />
+                        <Setter Target="RenderingGrid.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="RenderingGrid.Margin" Value="0" />
+                        <Setter Target="RenderingGrid.Visibility" Value="Visible" />
+                        <Setter Target="NoMailSelectedPanel.Visibility" Value="Collapsed" />
+                        <Setter Target="MailListSizer.Visibility" Value="Collapsed" />
+                        <Setter Target="MailListContainer.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:MailListPageAbstract>
