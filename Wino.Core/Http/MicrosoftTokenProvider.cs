@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Authentication;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Http

@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.Client.Mails;

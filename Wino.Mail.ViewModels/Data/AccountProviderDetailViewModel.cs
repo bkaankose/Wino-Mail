@@ -1,6 +1,6 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data

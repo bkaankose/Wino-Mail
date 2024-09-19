@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;

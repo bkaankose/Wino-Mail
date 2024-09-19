@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using SQLite;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Core.Domain.Entities.Mail
 {
     /// <summary>
     /// Summary of the parsed MIME messages.

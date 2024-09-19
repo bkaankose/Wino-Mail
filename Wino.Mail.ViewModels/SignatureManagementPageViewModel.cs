@@ -8,7 +8,8 @@ using CommunityToolkit.Mvvm.Input;
 using MoreLinq;
 using MoreLinq.Extensions;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 

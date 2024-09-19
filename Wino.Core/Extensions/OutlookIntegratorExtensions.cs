@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Graph.Models;
 using MimeKit;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Extensions

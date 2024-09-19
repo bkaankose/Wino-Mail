@@ -1,7 +1,7 @@
 ﻿using System;
 using SQLite;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Core.Domain.Entities.Shared
 {
     public class MailAccountPreferences
     {

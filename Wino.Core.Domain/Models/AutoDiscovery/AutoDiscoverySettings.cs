@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Models.AutoDiscovery
 {

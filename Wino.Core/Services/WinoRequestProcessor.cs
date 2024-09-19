@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;

@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Entities;
+﻿using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Messaging.UI
 {

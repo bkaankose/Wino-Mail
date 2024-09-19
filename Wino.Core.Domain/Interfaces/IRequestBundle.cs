@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces

@@ -2,7 +2,8 @@
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;

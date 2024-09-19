@@ -2,7 +2,7 @@
 using SQLite;
 using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Core.Domain.Entities.Shared
 {
     public class TokenInformation : TokenInformationBase
     {

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using MimeKit;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Extensions;
 
 namespace Wino.Core.Domain.Models.MailItem

@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;

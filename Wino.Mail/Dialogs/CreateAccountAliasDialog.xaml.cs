@@ -1,6 +1,6 @@
 ﻿using System;
 using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Dialogs

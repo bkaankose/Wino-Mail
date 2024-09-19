@@ -7,7 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:entities="using:Wino.Core.Domain.Entities"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mailkit="using:MimeKit"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"

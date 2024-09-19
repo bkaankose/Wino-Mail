@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using SQLite;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Core.Domain.Entities.Shared
 {
     /// <summary>
     /// Back storage for simple name-address book.

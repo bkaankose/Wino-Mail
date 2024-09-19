@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Wino.Core.Domain.Entities.Mail;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Core.Domain.Models.Folders
 {
     public record SystemFolderConfiguration(MailItemFolder SentFolder,
                                             MailItemFolder DraftFolder,

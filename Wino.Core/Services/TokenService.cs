@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Services
 {

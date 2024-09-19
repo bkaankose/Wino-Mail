@@ -2,7 +2,8 @@
 using System.IO;
 using System.Threading.Tasks;
 using SQLite;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Services

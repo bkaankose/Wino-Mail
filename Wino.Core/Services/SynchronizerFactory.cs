@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers;

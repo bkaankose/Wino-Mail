@@ -5,7 +5,7 @@ using SQLite;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
-namespace Wino.Core.Domain.Entities
+namespace Wino.Core.Domain.Entities.Mail
 {
     [DebuggerDisplay("{FolderName} - {SpecialFolderType}")]
     public class MailItemFolder : IMailItemFolder

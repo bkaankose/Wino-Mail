@@ -6,7 +6,7 @@
     xmlns:controls="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:entities="using:Wino.Core.Domain.Entities"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:local="using:Wino.Behaviors"

@@ -8,7 +8,7 @@ using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Views.Settings;

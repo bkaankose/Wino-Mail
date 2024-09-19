@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Dialogs
 {

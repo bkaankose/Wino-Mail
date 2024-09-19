@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MimeKit;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;

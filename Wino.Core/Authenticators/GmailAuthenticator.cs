@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;

@@ -4,7 +4,7 @@ using System.Linq;
 using Windows.Foundation;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.MenuFlyouts
 {
