@@ -28,7 +28,6 @@ using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -283,8 +282,6 @@ namespace Wino.Mail.ViewModels
 
             if (isMultiSelecting && StatePersistenceService.IsReaderNarrowed)
             {
-                // Don't change the active mail item if the reader is narrowed, but just update the shell.
-                Messenger.Send(new ShellStateUpdated());
                 return;
             }
 

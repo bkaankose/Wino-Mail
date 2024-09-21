@@ -225,7 +225,6 @@ namespace Wino.Views
         {
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
             WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
-            WeakReferenceMessenger.Default.Send(new ShellStateUpdated());
         }
 
         private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
