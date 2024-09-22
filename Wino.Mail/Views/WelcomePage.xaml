@@ -4,20 +4,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="using:Wino.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:toolkitpreview="using:CommunityToolkit.Labs.WinUI.MarkdownTextBlock"
+    xmlns:toolkitmd="using:CommunityToolkit.Labs.WinUI.MarkdownTextBlock"
     mc:Ignorable="d">
 
-    <Border
-        Margin="0,0,7,7"
-        Background="{ThemeResource WinoContentZoneBackgroud}"
-        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
-        BorderThickness="1"
-        CornerRadius="7">
-        <Grid Padding="24">
+    <Border Style="{StaticResource PageRootBorderStyle}">
+        <Grid Padding="15">
             <ScrollViewer>
-                <toolkitpreview:MarkdownTextBlock
+                <toolkitmd:MarkdownTextBlock
                     CharacterSpacing="12"
                     Config="{x:Bind _config, Mode=OneTime}"
                     FontSize="16"

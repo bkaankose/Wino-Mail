@@ -7,14 +7,14 @@
     xmlns:controls1="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    x:Name="root"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
     xmlns:selectors="using:Wino.Selectors"
-    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
+    xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    x:Name="root"
     Title="Personalization"
     mc:Ignorable="d">
 
@@ -149,8 +149,8 @@
         <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Medium"
-                ShowPreviewText="True"
-                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}" />
+                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
+                ShowPreviewText="True" />
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
@@ -255,7 +255,7 @@
 
                         <!--  TODO: Group by custom/wino  -->
                         <GridView
-                            ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                            toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                             ItemTemplateSelector="{StaticResource AppThemePreviewTemplateSelector}"
                             ItemsSource="{x:Bind ViewModel.AppThemes, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedAppTheme, Mode=TwoWay}" />
@@ -276,7 +276,7 @@
                         ContentAlignment="Vertical">
                         <ListView
                             Margin="-18,0"
-                            ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                            toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                             ItemTemplateSelector="{StaticResource MailItemDisplayModePreviewTemplateSelector}"
                             ItemsSource="{x:Bind ViewModel.InformationDisplayModes}"
                             SelectedItem="{x:Bind ViewModel.SelectedInfoDisplayMode, Mode=TwoWay}" />

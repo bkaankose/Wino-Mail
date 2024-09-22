@@ -1,6 +1,6 @@
 ﻿<abstract:AliasManagementPageAbstract x:Class="Wino.Views.Settings.AliasManagementPage"
                                       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                                      xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
+                                      xmlns:toolkitExt="using:CommunityToolkit.WinUI"
                                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                                       xmlns:abstract="using:Wino.Views.Abstract"
                                       xmlns:controls="using:Wino.Controls"
@@ -76,7 +76,7 @@
 
     <ListView ItemTemplate="{StaticResource AccountAliasTemplate}"
               ItemsSource="{x:Bind ViewModel.AccountAliases, Mode=OneWay}"
-              ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+              toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
               SelectionMode="None">
         <ListView.ItemContainerTransitions>
             <TransitionCollection>
