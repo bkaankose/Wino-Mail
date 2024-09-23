@@ -2,9 +2,7 @@
 
 namespace Wino.Activation
 {
-    // For more information on understanding and extending activation flow see
-    // https://github.com/microsoft/TemplateStudio/blob/main/docs/UWP/activation.md
-    internal abstract class ActivationHandler
+    public abstract class ActivationHandler
     {
         public abstract bool CanHandle(object args);
 
@@ -12,7 +10,7 @@ namespace Wino.Activation
     }
 
     // Extend this class to implement new ActivationHandlers
-    internal abstract class ActivationHandler<T> : ActivationHandler
+    public abstract class ActivationHandler<T> : ActivationHandler
         where T : class
     {
         // Override this method to add the activation logic in your activation handler

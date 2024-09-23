@@ -19,12 +19,12 @@ namespace Wino.Activation
         private readonly INativeAppService _nativeAppService;
         private readonly IMimeFileService _mimeFileService;
         private readonly IStatePersistanceService _statePersistanceService;
-        private readonly IWinoNavigationService _winoNavigationService;
+        private readonly INavigationService _winoNavigationService;
 
         public FileActivationHandler(INativeAppService nativeAppService,
                                      IMimeFileService mimeFileService,
                                      IStatePersistanceService statePersistanceService,
-                                     IWinoNavigationService winoNavigationService)
+                                     INavigationService winoNavigationService)
         {
             _nativeAppService = nativeAppService;
             _mimeFileService = mimeFileService;

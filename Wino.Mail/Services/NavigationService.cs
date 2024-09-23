@@ -18,7 +18,7 @@ using Wino.Views.Settings;
 
 namespace Wino.Services
 {
-    public class WinoNavigationService : IWinoNavigationService
+    public class NavigationService : INavigationService
     {
         private readonly IStatePersistanceService _statePersistanceService;
 
@@ -46,7 +46,7 @@ namespace Wino.Services
             }
         }
 
-        public WinoNavigationService(IStatePersistanceService statePersistanceService)
+        public NavigationService(IStatePersistanceService statePersistanceService)
         {
             _statePersistanceService = statePersistanceService;
         }

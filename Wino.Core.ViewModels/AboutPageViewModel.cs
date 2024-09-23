@@ -5,9 +5,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Core.ViewModels
 {
-    public partial class AboutPageViewModel : BaseViewModel
+    public partial class AboutPageViewModel : CoreBaseViewModel
     {
         private readonly IStoreRatingService _storeRatingService;
         private readonly INativeAppService _nativeAppService;

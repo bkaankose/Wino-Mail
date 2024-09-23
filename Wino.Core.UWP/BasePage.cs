@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
-using Wino.Core.UWP;
-using Wino.Mail.ViewModels;
+using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino
+namespace Wino.Core.UWP
 {
     public class BasePage : Page, IRecipient<LanguageChanged>
     {
@@ -29,9 +27,9 @@ namespace Wino
         public virtual void OnLanguageChanged() { }
     }
 
-    public abstract class BasePage<T> : BasePage where T : BaseViewModel
+    public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
     {
-        public T ViewModel { get; } = App.Current.Services.GetService<T>();
+        public T ViewModel { get; } //= App.Current.Services.GetService<T>();
 
         protected BasePage()
         {
@@ -40,7 +38,7 @@ namespace Wino
 
         ~BasePage()
         {
-            Debug.WriteLine($"Disposed {this.GetType().Name}");
+            Debug.WriteLine($"Disposed {GetType().Name}");
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -70,9 +68,9 @@ namespace Wino
             GC.Collect();
         }
 
-        private Core.Domain.Models.Navigation.NavigationMode GetNavigationMode(NavigationMode mode)
+        private Domain.Models.Navigation.NavigationMode GetNavigationMode(NavigationMode mode)
         {
-            return (Core.Domain.Models.Navigation.NavigationMode)mode;
+            return (Domain.Models.Navigation.NavigationMode)mode;
         }
     }
 }

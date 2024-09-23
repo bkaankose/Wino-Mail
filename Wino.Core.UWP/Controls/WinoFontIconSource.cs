@@ -1,4 +1,5 @@
 ﻿using Windows.UI.Xaml;
+using Wino.Core.UWP.Controls;
 
 namespace Wino.Controls
 {

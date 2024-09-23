@@ -1,7 +1,7 @@
 ﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 
-namespace Wino.Controls
+namespace Wino.Core.UWP.Controls
 {
     public enum WinoIconGlyph
     {

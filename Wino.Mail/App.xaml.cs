@@ -6,9 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Notifications;
-using Microsoft.AppCenter;
-using Microsoft.AppCenter.Analytics;
-using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx;
 using Serilog;
@@ -17,9 +14,7 @@ using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
 using Windows.ApplicationModel.Core;
-using Windows.Foundation.Metadata;
 using Windows.Storage;
-using Windows.System.Profile;
 using Windows.UI;
 using Windows.UI.Core.Preview;
 using Windows.UI.Notifications;
@@ -45,13 +40,12 @@ using Wino.Services;
 
 namespace Wino
 {
-    public sealed partial class App : Application, IRecipient<NewSynchronizationRequested>
+    public sealed partial class App : WinoApplication, IRecipient<NewSynchronizationRequested>
     {
         private const string WinoLaunchLogPrefix = "[Wino Launch] ";
-        private const string AppCenterKey = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
+        public override string AppCenterKey { get; } = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
 
-        public new static App Current => (App)Application.Current;
-        public IServiceProvider Services { get; }
+        public new static WinoApplication Current => (WinoApplication)Application.Current;
 
         private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
         private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
@@ -77,32 +71,20 @@ namespace Wino
         {
             InitializeComponent();
 
-            UnhandledException += OnAppUnhandledException;
-
-            Resuming += OnResuming;
-            Suspending += OnSuspending;
-
-            Services = ConfigureServices();
-
-            _logInitializer = Services.GetService<ILogInitializer>();
-
             ConfigureLogger();
-            ConfigureAppCenter();
-            ConfigurePrelaunch();
-            ConfigureXbox();
 
-            _applicationFolderConfiguration = Services.GetService<IApplicationConfiguration>();
+            _applicationFolderConfiguration = base.Services.GetService<IApplicationConfiguration>();
 
             // Make sure the paths are setup on app start.
             _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
             _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
 
-            _appServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
-            _themeService = Services.GetService<IThemeService>();
-            _databaseService = Services.GetService<IDatabaseService>();
-            _appInitializerService = Services.GetService<IApplicationConfiguration>();
-            _translationService = Services.GetService<ITranslationService>();
-            _dialogService = Services.GetService<IDialogService>();
+            _appServiceConnectionManager = base.Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
+            _themeService = base.Services.GetService<IThemeService>();
+            _databaseService = base.Services.GetService<IDatabaseService>();
+            _appInitializerService = base.Services.GetService<IApplicationConfiguration>();
+            _translationService = base.Services.GetService<ITranslationService>();
+            _dialogService = base.Services.GetService<IDialogService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -119,9 +101,9 @@ namespace Wino
 
             // User has some accounts. Check if Wino Server runs on system startup.
 
-            var dialogService = Services.GetService<IDialogService>();
-            var startupBehaviorService = Services.GetService<IStartupBehaviorService>();
-            var preferencesService = Services.GetService<IPreferencesService>();
+            var dialogService = base.Services.GetService<IDialogService>();
+            var startupBehaviorService = base.Services.GetService<IStartupBehaviorService>();
+            var preferencesService = base.Services.GetService<IPreferencesService>();
 
             var currentStartupBehavior = await startupBehaviorService.GetCurrentStartupBehaviorAsync();
 
@@ -176,7 +158,7 @@ namespace Wino
             deferral.Complete();
         }
 
-        private async void OnResuming(object sender, object e)
+        public override async void OnResuming(object sender, object e)
         {
             // App Service connection was lost on suspension.
             // We must restore it.
@@ -196,14 +178,9 @@ namespace Wino
             }
         }
 
-        private void OnSuspending(object sender, SuspendingEventArgs e)
-        {
-            var deferral = e.SuspendingOperation.GetDeferral();
-            deferral.Complete();
-        }
-
         private void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
-        private IServiceProvider ConfigureServices()
+
+        public override IServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();
 
@@ -233,25 +210,25 @@ namespace Wino
             services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
             services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
-            services.AddSingleton<IWinoNavigationService, WinoNavigationService>();
+            services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<IDialogService, DialogService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)
         {
             services.AddSingleton(typeof(AppShellViewModel));
-            services.AddTransient(typeof(SettingsDialogViewModel));
-            services.AddTransient(typeof(PersonalizationPageViewModel));
-            services.AddTransient(typeof(SettingOptionsPageViewModel));
+            //services.AddTransient(typeof(SettingsDialogViewModel));
+            //services.AddTransient(typeof(PersonalizationPageViewModel));
+            //services.AddTransient(typeof(SettingOptionsPageViewModel));
             services.AddTransient(typeof(MailListPageViewModel));
             services.AddTransient(typeof(MailRenderingPageViewModel));
             services.AddTransient(typeof(AccountManagementViewModel));
             services.AddTransient(typeof(WelcomePageViewModel));
-            services.AddTransient(typeof(AboutPageViewModel));
+            //services.AddTransient(typeof(AboutPageViewModel));
             services.AddTransient(typeof(ComposePageViewModel));
             services.AddTransient(typeof(IdlePageViewModel));
-            services.AddTransient(typeof(SettingsPageViewModel));
-            services.AddTransient(typeof(NewAccountManagementPageViewModel));
+            //services.AddTransient(typeof(SettingsPageViewModel));
+            //services.AddTransient(typeof(NewAccountManagementPageViewModel));
             services.AddTransient(typeof(AccountDetailsPageViewModel));
             services.AddTransient(typeof(SignatureManagementPageViewModel));
             services.AddTransient(typeof(MessageListPageViewModel));
@@ -272,22 +249,7 @@ namespace Wino
             _logInitializer.SetupLogger(logFilePath);
         }
 
-        private void ConfigureAppCenter() => AppCenter.Start(AppCenterKey, typeof(Analytics), typeof(Crashes));
 
-        private void ConfigurePrelaunch()
-        {
-            if (ApiInformation.IsMethodPresent("Windows.ApplicationModel.Core.CoreApplication", "EnablePrelaunch"))
-                CoreApplication.EnablePrelaunch(true);
-        }
-
-        private void ConfigureXbox()
-        {
-            // Xbox users should use Reveal focus.
-            if (ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 6))
-            {
-                FocusVisualKind = AnalyticsInfo.VersionInfo.DeviceFamily == "Xbox" ? FocusVisualKind.Reveal : FocusVisualKind.HighVisibility;
-            }
-        }
 
         private void ConfigureTitleBar()
         {
@@ -403,9 +365,9 @@ namespace Wino
 
                     // At this point server should've already been connected.
 
-                    var processor = Services.GetService<IWinoRequestProcessor>();
-                    var delegator = Services.GetService<IWinoRequestDelegator>();
-                    var mailService = Services.GetService<IMailService>();
+                    var processor = base.Services.GetService<IWinoRequestProcessor>();
+                    var delegator = base.Services.GetService<IWinoRequestDelegator>();
+                    var mailService = base.Services.GetService<IMailService>();
 
                     var mailItem = await mailService.GetSingleMailItemAsync(mailUniqueId);
 
@@ -438,21 +400,7 @@ namespace Wino
             toastActionBackgroundTaskDeferral = null;
         }
 
-        private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
-        {
-            var parameters = new Dictionary<string, string>()
-            {
-                { "BaseMessage", e.Exception.GetBaseException().Message },
-                { "BaseStackTrace", e.Exception.GetBaseException().StackTrace },
-                { "StackTrace", e.Exception.StackTrace },
-                { "Message", e.Exception.Message },
-            };
 
-            Log.Error(e.Exception, "[Wino Crash]");
-
-            Crashes.TrackError(e.Exception, parameters);
-            Analytics.TrackEvent("Wino Crashed", parameters);
-        }
 
         private bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 
@@ -505,9 +453,9 @@ namespace Wino
 
         private IEnumerable<ActivationHandler> GetActivationHandlers()
         {
-            yield return Services.GetService<ProtocolActivationHandler>();
-            yield return Services.GetService<ToastNotificationActivationHandler>();
-            yield return Services.GetService<FileActivationHandler>();
+            yield return base.Services.GetService<ProtocolActivationHandler>();
+            yield return base.Services.GetService<ToastNotificationActivationHandler>();
+            yield return base.Services.GetService<FileActivationHandler>();
         }
 
         public void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)

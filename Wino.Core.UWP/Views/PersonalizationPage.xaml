@@ -12,9 +12,8 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
-    xmlns:selectors="using:Wino.Selectors"
-    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI"
-    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
+    
+    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI" xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
     Title="Personalization"
     mc:Ignorable="d">
 

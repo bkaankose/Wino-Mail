@@ -1,9 +1,10 @@
 ﻿using Windows.UI.Xaml;
-using Wino.Mail.ViewModels;
+using Wino.Core.UWP;
+using Wino.Core.ViewModels;
 
 namespace Wino.Views.Abstract
 {
-    public class SettingsPageBase<T> : BasePage<T> where T : BaseViewModel
+    public class SettingsPageBase<T> : BasePage<T> where T : CoreBaseViewModel
     {
         public string Title
         {

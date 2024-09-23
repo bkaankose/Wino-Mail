@@ -68,7 +68,7 @@ namespace Wino.Mail.ViewModels
         private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
 
-        public IWinoNavigationService NavigationService { get; }
+        public INavigationService NavigationService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
@@ -146,7 +146,7 @@ namespace Wino.Mail.ViewModels
         private bool isAccountSynchronizerInSynchronization;
 
         public MailListPageViewModel(IDialogService dialogService,
-                                     IWinoNavigationService navigationService,
+                                     INavigationService navigationService,
                                      IMailService mailService,
                                      IStatePersistanceService statePersistenceService,
                                      IFolderService folderService,

@@ -9,13 +9,14 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Mail.ViewModels.Data;
+using Wino.Core.ViewModels;
+using Wino.Core.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class PersonalizationPageViewModel : BaseViewModel
+    public partial class PersonalizationPageViewModel : CoreBaseViewModel
     {
-        public IStatePersistanceService StatePersistanceService { get; }
+        public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
         private readonly IThemeService _themeService;
@@ -122,7 +123,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private void ResetMailListPaneLength()
         {
-            StatePersistanceService.MailListPaneLength = 420;
+            StatePersistenceService.MailListPaneLength = 420;
             DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
         }
 
@@ -134,7 +135,7 @@ namespace Wino.Mail.ViewModels
         {
             CreateCustomThemeCommand = new AsyncRelayCommand(CreateCustomThemeAsync);
 
-            StatePersistanceService = statePersistanceService;
+            StatePersistenceService = statePersistanceService;
 
             _themeService = themeService;
             PreferencesService = preferencesService;

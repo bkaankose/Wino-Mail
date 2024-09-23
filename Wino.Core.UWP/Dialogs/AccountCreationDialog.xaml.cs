@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.UWP;
 using Wino.Messaging.UI;
 
 namespace Wino.Dialogs
@@ -35,7 +36,7 @@ namespace Wino.Dialogs
         {
             if (string.IsNullOrEmpty(copyClipboardURL)) return;
 
-            var clipboardService = App.Current.Services.GetService<IClipboardService>();
+            var clipboardService = WinoApplication.Current.Services.GetService<IClipboardService>();
             await clipboardService.CopyClipboardAsync(copyClipboardURL);
         }
     }

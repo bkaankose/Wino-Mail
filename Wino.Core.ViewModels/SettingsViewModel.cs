@@ -1,8 +1,8 @@
 ﻿using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Core.ViewModels
 {
-    public class SettingsDialogViewModel : BaseViewModel
+    public class SettingsDialogViewModel : CoreBaseViewModel
     {
         public SettingsDialogViewModel(IDialogService dialogService) : base(dialogService)
         {

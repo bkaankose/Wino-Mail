@@ -67,7 +67,7 @@ namespace Wino.Mail.ViewModels
         public IStatePersistanceService StatePersistenceService { get; }
         public IWinoServerConnectionManager ServerConnectionManager { get; }
         public IPreferencesService PreferencesService { get; }
-        public IWinoNavigationService NavigationService { get; }
+        public INavigationService NavigationService { get; }
 
         private readonly IFolderService _folderService;
         private readonly IConfigurationService _configurationService;
@@ -91,7 +91,7 @@ namespace Wino.Mail.ViewModels
         private WinoServerConnectionStatus activeConnectionStatus;
 
         public AppShellViewModel(IDialogService dialogService,
-                                 IWinoNavigationService navigationService,
+                                 INavigationService navigationService,
                                  IBackgroundTaskService backgroundTaskService,
                                  IMimeFileService mimeFileService,
                                  INativeAppService nativeAppService,

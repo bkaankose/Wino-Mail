@@ -4,7 +4,7 @@ using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface IWinoNavigationService
+    public interface INavigationService
     {
         bool Navigate(WinoPage page,
                              object parameter = null,

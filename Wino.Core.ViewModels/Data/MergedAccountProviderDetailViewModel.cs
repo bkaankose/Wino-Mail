@@ -4,8 +4,9 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Mail.ViewModels.Data
+namespace Wino.Core.ViewModels.Data
 {
     public partial class MergedAccountProviderDetailViewModel : ObservableObject, IAccountProviderDetailViewModel
     {

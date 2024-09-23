@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Wino.Controls
+namespace Wino.Core.UWP.Controls
 {
     public static class ControlConstants
     {

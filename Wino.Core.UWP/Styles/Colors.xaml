@@ -17,11 +17,15 @@
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#636e72</SolidColorBrush>
             <SolidColorBrush x:Key="WinoContentZoneBackgroud" Color="White" />
+            <SolidColorBrush x:Key="MailItemFlaggedBackgroundBrush" Color="#ffffcc" />
+            <SolidColorBrush x:Key="InformationBrush">#34495e</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="AttachmentBrush">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="SettingsPaneBorderBrush">#2d3436</SolidColorBrush>
             <StaticResource x:Key="WinoContentZoneBackgroud" ResourceKey="LayerFillColorDefaultBrush" />
+            <SolidColorBrush x:Key="MailItemFlaggedBackgroundBrush" Color="#576574" />
+            <SolidColorBrush x:Key="InformationBrush">#ecf0f1</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

@@ -56,14 +56,15 @@ namespace Wino.Views
             settingsHeader.Title = Translator.MenuSettings;
         }
 
+        // TODO: Separate base class to resolve pages.
         private Type GetNavigationPageType(WinoPage page) => page switch
         {
-            WinoPage.AboutPage => typeof(AboutPage),
+            // WinoPage.AboutPage => typeof(AboutPage),
             WinoPage.PersonalizationPage => typeof(PersonalizationPage),
-            WinoPage.MessageListPage => typeof(MessageListPage),
-            WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
-            WinoPage.LanguageTimePage => typeof(LanguageTimePage),
-            WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
+            //WinoPage.MessageListPage => typeof(MessageListPage),
+            //WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
+            //WinoPage.LanguageTimePage => typeof(LanguageTimePage),
+            //WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
             _ => null,
         };
 

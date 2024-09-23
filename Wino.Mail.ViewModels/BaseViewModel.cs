@@ -1,18 +1,14 @@
-﻿using System;
-using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.ViewModels;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public class BaseViewModel : ObservableRecipient,
-        INavigationAware,
+    public class BaseViewModel : CoreBaseViewModel,
         IRecipient<AccountCreatedMessage>,
         IRecipient<AccountRemovedMessage>,
         IRecipient<AccountUpdatedMessage>,
@@ -26,35 +22,7 @@ namespace Wino.Mail.ViewModels
         IRecipient<FolderRenamed>,
         IRecipient<FolderSynchronizationEnabled>
     {
-        private IDispatcher _dispatcher;
-        public IDispatcher Dispatcher
-        {
-            get
-            {
-                return _dispatcher;
-            }
-            set
-            {
-                _dispatcher = value;
-
-                if (value != null)
-                {
-                    OnDispatcherAssigned();
-                }
-            }
-        }
-
-        protected IDialogService DialogService { get; }
-
-        public BaseViewModel(IDialogService dialogService) => DialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
-
-        public async Task ExecuteUIThread(Action action) => await Dispatcher?.ExecuteOnUIThread(action);
-
-        public virtual void OnNavigatedTo(NavigationMode mode, object parameters) { IsActive = true; }
-
-        public virtual void OnNavigatedFrom(NavigationMode mode, object parameters) { IsActive = false; }
-
-        protected virtual void OnDispatcherAssigned() { }
+        public BaseViewModel(IDialogService dialogService) : base(dialogService) { }
 
         protected virtual void OnMailAdded(MailCopy addedMail) { }
         protected virtual void OnMailRemoved(MailCopy removedMail) { }
@@ -72,7 +40,7 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnFolderRenamed(IMailItemFolder mailItemFolder) { }
         protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
 
-        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
+
         void IRecipient<AccountCreatedMessage>.Receive(AccountCreatedMessage message) => OnAccountCreated(message.Account);
         void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message) => OnAccountRemoved(message.Account);
         void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message) => OnAccountUpdated(message.Account);

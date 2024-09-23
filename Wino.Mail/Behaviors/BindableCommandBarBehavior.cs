@@ -7,6 +7,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Wino.Controls;
 using Wino.Core.Domain.Models.Menus;
+using Wino.Core.UWP.Controls;
 using Wino.Helpers;
 
 namespace Wino.Behaviors

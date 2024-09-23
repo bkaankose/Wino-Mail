@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services;
+using Wino.Core.UWP;
 
 namespace Wino.Dialogs
 {
@@ -19,7 +19,7 @@ namespace Wino.Dialogs
         {
             InitializeComponent();
 
-            _themeService = App.Current.Services.GetService<IThemeService>();
+            _themeService = WinoApplication.Current.Services.GetService<IThemeService>();
         }
 
         private async void ApplyClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
@@ -45,7 +45,7 @@ namespace Wino.Dialogs
 
         private async void BrowseWallpaperClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            var dialogService = App.Current.Services.GetService<IDialogService>();
+            var dialogService = WinoApplication.Current.Services.GetService<IDialogService>();
 
             var pickedFileData = await dialogService.PickWindowsFileContentAsync(".jpg", ".png");
 

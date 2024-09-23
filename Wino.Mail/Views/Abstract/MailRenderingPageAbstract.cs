@@ -1,4 +1,5 @@
 ﻿using Windows.UI.Xaml;
+using Wino.Core.UWP;
 using Wino.Mail.ViewModels;
 
 namespace Wino.Views.Abstract
