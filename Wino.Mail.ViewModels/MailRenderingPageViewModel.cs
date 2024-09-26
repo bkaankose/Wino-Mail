@@ -425,7 +425,7 @@ namespace Wino.Mail.ViewModels
                 FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
                 FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
                 CreationDate = message.Date.DateTime;
-                ContactPicture = initializedMailItemViewModel.SenderContact?.Base64ContactPicture;
+                ContactPicture = initializedMailItemViewModel?.SenderContact?.Base64ContactPicture;
 
                 // Automatically disable images for Junk folder to prevent pixel tracking.
                 // This can only work for selected mail item rendering, not for EML file rendering.

@@ -1,19 +1,17 @@
-﻿using System;
-using Windows.System;
+﻿using CommunityToolkit.Labs.WinUI.MarkdownTextBlock;
 using Wino.Views.Abstract;
 
 namespace Wino.Views
 {
     public sealed partial class WelcomePage : WelcomePageAbstract
     {
+        private readonly MarkdownConfig _config;
+
         public WelcomePage()
         {
             InitializeComponent();
-        }
 
-        private async void HyperlinkClicked(object sender, Microsoft.Toolkit.Uwp.UI.Controls.LinkClickedEventArgs e)
-        {
-            await Launcher.LaunchUriAsync(new System.Uri(e.Link));
+            _config = new MarkdownConfig();
         }
     }
 }

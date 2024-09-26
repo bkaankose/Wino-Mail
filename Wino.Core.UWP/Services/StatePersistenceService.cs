@@ -40,7 +40,6 @@ namespace Wino.Services
                 if (SetProperty(ref isReadingMail, value))
                 {
                     OnPropertyChanged(nameof(IsBackButtonVisible));
-                    WeakReferenceMessenger.Default.Send(new ShellStateUpdated());
                 }
             }
         }
@@ -63,7 +62,6 @@ namespace Wino.Services
                 if (SetProperty(ref isReaderNarrowed, value))
                 {
                     OnPropertyChanged(nameof(IsBackButtonVisible));
-                    WeakReferenceMessenger.Default.Send(new ShellStateUpdated());
                 }
             }
         }

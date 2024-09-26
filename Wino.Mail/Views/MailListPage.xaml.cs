@@ -25,18 +25,14 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
 
 namespace Wino.Views
 {
     public sealed partial class MailListPage : MailListPageAbstract,
-        IRecipient<ResetSingleMailItemSelectionEvent>,
         IRecipient<ClearMailSelectionsRequested>,
         IRecipient<ActiveMailItemChangedEvent>,
-        IRecipient<ActiveMailFolderChangedEvent>,
         IRecipient<SelectMailItemContainerEvent>,
-        IRecipient<ShellStateUpdated>,
         IRecipient<DisposeRenderingFrameRequested>
     {
         private const double RENDERING_COLUMN_MIN_WIDTH = 375;
@@ -142,14 +138,6 @@ namespace Wino.Views
         private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
         {
             MailListView.ClearSelections();
-        }
-
-        void IRecipient<ResetSingleMailItemSelectionEvent>.Receive(ResetSingleMailItemSelectionEvent message)
-        {
-            // Single item in thread selected.
-            // Force main list view to unselect all items, except for the one provided.
-
-            MailListView.ClearSelections(message.SelectedViewModel);
         }
 
         private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
@@ -303,11 +291,6 @@ namespace Wino.Views
 
         #endregion
 
-        public void Receive(ActiveMailFolderChangedEvent message)
-        {
-            UpdateAdaptiveness();
-        }
-
         public async void Receive(SelectMailItemContainerEvent message)
         {
             if (message.SelectedMailViewModel == null) return;
@@ -352,11 +335,6 @@ namespace Wino.Views
 
                 }
             });
-        }
-
-        public void Receive(ShellStateUpdated message)
-        {
-            UpdateAdaptiveness();
         }
 
         private void SearchBoxFocused(object sender, RoutedEventArgs e)
