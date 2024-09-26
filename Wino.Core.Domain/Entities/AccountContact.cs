@@ -36,7 +36,7 @@ namespace Wino.Core.Domain.Entities
         /// </summary>
         public bool IsRootContact { get; set; }
 
-        public string DisplayName => Address == Name ? Address : $"{Name} <{Address}>";
+        public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address.ToLowerInvariant() : $"{Name} <{Address.ToLowerInvariant()}>";
 
         public override bool Equals(object obj)
         {
