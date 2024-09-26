@@ -108,10 +108,19 @@
 
                             <!--  Sender  -->
                             <TextBlock
-                                x:Name="SenderText"
+                                x:Name="SenderTextFromName"
                                 Grid.Column="1"
                                 Text="{x:Bind MailItem.FromName}"
-                                TextTrimming="WordEllipsis" />
+                                TextTrimming="WordEllipsis"
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(MailItem.FromName)}" />
+
+                            <!--  Sender  -->
+                            <TextBlock
+                                x:Name="SenderTextFromAddress"
+                                Grid.Column="1"
+                                Text="{x:Bind MailItem.FromAddress}"
+                                TextTrimming="WordEllipsis"
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItem.FromName)}" />
 
                             <!--  Hover button  -->
                             <StackPanel
@@ -252,7 +261,8 @@
                     <VisualState.Setters>
                         <Setter Target="TitleText.Foreground" Value="{ThemeResource SystemAccentColor}" />
                         <Setter Target="TitleText.FontWeight" Value="Semibold" />
-                        <Setter Target="SenderText.FontWeight" Value="Semibold" />
+                        <Setter Target="SenderTextFromName.FontWeight" Value="Semibold" />
+                        <Setter Target="SenderTextFromAddress.FontWeight" Value="Semibold" />
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Read" />
