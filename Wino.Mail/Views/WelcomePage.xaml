@@ -12,6 +12,7 @@
         <Grid Padding="15">
             <ScrollViewer>
                 <toolkitmd:MarkdownTextBlock
+                    Margin="0,0,16,0"
                     CharacterSpacing="12"
                     Config="{x:Bind _config, Mode=OneTime}"
                     FontSize="16"
