@@ -636,7 +636,7 @@ namespace Wino.Mail.ViewModels
                 if (ActiveFolder == null) return;
 
                 // At least accounts must match.
-                if (ActiveFolder.HandlingFolders.Any(a => a.MailAccountId != addedMail.AssignedAccount.Id)) return;
+                if (!ActiveFolder.HandlingFolders.Any(a => a.MailAccountId != addedMail.AssignedAccount.Id)) return;
 
                 // Messages coming to sent or draft folder must be inserted regardless of the filter.
                 bool shouldPreventIgnoringFilter = addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
