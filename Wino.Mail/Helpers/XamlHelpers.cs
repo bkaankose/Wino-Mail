@@ -44,9 +44,8 @@ namespace Wino.Helpers
         public static Visibility IsSelectionModeMultiple(ListViewSelectionMode mode) => mode == ListViewSelectionMode.Multiple ? Visibility.Visible : Visibility.Collapsed;
         public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
         public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
-        public static Geometry GetPathIcon(string resourceName) => GetPathGeometry(Application.Current.Resources[$"{resourceName}"] as string);
-        public static GridLength GetGridLength(double width) => new GridLength(width, GridUnitType.Pixel);
-        public static double MailListAdaptivityConverter(double mailListPaneLength) => mailListPaneLength + 300d;
+        public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
+        public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
         public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, bool prefer24HourTime)
         {
             if (isDraft)

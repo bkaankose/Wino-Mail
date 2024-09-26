@@ -208,10 +208,15 @@
                                         Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
                                         CommandParameter="{x:Bind ViewModel.FromAddress, Mode=OneWay}"
                                         FontWeight="SemiBold">
-                                        <TextBlock>
-                                            <Run Text="{x:Bind ViewModel.FromName, Mode=OneWay}" />
-                                            <Run Text="&lt;" /><Run Text="{x:Bind ViewModel.FromAddress, Mode=OneWay}" /><Run Text="&gt;" />
-                                        </TextBlock>
+                                        <Grid>
+                                            <TextBlock Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.FromName), Mode=OneWay}">
+                                                <Run Text="{x:Bind ViewModel.FromName, Mode=OneWay}" />
+                                                <Run Text="&lt;" /><Run Text="{x:Bind ViewModel.FromAddress, Mode=OneWay}" /><Run Text="&gt;" />
+                                            </TextBlock>
+                                            <TextBlock Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(ViewModel.FromName), Mode=OneWay}">
+                                                <Run Text="{x:Bind ViewModel.FromAddress, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </Grid>
                                     </HyperlinkButton>
                                     <TextBlock FontSize="12" Text="{x:Bind helpers:XamlHelpers.GetCreationDateString(ViewModel.CreationDate, ViewModel.PreferencesService.Prefer24HourTimeFormat), Mode=OneWay}" />
                                 </StackPanel>
