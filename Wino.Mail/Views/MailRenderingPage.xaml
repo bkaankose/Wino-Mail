@@ -220,84 +220,89 @@
                     </CommandBar.Content>
                 </CommandBar>
 
-                <Grid Grid.Row="2" Margin="5,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                <ScrollViewer
+                    Grid.Row="2"
+                    MaxHeight="150"
+                    Margin="5,0">
+                    <Grid RowSpacing="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                    <Grid ColumnSpacing="6">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                        <Grid ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
 
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="{x:Bind domain:Translator.ComposerTo}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ComposerTo}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}" />
 
-                        <ItemsControl
-                            Grid.Column="1"
-                            ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <toolkit:WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                            <ItemsControl
+                                Grid.Column="1"
+                                ItemTemplate="{StaticResource InternetAddressTemplate}"
+                                ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <toolkit:WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="Cc:"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}" />
+                            <ItemsControl
+                                Grid.Column="1"
+                                ItemTemplate="{StaticResource InternetAddressTemplate}"
+                                ItemsSource="{x:Bind ViewModel.CcItems, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <toolkit:WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Grid>
+                        <Grid Grid.Row="2" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="Bcc:"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}" />
+
+                            <ItemsControl
+                                Grid.Column="1"
+                                ItemTemplate="{StaticResource InternetAddressTemplate}"
+                                ItemsSource="{x:Bind ViewModel.BccItems, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <toolkit:WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Grid>
                     </Grid>
-                    <Grid Grid.Row="1" ColumnSpacing="6">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="Cc:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}" />
-                        <ItemsControl
-                            Grid.Column="1"
-                            ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.CcItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <toolkit:WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </Grid>
-                    <Grid Grid.Row="2" ColumnSpacing="6">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            FontWeight="SemiBold"
-                            Text="Bcc:"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}" />
-
-                        <ItemsControl
-                            Grid.Column="1"
-                            ItemTemplate="{StaticResource InternetAddressTemplate}"
-                            ItemsSource="{x:Bind ViewModel.BccItems, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <toolkit:WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </Grid>
-                </Grid>
+                </ScrollViewer>
 
                 <!--  Attachments  -->
                 <Grid Grid.Row="3">
