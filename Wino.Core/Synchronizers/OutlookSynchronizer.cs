@@ -534,7 +534,7 @@ namespace Wino.Core.Synchronizers
         /// <returns>Display name of the user.</returns>
         private async Task<string> GetSenderNameAsync()
         {
-            var userInfo = await _graphClient.Users["me"].GetAsync();
+            var userInfo = await _graphClient.Me.GetAsync();
 
             return userInfo.DisplayName;
         }
