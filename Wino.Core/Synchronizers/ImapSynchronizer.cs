@@ -15,6 +15,7 @@ using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
@@ -73,7 +74,9 @@ namespace Wino.Core.Synchronizers
             _imapChangeProcessor = imapChangeProcessor;
             _applicationConfiguration = applicationConfiguration;
 
-            _clientPool = new ImapClientPool(Account.ServerInformation, CreateAccountProtocolLogFileStream());
+            var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, CreateAccountProtocolLogFileStream());
+
+            _clientPool = new ImapClientPool(poolOptions);
             idleDoneToken = new CancellationTokenSource();
         }
 

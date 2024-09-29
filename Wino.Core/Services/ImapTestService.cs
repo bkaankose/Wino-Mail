@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Integration;
 
 namespace Wino.Core.Services
@@ -38,7 +39,9 @@ namespace Wino.Core.Services
         {
             EnsureProtocolLogFileExists();
 
-            var clientPool = new ImapClientPool(serverInformation, _protocolLogStream)
+            var poolOptions = ImapClientPoolOptions.CreateTestPool(serverInformation, _protocolLogStream);
+
+            var clientPool = new ImapClientPool(poolOptions)
             {
                 ThrowOnSSLHandshakeCallback = !allowSSLHandShake
             };
