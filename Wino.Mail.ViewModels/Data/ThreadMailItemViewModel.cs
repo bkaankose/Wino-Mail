@@ -14,7 +14,7 @@ namespace Wino.Mail.ViewModels.Data
     /// </summary>
     public partial class ThreadMailItemViewModel : ObservableObject, IMailItemThread, IComparable<string>, IComparable<DateTime>
     {
-        public ObservableCollection<IMailItem> ThreadItems => ((IMailItemThread)MailItem).ThreadItems;
+        public ObservableCollection<IMailItem> ThreadItems => (MailItem as IMailItemThread)?.ThreadItems ?? [];
         public AccountContact SenderContact => ((IMailItemThread)MailItem).SenderContact;
 
         [ObservableProperty]
