@@ -254,7 +254,7 @@ namespace Wino.Mail.ViewModels
 
                     var folderSynchronizationResult = folderSynchronizationResponse.Data;
 
-                    if (folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                    if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
                     // Sync aliases if supported.
