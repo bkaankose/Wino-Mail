@@ -69,15 +69,20 @@ namespace Wino.Core.Integration
             ImapClientPoolOptions = imapClientPoolOptions;
         }
 
-        private async Task EnsureConnectivityAsync(ImapClient client, bool isCreatedNew)
+        /// <summary>
+        /// Ensures all supported capabilities are enabled in this connection.
+        /// Reconnects and reauthenticates if necessary.
+        /// </summary>
+        /// <param name="isCreatedNew">Whether the client has been newly created.</param>
+        private async Task EnsureCapabilitiesAsync(ImapClient client, bool isCreatedNew)
         {
             try
             {
-                await EnsureConnectedAsync(client);
-
+                bool isReconnected = await EnsureConnectedAsync(client);
+                
                 bool mustDoPostAuthIdentification = false;
 
-                if (isCreatedNew && client.IsConnected)
+                if ((isCreatedNew || isReconnected) && client.IsConnected)
                 {
                     // Activate supported pre-auth capabilities.
                     if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
@@ -106,7 +111,7 @@ namespace Wino.Core.Integration
 
                 await EnsureAuthenticatedAsync(client);
 
-                if (isCreatedNew && client.IsAuthenticated)
+                if ((isCreatedNew || isReconnected) && client.IsAuthenticated)
                 {
                     if (mustDoPostAuthIdentification) await client.IdentifyAsync(_implementation);
 
@@ -147,14 +152,14 @@ namespace Wino.Core.Integration
 
             if (_clients.TryPop(out ImapClient item))
             {
-                await EnsureConnectivityAsync(item, false);
+                await EnsureCapabilitiesAsync(item, false);
 
                 return item;
             }
 
             var client = CreateNewClient();
 
-            await EnsureConnectivityAsync(client, true);
+            await EnsureCapabilitiesAsync(client, true);
 
             return client;
         }
@@ -224,9 +229,10 @@ namespace Wino.Core.Integration
                 _ => SecureSocketOptions.None
             };
 
-        public async Task EnsureConnectedAsync(ImapClient client)
+        /// <returns>True if the connection is newly established.</returns>
+        public async Task<bool> EnsureConnectedAsync(ImapClient client)
         {
-            if (client.IsConnected) return;
+            if (client.IsConnected) return false;
 
             client.ServerCertificateValidationCallback = MyServerCertificateValidationCallback;
 
@@ -249,6 +255,9 @@ namespace Wino.Core.Integration
                     WriteToProtocolLog($"Supported authentication mechanisms: {string.Join(", ", supportedAuthMethods)}");
                 }
             }
+
+            return true;
+
         }
 
         private void WriteToProtocolLog(string message)
