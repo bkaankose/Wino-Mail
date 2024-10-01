@@ -73,10 +73,7 @@ namespace Wino.Core.Integration
         /// Ensures all supported capabilities are enabled in this connection.
         /// Reconnects and reauthenticates if necessary.
         /// </summary>
-        /// <param name="client"></param>
         /// <param name="isCreatedNew">Whether the client has been newly created.</param>
-        /// <returns></returns>
-        /// <exception cref="ImapClientPoolException"></exception>
         private async Task EnsureCapabilitiesAsync(ImapClient client, bool isCreatedNew)
         {
             try
