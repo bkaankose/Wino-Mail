@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Windows.UI.Xaml.Controls;
 using Wino.Controls;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.UWP.Controls;
 using Wino.Helpers;
 
 namespace Wino.MenuFlyouts

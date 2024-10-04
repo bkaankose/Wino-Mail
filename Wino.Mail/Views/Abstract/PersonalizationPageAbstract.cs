@@ -1,10 +1,9 @@
-﻿using Windows.UI.Xaml;
-using Wino.Mail.ViewModels;
+﻿using Wino.Core.ViewModels;
 
 namespace Wino.Views.Abstract
 {
     public abstract class PersonalizationPageAbstract : SettingsPageBase<PersonalizationPageViewModel>
     {
-        
+
     }
 }

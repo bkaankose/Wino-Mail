@@ -2,7 +2,7 @@
 using Windows.UI.Xaml.Controls;
 using Wino.Core.UWP.Models.Personalization;
 
-namespace Wino.Selectors
+namespace Wino.Core.UWP.Selectors
 {
     public class AppThemePreviewTemplateSelector : DataTemplateSelector
     {

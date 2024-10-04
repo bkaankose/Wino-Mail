@@ -7,13 +7,15 @@
     xmlns:controls1="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    x:Name="root"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:mailSelectors="using:Wino.Selectors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
-    
-    xmlns:ui="using:Microsoft.Toolkit.Uwp.UI" xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:selectors="using:Wino.Core.UWP.Selectors"
+    xmlns:ui="using:CommunityToolkit.WinUI"
+    xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    x:Name="root"
     Title="Personalization"
     mc:Ignorable="d">
 
@@ -148,8 +150,8 @@
         <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Medium"
-                ShowPreviewText="True"
-                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}" />
+                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
+                ShowPreviewText="True" />
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
@@ -159,7 +161,7 @@
                 ShowPreviewText="True" />
         </DataTemplate>
 
-        <selectors:MailItemDisplayModePreviewTemplateSelector
+        <mailSelectors:MailItemDisplayModePreviewTemplateSelector
             x:Key="MailItemDisplayModePreviewTemplateSelector"
             CompactTemplate="{StaticResource CompactDisplayModePreviewTemplate}"
             MediumTemplate="{StaticResource MediumDisplayModePreviewTemplate}"

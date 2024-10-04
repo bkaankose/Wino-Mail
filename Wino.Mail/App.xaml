@@ -1,84 +1,23 @@
-﻿<Application
+﻿<uwp:WinoApplication
     x:Class="Wino.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
     xmlns:selectors="using:Wino.Selectors"
     xmlns:styles="using:Wino.Styles"
+    xmlns:uwp="using:Wino.Core.UWP"
+    xmlns:uwpGeneric="using:Wino.Core.UWP.Generic"
     xmlns:wino="using:Wino">
 
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-
-                <ResourceDictionary Source="ms-appx:///Wino.Core.UWP/Generic.xaml" />
+                <uwpGeneric:SharedStyles />
                 <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
 
-                <ResourceDictionary Source="/Styles/Converters.xaml" />
-                <ResourceDictionary Source="/Styles/FontIcons.xaml" />
-                <ResourceDictionary Source="/Styles/Colors.xaml" />
-                <ResourceDictionary Source="/Styles/ContentPresenters.xaml" />
-                <ResourceDictionary Source="/Styles/ImagePreviewControl.xaml" />
-                <ResourceDictionary Source="/Styles/ItemContainerStyles.xaml" />
-                <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
-
-                <styles:CustomMessageDialogStyles />
                 <styles:WinoExpanderStyle />
 
                 <ResourceDictionary>
-
-                    <x:Double x:Key="AppBarButtonContentHeight">19</x:Double>
-                    <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">19</x:Double>
-                    <Thickness x:Key="ImapSetupDialogSubPagePadding">24,24,24,24</Thickness>
-
-                    <Style x:Key="PageStyle" TargetType="Page">
-                        <Setter Property="Margin" Value="-1,0,0,0" />
-                        <Setter Property="Padding" Value="12" />
-                        <Setter Property="Background" Value="{ThemeResource AppBarBackgroundColor}" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate>
-                                    <Grid Padding="12">
-                                        <ContentPresenter />
-                                    </Grid>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-
-                    <!--  Border style for each page's root border for separation of zones.  -->
-                    <Style x:Key="PageRootBorderStyle" TargetType="Border">
-                        <Setter Property="Background" Value="{ThemeResource WinoContentZoneBackgroud}" />
-                        <Setter Property="BorderBrush" Value="{StaticResource CardStrokeColorDefaultBrush}" />
-                        <Setter Property="CornerRadius" Value="7" />
-                        <Setter Property="BorderThickness" Value="1" />
-                    </Style>
-
-                    <!--  Custom Grid style for info panels.  -->
-                    <Style x:Key="InformationAreaGridStyle" TargetType="Grid">
-                        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-                        <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                        <Setter Property="CornerRadius" Value="8" />
-                        <Setter Property="Padding" Value="16" />
-                    </Style>
-
-                    <!--  Default StackPanel animation.  -->
-                    <Style TargetType="StackPanel">
-                        <Setter Property="ChildrenTransitions">
-                            <Setter.Value>
-                                <TransitionCollection>
-                                    <EntranceThemeTransition IsStaggeringEnabled="True" />
-                                </TransitionCollection>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-
-                    <!--  Default Style for ContentDialog  -->
-                    <Style
-                        x:Key="WinoDialogStyle"
-                        BasedOn="{StaticResource DefaultContentDialogStyle}"
-                        TargetType="ContentDialog" />
-
                     <!--  Settings Menu Item Template  -->
                     <Style TargetType="controls:SettingsMenuItemControl">
                         <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -170,82 +109,8 @@
                             </Setter.Value>
                         </Setter>
                     </Style>
-
-
-
-                    <!--  Attachment Icon Templates  -->
-
-                    <DataTemplate x:Key="NoneTemplate">
-                        <Image Source="/Assets/FileTypes/type_none.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="ExecutableTemplate">
-                        <Image Source="/Assets/FileTypes/type_executable.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="ImageTemplate">
-                        <Image Source="/Assets/FileTypes/type_image.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="VideoTemplate">
-                        <Image Source="/Assets/FileTypes/type_video.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="AudioTemplate">
-                        <Image Source="/Assets/FileTypes/type_audio.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="PDFTemplate">
-                        <Image Source="/Assets/FileTypes/type_pdf.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="HTMLTemplate">
-                        <Image Source="/Assets/FileTypes/type_html.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="RarTemplate">
-                        <Image Source="/Assets/FileTypes/type_rar.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="ArchiveTemplate">
-                        <Image Source="/Assets/FileTypes/type_archive.png" />
-                    </DataTemplate>
-
-                    <DataTemplate x:Key="OtherTemplate">
-                        <Image Source="/Assets/FileTypes/type_other.png" />
-                    </DataTemplate>
-
-                    <selectors:FileAttachmentTypeSelector
-                        x:Key="FileTypeIconSelector"
-                        Archive="{StaticResource ArchiveTemplate}"
-                        Executable="{StaticResource ExecutableTemplate}"
-                        HTML="{StaticResource HTMLTemplate}"
-                        Image="{StaticResource ImageTemplate}"
-                        None="{StaticResource NoneTemplate}"
-                        Other="{StaticResource OtherTemplate}"
-                        PDF="{StaticResource PDFTemplate}"
-                        RarArchive="{StaticResource RarTemplate}"
-                        Video="{StaticResource VideoTemplate}" />
                 </ResourceDictionary>
-
-                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-
-                <!--  Define Global Styles here  -->
-                <ResourceDictionary>
-                    <Style TargetType="ScrollViewer">
-                        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-                    </Style>
-
-                    <!--  Remove border/backgroud of command bar  -->
-                    <SolidColorBrush x:Key="CommandBarBackground" Color="Transparent" />
-                    <SolidColorBrush x:Key="CommandBarBackgroundOpen" Color="Transparent" />
-                    <SolidColorBrush x:Key="CommandBarBorderBrushOpen" Color="Transparent" />
-                    <Thickness x:Key="CommandBarBorderThicknessOpen">0</Thickness>
-                </ResourceDictionary>
-
-                <!--  Last item must always be the default theme.  -->
-                <ResourceDictionary Source="/AppThemes/Mica.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
-</Application>
+</uwp:WinoApplication>

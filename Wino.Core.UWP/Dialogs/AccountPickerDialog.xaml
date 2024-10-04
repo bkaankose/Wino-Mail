@@ -3,17 +3,17 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    Style="{StaticResource WinoDialogStyle}"
-    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     xmlns:domain="using:Wino.Core.Domain"
-    Title="{x:Bind domain:Translator.AccountPickerDialog_Title}">
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.AccountPickerDialog_Title}"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
 
     <ListView
-        ItemsSource="{x:Bind AvailableAccounts}"
-        IsItemClickEnabled="True"
         DisplayMemberPath="Address"
-        SelectionMode="None"
-        ItemClick="AccountClicked" />
+        IsItemClickEnabled="True"
+        ItemClick="AccountClicked"
+        ItemsSource="{x:Bind AvailableAccounts}"
+        SelectionMode="None" />
 </ContentDialog>

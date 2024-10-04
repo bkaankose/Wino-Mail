@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +13,6 @@ using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
 using Windows.ApplicationModel.Core;
-using Windows.Storage;
 using Windows.UI;
 using Windows.UI.Core.Preview;
 using Windows.UI.Notifications;
@@ -45,46 +43,22 @@ namespace Wino
         private const string WinoLaunchLogPrefix = "[Wino Launch] ";
         public override string AppCenterKey { get; } = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
 
-        public new static WinoApplication Current => (WinoApplication)Application.Current;
+        // public new static WinoApplication Current => (WinoApplication)Application.Current;
 
         private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
         private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
 
-        private readonly IWinoServerConnectionManager<AppServiceConnection> _appServiceConnectionManager;
-        private readonly ILogInitializer _logInitializer;
-        private readonly IThemeService _themeService;
-        private readonly IDatabaseService _databaseService;
-        private readonly IApplicationConfiguration _appInitializerService;
-        private readonly ITranslationService _translationService;
-        private readonly IApplicationConfiguration _applicationFolderConfiguration;
-        private readonly IDialogService _dialogService;
-
         // Order matters.
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
         {
-            _databaseService,
-            _translationService,
-            _themeService,
+            DatabaseService,
+            TranslationService,
+            ThemeService,
         };
 
         public App()
         {
             InitializeComponent();
-
-            ConfigureLogger();
-
-            _applicationFolderConfiguration = base.Services.GetService<IApplicationConfiguration>();
-
-            // Make sure the paths are setup on app start.
-            _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
-            _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
-
-            _appServiceConnectionManager = base.Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
-            _themeService = base.Services.GetService<IThemeService>();
-            _databaseService = base.Services.GetService<IDatabaseService>();
-            _appInitializerService = base.Services.GetService<IApplicationConfiguration>();
-            _translationService = base.Services.GetService<ITranslationService>();
-            _dialogService = base.Services.GetService<IDialogService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
@@ -114,7 +88,7 @@ namespace Wino
                 // Starting the server is fine, but check if server termination behavior is set to terminate.
                 // This state will kill the server once the app is terminated.
 
-                isGoToAppPreferencesRequested = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                isGoToAppPreferencesRequested = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
                                                                  $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
                                                                  Translator.Buttons_Yes,
                                                                  WinoCustomMessageDialogIcon.Warning,
@@ -143,7 +117,7 @@ namespace Wino
             {
                 try
                 {
-                    var isServerKilled = await _appServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
+                    var isServerKilled = await AppServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
 
                     isServerKilled.ThrowIfFailed();
 
@@ -166,7 +140,7 @@ namespace Wino
 
             try
             {
-                await _appServiceConnectionManager.ConnectAsync();
+                await AppServiceConnectionManager.ConnectAsync();
             }
             catch (OperationCanceledException)
             {
@@ -186,6 +160,7 @@ namespace Wino
 
             services.RegisterCoreServices();
             services.RegisterCoreUWPServices();
+            services.RegisterCoreViewModels();
 
             RegisterUWPServices(services);
             RegisterViewModels(services);
@@ -217,18 +192,15 @@ namespace Wino
         private void RegisterViewModels(IServiceCollection services)
         {
             services.AddSingleton(typeof(AppShellViewModel));
-            //services.AddTransient(typeof(SettingsDialogViewModel));
-            //services.AddTransient(typeof(PersonalizationPageViewModel));
-            //services.AddTransient(typeof(SettingOptionsPageViewModel));
+
             services.AddTransient(typeof(MailListPageViewModel));
             services.AddTransient(typeof(MailRenderingPageViewModel));
             services.AddTransient(typeof(AccountManagementViewModel));
             services.AddTransient(typeof(WelcomePageViewModel));
-            //services.AddTransient(typeof(AboutPageViewModel));
+
             services.AddTransient(typeof(ComposePageViewModel));
             services.AddTransient(typeof(IdlePageViewModel));
-            //services.AddTransient(typeof(SettingsPageViewModel));
-            //services.AddTransient(typeof(NewAccountManagementPageViewModel));
+
             services.AddTransient(typeof(AccountDetailsPageViewModel));
             services.AddTransient(typeof(SignatureManagementPageViewModel));
             services.AddTransient(typeof(MessageListPageViewModel));
@@ -242,14 +214,6 @@ namespace Wino
         #endregion
 
         #region Misc Configuration
-
-        private void ConfigureLogger()
-        {
-            string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
-            _logInitializer.SetupLogger(logFilePath);
-        }
-
-
 
         private void ConfigureTitleBar()
         {
@@ -334,7 +298,7 @@ namespace Wino
                     connectionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
                     args.TaskInstance.Canceled += OnConnectionBackgroundTaskCanceled;
 
-                    _appServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
+                    AppServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
 
                     WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstablished());
                 }
@@ -418,7 +382,7 @@ namespace Wino
 
                     Window.Current.Content = mainFrame;
 
-                    await _themeService.InitializeAsync();
+                    await ThemeService.InitializeAsync();
                 }
             }
 
@@ -467,19 +431,19 @@ namespace Wino
             connectionBackgroundTaskDeferral?.Complete();
             connectionBackgroundTaskDeferral = null;
 
-            _appServiceConnectionManager.Connection = null;
+            AppServiceConnectionManager.Connection = null;
         }
 
         public async void Receive(NewSynchronizationRequested message)
         {
             try
             {
-                var synchronizationResultResponse = await _appServiceConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
+                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
                 synchronizationResultResponse.ThrowIfFailed();
             }
             catch (WinoServerException serverException)
             {
-                _dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
+                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
             }
         }
     }

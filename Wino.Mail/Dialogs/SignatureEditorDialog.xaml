@@ -5,6 +5,7 @@
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -59,7 +60,7 @@
                     ToolTipService.ToolTip="Light Theme"
                     Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay}">
                     <AppBarButton.Icon>
-                        <controls:WinoFontIcon Icon="LightEditor" />
+                        <coreControls:WinoFontIcon Icon="LightEditor" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -70,7 +71,7 @@
                     ToolTipService.ToolTip="Dark Theme"
                     Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
                     <AppBarButton.Icon>
-                        <controls:WinoFontIcon Icon="DarkEditor" />
+                        <coreControls:WinoFontIcon Icon="DarkEditor" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 

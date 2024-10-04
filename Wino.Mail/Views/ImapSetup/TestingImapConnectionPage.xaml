@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:local="using:Wino.Views.ImapSetup"
@@ -44,7 +45,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <controls:WinoFontIcon FontSize="46" Icon="Certificate" />
+            <controls1:WinoFontIcon FontSize="46" Icon="Certificate" />
 
             <TextBlock
                 Grid.Row="1"

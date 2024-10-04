@@ -4,10 +4,9 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Navigation;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Core.ViewModels
 {
     public partial class SettingOptionsPageViewModel(IDialogService dialogService) : CoreBaseViewModel(dialogService)
     {

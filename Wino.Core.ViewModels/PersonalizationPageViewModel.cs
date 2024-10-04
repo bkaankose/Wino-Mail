@@ -9,10 +9,9 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Core.ViewModels
 {
     public partial class PersonalizationPageViewModel : CoreBaseViewModel
     {

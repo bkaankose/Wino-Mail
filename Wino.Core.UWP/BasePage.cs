@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -29,7 +30,7 @@ namespace Wino.Core.UWP
 
     public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
     {
-        public T ViewModel { get; } //= App.Current.Services.GetService<T>();
+        public T ViewModel { get; } = WinoApplication.Current.Services.GetService<T>();
 
         protected BasePage()
         {

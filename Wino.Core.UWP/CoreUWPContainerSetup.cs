@@ -2,6 +2,7 @@
 using Windows.ApplicationModel.AppService;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP.Services;
+using Wino.Core.ViewModels;
 using Wino.Services;
 
 namespace Wino.Core.UWP
@@ -28,6 +29,16 @@ namespace Wino.Core.UWP
             services.AddTransient<INotificationBuilder, NotificationBuilder>();
             services.AddTransient<IClipboardService, ClipboardService>();
             services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
+        }
+
+        public static void RegisterCoreViewModels(this IServiceCollection services)
+        {
+            services.AddTransient(typeof(SettingsDialogViewModel));
+            services.AddTransient(typeof(PersonalizationPageViewModel));
+            services.AddTransient(typeof(SettingOptionsPageViewModel));
+            services.AddTransient(typeof(AboutPageViewModel));
+            services.AddTransient(typeof(SettingsPageViewModel));
+            services.AddTransient(typeof(NewAccountManagementPageViewModel));
         }
     }
 }

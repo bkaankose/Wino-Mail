@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:controls1="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entites="using:Wino.Core.Domain.Entities"
@@ -32,7 +33,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="200" />
                     </Grid.ColumnDefinitions>
-                    <controls1:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                    <coreControls:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
                     <TextBlock
                         Grid.Column="1"
                         Margin="12,0"

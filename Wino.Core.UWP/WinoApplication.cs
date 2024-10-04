@@ -1,24 +1,37 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using Microsoft.AppCenter;
 using Microsoft.AppCenter.Analytics;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Windows.ApplicationModel;
+using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
+using Windows.Storage;
 using Windows.UI.Xaml;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Services;
 
 namespace Wino.Core.UWP
 {
     public abstract class WinoApplication : Application
     {
+        public new static WinoApplication Current => (WinoApplication)Application.Current;
+
         public IServiceProvider Services { get; }
         protected ILogInitializer LogInitializer { get; }
-        public abstract string AppCenterKey { get; }
+        protected IApplicationConfiguration AppConfiguration { get; }
+        protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
+        protected IThemeService ThemeService { get; }
+        protected IDatabaseService DatabaseService { get; }
+        protected ITranslationService TranslationService { get; }
+        protected IDialogService DialogService { get; }
 
-        public new static WinoApplication Current => (WinoApplication)Application.Current;
+        public abstract string AppCenterKey { get; }
 
         protected WinoApplication()
         {
@@ -32,6 +45,17 @@ namespace Wino.Core.UWP
             Suspending += OnSuspending;
 
             LogInitializer = Services.GetService<ILogInitializer>();
+            AppConfiguration = Services.GetService<IApplicationConfiguration>();
+
+            AppServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
+            ThemeService = Services.GetService<IThemeService>();
+            DatabaseService = Services.GetService<IDatabaseService>();
+            TranslationService = Services.GetService<ITranslationService>();
+            DialogService = Services.GetService<IDialogService>();
+
+            // Make sure the paths are setup on app start.
+            AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
+            AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
 
             ConfigureLogging();
         }
@@ -62,7 +86,13 @@ namespace Wino.Core.UWP
         public virtual void OnSuspending(object sender, SuspendingEventArgs e) { }
 
         public abstract IServiceProvider ConfigureServices();
-        public abstract void ConfigureAppCenter();
-        public abstract void ConfigureLogging();
+        public void ConfigureAppCenter()
+            => AppCenter.Start(AppCenterKey, typeof(Analytics), typeof(Crashes));
+
+        public void ConfigureLogging()
+        {
+            string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
+            LogInitializer.SetupLogger(logFilePath);
+        }
     }
 }

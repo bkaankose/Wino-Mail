@@ -8,6 +8,7 @@
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
@@ -48,7 +49,7 @@
                     </TransitionCollection>
                 </controls:WinoNavigationViewItem.ContentTransitions>
                 <muxc:NavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="12" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter.ProviderType)}" />
+                    <coreControls:WinoFontIcon FontSize="12" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter.ProviderType)}" />
                 </muxc:NavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
@@ -165,7 +166,7 @@
                 DataContext="{x:Bind}"
                 SelectsOnInvoked="False">
                 <muxc:NavigationViewItem.Icon>
-                    <controls:WinoFontIcon Icon="NewMail" />
+                    <coreControls:WinoFontIcon Icon="NewMail" />
                 </muxc:NavigationViewItem.Icon>
                 <TextBlock
                     VerticalAlignment="Center"
@@ -196,7 +197,7 @@
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
                 <controls:WinoNavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
                 </controls:WinoNavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
@@ -312,7 +313,7 @@
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
                 <controls:WinoNavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
                 </controls:WinoNavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
@@ -351,7 +352,7 @@
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
                 <controls:WinoNavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
                 </controls:WinoNavigationViewItem.Icon>
             </controls:WinoNavigationViewItem>
         </DataTemplate>

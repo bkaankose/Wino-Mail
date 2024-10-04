@@ -3,7 +3,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Selectors
+namespace Wino.Core.UWP.Selectors
 {
     public class CustomWinoMessageDialogIconSelector : DataTemplateSelector
     {

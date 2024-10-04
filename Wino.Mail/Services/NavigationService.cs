@@ -51,7 +51,7 @@ namespace Wino.Services
             _statePersistanceService = statePersistanceService;
         }
 
-        private Type GetPageType(WinoPage winoPage)
+        public Type GetPageType(WinoPage winoPage)
         {
             switch (winoPage)
             {
@@ -91,6 +91,8 @@ namespace Wino.Services
                     return typeof(AppPreferencesPage);
                 case WinoPage.AliasManagementPage:
                     return typeof(AliasManagementPage);
+                case WinoPage.LanguageTimePage:
+                    return typeof(LanguageTimePage);
                 default:
                     return null;
             }

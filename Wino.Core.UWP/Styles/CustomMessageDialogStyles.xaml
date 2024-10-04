@@ -7,7 +7,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:local="using:Wino.Styles"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:selectors="using:Wino.Selectors">
+    xmlns:selectors="using:Wino.Core.UWP.Selectors">
 
     <!--  Icon templates  -->
     <DataTemplate x:Key="WinoCustomMessageDialogInformationIconTemplate">

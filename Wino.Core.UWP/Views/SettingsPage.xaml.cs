@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
@@ -16,7 +15,7 @@ namespace Wino.Views
 {
     public sealed partial class SettingsPage : SettingsPageAbstract, IRecipient<BreadcrumbNavigationRequested>
     {
-        public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = new ObservableCollection<BreadcrumbNavigationItemViewModel>();
+        public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = [];
 
         public SettingsPage()
         {
@@ -56,21 +55,9 @@ namespace Wino.Views
             settingsHeader.Title = Translator.MenuSettings;
         }
 
-        // TODO: Separate base class to resolve pages.
-        private Type GetNavigationPageType(WinoPage page) => page switch
-        {
-            // WinoPage.AboutPage => typeof(AboutPage),
-            WinoPage.PersonalizationPage => typeof(PersonalizationPage),
-            //WinoPage.MessageListPage => typeof(MessageListPage),
-            //WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
-            //WinoPage.LanguageTimePage => typeof(LanguageTimePage),
-            //WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
-            _ => null,
-        };
-
         void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
         {
-            var pageType = GetNavigationPageType(message.PageType);
+            var pageType = ViewModel.NavigationService.GetPageType(message.PageType);
 
             if (pageType == null) return;
 
