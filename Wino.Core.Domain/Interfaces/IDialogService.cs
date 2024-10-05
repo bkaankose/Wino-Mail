@@ -10,26 +10,16 @@ using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface IDialogService
+    public interface IDialogService : IDialogServiceBase
     {
-        Task<string> PickWindowsFolderAsync();
-        Task<byte[]> PickWindowsFileContentAsync(params object[] typeFilters);
-        Task<bool> ShowConfirmationDialogAsync(string question, string title, string confirmationButtonTitle);
         Task<bool> ShowHardDeleteConfirmationAsync();
         Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);
-        Task<bool> ShowCustomThemeBuilderDialogAsync();
-
-        Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon);
-        void InfoBarMessage(string title, string message, InfoBarMessageType messageType);
-        void InfoBarMessage(string title, string message, InfoBarMessageType messageType, string actionButtonText, Action action);
-
-        void ShowNotSupportedMessage();
 
         // Custom dialogs
         Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
         Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders);
         IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
-        Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription, string primaryButtonText);
+
         Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);
         Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
 
@@ -59,11 +49,6 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <returns>Created alias model if not canceled.</returns>
         Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync();
-        Task<bool> ShowWinoCustomMessageDialogAsync(string title,
-                                                    string description,
-                                                    string approveButtonText,
-                                                    WinoCustomMessageDialogIcon? icon,
-                                                    string cancelButtonText = "",
-                                                    string dontAskAgainConfigurationKey = "");
+
     }
 }

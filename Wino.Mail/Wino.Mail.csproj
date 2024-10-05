@@ -266,7 +266,6 @@
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
     <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
-    <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\NavigationService.cs" />
     <Compile Include="Styles\WinoExpanderStyle.xaml.cs">

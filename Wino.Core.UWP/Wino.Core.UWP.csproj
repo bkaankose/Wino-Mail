@@ -92,6 +92,8 @@
     <Compile Include="Converters\ReverseBooleanConverter.cs" />
     <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
     <Compile Include="CoreUWPContainerSetup.cs" />
+    <Compile Include="Services\ApplicationResourceManager.cs" />
+    <Compile Include="Services\DialogServiceBase.cs" />
     <Compile Include="SharedStyles.xaml.cs">
       <DependentUpon>SharedStyles.xaml</DependentUpon>
     </Compile>

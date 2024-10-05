@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel.AppService;
+using Windows.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP.Services;
 using Wino.Core.ViewModels;
@@ -15,12 +16,15 @@ namespace Wino.Core.UWP
 
             services.AddSingleton<IWinoServerConnectionManager>(serverConnectionManager);
             services.AddSingleton<IWinoServerConnectionManager<AppServiceConnection>>(serverConnectionManager);
+            services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
 
             services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
             services.AddSingleton<INativeAppService, NativeAppService>();
             services.AddSingleton<IStoreManagementService, StoreManagementService>();
             services.AddSingleton<IBackgroundTaskService, BackgroundTaskService>();
-
+            services.AddSingleton<IPreferencesService, PreferencesService>();
+            services.AddSingleton<IThemeService, ThemeService>();
+            services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
 
             services.AddTransient<IConfigurationService, ConfigurationService>();
             services.AddTransient<IFileService, FileService>();

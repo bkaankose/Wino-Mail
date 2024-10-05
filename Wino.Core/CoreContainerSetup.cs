@@ -22,6 +22,7 @@ namespace Wino.Core
             services.AddSingleton<IDatabaseService, DatabaseService>();
             services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
             services.AddSingleton<IMimeFileService, MimeFileService>();
+            services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
 
             services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
             services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();

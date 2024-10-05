@@ -12,11 +12,8 @@ using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
-using Windows.ApplicationModel.Core;
-using Windows.UI;
 using Windows.UI.Core.Preview;
 using Windows.UI.Notifications;
-using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Activation;
@@ -27,9 +24,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Services;
 using Wino.Core.UWP;
-using Wino.Core.UWP.Services;
 using Wino.Mail.ViewModels;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Client.Navigation;
@@ -40,7 +35,7 @@ namespace Wino
 {
     public sealed partial class App : WinoApplication, IRecipient<NewSynchronizationRequested>
     {
-        private const string WinoLaunchLogPrefix = "[Wino Launch] ";
+
         public override string AppCenterKey { get; } = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
 
         // public new static WinoApplication Current => (WinoApplication)Application.Current;
@@ -180,11 +175,6 @@ namespace Wino
 
         private void RegisterUWPServices(IServiceCollection services)
         {
-            services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
-            services.AddSingleton<IThemeService, ThemeService>();
-            services.AddSingleton<IPreferencesService, PreferencesService>();
-            services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
-            services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<IDialogService, DialogService>();
         }
@@ -213,32 +203,12 @@ namespace Wino
 
         #endregion
 
-        #region Misc Configuration
-
-        private void ConfigureTitleBar()
-        {
-            var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
-            var applicationViewTitleBar = ApplicationView.GetForCurrentView().TitleBar;
-
-            // Extend shell content into core window to meet design requirements.
-            coreTitleBar.ExtendViewIntoTitleBar = true;
-
-            // Change system buttons and background colors to meet design requirements.
-            applicationViewTitleBar.ButtonBackgroundColor = Colors.Transparent;
-            applicationViewTitleBar.BackgroundColor = Colors.Transparent;
-            applicationViewTitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-            applicationViewTitleBar.ButtonForegroundColor = Colors.White;
-        }
-
-        #endregion
-
         protected override void OnWindowCreated(WindowCreatedEventArgs args)
         {
             base.OnWindowCreated(args);
 
             LogActivation($"OnWindowCreated -> IsWindowNull: {args.Window == null}");
 
-            ConfigureTitleBar();
             TryRegisterAppCloseChange();
         }
 

@@ -11,6 +11,8 @@ using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
+using Windows.UI;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
@@ -21,6 +23,7 @@ namespace Wino.Core.UWP
     public abstract class WinoApplication : Application
     {
         public new static WinoApplication Current => (WinoApplication)Application.Current;
+        public const string WinoLaunchLogPrefix = "[Wino Launch] ";
 
         public IServiceProvider Services { get; }
         protected ILogInitializer LogInitializer { get; }
@@ -59,6 +62,29 @@ namespace Wino.Core.UWP
 
             ConfigureLogging();
         }
+
+        protected override void OnWindowCreated(WindowCreatedEventArgs args)
+        {
+            base.OnWindowCreated(args);
+
+            ConfigureTitleBar();
+        }
+
+        private void ConfigureTitleBar()
+        {
+            var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
+            var applicationViewTitleBar = ApplicationView.GetForCurrentView().TitleBar;
+
+            // Extend shell content into core window to meet design requirements.
+            coreTitleBar.ExtendViewIntoTitleBar = true;
+
+            // Change system buttons and background colors to meet design requirements.
+            applicationViewTitleBar.ButtonBackgroundColor = Colors.Transparent;
+            applicationViewTitleBar.BackgroundColor = Colors.Transparent;
+            applicationViewTitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+            applicationViewTitleBar.ButtonForegroundColor = Colors.White;
+        }
+
 
         private void ConfigurePrelaunch()
         {

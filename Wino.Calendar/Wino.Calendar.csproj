@@ -126,6 +126,9 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\ApplicationResourceManager.cs" />
+    <Compile Include="Services\DialogService.cs" />
+    <Compile Include="Services\NavigationService.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -157,6 +160,32 @@
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.2.14</Version>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj">
+      <Project>{039affa8-c1cc-4e3b-8a31-6814d7557f74}</Project>
+      <Name>Wino.Calendar.ViewModels</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj">
+      <Project>{cf3312e5-5da0-4867-9945-49ea7598af1f}</Project>
+      <Name>Wino.Core.Domain</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.UWP.csproj">
+      <Project>{395f19ba-1e42-495c-9db5-1a6f537fccb8}</Project>
+      <Name>Wino.Core.UWP</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj">
+      <Project>{53723ae8-7e7e-4d54-adab-0a6033255cc8}</Project>
+      <Name>Wino.Core.ViewModels</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj">
+      <Project>{e6b1632a-8901-41e8-9ddf-6793c7698b0b}</Project>
+      <Name>Wino.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
+      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
+      <Name>Wino.Messaging</Name>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
