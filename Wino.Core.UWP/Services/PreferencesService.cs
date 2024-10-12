@@ -213,5 +213,11 @@ namespace Wino.Core.UWP.Services
             get => _configurationService.Get(nameof(ServerTerminationBehavior), ServerBackgroundMode.MinimizedTray);
             set => SaveProperty(propertyName: nameof(ServerTerminationBehavior), value);
         }
+
+        public bool IsUpdateNotificationEnabled
+        {
+            get => _configurationService.Get(nameof(IsUpdateNotificationEnabled), true);
+            set => SaveProperty(propertyName: nameof(IsUpdateNotificationEnabled), value);
+        }
     }
 }

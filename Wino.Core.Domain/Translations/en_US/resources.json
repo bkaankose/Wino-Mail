@@ -494,6 +494,8 @@
     "SettingsAppPreferences_StartupBehavior_FatalError": "Fatal error occurred while changing the startup mode for Wino Mail.",
     "SettingsAppPreferences_StartupBehavior_Enable": "Enable",
     "SettingsAppPreferences_StartupBehavior_Disable": "Disable",
+    "SettingsAppPreferences_NotifyAboutUpdate_Title": "Notify about update",
+    "SettingsAppPreferences_NotifyAboutUpdate_Description": "Show a notification once app update is completed",
     "SettingsReorderAccounts_Title": "Reorder Accounts",
     "SettingsReorderAccounts_Description": "Change the order of accounts in the account list.",
     "SettingsManageLink_Description": "Move items to add new link or remove existing link.",

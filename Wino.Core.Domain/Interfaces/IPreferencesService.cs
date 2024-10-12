@@ -160,5 +160,10 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Whether the mail list action bar is enabled or not.
         /// </summary>
         bool IsMailListActionBarEnabled { get; set; }
+
+        /// <summary>
+        /// Setting: Whether a notification should be shown once update is completed.
+        /// </summary>
+        bool IsUpdateNotificationEnabled { get; set; }
     }
 }

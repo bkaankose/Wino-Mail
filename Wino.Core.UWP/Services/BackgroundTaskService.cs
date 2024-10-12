@@ -11,12 +11,15 @@ namespace Wino.Core.UWP.Services
     {
         private const string IsBackgroundTasksUnregisteredKey = nameof(IsBackgroundTasksUnregisteredKey);
         public const string ToastNotificationActivationHandlerTaskName = "ToastNotificationActivationHandlerTask";
+        public const string AppUpdatedTaskName = "AppUpdatedTask";
 
         private readonly IConfigurationService _configurationService;
+        private readonly IPreferencesService _preferencesService;
 
-        public BackgroundTaskService(IConfigurationService configurationService)
+        public BackgroundTaskService(IConfigurationService configurationService, IPreferencesService preferencesService)
         {
             _configurationService = configurationService;
+            _preferencesService = preferencesService;
         }
 
         public void UnregisterAllBackgroundTask()
@@ -33,15 +36,30 @@ namespace Wino.Core.UWP.Services
             }
         }
 
-        public Task RegisterBackgroundTasksAsync()
+        public async Task RegisterBackgroundTasksAsync()
         {
-            return RegisterToastNotificationHandlerBackgroundTaskAsync();
+            await RegisterToastNotificationHandlerBackgroundTaskAsync();
+
+            if (_preferencesService.IsUpdateNotificationEnabled)
+            {
+                await RegisterAppUpdatedTaskAsync();
+            }
         }
 
-        public async Task RegisterToastNotificationHandlerBackgroundTaskAsync()
+        public Task RegisterToastNotificationHandlerBackgroundTaskAsync()
+        {
+            return RegisterBackgroundTaskAsync(ToastNotificationActivationHandlerTaskName, new ToastNotificationActionTrigger());
+        }
+
+        public Task RegisterAppUpdatedTaskAsync()
+        {
+            return RegisterBackgroundTaskAsync(AppUpdatedTaskName, new SystemTrigger(SystemTriggerType.ServicingComplete, false));
+        }
+
+        private async Task RegisterBackgroundTaskAsync(string taskName, IBackgroundTrigger trigger)
         {
             // If background task is already registered, do nothing.
-            if (BackgroundTaskRegistration.AllTasks.Any(i => i.Value.Name.Equals(ToastNotificationActivationHandlerTaskName)))
+            if (BackgroundTaskRegistration.AllTasks.Any(i => i.Value.Name.Equals(taskName)))
                 return;
 
             // Otherwise request access
@@ -50,11 +68,11 @@ namespace Wino.Core.UWP.Services
             // Create the background task
             BackgroundTaskBuilder builder = new BackgroundTaskBuilder()
             {
-                Name = ToastNotificationActivationHandlerTaskName
+                Name = taskName
             };
 
-            // Assign the toast action trigger
-            builder.SetTrigger(new ToastNotificationActionTrigger());
+            // Assign the trigger
+            builder.SetTrigger(trigger);
 
             // And register the task
             BackgroundTaskRegistration registration = builder.Register();

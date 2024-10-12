@@ -2491,8 +2491,18 @@ namespace Wino.Core.Domain
         /// <summary>
 		/// Disable
 		/// </summary>
-		public static string SettingsAppPreferences_StartupBehavior_Disable => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Disable");	
-	
+		public static string SettingsAppPreferences_StartupBehavior_Disable => Resources.GetTranslatedString(@"SettingsAppPreferences_StartupBehavior_Disable");
+
+        /// <summary>
+        /// Notify about update
+        /// </summary>
+        public static string SettingsAppPreferences_NotifyAboutUpdate_Title => Resources.GetTranslatedString(@"SettingsAppPreferences_NotifyAboutUpdate_Title");
+
+        /// <summary>
+        /// Show a notification once app update is completed
+        /// </summary>
+        public static string SettingsAppPreferences_NotifyAboutUpdate_Description => Resources.GetTranslatedString(@"SettingsAppPreferences_NotifyAboutUpdate_Description");
+
         /// <summary>
 		/// Reorder Accounts
 		/// </summary>

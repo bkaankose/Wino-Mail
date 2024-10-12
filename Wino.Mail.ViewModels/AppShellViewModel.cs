@@ -294,7 +294,6 @@ namespace Wino.Mail.ViewModels
         {
             try
             {
-                // This will only unregister once. Safe to execute multiple times.
                 _backgroundTaskService.UnregisterAllBackgroundTask();
 
                 await _backgroundTaskService.RegisterBackgroundTasksAsync();
