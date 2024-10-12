@@ -769,7 +769,9 @@ namespace Wino.Core.Services
 
                 if (draftCreationOptions.MailToUri.Body != null)
                 {
-                    builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{draftCreationOptions.MailToUri.Body}</div>""" + builder.HtmlBody;
+                    // TODO: In .NET 6+ replace with string "ReplaceLineEndings" method.
+                    var escapedBody = draftCreationOptions.MailToUri.Body.Replace("\r\n", "<br>").Replace("\n", "<br>").Replace("\r", "<br>");
+                    builder.HtmlBody = $"""<div style="font-family: '{_preferencesService.ComposerFont}', Arial, sans-serif; font-size: {_preferencesService.ComposerFontSize}px">{escapedBody}</div>""" + builder.HtmlBody;
                 }
 
                 if (draftCreationOptions.MailToUri.To.Any())
