@@ -24,9 +24,42 @@
             <HyperlinkButton
                 Margin="-2,-2"
                 Padding="4,2"
-                Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
-                CommandParameter="{x:Bind Address}"
-                Content="{x:Bind DisplayName}" />
+                Click="InternetAddressClicked"
+                Content="{x:Bind ShortDisplayName}"
+                ToolTipService.ToolTip="{x:Bind DisplayName}">
+                <HyperlinkButton.ContextFlyout>
+                    <Flyout Placement="Bottom">
+                        <Grid ColumnSpacing="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <controls:ImagePreviewControl
+                                Grid.RowSpan="2"
+                                Width="36"
+                                Height="36"
+                                FromAddress="{x:Bind Address}"
+                                FromName="{x:Bind Name}"
+                                SenderContactPicture="{x:Bind Base64ContactPicture}" />
+
+                            <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
+
+                            <HyperlinkButton
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Padding="0"
+                                Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
+                                CommandParameter="{x:Bind Address}"
+                                Content="{x:Bind Address}" />
+                        </Grid>
+                    </Flyout>
+                </HyperlinkButton.ContextFlyout>
+            </HyperlinkButton>
         </DataTemplate>
 
         <!--  Attachment Template  -->
@@ -229,7 +262,7 @@
                     Grid.Row="2"
                     MaxHeight="150"
                     Margin="5,0">
-                    <Grid RowSpacing="4">
+                    <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -243,7 +276,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.ComposerTo}"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}" />
@@ -266,7 +299,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Cc:"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}" />
@@ -289,7 +322,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Bcc:"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}" />
