@@ -13,6 +13,7 @@ using Windows.UI.Xaml.Input;
 using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -205,7 +206,7 @@ namespace Wino.Views
             {
                 var navigateFolderArgs = new NavigateMailFolderEventArgs(message.BaseFolderMenuItem, message.FolderInitLoadAwaitTask);
 
-                ViewModel.NavigationService.NavigateFolder(navigateFolderArgs);
+                ViewModel.NavigationService.Navigate(WinoPage.MailListPage, navigateFolderArgs, NavigationReferenceFrame.ShellFrame);
 
                 // Prevent double navigation.
                 navigationView.SelectionChanged -= MenuSelectionChanged;

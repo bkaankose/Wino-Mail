@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Notifications;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,8 +12,6 @@ using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
 using Windows.UI.Core.Preview;
 using Windows.UI.Notifications;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Wino.Activation;
 using Wino.Core;
 using Wino.Core.Domain;
@@ -35,21 +31,10 @@ namespace Wino
 {
     public sealed partial class App : WinoApplication, IRecipient<NewSynchronizationRequested>
     {
-
         public override string AppCenterKey { get; } = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
-
-        // public new static WinoApplication Current => (WinoApplication)Application.Current;
 
         private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
         private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
-
-        // Order matters.
-        private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
-        {
-            DatabaseService,
-            TranslationService,
-            ThemeService,
-        };
 
         public App()
         {
@@ -58,73 +43,6 @@ namespace Wino
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
             WeakReferenceMessenger.Default.Register(this);
-        }
-
-        private async void ApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
-        {
-            var deferral = e.GetDeferral();
-
-            // Wino should notify user on app close if:
-            // 1. Startup behavior is not Enabled.
-            // 2. Server terminate behavior is set to Terminate.
-
-            // User has some accounts. Check if Wino Server runs on system startup.
-
-            var dialogService = base.Services.GetService<IDialogService>();
-            var startupBehaviorService = base.Services.GetService<IStartupBehaviorService>();
-            var preferencesService = base.Services.GetService<IPreferencesService>();
-
-            var currentStartupBehavior = await startupBehaviorService.GetCurrentStartupBehaviorAsync();
-
-            bool? isGoToAppPreferencesRequested = null;
-
-            if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
-            {
-                // Starting the server is fine, but check if server termination behavior is set to terminate.
-                // This state will kill the server once the app is terminated.
-
-                isGoToAppPreferencesRequested = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
-                                                                 $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
-                                                                 Translator.Buttons_Yes,
-                                                                 WinoCustomMessageDialogIcon.Warning,
-                                                                 Translator.Buttons_No,
-                                                                 "DontAskTerminateServerBehavior");
-            }
-
-            if (isGoToAppPreferencesRequested == null && currentStartupBehavior != StartupBehaviorResult.Enabled)
-            {
-                // Startup behavior is not enabled.
-
-                isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
-                                                                 $"{Translator.AppCloseStartupLaunchDisabledWarningMessageFirstLine}\n{Translator.AppCloseStartupLaunchDisabledWarningMessageSecondLine}\n\n{Translator.AppCloseStartupLaunchDisabledWarningMessageThirdLine}",
-                                                                 Translator.Buttons_Yes,
-                                                                 WinoCustomMessageDialogIcon.Warning,
-                                                                 Translator.Buttons_No,
-                                                                 "DontAskDisabledStartup");
-            }
-
-            if (isGoToAppPreferencesRequested == true)
-            {
-                WeakReferenceMessenger.Default.Send(new NavigateAppPreferencesRequested());
-                e.Handled = true;
-            }
-            else if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
-            {
-                try
-                {
-                    var isServerKilled = await AppServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
-
-                    isServerKilled.ThrowIfFailed();
-
-                    Log.Information("Server is killed.");
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Failed to kill server.");
-                }
-            }
-
-            deferral.Complete();
         }
 
         public override async void OnResuming(object sender, object e)
@@ -147,7 +65,7 @@ namespace Wino
             }
         }
 
-        private void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
+
 
         public override IServiceProvider ConfigureServices()
         {
@@ -202,55 +120,6 @@ namespace Wino
         }
 
         #endregion
-
-        protected override void OnWindowCreated(WindowCreatedEventArgs args)
-        {
-            base.OnWindowCreated(args);
-
-            LogActivation($"OnWindowCreated -> IsWindowNull: {args.Window == null}");
-
-            TryRegisterAppCloseChange();
-        }
-
-        protected override async void OnLaunched(LaunchActivatedEventArgs args)
-        {
-            LogActivation($"OnLaunched -> {args.GetType().Name}, Kind -> {args.Kind}, PreviousExecutionState -> {args.PreviousExecutionState}, IsPrelaunch -> {args.PrelaunchActivated}");
-
-            if (!args.PrelaunchActivated)
-            {
-                await ActivateWinoAsync(args);
-            }
-        }
-
-        private void TryRegisterAppCloseChange()
-        {
-            try
-            {
-                var systemNavigationManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
-
-                systemNavigationManagerPreview.CloseRequested -= ApplicationCloseRequested;
-                systemNavigationManagerPreview.CloseRequested += ApplicationCloseRequested;
-            }
-            catch { }
-        }
-
-        protected override async void OnFileActivated(FileActivatedEventArgs args)
-        {
-            base.OnFileActivated(args);
-
-            LogActivation($"OnFileActivated -> ItemCount: {args.Files.Count}, Kind: {args.Kind}, PreviousExecutionState: {args.PreviousExecutionState}");
-
-            await ActivateWinoAsync(args);
-        }
-
-        protected override async void OnActivated(IActivatedEventArgs args)
-        {
-            base.OnActivated(args);
-
-            Log.Information($"OnActivated -> {args.GetType().Name}, Kind -> {args.Kind}, Prev Execution State -> {args.PreviousExecutionState}");
-
-            await ActivateWinoAsync(args);
-        }
 
         protected override async void OnBackgroundActivated(BackgroundActivatedEventArgs args)
         {
@@ -334,62 +203,11 @@ namespace Wino
             toastActionBackgroundTaskDeferral = null;
         }
 
-
-
-        private bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
-
-        private Task InitializeServicesAsync() => initializeServices.Select(a => a.InitializeAsync()).WhenAll();
-
-        private async Task ActivateWinoAsync(object args)
+        protected override IEnumerable<ActivationHandler> GetActivationHandlers()
         {
-            await InitializeServicesAsync();
-
-            if (IsInteractiveLaunchArgs(args))
-            {
-                if (Window.Current.Content == null)
-                {
-                    var mainFrame = new Frame();
-
-                    Window.Current.Content = mainFrame;
-
-                    await ThemeService.InitializeAsync();
-                }
-            }
-
-            await HandleActivationAsync(args);
-
-            if (IsInteractiveLaunchArgs(args))
-            {
-                Window.Current.Activate();
-
-                LogActivation("Window activated");
-            }
-        }
-
-        private async Task HandleActivationAsync(object activationArgs)
-        {
-            var activationHandler = GetActivationHandlers().FirstOrDefault(h => h.CanHandle(activationArgs));
-
-            if (activationHandler != null)
-            {
-                await activationHandler.HandleAsync(activationArgs);
-            }
-
-            if (IsInteractiveLaunchArgs(activationArgs))
-            {
-                var defaultHandler = new DefaultActivationHandler();
-                if (defaultHandler.CanHandle(activationArgs))
-                {
-                    await defaultHandler.HandleAsync(activationArgs);
-                }
-            }
-        }
-
-        private IEnumerable<ActivationHandler> GetActivationHandlers()
-        {
-            yield return base.Services.GetService<ProtocolActivationHandler>();
-            yield return base.Services.GetService<ToastNotificationActivationHandler>();
-            yield return base.Services.GetService<FileActivationHandler>();
+            yield return Services.GetService<ProtocolActivationHandler>();
+            yield return Services.GetService<ToastNotificationActivationHandler>();
+            yield return Services.GetService<FileActivationHandler>();
         }
 
         public void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
@@ -416,5 +234,75 @@ namespace Wino
                 DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
             }
         }
+
+        protected override async void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
+        {
+            var deferral = e.GetDeferral();
+
+            // Wino should notify user on app close if:
+            // 1. Startup behavior is not Enabled.
+            // 2. Server terminate behavior is set to Terminate.
+
+            // User has some accounts. Check if Wino Server runs on system startup.
+
+            var dialogService = base.Services.GetService<IDialogService>();
+            var startupBehaviorService = base.Services.GetService<IStartupBehaviorService>();
+            var preferencesService = base.Services.GetService<IPreferencesService>();
+
+            var currentStartupBehavior = await startupBehaviorService.GetCurrentStartupBehaviorAsync();
+
+            bool? isGoToAppPreferencesRequested = null;
+
+            if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
+            {
+                // Starting the server is fine, but check if server termination behavior is set to terminate.
+                // This state will kill the server once the app is terminated.
+
+                isGoToAppPreferencesRequested = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                                                                 $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
+                                                                 Translator.Buttons_Yes,
+                                                                 WinoCustomMessageDialogIcon.Warning,
+                                                                 Translator.Buttons_No,
+                                                                 "DontAskTerminateServerBehavior");
+            }
+
+            if (isGoToAppPreferencesRequested == null && currentStartupBehavior != StartupBehaviorResult.Enabled)
+            {
+                // Startup behavior is not enabled.
+
+                isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                                                                 $"{Translator.AppCloseStartupLaunchDisabledWarningMessageFirstLine}\n{Translator.AppCloseStartupLaunchDisabledWarningMessageSecondLine}\n\n{Translator.AppCloseStartupLaunchDisabledWarningMessageThirdLine}",
+                                                                 Translator.Buttons_Yes,
+                                                                 WinoCustomMessageDialogIcon.Warning,
+                                                                 Translator.Buttons_No,
+                                                                 "DontAskDisabledStartup");
+            }
+
+            if (isGoToAppPreferencesRequested == true)
+            {
+                WeakReferenceMessenger.Default.Send(new NavigateAppPreferencesRequested());
+                e.Handled = true;
+            }
+            else if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
+            {
+                try
+                {
+                    var isServerKilled = await AppServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
+
+                    isServerKilled.ThrowIfFailed();
+
+                    Log.Information("Server is killed.");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Failed to kill server.");
+                }
+            }
+
+            deferral.Complete();
+        }
+
+        protected override ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler()
+            => new DefaultActivationHandler();
     }
 }

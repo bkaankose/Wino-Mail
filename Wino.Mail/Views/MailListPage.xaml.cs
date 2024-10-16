@@ -238,7 +238,7 @@ namespace Wino.Views
                     else
                         composerPageTransition = NavigationTransitionType.DrillIn;
 
-                    ViewModel.NavigationService.NavigateCompose(message.SelectedMailItemViewModel, composerPageTransition);
+                    ViewModel.NavigationService.Navigate(WinoPage.ComposePage, message.SelectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame, composerPageTransition);
                 }
                 else
                 {
@@ -251,7 +251,7 @@ namespace Wino.Views
                         PrepareComposePageWebViewTransition();
                     }
 
-                    ViewModel.NavigationService.NavigateRendering(message.SelectedMailItemViewModel);
+                    ViewModel.NavigationService.Navigate(WinoPage.MailRenderingPage, message.SelectedMailItemViewModel, NavigationReferenceFrame.RenderingFrame);
                 }
             }
 

@@ -1,5 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
+using Windows.ApplicationModel.Activation;
+using Windows.UI.Core.Preview;
+using Wino.Activation;
+using Wino.Calendar.Activation;
+using Wino.Calendar.ViewModels;
 using Wino.Core;
 using Wino.Core.UWP;
 
@@ -42,12 +48,12 @@ namespace Wino.Calendar
         {
             //services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
             //services.AddSingleton<INavigationService, NavigationService>();
-            //services.AddSingleton<IDialogService, DialogService>();
+            // services.AddSingleton<IDialogService, DialogService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)
         {
-            //services.AddSingleton(typeof(AppShellViewModel));
+            services.AddSingleton(typeof(AppShellViewModel));
 
             //services.AddTransient(typeof(MailListPageViewModel));
             //services.AddTransient(typeof(MailRenderingPageViewModel));
@@ -68,5 +74,28 @@ namespace Wino.Calendar
         }
 
         #endregion
+
+        protected override void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
+        {
+            // TODO: Check server running.
+        }
+
+        protected override async void OnLaunched(LaunchActivatedEventArgs args)
+        {
+            LogActivation($"OnLaunched -> {args.GetType().Name}, Kind -> {args.Kind}, PreviousExecutionState -> {args.PreviousExecutionState}, IsPrelaunch -> {args.PrelaunchActivated}");
+
+            if (!args.PrelaunchActivated)
+            {
+                await ActivateWinoAsync(args);
+            }
+        }
+
+        protected override IEnumerable<ActivationHandler> GetActivationHandlers()
+        {
+            return null;
+        }
+
+        protected override ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler()
+            => new DefaultActivationHandler();
     }
 }

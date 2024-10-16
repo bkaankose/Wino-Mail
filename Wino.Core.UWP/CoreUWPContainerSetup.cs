@@ -26,6 +26,7 @@ namespace Wino.Core.UWP
             services.AddSingleton<IThemeService, ThemeService>();
             services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
 
+
             services.AddTransient<IConfigurationService, ConfigurationService>();
             services.AddTransient<IFileService, FileService>();
             services.AddTransient<IStoreRatingService, StoreRatingService>();
@@ -33,6 +34,7 @@ namespace Wino.Core.UWP
             services.AddTransient<INotificationBuilder, NotificationBuilder>();
             services.AddTransient<IClipboardService, ClipboardService>();
             services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
+
         }
 
         public static void RegisterCoreViewModels(this IServiceCollection services)

@@ -422,11 +422,11 @@ namespace Wino.Mail.ViewModels
                 SelectedMenuItem = baseFolderMenuItem;
                 baseFolderMenuItem.IsSelected = true;
 
-                if (folderInitAwaitTask == null) folderInitAwaitTask = new TaskCompletionSource<bool>();
+                folderInitAwaitTask ??= new TaskCompletionSource<bool>();
 
                 var args = new NavigateMailFolderEventArgs(baseFolderMenuItem, folderInitAwaitTask);
 
-                NavigationService.NavigateFolder(args);
+                NavigationService.Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.ShellFrame);
 
                 UpdateWindowTitleForFolder(baseFolderMenuItem);
             });

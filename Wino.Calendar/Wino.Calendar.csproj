@@ -119,6 +119,7 @@
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Activation\DefaultActivationHandler.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
@@ -129,6 +130,10 @@
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\NavigationService.cs" />
+    <Compile Include="Views\Abstract\AppShellAbstract.cs" />
+    <Compile Include="Views\AppShell.xaml.cs">
+      <DependentUpon>AppShell.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -154,6 +159,10 @@
     <Page Include="MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\AppShell.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
   <ItemGroup>

@@ -179,24 +179,24 @@ namespace Wino.Services
             => Navigate(WinoPage.ComposePage, mailItem, NavigationReferenceFrame.RenderingFrame, transition);
 
         // Standalone EML viewer.
-        public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)
-        {
-            if (mimeMessageInformation == null)
-                throw new ArgumentException("MimeMessage cannot be null.");
+        //public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)
+        //{
+        //    if (mimeMessageInformation == null)
+        //        throw new ArgumentException("MimeMessage cannot be null.");
 
-            Navigate(WinoPage.MailRenderingPage, mimeMessageInformation, NavigationReferenceFrame.RenderingFrame, transition);
-        }
+        //    Navigate(WinoPage.MailRenderingPage, mimeMessageInformation, NavigationReferenceFrame.RenderingFrame, transition);
+        //}
 
-        // Mail item view model clicked handler.
-        public void NavigateRendering(IMailItem mailItem, NavigationTransitionType transition = NavigationTransitionType.None)
-        {
-            if (mailItem is MailItemViewModel mailItemViewModel)
-                Navigate(WinoPage.MailRenderingPage, mailItemViewModel, NavigationReferenceFrame.RenderingFrame, transition);
-            else
-                throw new ArgumentException("MailItem must be of type MailItemViewModel.");
-        }
+        //// Mail item view model clicked handler.
+        //public void NavigateRendering(IMailItem mailItem, NavigationTransitionType transition = NavigationTransitionType.None)
+        //{
+        //    if (mailItem is MailItemViewModel mailItemViewModel)
+        //        Navigate(WinoPage.MailRenderingPage, mailItemViewModel, NavigationReferenceFrame.RenderingFrame, transition);
+        //    else
+        //        throw new ArgumentException("MailItem must be of type MailItemViewModel.");
+        //}
 
-        public void NavigateFolder(NavigateMailFolderEventArgs args)
-            => Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.ShellFrame);
+        //public void NavigateFolder(NavigateMailFolderEventArgs args)
+        //    => Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.ShellFrame);
     }
 }
