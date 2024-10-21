@@ -102,20 +102,34 @@ namespace Wino.Core.Authenticators
 
             if (cachedToken.IsExpired)
             {
-                // Refresh token with new exchanges.
-                // No need to check Username for account.
-
-                var refreshedTokenInfoBase = await RefreshTokenAsync(cachedToken.RefreshToken);
-
-                cachedToken.RefreshTokens(refreshedTokenInfoBase);
-
-                // Save new token and return.
-                await SaveTokenInternalAsync(account, cachedToken);
+                await RefreshTokenAsync(account, cachedToken);
             }
 
             return cachedToken;
         }
 
+        private async Task RefreshTokenAsync(MailAccount account, TokenInformation token)
+        {
+            // Refresh token with new exchanges.
+            // No need to check Username for account.
+
+            var refreshedTokenInfoBase = await RefreshTokenAsync(token.RefreshToken);
+
+            token.RefreshTokens(refreshedTokenInfoBase);
+
+            // Save new token and return.
+            await SaveTokenInternalAsync(account, token);
+        }
+
+        public async Task<TokenInformation> RefreshTokenAsync(MailAccount account)
+        {
+            var cachedToken = await TokenService.GetTokenInformationAsync(account.Id)
+                ?? throw new AuthenticationAttentionException(account);
+
+            await RefreshTokenAsync(account, cachedToken);
+
+            return cachedToken;
+        }
 
         public async Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)
         {
