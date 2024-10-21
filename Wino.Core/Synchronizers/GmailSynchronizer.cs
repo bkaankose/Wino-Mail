@@ -45,15 +45,16 @@ namespace Wino.Core.Synchronizers
         private readonly GmailService _gmailService;
         private readonly PeopleServiceService _peopleService;
 
-        private readonly IAuthenticator _authenticator;
+        private readonly IGmailAuthenticator _authenticator;
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
         private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
         public GmailSynchronizer(MailAccount account,
-                                 IAuthenticator authenticator,
+                                 IGmailAuthenticator authenticator,
                                  IGmailChangeProcessor gmailChangeProcessor) : base(account)
         {
             var messageHandler = new GmailClientMessageHandler(() => _authenticator.GetTokenAsync(Account));
+            messageHandler.AddUnsuccessfulResponseHandler(new GmailUnsuccessfulResponseHandler(async () => await _authenticator.RefreshTokenAsync(Account).ConfigureAwait(false)));
 
             var initializer = new BaseClientService.Initializer()
             {
