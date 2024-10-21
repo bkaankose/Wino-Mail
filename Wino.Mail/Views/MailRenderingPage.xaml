@@ -307,7 +307,6 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}" />
                             <ItemsControl
                                 Grid.Column="1"
-                                VerticalAlignment="Top"
                                 ItemTemplate="{StaticResource InternetAddressTemplate}"
                                 ItemsSource="{x:Bind ViewModel.CcItems, Mode=OneWay}"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}">
