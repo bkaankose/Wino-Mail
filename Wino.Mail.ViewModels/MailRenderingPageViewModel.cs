@@ -467,7 +467,7 @@ namespace Wino.Mail.ViewModels
                         ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
 
                     // Make sure that user account first in the list.
-                    if (foundContact.Address == initializedMailItemViewModel.AssignedAccount.Address)
+                    if (foundContact.Address == initializedMailItemViewModel?.AssignedAccount?.Address)
                     {
                         accounts.Insert(0, foundContact);
                     }
