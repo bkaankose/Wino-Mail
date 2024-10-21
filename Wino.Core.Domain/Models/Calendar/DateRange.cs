@@ -2,10 +2,15 @@
 
 namespace Wino.Core.Domain.Models.Calendar
 {
-    /// <summary>
-    /// Represents a range of dates.
-    /// </summary>
-    /// <param name="StartDate">Start date</param>
-    /// <param name="EndDate">End date</param>
-    public record DateRange(DateTime StartDate, DateTime EndDate);
+    public class DateRange
+    {
+        public DateRange(DateTime startDate, DateTime endDate)
+        {
+            StartDate = startDate;
+            EndDate = endDate;
+        }
+
+        public DateTime StartDate { get; }
+        public DateTime EndDate { get; }
+    }
 }

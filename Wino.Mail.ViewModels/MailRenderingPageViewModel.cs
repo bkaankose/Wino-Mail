@@ -30,10 +30,11 @@ using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class MailRenderingPageViewModel : BaseViewModel,
+    public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IRecipient<NewMailItemRenderingRequestedEvent>,
         ITransferProgress // For listening IMAP message download progress.
     {
+        private readonly IMailDialogService _dialogService;
         private readonly IUnderlyingThemeService _underlyingThemeService;
 
         private readonly IMimeFileService _mimeFileService;
@@ -135,8 +136,9 @@ namespace Wino.Mail.ViewModels
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService,
-                                          IWinoServerConnectionManager winoServerConnectionManager) 
+                                          IWinoServerConnectionManager winoServerConnectionManager)
         {
+            _dialogService = dialogService;
             NativeAppService = nativeAppService;
             StatePersistenceService = statePersistenceService;
             _contactService = contactService;
@@ -159,11 +161,11 @@ namespace Wino.Mail.ViewModels
             {
                 await _clipboardService.CopyClipboardAsync(copyText);
 
-                DialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, copyText), InfoBarMessageType.Information);
+                _dialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, copyText), InfoBarMessageType.Information);
             }
             catch (Exception)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, string.Format(Translator.ClipboardTextCopyFailed_Message, copyText), InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, string.Format(Translator.ClipboardTextCopyFailed_Message, copyText), InfoBarMessageType.Error);
             }
         }
 
@@ -187,7 +189,7 @@ namespace Wino.Mail.ViewModels
             {
                 if (!Uri.IsWellFormedUriString(CurrentRenderModel.UnsubscribeInfo.HttpLink, UriKind.RelativeOrAbsolute))
                 {
-                    DialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
+                    _dialogService.InfoBarMessage(Translator.Info_UnsubscribeLinkInvalidTitle, Translator.Info_UnsubscribeLinkInvalidMessage, InfoBarMessageType.Error);
                     return;
                 }
 
@@ -195,23 +197,23 @@ namespace Wino.Mail.ViewModels
                 // https://datatracker.ietf.org/doc/html/rfc8058
                 if (CurrentRenderModel.UnsubscribeInfo.IsOneClick)
                 {
-                    confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                    confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationOneClickMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
                     if (!confirmed) return;
 
                     bool isOneClickUnsubscribed = await _unsubscriptionService.OneClickUnsubscribeAsync(CurrentRenderModel.UnsubscribeInfo);
 
                     if (isOneClickUnsubscribed)
                     {
-                        DialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, FromName), InfoBarMessageType.Success);
+                        _dialogService.InfoBarMessage(Translator.Unsubscribe, string.Format(Translator.Info_UnsubscribeSuccessMessage, FromName), InfoBarMessageType.Success);
                     }
                     else
                     {
-                        DialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_UnsubscribeErrorMessage, InfoBarMessageType.Error);
+                        _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Info_UnsubscribeErrorMessage, InfoBarMessageType.Error);
                     }
                 }
                 else
                 {
-                    confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
+                    confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteMessage, FromName), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.DialogMessage_UnsubscribeConfirmationGoToWebsiteConfirmButton);
                     if (!confirmed) return;
 
                     await NativeAppService.LaunchUriAsync(new Uri(CurrentRenderModel.UnsubscribeInfo.HttpLink));
@@ -219,7 +221,7 @@ namespace Wino.Mail.ViewModels
             }
             else if (CurrentRenderModel.UnsubscribeInfo.MailToLink is not null)
             {
-                confirmed = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, FromName, new string(CurrentRenderModel.UnsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
+                confirmed = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.DialogMessage_UnsubscribeConfirmationMailtoMessage, FromName, new string(CurrentRenderModel.UnsubscribeInfo.MailToLink.Skip(7).ToArray())), Translator.DialogMessage_UnsubscribeConfirmationTitle, Translator.Unsubscribe);
 
                 if (!confirmed) return;
 
@@ -245,7 +247,7 @@ namespace Wino.Mail.ViewModels
             else if (operation == MailOperation.SaveAs)
             {
                 // Save as PDF
-                var pickedFolder = await DialogService.PickWindowsFolderAsync();
+                var pickedFolder = await _dialogService.PickWindowsFolderAsync();
 
                 if (!string.IsNullOrEmpty(pickedFolder))
                 {
@@ -331,7 +333,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                DialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
 
                 Crashes.TrackError(ex);
                 Log.Error(ex, "Render Failed");
@@ -354,7 +356,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
             }
             finally
             {
@@ -379,7 +381,7 @@ namespace Wino.Mail.ViewModels
 
             if (mimeMessageInformation == null)
             {
-                DialogService.InfoBarMessage(Translator.Info_MessageCorruptedTitle, Translator.Info_MessageCorruptedMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_MessageCorruptedTitle, Translator.Info_MessageCorruptedMessage, InfoBarMessageType.Error);
                 return;
             }
 
@@ -591,7 +593,7 @@ namespace Wino.Mail.ViewModels
                 Log.Error(ex, WinoErrors.OpenAttachment);
                 Crashes.TrackError(ex);
 
-                DialogService.InfoBarMessage(Translator.Info_AttachmentOpenFailedTitle, Translator.Info_AttachmentOpenFailedMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentOpenFailedTitle, Translator.Info_AttachmentOpenFailedMessage, InfoBarMessageType.Error);
             }
         }
 
@@ -605,20 +607,20 @@ namespace Wino.Mail.ViewModels
             {
                 attachmentViewModel.IsBusy = true;
 
-                var pickedPath = await DialogService.PickWindowsFolderAsync();
+                var pickedPath = await _dialogService.PickWindowsFolderAsync();
 
                 if (string.IsNullOrEmpty(pickedPath)) return;
 
                 await SaveAttachmentInternalAsync(attachmentViewModel, pickedPath);
 
-                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, WinoErrors.SaveAttachment);
                 Crashes.TrackError(ex);
 
-                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
             }
             finally
             {
@@ -629,7 +631,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task SaveAllAttachmentsAsync()
         {
-            var pickedPath = await DialogService.PickWindowsFolderAsync();
+            var pickedPath = await _dialogService.PickWindowsFolderAsync();
 
             if (string.IsNullOrEmpty(pickedPath)) return;
 
@@ -641,14 +643,14 @@ namespace Wino.Mail.ViewModels
                     await SaveAttachmentInternalAsync(attachmentViewModel, pickedPath);
                 }
 
-                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, WinoErrors.SaveAttachment);
                 Crashes.TrackError(ex);
 
-                DialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
             }
         }
 
@@ -674,7 +676,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                DialogService.InfoBarMessage(Translator.Info_FileLaunchFailedTitle, ex.Message, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_FileLaunchFailedTitle, ex.Message, InfoBarMessageType.Error);
             }
         }
 
@@ -696,7 +698,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                DialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
 
                 Crashes.TrackError(ex);
                 Log.Error(ex, "Render Failed");

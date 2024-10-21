@@ -35,7 +35,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class MailListPageViewModel : BaseViewModel,
+    public partial class MailListPageViewModel : MailBaseViewModel,
         IRecipient<MailItemNavigationRequested>,
         IRecipient<ActiveMailFolderChangedEvent>,
         IRecipient<MailItemSelectedEvent>,

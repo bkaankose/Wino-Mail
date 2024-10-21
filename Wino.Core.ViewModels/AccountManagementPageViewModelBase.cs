@@ -7,7 +7,7 @@ namespace Wino.Core.ViewModels
     public class AccountManagementPageViewModelBase : CoreBaseViewModel, IRecipient<ProtocolAuthorizationCallbackReceived>
     {
         public int FREE_ACCOUNT_COUNT { get; } = 3;
-
+        protected IMailDialogService DialogService { get; }
         protected IWinoServerConnectionManager WinoServerConnectionManager { get; }
         protected INavigationService NavigationService { get; }
         protected IAccountService AccountService { get; }
@@ -23,8 +23,9 @@ namespace Wino.Core.ViewModels
                                                   IProviderService providerService,
                                                   IStoreManagementService storeManagementService,
                                                   IAuthenticationProvider authenticationProvider,
-                                                  IPreferencesService preferencesService) 
+                                                  IPreferencesService preferencesService)
         {
+            DialogService = dialogService;
             WinoServerConnectionManager = winoServerConnectionManager;
             NavigationService = navigationService;
             AccountService = accountService;

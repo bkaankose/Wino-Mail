@@ -10,18 +10,17 @@ namespace Wino.Core.Domain.Models.Calendar
     public class DayRangeRenderModel
     {
         public List<CalendarDayModel> CalendarDays { get; } = new List<CalendarDayModel>();
-
         public List<DayHeaderRenderModel> DayHeaders { get; } = new List<DayHeaderRenderModel>();
+        public CalendarRenderOptions CalendarRenderOptions { get; }
 
         public DayRangeRenderModel(CalendarRenderOptions calendarRenderOptions)
         {
             CalendarRenderOptions = calendarRenderOptions;
-            TotalDayCount = (calendarRenderOptions.EndDate - calendarRenderOptions.StartDate).Days;
 
-            for (var i = 0; i < TotalDayCount; i++)
+            for (var i = 0; i < CalendarRenderOptions.TotalDayCount; i++)
             {
                 var representingDate = calendarRenderOptions.StartDate.AddDays(i);
-                var calendarDayModel = new CalendarDayModel(representingDate);
+                var calendarDayModel = new CalendarDayModel(representingDate, calendarRenderOptions);
 
                 CalendarDays.Add(calendarDayModel);
             }
@@ -50,8 +49,5 @@ namespace Wino.Core.Domain.Models.Calendar
             }
         }
 
-        public int TotalDayCount { get; }
-
-        public CalendarRenderOptions CalendarRenderOptions { get; }
     }
 }

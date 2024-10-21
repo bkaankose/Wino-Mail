@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {
-    public class MessageListPageViewModel : BaseViewModel
+    public class MessageListPageViewModel : MailBaseViewModel
     {
         public IPreferencesService PreferencesService { get; }
 

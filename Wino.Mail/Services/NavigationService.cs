@@ -3,11 +3,10 @@ using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.UWP.Services;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -18,7 +17,7 @@ using Wino.Views.Settings;
 
 namespace Wino.Services
 {
-    public class NavigationService : INavigationService
+    public class NavigationService : NavigationServiceBase, INavigationService
     {
         private readonly IStatePersistanceService _statePersistanceService;
 
@@ -27,24 +26,6 @@ namespace Wino.Services
             WinoPage.MailRenderingPage,
             WinoPage.ComposePage
         };
-
-        private Frame GetCoreFrame(NavigationReferenceFrame frameType)
-        {
-            if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
-                return WinoVisualTreeHelper.GetChildObject<Frame>(shellPage, frameType.ToString());
-
-            return null;
-        }
-
-        private Type GetCurrentFrameType(ref Frame _frame)
-        {
-            if (_frame != null && _frame.Content != null)
-                return _frame.Content.GetType();
-            else
-            {
-                return null;
-            }
-        }
 
         public NavigationService(IStatePersistanceService statePersistanceService)
         {
@@ -96,6 +77,14 @@ namespace Wino.Services
                 default:
                     return null;
             }
+        }
+
+        public Frame GetCoreFrame(NavigationReferenceFrame frameType)
+        {
+            if (Window.Current.Content is Frame appFrame)
+                return WinoVisualTreeHelper.GetChildObject<Frame>(appFrame.Content as UIElement, frameType.ToString());
+
+            return null;
         }
 
         public bool Navigate(WinoPage page,
@@ -165,18 +154,6 @@ namespace Wino.Services
 
             return false;
         }
-
-        private NavigationTransitionInfo GetNavigationTransitionInfo(NavigationTransitionType transition)
-        {
-            return transition switch
-            {
-                NavigationTransitionType.DrillIn => new DrillInNavigationTransitionInfo(),
-                _ => new SuppressNavigationTransitionInfo(),
-            };
-        }
-
-        public void NavigateCompose(IMailItem mailItem, NavigationTransitionType transition = NavigationTransitionType.None)
-            => Navigate(WinoPage.ComposePage, mailItem, NavigationReferenceFrame.RenderingFrame, transition);
 
         // Standalone EML viewer.
         //public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)

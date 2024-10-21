@@ -15,7 +15,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class MergedAccountDetailsPageViewModel : BaseViewModel,
+    public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
         IRecipient<MergedInboxRenamed>
     {
         [ObservableProperty]
@@ -50,6 +50,7 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        private readonly IMailDialogService _dialogService;
         private readonly IAccountService _accountService;
         private readonly IPreferencesService _preferencesService;
         private readonly IProviderService _providerService;
@@ -57,8 +58,9 @@ namespace Wino.Mail.ViewModels
         public MergedAccountDetailsPageViewModel(IMailDialogService dialogService,
                                                  IAccountService accountService,
                                                  IPreferencesService preferencesService,
-                                                 IProviderService providerService) 
+                                                 IProviderService providerService)
         {
+            _dialogService = dialogService;
             _accountService = accountService;
             _preferencesService = preferencesService;
             _providerService = providerService;
@@ -69,7 +71,7 @@ namespace Wino.Mail.ViewModels
         {
             if (EditingMergedAccount == null) return;
 
-            var isConfirmed = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_UnlinkAccountsConfirmationMessage, Translator.DialogMessage_UnlinkAccountsConfirmationTitle, Translator.Buttons_Yes);
+            var isConfirmed = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_UnlinkAccountsConfirmationMessage, Translator.DialogMessage_UnlinkAccountsConfirmationTitle, Translator.Buttons_Yes);
 
             if (!isConfirmed) return;
 
@@ -111,7 +113,7 @@ namespace Wino.Mail.ViewModels
         {
             if (EditingMergedAccount == null) return;
 
-            var newName = await DialogService.ShowTextInputDialogAsync(EditingMergedAccount.MergedInbox.Name,
+            var newName = await _dialogService.ShowTextInputDialogAsync(EditingMergedAccount.MergedInbox.Name,
                                                                        Translator.DialogMessage_RenameLinkedAccountsTitle,
                                                                        Translator.DialogMessage_RenameLinkedAccountsMessage,
                                                                        Translator.FolderOperation_Rename);

@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class ReadComposePanePageViewModel : BaseViewModel,
+    public partial class ReadComposePanePageViewModel : MailBaseViewModel,
         IRecipient<PropertyChangedMessage<string>>,
         IRecipient<PropertyChangedMessage<int>>
     {

@@ -7,7 +7,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public class BaseViewModel : CoreBaseViewModel,
+    public class MailBaseViewModel : CoreBaseViewModel,
         IRecipient<MailAddedMessage>,
         IRecipient<MailRemovedMessage>,
         IRecipient<MailUpdatedMessage>,

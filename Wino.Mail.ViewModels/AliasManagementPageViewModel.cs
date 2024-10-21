@@ -16,7 +16,7 @@ using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class AliasManagementPageViewModel : BaseViewModel
+    public partial class AliasManagementPageViewModel : MailBaseViewModel
     {
         private readonly IMailDialogService _dialogService;
         private readonly IAccountService _accountService;

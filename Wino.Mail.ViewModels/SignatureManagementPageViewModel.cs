@@ -17,7 +17,7 @@ namespace Wino.Mail.ViewModels
 {
     public partial class SignatureManagementPageViewModel(IMailDialogService dialogService,
                                             ISignatureService signatureService,
-                                            IAccountService accountService) : BaseViewModel
+                                            IAccountService accountService) : MailBaseViewModel
     {
         public ObservableCollection<AccountSignature> Signatures { get; set; } = [];
 

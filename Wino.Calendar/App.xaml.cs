@@ -55,23 +55,7 @@ namespace Wino.Calendar
         private void RegisterViewModels(IServiceCollection services)
         {
             services.AddSingleton(typeof(AppShellViewModel));
-
-            //services.AddTransient(typeof(MailListPageViewModel));
-            //services.AddTransient(typeof(MailRenderingPageViewModel));
-            //services.AddTransient(typeof(AccountManagementViewModel));
-            //services.AddTransient(typeof(WelcomePageViewModel));
-
-            //services.AddTransient(typeof(ComposePageViewModel));
-            //services.AddTransient(typeof(IdlePageViewModel));
-
-            //services.AddTransient(typeof(AccountDetailsPageViewModel));
-            //services.AddTransient(typeof(SignatureManagementPageViewModel));
-            //services.AddTransient(typeof(MessageListPageViewModel));
-            //services.AddTransient(typeof(ReadComposePanePageViewModel));
-            //services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
-            //services.AddTransient(typeof(LanguageTimePageViewModel));
-            //services.AddTransient(typeof(AppPreferencesPageViewModel));
-            //services.AddTransient(typeof(AliasManagementPageViewModel));
+            services.AddTransient(typeof(CalendarPageViewModel));
         }
 
         #endregion

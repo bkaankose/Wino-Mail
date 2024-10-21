@@ -30,7 +30,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class AppShellViewModel : BaseViewModel,
+    public partial class AppShellViewModel : MailBaseViewModel,
         IRecipient<NavigateSettingsRequested>,
         IRecipient<MailtoProtocolMessageRequested>,
         IRecipient<RefreshUnreadCountsMessage>,

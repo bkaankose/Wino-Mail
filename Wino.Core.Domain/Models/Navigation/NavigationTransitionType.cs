@@ -3,6 +3,7 @@
     public enum NavigationTransitionType
     {
         None, // Supress
-        DrillIn
+        DrillIn,
+        Entrance,
     }
 }

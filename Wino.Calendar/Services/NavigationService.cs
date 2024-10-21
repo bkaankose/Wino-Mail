@@ -1,41 +1,42 @@
 ﻿using System;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
+using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.UWP.Services;
 
 namespace Wino.Calendar.Services
 {
-    public class NavigationService : INavigationService
+    public class NavigationService : NavigationServiceBase, INavigationService
     {
         public Type GetPageType(WinoPage winoPage)
         {
-            throw new NotImplementedException();
+            switch (winoPage)
+            {
+                case WinoPage.CalendarPage:
+                    return typeof(CalendarPage);
+                default:
+                    throw new Exception("Page is not implemented yet.");
+            }
         }
 
         public bool Navigate(WinoPage page, object parameter = null, NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame, NavigationTransitionType transition = NavigationTransitionType.None)
         {
-            throw new NotImplementedException();
-        }
+            // All navigations are performed on shell frame for calendar.
 
-        public void NavigateCompose(IMailItem mailItem, NavigationTransitionType transition = NavigationTransitionType.None)
-        {
-            throw new NotImplementedException();
-        }
+            if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
+            {
+                var shellFrame = shellPage.GetShellFrame();
 
-        public void NavigateFolder(NavigateMailFolderEventArgs args)
-        {
-            throw new NotImplementedException();
-        }
+                var pageType = GetPageType(page);
 
-        public void NavigateRendering(IMailItem mailItem, NavigationTransitionType transition = NavigationTransitionType.None)
-        {
-            throw new NotImplementedException();
-        }
+                shellFrame.Navigate(pageType, parameter);
+                return true;
+            }
 
-        public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)
-        {
-            throw new NotImplementedException();
+            return false;
         }
     }
 }
