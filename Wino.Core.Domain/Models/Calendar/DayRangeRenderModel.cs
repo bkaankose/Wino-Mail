@@ -31,19 +31,12 @@ namespace Wino.Core.Domain.Models.Calendar
             {
                 var representingDate = calendarRenderOptions.StartDate.Date.AddHours(i);
 
-                string dayHeader = "N/A";
-
-                switch (calendarRenderOptions.DayHeaderDisplayType)
+                string dayHeader = calendarRenderOptions.DayHeaderDisplayType switch
                 {
-                    case DayHeaderDisplayType.TwelveHour:
-                        dayHeader = representingDate.ToString("h tt", calendarRenderOptions.CultureInfo);
-                        break;
-                    case DayHeaderDisplayType.TwentyFourHour:
-                        dayHeader = representingDate.ToString("HH", calendarRenderOptions.CultureInfo);
-                        break;
-                    default:
-                        break;
-                }
+                    DayHeaderDisplayType.TwelveHour => representingDate.ToString("h tt", calendarRenderOptions.CultureInfo),
+                    DayHeaderDisplayType.TwentyFourHour => representingDate.ToString("HH", calendarRenderOptions.CultureInfo),
+                    _ => "N/A"
+                };
 
                 DayHeaders.Add(new DayHeaderRenderModel(dayHeader, calendarRenderOptions.HourHeight));
             }
