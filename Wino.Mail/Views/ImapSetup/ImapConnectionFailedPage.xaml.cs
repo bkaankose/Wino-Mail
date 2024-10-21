@@ -15,7 +15,7 @@ namespace Wino.Views.ImapSetup
         private string _protocolLog;
 
         private readonly IClipboardService _clipboardService = App.Current.Services.GetService<IClipboardService>();
-        private readonly IDialogService _dialogService = App.Current.Services.GetService<IDialogService>();
+        private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>();
 
         public ImapConnectionFailedPage()
         {

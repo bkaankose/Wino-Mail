@@ -18,6 +18,7 @@ namespace Wino.Core.ViewModels
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
+        private readonly IMailDialogService _dialogService;
         private readonly IThemeService _themeService;
 
         private bool isPropChangeDisabled = false;
@@ -123,17 +124,17 @@ namespace Wino.Core.ViewModels
         private void ResetMailListPaneLength()
         {
             StatePersistenceService.MailListPaneLength = 420;
-            DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
         }
 
         public AsyncRelayCommand CreateCustomThemeCommand { get; set; }
-        public PersonalizationPageViewModel(IDialogService dialogService,
+        public PersonalizationPageViewModel(IMailDialogService dialogService,
                                             IStatePersistanceService statePersistanceService,
                                             IThemeService themeService,
-                                            IPreferencesService preferencesService) : base(dialogService)
+                                            IPreferencesService preferencesService)
         {
             CreateCustomThemeCommand = new AsyncRelayCommand(CreateCustomThemeAsync);
-
+            _dialogService = dialogService;
             StatePersistenceService = statePersistanceService;
 
             _themeService = themeService;
@@ -142,7 +143,7 @@ namespace Wino.Core.ViewModels
 
         private async Task CreateCustomThemeAsync()
         {
-            bool isThemeCreated = await DialogService.ShowCustomThemeBuilderDialogAsync();
+            bool isThemeCreated = await _dialogService.ShowCustomThemeBuilderDialogAsync();
 
             if (isThemeCreated)
             {

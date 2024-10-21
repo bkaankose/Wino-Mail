@@ -41,10 +41,10 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private readonly IStartupBehaviorService _startupBehaviorService;
 
-        public AppPreferencesPageViewModel(IDialogService dialogService,
+        public AppPreferencesPageViewModel(IMailDialogService dialogService,
                                            IPreferencesService preferencesService,
                                            IWinoServerConnectionManager winoServerConnectionManager,
-                                           IStartupBehaviorService startupBehaviorService) : base(dialogService)
+                                           IStartupBehaviorService startupBehaviorService) 
         {
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;

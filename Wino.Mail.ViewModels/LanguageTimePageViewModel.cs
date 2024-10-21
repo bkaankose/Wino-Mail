@@ -8,7 +8,7 @@ using Wino.Core.Domain.Models.Translations;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class LanguageTimePageViewModel(IDialogService dialogService,
+    public partial class LanguageTimePageViewModel(IMailDialogService dialogService,
                                     IPreferencesService preferencesService,
                                     ITranslationService translationService) : BaseViewModel(dialogService)
     {

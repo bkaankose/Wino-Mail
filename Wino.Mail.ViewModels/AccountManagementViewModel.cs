@@ -51,7 +51,7 @@ namespace Wino.Mail.ViewModels
         [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
         private bool isAccountCreationBlocked;
 
-        public AccountManagementViewModel(IDialogService dialogService,
+        public AccountManagementViewModel(IMailDialogService dialogService,
                                           IWinoServerConnectionManager winoServerConnectionManager,
                                           INavigationService navigationService,
                                           IAccountService accountService,

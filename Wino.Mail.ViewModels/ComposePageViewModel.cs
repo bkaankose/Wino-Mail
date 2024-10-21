@@ -103,7 +103,7 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         public readonly IContactService ContactService;
 
-        public ComposePageViewModel(IDialogService dialogService,
+        public ComposePageViewModel(IMailDialogService dialogService,
                                     IMailService mailService,
                                     IMimeFileService mimeFileService,
                                     INativeAppService nativeAppService,
@@ -113,7 +113,7 @@ namespace Wino.Mail.ViewModels
                                     IContactService contactService,
                                     IFontService fontService,
                                     IPreferencesService preferencesService,
-                                    IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                    IWinoServerConnectionManager winoServerConnectionManager) 
         {
             NativeAppService = nativeAppService;
             ContactService = contactService;

@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.ViewModels;
 using Wino.Messaging.UI;
@@ -9,9 +8,6 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels
 {
     public class BaseViewModel : CoreBaseViewModel,
-        IRecipient<AccountCreatedMessage>,
-        IRecipient<AccountRemovedMessage>,
-        IRecipient<AccountUpdatedMessage>,
         IRecipient<MailAddedMessage>,
         IRecipient<MailRemovedMessage>,
         IRecipient<MailUpdatedMessage>,
@@ -22,16 +18,12 @@ namespace Wino.Mail.ViewModels
         IRecipient<FolderRenamed>,
         IRecipient<FolderSynchronizationEnabled>
     {
-        public BaseViewModel(IDialogService dialogService) : base(dialogService) { }
-
         protected virtual void OnMailAdded(MailCopy addedMail) { }
         protected virtual void OnMailRemoved(MailCopy removedMail) { }
         protected virtual void OnMailUpdated(MailCopy updatedMail) { }
         protected virtual void OnMailDownloaded(MailCopy downloadedMail) { }
 
-        protected virtual void OnAccountCreated(MailAccount createdAccount) { }
-        protected virtual void OnAccountRemoved(MailAccount removedAccount) { }
-        protected virtual void OnAccountUpdated(MailAccount updatedAccount) { }
+
 
 
         protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
@@ -41,9 +33,7 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
 
 
-        void IRecipient<AccountCreatedMessage>.Receive(AccountCreatedMessage message) => OnAccountCreated(message.Account);
-        void IRecipient<AccountRemovedMessage>.Receive(AccountRemovedMessage message) => OnAccountRemoved(message.Account);
-        void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message) => OnAccountUpdated(message.Account);
+
 
 
         void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);

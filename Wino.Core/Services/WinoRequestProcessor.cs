@@ -23,7 +23,7 @@ namespace Wino.Core.Services
         private readonly IKeyPressService _keyPressService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAccountService _accountService;
-        private readonly IDialogService _dialogService;
+        private readonly IMailDialogService _dialogService;
         private readonly IMailService _mailService;
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace Wino.Core.Services
                                     IKeyPressService keyPressService,
                                     IPreferencesService preferencesService,
                                     IAccountService accountService,
-                                    IDialogService dialogService,
+                                    IMailDialogService dialogService,
                                     IMailService mailService) : base(databaseService)
         {
             _folderService = folderService;

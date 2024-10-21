@@ -10,6 +10,7 @@ namespace Wino.Core.ViewModels
     public partial class AboutPageViewModel : CoreBaseViewModel
     {
         private readonly IStoreRatingService _storeRatingService;
+        private readonly IMailDialogService _dialogService;
         private readonly INativeAppService _nativeAppService;
         private readonly IApplicationConfiguration _appInitializerService;
         private readonly IFileService _fileService;
@@ -24,14 +25,15 @@ namespace Wino.Core.ViewModels
         public IPreferencesService PreferencesService { get; }
 
         public AboutPageViewModel(IStoreRatingService storeRatingService,
-                                  IDialogService dialogService,
+                                  IMailDialogService dialogService,
                                   INativeAppService nativeAppService,
                                   IPreferencesService preferencesService,
                                   IApplicationConfiguration appInitializerService,
                                   IFileService fileService,
-                                  ILogInitializer logInitializer) : base(dialogService)
+                                  ILogInitializer logInitializer)
         {
             _storeRatingService = storeRatingService;
+            _dialogService = dialogService;
             _nativeAppService = nativeAppService;
             _logInitializer = logInitializer;
             _appInitializerService = appInitializerService;
@@ -68,7 +70,7 @@ namespace Wino.Core.ViewModels
         {
             var appDataFolder = _appInitializerService.ApplicationDataFolderPath;
 
-            var selectedFolderPath = await DialogService.PickWindowsFolderAsync();
+            var selectedFolderPath = await _dialogService.PickWindowsFolderAsync();
 
             if (string.IsNullOrEmpty(selectedFolderPath)) return;
 
@@ -76,11 +78,11 @@ namespace Wino.Core.ViewModels
 
             if (areLogsSaved)
             {
-                DialogService.InfoBarMessage(Translator.Info_LogsSavedTitle, string.Format(Translator.Info_LogsSavedMessage, Constants.LogArchiveFileName), InfoBarMessageType.Success);
+                _dialogService.InfoBarMessage(Translator.Info_LogsSavedTitle, string.Format(Translator.Info_LogsSavedMessage, Constants.LogArchiveFileName), InfoBarMessageType.Success);
             }
             else
             {
-                DialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_LogsNotFoundTitle, Translator.Info_LogsNotFoundMessage, InfoBarMessageType.Error);
             }
         }
 
@@ -95,7 +97,7 @@ namespace Wino.Core.ViewModels
                 {
                     // Discord disclaimer message about server.
                     if (stringUrl == DiscordChannelUrl)
-                        await DialogService.ShowMessageAsync(Translator.DiscordChannelDisclaimerMessage,
+                        await _dialogService.ShowMessageAsync(Translator.DiscordChannelDisclaimerMessage,
                                                              Translator.DiscordChannelDisclaimerTitle,
                                                              WinoCustomMessageDialogIcon.Warning);
 

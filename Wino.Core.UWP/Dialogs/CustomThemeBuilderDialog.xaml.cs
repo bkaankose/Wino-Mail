@@ -45,7 +45,7 @@ namespace Wino.Dialogs
 
         private async void BrowseWallpaperClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            var dialogService = WinoApplication.Current.Services.GetService<IDialogService>();
+            var dialogService = WinoApplication.Current.Services.GetService<IMailDialogService>();
 
             var pickedFileData = await dialogService.PickWindowsFileContentAsync(".jpg", ".png");
 

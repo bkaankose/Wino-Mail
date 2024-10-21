@@ -4,7 +4,7 @@ namespace Wino.Core.ViewModels
 {
     public class SettingsDialogViewModel : CoreBaseViewModel
     {
-        public SettingsDialogViewModel(IDialogService dialogService) : base(dialogService)
+        public SettingsDialogViewModel(IMailDialogService dialogService) 
         {
         }
     }

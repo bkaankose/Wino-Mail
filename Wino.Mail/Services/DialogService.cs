@@ -21,7 +21,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Services
 {
-    public class DialogService : DialogServiceBase, IDialogService
+    public class DialogService : DialogServiceBase, IMailDialogService
     {
         public DialogService(IThemeService themeService,
                              IConfigurationService configurationService,
@@ -63,9 +63,6 @@ namespace Wino.Services
 
             return dialog;
         }
-
-
-
 
         public async Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account)
         {

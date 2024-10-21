@@ -3,12 +3,11 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Core.ViewModels
 {
-    public partial class SettingOptionsPageViewModel(IDialogService dialogService) : CoreBaseViewModel(dialogService)
+    public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     {
         [RelayCommand]
         private void GoAccountSettings() => Messenger.Send<NavigateSettingsRequested>();

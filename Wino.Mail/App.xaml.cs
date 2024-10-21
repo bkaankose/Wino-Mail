@@ -94,7 +94,7 @@ namespace Wino
         private void RegisterUWPServices(IServiceCollection services)
         {
             services.AddSingleton<INavigationService, NavigationService>();
-            services.AddSingleton<IDialogService, DialogService>();
+            services.AddSingleton<IMailDialogService, DialogService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)
@@ -245,7 +245,7 @@ namespace Wino
 
             // User has some accounts. Check if Wino Server runs on system startup.
 
-            var dialogService = base.Services.GetService<IDialogService>();
+            var dialogService = base.Services.GetService<IMailDialogService>();
             var startupBehaviorService = base.Services.GetService<IStartupBehaviorService>();
             var preferencesService = base.Services.GetService<IPreferencesService>();
 

@@ -42,9 +42,9 @@ namespace Wino.Mail.ViewModels
         public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
 
 
-        public AccountDetailsPageViewModel(IDialogService dialogService,
+        public AccountDetailsPageViewModel(IMailDialogService dialogService,
             IAccountService accountService,
-            IFolderService folderService) : base(dialogService)
+            IFolderService folderService) 
         {
             _accountService = accountService;
             _folderService = folderService;

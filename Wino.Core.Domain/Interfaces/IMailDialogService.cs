@@ -10,7 +10,7 @@ using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface IDialogService : IDialogServiceBase
+    public interface IMailDialogService : IDialogServiceBase
     {
         Task<bool> ShowHardDeleteConfirmationAsync();
         Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService);

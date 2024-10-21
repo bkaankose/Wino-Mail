@@ -16,14 +16,14 @@ namespace Wino.Core.ViewModels
         protected IAuthenticationProvider AuthenticationProvider { get; }
         protected IPreferencesService PreferencesService { get; }
 
-        public AccountManagementPageViewModelBase(IDialogService dialogService,
+        public AccountManagementPageViewModelBase(IMailDialogService dialogService,
                                                   IWinoServerConnectionManager winoServerConnectionManager,
                                                   INavigationService navigationService,
                                                   IAccountService accountService,
                                                   IProviderService providerService,
                                                   IStoreManagementService storeManagementService,
                                                   IAuthenticationProvider authenticationProvider,
-                                                  IPreferencesService preferencesService) : base(dialogService)
+                                                  IPreferencesService preferencesService) 
         {
             WinoServerConnectionManager = winoServerConnectionManager;
             NavigationService = navigationService;

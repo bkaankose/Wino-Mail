@@ -5,8 +5,10 @@ using Windows.ApplicationModel.Activation;
 using Windows.UI.Core.Preview;
 using Wino.Activation;
 using Wino.Calendar.Activation;
+using Wino.Calendar.Services;
 using Wino.Calendar.ViewModels;
 using Wino.Core;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP;
 
 namespace Wino.Calendar
@@ -46,9 +48,8 @@ namespace Wino.Calendar
 
         private void RegisterUWPServices(IServiceCollection services)
         {
-            //services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
-            //services.AddSingleton<INavigationService, NavigationService>();
-            // services.AddSingleton<IDialogService, DialogService>();
+            services.AddSingleton<INavigationService, NavigationService>();
+            services.AddSingleton<ICalendarDialogService, DialogService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)

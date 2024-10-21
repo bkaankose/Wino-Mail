@@ -5,6 +5,6 @@ namespace Wino.Mail.ViewModels
 {
     public partial class IdlePageViewModel : CoreBaseViewModel
     {
-        public IdlePageViewModel(IDialogService dialogService) : base(dialogService) { }
+        public IdlePageViewModel(IMailDialogService dialogService)  { }
     }
 }

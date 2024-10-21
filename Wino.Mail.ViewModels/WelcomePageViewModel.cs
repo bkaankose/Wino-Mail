@@ -15,7 +15,7 @@ namespace Wino.Mail.ViewModels
         [ObservableProperty]
         private string currentVersionNotes;
 
-        public WelcomePageViewModel(IDialogService dialogService, IFileService fileService) : base(dialogService)
+        public WelcomePageViewModel(IMailDialogService dialogService, IFileService fileService) 
         {
             _fileService = fileService;
         }

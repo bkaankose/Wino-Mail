@@ -5,8 +5,11 @@ namespace Wino.Calendar.ViewModels
 {
     public class AppShellViewModel : CoreBaseViewModel
     {
-        public AppShellViewModel(IDialogService dialogService) : base(dialogService)
+        private readonly ICalendarDialogService _dialogService;
+
+        public AppShellViewModel(ICalendarDialogService dialogService)
         {
+            _dialogService = dialogService;
         }
     }
 }

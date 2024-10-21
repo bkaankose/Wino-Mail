@@ -4,7 +4,7 @@ using Wino.Core.UWP.Services;
 
 namespace Wino.Calendar.Services
 {
-    public class DialogService : DialogServiceBase
+    public class DialogService : DialogServiceBase, ICalendarDialogService
     {
         public DialogService(IThemeService themeService,
                              IConfigurationService configurationService,

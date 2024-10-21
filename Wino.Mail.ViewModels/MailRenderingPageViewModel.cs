@@ -123,7 +123,7 @@ namespace Wino.Mail.ViewModels
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
-        public MailRenderingPageViewModel(IDialogService dialogService,
+        public MailRenderingPageViewModel(IMailDialogService dialogService,
                                           INativeAppService nativeAppService,
                                           IUnderlyingThemeService underlyingThemeService,
                                           IMimeFileService mimeFileService,
@@ -135,7 +135,7 @@ namespace Wino.Mail.ViewModels
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService,
-                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                          IWinoServerConnectionManager winoServerConnectionManager) 
         {
             NativeAppService = nativeAppService;
             StatePersistenceService = statePersistenceService;

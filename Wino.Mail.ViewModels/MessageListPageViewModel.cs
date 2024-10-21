@@ -92,8 +92,8 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
-        public MessageListPageViewModel(IDialogService dialogService,
-                                        IPreferencesService preferencesService) : base(dialogService)
+        public MessageListPageViewModel(IMailDialogService dialogService,
+                                        IPreferencesService preferencesService) 
         {
             PreferencesService = preferencesService;
 

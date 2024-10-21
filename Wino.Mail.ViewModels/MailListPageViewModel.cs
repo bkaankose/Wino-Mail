@@ -145,7 +145,7 @@ namespace Wino.Mail.ViewModels
         [NotifyPropertyChangedFor(nameof(CanSynchronize))]
         private bool isAccountSynchronizerInSynchronization;
 
-        public MailListPageViewModel(IDialogService dialogService,
+        public MailListPageViewModel(IMailDialogService dialogService,
                                      INavigationService navigationService,
                                      IMailService mailService,
                                      IStatePersistanceService statePersistenceService,
@@ -155,7 +155,7 @@ namespace Wino.Mail.ViewModels
                                      IWinoRequestDelegator winoRequestDelegator,
                                      IKeyPressService keyPressService,
                                      IPreferencesService preferencesService,
-                                     IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                     IWinoServerConnectionManager winoServerConnectionManager) 
         {
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;

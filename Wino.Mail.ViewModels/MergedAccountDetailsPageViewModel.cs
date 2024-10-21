@@ -54,10 +54,10 @@ namespace Wino.Mail.ViewModels
         private readonly IPreferencesService _preferencesService;
         private readonly IProviderService _providerService;
 
-        public MergedAccountDetailsPageViewModel(IDialogService dialogService,
+        public MergedAccountDetailsPageViewModel(IMailDialogService dialogService,
                                                  IAccountService accountService,
                                                  IPreferencesService preferencesService,
-                                                 IProviderService providerService) : base(dialogService)
+                                                 IProviderService providerService) 
         {
             _accountService = accountService;
             _preferencesService = preferencesService;
