@@ -296,5 +296,13 @@ namespace Wino.Views
                 Crashes.TrackError(ex);
             }
         }
+
+        private void InternetAddressClicked(object sender, RoutedEventArgs e)
+        {
+            if (sender is HyperlinkButton hyperlinkButton)
+            {
+                hyperlinkButton.ContextFlyout.ShowAt(hyperlinkButton);
+            }
+        }
     }
 }
