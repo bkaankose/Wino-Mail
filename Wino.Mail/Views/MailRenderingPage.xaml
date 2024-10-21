@@ -276,6 +276,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.ComposerTo}"
@@ -299,12 +300,14 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Cc:"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}" />
                             <ItemsControl
                                 Grid.Column="1"
+                                VerticalAlignment="Top"
                                 ItemTemplate="{StaticResource InternetAddressTemplate}"
                                 ItemsSource="{x:Bind ViewModel.CcItems, Mode=OneWay}"
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}">
@@ -322,6 +325,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Bcc:"
