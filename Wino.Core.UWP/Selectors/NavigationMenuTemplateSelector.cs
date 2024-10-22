@@ -2,7 +2,7 @@
 using Windows.UI.Xaml.Controls;
 using Wino.Core.MenuItems;
 
-namespace Wino.Selectors
+namespace Wino.Core.UWP.Selectors
 {
     public class NavigationMenuTemplateSelector : DataTemplateSelector
     {
@@ -47,7 +47,7 @@ namespace Wino.Selectors
             else if (item is FolderMenuItem)
                 return FolderMenuTemplate;
             else if (item is FixAccountIssuesMenuItem fixAccountIssuesMenuItem)
-                return fixAccountIssuesMenuItem.Account.AttentionReason == Core.Domain.Enums.AccountAttentionReason.MissingSystemFolderConfiguration
+                return fixAccountIssuesMenuItem.Account.AttentionReason == Domain.Enums.AccountAttentionReason.MissingSystemFolderConfiguration
                         ? FixMissingFolderConfigTemplate : FixAuthenticationIssueTemplate;
             else
             {

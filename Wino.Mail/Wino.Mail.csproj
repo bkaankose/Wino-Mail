@@ -216,9 +216,6 @@
     <Compile Include="Behaviors\BindableCommandBarBehavior.cs" />
     <Compile Include="Behaviors\CreateMailNavigationItemBehavior.cs" />
     <Compile Include="Controls\AccountNavigationItem.cs" />
-    <Compile Include="Controls\Advanced\WinoAppTitleBar.xaml.cs">
-      <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Controls\SettingsMenuItemControl.cs" />
     <Compile Include="Controls\Advanced\WinoListView.cs" />
     <Compile Include="Controls\WinoExpander.cs" />
@@ -256,7 +253,6 @@
       <DependentUpon>MailItemDisplayInformationControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="MenuFlyouts\MoveButtonFlyout.cs" />
-    <Compile Include="Controls\WinoNavigationViewItem.cs" />
     <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
       <DependentUpon>NewAccountDialog.xaml</DependentUpon>
     </Compile>
@@ -265,7 +261,6 @@
     <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
-    <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\NavigationService.cs" />
     <Compile Include="Styles\WinoExpanderStyle.xaml.cs">
@@ -365,10 +360,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Controls\Advanced\WinoAppTitleBar.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Controls\MailItemDisplayInformationControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

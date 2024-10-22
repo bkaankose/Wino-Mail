@@ -53,9 +53,6 @@ namespace Wino.Mail.ViewModels
         public MenuItemCollection MenuItems { get; set; }
 
         private readonly SettingsItem SettingsItem = new SettingsItem();
-
-        private readonly RateMenuItem RatingItem = new RateMenuItem();
-
         private readonly ManageAccountsMenuItem ManageAccountsMenuItem = new ManageAccountsMenuItem();
 
         public NewMailMenuItem CreateMailMenuItem = new NewMailMenuItem();

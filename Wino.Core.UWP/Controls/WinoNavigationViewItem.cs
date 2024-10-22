@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Hosting;
 
-namespace Wino.Controls
+namespace Wino.Core.UWP.Controls
 {
     public class WinoNavigationViewItem : NavigationViewItem
     {
@@ -37,7 +37,7 @@ namespace Wino.Controls
 
         private void ScaleAnimation(Vector3 vector)
         {
-            if (this.Content is UIElement content)
+            if (Content is UIElement content)
             {
                 var visual = ElementCompositionPreview.GetElementVisual(content);
                 visual.Scale = vector;

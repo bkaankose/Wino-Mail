@@ -2,9 +2,9 @@
 
 namespace Wino.Core.UWP.Styles
 {
-    partial class CustomMessageDialogStyles : ResourceDictionary
+    public partial class DataTemplates : ResourceDictionary
     {
-        public CustomMessageDialogStyles()
+        public DataTemplates()
         {
             InitializeComponent();
         }

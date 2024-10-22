@@ -2,6 +2,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.UWP.Controls;
 
 namespace Wino.Controls
 {

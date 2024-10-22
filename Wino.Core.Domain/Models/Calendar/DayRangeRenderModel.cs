@@ -19,7 +19,7 @@ namespace Wino.Core.Domain.Models.Calendar
 
             for (var i = 0; i < CalendarRenderOptions.TotalDayCount; i++)
             {
-                var representingDate = calendarRenderOptions.StartDate.AddDays(i);
+                var representingDate = calendarRenderOptions.DateRange.StartDate.AddDays(i);
                 var calendarDayModel = new CalendarDayModel(representingDate, calendarRenderOptions);
 
                 CalendarDays.Add(calendarDayModel);
@@ -29,16 +29,16 @@ namespace Wino.Core.Domain.Models.Calendar
 
             for (var i = 0; i < 24; i++)
             {
-                var representingDate = calendarRenderOptions.StartDate.Date.AddHours(i);
+                var representingDate = calendarRenderOptions.DateRange.StartDate.Date.AddHours(i);
 
-                string dayHeader = calendarRenderOptions.DayHeaderDisplayType switch
+                string dayHeader = calendarRenderOptions.CalendarSettings.DayHeaderDisplayType switch
                 {
-                    DayHeaderDisplayType.TwelveHour => representingDate.ToString("h tt", calendarRenderOptions.CultureInfo),
-                    DayHeaderDisplayType.TwentyFourHour => representingDate.ToString("HH", calendarRenderOptions.CultureInfo),
+                    DayHeaderDisplayType.TwelveHour => representingDate.ToString("h tt", calendarRenderOptions.CalendarSettings.CultureInfo),
+                    DayHeaderDisplayType.TwentyFourHour => representingDate.ToString("HH", calendarRenderOptions.CalendarSettings.CultureInfo),
                     _ => "N/A"
                 };
 
-                DayHeaders.Add(new DayHeaderRenderModel(dayHeader, calendarRenderOptions.HourHeight));
+                DayHeaders.Add(new DayHeaderRenderModel(dayHeader, calendarRenderOptions.CalendarSettings.HourHeight));
             }
         }
 

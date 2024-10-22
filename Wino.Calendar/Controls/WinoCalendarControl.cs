@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Controls
 {
@@ -55,6 +57,9 @@ namespace Wino.Calendar.Controls
                 {
                     _activeCanvas.TimelineCellSelected += ActiveTimelineCellSelected;
                     _activeCanvas.TimelineCellUnselected += ActiveTimelineCellUnselected;
+
+                    // Raise visible date range change to shell.
+                    WeakReferenceMessenger.Default.Send(new VisibleDateRangeChangedMessage(_activeCanvas.RenderOptions.DateRange));
                 }
             }
         }

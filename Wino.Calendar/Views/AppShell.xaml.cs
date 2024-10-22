@@ -9,9 +9,15 @@ namespace Wino.Calendar.Views
         public AppShell()
         {
             InitializeComponent();
+
         }
 
         private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+
+        }
+
+        private void BackButtonClicked(Core.UWP.Controls.WinoAppTitleBar sender, Windows.UI.Xaml.RoutedEventArgs args)
         {
 
         }

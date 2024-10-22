@@ -91,6 +91,14 @@ namespace Wino.Calendar.Controls
             }
         }
 
+        public void NavigateHour(TimeSpan hourTimeSpan)
+        {
+            // Total height of the FlipViewItem is the same as vertical ScrollViewer to position day headers.
+            // Find the day range that contains the hour.
+
+
+        }
+
         private ObservableCollection<DayRangeRenderModel> GetItemsSource()
             => ItemsSource as ObservableCollection<DayRangeRenderModel>;
     }

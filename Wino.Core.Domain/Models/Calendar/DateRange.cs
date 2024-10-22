@@ -12,5 +12,7 @@ namespace Wino.Core.Domain.Models.Calendar
 
         public DateTime StartDate { get; }
         public DateTime EndDate { get; }
+
+        public int TotalDays => (EndDate - StartDate).Days;
     }
 }

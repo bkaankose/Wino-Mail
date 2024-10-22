@@ -4,13 +4,24 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Calendar.Views.Abstract"
     xmlns:calendarControls="using:Wino.Calendar.Controls"
-    xmlns:controls="using:Wino.Controls"
+    xmlns:communityControls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <coreSelectors:NavigationMenuTemplateSelector
+            x:Key="NavigationMenuTemplateSelector"
+            AccountManagementTemplate="{StaticResource ManageAccountsTemplate}"
+            RatingItemTemplate="{StaticResource RatingItemTemplate}"
+            SeperatorTemplate="{StaticResource SeperatorTemplate}"
+            SettingsItemTemplate="{StaticResource SettingsItemTemplate}" />
+    </Page.Resources>
 
     <Grid
         x:Name="RootGrid"
@@ -26,6 +37,22 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <coreControls:WinoAppTitleBar
+            x:Name="RealAppBar"
+            Grid.ColumnSpan="2"
+            BackButtonClicked="BackButtonClicked"
+            Canvas.ZIndex="150"
+            ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
+            CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"
+            IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
+            IsNavigationPaneOpen="{x:Bind MainNavigationView.IsPaneOpen, Mode=TwoWay}"
+            IsReaderNarrowed="{x:Bind ViewModel.StatePersistenceService.IsReaderNarrowed, Mode=OneWay}"
+            NavigationViewDisplayMode="{x:Bind MainNavigationView.DisplayMode, Mode=OneWay}"
+            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
+            ReadingPaneLength="{x:Bind ViewModel.StatePersistenceService.MailListPaneLength, Mode=OneWay}"
+            ReconnectCommand="{x:Bind ViewModel.ReconnectServerCommand}"
+            SystemReserved="180" />
+
         <Grid
             Grid.RowSpan="2"
             Grid.ColumnSpan="2"
@@ -39,19 +66,29 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"
+            FooterMenuItemsSource="{x:Bind ViewModel.FooterItems, Mode=OneWay}"
             IsBackButtonVisible="Collapsed"
-            IsPaneToggleButtonVisible="True"
+            IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="False"
             IsTabStop="True"
-            IsTitleBarAutoPaddingEnabled="False">
+            IsTitleBarAutoPaddingEnabled="False"
+            MenuItemTemplateSelector="{StaticResource NavigationMenuTemplateSelector}"
+            MenuItemsSource="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
+            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}">
             <muxc:NavigationView.ContentTransitions>
                 <TransitionCollection>
                     <AddDeleteThemeTransition />
                 </TransitionCollection>
             </muxc:NavigationView.ContentTransitions>
 
-            <!--<muxc:NavigationView.PaneHeader>
-                <CalendarView SelectionMode="Multiple" />
-            </muxc:NavigationView.PaneHeader>-->
+            <muxc:NavigationView.PaneHeader>
+                <calendarControls:WinoCalendarView
+                    Margin="2,0"
+                    HorizontalAlignment="Center"
+                    DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
+                    VisibleDateRange="{x:Bind ViewModel.VisibleDateRange, Mode=OneWay}" />
+            </muxc:NavigationView.PaneHeader>
             <muxc:NavigationView.Content>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -72,7 +109,7 @@
                     </Frame>
 
                     <!--  InfoBar  -->
-                    <controls:WinoInfoBar
+                    <coreControls:WinoInfoBar
                         x:Name="ShellInfoBar"
                         MaxWidth="700"
                         Margin="0,60,25,0"

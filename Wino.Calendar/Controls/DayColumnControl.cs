@@ -55,7 +55,7 @@ namespace Wino.Calendar.Controls
             if (HeaderDateDayText == null || ColumnHeaderText == null || IsTodayBorder == null || DayModel == null) return;
 
             HeaderDateDayText.Text = DayModel.RepresentingDate.Day.ToString();
-            ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CultureInfo);
+            ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CalendarSettings.CultureInfo);
 
             bool isToday = DayModel.RepresentingDate.Date == DateTime.Now.Date;
 

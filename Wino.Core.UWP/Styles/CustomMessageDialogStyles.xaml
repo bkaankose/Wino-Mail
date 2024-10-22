@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary
-    x:Class="Wino.Styles.CustomMessageDialogStyles"
+    x:Class="Wino.Core.UWP.Styles.CustomMessageDialogStyles"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dialogs="using:Wino.Dialogs"

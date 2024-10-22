@@ -6,112 +6,17 @@
     xmlns:selectors="using:Wino.Selectors"
     xmlns:styles="using:Wino.Styles"
     xmlns:uwp="using:Wino.Core.UWP"
-    xmlns:uwpGeneric="using:Wino.Core.UWP.Generic"
     xmlns:wino="using:Wino">
 
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <uwpGeneric:SharedStyles />
+                <uwp:CoreGeneric />
                 <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
                 <ResourceDictionary Source="Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="Styles/ImagePreviewControl.xaml" />
 
                 <styles:WinoExpanderStyle />
-
-                <ResourceDictionary>
-                    <!--  Settings Menu Item Template  -->
-                    <Style TargetType="controls:SettingsMenuItemControl">
-                        <Setter Property="HorizontalAlignment" Value="Stretch" />
-                        <Setter Property="VerticalAlignment" Value="Stretch" />
-                        <Setter Property="Padding" Value="0" />
-                        <Setter Property="IsClickable" Value="True" />
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="controls:SettingsMenuItemControl">
-                                    <Grid>
-                                        <Button
-                                            Padding="0"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Stretch"
-                                            Command="{TemplateBinding Command}"
-                                            CommandParameter="{TemplateBinding CommandParameter}"
-                                            IsEnabled="{TemplateBinding IsEnabled}"
-                                            IsHitTestVisible="{TemplateBinding IsClickable}">
-                                            <Grid
-                                                Height="70"
-                                                Padding="0,6,12,6"
-                                                CornerRadius="4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <ContentControl
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    Content="{TemplateBinding Icon}" />
-
-                                                <Grid
-                                                    Grid.Column="1"
-                                                    Margin="4,0"
-                                                    VerticalAlignment="Center"
-                                                    RowSpacing="3">
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                    </Grid.RowDefinitions>
-
-                                                    <TextBlock
-                                                        VerticalAlignment="Center"
-                                                        FontWeight="SemiBold"
-                                                        Style="{StaticResource BodyTextBlockStyle}"
-                                                        Text="{TemplateBinding Title}" />
-                                                    <TextBlock
-                                                        Grid.Row="1"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                                        Text="{TemplateBinding Description}" />
-                                                </Grid>
-
-                                                <Viewbox
-                                                    Grid.Column="0"
-                                                    Grid.ColumnSpan="2"
-                                                    Width="16"
-                                                    Height="16"
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Center"
-                                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsNavigateIconVisible}">
-                                                    <PathIcon Data="F1 M 5.029297 19.091797 L 14.111328 10 L 5.029297 0.908203 L 5.908203 0.029297 L 15.888672 10 L 5.908203 19.970703 Z " />
-                                                </Viewbox>
-                                            </Grid>
-                                        </Button>
-
-                                        <ContentControl
-                                            Grid.RowSpan="2"
-                                            Margin="0,0,16,0"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Center"
-                                            Content="{TemplateBinding SideContent}"
-                                            IsHitTestVisible="True"
-                                            Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=IsNavigateIconVisible, Converter={StaticResource ReverseBooleanToVisibilityConverter}}" />
-                                    </Grid>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-
-                    <!--  Wino Navigation View Item  -->
-                    <Style TargetType="controls:WinoNavigationViewItem">
-                        <Setter Property="ContentTransitions">
-                            <Setter.Value>
-                                <TransitionCollection>
-                                    <PopupThemeTransition />
-                                </TransitionCollection>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ResourceDictionary>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

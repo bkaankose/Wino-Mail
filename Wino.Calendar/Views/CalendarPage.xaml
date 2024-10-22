@@ -10,57 +10,60 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
     mc:Ignorable="d">
+    <Border
+        Margin="0,0,7,7"
+        Background="{ThemeResource WinoContentZoneBackgroud}"
+        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="7">
+        <Grid>
+            <calendarControls:WinoCalendarControl
+                x:Name="CalendarControl"
+                DayRanges="{x:Bind ViewModel.DayRanges}"
+                TimelineCellSelected="CellSelected"
+                TimelineCellUnselected="CellUnselected" />
 
-    <Grid>
-        <calendarControls:WinoCalendarControl
-            x:Name="CalendarControl"
-            DayRanges="{x:Bind ViewModel.DayRanges}"
-            TimelineCellSelected="CellSelected"
-            TimelineCellUnselected="CellUnselected" />
+            <Canvas x:Name="CalendarOverlayCanvas" IsHitTestVisible="False">
+                <!--  Invisible target UI element for teaching tip display.  -->
+                <Grid
+                    x:Name="TeachingTipPositionerGrid"
+                    Background="Transparent"
+                    Visibility="Visible" />
 
-        <Canvas x:Name="CalendarOverlayCanvas" IsHitTestVisible="False">
+                <!--  Single teaching tip to display create event dialog.  -->
+                <muxc:TeachingTip
+                    x:Name="NewEventTip"
+                    Width="600"
+                    Closed="CreateEventTipClosed"
+                    IsOpen="False"
+                    PreferredPlacement="Right"
+                    Target="{x:Bind TeachingTipPositionerGrid}">
+                    <muxc:TeachingTip.Content>
+                        <Grid Margin="0,24" RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <!--  Create events dialog  -->
+                            <ComboBox Header="Calendar">
+                                <ComboBoxItem Content="Outlook" />
+                                <ComboBoxItem Content="Gmail" />
+                            </ComboBox>
 
-            <!--  Invisible target UI element for teaching tip display.  -->
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TimePicker />
+                                <TimePicker Grid.Column="1" />
+                            </Grid>
 
-            <Grid
-                x:Name="TeachingTipPositionerGrid"
-                Background="Transparent"
-                Visibility="Visible" />
-
-
-            <!--  Single teaching tip to display create event dialog.  -->
-
-            <muxc:TeachingTip
-                x:Name="NewEventTip"
-                Width="600"
-                Closed="CreateEventTipClosed"
-                IsOpen="False"
-                PreferredPlacement="Right"
-                Target="{x:Bind TeachingTipPositionerGrid}">
-                <muxc:TeachingTip.Content>
-                    <Grid Margin="0,24" RowSpacing="12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <!--  Create events dialog  -->
-                        <ComboBox Header="Calendar">
-                            <ComboBoxItem Content="Outlook" />
-                            <ComboBoxItem Content="Gmail" />
-                        </ComboBox>
-
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TimePicker />
-                            <TimePicker Grid.Column="1" />
                         </Grid>
+                    </muxc:TeachingTip.Content>
+                </muxc:TeachingTip>
+            </Canvas>
+        </Grid>
+    </Border>
 
-                    </Grid>
-                </muxc:TeachingTip.Content>
-            </muxc:TeachingTip>
-        </Canvas>
-    </Grid>
 </abstract:CalendarPageAbstract>

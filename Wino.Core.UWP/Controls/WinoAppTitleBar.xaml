@@ -1,15 +1,13 @@
 ﻿<UserControl
-    x:Class="Wino.Controls.Advanced.WinoAppTitleBar"
+    x:Class="Wino.Core.UWP.Controls.WinoAppTitleBar"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:advanced="using:Wino.Controls.Advanced"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:local="using:Wino.Controls.Advanced"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     d:DesignHeight="300"
@@ -45,7 +43,9 @@
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     BorderBrush="Transparent"
-                    Click="PaneClicked">
+                    Click="PaneClicked"
+                    FocusVisualPrimaryThickness="0"
+                    FocusVisualSecondaryThickness="0">
                     <muxc:AnimatedIcon Width="16">
                         <muxc:AnimatedIcon.Source>
                             <animatedvisuals:AnimatedGlobalNavigationButtonVisualSource />

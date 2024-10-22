@@ -85,19 +85,21 @@
     <Compile Include="Activation\ActivationHandler.cs" />
     <Compile Include="BasePage.cs" />
     <Compile Include="Controls\ControlConstants.cs" />
+    <Compile Include="Controls\WinoAppTitleBar.xaml.cs">
+      <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoFontIconSource.cs" />
     <Compile Include="Controls\WinoInfoBar.cs" />
+    <Compile Include="Controls\WinoNavigationViewItem.cs" />
     <Compile Include="Converters\GridLengthConverter.cs" />
     <Compile Include="Converters\ReverseBooleanConverter.cs" />
     <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
     <Compile Include="CoreUWPContainerSetup.cs" />
+    <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogServiceBase.cs" />
     <Compile Include="Services\NavigationServiceBase.cs" />
-    <Compile Include="SharedStyles.xaml.cs">
-      <DependentUpon>SharedStyles.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
       <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
     </Compile>
@@ -148,8 +150,14 @@
     <Compile Include="Services\StoreRatingService.cs" />
     <Compile Include="Services\ThemeService.cs" />
     <Compile Include="Services\UnderlyingThemeService.cs" />
+    <Compile Include="CoreGeneric.xaml.cs">
+      <DependentUpon>CoreGeneric.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
       <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Styles\DataTemplates.xaml.cs">
+      <DependentUpon>DataTemplates.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
@@ -306,7 +314,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Page Include="SharedStyles.xaml">
+    <Page Include="Controls\WinoAppTitleBar.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -327,6 +335,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Dialogs\TextInputDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="CoreGeneric.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -351,6 +363,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Styles\IconTemplates.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\DataTemplates.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

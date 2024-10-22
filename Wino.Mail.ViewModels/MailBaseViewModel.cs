@@ -22,19 +22,11 @@ namespace Wino.Mail.ViewModels
         protected virtual void OnMailRemoved(MailCopy removedMail) { }
         protected virtual void OnMailUpdated(MailCopy updatedMail) { }
         protected virtual void OnMailDownloaded(MailCopy downloadedMail) { }
-
-
-
-
         protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
         protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
         protected virtual void OnDraftMapped(string localDraftCopyId, string remoteDraftCopyId) { }
         protected virtual void OnFolderRenamed(IMailItemFolder mailItemFolder) { }
         protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
-
-
-
-
 
         void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
         void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);

@@ -103,6 +103,8 @@ namespace Wino.Calendar.Controls
         {
             if (RenderOptions == null) return;
 
+            var hourHeight = RenderOptions.CalendarSettings.HourHeight;
+
             // When users click to cell we need to find the day, hour and minutes (first 30 minutes or second 30 minutes) that it represents on the timeline.
 
             PointerPoint positionerRootPoint = e.GetCurrentPoint(PositionerUIElement);
@@ -113,9 +115,9 @@ namespace Wino.Calendar.Controls
             var singleDayWidth = (Canvas.ActualWidth / RenderOptions.TotalDayCount);
 
             int day = (int)(touchPoint.X / singleDayWidth);
-            int hour = (int)(touchPoint.Y / RenderOptions.HourHeight);
+            int hour = (int)(touchPoint.Y / hourHeight);
 
-            bool isSecondHalf = touchPoint.Y % RenderOptions.HourHeight > (RenderOptions.HourHeight / 2);
+            bool isSecondHalf = touchPoint.Y % hourHeight > (hourHeight / 2);
 
             var diffX = positionerRootPoint.Position.X - touchPoint.X;
             var diffY = positionerRootPoint.Position.Y - touchPoint.Y;
@@ -123,13 +125,13 @@ namespace Wino.Calendar.Controls
             var cellStartRelativePositionX = diffX + (day * singleDayWidth);
             var cellEndRelativePositionX = cellStartRelativePositionX + singleDayWidth;
 
-            var cellStartRelativePositionY = diffY + (hour * RenderOptions.HourHeight) + (isSecondHalf ? RenderOptions.HourHeight / 2 : 0);
-            var cellEndRelativePositionY = cellStartRelativePositionY + (isSecondHalf ? (RenderOptions.HourHeight / 2) : RenderOptions.HourHeight);
+            var cellStartRelativePositionY = diffY + (hour * hourHeight) + (isSecondHalf ? hourHeight / 2 : 0);
+            var cellEndRelativePositionY = cellStartRelativePositionY + (isSecondHalf ? (hourHeight / 2) : hourHeight);
 
-            var cellSize = new Size(cellEndRelativePositionX - cellStartRelativePositionX, RenderOptions.HourHeight / 2);
+            var cellSize = new Size(cellEndRelativePositionX - cellStartRelativePositionX, hourHeight / 2);
             var positionerPoint = new Point(cellStartRelativePositionX, cellStartRelativePositionY);
 
-            var clickedDateTime = RenderOptions.StartDate.AddDays(day).AddHours(hour).AddMinutes(isSecondHalf ? 30 : 0);
+            var clickedDateTime = RenderOptions.DateRange.StartDate.AddDays(day).AddHours(hour).AddMinutes(isSecondHalf ? 30 : 0);
 
             // If there is already a selected date, in order to mimic the popup behavior, we need to dismiss the previous selection first.
             // Next click will be a new selection.
@@ -188,7 +190,7 @@ namespace Wino.Calendar.Controls
             double rectWidth = canvasWidth / RenderOptions.TotalDayCount;
 
             // Calculate the height of each rectangle (1 hour row)
-            double rectHeight = RenderOptions.HourHeight;
+            double rectHeight = RenderOptions.CalendarSettings.HourHeight;
 
             // Define stroke and fill colors
             var strokeColor = SeperatorColor.Color;
@@ -196,9 +198,9 @@ namespace Wino.Calendar.Controls
 
             for (int day = 0; day < RenderOptions.TotalDayCount; day++)
             {
-                var currentDay = RenderOptions.StartDate.AddDays(day);
+                var currentDay = RenderOptions.DateRange.StartDate.AddDays(day);
 
-                bool isWorkingDay = RenderOptions.WorkingDays.Contains(currentDay.DayOfWeek);
+                bool isWorkingDay = RenderOptions.CalendarSettings.WorkingDays.Contains(currentDay.DayOfWeek);
 
                 // Loop through each hour (rows)
                 for (int hour = 0; hour < hours; hour++)
@@ -219,7 +221,7 @@ namespace Wino.Calendar.Controls
 
                     // Fill another rectangle with the working hour background color
                     // This rectangle must be placed with -1 margin to prevent invisible borders of the main rectangle.
-                    if (isWorkingDay && renderTime >= RenderOptions.WorkDayStart && renderTime <= RenderOptions.WorkDayEnd)
+                    if (isWorkingDay && renderTime >= RenderOptions.CalendarSettings.WorkingHourStart && renderTime <= RenderOptions.CalendarSettings.WorkingHourEnd)
                     {
                         var backgroundRectangle = new Rect(x + 1, y + 1, rectWidth - 1, rectHeight - 1);
 
