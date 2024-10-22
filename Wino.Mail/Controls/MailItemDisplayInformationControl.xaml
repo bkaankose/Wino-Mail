@@ -119,7 +119,7 @@
                                 x:Name="SenderTextFromAddress"
                                 Grid.Column="1"
                                 Text="{x:Bind MailItem.FromAddress}"
-                                TextTrimming="WordEllipsis"
+                                TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItem.FromName)}" />
 
                             <!--  Hover button  -->
@@ -193,7 +193,7 @@
                                 x:Name="TitleText"
                                 Grid.Column="1"
                                 MaxLines="1"
-                                Text="{x:Bind MailItem.Subject}"
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubject(MailItem.Subject)}"
                                 TextTrimming="CharacterEllipsis" />
 
                             <TextBlock

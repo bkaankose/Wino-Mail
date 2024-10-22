@@ -3082,5 +3082,10 @@ namespace Wino.Core.Domain
 		/// connecting
 		/// </summary>
 		public static string TitleBarServerReconnectingButton_Title => Resources.GetTranslatedString(@"TitleBarServerReconnectingButton_Title");	
+	
+        /// <summary>
+		/// No subject
+		/// </summary>
+		public static string MailItemNoSubject => Resources.GetTranslatedString(@"MailItemNoSubject");	
 	}
 }
