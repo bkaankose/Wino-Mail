@@ -466,7 +466,15 @@ namespace Wino.Mail.ViewModels
                     var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
                         ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
 
-                    accounts.Add(foundContact);
+                    // Make sure that user account first in the list.
+                    if (foundContact.Address == initializedMailItemViewModel.AssignedAccount.Address)
+                    {
+                        accounts.Insert(0, foundContact);
+                    }
+                    else
+                    {
+                        accounts.Add(foundContact);
+                    }
                 }
                 else if (item is GroupAddress groupAddress)
                 {
