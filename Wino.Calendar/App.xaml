@@ -24,6 +24,7 @@
                 <ResourceDictionary Source="Styles/WinoDayTimelineCanvas.xaml" />
                 <ResourceDictionary Source="Styles/DayColumnControl.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarView.xaml" />
+                <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
             </controls:XamlControlsResources.MergedDictionaries>
         </controls:XamlControlsResources>
     </Application.Resources>

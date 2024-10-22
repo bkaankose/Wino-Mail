@@ -14,5 +14,11 @@ namespace Wino.Core.Domain.Models.Calendar
         public DateTime EndDate { get; }
 
         public int TotalDays => (EndDate - StartDate).Days;
+
+
+        public override string ToString()
+        {
+            return $"{StartDate.ToString("dd MMMM")} - {EndDate.ToString("dd MMMM")}";
+        }
     }
 }

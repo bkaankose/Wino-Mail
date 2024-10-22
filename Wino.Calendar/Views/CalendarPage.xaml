@@ -20,6 +20,8 @@
             <calendarControls:WinoCalendarControl
                 x:Name="CalendarControl"
                 DayRanges="{x:Bind ViewModel.DayRanges}"
+                IsEnabled="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
+                IsHitTestVisible="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
                 TimelineCellSelected="CellSelected"
                 TimelineCellUnselected="CellUnselected" />
 
@@ -67,3 +69,4 @@
     </Border>
 
 </abstract:CalendarPageAbstract>
+

@@ -1,16 +1,21 @@
-﻿using Microsoft.UI.Xaml.Controls;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
 using Wino.Calendar.Views.Abstract;
+using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views
 {
-    public sealed partial class CalendarPage : CalendarPageAbstract
+    public sealed partial class CalendarPage : CalendarPageAbstract,
+        IRecipient<ScrollToDateMessage>
     {
         public CalendarPage()
         {
             InitializeComponent();
         }
+
+        public void Receive(ScrollToDateMessage message) => CalendarControl.NavigateToDay(message.Date);
 
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {

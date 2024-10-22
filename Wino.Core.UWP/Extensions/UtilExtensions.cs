@@ -83,7 +83,7 @@ namespace Wino.Extensions
         }
 
         public static void ScrollToElement(this ScrollViewer scrollViewer, FrameworkElement element,
-            bool isVerticalScrolling = true, bool smoothScrolling = true, float? zoomFactor = null, bool bringToTopOrLeft = true)
+            bool isVerticalScrolling = true, bool smoothScrolling = true, float? zoomFactor = null, bool bringToTopOrLeft = true, bool addMargin = true)
         {
             if (!bringToTopOrLeft && element.IsFullyVisibile(scrollViewer))
                 return;
@@ -94,7 +94,7 @@ namespace Wino.Extensions
             if (isVerticalScrolling)
             {
                 // Accomodate for additional header.
-                scrollViewer.ChangeView(null, Math.Max(0, position.Y - 48), zoomFactor, !smoothScrolling);
+                scrollViewer.ChangeView(null, Math.Max(0, position.Y - (addMargin ? 48 : 0)), zoomFactor, !smoothScrolling);
             }
             else
             {

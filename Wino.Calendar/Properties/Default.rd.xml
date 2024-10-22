@@ -21,11 +21,24 @@
       An Assembly element with Name="*Application*" applies to all assemblies in
       the application package. The asterisks are not wildcards.
     -->
-    <Assembly Name="*Application*" Dynamic="Required All" />
-    
-    
-    <!-- Add your application specific runtime directives here. -->
+	  <Assembly Name="*Application*" Dynamic="Required All" />
 
+	  <!-- Reduce memory footprint when building with Microsoft.Graph -->
 
+	  <Assembly Name="Microsoft.Graph" Serialize="Excluded" />
+
+	  <Assembly Name="Microsoft.Kiota.Abstractions" Dynamic="Public" />
+	  <Assembly Name="Microsoft.Kiota.Authentication.Azure" Dynamic="Public" />
+	  <Assembly Name="Microsoft.Kiota.Http.HttpClientLibrary" Dynamic="Public" />
+	  <Assembly Name="Microsoft.Kiota.Serialization.Form" Dynamic="Public" />
+	  <Assembly Name="Microsoft.Kiota.Serialization.Json" Dynamic="Public" />
+	  <Assembly Name="Microsoft.Kiota.Serialization.Multipart" Dynamic="Public" />
+
+	  <!-- Add your application specific runtime directives here. -->
+	  <Type Name="Windows.Foundation.TypedEventHandler{Microsoft.UI.Xaml.Controls.NavigationView,Microsoft.UI.Xaml.Controls.NavigationViewItemInvokedEventArgs}" MarshalObject="Public" />
+
+	  <Type Name="Microsoft.UI.Xaml.Controls.NavigationView">
+		  <Event Name="ItemInvoked" Dynamic="Required"/>
+	  </Type>
   </Application>
 </Directives>

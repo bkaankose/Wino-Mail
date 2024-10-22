@@ -22,6 +22,8 @@ namespace Wino.Core.UWP.Controls
         public static readonly DependencyProperty ReadingPaneLengthProperty = DependencyProperty.Register(nameof(ReadingPaneLength), typeof(double), typeof(WinoAppTitleBar), new PropertyMetadata(420d, OnDrawingPropertyChanged));
         public static readonly DependencyProperty ConnectionStatusProperty = DependencyProperty.Register(nameof(ConnectionStatus), typeof(WinoServerConnectionStatus), typeof(WinoAppTitleBar), new PropertyMetadata(WinoServerConnectionStatus.None, new PropertyChangedCallback(OnConnectionStatusChanged)));
         public static readonly DependencyProperty ReconnectCommandProperty = DependencyProperty.Register(nameof(ReconnectCommand), typeof(ICommand), typeof(WinoAppTitleBar), new PropertyMetadata(null));
+        public static readonly DependencyProperty ShrinkShellContentOnExpansionProperty = DependencyProperty.Register(nameof(ShrinkShellContentOnExpansion), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(true));
+        public static readonly DependencyProperty IsDragAreaProperty = DependencyProperty.Register(nameof(IsDragArea), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, new PropertyChangedCallback(OnIsDragAreaChanged)));
 
         public ICommand ReconnectCommand
         {
@@ -41,6 +43,18 @@ namespace Wino.Core.UWP.Controls
             set { SetValue(CoreWindowTextProperty, value); }
         }
 
+
+
+        public bool IsDragArea
+        {
+            get { return (bool)GetValue(IsDragAreaProperty); }
+            set { SetValue(IsDragAreaProperty, value); }
+        }
+
+
+
+
+
         public double SystemReserved
         {
             get { return (double)GetValue(SystemReservedProperty); }
@@ -57,6 +71,12 @@ namespace Wino.Core.UWP.Controls
         {
             get { return (Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode)GetValue(NavigationViewDisplayModeProperty); }
             set { SetValue(NavigationViewDisplayModeProperty, value); }
+        }
+
+        public bool ShrinkShellContentOnExpansion
+        {
+            get { return (bool)GetValue(ShrinkShellContentOnExpansionProperty); }
+            set { SetValue(ShrinkShellContentOnExpansionProperty, value); }
         }
 
         public bool IsNavigationPaneOpen
@@ -122,6 +142,22 @@ namespace Wino.Core.UWP.Controls
             }
         }
 
+        private static void OnIsDragAreaChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+        {
+            if (obj is WinoAppTitleBar bar)
+            {
+                bar.SetDragArea();
+            }
+        }
+
+        private void SetDragArea()
+        {
+            if (IsDragArea)
+            {
+                Window.Current.SetTitleBar(this);
+            }
+        }
+
         private void UpdateConnectionStatus()
         {
 
@@ -147,7 +183,7 @@ namespace Wino.Core.UWP.Controls
             {
                 // Icons are visible.
 
-                if (!IsReaderNarrowed)
+                if (!IsReaderNarrowed && ShrinkShellContentOnExpansion)
                 {
                     ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
                     ShellContentContainer.Width = ReadingPaneLength;
@@ -162,7 +198,7 @@ namespace Wino.Core.UWP.Controls
                     // LMargin = OpenPaneLength - LeftMenuStackPanel
                     ShellContentContainer.Margin = new Thickness(OpenPaneLength - LeftMenuStackPanel.ActualSize.X, 0, 0, 0);
 
-                    if (!IsReaderNarrowed)
+                    if (!IsReaderNarrowed && ShrinkShellContentOnExpansion)
                     {
                         ShellContentContainer.HorizontalAlignment = HorizontalAlignment.Left;
                         ShellContentContainer.Width = ReadingPaneLength;
@@ -170,16 +206,15 @@ namespace Wino.Core.UWP.Controls
                 }
                 else
                 {
-                    EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Pixel);
+                    // EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Pixel);
+                    EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Star);
                 }
             }
         }
 
         public WinoAppTitleBar()
         {
-            this.InitializeComponent();
-
-            Window.Current.SetTitleBar(dragbar);
+            InitializeComponent();
         }
 
         private void BackClicked(object sender, RoutedEventArgs e)

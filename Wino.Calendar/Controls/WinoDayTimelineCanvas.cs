@@ -185,6 +185,8 @@ namespace Wino.Calendar.Controls
             double canvasWidth = Canvas.ActualWidth;
             double canvasHeight = Canvas.ActualHeight;
 
+            if (canvasWidth == 0 || canvasHeight == 0) return;
+
             // Calculate the width of each rectangle (1 day column)
             // Equal distribution of the whole width.
             double rectWidth = canvasWidth / RenderOptions.TotalDayCount;

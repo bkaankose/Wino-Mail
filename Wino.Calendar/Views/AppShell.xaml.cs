@@ -1,4 +1,5 @@
-﻿using Windows.UI.Xaml.Controls;
+﻿using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Views.Abstract;
 
 namespace Wino.Calendar.Views
@@ -10,6 +11,7 @@ namespace Wino.Calendar.Views
         {
             InitializeComponent();
 
+            Window.Current.SetTitleBar(DragArea);
         }
 
         private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)

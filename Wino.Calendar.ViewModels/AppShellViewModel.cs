@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -23,11 +22,29 @@ namespace Wino.Calendar.ViewModels
         public MenuItemCollection FooterItems { get; set; }
         public MenuItemCollection MenuItems { get; set; }
 
+        /// <summary>
+        /// Gets or sets the active connection status of the Wino server.
+        /// </summary>
         [ObservableProperty]
         private WinoServerConnectionStatus activeConnectionStatus;
 
+        /// <summary>
+        /// Gets or sets the displayed range in the FlipView.
+        /// </summary>
         [ObservableProperty]
         private DateRange visibleDateRange;
+
+        /// <summary>
+        /// Gets or sets the number of days to display in the calendar.
+        /// </summary>
+        [ObservableProperty]
+        private int _displayDayCount = 7;
+
+        /// <summary>
+        /// Gets or sets the current display type of the calendar.
+        /// </summary>
+        [ObservableProperty]
+        private CalendarDisplayType _currentDisplayType = CalendarDisplayType.Day;
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
@@ -67,6 +84,12 @@ namespace Wino.Calendar.ViewModels
         #region Commands
 
         [RelayCommand]
+        private void TodayClicked()
+        {
+
+        }
+
+        [RelayCommand]
         public void ManageAccounts()
         {
             NavigationService.Navigate(WinoPage.AccountManagementPage);
@@ -76,14 +99,11 @@ namespace Wino.Calendar.ViewModels
         private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
         [RelayCommand]
-        private void DateClicked(DateTime clickedDate)
-        {
-
-        }
+        private void DateClicked(CalendarViewDayClickedEventArgs clickedDate)
+            => Messenger.Send(new CalendarInitializeMessage(clickedDate.BoundryDates, CurrentDisplayType, clickedDate.ClickedDate, DisplayDayCount));
 
         #endregion
 
         public void Receive(VisibleDateRangeChangedMessage message) => VisibleDateRange = message.DateRange;
-
     }
 }

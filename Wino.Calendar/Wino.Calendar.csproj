@@ -6,6 +6,14 @@
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
     <!-- UWP WAM Authentication on Xbox needs this. -->
     <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
   </PropertyGroup>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -135,6 +143,7 @@
     <Compile Include="Controls\WinoCalendarControl.cs" />
     <Compile Include="Controls\WinoCalendarFlipView.cs" />
     <Compile Include="Controls\WinoCalendarPanel.cs" />
+    <Compile Include="Controls\WinoCalendarTypeSelectorControl.cs" />
     <Compile Include="Controls\WinoCalendarView.cs" />
     <Compile Include="Controls\WinoDayTimelineCanvas.cs" />
     <Compile Include="MainPage.xaml.cs">
@@ -202,6 +211,10 @@
     <Page Include="Styles\WinoCalendarResources.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\WinoCalendarTypeSelectorControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\WinoCalendarView.xaml">
       <SubType>Designer</SubType>

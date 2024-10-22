@@ -41,6 +41,10 @@ namespace Wino.Views
             InitializeComponent();
 
             var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
+
+
+
+
             coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
         }
 

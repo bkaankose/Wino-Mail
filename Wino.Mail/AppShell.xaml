@@ -459,6 +459,7 @@
             ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"
             IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
+            IsDragArea="True"
             IsNavigationPaneOpen="{x:Bind navigationView.IsPaneOpen, Mode=TwoWay}"
             IsReaderNarrowed="{x:Bind ViewModel.StatePersistenceService.IsReaderNarrowed, Mode=OneWay}"
             NavigationViewDisplayMode="{x:Bind navigationView.DisplayMode, Mode=OneWay}"
