@@ -113,7 +113,8 @@
                         Grid.Column="2"
                         HorizontalAlignment="Right"
                         DisplayDayCount="{x:Bind ViewModel.DisplayDayCount, Mode=OneWay}"
-                        SelectedType="{x:Bind ViewModel.CurrentDisplayType, Mode=TwoWay}" />
+                        SelectedType="{x:Bind ViewModel.CurrentDisplayType, Mode=TwoWay}"
+                        TodayClickedCommand="{x:Bind ViewModel.TodayClickedCommand}" />
                 </Grid>
             </coreControls:WinoAppTitleBar.ShellFrameContent>
         </coreControls:WinoAppTitleBar>
@@ -149,9 +150,11 @@
 
             <muxc:NavigationView.PaneHeader>
                 <calendarControls:WinoCalendarView
+                    x:Name="CalendarView"
                     Margin="2,0"
                     HorizontalAlignment="Center"
                     DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
+                    DisplayDate="{x:Bind ViewModel.DisplayDate, Mode=TwoWay}"
                     HighlightedDateRange="{x:Bind ViewModel.VisibleDateRange, Mode=OneWay}" />
             </muxc:NavigationView.PaneHeader>
             <muxc:NavigationView.Content>

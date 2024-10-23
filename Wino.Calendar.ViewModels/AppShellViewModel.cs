@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -29,6 +30,12 @@ namespace Wino.Calendar.ViewModels
         private WinoServerConnectionStatus activeConnectionStatus;
 
         /// <summary>
+        /// Gets or sets the display date of the calendar.
+        /// </summary>
+        [ObservableProperty]
+        private DateTimeOffset _displayDate;
+
+        /// <summary>
         /// Gets or sets the displayed range in the FlipView.
         /// </summary>
         [ObservableProperty]
@@ -38,13 +45,13 @@ namespace Wino.Calendar.ViewModels
         /// Gets or sets the number of days to display in the calendar.
         /// </summary>
         [ObservableProperty]
-        private int _displayDayCount = 7;
+        private int _displayDayCount = 3;
 
         /// <summary>
         /// Gets or sets the current display type of the calendar.
         /// </summary>
         [ObservableProperty]
-        private CalendarDisplayType _currentDisplayType = CalendarDisplayType.Day;
+        private CalendarDisplayType _currentDisplayType = CalendarDisplayType.Week;
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
@@ -62,8 +69,6 @@ namespace Wino.Calendar.ViewModels
             base.OnNavigatedTo(mode, parameters);
 
             CreateFooterItems();
-
-            NavigationService.Navigate(WinoPage.CalendarPage);
         }
 
         protected override void OnDispatcherAssigned()
@@ -72,6 +77,16 @@ namespace Wino.Calendar.ViewModels
 
             MenuItems = new MenuItemCollection(Dispatcher);
             FooterItems = new MenuItemCollection(Dispatcher);
+        }
+
+        public override void OnPageLoaded()
+        {
+            base.OnPageLoaded();
+
+            NavigationService.Navigate(WinoPage.CalendarPage, new CalendarPageNavigationArgs()
+            {
+                RequestDefaultNavigation = true
+            });
         }
 
         private void CreateFooterItems()
@@ -84,23 +99,17 @@ namespace Wino.Calendar.ViewModels
         #region Commands
 
         [RelayCommand]
-        private void TodayClicked()
-        {
-
-        }
+        private void TodayClicked() => Messenger.Send(new ClickCalendarDateMessage(DateTime.Now.Date));
 
         [RelayCommand]
-        public void ManageAccounts()
-        {
-            NavigationService.Navigate(WinoPage.AccountManagementPage);
-        }
+        public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
 
         [RelayCommand]
         private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
         [RelayCommand]
         private void DateClicked(CalendarViewDayClickedEventArgs clickedDate)
-            => Messenger.Send(new CalendarInitializeMessage(clickedDate.BoundryDates, CurrentDisplayType, clickedDate.ClickedDate, DisplayDayCount));
+            => Messenger.Send(new CalendarInitializeMessage(CurrentDisplayType, clickedDate.ClickedDate, DisplayDayCount));
 
         #endregion
 

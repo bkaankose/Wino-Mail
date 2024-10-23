@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -8,13 +7,13 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Extensions;
 using Wino.Helpers;
 
 namespace Wino.Calendar.Controls
 {
     public class WinoCalendarView : Control
     {
+        private const string PART_MonthViewScrollViewer = "MonthViewScrollViewer";
         private const string PART_DayViewItemBorder = nameof(PART_DayViewItemBorder);
         private const string PART_CalendarView = nameof(PART_CalendarView);
 
@@ -23,16 +22,6 @@ namespace Wino.Calendar.Controls
         public static readonly DependencyProperty TodayBackgroundBrushProperty = DependencyProperty.Register(nameof(TodayBackgroundBrush), typeof(Brush), typeof(WinoCalendarView), new PropertyMetadata(null));
         public static readonly DependencyProperty DateClickedCommandProperty = DependencyProperty.Register(nameof(DateClickedCommand), typeof(ICommand), typeof(WinoCalendarView), new PropertyMetadata(null));
         public static readonly DependencyProperty DisplayDateProperty = DependencyProperty.Register(nameof(DisplayDate), typeof(DateTimeOffset), typeof(WinoCalendarView), new PropertyMetadata(default(DateTimeOffset), new PropertyChangedCallback(OnDisplayDateChanged)));
-        public static readonly DependencyProperty BoundriesDateRangeProperty = DependencyProperty.Register(nameof(BoundriesDateRange), typeof(DateRange), typeof(WinoCalendarView), new PropertyMetadata(null));
-
-        /// <summary>
-        /// Gets or sets the first and last dates that are visible on the view.
-        /// </summary>
-        public DateRange BoundriesDateRange
-        {
-            get { return (DateRange)GetValue(BoundriesDateRangeProperty); }
-            set { SetValue(BoundriesDateRangeProperty, value); }
-        }
 
         /// <summary>
         /// Gets or sets the last clicked date.
@@ -89,6 +78,7 @@ namespace Wino.Calendar.Controls
 
             Guard.IsNotNull(CalendarView, nameof(CalendarView));
 
+            CalendarView.SelectedDatesChanged -= InternalCalendarViewSelectionChanged;
             CalendarView.SelectedDatesChanged += InternalCalendarViewSelectionChanged;
 
             // TODO: Should come from settings.
@@ -96,6 +86,7 @@ namespace Wino.Calendar.Controls
 
             // Everytime display mode changes, update the visible date range backgrounds.
             // If users go back from year -> month -> day, we need to update the visible date range backgrounds.
+
             CalendarView.RegisterPropertyChangedCallback(CalendarView.DisplayModeProperty, (s, e) => UpdateVisibleDateRangeBackgrounds());
         }
 
@@ -103,19 +94,19 @@ namespace Wino.Calendar.Controls
         {
             if (d is WinoCalendarView control)
             {
+                control.SetDisplayDate((DateTimeOffset)e.NewValue);
                 control.ScrollToDisplayDate();
-
             }
         }
 
         private async void ScrollToDisplayDate()
         {
-            if (DisplayDate == default) return;
+            if (DisplayDate == default || CalendarView == null) return;
 
             // When a date is clicked, try to scroll to it.
             // TODO: This logic can be changed to dispaly +1/-1 rows of the clicked date.
 
-            var monthScrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(CalendarView, "MonthViewScrollViewer");
+            var monthScrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(CalendarView, PART_MonthViewScrollViewer);
 
             if (monthScrollViewer != null)
             {
@@ -125,17 +116,22 @@ namespace Wino.Calendar.Controls
 
                 if (dayitem != null)
                 {
-                    //monthScrollViewer.ScrollToElement(dayitem, addMargin: false);
+                    // monthScrollViewer.ScrollToElement(dayitem, addMargin: false);
 
                     // Add small delay until the scroll animation ends.
-                    // await Task.Delay(1);
+                    // await Task.Delay(500);
                     await Task.Yield();
 
-                    var boundryVisibleDates = GetVisibleDates(monthScrollViewer, markDateCalendarDayItems);
+                    // Add +15/-15 days to the display date.
 
-                    BoundriesDateRange = new DateRange(boundryVisibleDates.StartDate.DateTime, boundryVisibleDates.EndDate.DateTime);
+                    // TODO: GetVisibleDates(monthScrollViewer, markDateCalendarDayItems);
+                    //var boundryVisibleDates = GetVisibleDates(monthScrollViewer, markDateCalendarDayItems);
 
-                    var args = new CalendarViewDayClickedEventArgs(BoundriesDateRange, DisplayDate.DateTime);
+                    //var boundryVisibleDates = DateTimeExtensions.GetMonthDateRangeStartingWeekday(DisplayDate.DateTime, (DayOfWeek)CalendarView.FirstDayOfWeek);
+
+                    //BoundriesDateRange = new DateRange(boundryVisibleDates.StartDate, boundryVisibleDates.EndDate);
+
+                    var args = new CalendarViewDayClickedEventArgs(DisplayDate.DateTime);
                     DateClickedCommand?.Execute(args);
                 }
             }
@@ -147,24 +143,18 @@ namespace Wino.Calendar.Controls
             {
                 var clickedDate = args.AddedDates[0].Date;
 
-                CalendarView.SetDisplayDate(clickedDate);
-
-                DisplayDate = clickedDate;
+                SetDisplayDate(clickedDate);
             }
 
             // Reset selection, we don't show selected dates but react to them.
             CalendarView.SelectedDates.Clear();
         }
 
-        private (DateTimeOffset StartDate, DateTimeOffset EndDate) GetVisibleDates(ScrollViewer scrollViewer, IEnumerable<CalendarViewDayItem> realizedItems)
+        private void SetDisplayDate(DateTimeOffset date)
         {
-            var firstVisibleItem = realizedItems.FirstOrDefault(a => a.IsFullyVisibile(scrollViewer));
-            if (firstVisibleItem == null)
-            {
-                return (DateTimeOffset.MinValue, DateTimeOffset.MinValue);
-            }
-            var lastVisibleItem = realizedItems.LastOrDefault(a => a.IsFullyVisibile(scrollViewer));
-            return (firstVisibleItem.Date, lastVisibleItem.Date);
+            CalendarView.SetDisplayDate(date);
+
+            DisplayDate = date;
         }
 
         private static void OnPropertiesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

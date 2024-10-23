@@ -37,6 +37,8 @@ namespace Wino.Core.ViewModels
 
         public virtual void OnNavigatedFrom(NavigationMode mode, object parameters) { IsActive = false; }
 
+        public virtual void OnPageLoaded() { }
+
         public async Task ExecuteUIThread(Action action) => await Dispatcher?.ExecuteOnUIThread(action);
         public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
 

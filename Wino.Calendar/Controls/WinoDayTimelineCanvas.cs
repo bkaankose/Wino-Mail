@@ -12,7 +12,7 @@ using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls
 {
-    public class WinoDayTimelineCanvas : Control
+    public class WinoDayTimelineCanvas : Control, IDisposable
     {
         public event EventHandler<TimelineCellSelectedArgs> TimelineCellSelected;
         public event EventHandler<TimelineCellUnselectedArgs> TimelineCellUnselected;
@@ -75,6 +75,7 @@ namespace Wino.Calendar.Controls
             base.OnApplyTemplate();
 
             Canvas = GetTemplateChild(PART_InternalCanvas) as CanvasControl;
+
             Canvas.Draw += OnCanvasDraw;
             Canvas.PointerPressed += OnCanvasPointerPressed;
 
@@ -260,6 +261,17 @@ namespace Wino.Calendar.Controls
                     }
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            if (Canvas == null) return;
+
+            Canvas.Draw -= OnCanvasDraw;
+            Canvas.PointerPressed -= OnCanvasPointerPressed;
+            Canvas.RemoveFromVisualTree();
+
+            Canvas = null;
         }
     }
 }

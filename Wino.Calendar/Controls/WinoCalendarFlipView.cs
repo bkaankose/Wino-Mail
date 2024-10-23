@@ -19,6 +19,8 @@ namespace Wino.Calendar.Controls
         private Button PreviousButton;
         private Button NextButton;
 
+        private ObservableCollection<DayRangeRenderModel> _internalItemsSource;
+
         public WinoCalendarFlipView()
         {
             SelectionChanged += CalendarDisplayRangeChanged;
@@ -95,8 +97,6 @@ namespace Wino.Calendar.Controls
         {
             // Total height of the FlipViewItem is the same as vertical ScrollViewer to position day headers.
             // Find the day range that contains the hour.
-
-
         }
 
         private ObservableCollection<DayRangeRenderModel> GetItemsSource()

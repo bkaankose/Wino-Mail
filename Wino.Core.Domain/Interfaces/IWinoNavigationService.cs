@@ -10,6 +10,7 @@ namespace Wino.Core.Domain.Interfaces
                              object parameter = null,
                              NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame,
                              NavigationTransitionType transition = NavigationTransitionType.None);
+
         Type GetPageType(WinoPage winoPage);
     }
 }

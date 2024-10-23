@@ -35,7 +35,18 @@ namespace Wino.Core.UWP
         protected BasePage()
         {
             ViewModel.Dispatcher = new UWPDispatcher(Dispatcher);
+
+            Loaded += PageLoaded;
+            Unloaded += PageUnloaded;
         }
+
+        private void PageUnloaded(object sender, RoutedEventArgs e)
+        {
+            Loaded -= PageLoaded;
+            Unloaded -= PageUnloaded;
+        }
+
+        private void PageLoaded(object sender, RoutedEventArgs e) => ViewModel.OnPageLoaded();
 
         ~BasePage()
         {

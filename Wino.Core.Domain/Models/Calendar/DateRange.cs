@@ -15,10 +15,14 @@ namespace Wino.Core.Domain.Models.Calendar
 
         public int TotalDays => (EndDate - StartDate).Days;
 
-
         public override string ToString()
         {
             return $"{StartDate.ToString("dd MMMM")} - {EndDate.ToString("dd MMMM")}";
+        }
+
+        public bool IsInRange(DateTime date)
+        {
+            return date >= StartDate && date <= EndDate;
         }
     }
 }
