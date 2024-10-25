@@ -5,7 +5,7 @@
     /// </summary>
     public enum CalendarLoadDirection
     {
-        None,
+        Replace,
         Previous,
         Next
     }

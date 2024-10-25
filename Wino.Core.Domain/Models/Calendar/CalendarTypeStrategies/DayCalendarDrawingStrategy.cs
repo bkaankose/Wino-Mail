@@ -11,6 +11,16 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
 
         }
 
+        public override DateRange GetNextDateRange(DateRange CurrentDateRange, int DayDisplayCount)
+        {
+            return new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(DayDisplayCount * 2));
+        }
+
+        public override DateRange GetPreviousDateRange(DateRange CurrentDateRange, int DayDisplayCount)
+        {
+            return new DateRange(CurrentDateRange.StartDate.AddDays(-DayDisplayCount * 2), CurrentDateRange.StartDate);
+        }
+
         public override DateRange GetRenderDateRange(DateTime DisplayDate, int DayDisplayCount)
         {
             // Add good amount of days to the left and right of the DisplayDate.
@@ -22,5 +32,11 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
         }
 
         public override int GetRenderDayCount(DateTime DisplayDate, int DayDisplayCount) => DayDisplayCount;
+
+        public override int NextRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
+            => DayDisplayCount * 2;
+
+        public override int PreviousRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
+             => DayDisplayCount * 2;
     }
 }

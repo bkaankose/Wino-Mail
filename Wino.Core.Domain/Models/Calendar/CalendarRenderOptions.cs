@@ -2,8 +2,7 @@
 {
     public class CalendarRenderOptions
     {
-        public CalendarRenderOptions(DateRange dateRange,
-                                     CalendarSettings calendarSettings)
+        public CalendarRenderOptions(DateRange dateRange, CalendarSettings calendarSettings)
         {
             DateRange = dateRange;
             CalendarSettings = calendarSettings;

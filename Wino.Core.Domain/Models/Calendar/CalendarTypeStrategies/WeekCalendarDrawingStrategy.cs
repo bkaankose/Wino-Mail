@@ -7,6 +7,12 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
     {
         public WeekCalendarDrawingStrategy(CalendarSettings settings) : base(settings, Core.Domain.Enums.CalendarDisplayType.Week) { }
 
+        public override DateRange GetNextDateRange(DateRange CurrentDateRange, int DayDisplayCount)
+            => new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(DayDisplayCount * 2));
+
+        public override DateRange GetPreviousDateRange(DateRange CurrentDateRange, int DayDisplayCount)
+            => new DateRange(CurrentDateRange.StartDate.AddDays(-DayDisplayCount * 2), CurrentDateRange.StartDate);
+
         public override DateRange GetRenderDateRange(DateTime DisplayDate, int DayDisplayCount)
         {
             // Detect the first day of the week that contains the selected date.
@@ -22,5 +28,11 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
         }
 
         public override int GetRenderDayCount(DateTime DisplayDate, int DayDisplayCount) => 7;
+
+        public override int NextRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
+             => DayDisplayCount * 2;
+
+        public override int PreviousRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
+            => DayDisplayCount * 2;
     }
 }

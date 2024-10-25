@@ -18,6 +18,16 @@ namespace Wino.Calendar.Controls
 
         #region Dependency Properties
 
+        public static readonly DependencyProperty DayRangesProperty = DependencyProperty.Register(nameof(DayRanges), typeof(ObservableCollection<DayRangeRenderModel>), typeof(WinoCalendarControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty SelectedFlipViewIndexProperty = DependencyProperty.Register(nameof(SelectedFlipViewIndex), typeof(int), typeof(WinoCalendarControl), new PropertyMetadata(-1));
+        public static readonly DependencyProperty SelectedFlipViewDayRangeProperty = DependencyProperty.Register(nameof(SelectedFlipViewDayRange), typeof(DayRangeRenderModel), typeof(WinoCalendarControl), new PropertyMetadata(null));
+
+        public DayRangeRenderModel SelectedFlipViewDayRange
+        {
+            get { return (DayRangeRenderModel)GetValue(SelectedFlipViewDayRangeProperty); }
+            set { SetValue(SelectedFlipViewDayRangeProperty, value); }
+        }
+
         /// <summary>
         /// Gets or sets the collection of day ranges to render.
         /// Each day range usually represents a week, but it may support other ranges.
@@ -28,7 +38,11 @@ namespace Wino.Calendar.Controls
             set { SetValue(DayRangesProperty, value); }
         }
 
-        public static readonly DependencyProperty DayRangesProperty = DependencyProperty.Register(nameof(DayRanges), typeof(ObservableCollection<DayRangeRenderModel>), typeof(WinoCalendarControl), new PropertyMetadata(null));
+        public int SelectedFlipViewIndex
+        {
+            get { return (int)GetValue(SelectedFlipViewIndexProperty); }
+            set { SetValue(SelectedFlipViewIndexProperty, value); }
+        }
 
         #endregion
 
@@ -69,7 +83,6 @@ namespace Wino.Calendar.Controls
         public WinoCalendarControl()
         {
             DefaultStyleKey = typeof(WinoCalendarControl);
-
             SizeChanged += CalendarSizeChanged;
         }
 
@@ -92,7 +105,12 @@ namespace Wino.Calendar.Controls
             InternalFlipView.ActiveTimelineCanvasChanged += FlipViewsActiveTimelineCanvasChanged;
         }
 
-        private void FlipViewsActiveTimelineCanvasChanged(object sender, WinoDayTimelineCanvas e) => ActiveCanvas = e;
+        private void FlipViewsActiveTimelineCanvasChanged(object sender, WinoDayTimelineCanvas e)
+        {
+            ActiveCanvas = e;
+
+            SelectedFlipViewDayRange = InternalFlipView.SelectedItem as DayRangeRenderModel;
+        }
 
         private void ActiveTimelineCellUnselected(object sender, TimelineCellUnselectedArgs e)
             => TimelineCellUnselected?.Invoke(this, e);
@@ -107,6 +125,20 @@ namespace Wino.Calendar.Controls
             if (ActiveCanvas == null) return;
 
             ActiveCanvas.SelectedDateTime = null;
+        }
+
+        public void GoNextRange()
+        {
+            if (InternalFlipView == null) return;
+
+            InternalFlipView.GoNextFlip();
+        }
+
+        public void GoPreviousRange()
+        {
+            if (InternalFlipView == null) return;
+
+            InternalFlipView.GoPreviousFlip();
         }
     }
 }

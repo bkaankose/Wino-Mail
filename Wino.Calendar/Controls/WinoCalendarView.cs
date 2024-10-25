@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Diagnostics;
 using Windows.UI.Xaml;
@@ -99,7 +98,7 @@ namespace Wino.Calendar.Controls
             }
         }
 
-        private async void ScrollToDisplayDate()
+        private void ScrollToDisplayDate()
         {
             if (DisplayDate == default || CalendarView == null) return;
 
@@ -116,20 +115,11 @@ namespace Wino.Calendar.Controls
 
                 if (dayitem != null)
                 {
-                    // monthScrollViewer.ScrollToElement(dayitem, addMargin: false);
+                    // monthScrollViewer.ScrollToElement(dayitem, addMargin: false, bringToTopOrLeft: false);
 
                     // Add small delay until the scroll animation ends.
-                    // await Task.Delay(500);
-                    await Task.Yield();
-
-                    // Add +15/-15 days to the display date.
-
-                    // TODO: GetVisibleDates(monthScrollViewer, markDateCalendarDayItems);
-                    //var boundryVisibleDates = GetVisibleDates(monthScrollViewer, markDateCalendarDayItems);
-
-                    //var boundryVisibleDates = DateTimeExtensions.GetMonthDateRangeStartingWeekday(DisplayDate.DateTime, (DayOfWeek)CalendarView.FirstDayOfWeek);
-
-                    //BoundriesDateRange = new DateRange(boundryVisibleDates.StartDate, boundryVisibleDates.EndDate);
+                    //await Task.Delay(100);
+                    //await Task.Yield();
 
                     var args = new CalendarViewDayClickedEventArgs(DisplayDate.DateTime);
                     DateClickedCommand?.Execute(args);

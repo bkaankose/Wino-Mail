@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
@@ -25,11 +26,16 @@ namespace Wino.Calendar.ViewModels
         private int _selectedDateRangeIndex;
 
         [ObservableProperty]
+        private DayRangeRenderModel _selectedDayRange;
+
+        [ObservableProperty]
         private bool _isCalendarEnabled = true;
 
         private CalendarSettings _calendarSettings;
 
         private CalendarInitializeMessage _latestInitOptions;
+
+        private SemaphoreSlim _calendarLoadingSemaphore = new(1);
 
         public CalendarPageViewModel()
         {
@@ -72,8 +78,13 @@ namespace Wino.Calendar.ViewModels
             };
         }
 
+        partial void OnIsCalendarEnabledChanging(bool oldValue, bool newValue) => Messenger.Send(new CalendarEnableStatusChangedMessage(newValue));
+
         private bool ShouldResetDayRanges(CalendarInitializeMessage message)
         {
+            // Never reset if the initiative is from the app.
+            if (message.CalendarInitInitiative == CalendarInitInitiative.App) return false;
+
             // 1. Display type is different.
             // 2. Day display count is different.
             // 3. Display date is not in the visible range.
@@ -85,32 +96,48 @@ namespace Wino.Calendar.ViewModels
                 (DayRanges != null && !DayRanges.Select(a => a.CalendarRenderOptions).Any(b => b.DateRange.IsInRange(message.DisplayDate))));
         }
 
-        public void Receive(CalendarInitializeMessage message)
+        public async void Receive(CalendarInitializeMessage message)
         {
-            if (ShouldResetDayRanges(message))
-            {
-                DayRanges.Clear();
+            await _calendarLoadingSemaphore.WaitAsync();
 
-                Debug.WriteLine("Resetting day ranges.");
+            try
+            {
+                await ExecuteUIThread(() => IsCalendarEnabled = false);
+
+                if (ShouldResetDayRanges(message))
+                {
+                    DayRanges.Clear();
+
+                    Debug.WriteLine("Resetting day ranges.");
+                }
+
+                if (ShouldScrollToItem(message))
+                {
+                    // Scroll to the selected date.
+
+                    Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
+                    Debug.WriteLine("Scrolling to selected date.");
+                    return;
+                }
+
+                var loadDirection = GetLoadDirection(message);
+
+                // Either app is trying to load new messages or user clicked to some date range.
+                await RenderDatesAsync(message);
             }
-
-            var loadDirection = GetLoadDirection(message.DisplayDate);
-
-            if (loadDirection == CalendarLoadDirection.None)
+            catch (Exception ex)
             {
-                // Scroll to the selected date.
-
-                Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
-                Debug.WriteLine("Scrolling to selected date.");
-                return;
+                Debugger.Break();
             }
-            else
+            finally
             {
-                RenderDates(message, loadDirection);
+                _calendarLoadingSemaphore.Release();
+
+                await ExecuteUIThread(() => IsCalendarEnabled = true);
             }
         }
 
-        private void RenderDates(CalendarInitializeMessage message, CalendarLoadDirection direction)
+        private async Task RenderDatesAsync(CalendarInitializeMessage message)
         {
             // This is the part we arrange the flip view calendar logic.
 
@@ -124,10 +151,42 @@ namespace Wino.Calendar.ViewModels
 
             // 2 things are important: How many items should 1 flip have, and, where we should start loading?
 
+            var initiate = message.CalendarInitInitiative;
             var strategy = GetDrawingStrategy(message.DisplayType);
 
+            var initDirection = CalendarLoadDirection.Replace;
+
+            // How many days should be placed in 1 flip view item?
             int eachFlipItemCount = strategy.GetRenderDayCount(message.DisplayDate, message.DayDisplayCount);
-            DateRange flipLoadRange = strategy.GetRenderDateRange(message.DisplayDate, message.DayDisplayCount);
+
+            DateRange flipLoadRange = null;
+
+            if (initiate == CalendarInitInitiative.User)
+            {
+                flipLoadRange = strategy.GetRenderDateRange(message.DisplayDate, message.DayDisplayCount);
+            }
+            else
+            {
+                var minimumLoadedDate = DayRanges[0].CalendarRenderOptions.DateRange.StartDate;
+                var maximumLoadedDate = DayRanges[DayRanges.Count - 1].CalendarRenderOptions.DateRange.EndDate;
+
+                var currentVisibleDateRange = new DateRange(minimumLoadedDate, maximumLoadedDate);
+
+                // App is trying to load.
+                // This should be based on direction. We'll load the next or previous range.
+                // DisplayDate is either the start or end date of the current visible range.
+
+                if (message.DisplayDate <= minimumLoadedDate)
+                {
+                    flipLoadRange = strategy.GetPreviousDateRange(currentVisibleDateRange, message.DayDisplayCount);
+                    initDirection = CalendarLoadDirection.Previous;
+                }
+                else if (message.DisplayDate >= maximumLoadedDate)
+                {
+                    flipLoadRange = strategy.GetNextDateRange(currentVisibleDateRange, message.DayDisplayCount);
+                    initDirection = CalendarLoadDirection.Next;
+                }
+            }
 
             // Create day ranges for each flip item until we reach the total days to load.
             int totalFlipItemCount = (int)Math.Ceiling((double)flipLoadRange.TotalDays / eachFlipItemCount);
@@ -145,35 +204,133 @@ namespace Wino.Calendar.ViewModels
                 renderModels.Add(new DayRangeRenderModel(renderOptions));
             }
 
-            DayRanges.ReplaceRange(renderModels);
+            if (initDirection == CalendarLoadDirection.Replace)
+            {
+                // User initiated, not in the visible range.
+                // Replace whole collection.
+
+                await ExecuteUIThread(() =>
+                {
+                    DayRanges.ReplaceRange(renderModels);
+                });
+            }
+            else if (initDirection == CalendarLoadDirection.Next)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    foreach (var item in renderModels)
+                    {
+                        DayRanges.Add(item);
+                    }
+                });
+            }
+            else if (initDirection == CalendarLoadDirection.Previous)
+            {
+                // Insert each render model in reverse order.
+
+                for (int i = renderModels.Count - 1; i >= 0; i--)
+                {
+                    await ExecuteUIThread(() =>
+                    {
+                        DayRanges.Insert(0, renderModels[i]);
+                    });
+                }
+            }
 
             _latestInitOptions = message;
 
             Debug.WriteLine($"Flip count: ({DayRanges.Count})");
+
             foreach (var item in DayRanges)
             {
                 Debug.WriteLine($"- {item.CalendarRenderOptions.DateRange.ToString()}");
             }
 
-            Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
+            // Only scroll if the render is initiated by user.
+            // Otherwise we'll scroll to the app rendered invisible date range.
+            if (message.CalendarInitInitiative == CalendarInitInitiative.User)
+            {
+                Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
+            }
         }
 
-        private CalendarLoadDirection GetLoadDirection(DateTime selectedDate)
+        private bool ShouldScrollToItem(CalendarInitializeMessage message)
         {
+            // Never scroll if the initiative is from the app.
+            if (message.CalendarInitInitiative == CalendarInitInitiative.App) return false;
+
+            // Nothing to scroll.
+            if (DayRanges.Count == 0) return false;
+
+            var minimumLoadedDate = DayRanges[0].CalendarRenderOptions.DateRange.StartDate;
+            var maximumLoadedDate = DayRanges[DayRanges.Count - 1].CalendarRenderOptions.DateRange.EndDate;
+
+            var selectedDate = message.DisplayDate;
+
+            return selectedDate >= minimumLoadedDate && selectedDate <= maximumLoadedDate;
+        }
+
+        private CalendarLoadDirection GetLoadDirection(CalendarInitializeMessage message)
+        {
+            // If the direction is trying to be set by the app, we should cancel the operation.
+            // We'll render the date range without any scroll.
+
             if (DayRanges.Count == 0) return CalendarLoadDirection.Next;
 
             var firstRange = DayRanges[0];
             var lastRange = DayRanges[DayRanges.Count - 1];
 
-            if (selectedDate < firstRange.CalendarDays[0].RepresentingDate)
+            if (message.DisplayDate < firstRange.CalendarDays[0].RepresentingDate)
             {
                 return CalendarLoadDirection.Previous;
             }
-            else if (selectedDate > lastRange.CalendarDays[lastRange.CalendarDays.Count - 1].RepresentingDate)
+
+            return CalendarLoadDirection.Next;
+        }
+
+        partial void OnSelectedDayRangeChanged(DayRangeRenderModel value)
+        {
+            if (DayRanges.Count == 0 || SelectedDateRangeIndex < 0 || _latestInitOptions == null) return;
+
+            var displayType = _latestInitOptions.DisplayType;
+            var selectedRange = DayRanges[SelectedDateRangeIndex];
+
+            if (selectedRange != null)
             {
-                return CalendarLoadDirection.Next;
+                // Send the loading message initiated by the app.
+
+                CalendarInitializeMessage args = null;
+                if (SelectedDateRangeIndex == DayRanges.Count - 1)
+                {
+                    // Load next, starting from the end date.
+
+                    args = new CalendarInitializeMessage(displayType,
+                                     selectedRange.CalendarRenderOptions.DateRange.EndDate,
+                                     _latestInitOptions.DayDisplayCount,
+                                     CalendarInitInitiative.App);
+
+                    Debug.WriteLine("Loading next items.");
+                }
+                else if (SelectedDateRangeIndex == 0)
+                {
+                    // Load previous, starting from the start date.
+
+                    args = new CalendarInitializeMessage(displayType,
+                                     selectedRange.CalendarRenderOptions.DateRange.StartDate,
+                                     _latestInitOptions.DayDisplayCount,
+                                     CalendarInitInitiative.App);
+
+                    Debug.WriteLine("Loading previous items.");
+                }
+
+                if (args != null)
+                {
+                    Task.Delay(500).ContinueWith((t) =>
+                    {
+                        Messenger.Send(args);
+                    });
+                }
             }
-            return CalendarLoadDirection.None;
         }
     }
 }

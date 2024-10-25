@@ -1,25 +1,16 @@
 ﻿using System;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
-using Windows.UI.Xaml.Automation.Peers;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.MenuItems;
 
 namespace Wino.Calendar.Controls
 {
-    public class WinoCalendarFlipView : FlipView
+    public class WinoCalendarFlipView : CustomCalendarFlipView
     {
         public event EventHandler<WinoDayTimelineCanvas> ActiveTimelineCanvasChanged;
-
-        private const string PART_PreviousButton = "PreviousButtonHorizontal";
-        private const string PART_NextButton = "NextButtonHorizontal";
-
-        private Button PreviousButton;
-        private Button NextButton;
-
-        private ObservableCollection<DayRangeRenderModel> _internalItemsSource;
 
         public WinoCalendarFlipView()
         {
@@ -46,23 +37,11 @@ namespace Wino.Calendar.Controls
             }
         }
 
-        protected override void OnApplyTemplate()
-        {
-            base.OnApplyTemplate();
-
-            PreviousButton = GetTemplateChild(PART_PreviousButton) as Button;
-            NextButton = GetTemplateChild(PART_NextButton) as Button;
-
-            // Hide navigation buttons
-            //PreviousButton.Opacity = NextButton.Opacity = 0;
-            //PreviousButton.IsHitTestVisible = NextButton.IsHitTestVisible = false;
-        }
-
         /// <summary>
         /// Navigates to the specified date in the calendar.
         /// </summary>
         /// <param name="dateTime">Date to navigate.</param>
-        public void NavigateToDay(DateTime dateTime)
+        public async void NavigateToDay(DateTime dateTime)
         {
             // Find the day range that contains the date.
             var dayRange = GetItemsSource()?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
@@ -79,19 +58,18 @@ namespace Wino.Calendar.Controls
                 {
                     if (SelectedIndex > navigationItemIndex)
                     {
-                        // Go back.
-                        var backPeer = new ButtonAutomationPeer(PreviousButton);
-                        backPeer.Invoke();
+                        GoPreviousFlip();
                     }
                     else
                     {
-                        // Go forward.
-                        var nextPeer = new ButtonAutomationPeer(NextButton);
-                        nextPeer.Invoke();
+                        GoNextFlip();
                     }
+
+                    await Task.Delay(100);
                 }
             }
         }
+
 
         public void NavigateHour(TimeSpan hourTimeSpan)
         {
@@ -99,7 +77,7 @@ namespace Wino.Calendar.Controls
             // Find the day range that contains the hour.
         }
 
-        private ObservableCollection<DayRangeRenderModel> GetItemsSource()
-            => ItemsSource as ObservableCollection<DayRangeRenderModel>;
+        private ObservableRangeCollection<DayRangeRenderModel> GetItemsSource()
+            => ItemsSource as ObservableRangeCollection<DayRangeRenderModel>;
     }
 }

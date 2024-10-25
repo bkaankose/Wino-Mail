@@ -11,5 +11,6 @@ namespace Wino.Messaging.Client.Calendar
     /// <param name="DayDisplayCount">How many days to load with Day calendar display type.</param>
     public record CalendarInitializeMessage(CalendarDisplayType DisplayType,
                                             DateTime DisplayDate,
-                                            int DayDisplayCount);
+                                            int DayDisplayCount,
+                                            CalendarInitInitiative CalendarInitInitiative);
 }

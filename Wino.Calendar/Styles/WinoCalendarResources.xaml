@@ -95,35 +95,6 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
-
-                    <!--  Create new event dialog.  -->
-                    <!--<Canvas x:Name="CalendarOverlayCanvas" Grid.Column="1">
-                        <Grid
-                            x:Name="TeachingTipPositionerGrid"
-                            Width="5"
-                            Height="5"
-                            Background="Red"
-                            Visibility="Visible" />
-                        <muxc:TeachingTip
-                            x:Name="NewEventTip"
-                            Closed="CreateEventTipClosed"
-                            IsLightDismissEnabled="True"
-                            IsOpen="False"
-                            PreferredPlacement="Bottom"
-                            Target="{Binding ElementName=TeachingTipPositionerGrid}">
-                            <muxc:TeachingTip.Content>
-                                <Grid>
-                    -->
-                    <!--  Create events  -->
-                    <!--
-                                    <TextBlock
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Text="hello world" />
-                                </Grid>
-                            </muxc:TeachingTip.Content>
-                        </muxc:TeachingTip>
-                    </Canvas>-->
                 </Grid>
             </ScrollViewer>
         </Grid>
@@ -141,7 +112,8 @@
                             VerticalContentAlignment="Stretch"
                             IsTabStop="False"
                             ItemTemplate="{StaticResource FlipTemplate}"
-                            ItemsSource="{TemplateBinding DayRanges}" />
+                            ItemsSource="{TemplateBinding DayRanges}"
+                            SelectedIndex="{Binding SelectedFlipViewIndex, RelativeSource={RelativeSource Mode=TemplatedParent}, Mode=TwoWay}" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

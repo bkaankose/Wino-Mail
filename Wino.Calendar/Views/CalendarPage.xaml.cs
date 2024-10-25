@@ -8,7 +8,9 @@ using Wino.Messaging.Client.Calendar;
 namespace Wino.Calendar.Views
 {
     public sealed partial class CalendarPage : CalendarPageAbstract,
-        IRecipient<ScrollToDateMessage>
+        IRecipient<ScrollToDateMessage>,
+        IRecipient<GoNextDateRequestedMessage>,
+        IRecipient<GoPreviousDateRequestedMessage>
     {
         public CalendarPage()
         {
@@ -16,6 +18,10 @@ namespace Wino.Calendar.Views
         }
 
         public void Receive(ScrollToDateMessage message) => CalendarControl.NavigateToDay(message.Date);
+
+        public void Receive(GoNextDateRequestedMessage message) => CalendarControl.GoNextRange();
+
+        public void Receive(GoPreviousDateRequestedMessage message) => CalendarControl.GoPreviousRange();
 
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {
