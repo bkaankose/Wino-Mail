@@ -7,8 +7,7 @@ using Wino.Messaging.Client.Calendar;
 namespace Wino.Calendar.Views
 {
     public sealed partial class AppShell : AppShellAbstract,
-        IRecipient<ClickCalendarDateMessage>,
-        IRecipient<CalendarDisplayModeChangedMessage>
+        IRecipient<GoToCalendarDayMessage>
     {
         private const string STATE_HorizontalCalendar = "HorizontalCalendar";
         private const string STATE_VerticalCalendar = "VerticalCalendar";
@@ -19,6 +18,21 @@ namespace Wino.Calendar.Views
             InitializeComponent();
 
             Window.Current.SetTitleBar(DragArea);
+
+            ViewModel.DisplayTypeChanged += CalendarDisplayTypeChanged;
+        }
+
+        private void CalendarDisplayTypeChanged(object sender, Core.Domain.Enums.CalendarDisplayType e)
+        {
+            // Go to different states based on the display type.
+            if (ViewModel.IsVerticalCalendar)
+            {
+                VisualStateManager.GoToState(this, STATE_VerticalCalendar, false);
+            }
+            else
+            {
+                VisualStateManager.GoToState(this, STATE_HorizontalCalendar, false);
+            }
         }
 
         private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
@@ -28,39 +42,12 @@ namespace Wino.Calendar.Views
 
         private void BackButtonClicked(Core.UWP.Controls.WinoAppTitleBar sender, Windows.UI.Xaml.RoutedEventArgs args)
         {
-            if (ViewModel.CurrentDisplayType == Core.Domain.Enums.CalendarDisplayType.Day)
-            {
-                ViewModel.CurrentDisplayType = Core.Domain.Enums.CalendarDisplayType.Month;
-            }
-            else
-            {
-                ViewModel.CurrentDisplayType = Core.Domain.Enums.CalendarDisplayType.Day;
-            }
+
         }
 
-        public void Receive(ClickCalendarDateMessage message)
+        public void Receive(GoToCalendarDayMessage message)
         {
-            if (CalendarView.DisplayDate == message.DateTime)
-            {
-                // Just scroll to it, already loaded.
-                WeakReferenceMessenger.Default.Send(new ScrollToDateMessage(message.DateTime));
-            }
-            else
-            {
-                CalendarView.DisplayDate = message.DateTime;
-            }
-        }
-
-        public void Receive(CalendarDisplayModeChangedMessage message)
-        {
-            if (ViewModel.IsVerticalCalendar)
-            {
-                VisualStateManager.GoToState(this, STATE_VerticalCalendar, false);
-            }
-            else
-            {
-                VisualStateManager.GoToState(this, STATE_HorizontalCalendar, false);
-            }
+            CalendarView.GoToDay(message.DateTime);
         }
 
         private void PreviousDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoPreviousDateRequestedMessage());

@@ -8,10 +8,10 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
         public WeekCalendarDrawingStrategy(CalendarSettings settings) : base(settings, Core.Domain.Enums.CalendarDisplayType.Week) { }
 
         public override DateRange GetNextDateRange(DateRange CurrentDateRange, int DayDisplayCount)
-            => new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(DayDisplayCount * 2));
+            => new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(7 * 2));
 
         public override DateRange GetPreviousDateRange(DateRange CurrentDateRange, int DayDisplayCount)
-            => new DateRange(CurrentDateRange.StartDate.AddDays(-DayDisplayCount * 2), CurrentDateRange.StartDate);
+            => new DateRange(CurrentDateRange.StartDate.AddDays(-7 * 2), CurrentDateRange.StartDate);
 
         public override DateRange GetRenderDateRange(DateTime DisplayDate, int DayDisplayCount)
         {
@@ -21,18 +21,15 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
             int diff = (7 + (DisplayDate.DayOfWeek - Settings.FirstDayOfWeek)) % 7;
 
             // Start loading from this date instead of visible date.
-            var startDte = DisplayDate.AddDays(-diff).Date;
-            var endDte = startDte.AddDays(7);
+            var weekStartDate = DisplayDate.AddDays(-diff).Date;
 
-            return new DateRange(startDte, endDte);
+            // Load -+ 14 days
+            var startDate = weekStartDate.AddDays(-14);
+            var endDte = weekStartDate.AddDays(14);
+
+            return new DateRange(startDate, endDte);
         }
 
         public override int GetRenderDayCount(DateTime DisplayDate, int DayDisplayCount) => 7;
-
-        public override int NextRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
-             => DayDisplayCount * 2;
-
-        public override int PreviousRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
-            => DayDisplayCount * 2;
     }
 }

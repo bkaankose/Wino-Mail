@@ -9,8 +9,5 @@ namespace Wino.Messaging.Client.Calendar
     /// <param name="DisplayType">Type of the calendar.</param>
     /// <param name="DisplayDate">Exact date to highlight.</param>
     /// <param name="DayDisplayCount">How many days to load with Day calendar display type.</param>
-    public record CalendarInitializeMessage(CalendarDisplayType DisplayType,
-                                            DateTime DisplayDate,
-                                            int DayDisplayCount,
-                                            CalendarInitInitiative CalendarInitInitiative);
+    public record CalendarInitializeMessage(DateTime DisplayDate, CalendarInitInitiative CalendarInitInitiative);
 }

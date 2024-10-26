@@ -213,5 +213,17 @@ namespace Wino.Core.UWP.Services
             get => _configurationService.Get(nameof(ServerTerminationBehavior), ServerBackgroundMode.MinimizedTray);
             set => SaveProperty(propertyName: nameof(ServerTerminationBehavior), value);
         }
+
+        public CalendarDisplayType CalendarDisplayType
+        {
+            get => _configurationService.Get(nameof(CalendarDisplayType), CalendarDisplayType.Week);
+            set => SetPropertyAndSave(propertyName: nameof(CalendarDisplayType), value);
+        }
+
+        public int DayDisplayCount
+        {
+            get => _configurationService.Get(nameof(DayDisplayCount), 1);
+            set => SetPropertyAndSave(propertyName: nameof(DayDisplayCount), value);
+        }
     }
 }

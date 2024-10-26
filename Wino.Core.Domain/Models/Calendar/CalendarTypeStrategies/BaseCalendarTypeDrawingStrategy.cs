@@ -29,10 +29,6 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
         /// </summary>
         public abstract int GetRenderDayCount(DateTime DisplayDate, int DayDisplayCount);
 
-        public abstract int PreviousRenderDayCount(DateTime DisplayDate, int DayDisplayCount);
-
-        public abstract int NextRenderDayCount(DateTime DisplayDate, int DayDisplayCount);
-
         protected BaseCalendarTypeDrawingStrategy(CalendarSettings settings, CalendarDisplayType handlingType)
         {
             Settings = settings;

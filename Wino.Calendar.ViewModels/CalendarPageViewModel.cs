@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Calendar.Models.CalendarTypeStrategies;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.MenuItems;
@@ -40,8 +41,13 @@ namespace Wino.Calendar.ViewModels
 
         private SemaphoreSlim _calendarLoadingSemaphore = new(1);
 
-        public CalendarPageViewModel()
+        public IPreferencesService PreferencesService { get; }
+
+        public CalendarPageViewModel(IPreferencesService preferencesService)
         {
+            PreferencesService = preferencesService;
+
+
             _calendarSettings = new CalendarSettings()
             {
                 DayHeaderDisplayType = DayHeaderDisplayType.TwentyFourHour,
@@ -53,22 +59,11 @@ namespace Wino.Calendar.ViewModels
             };
         }
 
-        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        public override void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
 
-            if (parameters is CalendarPageNavigationArgs args)
-            {
-                if (args.RequestDefaultNavigation)
-                    await PerformDefaultNavigationOptions();
-            }
-        }
-
-        private Task PerformDefaultNavigationOptions()
-        {
-            Messenger.Send(new ClickCalendarDateMessage(DateTime.Now.Date));
-
-            return Task.CompletedTask;
+            Messenger.Send(new CalendarInitializedMessage());
         }
 
         private BaseCalendarTypeDrawingStrategy GetDrawingStrategy(CalendarDisplayType displayType)
@@ -93,8 +88,8 @@ namespace Wino.Calendar.ViewModels
             // 3. Display date is not in the visible range.
 
             return
-                (_currentDisplayType != message.DisplayType ||
-                _displayDayCount != message.DayDisplayCount ||
+                (_currentDisplayType != PreferencesService.CalendarDisplayType ||
+                _displayDayCount != PreferencesService.DayDisplayCount ||
                 (DayRanges != null && !DayRanges.Select(a => a.CalendarRenderOptions).Any(b => b.DateRange.IsInRange(message.DisplayDate))));
         }
 
@@ -122,8 +117,10 @@ namespace Wino.Calendar.ViewModels
                     return;
                 }
 
-                // Either app is trying to load new messages or user clicked to some date range.
-                await RenderDatesAsync(message.DisplayType, message.DayDisplayCount, message.CalendarInitInitiative, message.DisplayDate, CalendarLoadDirection.Replace);
+                // This will replace the whole collection because the user initiated a new render.
+                await RenderDatesAsync(message.CalendarInitInitiative,
+                                       message.DisplayDate,
+                                       CalendarLoadDirection.Replace);
             }
             catch (Exception ex)
             {
@@ -137,9 +134,7 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        private async Task RenderDatesAsync(CalendarDisplayType displayType,
-                                            int dayDisplayCount,
-                                            CalendarInitInitiative calendarInitInitiative,
+        private async Task RenderDatesAsync(CalendarInitInitiative calendarInitInitiative,
                                             DateTime? loadingDisplayDate = null,
                                             CalendarLoadDirection calendarLoadDirection = CalendarLoadDirection.Replace)
         {
@@ -158,17 +153,17 @@ namespace Wino.Calendar.ViewModels
             // User initiated renders must always have a date to start with.
             if (calendarInitInitiative == CalendarInitInitiative.User) Guard.IsNotNull(loadingDisplayDate, nameof(loadingDisplayDate));
 
-            var strategy = GetDrawingStrategy(displayType);
+            var strategy = GetDrawingStrategy(PreferencesService.CalendarDisplayType);
             var displayDate = loadingDisplayDate.GetValueOrDefault();
 
             // How many days should be placed in 1 flip view item?
-            int eachFlipItemCount = strategy.GetRenderDayCount(displayDate, dayDisplayCount);
+            int eachFlipItemCount = strategy.GetRenderDayCount(displayDate, PreferencesService.DayDisplayCount);
 
             DateRange flipLoadRange = null;
 
             if (calendarInitInitiative == CalendarInitInitiative.User)
             {
-                flipLoadRange = strategy.GetRenderDateRange(displayDate, dayDisplayCount);
+                flipLoadRange = strategy.GetRenderDateRange(displayDate, PreferencesService.DayDisplayCount);
             }
             else
             {
@@ -183,11 +178,11 @@ namespace Wino.Calendar.ViewModels
 
                 if (calendarLoadDirection == CalendarLoadDirection.Previous)
                 {
-                    flipLoadRange = strategy.GetPreviousDateRange(currentInitializedDateRange, dayDisplayCount);
+                    flipLoadRange = strategy.GetPreviousDateRange(currentInitializedDateRange, PreferencesService.DayDisplayCount);
                 }
                 else
                 {
-                    flipLoadRange = strategy.GetNextDateRange(currentInitializedDateRange, dayDisplayCount);
+                    flipLoadRange = strategy.GetNextDateRange(currentInitializedDateRange, PreferencesService.DayDisplayCount);
                 }
             }
 
@@ -229,8 +224,11 @@ namespace Wino.Calendar.ViewModels
             }
             else if (calendarLoadDirection == CalendarLoadDirection.Previous)
             {
-                // Insert each render model in reverse order.
+                // Wait for the animation to finish.
+                // Otherwise it somehow shutters a little, which is annoying.
+                await Task.Delay(500);
 
+                // Insert each render model in reverse order.
                 for (int i = renderModels.Count - 1; i >= 0; i--)
                 {
                     await ExecuteUIThread(() =>
@@ -251,9 +249,9 @@ namespace Wino.Calendar.ViewModels
             // Otherwise we'll scroll to the app rendered invisible date range.
             if (calendarInitInitiative == CalendarInitInitiative.User)
             {
-                // Save the current settings.
-                _currentDisplayType = displayType;
-                _displayDayCount = dayDisplayCount;
+                // Save the current settings for the page for later comparison.
+                _currentDisplayType = PreferencesService.CalendarDisplayType;
+                _displayDayCount = PreferencesService.DayDisplayCount;
 
                 Messenger.Send(new ScrollToDateMessage(displayDate));
             }
@@ -273,24 +271,6 @@ namespace Wino.Calendar.ViewModels
             var selectedDate = message.DisplayDate;
 
             return selectedDate >= minimumLoadedDate && selectedDate <= maximumLoadedDate;
-        }
-
-        private CalendarLoadDirection GetLoadDirection(CalendarInitializeMessage message)
-        {
-            // If the direction is trying to be set by the app, we should cancel the operation.
-            // We'll render the date range without any scroll.
-
-            if (DayRanges.Count == 0) return CalendarLoadDirection.Next;
-
-            var firstRange = DayRanges[0];
-            var lastRange = DayRanges[DayRanges.Count - 1];
-
-            if (message.DisplayDate < firstRange.CalendarDays[0].RepresentingDate)
-            {
-                return CalendarLoadDirection.Previous;
-            }
-
-            return CalendarLoadDirection.Next;
         }
 
         partial void OnSelectedDayRangeChanged(DayRangeRenderModel value)
@@ -317,18 +297,8 @@ namespace Wino.Calendar.ViewModels
 
                     _ = LoadMoreAsync(CalendarLoadDirection.Previous);
 
-                    //args = new CalendarInitializeMessage(displayType,
-                    //                 selectedRange.CalendarRenderOptions.DateRange.StartDate,
-                    //                 _latestInitOptions.DayDisplayCount,
-                    //                 CalendarInitInitiative.App);
-
                     Debug.WriteLine("Loading previous items.");
                 }
-
-                //if (args != null)
-                //{
-                //    Task.Delay(500).ContinueWith((t) => { Messenger.Send(args); });
-                //}
             }
         }
 
@@ -339,16 +309,31 @@ namespace Wino.Calendar.ViewModels
             try
             {
                 await _calendarLoadingSemaphore.WaitAsync();
-                await RenderDatesAsync(_currentDisplayType, _displayDayCount, CalendarInitInitiative.App, calendarLoadDirection: direction);
+                await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: direction);
+
+                // This will make sure FlipView.Insert finishes the animation before the old items are added.
+                //await Task.Delay(150);
             }
             catch (Exception)
             {
-
+                Debugger.Break();
             }
             finally
             {
                 _calendarLoadingSemaphore.Release();
             }
         }
+
+        //public void Receive(CalendarDisplayModeChangedMessage message)
+        //{
+        //    if (DayRanges.Count == 0) return;
+
+        //    // Find the display date.
+        //    var selectedDayRange = DayRanges[SelectedDateRangeIndex];
+        //    var displayDate = selectedDayRange.CalendarDays.First().RepresentingDate;
+
+        //    // Re-render the dates.
+        //    // var message = new CalendarInitializeMessage(message.DisplayType, displayDate,)
+        //}
     }
 }

@@ -32,11 +32,5 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
         }
 
         public override int GetRenderDayCount(DateTime DisplayDate, int DayDisplayCount) => DayDisplayCount;
-
-        public override int NextRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
-            => DayDisplayCount * 2;
-
-        public override int PreviousRenderDayCount(DateTime DisplayDate, int DayDisplayCount)
-             => DayDisplayCount * 2;
     }
 }

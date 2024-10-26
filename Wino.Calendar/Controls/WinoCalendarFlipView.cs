@@ -50,22 +50,30 @@ namespace Wino.Calendar.Controls
             {
                 var navigationItemIndex = GetItemsSource().IndexOf(dayRange);
 
-                // Until we reach the day in the flip, simulate next-prev button clicks.
-                // This will make sure the FlipView animations are triggered.
-                // Setting SelectedIndex directly doesn't trigger the animations.
-
-                while (SelectedIndex != navigationItemIndex)
+                if (Math.Abs(navigationItemIndex - SelectedIndex) > 4)
                 {
-                    if (SelectedIndex > navigationItemIndex)
-                    {
-                        GoPreviousFlip();
-                    }
-                    else
-                    {
-                        GoNextFlip();
-                    }
+                    // Difference between dates are high.
+                    // No need to animate this much, just go without animating.
 
-                    await Task.Delay(100);
+                    SelectedIndex = navigationItemIndex;
+                }
+                else
+                {
+                    // Until we reach the day in the flip, simulate next-prev button clicks.
+                    // This will make sure the FlipView animations are triggered.
+                    // Setting SelectedIndex directly doesn't trigger the animations.
+
+                    while (SelectedIndex != navigationItemIndex)
+                    {
+                        if (SelectedIndex > navigationItemIndex)
+                        {
+                            GoPreviousFlip();
+                        }
+                        else
+                        {
+                            GoNextFlip();
+                        }
+                    }
                 }
             }
         }

@@ -15,9 +15,11 @@ using Wino.Messaging.Client.Calendar;
 namespace Wino.Calendar.ViewModels
 {
     public partial class AppShellViewModel : CalendarBaseViewModel,
-         IRecipient<VisibleDateRangeChangedMessage>,
-        IRecipient<CalendarEnableStatusChangedMessage>
+        IRecipient<VisibleDateRangeChangedMessage>,
+        IRecipient<CalendarEnableStatusChangedMessage>,
+        IRecipient<CalendarInitializedMessage>
     {
+        public event EventHandler<CalendarDisplayType> DisplayTypeChanged;
         public IPreferencesService PreferencesService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public INavigationService NavigationService { get; }
@@ -41,23 +43,19 @@ namespace Wino.Calendar.ViewModels
         private DateTimeOffset _displayDate;
 
         /// <summary>
-        /// Gets or sets the displayed range in the FlipView.
+        /// Gets or sets the highlighted range in the CalendarView and displayed date range in FlipView.
         /// </summary>
         [ObservableProperty]
-        private DateRange visibleDateRange;
+        private DateRange highlightedDateRange;
 
         /// <summary>
-        /// Gets or sets the number of days to display in the calendar.
-        /// </summary>
-        [ObservableProperty]
-        private int _displayDayCount = 5;
 
         /// <summary>
         /// Gets or sets the current display type of the calendar.
         /// </summary>
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsVerticalCalendar))]
-        private CalendarDisplayType _currentDisplayType = CalendarDisplayType.Day;
+        //[ObservableProperty]
+        //[NotifyPropertyChangedFor(nameof(IsVerticalCalendar))]
+        //private CalendarDisplayType _currentDisplayType = CalendarDisplayType.Day;
 
         [ObservableProperty]
         private ObservableRangeCollection<string> dateNavigationHeaderItems = [];
@@ -65,7 +63,7 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private int _selectedDateNavigationHeaderIndex;
 
-        public bool IsVerticalCalendar => CurrentDisplayType == CalendarDisplayType.Month;
+        public bool IsVerticalCalendar => PreferencesService.CalendarDisplayType == CalendarDisplayType.Month;
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
@@ -73,9 +71,20 @@ namespace Wino.Calendar.ViewModels
                                  IWinoServerConnectionManager serverConnectionManager)
         {
             PreferencesService = preferencesService;
+
+            PreferencesService.PreferenceChanged += PrerefencesChanged;
             StatePersistenceService = statePersistanceService;
             NavigationService = navigationService;
             ServerConnectionManager = serverConnectionManager;
+        }
+
+        private void PrerefencesChanged(object sender, string e)
+        {
+            if (e == nameof(PreferencesService.CalendarDisplayType))
+            {
+                DisplayTypeChanged?.Invoke(this, PreferencesService.CalendarDisplayType);
+                OnPropertyChanged(nameof(IsVerticalCalendar));
+            }
         }
 
         public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -114,7 +123,7 @@ namespace Wino.Calendar.ViewModels
         #region Commands
 
         [RelayCommand]
-        private void TodayClicked() => Messenger.Send(new ClickCalendarDateMessage(DateTime.Now.Date));
+        private void TodayClicked() => Messenger.Send(new GoToCalendarDayMessage(DateTime.Now.Date));
 
         [RelayCommand]
         public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
@@ -124,16 +133,11 @@ namespace Wino.Calendar.ViewModels
 
         [RelayCommand]
         private void DateClicked(CalendarViewDayClickedEventArgs clickedDate)
-            => Messenger.Send(new CalendarInitializeMessage(CurrentDisplayType, clickedDate.ClickedDate, DisplayDayCount, CalendarInitInitiative.User));
+            => Messenger.Send(new CalendarInitializeMessage(clickedDate.ClickedDate, CalendarInitInitiative.User));
 
         #endregion
 
-        public void Receive(VisibleDateRangeChangedMessage message) => VisibleDateRange = message.DateRange;
-
-        partial void OnCurrentDisplayTypeChanged(CalendarDisplayType oldValue, CalendarDisplayType newValue)
-        {
-            Messenger.Send(new CalendarDisplayModeChangedMessage(oldValue, newValue));
-        }
+        public void Receive(VisibleDateRangeChangedMessage message) => HighlightedDateRange = message.DateRange;
 
         /// <summary>
         /// Sets the header navigation items based on visible date range and calendar type.
@@ -145,31 +149,28 @@ namespace Wino.Calendar.ViewModels
             // TODO: From settings
             var testInfo = new CultureInfo("en-US");
 
-            if (VisibleDateRange != null)
+            switch (PreferencesService.CalendarDisplayType)
             {
-                switch (CurrentDisplayType)
-                {
-                    case CalendarDisplayType.Day:
-                    case CalendarDisplayType.Week:
-                    case CalendarDisplayType.WorkWeek:
-                    case CalendarDisplayType.Month:
-                        DateNavigationHeaderItems.ReplaceRange(testInfo.DateTimeFormat.MonthNames);
-                        break;
-                    case CalendarDisplayType.Year:
-                        break;
-                    default:
-                        break;
-                }
+                case CalendarDisplayType.Day:
+                case CalendarDisplayType.Week:
+                case CalendarDisplayType.WorkWeek:
+                case CalendarDisplayType.Month:
+                    DateNavigationHeaderItems.ReplaceRange(testInfo.DateTimeFormat.MonthNames);
+                    break;
+                case CalendarDisplayType.Year:
+                    break;
+                default:
+                    break;
             }
 
             SetDateNavigationHeaderItems();
         }
 
-        partial void OnVisibleDateRangeChanged(DateRange value) => SetDateNavigationHeaderItems();
+        partial void OnHighlightedDateRangeChanged(DateRange value) => SetDateNavigationHeaderItems();
 
         private void SetDateNavigationHeaderItems()
         {
-            if (VisibleDateRange == null) return;
+            if (HighlightedDateRange == null) return;
 
             if (DateNavigationHeaderItems.Count == 0)
             {
@@ -177,12 +178,15 @@ namespace Wino.Calendar.ViewModels
             }
 
             // TODO: Year view
-            var monthIndex = VisibleDateRange.GetMostVisibleMonthIndex();
+            var monthIndex = HighlightedDateRange.GetMostVisibleMonthIndex();
 
             SelectedDateNavigationHeaderIndex = Math.Max(monthIndex - 1, -1);
         }
 
         public async void Receive(CalendarEnableStatusChangedMessage message)
             => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
+
+        // Calendar page is loaded and calendar is ready to recieve render requests.
+        public void Receive(CalendarInitializedMessage message) => Messenger.Send(new GoToCalendarDayMessage(DateTime.Now.Date));
     }
 }

@@ -139,6 +139,16 @@ namespace Wino.Core.MenuItems
             RaiseChangeNotificationEvents(action: NotifyCollectionChangedAction.Reset);
         }
 
+        public void InsertRange(IEnumerable<T> items)
+        {
+            CheckReentrancy();
+
+            foreach (var item in items)
+                Items.Insert(0, item);
+
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+
         private bool AddArrangeCore(IEnumerable<T> collection)
         {
             var itemAdded = false;

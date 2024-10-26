@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Diagnostics;
 using Windows.UI.Xaml;
@@ -12,24 +11,13 @@ namespace Wino.Calendar.Controls
 {
     public class WinoCalendarView : Control
     {
-        private const string PART_MonthViewScrollViewer = "MonthViewScrollViewer";
         private const string PART_DayViewItemBorder = nameof(PART_DayViewItemBorder);
         private const string PART_CalendarView = nameof(PART_CalendarView);
 
-        public static readonly DependencyProperty HighlightedDateRangeProperty = DependencyProperty.Register(nameof(HighlightedDateRange), typeof(DateRange), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnPropertiesChanged)));
+        public static readonly DependencyProperty HighlightedDateRangeProperty = DependencyProperty.Register(nameof(HighlightedDateRange), typeof(DateRange), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnHighlightedDateRangeChanged)));
         public static readonly DependencyProperty VisibleDateBackgroundProperty = DependencyProperty.Register(nameof(VisibleDateBackground), typeof(Brush), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnPropertiesChanged)));
         public static readonly DependencyProperty TodayBackgroundBrushProperty = DependencyProperty.Register(nameof(TodayBackgroundBrush), typeof(Brush), typeof(WinoCalendarView), new PropertyMetadata(null));
         public static readonly DependencyProperty DateClickedCommandProperty = DependencyProperty.Register(nameof(DateClickedCommand), typeof(ICommand), typeof(WinoCalendarView), new PropertyMetadata(null));
-        public static readonly DependencyProperty DisplayDateProperty = DependencyProperty.Register(nameof(DisplayDate), typeof(DateTimeOffset), typeof(WinoCalendarView), new PropertyMetadata(default(DateTimeOffset), new PropertyChangedCallback(OnDisplayDateChanged)));
-
-        /// <summary>
-        /// Gets or sets the last clicked date.
-        /// </summary>
-        public DateTimeOffset DisplayDate
-        {
-            get { return (DateTimeOffset)GetValue(DisplayDateProperty); }
-            set { SetValue(DisplayDateProperty, value); }
-        }
 
         /// <summary>
         /// Gets or sets the command to execute when a date is picked.
@@ -89,68 +77,40 @@ namespace Wino.Calendar.Controls
             CalendarView.RegisterPropertyChangedCallback(CalendarView.DisplayModeProperty, (s, e) => UpdateVisibleDateRangeBackgrounds());
         }
 
-        private static void OnDisplayDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is WinoCalendarView control)
-            {
-                control.SetDisplayDate((DateTimeOffset)e.NewValue);
-                control.ScrollToDisplayDate();
-            }
-        }
-
-        private void ScrollToDisplayDate()
-        {
-            if (DisplayDate == default || CalendarView == null) return;
-
-            // When a date is clicked, try to scroll to it.
-            // TODO: This logic can be changed to dispaly +1/-1 rows of the clicked date.
-
-            var monthScrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(CalendarView, PART_MonthViewScrollViewer);
-
-            if (monthScrollViewer != null)
-            {
-                var markDateCalendarDayItems = WinoVisualTreeHelper.FindDescendants<CalendarViewDayItem>(CalendarView);
-
-                var dayitem = markDateCalendarDayItems.FirstOrDefault(a => a.Date.Date == DisplayDate.Date);
-
-                if (dayitem != null)
-                {
-                    // monthScrollViewer.ScrollToElement(dayitem, addMargin: false, bringToTopOrLeft: false);
-
-                    // Add small delay until the scroll animation ends.
-                    //await Task.Delay(100);
-                    //await Task.Yield();
-
-                    var args = new CalendarViewDayClickedEventArgs(DisplayDate.DateTime);
-                    DateClickedCommand?.Execute(args);
-                }
-            }
-        }
-
         private void InternalCalendarViewSelectionChanged(CalendarView sender, CalendarViewSelectedDatesChangedEventArgs args)
         {
             if (args.AddedDates?.Count > 0)
             {
                 var clickedDate = args.AddedDates[0].Date;
+                SetInnerDisplayDate(clickedDate);
 
-                SetDisplayDate(clickedDate);
+                var clickArgs = new CalendarViewDayClickedEventArgs(clickedDate);
+                DateClickedCommand?.Execute(clickArgs);
             }
 
             // Reset selection, we don't show selected dates but react to them.
             CalendarView.SelectedDates.Clear();
         }
 
-        private void SetDisplayDate(DateTimeOffset date)
-        {
-            CalendarView.SetDisplayDate(date);
-
-            DisplayDate = date;
-        }
-
         private static void OnPropertiesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is WinoCalendarView control)
             {
+                control.UpdateVisibleDateRangeBackgrounds();
+            }
+        }
+
+        private void SetInnerDisplayDate(DateTime dateTime) => CalendarView?.SetDisplayDate(dateTime);
+
+        // Changing selected dates will trigger the selection changed event.
+        // It will behave like user clicked the date.
+        public void GoToDay(DateTime dateTime) => CalendarView.SelectedDates.Add(dateTime);
+
+        private static void OnHighlightedDateRangeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is WinoCalendarView control)
+            {
+                control.SetInnerDisplayDate(control.HighlightedDateRange.StartDate);
                 control.UpdateVisibleDateRangeBackgrounds();
             }
         }

@@ -160,5 +160,7 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Whether the mail list action bar is enabled or not.
         /// </summary>
         bool IsMailListActionBarEnabled { get; set; }
+        CalendarDisplayType CalendarDisplayType { get; set; }
+        int DayDisplayCount { get; set; }
     }
 }
