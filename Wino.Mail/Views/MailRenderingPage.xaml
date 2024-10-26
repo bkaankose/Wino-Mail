@@ -179,6 +179,7 @@
                         VerticalAlignment="Center"
                         FontSize="18"
                         FontWeight="SemiBold"
+                        IsTextSelectionEnabled="True"
                         Text="{x:Bind helpers:XamlHelpers.GetMailItemSubject( ViewModel.Subject), Mode=OneWay}"
                         TextWrapping="Wrap" />
 
