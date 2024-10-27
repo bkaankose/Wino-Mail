@@ -13,12 +13,12 @@ namespace Wino.Calendar.Models.CalendarTypeStrategies
 
         public override DateRange GetNextDateRange(DateRange CurrentDateRange, int DayDisplayCount)
         {
-            return new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(DayDisplayCount * 2));
+            return new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(DayDisplayCount * 5));
         }
 
         public override DateRange GetPreviousDateRange(DateRange CurrentDateRange, int DayDisplayCount)
         {
-            return new DateRange(CurrentDateRange.StartDate.AddDays(-DayDisplayCount * 2), CurrentDateRange.StartDate);
+            return new DateRange(CurrentDateRange.StartDate.AddDays(-DayDisplayCount * 5), CurrentDateRange.StartDate);
         }
 
         public override DateRange GetRenderDateRange(DateTime DisplayDate, int DayDisplayCount)

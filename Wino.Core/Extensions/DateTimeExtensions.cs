@@ -22,5 +22,14 @@ namespace Wino.Core.Extensions
 
             return new DateRange(firstDayOfMonth, lastDayOfMonth);
         }
+
+        public static DateTime GetWeekStartDateForDate(this DateTime date, DayOfWeek firstDayOfWeek)
+        {
+            // Detect the first day of the week that contains the selected date.
+            int diff = (7 + (date.DayOfWeek - firstDayOfWeek)) % 7;
+
+            // Start loading from this date instead of visible date.
+            return date.AddDays(-diff).Date;
+        }
     }
 }

@@ -8,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
@@ -48,15 +49,6 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private DateRange highlightedDateRange;
 
-        /// <summary>
-
-        /// <summary>
-        /// Gets or sets the current display type of the calendar.
-        /// </summary>
-        //[ObservableProperty]
-        //[NotifyPropertyChangedFor(nameof(IsVerticalCalendar))]
-        //private CalendarDisplayType _currentDisplayType = CalendarDisplayType.Day;
-
         [ObservableProperty]
         private ObservableRangeCollection<string> dateNavigationHeaderItems = [];
 
@@ -72,18 +64,21 @@ namespace Wino.Calendar.ViewModels
         {
             PreferencesService = preferencesService;
 
-            PreferencesService.PreferenceChanged += PrerefencesChanged;
+            PreferencesService.PreferenceChanged += PrefefencesChanged;
             StatePersistenceService = statePersistanceService;
             NavigationService = navigationService;
             ServerConnectionManager = serverConnectionManager;
         }
 
-        private void PrerefencesChanged(object sender, string e)
+        private void PrefefencesChanged(object sender, string e)
         {
             if (e == nameof(PreferencesService.CalendarDisplayType))
             {
                 DisplayTypeChanged?.Invoke(this, PreferencesService.CalendarDisplayType);
                 OnPropertyChanged(nameof(IsVerticalCalendar));
+
+                // Change the calendar.
+                DateClicked(new CalendarViewDayClickedEventArgs(GetDisplayTypeSwitchDate()));
             }
         }
 
@@ -93,6 +88,36 @@ namespace Wino.Calendar.ViewModels
 
             CreateFooterItems();
             UpdateDateNavigationHeaderItems();
+        }
+
+        /// <summary>
+        /// When calendar type switches, we need to navigate to the most ideal date.
+        /// This method returns that date.
+        /// </summary>
+        private DateTime GetDisplayTypeSwitchDate()
+        {
+            switch (PreferencesService.CalendarDisplayType)
+            {
+                case CalendarDisplayType.Day:
+                    if (HighlightedDateRange.IsInRange(DateTime.Now)) return DateTime.Now.Date;
+
+                    return HighlightedDateRange.StartDate;
+                case CalendarDisplayType.Week:
+                    // TODO: From settings
+                    if (HighlightedDateRange.IsInRange(DateTime.Now)) return DateTime.Now.Date.GetWeekStartDateForDate(DayOfWeek.Monday);
+
+                    return HighlightedDateRange.StartDate.GetWeekStartDateForDate(DayOfWeek.Monday);
+                case CalendarDisplayType.WorkWeek:
+                    break;
+                case CalendarDisplayType.Month:
+                    break;
+                case CalendarDisplayType.Year:
+                    break;
+                default:
+                    break;
+            }
+
+            return DateTime.Today.Date;
         }
 
         protected override void OnDispatcherAssigned()

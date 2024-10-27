@@ -17,8 +17,9 @@
                 <ControlTemplate TargetType="controls:WinoCalendarView">
                     <CalendarView
                         x:Name="PART_CalendarView"
-                        BorderBrush="{ThemeResource WinoCalendarViewBorderBrush}"
+                        BorderBrush="Transparent"
                         CalendarItemCornerRadius="5"
+                        CornerRadius="4"
                         DayItemMargin="0"
                         IsTodayHighlighted="False"
                         SelectionMode="Single">
