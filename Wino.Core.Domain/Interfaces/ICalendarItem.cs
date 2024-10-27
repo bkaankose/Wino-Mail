@@ -1,4 +1,5 @@
 ﻿using System;
+using Itenso.TimePeriod;
 
 namespace Wino.Core.Domain.Interfaces
 {
@@ -7,5 +8,6 @@ namespace Wino.Core.Domain.Interfaces
         Guid Id { get; }
         DateTime StartTime { get; }
         DateTime EndTime { get; }
+        ITimePeriod Period { get; }
     }
 }

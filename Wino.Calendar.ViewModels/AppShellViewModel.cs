@@ -90,6 +90,12 @@ namespace Wino.Calendar.ViewModels
             UpdateDateNavigationHeaderItems();
         }
 
+        [RelayCommand]
+        private void AddEvent()
+        {
+            Messenger.Send(new CalendarEventAdded(new CalendarItem(HighlightedDateRange.StartDate.AddHours(15), HighlightedDateRange.StartDate.AddHours(30))));
+        }
+
         /// <summary>
         /// When calendar type switches, we need to navigate to the most ideal date.
         /// This method returns that date.

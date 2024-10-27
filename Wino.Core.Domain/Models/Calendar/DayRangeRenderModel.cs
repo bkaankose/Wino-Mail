@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using Itenso.TimePeriod;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Calendar
@@ -9,6 +11,7 @@ namespace Wino.Core.Domain.Models.Calendar
     /// </summary>
     public class DayRangeRenderModel
     {
+        ITimePeriod Period { get; }
         public List<CalendarDayModel> CalendarDays { get; } = new List<CalendarDayModel>();
         public List<DayHeaderRenderModel> DayHeaders { get; } = new List<DayHeaderRenderModel>();
         public CalendarRenderOptions CalendarRenderOptions { get; }
@@ -24,6 +27,8 @@ namespace Wino.Core.Domain.Models.Calendar
 
                 CalendarDays.Add(calendarDayModel);
             }
+
+            Period = new TimeRange(CalendarDays.First().RepresentingDate, CalendarDays.Last().RepresentingDate.AddDays(1));
 
             // Create day headers based on culture info.
 
@@ -41,6 +46,5 @@ namespace Wino.Core.Domain.Models.Calendar
                 DayHeaders.Add(new DayHeaderRenderModel(dayHeader, calendarRenderOptions.CalendarSettings.HourHeight));
             }
         }
-
     }
 }

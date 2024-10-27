@@ -1,4 +1,5 @@
 ﻿using System;
+using Itenso.TimePeriod;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Calendar
@@ -9,11 +10,14 @@ namespace Wino.Core.Domain.Models.Calendar
         {
             StartTime = startTime;
             EndTime = endTime;
+            Period = new TimeRange(startTime, endTime);
         }
 
         public DateTime StartTime { get; }
         public DateTime EndTime { get; }
 
         public Guid Id { get; } = Guid.NewGuid();
+
+        public ITimePeriod Period { get; }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using Itenso.TimePeriod;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Calendar
@@ -10,10 +11,12 @@ namespace Wino.Core.Domain.Models.Calendar
     /// </summary>
     public class CalendarDayModel
     {
+        public ITimePeriod Period { get; }
         public ObservableCollection<ICalendarItem> Events { get; } = new ObservableCollection<ICalendarItem>();
         public CalendarDayModel(DateTime representingDate, CalendarRenderOptions calendarRenderOptions)
         {
             RepresentingDate = representingDate;
+            Period = new TimeRange(representingDate, representingDate.AddDays(1));
             CalendarRenderOptions = calendarRenderOptions;
         }
 

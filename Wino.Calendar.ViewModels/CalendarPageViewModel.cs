@@ -40,6 +40,7 @@ namespace Wino.Calendar.ViewModels
         private int _displayDayCount;
 
         private SemaphoreSlim _calendarLoadingSemaphore = new(1);
+        private bool isLoadMoreBlocked = false;
 
         public IPreferencesService PreferencesService { get; }
 
@@ -134,7 +135,7 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        private bool isLoadMoreBlocked = false;
+
 
         private async Task RenderDatesAsync(CalendarInitInitiative calendarInitInitiative,
                                             DateTime? loadingDisplayDate = null,
@@ -347,6 +348,29 @@ namespace Wino.Calendar.ViewModels
             finally
             {
                 _calendarLoadingSemaphore.Release();
+            }
+        }
+
+        protected override async void OnCalendarEventAdded(ICalendarItem calendarItem)
+        {
+            base.OnCalendarEventAdded(calendarItem);
+
+            if (calendarItem != null)
+            {
+                // Find the calendar dates that contains the event.
+                // Event might be in multiple dates.
+
+                var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => calendarItem.Period.OverlapsWith(b.Period));
+
+                foreach (var day in eventDays)
+                {
+                    Debug.WriteLine($"Adding event to {day.RepresentingDate}");
+
+                    await ExecuteUIThread(() =>
+                    {
+                        day.Events.Add(calendarItem);
+                    });
+                }
             }
         }
     }
