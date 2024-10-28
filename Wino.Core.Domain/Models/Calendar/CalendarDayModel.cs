@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Models.Calendar
     /// </summary>
     public class CalendarDayModel
     {
-        public ITimePeriod Period { get; }
+        public TimeRange Period { get; }
         public ObservableCollection<ICalendarItem> Events { get; } = new ObservableCollection<ICalendarItem>();
         public CalendarDayModel(DateTime representingDate, CalendarRenderOptions calendarRenderOptions)
         {

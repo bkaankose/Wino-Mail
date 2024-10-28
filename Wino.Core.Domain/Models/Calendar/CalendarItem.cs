@@ -6,6 +6,7 @@ namespace Wino.Core.Domain.Models.Calendar
 {
     public class CalendarItem : ICalendarItem
     {
+        public string Name { get; set; }
         public CalendarItem(DateTime startTime, DateTime endTime)
         {
             StartTime = startTime;
@@ -18,6 +19,6 @@ namespace Wino.Core.Domain.Models.Calendar
 
         public Guid Id { get; } = Guid.NewGuid();
 
-        public ITimePeriod Period { get; }
+        public TimeRange Period { get; }
     }
 }

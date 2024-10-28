@@ -33,5 +33,10 @@ namespace Wino.Calendar.Controls
 
             UpdateLayout();
         }
+
+        public override string ToString()
+        {
+            return Item?.Name ?? "NA";
+        }
     }
 }

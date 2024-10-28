@@ -6,7 +6,7 @@
     xmlns:core="using:Wino.Core.UWP"
     xmlns:coreStyles="using:Wino.Core.UWP.Styles"
     xmlns:local="using:Wino.Calendar"
-    xmlns:styles="using:WinoCalendarControl.Styles">
+    xmlns:styles="using:Wino.Calendar.Styles">
     <Application.Resources>
         <controls:XamlControlsResources>
             <controls:XamlControlsResources.MergedDictionaries>
@@ -18,13 +18,15 @@
                 <styles:WinoCalendarResources />
 
                 <ResourceDictionary Source="Styles/CalendarRenderStyles.xaml" />
-                <ResourceDictionary Source="Styles/CalendarItemControl.xaml" />
+
                 <ResourceDictionary Source="Styles/CalendarDayItemsControl.xaml" />
                 <ResourceDictionary Source="Styles/DayHeaderControl.xaml" />
                 <ResourceDictionary Source="Styles/WinoDayTimelineCanvas.xaml" />
                 <ResourceDictionary Source="Styles/DayColumnControl.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarView.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
+
+                <styles:CalendarItemControlResources />
             </controls:XamlControlsResources.MergedDictionaries>
         </controls:XamlControlsResources>
     </Application.Resources>

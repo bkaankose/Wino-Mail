@@ -1,6 +1,6 @@
 ﻿using Windows.UI.Xaml;
 
-namespace WinoCalendarControl.Styles
+namespace Wino.Calendar.Styles
 {
     public sealed partial class WinoCalendarResources : ResourceDictionary
     {

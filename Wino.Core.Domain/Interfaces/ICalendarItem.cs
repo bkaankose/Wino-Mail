@@ -5,9 +5,10 @@ namespace Wino.Core.Domain.Interfaces
 {
     public interface ICalendarItem
     {
+        string Name { get; }
         Guid Id { get; }
         DateTime StartTime { get; }
         DateTime EndTime { get; }
-        ITimePeriod Period { get; }
+        TimeRange Period { get; }
     }
 }

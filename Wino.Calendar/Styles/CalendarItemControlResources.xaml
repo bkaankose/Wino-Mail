@@ -1,4 +1,5 @@
 ﻿<ResourceDictionary
+    x:Class="Wino.Calendar.Styles.CalendarItemControlResources"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Calendar.Controls">
@@ -10,13 +11,14 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="controls:CalendarItemControl">
                         <Grid
-                            Margin="4,4,20,4"
+                            Margin="1,1,1,1"
                             Background="#cf2b36"
-                            CornerRadius="4">
+                            BorderBrush="Gray"
+                            CornerRadius="3">
                             <TextBlock
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Text="{Binding}" />
+                                Text="{x:Bind Item.Name, Mode=OneWay}" />
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>

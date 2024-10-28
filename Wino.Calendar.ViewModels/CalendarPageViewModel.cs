@@ -355,23 +355,79 @@ namespace Wino.Calendar.ViewModels
         {
             base.OnCalendarEventAdded(calendarItem);
 
-            if (calendarItem != null)
+            // Test
+            var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => b.Period.Start.Date == calendarItem.StartTime.Date);
+
+            var beforeAllDay = new CalendarItem(calendarItem.StartTime.Date.AddHours(0), calendarItem.StartTime.Date.AddMinutes(30))
             {
-                // Find the calendar dates that contains the event.
-                // Event might be in multiple dates.
+                Name = "kj"
+            };
 
-                var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => calendarItem.Period.OverlapsWith(b.Period));
+            var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.AddHours(10).AddMinutes(59))
+            {
+                Name = "All day"
+            };
 
-                foreach (var day in eventDays)
+            var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.AddHours(4).AddMinutes(30))
+            {
+                Name = "test"
+            };
+
+            var hour = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8))
+            {
+                Name = "1 h"
+            };
+
+            var hourandhalf = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
+            {
+                Name = "1.5 h"
+            };
+            var halfhour1 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(7).AddMinutes(30))
+            {
+                Name = "30 min"
+            };
+
+            var halfhour2 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7).AddMinutes(30), calendarItem.StartTime.Date.AddHours(8))
+            {
+                Name = "30 min"
+            };
+            var halfhour3 = new CalendarItem(calendarItem.StartTime.Date.AddHours(8), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
+            {
+                Name = "30 min"
+            };
+
+            foreach (var day in eventDays)
+            {
+                await ExecuteUIThread(() =>
                 {
-                    Debug.WriteLine($"Adding event to {day.RepresentingDate}");
-
-                    await ExecuteUIThread(() =>
-                    {
-                        day.Events.Add(calendarItem);
-                    });
-                }
+                    day.Events.Add(beforeAllDay);
+                    day.Events.Add(allday);
+                    day.Events.Add(hourandhalf);
+                    day.Events.Add(hour);
+                    day.Events.Add(halfhour1);
+                    day.Events.Add(halfhour2);
+                    day.Events.Add(halfhour3);
+                    day.Events.Add(test);
+                });
             }
+            return;
+            //if (calendarItem != null)
+            //{
+            //    // Find the calendar dates that contains the event.
+            //    // Event might be in multiple dates.
+
+            //    var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => calendarItem.Period.OverlapsWith(b.Period));
+
+            //    foreach (var day in eventDays)
+            //    {
+            //        Debug.WriteLine($"Adding event to {day.RepresentingDate}");
+
+            //        await ExecuteUIThread(() =>
+            //        {
+            //            day.Events.Add(calendarItem);
+            //        });
+            //    }
+            //}
         }
     }
 }

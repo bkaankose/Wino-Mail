@@ -9,7 +9,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="controls:CalendarDayItemsControl">
-                        <controls:WinoCalendarPanel x:Name="PART_CalendarPanel" DayModel="{TemplateBinding DayModel}" />
+                        <controls:WinoCalendarPanel
+                            x:Name="PART_CalendarPanel"
+                            DayModel="{TemplateBinding DayModel}"
+                            EventItemMargin="0" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
