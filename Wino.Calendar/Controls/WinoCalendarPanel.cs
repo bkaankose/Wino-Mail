@@ -14,6 +14,8 @@ namespace Wino.Calendar.Controls
 {
     public class WinoCalendarPanel : Panel
     {
+        private const double LastItemRightExtraMargin = 12d;
+
         // Store each ICalendarItem measurements by their Id.
         private readonly Dictionary<Guid, CalendarItemMeasurement> _measurements = new Dictionary<Guid, CalendarItemMeasurement>();
 
@@ -132,9 +134,19 @@ namespace Wino.Calendar.Controls
                 double childTop = Math.Max(0, GetChildTopMargin(child.Item.StartTime, availableHeight));
                 double childLeft = Math.Max(0, GetChildLeftMargin(childMeasurement, availableWidth));
 
+                bool isHorizontallyLastItem = childMeasurement.Right == 1;
+
+                // Add additional right margin to items that falls on the right edge of the panel.
+                // Max of 5% of the width or 20px.
+                var extraRightMargin = isHorizontallyLastItem ? Math.Max(LastItemRightExtraMargin, finalSize.Width * 5 / 100) : 0;
+
+                var finalChildWidth = childWidth - extraRightMargin;
+
+                if (finalChildWidth < 0) finalChildWidth = 1;
+
                 child.Measure(new Size(childWidth, childHeight));
 
-                var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, childWidth, childHeight);
+                var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, childWidth - extraRightMargin, childHeight);
 
                 child.Arrange(arrangementRect);
             }
