@@ -159,7 +159,6 @@
     <Compile Include="Styles\DataTemplates.xaml.cs">
       <DependentUpon>DataTemplates.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageBase.cs" />

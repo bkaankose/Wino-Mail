@@ -1,5 +1,5 @@
 ﻿using System;
-using Wino.Core.Authenticators;
+using Wino.Core.Authenticators.Mail;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;

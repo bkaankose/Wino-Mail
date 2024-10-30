@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
-using Wino.Core.Authenticators;
+using Wino.Core.Authenticators.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration.Threading;

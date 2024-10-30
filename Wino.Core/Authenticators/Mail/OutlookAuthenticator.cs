@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
 using Microsoft.Identity.Client.Extensions.Msal;
+using Wino.Core.Authenticators.Base;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -12,13 +13,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 
-namespace Wino.Core.Authenticators
+namespace Wino.Core.Authenticators.Mail
 {
     /// <summary>
-    /// Authenticator for Outlook provider.
+    /// Authenticator for Outlook Mail provider.
     /// Token cache is managed by MSAL, not by Wino.
     /// </summary>
-    public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
+    public class OutlookAuthenticator : OutlookAuthenticatorBase
     {
         private const string TokenCacheFileName = "OutlookCache.bin";
         private bool isTokenCacheAttached = false;
@@ -26,7 +27,7 @@ namespace Wino.Core.Authenticators
         // Outlook
         private const string Authority = "https://login.microsoftonline.com/common";
 
-        public string ClientId { get; } = "b19c2035-d740-49ff-b297-de6ec561b208";
+        public override string ClientId { get; } = "b19c2035-d740-49ff-b297-de6ec561b208";
 
         private readonly string[] MailScope =
         [
@@ -67,7 +68,7 @@ namespace Wino.Core.Authenticators
             _publicClientApplication = outlookAppBuilder.Build();
         }
 
-        public async Task<TokenInformation> GetTokenAsync(MailAccount account)
+        public override async Task<TokenInformation> GetTokenAsync(MailAccount account)
         {
             if (!isTokenCacheAttached)
             {
@@ -101,7 +102,7 @@ namespace Wino.Core.Authenticators
             }
         }
 
-        public async Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)
+        public override async Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)
         {
             try
             {

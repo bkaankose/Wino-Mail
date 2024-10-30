@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Authenticators.Base;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -14,19 +15,17 @@ using Wino.Core.Domain.Models.Authorization;
 using Wino.Core.Services;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Authenticators
+namespace Wino.Core.Authenticators.Mail
 {
-    public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
+    public class GmailAuthenticator : GmailAuthenticatorBase
     {
-        public string ClientId { get; } = "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
+        public override string ClientId { get; } = "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
 
         private const string TokenEndpoint = "https://www.googleapis.com/oauth2/v4/token";
         private const string RefreshTokenEndpoint = "https://oauth2.googleapis.com/token";
         private const string UserInfoEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/profile";
 
         public override MailProviderType ProviderType => MailProviderType.Gmail;
-
-        public bool ProposeCopyAuthURL { get; set; }
 
         private readonly INativeAppService _nativeAppService;
 
@@ -95,7 +94,7 @@ namespace Wino.Core.Authenticators
             };
         }
 
-        public async Task<TokenInformation> GetTokenAsync(MailAccount account)
+        public async override Task<TokenInformation> GetTokenAsync(MailAccount account)
         {
             var cachedToken = await TokenService.GetTokenInformationAsync(account.Id)
                 ?? throw new AuthenticationAttentionException(account);
@@ -117,7 +116,7 @@ namespace Wino.Core.Authenticators
         }
 
 
-        public async Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)
+        public async override Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)
         {
             var authRequest = _nativeAppService.GetGoogleAuthorizationRequest();
 

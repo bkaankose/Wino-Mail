@@ -3,7 +3,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Services;
 
-namespace Wino.Core.Authenticators
+namespace Wino.Core.Authenticators.Base
 {
     public abstract class BaseAuthenticator
     {

@@ -282,6 +282,7 @@
     <Compile Include="Views\Abstract\MailRenderingPageAbstract.cs" />
     <Compile Include="Views\Abstract\MergedAccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\MessageListPageAbstract.cs" />
+    <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
     <Compile Include="Views\Abstract\ReadComposePanePageAbstract.cs" />
     <Compile Include="Views\Abstract\SignatureManagementPageAbstract.cs" />

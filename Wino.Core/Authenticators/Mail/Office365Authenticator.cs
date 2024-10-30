@@ -2,7 +2,7 @@
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 
-namespace Wino.Core.Authenticators
+namespace Wino.Core.Authenticators.Mail
 {
     public class Office365Authenticator : OutlookAuthenticator
     {
