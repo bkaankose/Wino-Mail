@@ -35,6 +35,9 @@ namespace Wino.Calendar.ViewModels
 
         private CalendarSettings _calendarSettings;
 
+        // Get rid of some of the items if we have too many.
+        private const int maxDayRangeSize = 10;
+
         // Store latest rendered options.
         private CalendarDisplayType _currentDisplayType;
         private int _displayDayCount;
@@ -243,10 +246,7 @@ namespace Wino.Calendar.ViewModels
                 // Wait for the animation to finish.
                 // Otherwise it somehow shutters a little, which is annoying.
 
-                if (!removeCurrent)
-                {
-                    await Task.Delay(500);
-                }
+                if (!removeCurrent) await Task.Delay(500);
 
                 // Insert each render model in reverse order.
                 for (int i = renderModels.Count - 1; i >= 0; i--)
@@ -271,9 +271,12 @@ namespace Wino.Calendar.ViewModels
                 {
                     DayRanges.Remove(SelectedDayRange);
                 });
-
-                isLoadMoreBlocked = false;
             }
+
+            // TODO...
+            // await TryConsolidateItemsAsync();
+
+            isLoadMoreBlocked = false;
 
             // Only scroll if the render is initiated by user.
             // Otherwise we'll scroll to the app rendered invisible date range.
@@ -284,6 +287,34 @@ namespace Wino.Calendar.ViewModels
                 _displayDayCount = PreferencesService.DayDisplayCount;
 
                 Messenger.Send(new ScrollToDateMessage(displayDate));
+            }
+        }
+
+        private async Task TryConsolidateItemsAsync()
+        {
+            // Check if trimming is necessary
+            if (DayRanges.Count > maxDayRangeSize)
+            {
+                Debug.WriteLine("Trimming items.");
+
+                isLoadMoreBlocked = true;
+
+                var removeCount = DayRanges.Count - maxDayRangeSize;
+
+                await Task.Delay(500);
+
+                // Right shifted, remove from the start.
+                if (SelectedDateRangeIndex > DayRanges.Count / 2)
+                {
+                    DayRanges.RemoveRange(DayRanges.Take(removeCount).ToList());
+                }
+                else
+                {
+                    // Left shifted, remove from the end.
+                    DayRanges.RemoveRange(DayRanges.Skip(DayRanges.Count - removeCount).Take(removeCount));
+                }
+
+                SelectedDateRangeIndex = DayRanges.IndexOf(SelectedDayRange);
             }
         }
 
@@ -318,16 +349,12 @@ namespace Wino.Calendar.ViewModels
                 {
                     // Load next, starting from the end date.
                     _ = LoadMoreAsync(CalendarLoadDirection.Next);
-
-
                 }
                 else if (SelectedDateRangeIndex == 0)
                 {
                     // Load previous, starting from the start date.
 
                     _ = LoadMoreAsync(CalendarLoadDirection.Previous);
-
-                    Debug.WriteLine("Loading previous items.");
                 }
             }
         }
@@ -363,12 +390,12 @@ namespace Wino.Calendar.ViewModels
                 Name = "kj"
             };
 
-            var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.AddHours(10).AddMinutes(59))
+            var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.Date.AddHours(10).AddMinutes(59))
             {
                 Name = "All day"
             };
 
-            var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.AddHours(4).AddMinutes(30))
+            var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.Date.AddHours(4).AddMinutes(30))
             {
                 Name = "test"
             };
