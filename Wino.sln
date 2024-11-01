@@ -10,6 +10,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wino.Core.UWP", "Wino.Core.UWP\Wino.Core.UWP.csproj", "{395F19BA-1E42-495C-9DB5-1A6F537FCCB8}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Core.Domain", "Wino.Core.Domain\Wino.Core.Domain.csproj", "{CF3312E5-5DA0-4867-9945-49EA7598AF1F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949} = {D4919A19-E70F-4916-83D2-5D5F87BEB949}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wino.BackgroundTasks", "Wino.BackgroundTasks\Wino.BackgroundTasks.csproj", "{D9EF0F59-F5F2-4D6C-A5BA-84043D8F3E08}"
 EndProject
@@ -22,6 +25,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wino.Server", "Wino.Server\Wino.Server.csproj", "{3D1942E5-1A3B-4062-B4BB-156A40DA47FE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{17FF5FAE-F1AC-4572-BAA3-8B86F01EA758}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wino.SourceGenerators", "Wino.SourceGenerators\Wino.SourceGenerators.csproj", "{D4919A19-E70F-4916-83D2-5D5F87BEB949}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -153,6 +158,18 @@ Global
 		{3D1942E5-1A3B-4062-B4BB-156A40DA47FE}.Release|x64.Build.0 = Release|x64
 		{3D1942E5-1A3B-4062-B4BB-156A40DA47FE}.Release|x86.ActiveCfg = Release|x86
 		{3D1942E5-1A3B-4062-B4BB-156A40DA47FE}.Release|x86.Build.0 = Release|x86
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Debug|x64.Build.0 = Debug|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Debug|x86.Build.0 = Debug|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Release|ARM64.Build.0 = Release|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Release|x64.ActiveCfg = Release|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Release|x64.Build.0 = Release|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Release|x86.ActiveCfg = Release|Any CPU
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -164,6 +181,7 @@ Global
 		{D9EF0F59-F5F2-4D6C-A5BA-84043D8F3E08} = {17FF5FAE-F1AC-4572-BAA3-8B86F01EA758}
 		{D62F1C03-DA57-4709-A640-0283296A8E66} = {17FF5FAE-F1AC-4572-BAA3-8B86F01EA758}
 		{0C307D7E-256F-448C-8265-5622A812FBCC} = {17FF5FAE-F1AC-4572-BAA3-8B86F01EA758}
+		{D4919A19-E70F-4916-83D2-5D5F87BEB949} = {17FF5FAE-F1AC-4572-BAA3-8B86F01EA758}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {721F946E-F69F-4987-823A-D084B436FC1E}
