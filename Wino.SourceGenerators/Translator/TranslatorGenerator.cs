@@ -92,7 +92,6 @@ namespace Wino.Core.SourceGeneration.Translator
             				return _dictionary;
             			}
             		}
-
             """);
 
         string[] escapeChars = [" ", ";", "@", "$", "&", "(", ")", "-", "#", ":", "!", "'", "?", "{", "}", ","];
