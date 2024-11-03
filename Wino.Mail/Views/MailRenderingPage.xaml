@@ -277,6 +277,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.ComposerTo}"
@@ -300,6 +301,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Cc:"
@@ -323,6 +325,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Bcc:"
