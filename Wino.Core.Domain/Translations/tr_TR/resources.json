@@ -611,5 +611,6 @@
     "TitleBarServerDisconnectedButton_Title": "bağlantı yok",
     "TitleBarServerDisconnectedButton_Description": "Wino'nun sunucu bağlantısı yok. Tekrar bağlan'a basarak bağlantıyı onarınız.",
     "TitleBarServerReconnectButton_Title": "bağlan",
-    "TitleBarServerReconnectingButton_Title": "bağlanılıyor"
+    "TitleBarServerReconnectingButton_Title": "bağlanılıyor",
+    "MailItemNoSubject": "No subject"
 }
