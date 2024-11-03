@@ -179,7 +179,8 @@
                         VerticalAlignment="Center"
                         FontSize="18"
                         FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.Subject, Mode=OneWay}"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind helpers:XamlHelpers.GetMailItemSubject( ViewModel.Subject), Mode=OneWay}"
                         TextWrapping="Wrap" />
 
                     <HyperlinkButton
