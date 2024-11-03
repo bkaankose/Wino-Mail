@@ -70,17 +70,14 @@
 	<ItemGroup>
 	  <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
 	</ItemGroup>
+
 	<ItemGroup>
-	  <Compile Update="Translator.Designer.cs">
-	    <DesignTime>True</DesignTime>
-	    <AutoGen>True</AutoGen>
-	    <DependentUpon>Translator.tt</DependentUpon>
-	  </Compile>
+		<AdditionalFiles Include="Translations\en_US\resources.json" />
 	</ItemGroup>
+
 	<ItemGroup>
-	  <None Update="Translator.tt">
-	    <Generator>TextTemplatingFileGenerator</Generator>
-	    <LastGenOutput>Translator.Designer.cs</LastGenOutput>
-	  </None>
+		<!-- Source Generators -->
+		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
+
 </Project>
