@@ -31,6 +31,6 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-        
+
     </ScrollViewer>
 </abstract:SettingOptionsPageAbstract>

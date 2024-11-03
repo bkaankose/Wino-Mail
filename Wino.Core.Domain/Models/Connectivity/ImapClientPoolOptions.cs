@@ -1,5 +1,5 @@
 ﻿using System.IO;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Models.Connectivity
 {

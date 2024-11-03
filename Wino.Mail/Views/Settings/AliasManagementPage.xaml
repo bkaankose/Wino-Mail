@@ -1,24 +1,25 @@
-﻿<abstract:AliasManagementPageAbstract x:Class="Wino.Views.Settings.AliasManagementPage"
-                                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                                      xmlns:toolkitExt="using:CommunityToolkit.WinUI"
-                                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                                      xmlns:abstract="using:Wino.Views.Abstract"
-                                      xmlns:controls="using:Wino.Controls"
-                                      xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
-                                      xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
-                                      xmlns:behaviors="using:CommunityToolkit.WinUI.Behaviors"
-                                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                                      xmlns:domain="using:Wino.Core.Domain"
-                                      xmlns:entities="using:Wino.Core.Domain.Entities"
-                                      xmlns:helpers="using:Wino.Helpers"
-                                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                                      xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-                                      xmlns:reader="using:Wino.Core.Domain.Models.Reader"
-                                      x:Name="root"
-                                      mc:Ignorable="d">
+﻿<abstract:AliasManagementPageAbstract
+    x:Class="Wino.Views.Settings.AliasManagementPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:behaviors="using:CommunityToolkit.WinUI.Behaviors"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    xmlns:toolkitExt="using:CommunityToolkit.WinUI"
+    x:Name="root"
+    mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="AccountAliasTemplate" x:DataType="entities:MailAccountAlias">
+        <DataTemplate x:Key="AccountAliasTemplate" x:DataType="mail:MailAccountAlias">
             <Grid Margin="0,0,0,20" ColumnSpacing="20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -79,10 +80,11 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ListView ItemTemplate="{StaticResource AccountAliasTemplate}"
-              ItemsSource="{x:Bind ViewModel.AccountAliases, Mode=OneWay}"
-              toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
-              SelectionMode="None">
+    <ListView
+        toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+        ItemTemplate="{StaticResource AccountAliasTemplate}"
+        ItemsSource="{x:Bind ViewModel.AccountAliases, Mode=OneWay}"
+        SelectionMode="None">
         <ListView.ItemContainerTransitions>
             <TransitionCollection>
                 <NavigationThemeTransition />

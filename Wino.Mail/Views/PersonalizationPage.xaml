@@ -6,6 +6,7 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:controls1="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
@@ -13,6 +14,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
     xmlns:selectors="using:Wino.Selectors"
+    xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -134,7 +136,7 @@
             </Grid>
         </DataTemplate>
 
-        <selectors:AppThemePreviewTemplateSelector
+        <coreSelectors:AppThemePreviewTemplateSelector
             x:Key="AppThemePreviewTemplateSelector"
             CustomAppTemplate="{StaticResource CustomAppThemeTemplate}"
             PreDefinedThemeTemplate="{StaticResource PreDefinedAppThemeTemplate}"
@@ -192,7 +194,7 @@
                         <StackPanel>
                             <GridView ItemsSource="{x:Bind ViewModel.Colors}" SelectedItem="{x:Bind ViewModel.SelectedAppColor, Mode=TwoWay}">
                                 <GridView.ItemTemplate>
-                                    <DataTemplate x:DataType="viewModelData:AppColorViewModel">
+                                    <DataTemplate x:DataType="data:AppColorViewModel">
                                         <Grid
                                             Width="45"
                                             Height="45"

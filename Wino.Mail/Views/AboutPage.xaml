@@ -4,17 +4,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:domain="using:Wino.Core.Domain"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
     <ScrollViewer>
         <StackPanel Spacing="3">
             <Image
-                Source="ms-appx:///Assets/StoreLogo.png"
                 Width="50"
-                Height="50" />
+                Height="50"
+                Source="ms-appx:///Assets/StoreLogo.png" />
             <TextBlock
                 Margin="0,6,0,4"
                 HorizontalAlignment="Center"
@@ -133,9 +133,9 @@
                 </controls:SettingsExpander.HeaderIcon>
 
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}" Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}">
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableLogs_Description}" Header="{x:Bind domain:Translator.SettingsEnableLogs_Title}">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Button Content="{x:Bind domain:Translator.Buttons_Share}" Command="{x:Bind ViewModel.ShareWinoLogCommand}" />
+                            <Button Command="{x:Bind ViewModel.ShareWinoLogCommand}" Content="{x:Bind domain:Translator.Buttons_Share}" />
                             <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsLoggingEnabled, Mode=TwoWay}" />
                         </StackPanel>
                     </controls:SettingsCard>

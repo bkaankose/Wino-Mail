@@ -227,7 +227,7 @@ namespace Wino.Views
         private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
             => RealAppBar.ShellFrameContent = (e.Content as BasePage).ShellContent;
 
-        private void BackButtonClicked(Controls.Advanced.WinoAppTitleBar sender, RoutedEventArgs args)
+        private void BackButtonClicked(WinoAppTitleBar sender, RoutedEventArgs args)
         {
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
             WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
