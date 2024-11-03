@@ -31,7 +31,7 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels
 {
     public partial class AppShellViewModel : MailBaseViewModel,
-        IRecipient<NavigateSettingsRequested>,
+        IRecipient<NavigateManageAccountsRequested>,
         IRecipient<MailtoProtocolMessageRequested>,
         IRecipient<RefreshUnreadCountsMessage>,
         IRecipient<AccountsMenuRefreshRequested>,
@@ -918,7 +918,7 @@ namespace Wino.Mail.ViewModels
             accountMenuItem.UpdateAccount(accountModel);
         }
 
-        public void Receive(NavigateSettingsRequested message) => SelectedMenuItem = ManageAccountsMenuItem;
+        public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItem = ManageAccountsMenuItem;
 
         public async void Receive(MailtoProtocolMessageRequested message)
         {

@@ -16,13 +16,19 @@ namespace Wino.Core.ViewModels
         private readonly ISettingsBuilderService _settingsBuilderService;
 
         [RelayCommand]
-        private void GoAccountSettings() => Messenger.Send<NavigateSettingsRequested>();
+        private void GoAccountSettings() => Messenger.Send<NavigateManageAccountsRequested>();
 
         [RelayCommand]
         public void NavigateSubDetail(object type)
         {
             if (type is WinoPage pageType)
             {
+                if (pageType == WinoPage.AccountManagementPage)
+                {
+                    GoAccountSettings();
+                    return;
+                }
+
                 string pageTitle = pageType switch
                 {
                     WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
@@ -31,6 +37,7 @@ namespace Wino.Core.ViewModels
                     WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
                     WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
                     WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
+                    WinoPage.CalendarSettingsPage => Translator.SettingsCalendarSettings_Title,
                     _ => throw new NotImplementedException()
                 };
 

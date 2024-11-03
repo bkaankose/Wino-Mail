@@ -19,6 +19,7 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="settings:SettingOption">
                     <controls:SettingsCard
+                        Margin="0,2"
                         Command="{Binding ElementName=root, Path=ViewModel.NavigateSubDetailCommand}"
                         CommandParameter="{x:Bind NavigationPage}"
                         Description="{x:Bind Description}"

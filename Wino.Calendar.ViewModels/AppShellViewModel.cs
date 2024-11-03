@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,13 +13,15 @@ using Wino.Core.Extensions;
 using Wino.Core.MenuItems;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Calendar.ViewModels
 {
     public partial class AppShellViewModel : CalendarBaseViewModel,
         IRecipient<VisibleDateRangeChangedMessage>,
         IRecipient<CalendarEnableStatusChangedMessage>,
-        IRecipient<CalendarInitializedMessage>
+        IRecipient<CalendarInitializedMessage>,
+        IRecipient<NavigateManageAccountsRequested>
     {
         public event EventHandler<CalendarDisplayType> DisplayTypeChanged;
         public IPreferencesService PreferencesService { get; }
@@ -228,5 +231,7 @@ namespace Wino.Calendar.ViewModels
 
         // Calendar page is loaded and calendar is ready to recieve render requests.
         public void Receive(CalendarInitializedMessage message) => Messenger.Send(new GoToCalendarDayMessage(DateTime.Now.Date));
+
+        public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItem = FooterItems.FirstOrDefault(a => a is ManageAccountsMenuItem);
     }
 }

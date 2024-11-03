@@ -26,7 +26,7 @@
         AliasManagementPage,
 
         // Calendar
-
         CalendarPage,
+        CalendarSettingsPage,
     }
 }
