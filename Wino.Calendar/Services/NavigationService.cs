@@ -6,6 +6,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.UWP.Services;
+using Wino.Views;
 
 namespace Wino.Calendar.Services
 {
@@ -17,6 +18,8 @@ namespace Wino.Calendar.Services
             {
                 case WinoPage.CalendarPage:
                     return typeof(CalendarPage);
+                case WinoPage.SettingsPage:
+                    return typeof(SettingsPage);
                 default:
                     throw new Exception("Page is not implemented yet.");
             }

@@ -263,6 +263,7 @@
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\NavigationService.cs" />
+    <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\WinoExpanderStyle.xaml.cs">
       <DependentUpon>WinoExpanderStyle.xaml</DependentUpon>
     </Compile>

@@ -4,7 +4,7 @@ namespace Wino.Core.ViewModels
 {
     public class SettingsPageViewModel : CoreBaseViewModel
     {
-        public SettingsPageViewModel(IMailDialogService dialogService, INavigationService navigationService) 
+        public SettingsPageViewModel(INavigationService navigationService)
         {
             NavigationService = navigationService;
         }

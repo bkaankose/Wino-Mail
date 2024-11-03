@@ -29,6 +29,9 @@ namespace Wino.Calendar.ViewModels
         public MenuItemCollection MenuItems { get; set; }
 
         [ObservableProperty]
+        private IMenuItem _selectedMenuItem;
+
+        [ObservableProperty]
         private bool isCalendarEnabled;
 
         /// <summary>
@@ -88,6 +91,18 @@ namespace Wino.Calendar.ViewModels
 
             CreateFooterItems();
             UpdateDateNavigationHeaderItems();
+        }
+
+        partial void OnSelectedMenuItemChanged(IMenuItem oldValue, IMenuItem newValue)
+        {
+            if (newValue is SettingsItem)
+            {
+                NavigationService.Navigate(WinoPage.SettingsPage);
+            }
+            else if (newValue is ManageAccountsMenuItem)
+            {
+                NavigationService.Navigate(WinoPage.AccountManagementPage);
+            }
         }
 
         /// <summary>

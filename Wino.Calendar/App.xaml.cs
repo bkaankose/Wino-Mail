@@ -50,6 +50,7 @@ namespace Wino.Calendar
         {
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<ICalendarDialogService, DialogService>();
+            services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)

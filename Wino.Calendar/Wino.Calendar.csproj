@@ -155,6 +155,7 @@
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\NavigationService.cs" />
+    <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\CalendarItemControlResources.xaml.cs" />
     <Compile Include="Styles\WinoCalendarResources.xaml.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />

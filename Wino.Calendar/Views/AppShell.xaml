@@ -165,7 +165,8 @@
             IsTitleBarAutoPaddingEnabled="False"
             MenuItemTemplateSelector="{StaticResource NavigationMenuTemplateSelector}"
             MenuItemsSource="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
-            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}">
+            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
+            SelectedItem="{x:Bind ViewModel.SelectedMenuItem, Mode=TwoWay}">
             <muxc:NavigationView.ContentTransitions>
                 <TransitionCollection>
                     <AddDeleteThemeTransition />
