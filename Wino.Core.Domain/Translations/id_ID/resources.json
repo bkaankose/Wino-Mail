@@ -611,5 +611,6 @@
     "TitleBarServerDisconnectedButton_Title": "tiada sambungan",
     "TitleBarServerDisconnectedButton_Description": "Wino tidak tersambung ke jaringan. Klik sambungkan kembali untuk mencoba melanjutkan sambungan.",
     "TitleBarServerReconnectButton_Title": "sambungkan kembali",
-    "TitleBarServerReconnectingButton_Title": "menyambungkan"
+    "TitleBarServerReconnectingButton_Title": "menyambungkan",
+    "MailItemNoSubject": "No subject"
 }

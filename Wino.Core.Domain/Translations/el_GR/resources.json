@@ -611,5 +611,6 @@
     "TitleBarServerDisconnectedButton_Title": "χωρίς σύνδεση",
     "TitleBarServerDisconnectedButton_Description": "Το Wino αποσυνδέθηκε από το δίκτυο. Κάντε κλικ στην επιλογή επανασύνδεση για επαναφορά της σύνδεσης.",
     "TitleBarServerReconnectButton_Title": "επανασύνδεση",
-    "TitleBarServerReconnectingButton_Title": "γίνεται σύνδεση"
+    "TitleBarServerReconnectingButton_Title": "γίνεται σύνδεση",
+    "MailItemNoSubject": "No subject"
 }

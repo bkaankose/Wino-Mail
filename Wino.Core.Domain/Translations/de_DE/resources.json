@@ -133,7 +133,7 @@
     "CreateAccountAliasDialog_ReplyToAddressPlaceholder": "admin@mydomain.com",
     "DiscordChannelDisclaimerMessage": "Wino hat keinen eigenen Discord Server, aber der spezielle 'wino-mail'-Kanal wird auf dem 'Developer Sanctuary' Server gehostet (englisch).\nUm Updates über Wino zu erhalten, treten Sie gerne dem 'Developer Sactuary'-Server bei und folgen dem 'wino-mail'-Kanal unter 'Community Projects'.\n\nSie werden zur Server-URL weitergeleitet, da Discord keine Kanal-Einladungen unterstützt.",
     "DiscordChannelDisclaimerTitle": "Wichtige Discord-Informationen",
-    "Draft": "Entwurf",
+    "Draft": "Entwürfe",
     "Busy": "Beschäftigt",
     "EditorToolbarOption_Draw": "Zeichnen",
     "EditorToolbarOption_Format": "Format",
@@ -611,5 +611,6 @@
     "TitleBarServerDisconnectedButton_Title": "Keine Verbindung",
     "TitleBarServerDisconnectedButton_Description": "Wino ist vom Netzwerk getrennt. Klicken Sie auf \"Erneut verbinden\", um die Verbindung wiederherzustellen.",
     "TitleBarServerReconnectButton_Title": "Erneut verbinden",
-    "TitleBarServerReconnectingButton_Title": "Verbindung wird hergestellt"
+    "TitleBarServerReconnectingButton_Title": "Verbindung wird hergestellt",
+    "MailItemNoSubject": "No subject"
 }
