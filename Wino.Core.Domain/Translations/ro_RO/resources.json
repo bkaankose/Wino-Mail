@@ -611,5 +611,6 @@
     "TitleBarServerDisconnectedButton_Title": "nicio conexiune",
     "TitleBarServerDisconnectedButton_Description": "Wino este deconectat de la rețea. Faceți clic pe reconectare pentru a restabili conexiunea.",
     "TitleBarServerReconnectButton_Title": "reconectare",
-    "TitleBarServerReconnectingButton_Title": "se conectează"
+    "TitleBarServerReconnectingButton_Title": "se conectează",
+    "MailItemNoSubject": "No subject"
 }
