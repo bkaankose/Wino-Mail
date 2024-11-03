@@ -36,7 +36,13 @@ namespace Wino.Core.Domain.Entities.Shared
         /// </summary>
         public bool IsRootContact { get; set; }
 
-        public string DisplayName => Address == Name ? Address : $"{Name} <{Address}>";
+        /// <summary>
+        /// Short display name of the contact.
+        /// Eather Name or Address.
+        /// </summary>
+        public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? $"{Address.ToLowerInvariant()};" : $"{Name};";
+
+        public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address.ToLowerInvariant() : $"{Name} <{Address.ToLowerInvariant()}>";
 
         public override bool Equals(object obj)
         {
@@ -45,7 +51,7 @@ namespace Wino.Core.Domain.Entities.Shared
 
         public bool Equals(AccountContact other)
         {
-            return !(other is null) &&
+            return other is not null &&
                    Address == other.Address &&
                    Name == other.Name;
         }

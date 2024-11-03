@@ -611,6 +611,6 @@
     "TitleBarServerDisconnectedButton_Title": "no connection",
     "TitleBarServerDisconnectedButton_Description": "Wino is disconnected from the network. Click reconnect to restore connection.",
     "TitleBarServerReconnectButton_Title": "reconnect",
-    "TitleBarServerReconnectingButton_Title": "connecting"
-
+    "TitleBarServerReconnectingButton_Title": "connecting",
+    "MailItemNoSubject": "No subject"
 }

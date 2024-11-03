@@ -51,6 +51,10 @@ namespace Wino.Core.UWP.Services
                     builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
 
                     builder.AddButton(GetDismissButton());
+                    builder.AddAudio(new ToastAudio()
+                    {
+                        Src = new Uri("ms-winsoundevent:Notification.Mail")
+                    });
 
                     builder.Show();
                 }
@@ -113,6 +117,10 @@ namespace Wino.Core.UWP.Services
                         builder.AddButton(GetMarkedAsRead(mailItem.UniqueId));
                         builder.AddButton(GetDeleteButton(mailItem.UniqueId));
                         builder.AddButton(GetDismissButton());
+                        builder.AddAudio(new ToastAudio()
+                        {
+                            Src = new Uri("ms-winsoundevent:Notification.Mail")
+                        });
 
                         builder.Show();
                     }

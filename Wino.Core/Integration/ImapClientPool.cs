@@ -17,6 +17,7 @@ using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Models.Connectivity;
 
 namespace Wino.Core.Integration
 {
@@ -46,6 +47,7 @@ namespace Wino.Core.Integration
         };
 
         public bool ThrowOnSSLHandshakeCallback { get; set; }
+        public ImapClientPoolOptions ImapClientPoolOptions { get; }
 
         private readonly int MinimumPoolSize = 5;
 
@@ -55,26 +57,32 @@ namespace Wino.Core.Integration
         private readonly Stream _protocolLogStream;
         private readonly ILogger _logger = Log.ForContext<ImapClientPool>();
 
-        public ImapClientPool(CustomServerInformation customServerInformation, Stream protocolLogStream = null)
+        public ImapClientPool(ImapClientPoolOptions imapClientPoolOptions)
         {
-            _customServerInformation = customServerInformation;
-            _protocolLogStream = protocolLogStream;
+            _customServerInformation = imapClientPoolOptions.ServerInformation;
+            _protocolLogStream = imapClientPoolOptions.ProtocolLog;
 
             // Set the maximum pool size to 5 or the custom value if it's greater.
-            _semaphore = new(Math.Max(MinimumPoolSize, customServerInformation.MaxConcurrentClients));
+            _semaphore = new(Math.Max(MinimumPoolSize, _customServerInformation.MaxConcurrentClients));
 
             CryptographyContext.Register(typeof(WindowsSecureMimeContext));
+            ImapClientPoolOptions = imapClientPoolOptions;
         }
 
-        private async Task EnsureConnectivityAsync(ImapClient client, bool isCreatedNew)
+        /// <summary>
+        /// Ensures all supported capabilities are enabled in this connection.
+        /// Reconnects and reauthenticates if necessary.
+        /// </summary>
+        /// <param name="isCreatedNew">Whether the client has been newly created.</param>
+        private async Task EnsureCapabilitiesAsync(ImapClient client, bool isCreatedNew)
         {
             try
             {
-                await EnsureConnectedAsync(client);
-
+                bool isReconnected = await EnsureConnectedAsync(client);
+                
                 bool mustDoPostAuthIdentification = false;
 
-                if (isCreatedNew && client.IsConnected)
+                if ((isCreatedNew || isReconnected) && client.IsConnected)
                 {
                     // Activate supported pre-auth capabilities.
                     if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
@@ -103,7 +111,7 @@ namespace Wino.Core.Integration
 
                 await EnsureAuthenticatedAsync(client);
 
-                if (isCreatedNew && client.IsAuthenticated)
+                if ((isCreatedNew || isReconnected) && client.IsAuthenticated)
                 {
                     if (mustDoPostAuthIdentification) await client.IdentifyAsync(_implementation);
 
@@ -144,14 +152,14 @@ namespace Wino.Core.Integration
 
             if (_clients.TryPop(out ImapClient item))
             {
-                await EnsureConnectivityAsync(item, false);
+                await EnsureCapabilitiesAsync(item, false);
 
                 return item;
             }
 
             var client = CreateNewClient();
 
-            await EnsureConnectivityAsync(client, true);
+            await EnsureCapabilitiesAsync(client, true);
 
             return client;
         }
@@ -221,15 +229,43 @@ namespace Wino.Core.Integration
                 _ => SecureSocketOptions.None
             };
 
-        public async Task EnsureConnectedAsync(ImapClient client)
+        /// <returns>True if the connection is newly established.</returns>
+        public async Task<bool> EnsureConnectedAsync(ImapClient client)
         {
-            if (client.IsConnected) return;
+            if (client.IsConnected) return false;
 
             client.ServerCertificateValidationCallback = MyServerCertificateValidationCallback;
 
             await client.ConnectAsync(_customServerInformation.IncomingServer,
                                       int.Parse(_customServerInformation.IncomingServerPort),
                                       GetSocketOptions(_customServerInformation.IncomingServerSocketOption));
+
+            // Print out useful information for testing.
+            if (client.IsConnected && ImapClientPoolOptions.IsTestPool)
+            {
+                // Print supported authentication methods for the client.
+                var supportedAuthMethods = client.AuthenticationMechanisms;
+
+                if (supportedAuthMethods == null || supportedAuthMethods.Count == 0)
+                {
+                    WriteToProtocolLog("There are no supported authentication mechanisms...");
+                }
+                else
+                {
+                    WriteToProtocolLog($"Supported authentication mechanisms: {string.Join(", ", supportedAuthMethods)}");
+                }
+            }
+
+            return true;
+
+        }
+
+        private void WriteToProtocolLog(string message)
+        {
+            if (_protocolLogStream == null) return;
+
+            var messageBytes = Encoding.UTF8.GetBytes($"W: {message}\n");
+            _protocolLogStream.Write(messageBytes, 0, messageBytes.Length);
         }
 
         bool MyServerCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
@@ -261,6 +297,7 @@ namespace Wino.Core.Integration
                 var saslMechanism = GetSASLAuthenticationMethodName(prefferedAuthenticationMethod);
 
                 client.AuthenticationMechanisms.Add(saslMechanism);
+                var mechanism = SaslMechanism.Create(saslMechanism, cred);
 
                 await client.AuthenticateAsync(SaslMechanism.Create(saslMechanism, cred));
             }

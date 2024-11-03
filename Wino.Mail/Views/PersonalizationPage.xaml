@@ -12,9 +12,9 @@
     xmlns:mailSelectors="using:Wino.Selectors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
-    xmlns:selectors="using:Wino.Core.UWP.Selectors"
-    xmlns:ui="using:CommunityToolkit.WinUI"
-    xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
+    xmlns:selectors="using:Wino.Selectors"
+    xmlns:toolkitExt="using:CommunityToolkit.WinUI"
+    xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
     Title="Personalization"
     mc:Ignorable="d">
@@ -256,7 +256,7 @@
 
                         <!--  TODO: Group by custom/wino  -->
                         <GridView
-                            ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                            toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                             ItemTemplateSelector="{StaticResource AppThemePreviewTemplateSelector}"
                             ItemsSource="{x:Bind ViewModel.AppThemes, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedAppTheme, Mode=TwoWay}" />
@@ -277,7 +277,7 @@
                         ContentAlignment="Vertical">
                         <ListView
                             Margin="-18,0"
-                            ui:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                            toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                             ItemTemplateSelector="{StaticResource MailItemDisplayModePreviewTemplateSelector}"
                             ItemsSource="{x:Bind ViewModel.InformationDisplayModes}"
                             SelectedItem="{x:Bind ViewModel.SelectedInfoDisplayMode, Mode=TwoWay}" />
