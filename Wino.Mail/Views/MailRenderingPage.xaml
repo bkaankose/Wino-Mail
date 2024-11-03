@@ -179,7 +179,8 @@
                         VerticalAlignment="Center"
                         FontSize="18"
                         FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.Subject, Mode=OneWay}"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind helpers:XamlHelpers.GetMailItemSubject( ViewModel.Subject), Mode=OneWay}"
                         TextWrapping="Wrap" />
 
                     <HyperlinkButton
@@ -276,6 +277,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="{x:Bind domain:Translator.ComposerTo}"
@@ -299,6 +301,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Cc:"
@@ -322,6 +325,7 @@
                             </Grid.ColumnDefinitions>
 
                             <TextBlock
+                                Margin="0,1,0,0"
                                 VerticalAlignment="Top"
                                 FontWeight="SemiBold"
                                 Text="Bcc:"
