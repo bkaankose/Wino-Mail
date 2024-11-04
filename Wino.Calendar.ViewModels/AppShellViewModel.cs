@@ -61,26 +61,26 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private int _selectedDateNavigationHeaderIndex;
 
-        public bool IsVerticalCalendar => PreferencesService.CalendarDisplayType == CalendarDisplayType.Month;
+        public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
                                  INavigationService navigationService,
                                  IWinoServerConnectionManager serverConnectionManager)
         {
-            PreferencesService = preferencesService;
-
-            PreferencesService.PreferenceChanged += PrefefencesChanged;
-            StatePersistenceService = statePersistanceService;
             NavigationService = navigationService;
             ServerConnectionManager = serverConnectionManager;
+            PreferencesService = preferencesService;
+
+            StatePersistenceService = statePersistanceService;
+            StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
         }
 
         private void PrefefencesChanged(object sender, string e)
         {
-            if (e == nameof(PreferencesService.CalendarDisplayType))
+            if (e == nameof(StatePersistenceService.CalendarDisplayType))
             {
-                DisplayTypeChanged?.Invoke(this, PreferencesService.CalendarDisplayType);
+                DisplayTypeChanged?.Invoke(this, StatePersistenceService.CalendarDisplayType);
                 OnPropertyChanged(nameof(IsVerticalCalendar));
 
                 // Change the calendar.
@@ -114,7 +114,7 @@ namespace Wino.Calendar.ViewModels
         /// </summary>
         private DateTime GetDisplayTypeSwitchDate()
         {
-            switch (PreferencesService.CalendarDisplayType)
+            switch (StatePersistenceService.CalendarDisplayType)
             {
                 case CalendarDisplayType.Day:
                     if (HighlightedDateRange.IsInRange(DateTime.Now)) return DateTime.Now.Date;
@@ -192,7 +192,7 @@ namespace Wino.Calendar.ViewModels
             // TODO: From settings
             var testInfo = new CultureInfo("en-US");
 
-            switch (PreferencesService.CalendarDisplayType)
+            switch (StatePersistenceService.CalendarDisplayType)
             {
                 case CalendarDisplayType.Day:
                 case CalendarDisplayType.Week:

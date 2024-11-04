@@ -136,8 +136,8 @@
                     <calendarControls:WinoCalendarTypeSelectorControl
                         Grid.Column="2"
                         HorizontalAlignment="Right"
-                        DisplayDayCount="{x:Bind ViewModel.PreferencesService.DayDisplayCount, Mode=OneWay}"
-                        SelectedType="{x:Bind ViewModel.PreferencesService.CalendarDisplayType, Mode=TwoWay}"
+                        DisplayDayCount="{x:Bind ViewModel.StatePersistenceService.DayDisplayCount, Mode=OneWay}"
+                        SelectedType="{x:Bind ViewModel.StatePersistenceService.CalendarDisplayType, Mode=TwoWay}"
                         TodayClickedCommand="{x:Bind ViewModel.TodayClickedCommand}" />
                 </Grid>
             </coreControls:WinoAppTitleBar.ShellFrameContent>

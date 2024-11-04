@@ -1,9 +1,8 @@
 ﻿using System;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services
 {
@@ -20,8 +19,10 @@ namespace Wino.Services
         {
             _configurationService = configurationService;
 
-            openPaneLength = _configurationService.Get(OpenPaneLengthKey, 320d);
+            _openPaneLength = _configurationService.Get(OpenPaneLengthKey, 320d);
             _mailListPaneLength = _configurationService.Get(MailListPaneLengthKey, 420d);
+            _calendarDisplayType = _configurationService.Get(nameof(CalendarDisplayType), CalendarDisplayType.Week);
+            _dayDisplayCount = _configurationService.Get(nameof(DayDisplayCount), 1);
 
             PropertyChanged += ServicePropertyChanged;
         }
@@ -80,15 +81,13 @@ namespace Wino.Services
             }
         }
 
-        #region Settings
-
-        private double openPaneLength;
+        private double _openPaneLength;
         public double OpenPaneLength
         {
-            get => openPaneLength;
+            get => _openPaneLength;
             set
             {
-                if (SetProperty(ref openPaneLength, value))
+                if (SetProperty(ref _openPaneLength, value))
                 {
                     _configurationService.Set(OpenPaneLengthKey, value);
                 }
@@ -106,10 +105,33 @@ namespace Wino.Services
                     _configurationService.Set(MailListPaneLengthKey, value);
                 }
             }
-
         }
 
-        #endregion
+        private CalendarDisplayType _calendarDisplayType;
+        public CalendarDisplayType CalendarDisplayType
+        {
+            get => _calendarDisplayType;
+            set
+            {
+                if (SetProperty(ref _calendarDisplayType, value))
+                {
+                    _configurationService.Set(nameof(CalendarDisplayType), value);
+                }
+            }
+        }
+
+        private int _dayDisplayCount;
+        public int DayDisplayCount
+        {
+            get => _dayDisplayCount;
+            set
+            {
+                if (SetProperty(ref _dayDisplayCount, value))
+                {
+                    _configurationService.Set(nameof(DayDisplayCount), value);
+                }
+            }
+        }
 
         private void UpdateAppCoreWindowTitle()
         {

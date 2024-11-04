@@ -25,7 +25,7 @@ namespace Wino.Core.Domain.Translations
         /// </summary>
         /// <param name="language">Language</param>
         /// <returns>Relative folder for the language</returns>
-        private string GetLanguageFileNameRelativePath(AppLanguage language)
+        public static string GetLanguageFileNameRelativePath(AppLanguage language)
         {
             return language switch
             {

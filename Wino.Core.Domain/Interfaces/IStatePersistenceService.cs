@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces
 {
@@ -43,5 +44,15 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Mail list pane length for listing mails.
         /// </summary>
         double MailListPaneLength { get; set; }
+
+        /// <summary>
+        /// Setting: Calendar display type.
+        /// </summary>
+        CalendarDisplayType CalendarDisplayType { get; set; }
+
+        /// <summary>
+        /// Setting: Calendar display count for the day view.
+        /// </summary>
+        int DayDisplayCount { get; set; }
     }
 }

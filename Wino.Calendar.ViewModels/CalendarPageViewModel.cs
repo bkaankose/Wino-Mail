@@ -33,10 +33,9 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private bool _isCalendarEnabled = true;
 
-        private CalendarSettings _calendarSettings;
-
         // Get rid of some of the items if we have too many.
         private const int maxDayRangeSize = 10;
+        private readonly IPreferencesService _preferencesService;
 
         // Store latest rendered options.
         private CalendarDisplayType _currentDisplayType;
@@ -44,22 +43,17 @@ namespace Wino.Calendar.ViewModels
 
         private SemaphoreSlim _calendarLoadingSemaphore = new(1);
         private bool isLoadMoreBlocked = false;
+        private CalendarSettings _currentSettings = null;
 
-        public IPreferencesService PreferencesService { get; }
+        public IStatePersistanceService StatePersistanceService { get; }
 
-        public CalendarPageViewModel(IPreferencesService preferencesService)
+        public CalendarPageViewModel(IStatePersistanceService statePersistanceService,
+                                     IPreferencesService preferencesService)
         {
-            PreferencesService = preferencesService;
+            StatePersistanceService = statePersistanceService;
+            _preferencesService = preferencesService;
 
-            _calendarSettings = new CalendarSettings()
-            {
-                DayHeaderDisplayType = DayHeaderDisplayType.TwentyFourHour,
-                FirstDayOfWeek = DayOfWeek.Monday,
-                WorkingDays = new List<DayOfWeek>() { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday },
-                WorkingHourStart = new TimeSpan(8, 0, 0),
-                WorkingHourEnd = new TimeSpan(16, 0, 0),
-                HourHeight = 60,
-            };
+            _currentSettings = _preferencesService.GetCurrentCalendarSettings();
         }
 
         public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -75,8 +69,8 @@ namespace Wino.Calendar.ViewModels
         {
             return displayType switch
             {
-                CalendarDisplayType.Day => new DayCalendarDrawingStrategy(_calendarSettings),
-                CalendarDisplayType.Week => new WeekCalendarDrawingStrategy(_calendarSettings),
+                CalendarDisplayType.Day => new DayCalendarDrawingStrategy(_currentSettings),
+                CalendarDisplayType.Week => new WeekCalendarDrawingStrategy(_currentSettings),
                 _ => throw new NotImplementedException(),
             };
         }
@@ -93,8 +87,8 @@ namespace Wino.Calendar.ViewModels
             // 3. Display date is not in the visible range.
 
             return
-                (_currentDisplayType != PreferencesService.CalendarDisplayType ||
-                _displayDayCount != PreferencesService.DayDisplayCount ||
+                (_currentDisplayType != StatePersistanceService.CalendarDisplayType ||
+                _displayDayCount != StatePersistanceService.DayDisplayCount ||
                 (DayRanges != null && !DayRanges.Select(a => a.CalendarRenderOptions).Any(b => b.DateRange.IsInRange(message.DisplayDate))));
         }
 
@@ -108,7 +102,7 @@ namespace Wino.Calendar.ViewModels
 
                 if (ShouldResetDayRanges(message))
                 {
-                    // DayRanges.Clear();
+                    DayRanges.Clear();
 
                     Debug.WriteLine("Will reset day ranges.");
                 }
@@ -138,8 +132,6 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-
-
         private async Task RenderDatesAsync(CalendarInitInitiative calendarInitInitiative,
                                             DateTime? loadingDisplayDate = null,
                                             CalendarLoadDirection calendarLoadDirection = CalendarLoadDirection.Replace)
@@ -159,17 +151,17 @@ namespace Wino.Calendar.ViewModels
             // User initiated renders must always have a date to start with.
             if (calendarInitInitiative == CalendarInitInitiative.User) Guard.IsNotNull(loadingDisplayDate, nameof(loadingDisplayDate));
 
-            var strategy = GetDrawingStrategy(PreferencesService.CalendarDisplayType);
+            var strategy = GetDrawingStrategy(StatePersistanceService.CalendarDisplayType);
             var displayDate = loadingDisplayDate.GetValueOrDefault();
 
             // How many days should be placed in 1 flip view item?
-            int eachFlipItemCount = strategy.GetRenderDayCount(displayDate, PreferencesService.DayDisplayCount);
+            int eachFlipItemCount = strategy.GetRenderDayCount(displayDate, StatePersistanceService.DayDisplayCount);
 
             DateRange flipLoadRange = null;
 
             if (calendarInitInitiative == CalendarInitInitiative.User)
             {
-                flipLoadRange = strategy.GetRenderDateRange(displayDate, PreferencesService.DayDisplayCount);
+                flipLoadRange = strategy.GetRenderDateRange(displayDate, StatePersistanceService.DayDisplayCount);
             }
             else
             {
@@ -184,11 +176,11 @@ namespace Wino.Calendar.ViewModels
 
                 if (calendarLoadDirection == CalendarLoadDirection.Previous)
                 {
-                    flipLoadRange = strategy.GetPreviousDateRange(currentInitializedDateRange, PreferencesService.DayDisplayCount);
+                    flipLoadRange = strategy.GetPreviousDateRange(currentInitializedDateRange, StatePersistanceService.DayDisplayCount);
                 }
                 else
                 {
-                    flipLoadRange = strategy.GetNextDateRange(currentInitializedDateRange, PreferencesService.DayDisplayCount);
+                    flipLoadRange = strategy.GetNextDateRange(currentInitializedDateRange, StatePersistanceService.DayDisplayCount);
                 }
             }
 
@@ -203,7 +195,7 @@ namespace Wino.Calendar.ViewModels
                 var endDate = startDate.AddDays(eachFlipItemCount);
 
                 var range = new DateRange(startDate, endDate);
-                var renderOptions = new CalendarRenderOptions(range, _calendarSettings);
+                var renderOptions = new CalendarRenderOptions(range, _currentSettings);
 
                 renderModels.Add(new DayRangeRenderModel(renderOptions));
             }
@@ -283,8 +275,8 @@ namespace Wino.Calendar.ViewModels
             if (calendarInitInitiative == CalendarInitInitiative.User)
             {
                 // Save the current settings for the page for later comparison.
-                _currentDisplayType = PreferencesService.CalendarDisplayType;
-                _displayDayCount = PreferencesService.DayDisplayCount;
+                _currentDisplayType = StatePersistanceService.CalendarDisplayType;
+                _displayDayCount = StatePersistanceService.DayDisplayCount;
 
                 Messenger.Send(new ScrollToDateMessage(displayDate));
             }
@@ -437,24 +429,8 @@ namespace Wino.Calendar.ViewModels
                     day.Events.Add(test);
                 });
             }
+
             return;
-            //if (calendarItem != null)
-            //{
-            //    // Find the calendar dates that contains the event.
-            //    // Event might be in multiple dates.
-
-            //    var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => calendarItem.Period.OverlapsWith(b.Period));
-
-            //    foreach (var day in eventDays)
-            //    {
-            //        Debug.WriteLine($"Adding event to {day.RepresentingDate}");
-
-            //        await ExecuteUIThread(() =>
-            //        {
-            //            day.Events.Add(calendarItem);
-            //        });
-            //    }
-            //}
         }
     }
 }
