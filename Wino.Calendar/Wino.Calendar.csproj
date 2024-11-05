@@ -158,9 +158,13 @@
     <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\CalendarItemControlResources.xaml.cs" />
     <Compile Include="Styles\WinoCalendarResources.xaml.cs" />
+    <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarPageAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarSettingsPageAbstract.cs" />
+    <Compile Include="Views\Account\AccountManagementPage.xaml.cs">
+      <DependentUpon>AccountManagementPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\AppShell.xaml.cs">
       <DependentUpon>AppShell.xaml</DependentUpon>
     </Compile>
@@ -275,6 +279,10 @@
     <Page Include="Styles\WinoDayTimelineCanvas.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\Account\AccountManagementPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\AppShell.xaml">
       <SubType>Designer</SubType>

@@ -2,6 +2,7 @@
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Views;
+using Wino.Calendar.Views.Account;
 using Wino.Calendar.Views.Settings;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -23,6 +24,8 @@ namespace Wino.Calendar.Services
                     return typeof(SettingsPage);
                 case WinoPage.CalendarSettingsPage:
                     return typeof(CalendarSettingsPage);
+                case WinoPage.AccountManagementPage:
+                    return typeof(AccountManagementPage);
                 default:
                     throw new Exception("Page is not implemented yet.");
             }

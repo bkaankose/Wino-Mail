@@ -58,6 +58,7 @@ namespace Wino.Calendar
             services.AddSingleton(typeof(AppShellViewModel));
             services.AddTransient(typeof(CalendarPageViewModel));
             services.AddTransient(typeof(CalendarSettingsPageViewModel));
+            services.AddTransient(typeof(AccountManagementViewModel));
         }
 
         #endregion

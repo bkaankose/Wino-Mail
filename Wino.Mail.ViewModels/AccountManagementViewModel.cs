@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.AppCenter.Crashes;
@@ -17,7 +15,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Store;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
@@ -30,26 +27,7 @@ namespace Wino.Mail.ViewModels
 {
     public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
     {
-        public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
-
-        public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
-        public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
-        public bool HasAccountsDefined => Accounts != null && Accounts.Any();
-        public bool CanReorderAccounts => Accounts?.Sum(a => a.HoldingAccountCount) > 1;
-
-        public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, Accounts.Count, FREE_ACCOUNT_COUNT);
-
-        [ObservableProperty]
-        private IAccountProviderDetailViewModel _startupAccount;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
-        private bool hasUnlimitedAccountProduct;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(IsAccountCreationAlmostOnLimit))]
-        [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
-        private bool isAccountCreationBlocked;
+        public IMailDialogService MailDialogService { get; }
 
         public AccountManagementViewModel(IMailDialogService dialogService,
                                           IWinoServerConnectionManager winoServerConnectionManager,
@@ -60,14 +38,7 @@ namespace Wino.Mail.ViewModels
                                           IAuthenticationProvider authenticationProvider,
                                           IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
         {
-        }
-
-        [RelayCommand]
-        private void NavigateAccountDetails(AccountProviderDetailViewModel accountDetails)
-        {
-            Messenger.Send(new BreadcrumbNavigationRequested(accountDetails.Account.Name,
-                                                             WinoPage.AccountDetailsPage,
-                                                             accountDetails.Account.Id));
+            MailDialogService = dialogService;
         }
 
         [RelayCommand]
@@ -91,23 +62,7 @@ namespace Wino.Mail.ViewModels
                                      mergedAccountProviderDetailViewModel));
         }
 
-        [RelayCommand]
-        private async Task PurchaseUnlimitedAccountAsync()
-        {
-            var purchaseResult = await StoreManagementService.PurchaseAsync(StoreProductType.UnlimitedAccounts);
 
-            if (purchaseResult == StorePurchaseResult.Succeeded)
-                DialogService.InfoBarMessage(Translator.Info_PurchaseThankYouTitle, Translator.Info_PurchaseThankYouMessage, InfoBarMessageType.Success);
-            else if (purchaseResult == StorePurchaseResult.AlreadyPurchased)
-                DialogService.InfoBarMessage(Translator.Info_PurchaseExistsTitle, Translator.Info_PurchaseExistsMessage, InfoBarMessageType.Warning);
-
-            bool shouldRefreshPurchasePanel = purchaseResult == StorePurchaseResult.Succeeded || purchaseResult == StorePurchaseResult.AlreadyPurchased;
-
-            if (shouldRefreshPurchasePanel)
-            {
-                await ManageStorePurchasesAsync();
-            }
-        }
 
         [RelayCommand]
         private async Task AddNewAccountAsync()
@@ -131,13 +86,13 @@ namespace Wino.Mail.ViewModels
                 var providers = ProviderService.GetProviderDetails();
 
                 // Select provider.
-                var accountCreationDialogResult = await DialogService.ShowNewAccountMailProviderDialogAsync(providers);
+                var accountCreationDialogResult = await MailDialogService.ShowNewAccountMailProviderDialogAsync(providers);
 
                 var accountCreationCancellationTokenSource = new CancellationTokenSource();
 
                 if (accountCreationDialogResult != null)
                 {
-                    creationDialog = DialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
+                    creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
 
                     CustomServerInformation customServerInformation = null;
 
@@ -315,7 +270,7 @@ namespace Wino.Mail.ViewModels
         }
 
         [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
-        private Task ReorderAccountsAsync() => DialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
+        private Task ReorderAccountsAsync() => MailDialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
@@ -356,7 +311,7 @@ namespace Wino.Mail.ViewModels
             PropertyChanged += PagePropertyChanged;
         }
 
-        private async Task InitializeAccountsAsync()
+        public override async Task InitializeAccountsAsync()
         {
             StartupAccount = null;
 
@@ -402,26 +357,6 @@ namespace Wino.Mail.ViewModels
 
 
             await ManageStorePurchasesAsync().ConfigureAwait(false);
-        }
-
-        private async Task ManageStorePurchasesAsync()
-        {
-            await ExecuteUIThread(async () =>
-            {
-                HasUnlimitedAccountProduct = await StoreManagementService.HasProductAsync(StoreProductType.UnlimitedAccounts);
-
-                if (!HasUnlimitedAccountProduct)
-                    IsAccountCreationBlocked = Accounts.Count >= FREE_ACCOUNT_COUNT;
-                else
-                    IsAccountCreationBlocked = false;
-            });
-        }
-
-        private AccountProviderDetailViewModel GetAccountProviderDetails(MailAccount account)
-        {
-            var provider = ProviderService.GetProviderDetail(account.ProviderType);
-
-            return new AccountProviderDetailViewModel(provider, account);
         }
 
 
