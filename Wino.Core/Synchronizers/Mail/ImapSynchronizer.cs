@@ -27,9 +27,9 @@ using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Synchronizers
+namespace Wino.Core.Synchronizers.Mail
 {
-    public class ImapSynchronizer : BaseSynchronizer<ImapRequest, ImapMessageCreationPackage>
+    public class ImapSynchronizer : BaseMailSynchronizer<ImapRequest, ImapMessageCreationPackage>
     {
         private CancellationTokenSource idleDoneToken;
         private CancellationTokenSource cancelInboxListeningToken = new CancellationTokenSource();
@@ -226,7 +226,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> Move(BatchMoveRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 var uniqueIds = GetUniqueIds(request.Items.Select(a => a.Item.Id));
 
@@ -242,7 +242,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> ChangeFlag(BatchChangeFlagRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 var folder = request.Items.First().Item.AssignedFolder;
                 var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId);
@@ -256,7 +256,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> Delete(BatchDeleteRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 var folder = request.Items.First().Item.AssignedFolder;
                 var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
@@ -271,7 +271,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> MarkRead(BatchMarkReadRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 var folder = request.Items.First().Item.AssignedFolder;
                 var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId);
@@ -285,7 +285,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> CreateDraft(BatchCreateDraftRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 var remoteDraftFolder = await client.GetFolderAsync(request.DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId).ConfigureAwait(false);
 
@@ -306,7 +306,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> SendDraft(BatchSendDraftRequestRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 // Batch sending is not supported. It will always be a single request therefore no need for a loop here.
 
@@ -382,7 +382,7 @@ namespace Wino.Core.Synchronizers
 
         public override IEnumerable<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
         {
-            return CreateTaskBundle(async (ImapClient client) =>
+            return CreateTaskBundle(async (client) =>
             {
                 var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
                 await folder.RenameAsync(folder.ParentFolder, request.NewFolderName).ConfigureAwait(false);
@@ -664,7 +664,7 @@ namespace Wino.Core.Synchronizers
                     // Namespaces are not needed as folders.
                     // Non-existed folders don't need to be synchronized.
 
-                    if ((remoteFolder.IsNamespace && !remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox)) || !remoteFolder.Exists)
+                    if (remoteFolder.IsNamespace && !remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox) || !remoteFolder.Exists)
                         continue;
 
                     var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.FullName);
@@ -927,8 +927,8 @@ namespace Wino.Core.Synchronizers
                             {
                                 var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, changedItem.UniqueId.Id);
 
-                                var isFlagged = MailkitClientExtensions.GetIsFlagged(changedItem.Flags);
-                                var isRead = MailkitClientExtensions.GetIsRead(changedItem.Flags);
+                                var isFlagged = changedItem.Flags.GetIsFlagged();
+                                var isRead = changedItem.Flags.GetIsRead();
 
                                 await _imapChangeProcessor.ChangeMailReadStatusAsync(localMailCopyId, isRead);
                                 await _imapChangeProcessor.ChangeFlagStatusAsync(localMailCopyId, isFlagged);

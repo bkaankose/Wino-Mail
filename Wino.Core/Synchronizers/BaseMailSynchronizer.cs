@@ -23,15 +23,15 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public abstract class BaseSynchronizer<TBaseRequest, TMessageType> : BaseMailIntegrator<TBaseRequest>, IBaseSynchronizer
+    public abstract class BaseMailSynchronizer<TBaseRequest, TMessageType> : BaseMailIntegrator<TBaseRequest>, IBaseMailSynchronizer
     {
         private SemaphoreSlim synchronizationSemaphore = new(1);
         private CancellationToken activeSynchronizationCancellationToken;
 
         protected ConcurrentBag<IRequestBase> changeRequestQueue = [];
-        protected ILogger Logger = Log.ForContext<BaseSynchronizer<TBaseRequest, TMessageType>>();
+        protected ILogger Logger = Log.ForContext<BaseMailSynchronizer<TBaseRequest, TMessageType>>();
 
-        protected BaseSynchronizer(MailAccount account)
+        protected BaseMailSynchronizer(MailAccount account)
         {
             Account = account;
         }

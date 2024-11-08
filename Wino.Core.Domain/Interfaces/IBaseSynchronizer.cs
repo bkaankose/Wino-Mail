@@ -9,7 +9,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface IBaseSynchronizer
+    public interface IBaseMailSynchronizer
     {
         /// <summary>
         /// Account that is assigned for this synchronizer.

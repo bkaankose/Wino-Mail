@@ -23,17 +23,17 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests;
+using Wino.Core.Requests.Bundles;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Synchronizers
+namespace Wino.Core.Synchronizers.Mail
 {
-    public class GmailSynchronizer : BaseSynchronizer<IClientServiceRequest, Message>, IHttpClientFactory
+    public class GmailSynchronizer : BaseMailSynchronizer<IClientServiceRequest, Message>, IHttpClientFactory
     {
         public override uint BatchModificationSize => 1000;
         public override uint InitialMessageDownloadCountPerFolder => 1200;

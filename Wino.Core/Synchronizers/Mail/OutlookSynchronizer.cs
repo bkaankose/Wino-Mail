@@ -34,10 +34,11 @@ using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests;
+using Wino.Core.Requests.Bundles;
 
-namespace Wino.Core.Synchronizers
+namespace Wino.Core.Synchronizers.Mail
 {
-    public class OutlookSynchronizer : BaseSynchronizer<RequestInformation, Message>
+    public class OutlookSynchronizer : BaseMailSynchronizer<RequestInformation, Message>
     {
         public override uint BatchModificationSize => 20;
         public override uint InitialMessageDownloadCountPerFolder => 250;
@@ -826,7 +827,7 @@ namespace Wino.Core.Synchronizers
 
         public override async Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
         {
-            var batchRequestInformations = BatchExtension.Batch(batchedRequests, (int)MaximumAllowedBatchRequestSize);
+            var batchRequestInformations = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
 
             bool serializeRequests = false;
 
@@ -907,7 +908,7 @@ namespace Wino.Core.Synchronizers
                             bundle.Request.RevertUIChanges();
 
                             var content = await httpResponseMessage.Content.ReadAsStringAsync();
-                            var errorJson = JsonObject.Parse(content);
+                            var errorJson = JsonNode.Parse(content);
                             var errorString = $"{httpResponseMessage.StatusCode} [{bundle.Request.GetType().Name}]\n{errorJson["error"]["code"]} - {errorJson["error"]["message"]}\n";
 
                             exceptionBag.Add(errorString);
