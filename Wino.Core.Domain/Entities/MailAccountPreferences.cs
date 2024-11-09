@@ -37,6 +37,11 @@ namespace Wino.Core.Domain.Entities
         public bool IsSignatureEnabled { get; set; }
 
         /// <summary>
+        /// Gets or sets whether this account's unread items should be included in taskbar badge.
+        /// </summary>
+        public bool IsTaskbarBadgeEnabled { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets signature for new messages. Null if signature is not needed.
         /// </summary>
         public Guid? SignatureIdForNewMessages { get; set; }

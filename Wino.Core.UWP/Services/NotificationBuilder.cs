@@ -166,6 +166,8 @@ namespace Wino.Core.UWP.Services
 
                 foreach (var account in accounts)
                 {
+                    if (!account.Preferences.IsTaskbarBadgeEnabled) continue;
+
                     var accountInbox = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
 
                     if (accountInbox == null)
