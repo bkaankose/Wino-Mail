@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
-using Windows.Graphics.Printing;
 using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -278,24 +277,6 @@ namespace Wino.Views
         {
             ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark;
         }
-
-        private async Task PrintAsync(string pdfFilePath)
-        {
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
-            {
-                try
-                {
-                    var printManager = PrintManager.GetForCurrentView();
-
-                    await PrintManager.ShowPrintUIAsync();
-                }
-                finally
-                {
-
-                }
-            });
-        }
-
 
         private void InternetAddressClicked(object sender, RoutedEventArgs e)
         {
