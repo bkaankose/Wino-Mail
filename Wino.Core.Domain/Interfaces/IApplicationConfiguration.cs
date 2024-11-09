@@ -17,5 +17,11 @@
         /// Publisher shared folder path.
         /// </summary>
         string PublisherSharedFolderPath { get; set; }
+
+        /// <summary>
+        /// Temp folder path of the application.
+        /// Files here are short-lived and can be deleted by system.
+        /// </summary>
+        string ApplicationTempFolderPath { get; set; }
     }
 }

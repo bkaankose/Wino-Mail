@@ -26,6 +26,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Server;
+using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
 namespace Wino.Mail.ViewModels
 {
@@ -42,11 +43,16 @@ namespace Wino.Mail.ViewModels
         private readonly IContactService _contactService;
         private readonly IClipboardService _clipboardService;
         private readonly IUnsubscriptionService _unsubscriptionService;
+        private readonly IApplicationConfiguration _applicationConfiguration;
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private bool forceImageLoading = false;
 
         private MailItemViewModel initializedMailItemViewModel = null;
         private MimeMessageInformation initializedMimeMessageInformation = null;
+
+        // Func to get WebView2 to save current HTML as PDF to given location.
+        // Used in 'Save as' and 'Print' functionality.
+        public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
 
         #region Properties
 
@@ -121,12 +127,13 @@ namespace Wino.Mail.ViewModels
         public INativeAppService NativeAppService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
+        public IPrintService PrintService { get; }
 
         public MailRenderingPageViewModel(IDialogService dialogService,
                                           INativeAppService nativeAppService,
                                           IUnderlyingThemeService underlyingThemeService,
                                           IMimeFileService mimeFileService,
-                                          Core.Domain.Interfaces.IMailService mailService,
+                                          IMailService mailService,
                                           IFileService fileService,
                                           IWinoRequestDelegator requestDelegator,
                                           IStatePersistanceService statePersistenceService,
@@ -134,12 +141,16 @@ namespace Wino.Mail.ViewModels
                                           IClipboardService clipboardService,
                                           IUnsubscriptionService unsubscriptionService,
                                           IPreferencesService preferencesService,
+                                          IPrintService printService,
+                                          IApplicationConfiguration applicationConfiguration,
                                           IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
         {
             NativeAppService = nativeAppService;
             StatePersistenceService = statePersistenceService;
             _contactService = contactService;
             PreferencesService = preferencesService;
+            PrintService = printService;
+            _applicationConfiguration = applicationConfiguration;
             _winoServerConnectionManager = winoServerConnectionManager;
             _clipboardService = clipboardService;
             _unsubscriptionService = unsubscriptionService;
@@ -149,7 +160,6 @@ namespace Wino.Mail.ViewModels
             _fileService = fileService;
             _requestDelegator = requestDelegator;
         }
-
 
         [RelayCommand]
         private async Task CopyClipboard(string copyText)
@@ -243,14 +253,11 @@ namespace Wino.Mail.ViewModels
                 IsDarkWebviewRenderer = !IsDarkWebviewRenderer;
             else if (operation == MailOperation.SaveAs)
             {
-                // Save as PDF
-                var pickedFolder = await DialogService.PickWindowsFolderAsync();
-
-                if (!string.IsNullOrEmpty(pickedFolder))
-                {
-                    var fullPath = Path.Combine(pickedFolder, $"{initializedMailItemViewModel.FromAddress}.pdf");
-                    Messenger.Send(new SaveAsPDFRequested(fullPath));
-                }
+                await SaveAsAsync();
+            }
+            else if (operation == MailOperation.Print)
+            {
+                await PrintAsync();
             }
             else if (operation == MailOperation.Reply || operation == MailOperation.ReplyAll || operation == MailOperation.Forward)
             {
@@ -519,6 +526,9 @@ namespace Wino.Mail.ViewModels
             // Save As PDF
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.SaveAs, true, true));
 
+            // Print
+            MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Print, true, true));
+
             if (initializedMailItemViewModel == null)
                 return;
 
@@ -656,6 +666,66 @@ namespace Wino.Mail.ViewModels
                 Crashes.TrackError(ex);
 
                 DialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+            }
+        }
+
+        private async Task PrintAsync()
+        {
+            // Printing:
+            // 1. Let WebView2 save the current HTML as PDF to temporary location.
+            // 2. Saving as PDF will divide pages correctly for Win2D CanvasBitmap.
+            // 3. Use Win2D CanvasBitmap as IPrintDocumentSource and WinRT APIs to print the PDF.
+
+            try
+            {
+                var printFilePath = Path.Combine(_applicationConfiguration.ApplicationTempFolderPath, "print.pdf");
+
+                if (File.Exists(printFilePath)) File.Delete(printFilePath);
+
+                await SaveHTMLasPDFFunc(printFilePath);
+
+                var result = await PrintService.PrintPdfFileAsync(printFilePath, Subject);
+
+                if (result == PrintingResult.Submitted)
+                {
+                    DialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
+                }
+                else
+                {
+                    var message = string.Format(Translator.DialogMessage_PrintingFailedMessage, result);
+                    DialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, message, InfoBarMessageType.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(string.Empty, ex.Message, InfoBarMessageType.Error);
+                Crashes.TrackError(ex);
+            }
+        }
+
+        private async Task SaveAsAsync()
+        {
+            try
+            {
+                var pickedFolder = await DialogService.PickWindowsFolderAsync();
+
+                if (string.IsNullOrEmpty(pickedFolder)) return;
+
+                var pdfFilePath = Path.Combine(pickedFolder, $"{initializedMailItemViewModel.FromAddress}.pdf");
+
+                bool isSaved = await SaveHTMLasPDFFunc(pdfFilePath);
+
+                if (isSaved)
+                {
+                    DialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
+                                                  string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
+                                                  InfoBarMessageType.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                DialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+                Crashes.TrackError(ex);
             }
         }
 

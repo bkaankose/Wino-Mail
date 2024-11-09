@@ -3,7 +3,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
@@ -12,8 +11,6 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
@@ -25,8 +22,7 @@ namespace Wino.Views
     public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IRecipient<HtmlRenderingRequested>,
         IRecipient<CancelRenderingContentRequested>,
-        IRecipient<ApplicationThemeChanged>,
-        IRecipient<SaveAsPDFRequested>
+        IRecipient<ApplicationThemeChanged>
     {
         private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
         private readonly IDialogService _dialogService = App.Current.Services.GetService<IDialogService>();
@@ -44,6 +40,11 @@ namespace Wino.Views
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
+
+            ViewModel.SaveHTMLasPDFFunc = new Func<string, Task<bool>>((path) =>
+            {
+                return Chromium.CoreWebView2.PrintToPdfAsync(path, null).AsTask();
+            });
         }
 
         public override async void OnEditorThemeChanged()
@@ -275,26 +276,6 @@ namespace Wino.Views
         void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
         {
             ViewModel.IsDarkWebviewRenderer = message.IsUnderlyingThemeDark;
-        }
-
-        public async void Receive(SaveAsPDFRequested message)
-        {
-            try
-            {
-                bool isSaved = await Chromium.CoreWebView2.PrintToPdfAsync(message.FileSavePath, null);
-
-                if (isSaved)
-                {
-                    _dialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
-                                                  string.Format(Translator.Info_PDFSaveSuccessMessage, message.FileSavePath),
-                                                  InfoBarMessageType.Success);
-                }
-            }
-            catch (Exception ex)
-            {
-                _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
-                Crashes.TrackError(ex);
-            }
         }
 
         private void InternetAddressClicked(object sender, RoutedEventArgs e)
