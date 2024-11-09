@@ -39,6 +39,9 @@ namespace Wino.Mail.ViewModels
         [ObservableProperty]
         private bool isAppendMessageSettinEnabled;
 
+        [ObservableProperty]
+        private bool isTaskbarBadgeEnabled;
+
         public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
 
 
@@ -120,6 +123,7 @@ namespace Wino.Mail.ViewModels
 
                 IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
                 IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
+                IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
 
                 OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
 
@@ -152,6 +156,10 @@ namespace Wino.Mail.ViewModels
                     break;
                 case nameof(IsSignatureEnabled):
                     Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(IsTaskbarBadgeEnabled):
+                    Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
                     await _accountService.UpdateAccountAsync(Account);
                     break;
             }
