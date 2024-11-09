@@ -96,6 +96,7 @@ namespace Wino
             // Make sure the paths are setup on app start.
             _applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
             _applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+            _applicationFolderConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
 
             _appServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
             _themeService = Services.GetService<IThemeService>();

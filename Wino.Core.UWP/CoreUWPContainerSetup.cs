@@ -28,6 +28,7 @@ namespace Wino.Core.UWP
             services.AddTransient<INotificationBuilder, NotificationBuilder>();
             services.AddTransient<IClipboardService, ClipboardService>();
             services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
+            services.AddSingleton<IPrintService, PrintService>();
         }
     }
 }

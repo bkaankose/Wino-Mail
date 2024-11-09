@@ -84,6 +84,7 @@ namespace Wino.Server
 
             applicationFolderConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
             applicationFolderConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+            applicationFolderConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
 
             // Setup logger
             var logInitializer = Services.GetService<ILogInitializer>();
