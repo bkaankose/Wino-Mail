@@ -429,7 +429,7 @@ namespace Wino.Mail.ViewModels
                 HasUnlimitedAccountProduct = await _storeManagementService.HasProductAsync(StoreProductType.UnlimitedAccounts);
 
                 if (!HasUnlimitedAccountProduct)
-                    IsAccountCreationBlocked = Accounts.Count >= FREE_ACCOUNT_COUNT;
+                    IsAccountCreationBlocked = Accounts.Sum(a => a.HoldingAccountCount) >= FREE_ACCOUNT_COUNT;
                 else
                     IsAccountCreationBlocked = false;
             });
