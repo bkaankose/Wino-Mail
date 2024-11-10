@@ -136,6 +136,7 @@
     <Compile Include="Selectors\CustomWinoMessageDialogIconSelector.cs" />
     <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
     <Compile Include="Services\PreferencesService.cs" />
+    <Compile Include="Services\PrintService.cs" />
     <Compile Include="Services\StartupBehaviorService.cs" />
     <Compile Include="Services\StatePersistenceService.cs" />
     <Compile Include="Services\WinoServerConnectionManager.cs" />
@@ -214,6 +215,9 @@
     </PackageReference>
     <PackageReference Include="Microsoft.UI.Xaml">
       <Version>2.8.6</Version>
+    </PackageReference>
+    <PackageReference Include="Win2D.uwp">
+      <Version>1.28.0</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>

@@ -144,6 +144,7 @@ namespace Wino.Helpers
                 MailOperation.ReplyAll => WinoIconGlyph.ReplyAll,
                 MailOperation.Zoom => WinoIconGlyph.Zoom,
                 MailOperation.SaveAs => WinoIconGlyph.Save,
+                MailOperation.Print => WinoIconGlyph.Print,
                 MailOperation.Find => WinoIconGlyph.Find,
                 MailOperation.Forward => WinoIconGlyph.Forward,
                 MailOperation.DarkEditor => WinoIconGlyph.DarkEditor,

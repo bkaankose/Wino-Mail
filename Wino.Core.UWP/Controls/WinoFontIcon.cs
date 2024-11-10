@@ -69,7 +69,8 @@ namespace Wino.Core.UWP.Controls
         Blocked,
         Message,
         New,
-        IMAP
+        IMAP,
+        Print
     }
 
     public class WinoFontIcon : FontIcon
