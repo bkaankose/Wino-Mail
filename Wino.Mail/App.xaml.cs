@@ -65,8 +65,6 @@ namespace Wino
             }
         }
 
-
-
         public override IServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();

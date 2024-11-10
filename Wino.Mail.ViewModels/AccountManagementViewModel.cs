@@ -358,20 +358,5 @@ namespace Wino.Mail.ViewModels
 
             await ManageStorePurchasesAsync().ConfigureAwait(false);
         }
-
-        private async Task ManageStorePurchasesAsync()
-        {
-            await ExecuteUIThread(async () =>
-            {
-                HasUnlimitedAccountProduct = await _storeManagementService.HasProductAsync(StoreProductType.UnlimitedAccounts);
-
-                if (!HasUnlimitedAccountProduct)
-                    IsAccountCreationBlocked = Accounts.Sum(a => a.HoldingAccountCount) >= FREE_ACCOUNT_COUNT;
-                else
-                    IsAccountCreationBlocked = false;
-            });
-        }
-
-
     }
 }

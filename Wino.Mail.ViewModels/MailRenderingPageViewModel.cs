@@ -145,7 +145,7 @@ namespace Wino.Mail.ViewModels
                                           IPreferencesService preferencesService,
                                           IPrintService printService,
                                           IApplicationConfiguration applicationConfiguration,
-                                          IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                          IWinoServerConnectionManager winoServerConnectionManager)
         {
             _dialogService = dialogService;
             NativeAppService = nativeAppService;
@@ -691,17 +691,17 @@ namespace Wino.Mail.ViewModels
 
                 if (result == PrintingResult.Submitted)
                 {
-                    DialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
+                    _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
                 }
                 else
                 {
                     var message = string.Format(Translator.DialogMessage_PrintingFailedMessage, result);
-                    DialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, message, InfoBarMessageType.Warning);
+                    _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, message, InfoBarMessageType.Warning);
                 }
             }
             catch (Exception ex)
             {
-                DialogService.InfoBarMessage(string.Empty, ex.Message, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(string.Empty, ex.Message, InfoBarMessageType.Error);
                 Crashes.TrackError(ex);
             }
         }
@@ -710,7 +710,7 @@ namespace Wino.Mail.ViewModels
         {
             try
             {
-                var pickedFolder = await DialogService.PickWindowsFolderAsync();
+                var pickedFolder = await _dialogService.PickWindowsFolderAsync();
 
                 if (string.IsNullOrEmpty(pickedFolder)) return;
 
@@ -720,14 +720,14 @@ namespace Wino.Mail.ViewModels
 
                 if (isSaved)
                 {
-                    DialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
+                    _dialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
                                                   string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
                                                   InfoBarMessageType.Success);
                 }
             }
             catch (Exception ex)
             {
-                DialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
                 Crashes.TrackError(ex);
             }
         }

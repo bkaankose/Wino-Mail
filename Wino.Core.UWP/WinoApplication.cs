@@ -74,6 +74,7 @@ namespace Wino.Core.UWP
             // Make sure the paths are setup on app start.
             AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
             AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+            AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
 
             ConfigureLogging();
         }
