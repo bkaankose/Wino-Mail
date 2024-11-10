@@ -3,7 +3,7 @@ using System.Linq;
 using MailKit;
 using MimeKit;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Extensions

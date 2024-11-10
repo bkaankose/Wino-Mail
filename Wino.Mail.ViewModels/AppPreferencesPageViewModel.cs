@@ -11,7 +11,7 @@ using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class AppPreferencesPageViewModel : BaseViewModel
+    public partial class AppPreferencesPageViewModel : MailBaseViewModel
     {
         public IPreferencesService PreferencesService { get; }
 
@@ -38,14 +38,16 @@ namespace Wino.Mail.ViewModels
             }
         }
 
+        private readonly IMailDialogService _dialogService;
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private readonly IStartupBehaviorService _startupBehaviorService;
 
-        public AppPreferencesPageViewModel(IDialogService dialogService,
+        public AppPreferencesPageViewModel(IMailDialogService dialogService,
                                            IPreferencesService preferencesService,
                                            IWinoServerConnectionManager winoServerConnectionManager,
-                                           IStartupBehaviorService startupBehaviorService) : base(dialogService)
+                                           IStartupBehaviorService startupBehaviorService)
         {
+            _dialogService = dialogService;
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;
             _startupBehaviorService = startupBehaviorService;
@@ -95,23 +97,23 @@ namespace Wino.Mail.ViewModels
         {
             if (StartupBehaviorResult == StartupBehaviorResult.Enabled)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Enabled, InfoBarMessageType.Success);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Enabled, InfoBarMessageType.Success);
             }
             else if (StartupBehaviorResult == StartupBehaviorResult.Disabled)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Disabled, InfoBarMessageType.Warning);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Disabled, InfoBarMessageType.Warning);
             }
             else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByPolicy)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByPolicy, InfoBarMessageType.Warning);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByPolicy, InfoBarMessageType.Warning);
             }
             else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByUser)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByUser, InfoBarMessageType.Warning);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByUser, InfoBarMessageType.Warning);
             }
             else
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.SettingsAppPreferences_StartupBehavior_FatalError, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.SettingsAppPreferences_StartupBehavior_FatalError, InfoBarMessageType.Error);
             }
         }
 
@@ -125,7 +127,7 @@ namespace Wino.Mail.ViewModels
 
                 if (!terminationModeChangedResult.IsSuccess)
                 {
-                    DialogService.InfoBarMessage(Translator.GeneralTitle_Error, terminationModeChangedResult.Message, InfoBarMessageType.Error);
+                    _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, terminationModeChangedResult.Message, InfoBarMessageType.Error);
                 }
             }
         }

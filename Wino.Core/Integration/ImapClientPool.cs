@@ -14,7 +14,7 @@ using MailKit.Security;
 using MimeKit.Cryptography;
 using MoreLinq;
 using Serilog;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Connectivity;

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Synchronizers;
+using Wino.Core.Synchronizers.Mail;
 
 namespace Wino.Core.Services
 {
@@ -20,7 +20,7 @@ namespace Wino.Core.Services
         private readonly IOutlookAuthenticator _outlookAuthenticator;
         private readonly IGmailAuthenticator _gmailAuthenticator;
 
-        private readonly List<IBaseSynchronizer> synchronizerCache = new();
+        private readonly List<IBaseMailSynchronizer> synchronizerCache = new();
 
         public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                    IGmailChangeProcessor gmailChangeProcessor,
@@ -39,7 +39,7 @@ namespace Wino.Core.Services
             _applicationConfiguration = applicationConfiguration;
         }
 
-        public async Task<IBaseSynchronizer> GetAccountSynchronizerAsync(Guid accountId)
+        public async Task<IBaseMailSynchronizer> GetAccountSynchronizerAsync(Guid accountId)
         {
             var synchronizer = synchronizerCache.Find(a => a.Account.Id == accountId);
 
@@ -58,7 +58,7 @@ namespace Wino.Core.Services
             return synchronizer;
         }
 
-        private IBaseSynchronizer CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
+        private IBaseMailSynchronizer CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
         {
             var providerType = mailAccount.ProviderType;
 
@@ -78,7 +78,7 @@ namespace Wino.Core.Services
             return null;
         }
 
-        public IBaseSynchronizer CreateNewSynchronizer(MailAccount account)
+        public IBaseMailSynchronizer CreateNewSynchronizer(MailAccount account)
         {
             var synchronizer = CreateIntegratorWithDefaultProcessor(account);
 

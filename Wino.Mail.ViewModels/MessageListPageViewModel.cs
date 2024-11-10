@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {
-    public class MessageListPageViewModel : BaseViewModel
+    public class MessageListPageViewModel : MailBaseViewModel
     {
         public IPreferencesService PreferencesService { get; }
 
@@ -92,8 +92,8 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
-        public MessageListPageViewModel(IDialogService dialogService,
-                                        IPreferencesService preferencesService) : base(dialogService)
+        public MessageListPageViewModel(IMailDialogService dialogService,
+                                        IPreferencesService preferencesService) 
         {
             PreferencesService = preferencesService;
 

@@ -6,7 +6,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EmailValidation;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
@@ -15,10 +16,12 @@ using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class AliasManagementPageViewModel : BaseViewModel
+    public partial class AliasManagementPageViewModel : MailBaseViewModel
     {
+        private readonly IMailDialogService _dialogService;
         private readonly IAccountService _accountService;
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
         private MailAccount account;
@@ -28,10 +31,11 @@ namespace Wino.Mail.ViewModels
 
         public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
 
-        public AliasManagementPageViewModel(IDialogService dialogService,
+        public AliasManagementPageViewModel(IMailDialogService dialogService,
                                             IAccountService accountService,
-                                            IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                            IWinoServerConnectionManager winoServerConnectionManager)
         {
+            _dialogService = dialogService;
             _accountService = accountService;
             _winoServerConnectionManager = winoServerConnectionManager;
         }
@@ -83,13 +87,13 @@ namespace Wino.Mail.ViewModels
             if (aliasSyncResponse.IsSuccess)
                 await LoadAliasesAsync();
             else
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
         }
 
         [RelayCommand]
         private async Task AddNewAliasAsync()
         {
-            var createdAliasDialog = await DialogService.ShowCreateAccountAliasDialogAsync();
+            var createdAliasDialog = await _dialogService.ShowCreateAccountAliasDialogAsync();
 
             if (createdAliasDialog.CreatedAccountAlias == null) return;
 
@@ -98,7 +102,7 @@ namespace Wino.Mail.ViewModels
             // Check existence.
             if (AccountAliases.Any(a => a.AliasAddress == newAlias.AliasAddress))
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle,
+                await _dialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle,
                                                      Translator.DialogMessage_AliasExistsMessage,
                                                      WinoCustomMessageDialogIcon.Warning);
                 return;
@@ -107,7 +111,7 @@ namespace Wino.Mail.ViewModels
             // Validate all addresses.
             if (!EmailValidator.Validate(newAlias.AliasAddress) || (!string.IsNullOrEmpty(newAlias.ReplyToAddress) && !EmailValidator.Validate(newAlias.ReplyToAddress)))
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage,
+                await _dialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage,
                                                      Translator.DialogMessage_InvalidAliasTitle,
                                                      WinoCustomMessageDialogIcon.Warning);
                 return;
@@ -118,7 +122,7 @@ namespace Wino.Mail.ViewModels
             AccountAliases.Add(newAlias);
 
             await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-            DialogService.InfoBarMessage(Translator.DialogMessage_AliasCreatedTitle, Translator.DialogMessage_AliasCreatedMessage, InfoBarMessageType.Success);
+            _dialogService.InfoBarMessage(Translator.DialogMessage_AliasCreatedTitle, Translator.DialogMessage_AliasCreatedMessage, InfoBarMessageType.Success);
 
             await LoadAliasesAsync();
         }
@@ -129,7 +133,7 @@ namespace Wino.Mail.ViewModels
             // Primary aliases can't be deleted.
             if (alias.IsPrimary)
             {
-                await DialogService.ShowMessageAsync(Translator.Info_CantDeletePrimaryAliasMessage,
+                await _dialogService.ShowMessageAsync(Translator.Info_CantDeletePrimaryAliasMessage,
                                                      Translator.GeneralTitle_Warning,
                                                      WinoCustomMessageDialogIcon.Warning);
                 return;
@@ -138,7 +142,7 @@ namespace Wino.Mail.ViewModels
             // Root aliases can't be deleted.
             if (alias.IsRootAlias)
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_CantDeleteRootAliasTitle,
+                await _dialogService.ShowMessageAsync(Translator.DialogMessage_CantDeleteRootAliasTitle,
                                                      Translator.DialogMessage_CantDeleteRootAliasMessage,
                                                      WinoCustomMessageDialogIcon.Warning);
                 return;

@@ -5,7 +5,7 @@ namespace Wino.Core.Domain.Interfaces
 {
     public interface ISynchronizerFactory
     {
-        Task<IBaseSynchronizer> GetAccountSynchronizerAsync(Guid accountId);
+        Task<IBaseMailSynchronizer> GetAccountSynchronizerAsync(Guid accountId);
         Task InitializeAsync();
     }
 }

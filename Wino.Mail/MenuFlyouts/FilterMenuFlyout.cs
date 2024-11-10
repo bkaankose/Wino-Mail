@@ -5,6 +5,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Controls;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.UWP.Controls;
 using Wino.Helpers;
 
 namespace Wino.MenuFlyouts

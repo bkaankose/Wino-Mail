@@ -9,7 +9,8 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
@@ -23,7 +24,7 @@ using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class ComposePageViewModel : BaseViewModel
+    public partial class ComposePageViewModel : MailBaseViewModel
     {
         public Func<Task<string>> GetHTMLBodyFunction;
 
@@ -92,6 +93,7 @@ namespace Wino.Mail.ViewModels
 
         public INativeAppService NativeAppService { get; }
 
+        private readonly IMailDialogService _dialogService;
         private readonly IMailService _mailService;
         private readonly IMimeFileService _mimeFileService;
         private readonly IFolderService _folderService;
@@ -102,7 +104,7 @@ namespace Wino.Mail.ViewModels
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         public readonly IContactService ContactService;
 
-        public ComposePageViewModel(IDialogService dialogService,
+        public ComposePageViewModel(IMailDialogService dialogService,
                                     IMailService mailService,
                                     IMimeFileService mimeFileService,
                                     INativeAppService nativeAppService,
@@ -112,7 +114,7 @@ namespace Wino.Mail.ViewModels
                                     IContactService contactService,
                                     IFontService fontService,
                                     IPreferencesService preferencesService,
-                                    IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                    IWinoServerConnectionManager winoServerConnectionManager)
         {
             NativeAppService = nativeAppService;
             ContactService = contactService;
@@ -120,6 +122,7 @@ namespace Wino.Mail.ViewModels
             PreferencesService = preferencesService;
 
             _folderService = folderService;
+            _dialogService = dialogService;
             _mailService = mailService;
             _mimeFileService = mimeFileService;
             _accountService = accountService;
@@ -138,7 +141,7 @@ namespace Wino.Mail.ViewModels
 
             if (!ToItems.Any())
             {
-                await DialogService.ShowMessageAsync(Translator.DialogMessage_ComposerMissingRecipientMessage,
+                await _dialogService.ShowMessageAsync(Translator.DialogMessage_ComposerMissingRecipientMessage,
                                                      Translator.DialogMessage_ComposerValidationFailedTitle,
                                                      WinoCustomMessageDialogIcon.Warning);
                 return;
@@ -146,14 +149,14 @@ namespace Wino.Mail.ViewModels
 
             if (string.IsNullOrEmpty(Subject))
             {
-                var isConfirmed = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_EmptySubjectConfirmationMessage, Translator.DialogMessage_EmptySubjectConfirmation, Translator.Buttons_Yes);
+                var isConfirmed = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_EmptySubjectConfirmationMessage, Translator.DialogMessage_EmptySubjectConfirmation, Translator.Buttons_Yes);
 
                 if (!isConfirmed) return;
             }
 
             if (SelectedAlias == null)
             {
-                DialogService.InfoBarMessage(Translator.DialogMessage_AliasNotSelectedTitle, Translator.DialogMessage_AliasNotSelectedMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.DialogMessage_AliasNotSelectedTitle, Translator.DialogMessage_AliasNotSelectedMessage, InfoBarMessageType.Error);
                 return;
             }
 
@@ -255,11 +258,11 @@ namespace Wino.Mail.ViewModels
         {
             if (ComposingAccount == null)
             {
-                DialogService.InfoBarMessage(Translator.Info_MessageCorruptedTitle, Translator.Info_MessageCorruptedMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_MessageCorruptedTitle, Translator.Info_MessageCorruptedMessage, InfoBarMessageType.Error);
                 return;
             }
 
-            var confirmation = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DiscardDraftConfirmationMessage,
+            var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DiscardDraftConfirmationMessage,
                                                                                Translator.DialogMessage_DiscardDraftConfirmationTitle,
                                                                                Translator.Buttons_Yes);
 
@@ -369,17 +372,17 @@ namespace Wino.Mail.ViewModels
                     }
                 }
                 else
-                    DialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+                    _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
 
                 return;
             }
             catch (IOException)
             {
-                DialogService.InfoBarMessage(Translator.Busy, Translator.Exception_MailProcessing, InfoBarMessageType.Warning);
+                _dialogService.InfoBarMessage(Translator.Busy, Translator.Exception_MailProcessing, InfoBarMessageType.Warning);
             }
             catch (ComposerMimeNotFoundException)
             {
-                DialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
+                _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
             }
 
             if (mimeMessageInformation == null)
@@ -494,12 +497,12 @@ namespace Wino.Mail.ViewModels
 
         public void NotifyAddressExists()
         {
-            DialogService.InfoBarMessage(Translator.Info_ContactExistsTitle, Translator.Info_ContactExistsMessage, InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(Translator.Info_ContactExistsTitle, Translator.Info_ContactExistsMessage, InfoBarMessageType.Warning);
         }
 
         public void NotifyInvalidEmail(string address)
         {
-            DialogService.InfoBarMessage(Translator.Info_InvalidAddressTitle, string.Format(Translator.Info_InvalidAddressMessage, address), InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(Translator.Info_InvalidAddressTitle, string.Format(Translator.Info_InvalidAddressMessage, address), InfoBarMessageType.Warning);
         }
 
         protected override async void OnMailUpdated(MailCopy updatedMail)

@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
@@ -16,8 +16,9 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class AccountDetailsPageViewModel : BaseViewModel
+    public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
+        private readonly IMailDialogService _dialogService;
         private readonly IAccountService _accountService;
         private readonly IFolderService _folderService;
 
@@ -45,17 +46,18 @@ namespace Wino.Mail.ViewModels
         public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
 
 
-        public AccountDetailsPageViewModel(IDialogService dialogService,
+        public AccountDetailsPageViewModel(IMailDialogService dialogService,
             IAccountService accountService,
-            IFolderService folderService) : base(dialogService)
+            IFolderService folderService)
         {
+            _dialogService = dialogService;
             _accountService = accountService;
             _folderService = folderService;
         }
 
         [RelayCommand]
         private Task SetupSpecialFolders()
-            => DialogService.HandleSystemFolderConfigurationDialogAsync(Account.Id, _folderService);
+            => _dialogService.HandleSystemFolderConfigurationDialogAsync(Account.Id, _folderService);
 
         [RelayCommand]
         private void EditSignature()
@@ -77,7 +79,7 @@ namespace Wino.Mail.ViewModels
             if (Account == null)
                 return;
 
-            var updatedAccount = await DialogService.ShowEditAccountDialogAsync(Account);
+            var updatedAccount = await _dialogService.ShowEditAccountDialogAsync(Account);
 
             if (updatedAccount != null)
             {
@@ -93,7 +95,7 @@ namespace Wino.Mail.ViewModels
             if (Account == null)
                 return;
 
-            var confirmation = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DeleteAccountConfirmationTitle,
+            var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DeleteAccountConfirmationTitle,
                                                                                string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, Account.Name),
                                                                                Translator.Buttons_Delete);
 
@@ -104,7 +106,7 @@ namespace Wino.Mail.ViewModels
 
             // TODO: Server: Cancel ongoing calls from server for this account.
 
-            DialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+            _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
 
             Messenger.Send(new BackBreadcrumNavigationRequested());
         }

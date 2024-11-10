@@ -16,7 +16,8 @@ using Nito.AsyncEx;
 using Serilog;
 using Wino.Core;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
@@ -33,7 +34,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class MailListPageViewModel : BaseViewModel,
+    public partial class MailListPageViewModel : MailBaseViewModel,
         IRecipient<MailItemNavigationRequested>,
         IRecipient<ActiveMailFolderChangedEvent>,
         IRecipient<MailItemSelectedEvent>,
@@ -66,7 +67,7 @@ namespace Wino.Mail.ViewModels
         private readonly SemaphoreSlim listManipulationSemepahore = new SemaphoreSlim(1);
         private CancellationTokenSource listManipulationCancellationTokenSource = new CancellationTokenSource();
 
-        public IWinoNavigationService NavigationService { get; }
+        public INavigationService NavigationService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
@@ -143,8 +144,8 @@ namespace Wino.Mail.ViewModels
         [NotifyPropertyChangedFor(nameof(CanSynchronize))]
         private bool isAccountSynchronizerInSynchronization;
 
-        public MailListPageViewModel(IDialogService dialogService,
-                                     IWinoNavigationService navigationService,
+        public MailListPageViewModel(IMailDialogService dialogService,
+                                     INavigationService navigationService,
                                      IMailService mailService,
                                      IStatePersistanceService statePersistenceService,
                                      IFolderService folderService,
@@ -153,7 +154,7 @@ namespace Wino.Mail.ViewModels
                                      IWinoRequestDelegator winoRequestDelegator,
                                      IKeyPressService keyPressService,
                                      IPreferencesService preferencesService,
-                                     IWinoServerConnectionManager winoServerConnectionManager) : base(dialogService)
+                                     IWinoServerConnectionManager winoServerConnectionManager) 
         {
             PreferencesService = preferencesService;
             _winoServerConnectionManager = winoServerConnectionManager;

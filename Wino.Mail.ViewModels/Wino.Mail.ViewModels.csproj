@@ -12,12 +12,13 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.5" />
+    <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.6" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
     <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
   </ItemGroup>

@@ -23,6 +23,10 @@
         LanguageTimePage,
         AppPreferencesPage,
         SettingOptionsPage,
-        AliasManagementPage
+        AliasManagementPage,
+
+        // Calendar
+        CalendarPage,
+        CalendarSettingsPage,
     }
 }

@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>12</LangVersion>
+		<Platforms>AnyCPU;x64;x86</Platforms>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="TimePeriodLibrary.NET" Version="2.1.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+	  <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+	  <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	</ItemGroup>
+
+</Project>

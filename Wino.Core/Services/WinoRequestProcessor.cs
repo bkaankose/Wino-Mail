@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
@@ -23,7 +23,7 @@ namespace Wino.Core.Services
         private readonly IKeyPressService _keyPressService;
         private readonly IPreferencesService _preferencesService;
         private readonly IAccountService _accountService;
-        private readonly IDialogService _dialogService;
+        private readonly IMailDialogService _dialogService;
         private readonly IMailService _mailService;
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace Wino.Core.Services
                                     IKeyPressService keyPressService,
                                     IPreferencesService preferencesService,
                                     IAccountService accountService,
-                                    IDialogService dialogService,
+                                    IMailDialogService dialogService,
                                     IMailService mailService) : base(databaseService)
         {
             _folderService = folderService;

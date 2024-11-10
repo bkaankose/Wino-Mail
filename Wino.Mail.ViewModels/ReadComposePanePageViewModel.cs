@@ -6,7 +6,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class ReadComposePanePageViewModel : BaseViewModel,
+    public partial class ReadComposePanePageViewModel : MailBaseViewModel,
         IRecipient<PropertyChangedMessage<string>>,
         IRecipient<PropertyChangedMessage<int>>
     {
@@ -31,9 +31,9 @@ namespace Wino.Mail.ViewModels
         [NotifyPropertyChangedRecipients]
         int currentComposerFontSize;
 
-        public ReadComposePanePageViewModel(IDialogService dialogService,
+        public ReadComposePanePageViewModel(IMailDialogService dialogService,
                                         IFontService fontService,
-                                        IPreferencesService preferencesService) : base(dialogService)
+                                        IPreferencesService preferencesService) 
         {
             _fontService = fontService;
             PreferencesService = preferencesService;

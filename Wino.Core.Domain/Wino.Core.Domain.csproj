@@ -62,10 +62,11 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MimeKit" Version="4.7.1" />
-		<PackageReference Include="MailKit" Version="4.7.1.1" />
+		<PackageReference Include="MimeKit" Version="4.8.0" />
+		<PackageReference Include="MailKit" Version="4.8.0" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
-		<PackageReference Include="System.Text.Json" Version="8.0.4" />
+		<PackageReference Include="System.Text.Json" Version="8.0.5" />
+		<PackageReference Include="TimePeriodLibrary.NET" Version="2.1.5" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />

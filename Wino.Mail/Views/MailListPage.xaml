@@ -6,6 +6,7 @@
     xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:controls="using:Wino.Controls"
     xmlns:converters="using:Wino.Converters"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
@@ -22,7 +23,7 @@
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
-    xmlns:wino="using:Wino"
+    xmlns:wino="using:Wino.Core.UWP"
     x:Name="root"
     SizeChanged="PageSizeChanged"
     mc:Ignorable="d">
@@ -75,7 +76,7 @@
                             Invoked="LeftSwipeItemInvoked"
                             Text="{x:Bind domain:Translator.MailOperation_Delete}">
                 <muxc:SwipeItem.IconSource>
-                    <controls:WinoFontIconSource Icon="Delete" />
+                    <coreControls:WinoFontIconSource Icon="Delete" />
                 </muxc:SwipeItem.IconSource>
                 <muxc:SwipeItem.Background>
                     <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
@@ -95,7 +96,7 @@
                             Invoked="RightSwipeItemInvoked"
                             Text="{x:Bind domain:Translator.MarkReadUnread}">
                 <muxc:SwipeItem.IconSource>
-                    <controls:WinoFontIconSource Icon="MarkRead" />
+                    <coreControls:WinoFontIconSource Icon="MarkRead" />
                 </muxc:SwipeItem.IconSource>
             </muxc:SwipeItem>
         </muxc:SwipeItems>-->
@@ -328,7 +329,7 @@
                             Command="{x:Bind ViewModel.SyncFolderCommand}"
                             IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync}">
-                            <controls:WinoFontIcon FontSize="14" Icon="Sync" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Sync" />
                         </Button>
                         <ToggleButton
                             x:Name="SelectionModeToggle"
@@ -340,7 +341,7 @@
                             IsChecked="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=TwoWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Multiselect}"
                             Unchecked="SelectionModeToggleUnchecked">
-                            <controls:WinoFontIcon FontSize="16" Icon="MultiSelect" />
+                            <coreControls:WinoFontIcon FontSize="16" Icon="MultiSelect" />
                         </ToggleButton>
                         <muxc:DropDownButton
                             Height="36"
@@ -491,7 +492,7 @@
 
 
                 <!--  Update Info Bar  -->
-                <controls:WinoInfoBar
+                <coreControls:WinoInfoBar
                     Title="{x:Bind ViewModel.BarTitle, Mode=OneWay}"
                     Grid.Row="2"
                     Margin="0,0,0,5"
@@ -532,7 +533,7 @@
                 Opacity="0.5"
                 Spacing="6">
 
-                <controls:WinoFontIcon FontSize="80" Icon="Mail" />
+                <coreControls:WinoFontIcon FontSize="80" Icon="Mail" />
 
                 <TextBlock
                     HorizontalAlignment="Center"

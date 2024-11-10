@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
@@ -139,19 +140,19 @@
                                 </StackPanel.ChildrenTransitions>
                                 <Button Click="FirstActionClicked" Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
-                                        <controls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
+                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
 
                                 <Button Click="SecondActionClicked" Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
-                                        <controls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
+                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
 
                                 <Button Click="ThirdActionClicked" Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
-                                        <controls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
+                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
                             </StackPanel>

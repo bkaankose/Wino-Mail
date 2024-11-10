@@ -21,13 +21,13 @@ namespace Wino.Core.Services
         private readonly IWinoRequestProcessor _winoRequestProcessor;
         private readonly IWinoServerConnectionManager _winoServerConnectionManager;
         private readonly IFolderService _folderService;
-        private readonly IDialogService _dialogService;
+        private readonly IMailDialogService _dialogService;
         private readonly ILogger _logger = Log.ForContext<WinoRequestDelegator>();
 
         public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                     IWinoServerConnectionManager winoServerConnectionManager,
                                     IFolderService folderService,
-                                    IDialogService dialogService)
+                                    IMailDialogService dialogService)
         {
             _winoRequestProcessor = winoRequestProcessor;
             _winoServerConnectionManager = winoServerConnectionManager;

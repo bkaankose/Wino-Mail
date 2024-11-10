@@ -8,6 +8,7 @@ using Windows.Storage;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Views;
@@ -19,12 +20,12 @@ namespace Wino.Activation
         private readonly INativeAppService _nativeAppService;
         private readonly IMimeFileService _mimeFileService;
         private readonly IStatePersistanceService _statePersistanceService;
-        private readonly IWinoNavigationService _winoNavigationService;
+        private readonly INavigationService _winoNavigationService;
 
         public FileActivationHandler(INativeAppService nativeAppService,
                                      IMimeFileService mimeFileService,
                                      IStatePersistanceService statePersistanceService,
-                                     IWinoNavigationService winoNavigationService)
+                                     INavigationService winoNavigationService)
         {
             _nativeAppService = nativeAppService;
             _mimeFileService = mimeFileService;
@@ -52,7 +53,7 @@ namespace Wino.Activation
                 if (_nativeAppService.IsAppRunning())
                 {
                     // TODO: Activate another Window and go to mail rendering page.
-                    _winoNavigationService.NavigateRendering(messageInformation);
+                    _winoNavigationService.Navigate(WinoPage.MailRenderingPage, messageInformation, NavigationReferenceFrame.RenderingFrame);
                 }
                 else
                 {

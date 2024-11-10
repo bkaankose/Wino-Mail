@@ -82,14 +82,59 @@
     <LangVersion>12.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Activation\ActivationHandler.cs" />
+    <Compile Include="BasePage.cs" />
+    <Compile Include="Controls\ControlConstants.cs" />
+    <Compile Include="Controls\WinoAppTitleBar.xaml.cs">
+      <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\WinoFontIcon.cs" />
+    <Compile Include="Controls\WinoFontIconSource.cs" />
+    <Compile Include="Controls\WinoInfoBar.cs" />
+    <Compile Include="Controls\WinoNavigationViewItem.cs" />
+    <Compile Include="Converters\GridLengthConverter.cs" />
+    <Compile Include="Converters\ReverseBooleanConverter.cs" />
+    <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
     <Compile Include="CoreUWPContainerSetup.cs" />
+    <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
+    <Compile Include="Services\ApplicationResourceManager.cs" />
+    <Compile Include="Services\DialogServiceBase.cs" />
+    <Compile Include="Services\NavigationServiceBase.cs" />
+    <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
+      <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
+      <DependentUpon>AccountEditDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\AccountPickerDialog.xaml.cs">
+      <DependentUpon>AccountPickerDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
+    <Compile Include="Dialogs\CustomMessageDialogInformationContainer.cs" />
+    <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
+      <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\TextInputDialog.xaml.cs">
+      <DependentUpon>TextInputDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Dispatcher.cs" />
+    <Compile Include="Extensions\AnimationExtensions.cs" />
+    <Compile Include="Extensions\CompositionEnums.cs" />
+    <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
+    <Compile Include="Extensions\CompositionExtensions.Size.cs" />
     <Compile Include="Extensions\ElementThemeExtensions.cs" />
     <Compile Include="Extensions\StartupTaskStateExtensions.cs" />
+    <Compile Include="Extensions\UIExtensions.cs" />
+    <Compile Include="Extensions\UtilExtensions.cs" />
+    <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
+    <Compile Include="Helpers\XamlHelpers.cs" />
     <Compile Include="Models\Personalization\CustomAppTheme.cs" />
     <Compile Include="Models\Personalization\PreDefinedAppTheme.cs" />
     <Compile Include="Models\Personalization\SystemAppTheme.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
+    <Compile Include="Selectors\CustomWinoMessageDialogIconSelector.cs" />
+    <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
     <Compile Include="Services\PreferencesService.cs" />
     <Compile Include="Services\PrintService.cs" />
     <Compile Include="Services\StartupBehaviorService.cs" />
@@ -106,20 +151,70 @@
     <Compile Include="Services\StoreRatingService.cs" />
     <Compile Include="Services\ThemeService.cs" />
     <Compile Include="Services\UnderlyingThemeService.cs" />
+    <Compile Include="CoreGeneric.xaml.cs">
+      <DependentUpon>CoreGeneric.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
+      <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Styles\DataTemplates.xaml.cs">
+      <DependentUpon>DataTemplates.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\SettingsPageBase.cs" />
+    <Compile Include="Views\SettingOptionsPage.xaml.cs">
+      <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\SettingsPage.xaml.cs">
+      <DependentUpon>SettingsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="WinoApplication.cs" />
     <EmbeddedResource Include="Properties\Wino.Core.UWP.rd.xml" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.WinUI.Notifications">
-      <Version>7.1.2</Version>
+    <PackageReference Include="CommunityToolkit.Common">
+      <Version>8.3.2</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Diagnostics">
+      <Version>8.3.2</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Mvvm">
+      <Version>8.3.2</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Animations">
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Behaviors">
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented">
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers">
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Extensions">
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
+    <PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar">
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Analytics">
-      <Version>5.0.5</Version>
+      <Version>5.0.6</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.2.14</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Toolkit.Uwp">
       <Version>7.1.3</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.UI.Xaml">
+      <Version>2.8.6</Version>
     </PackageReference>
     <PackageReference Include="Win2D.uwp">
       <Version>1.28.0</Version>
@@ -129,6 +224,10 @@
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj">
       <Project>{cf3312e5-5da0-4867-9945-49ea7598af1f}</Project>
       <Name>Wino.Core.Domain</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj">
+      <Project>{53723ae8-7e7e-4d54-adab-0a6033255cc8}</Project>
+      <Name>Wino.Core.ViewModels</Name>
     </ProjectReference>
     <ProjectReference Include="..\Wino.Core\Wino.Core.csproj">
       <Project>{e6b1632a-8901-41e8-9ddf-6793c7698b0b}</Project>
@@ -144,8 +243,148 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Folder Include="Models\Printing\" />
+    <Content Include="Assets\FileTypes\type_archive.png" />
+    <Content Include="Assets\FileTypes\type_audio.png" />
+    <Content Include="Assets\FileTypes\type_executable.png" />
+    <Content Include="Assets\FileTypes\type_html.png" />
+    <Content Include="Assets\FileTypes\type_image.png" />
+    <Content Include="Assets\FileTypes\type_none.png" />
+    <Content Include="Assets\FileTypes\type_other.png" />
+    <Content Include="Assets\FileTypes\type_pdf.png" />
+    <Content Include="Assets\FileTypes\type_rar.png" />
+    <Content Include="Assets\FileTypes\type_video.png" />
+    <Content Include="Assets\Providers\Gmail.png" />
+    <Content Include="Assets\Providers\IMAP4.png" />
+    <Content Include="Assets\Providers\Office 365.png" />
+    <Content Include="Assets\Providers\Outlook.png" />
+    <Content Include="Assets\Providers\Yahoo.png" />
+    <Content Include="BackgroundImages\Acrylic.jpg" />
+    <Content Include="BackgroundImages\Clouds.jpg" />
+    <Content Include="BackgroundImages\Forest.jpg" />
+    <Content Include="BackgroundImages\Garden.jpg" />
+    <Content Include="BackgroundImages\Mica.jpg" />
+    <Content Include="BackgroundImages\Nighty.jpg" />
+    <Content Include="BackgroundImages\Snowflake.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Acrylic.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Clouds.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Custom.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Forest.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Garden.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Mica.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Nighty.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AppThemes\Snowflake.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="Controls\WinoAppTitleBar.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\AccountCreationDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\AccountEditDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\AccountPickerDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\CustomThemeBuilderDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\TextInputDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="CoreGeneric.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\Colors.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\ContentPresenters.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\Converters.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\CustomMessageDialogStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\FontIcons.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Styles\IconTemplates.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\DataTemplates.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\WinoInfoBar.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\SettingOptionsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\SettingsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>

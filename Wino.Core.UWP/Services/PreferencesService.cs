@@ -1,10 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.Domain.Translations;
 using Wino.Core.Services;
 
 namespace Wino.Core.UWP.Services
@@ -212,6 +216,78 @@ namespace Wino.Core.UWP.Services
         {
             get => _configurationService.Get(nameof(ServerTerminationBehavior), ServerBackgroundMode.MinimizedTray);
             set => SaveProperty(propertyName: nameof(ServerTerminationBehavior), value);
+        }
+
+        public DayOfWeek FirstDayOfWeek
+        {
+            get => _configurationService.Get(nameof(FirstDayOfWeek), DayOfWeek.Monday);
+            set => SaveProperty(propertyName: nameof(FirstDayOfWeek), value);
+        }
+
+        public double HourHeight
+        {
+            get => _configurationService.Get(nameof(HourHeight), 60.0);
+            set => SaveProperty(propertyName: nameof(HourHeight), value);
+        }
+
+        public TimeSpan WorkingHourStart
+        {
+            get => _configurationService.Get(nameof(WorkingHourStart), new TimeSpan(8, 0, 0));
+            set => SaveProperty(propertyName: nameof(WorkingHourStart), value);
+        }
+
+        public TimeSpan WorkingHourEnd
+        {
+            get => _configurationService.Get(nameof(WorkingHourEnd), new TimeSpan(17, 0, 0));
+            set => SaveProperty(propertyName: nameof(WorkingHourEnd), value);
+        }
+
+        public DayOfWeek WorkingDayStart
+        {
+            get => _configurationService.Get(nameof(WorkingDayStart), DayOfWeek.Monday);
+            set => SaveProperty(propertyName: nameof(WorkingDayStart), value);
+        }
+
+        public DayOfWeek WorkingDayEnd
+        {
+            get => _configurationService.Get(nameof(WorkingDayEnd), DayOfWeek.Friday);
+            set => SaveProperty(propertyName: nameof(WorkingDayEnd), value);
+        }
+
+        public CalendarSettings GetCurrentCalendarSettings()
+        {
+            var workingDays = GetDaysBetween(WorkingDayStart, WorkingDayEnd);
+
+            return new CalendarSettings(FirstDayOfWeek,
+                                        workingDays,
+                                        WorkingHourStart,
+                                        WorkingHourEnd,
+                                        HourHeight,
+                                        Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour,
+                                        new CultureInfo(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage)));
+        }
+
+        private List<DayOfWeek> GetDaysBetween(DayOfWeek startDay, DayOfWeek endDay)
+        {
+            var daysOfWeek = new List<DayOfWeek>();
+
+            int currentDay = (int)startDay;
+            int endDayInt = (int)endDay;
+
+            // If endDay is before startDay in the week, wrap around
+            if (endDayInt < currentDay)
+            {
+                endDayInt += 7;
+            }
+
+            // Collect days from startDay to endDay
+            while (currentDay <= endDayInt)
+            {
+                daysOfWeek.Add((DayOfWeek)(currentDay % 7));
+                currentDay++;
+            }
+
+            return daysOfWeek;
         }
     }
 }

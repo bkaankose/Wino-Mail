@@ -8,6 +8,8 @@
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
@@ -15,20 +17,11 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menu="using:Wino.Core.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:selectors="using:Wino.Selectors"
     x:Name="Root"
     muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     mc:Ignorable="d">
 
     <Page.Resources>
-
-        <!--  Removes default styles for content of navigation view  -->
-        <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
-        <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
-
-        <DataTemplate x:Key="SeperatorTemplate">
-            <muxc:NavigationViewItemSeparator Margin="-20,0" />
-        </DataTemplate>
 
         <!--  Clickable New Style Account Template  -->
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
@@ -42,13 +35,13 @@
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 SelectsOnInvoked="False"
                 Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
-                <controls:WinoNavigationViewItem.ContentTransitions>
+                <coreControls:WinoNavigationViewItem.ContentTransitions>
                     <TransitionCollection>
                         <EdgeUIThemeTransition Edge="Top" />
                     </TransitionCollection>
-                </controls:WinoNavigationViewItem.ContentTransitions>
+                </coreControls:WinoNavigationViewItem.ContentTransitions>
                 <muxc:NavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="12" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter.ProviderType)}" />
+                    <coreControls:WinoFontIcon FontSize="12" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter.ProviderType)}" />
                 </muxc:NavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
@@ -118,8 +111,8 @@
         <!--  Fix account issues.  -->
         <!--  Authentication  -->
         <DataTemplate x:Key="FixAuthenticationIssueTemplate" x:DataType="menu:FixAccountIssuesMenuItem">
-            <controls:WinoNavigationViewItem SelectsOnInvoked="False">
-                <controls:WinoNavigationViewItem.Content>
+            <coreControls:WinoNavigationViewItem SelectsOnInvoked="False">
+                <coreControls:WinoNavigationViewItem.Content>
                     <TextBlock
                         Margin="0,10"
                         Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
@@ -127,14 +120,14 @@
                         TextWrapping="WrapWholeWords">
                         <Run Text="Account credentials can not be verified." /><LineBreak /><Run Text="Click here to fix it." />
                     </TextBlock>
-                </controls:WinoNavigationViewItem.Content>
-            </controls:WinoNavigationViewItem>
+                </coreControls:WinoNavigationViewItem.Content>
+            </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
         <!--  Missing system folder config.  -->
         <DataTemplate x:Key="FixMissingFolderConfig" x:DataType="menu:FixAccountIssuesMenuItem">
-            <controls:WinoNavigationViewItem SelectsOnInvoked="False">
-                <controls:WinoNavigationViewItem.Content>
+            <coreControls:WinoNavigationViewItem SelectsOnInvoked="False">
+                <coreControls:WinoNavigationViewItem.Content>
                     <TextBlock
                         Margin="0,10"
                         Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
@@ -142,42 +135,30 @@
                         TextWrapping="WrapWholeWords">
                         <Run Text="Account is missing system folder configuration." /><LineBreak /><LineBreak /><Run Text="Click here to fix it." />
                     </TextBlock>
-                </controls:WinoNavigationViewItem.Content>
-            </controls:WinoNavigationViewItem>
-        </DataTemplate>
-
-        <!--  Manage Accounts etc. Other navigatable.  -->
-        <DataTemplate x:Key="ManageAccountsTemplate" x:DataType="menu:ManageAccountsMenuItem">
-            <controls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuManageAccounts}" DataContext="{x:Bind}">
-                <muxc:NavigationViewItem.Icon>
-                    <PathIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Data="F1 M 2.5 3.75 L 2.5 3.671875 C 2.5 3.164062 2.600911 2.687176 2.802734 2.241211 C 3.004557 1.795248 3.277995 1.40625 3.623047 1.074219 C 3.968099 0.742188 4.366862 0.480145 4.819336 0.288086 C 5.27181 0.096029 5.748698 0 6.25 0 C 6.770833 0 7.259114 0.097656 7.714844 0.292969 C 8.170572 0.488281 8.567708 0.755209 8.90625 1.09375 C 9.244791 1.432293 9.511719 1.829428 9.707031 2.285156 C 9.902344 2.740887 10 3.229168 10 3.75 C 10 4.270834 9.902344 4.759115 9.707031 5.214844 C 9.511719 5.670573 9.244791 6.067709 8.90625 6.40625 C 8.567708 6.744792 8.170572 7.011719 7.714844 7.207031 C 7.259114 7.402344 6.770833 7.5 6.25 7.5 C 5.729167 7.5 5.240885 7.402344 4.785156 7.207031 C 4.329427 7.011719 3.932292 6.744792 3.59375 6.40625 C 3.255208 6.067709 2.988281 5.670573 2.792969 5.214844 C 2.597656 4.759115 2.5 4.270834 2.5 3.75 Z M 8.75 3.75 L 8.75 3.701172 C 8.75 3.362631 8.681641 3.045248 8.544922 2.749023 C 8.408203 2.452801 8.225911 2.194012 7.998047 1.972656 C 7.770182 1.751303 7.504883 1.575521 7.202148 1.445312 C 6.899414 1.315105 6.582031 1.25 6.25 1.25 C 5.904948 1.25 5.581055 1.316732 5.27832 1.450195 C 4.975586 1.58366 4.711914 1.762695 4.487305 1.987305 C 4.262695 2.211914 4.083659 2.477215 3.950195 2.783203 C 3.816731 3.089193 3.75 3.411459 3.75 3.75 C 3.75 4.095053 3.816731 4.418946 3.950195 4.72168 C 4.083659 5.024415 4.262695 5.288087 4.487305 5.512695 C 4.711914 5.737306 4.975586 5.916342 5.27832 6.049805 C 5.581055 6.183269 5.904948 6.25 6.25 6.25 C 6.588542 6.25 6.910807 6.183269 7.216797 6.049805 C 7.522786 5.916342 7.788085 5.737306 8.012695 5.512695 C 8.237305 5.288087 8.416341 5.024415 8.549805 4.72168 C 8.683268 4.418946 8.75 4.095053 8.75 3.75 Z M 12.5 6.201172 C 12.5 5.862631 12.568359 5.545248 12.705078 5.249023 C 12.841797 4.9528 13.024088 4.694011 13.251953 4.472656 C 13.479816 4.251303 13.745116 4.075521 14.047852 3.945312 C 14.350585 3.815105 14.667968 3.75 15 3.75 C 15.338541 3.75 15.660807 3.816732 15.966797 3.950195 C 16.272785 4.08366 16.538086 4.262696 16.762695 4.487305 C 16.987305 4.711915 17.16634 4.977215 17.299805 5.283203 C 17.433268 5.589193 17.5 5.911459 17.5 6.25 C 17.5 6.582031 17.434895 6.899414 17.304688 7.202148 C 17.174479 7.504883 16.998697 7.770183 16.777344 7.998047 C 16.555988 8.225912 16.297199 8.408203 16.000977 8.544922 C 15.704752 8.681641 15.387369 8.75 15.048828 8.75 C 14.684244 8.75 14.34733 8.684896 14.038086 8.554688 C 13.728841 8.424479 13.460286 8.245443 13.232422 8.017578 C 13.004557 7.789714 12.82552 7.521159 12.695312 7.211914 C 12.565104 6.90267 12.5 6.565756 12.5 6.201172 Z M 16.25 6.25 C 16.25 6.08073 16.217447 5.919598 16.152344 5.766602 C 16.087238 5.613607 15.997721 5.480144 15.883789 5.366211 C 15.769856 5.252279 15.636393 5.162761 15.483398 5.097656 C 15.330403 5.032553 15.169271 5.000001 15 5 C 14.824218 5.000001 14.661457 5.032553 14.511719 5.097656 C 14.361979 5.162761 14.230143 5.252279 14.116211 5.366211 C 14.002277 5.480144 13.91276 5.611979 13.847656 5.761719 C 13.782552 5.911459 13.75 6.074219 13.75 6.25 C 13.75 6.425781 13.782552 6.59017 13.847656 6.743164 C 13.91276 6.896159 14.00065 7.027995 14.111328 7.138672 C 14.222005 7.24935 14.353841 7.33724 14.506836 7.402344 C 14.65983 7.467448 14.824218 7.5 15 7.5 C 15.17578 7.5 15.338541 7.467448 15.488281 7.402344 C 15.638021 7.33724 15.769856 7.247722 15.883789 7.133789 C 15.997721 7.019857 16.087238 6.888021 16.152344 6.738281 C 16.217447 6.588542 16.25 6.425781 16.25 6.25 Z M 10.048828 7.5 C 10.387369 7.5 10.704752 7.568359 11.000977 7.705078 C 11.2972 7.841797 11.555989 8.024089 11.777344 8.251953 C 11.998697 8.479818 12.174479 8.745117 12.304688 9.047852 C 12.434896 9.350586 12.5 9.667969 12.5 10 C 12.5 10.345053 12.434896 10.670573 12.304688 10.976562 C 12.174479 11.282553 11.99707 11.547852 11.772461 11.772461 C 11.547852 11.99707 11.282552 12.174479 10.976562 12.304688 C 10.670572 12.434896 10.345052 12.5 10 12.5 C 9.667969 12.5 9.350586 12.434896 9.047852 12.304688 C 8.745117 12.174479 8.479817 11.998698 8.251953 11.777344 C 8.024088 11.55599 7.841796 11.297201 7.705078 11.000977 C 7.568359 10.704753 7.5 10.38737 7.5 10.048828 C 7.5 9.684245 7.565104 9.347331 7.695312 9.038086 C 7.825521 8.728842 8.004557 8.460287 8.232422 8.232422 C 8.460286 8.004558 8.728841 7.825521 9.038086 7.695312 C 9.34733 7.565104 9.684244 7.5 10.048828 7.5 Z M 1.875 8.75 L 6.464844 8.75 C 6.321614 9.140625 6.25 9.557292 6.25 10 L 1.875 10 C 1.731771 10 1.617839 10.02767 1.533203 10.083008 C 1.448568 10.138347 1.385091 10.209961 1.342773 10.297852 C 1.300456 10.385742 1.272786 10.483398 1.259766 10.59082 C 1.246745 10.698242 1.240234 10.807292 1.240234 10.917969 C 1.240234 10.976562 1.241862 11.033529 1.245117 11.088867 C 1.248372 11.144206 1.25 11.197917 1.25 11.25 C 1.25 11.640625 1.32487 12.010092 1.474609 12.358398 C 1.624349 12.706706 1.822917 13.024089 2.070312 13.310547 C 2.317708 13.597006 2.602539 13.849284 2.924805 14.067383 C 3.24707 14.285482 3.580729 14.462891 3.925781 14.599609 C 3.854167 14.807943 3.806966 15.014648 3.78418 15.219727 C 3.761393 15.424805 3.75 15.638021 3.75 15.859375 C 3.261719 15.703125 2.791341 15.478516 2.338867 15.185547 C 1.886393 14.892578 1.48763 14.549154 1.142578 14.155273 C 0.797526 13.761394 0.520833 13.323568 0.3125 12.841797 C 0.104167 12.360026 0 11.848959 0 11.308594 L 0 10.625 C 0 10.371094 0.048828 10.130209 0.146484 9.902344 C 0.244141 9.674479 0.379232 9.474284 0.551758 9.301758 C 0.724284 9.129232 0.924479 8.994141 1.152344 8.896484 C 1.380208 8.798828 1.621094 8.75 1.875 8.75 Z M 10.107422 11.25 C 10.263672 11.25 10.411783 11.212565 10.551758 11.137695 C 10.691731 11.062826 10.813802 10.966797 10.917969 10.849609 C 11.022135 10.732422 11.103516 10.598959 11.162109 10.449219 C 11.220703 10.299479 11.25 10.14974 11.25 10 C 11.25 9.830729 11.217447 9.669597 11.152344 9.516602 C 11.087239 9.363607 10.997721 9.230144 10.883789 9.116211 C 10.769856 9.002279 10.636393 8.912761 10.483398 8.847656 C 10.330403 8.782553 10.169271 8.75 10 8.75 C 9.824219 8.75 9.661458 8.782553 9.511719 8.847656 C 9.361979 8.912761 9.230143 9.002279 9.116211 9.116211 C 9.002278 9.230144 8.91276 9.361979 8.847656 9.511719 C 8.782552 9.661459 8.75 9.824219 8.75 10 C 8.75 10.201823 8.785807 10.379232 8.857422 10.532227 C 8.929036 10.685222 9.025064 10.81543 9.145508 10.922852 C 9.26595 11.030273 9.40918 11.111654 9.575195 11.166992 C 9.741211 11.222331 9.918619 11.25 10.107422 11.25 Z M 16.25 15.625 C 16.25 15.371094 16.220703 15.120443 16.162109 14.873047 C 16.546223 14.794922 16.897785 14.669597 17.216797 14.49707 C 17.535807 14.324545 17.809244 14.111328 18.037109 13.857422 C 18.264973 13.603516 18.440754 13.310547 18.564453 12.978516 C 18.68815 12.646484 18.75 12.278646 18.75 11.875 C 18.75 11.705729 18.68815 11.559245 18.564453 11.435547 C 18.440754 11.31185 18.29427 11.25 18.125 11.25 L 13.535156 11.25 C 13.678385 10.859375 13.75 10.442709 13.75 10 L 18.125 10 C 18.378906 10 18.619791 10.048828 18.847656 10.146484 C 19.07552 10.244141 19.275715 10.379232 19.448242 10.551758 C 19.620768 10.724284 19.755859 10.924479 19.853516 11.152344 C 19.951172 11.380209 20 11.621094 20 11.875 C 20 12.460938 19.907227 12.991537 19.72168 13.466797 C 19.536133 13.942058 19.277344 14.360352 18.945312 14.72168 C 18.613281 15.083008 18.216145 15.382487 17.753906 15.620117 C 17.291666 15.857748 16.783854 16.0319 16.230469 16.142578 C 16.236979 16.051432 16.241861 15.96517 16.245117 15.883789 C 16.248371 15.802409 16.25 15.716146 16.25 15.625 Z M 5 15.625 C 5 15.364584 5.048828 15.120443 5.146484 14.892578 C 5.244141 14.664714 5.377604 14.466146 5.546875 14.296875 C 5.716146 14.127604 5.914713 13.994141 6.142578 13.896484 C 6.370442 13.798828 6.614583 13.75 6.875 13.75 L 13.125 13.75 C 13.385416 13.75 13.629557 13.798828 13.857422 13.896484 C 14.085286 13.994141 14.283854 14.127604 14.453125 14.296875 C 14.622395 14.466146 14.755858 14.664714 14.853516 14.892578 C 14.951171 15.120443 14.999999 15.364584 15 15.625 C 14.999999 16.341146 14.86328 16.971029 14.589844 17.514648 C 14.316405 18.058268 13.950194 18.513998 13.491211 18.881836 C 13.032226 19.249674 12.501627 19.527994 11.899414 19.716797 C 11.2972 19.9056 10.664062 20 10 20 C 9.335938 20 8.701172 19.907227 8.095703 19.72168 C 7.490234 19.536133 6.958008 19.259439 6.499023 18.891602 C 6.040039 18.523764 5.675456 18.066406 5.405273 17.519531 C 5.135091 16.972656 5 16.341146 5 15.625 Z M 13.75 15.625 C 13.75 15.455729 13.68815 15.309245 13.564453 15.185547 C 13.440755 15.06185 13.294271 15 13.125 15 L 6.875 15 C 6.705729 15 6.559244 15.06185 6.435547 15.185547 C 6.311849 15.309245 6.25 15.455729 6.25 15.625 C 6.25 16.165365 6.354167 16.632486 6.5625 17.026367 C 6.770833 17.420248 7.049153 17.744141 7.397461 17.998047 C 7.745768 18.251953 8.144531 18.440756 8.59375 18.564453 C 9.042969 18.68815 9.511719 18.75 10 18.75 C 10.488281 18.75 10.957031 18.68815 11.40625 18.564453 C 11.855469 18.440756 12.254231 18.251953 12.602539 17.998047 C 12.950846 17.744141 13.229166 17.420248 13.4375 17.026367 C 13.645833 16.632486 13.75 16.165365 13.75 15.625 Z " />
-                </muxc:NavigationViewItem.Icon>
-            </controls:WinoNavigationViewItem>
+                </coreControls:WinoNavigationViewItem.Content>
+            </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
         <!--  New Mail  -->
         <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
-            <controls:WinoNavigationViewItem
+            <coreControls:WinoNavigationViewItem
                 Height="50"
                 DataContext="{x:Bind}"
                 SelectsOnInvoked="False">
                 <muxc:NavigationViewItem.Icon>
-                    <controls:WinoFontIcon Icon="NewMail" />
+                    <coreControls:WinoFontIcon Icon="NewMail" />
                 </muxc:NavigationViewItem.Icon>
                 <TextBlock
                     VerticalAlignment="Center"
                     FontSize="16"
                     Style="{StaticResource FlyoutPickerTitleTextBlockStyle}"
                     Text="{x:Bind domain:Translator.MenuNewMail}" />
-            </controls:WinoNavigationViewItem>
+            </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
         <!--  Inbox or any other folders.  -->
         <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menu:FolderMenuItem">
-            <controls:WinoNavigationViewItem
+            <coreControls:WinoNavigationViewItem
                 MinHeight="30"
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
@@ -195,9 +176,9 @@
                 <animations:Implicit.Animations>
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
-                <controls:WinoNavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
-                </controls:WinoNavigationViewItem.Icon>
+                <coreControls:WinoNavigationViewItem.Icon>
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                </coreControls:WinoNavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
@@ -237,7 +218,7 @@
                             TextWrapping="WrapWholeWords" />
                     </Grid>
                 </muxc:NavigationViewItem.Content>
-            </controls:WinoNavigationViewItem>
+            </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
         <!--  Merged Inbox  -->
@@ -261,14 +242,14 @@
                         Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(UnreadItemCount), Mode=OneWay}"
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
-                <controls:WinoNavigationViewItem.ContentTransitions>
+                <coreControls:WinoNavigationViewItem.ContentTransitions>
                     <TransitionCollection>
                         <EdgeUIThemeTransition Edge="Top" />
                     </TransitionCollection>
-                </controls:WinoNavigationViewItem.ContentTransitions>
-                <controls:WinoNavigationViewItem.Icon>
+                </coreControls:WinoNavigationViewItem.ContentTransitions>
+                <coreControls:WinoNavigationViewItem.Icon>
                     <PathIcon Data="F1 M 8.613281 17.5 C 8.75 17.942709 8.945312 18.359375 9.199219 18.75 L 4.921875 18.75 C 4.433594 18.75 3.966471 18.650717 3.520508 18.452148 C 3.074544 18.25358 2.683919 17.986654 2.348633 17.651367 C 2.013346 17.31608 1.746419 16.925455 1.547852 16.479492 C 1.349284 16.033529 1.25 15.566406 1.25 15.078125 L 1.25 4.921875 C 1.25 4.433594 1.349284 3.966473 1.547852 3.520508 C 1.746419 3.074545 2.013346 2.68392 2.348633 2.348633 C 2.683919 2.013348 3.074544 1.74642 3.520508 1.547852 C 3.966471 1.349285 4.433594 1.25 4.921875 1.25 L 15.078125 1.25 C 15.566406 1.25 16.033527 1.349285 16.479492 1.547852 C 16.925455 1.74642 17.31608 2.013348 17.651367 2.348633 C 17.986652 2.68392 18.25358 3.074545 18.452148 3.520508 C 18.650715 3.966473 18.75 4.433594 18.75 4.921875 L 18.75 6.572266 C 18.580729 6.344402 18.390299 6.132813 18.178711 5.9375 C 17.967121 5.742188 17.740885 5.566407 17.5 5.410156 L 17.5 4.951172 C 17.5 4.625651 17.433268 4.314779 17.299805 4.018555 C 17.16634 3.722332 16.987305 3.461914 16.762695 3.237305 C 16.538086 3.012695 16.277668 2.83366 15.981445 2.700195 C 15.685221 2.566732 15.374349 2.5 15.048828 2.5 L 4.951172 2.5 C 4.619141 2.5 4.303385 2.568359 4.003906 2.705078 C 3.704427 2.841797 3.44401 3.02409 3.222656 3.251953 C 3.001302 3.479818 2.825521 3.745117 2.695312 4.047852 C 2.565104 4.350587 2.5 4.66797 2.5 5 L 13.310547 5 C 12.60091 5.266928 11.998697 5.683594 11.503906 6.25 L 2.5 6.25 L 2.5 15.048828 C 2.5 15.38737 2.568359 15.704753 2.705078 16.000977 C 2.841797 16.297201 3.024088 16.55599 3.251953 16.777344 C 3.479818 16.998697 3.745117 17.174479 4.047852 17.304688 C 4.350586 17.434896 4.667969 17.5 5 17.5 Z M 18.125 9.443359 C 18.125 9.866537 18.040363 10.263672 17.871094 10.634766 C 17.701822 11.005859 17.473957 11.329753 17.1875 11.606445 C 16.901041 11.883139 16.56901 12.101237 16.191406 12.260742 C 15.813802 12.420248 15.416666 12.5 15 12.5 C 14.563802 12.5 14.1569 12.41862 13.779297 12.255859 C 13.401691 12.0931 13.071288 11.870117 12.788086 11.586914 C 12.504882 11.303711 12.2819 10.973308 12.119141 10.595703 C 11.95638 10.2181 11.875 9.811198 11.875 9.375 C 11.875 8.938803 11.95638 8.531901 12.119141 8.154297 C 12.2819 7.776693 12.504882 7.446289 12.788086 7.163086 C 13.071288 6.879883 13.401691 6.656901 13.779297 6.494141 C 14.1569 6.331381 14.563802 6.25 15 6.25 C 15.449218 6.25 15.864257 6.333008 16.245117 6.499023 C 16.625977 6.665039 16.956379 6.892904 17.236328 7.182617 C 17.516275 7.472331 17.734375 7.810873 17.890625 8.198242 C 18.046875 8.585612 18.125 9.000651 18.125 9.443359 Z M 20 16.25 C 20 16.666666 19.926758 17.049154 19.780273 17.397461 C 19.633789 17.745768 19.435221 18.058268 19.18457 18.334961 C 18.933918 18.611654 18.642578 18.854166 18.310547 19.0625 C 17.978516 19.270834 17.626953 19.444986 17.255859 19.584961 C 16.884766 19.724936 16.505533 19.829102 16.118164 19.897461 C 15.730794 19.96582 15.358072 20 15 20 C 14.654947 20 14.291992 19.96582 13.911133 19.897461 C 13.530273 19.829102 13.154297 19.726562 12.783203 19.589844 C 12.412109 19.453125 12.058919 19.282227 11.723633 19.077148 C 11.388346 18.87207 11.092122 18.632812 10.834961 18.359375 C 10.577799 18.085938 10.374349 17.779947 10.224609 17.441406 C 10.074869 17.102865 10 16.731771 10 16.328125 L 10 15.78125 C 10 15.501303 10.052083 15.237631 10.15625 14.990234 C 10.260416 14.742839 10.405273 14.526367 10.59082 14.34082 C 10.776367 14.155273 10.991211 14.010417 11.235352 13.90625 C 11.479492 13.802084 11.744791 13.75 12.03125 13.75 L 17.96875 13.75 C 18.248697 13.75 18.512369 13.803711 18.759766 13.911133 C 19.00716 14.018555 19.222004 14.163412 19.404297 14.345703 C 19.586588 14.527995 19.731445 14.742839 19.838867 14.990234 C 19.946289 15.237631 20 15.501303 20 15.78125 Z " />
-                </controls:WinoNavigationViewItem.Icon>
+                </coreControls:WinoNavigationViewItem.Icon>
 
                 <Grid MinHeight="50">
                     <StackPanel VerticalAlignment="Center" Spacing="0">
@@ -294,7 +275,7 @@
 
         <!--  Merged Account Common Folder Item  -->
         <DataTemplate x:Key="MergedAccountFolderMenuItemTemplate" x:DataType="menu:MergedAccountFolderMenuItem">
-            <controls:WinoNavigationViewItem
+            <coreControls:WinoNavigationViewItem
                 MinHeight="30"
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
@@ -311,9 +292,9 @@
                 <animations:Implicit.Animations>
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
-                <controls:WinoNavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
-                </controls:WinoNavigationViewItem.Icon>
+                <coreControls:WinoNavigationViewItem.Icon>
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
+                </coreControls:WinoNavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
                         x:Name="FolderInfoBadge"
@@ -334,12 +315,12 @@
                         Text="{x:Bind FolderName, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </Grid>
-            </controls:WinoNavigationViewItem>
+            </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
         <!--  Merged Account More Expansion Item  -->
         <DataTemplate x:Key="MergedAccountMoreFolderItemTemplate" x:DataType="menu:MergedAccountMoreFolderMenuItem">
-            <controls:WinoNavigationViewItem
+            <coreControls:WinoNavigationViewItem
                 MinHeight="30"
                 Content="{x:Bind domain:Translator.More}"
                 FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
@@ -350,44 +331,13 @@
                 <animations:Implicit.Animations>
                     <animations:ScaleAnimation Duration="0:0:0.5" />
                 </animations:Implicit.Animations>
-                <controls:WinoNavigationViewItem.Icon>
-                    <controls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
-                </controls:WinoNavigationViewItem.Icon>
-            </controls:WinoNavigationViewItem>
+                <coreControls:WinoNavigationViewItem.Icon>
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
+                </coreControls:WinoNavigationViewItem.Icon>
+            </coreControls:WinoNavigationViewItem>
         </DataTemplate>
 
-        <!--  Settings Item  -->
-        <DataTemplate x:Key="SettingsItemTemplate" x:DataType="menu:SettingsItem">
-            <controls:WinoNavigationViewItem Content="{x:Bind domain:Translator.MenuSettings}" DataContext="{x:Bind}">
-                <controls:WinoNavigationViewItem.Icon>
-                    <muxc:AnimatedIcon>
-                        <muxc:AnimatedIcon.Source>
-                            <animatedvisuals:AnimatedSettingsVisualSource />
-                        </muxc:AnimatedIcon.Source>
-                        <muxc:AnimatedIcon.FallbackIconSource>
-                            <muxc:SymbolIconSource Symbol="Setting" />
-                        </muxc:AnimatedIcon.FallbackIconSource>
-                    </muxc:AnimatedIcon>
-                </controls:WinoNavigationViewItem.Icon>
-            </controls:WinoNavigationViewItem>
-        </DataTemplate>
-
-        <!--  Rating Item  -->
-        <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
-            <controls:WinoNavigationViewItem
-                Content="{x:Bind domain:Translator.MenuRate}"
-                DataContext="{x:Bind}"
-                SelectsOnInvoked="False">
-                <muxc:NavigationViewItem.Icon>
-                    <PathIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Data="F1 M 0 6.689453 C 0 5.940756 0.139974 5.237631 0.419922 4.580078 C 0.69987 3.922527 1.082357 3.346355 1.567383 2.851562 C 2.052409 2.356771 2.62207 1.966146 3.276367 1.679688 C 3.930664 1.39323 4.635417 1.25 5.390625 1.25 C 6.119792 1.25 6.814778 1.389975 7.475586 1.669922 C 8.136393 1.949871 8.723958 2.347006 9.238281 2.861328 C 9.368489 2.991537 9.493814 3.11849 9.614258 3.242188 C 9.7347 3.365887 9.860025 3.49284 9.990234 3.623047 C 10.113932 3.49284 10.236002 3.365887 10.356445 3.242188 C 10.476888 3.11849 10.602213 2.994793 10.732422 2.871094 C 11.240234 2.363281 11.822916 1.971029 12.480469 1.694336 C 13.138021 1.417645 13.828125 1.279297 14.550781 1.279297 C 15.305989 1.279297 16.015625 1.424154 16.679688 1.713867 C 17.34375 2.003582 17.921549 2.397461 18.413086 2.895508 C 18.904621 3.393555 19.291992 3.974609 19.575195 4.638672 C 19.858398 5.302734 20 6.01237 20 6.767578 C 20 7.483725 19.864908 8.178712 19.594727 8.852539 C 19.324543 9.526367 18.935547 10.117188 18.427734 10.625 L 10.625 18.505859 C 10.462239 18.668619 10.263672 18.75 10.029297 18.75 C 9.801432 18.75 9.606119 18.668619 9.443359 18.505859 L 1.591797 10.576172 C 1.077474 10.055339 0.683594 9.459636 0.410156 8.789062 C 0.136719 8.11849 0 7.418621 0 6.689453 Z M 18.75 6.767578 C 18.75 6.188151 18.640949 5.641276 18.422852 5.126953 C 18.204752 4.612631 17.905273 4.163412 17.524414 3.779297 C 17.143555 3.395184 16.699219 3.09082 16.191406 2.866211 C 15.683594 2.641602 15.136719 2.529297 14.550781 2.529297 C 13.997396 2.529297 13.468424 2.635092 12.963867 2.84668 C 12.45931 3.05827 12.011719 3.359375 11.621094 3.75 C 11.497396 3.873699 11.375325 4.000651 11.254883 4.130859 C 11.134439 4.261068 11.009114 4.384767 10.878906 4.501953 C 10.748697 4.625651 10.613606 4.716797 10.473633 4.775391 C 10.333658 4.833984 10.172525 4.863281 9.990234 4.863281 C 9.814453 4.863281 9.654947 4.832357 9.511719 4.770508 C 9.368489 4.70866 9.231771 4.619142 9.101562 4.501953 C 8.971354 4.378256 8.846028 4.25293 8.725586 4.125977 C 8.605143 3.999023 8.479817 3.870443 8.349609 3.740234 C 7.945963 3.3431 7.495117 3.037109 6.99707 2.822266 C 6.499023 2.607422 5.963542 2.5 5.390625 2.5 C 4.811198 2.5 4.269206 2.610678 3.764648 2.832031 C 3.260091 3.053387 2.822266 3.352865 2.451172 3.730469 C 2.080078 4.108074 1.787109 4.55241 1.572266 5.063477 C 1.357422 5.574545 1.25 6.116537 1.25 6.689453 C 1.25 7.24935 1.357422 7.791342 1.572266 8.31543 C 1.787109 8.839519 2.089844 9.300131 2.480469 9.697266 L 10.029297 17.324219 L 17.539062 9.746094 C 17.929688 9.348959 18.229166 8.891602 18.4375 8.374023 C 18.645832 7.856445 18.75 7.320964 18.75 6.767578 Z " />
-                </muxc:NavigationViewItem.Icon>
-            </controls:WinoNavigationViewItem>
-        </DataTemplate>
-
-        <selectors:NavigationMenuTemplateSelector
+        <coreSelectors:NavigationMenuTemplateSelector
             x:Key="NavigationMenuTemplateSelector"
             AccountManagementTemplate="{StaticResource ManageAccountsTemplate}"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
@@ -401,8 +351,6 @@
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsItemTemplate="{StaticResource SettingsItemTemplate}" />
-
-
     </Page.Resources>
 
     <Grid
@@ -454,14 +402,6 @@
                     <AddDeleteThemeTransition />
                 </TransitionCollection>
             </muxc:NavigationView.ContentTransitions>
-            <!--  TODO: FooterMenuItems must work exactly like in Windows Mail  -->
-            <!--
-                To support this, we must create an interchangable panel that extend items horizontally/vertically
-                interaction of these items are tied to NavigationView. So take that into consideration...
-            -->
-            <!--<muxc:NavigationView.PaneFooter>
-
-            </muxc:NavigationView.PaneFooter>-->
             <Grid ColumnSpacing="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -493,7 +433,7 @@
                 </Frame>
 
                 <!--  InfoBar  -->
-                <controls:WinoInfoBar
+                <coreControls:WinoInfoBar
                     x:Name="ShellInfoBar"
                     MaxWidth="700"
                     Margin="0,60,25,0"
@@ -511,7 +451,7 @@
             </Grid>
         </muxc:NavigationView>
 
-        <advanced:WinoAppTitleBar
+        <coreControls:WinoAppTitleBar
             x:Name="RealAppBar"
             Grid.ColumnSpan="2"
             BackButtonClicked="BackButtonClicked"
@@ -519,6 +459,7 @@
             ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"
             IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
+            IsDragArea="True"
             IsNavigationPaneOpen="{x:Bind navigationView.IsPaneOpen, Mode=TwoWay}"
             IsReaderNarrowed="{x:Bind ViewModel.StatePersistenceService.IsReaderNarrowed, Mode=OneWay}"
             NavigationViewDisplayMode="{x:Bind navigationView.DisplayMode, Mode=OneWay}"

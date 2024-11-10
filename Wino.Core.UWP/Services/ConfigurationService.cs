@@ -34,6 +34,11 @@ namespace Wino.Core.UWP.Services
                     return (T)TypeDescriptor.GetConverter(typeof(T)).ConvertFromInvariantString(value);
                 }
 
+                if (typeof(T) == typeof(TimeSpan))
+                {
+                    return (T)(object)TimeSpan.Parse(value);
+                }
+
                 return (T)Convert.ChangeType(value, typeof(T));
             }
 

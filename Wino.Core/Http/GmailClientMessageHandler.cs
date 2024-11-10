@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Http;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Http
 {

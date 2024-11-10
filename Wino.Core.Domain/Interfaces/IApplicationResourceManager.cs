@@ -7,5 +7,6 @@
         bool ContainsResourceKey(string resourceKey);
         void ReplaceResource(string resourceKey, object resource);
         T GetLastResource();
+        TReturnType GetResource<TReturnType>(string resourceKey);
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq;
 using MailKit;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Core.Extensions
 {

@@ -1,7 +1,7 @@
 ﻿using System;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Domain.Models.Requests
+namespace Wino.Core.Requests.Bundles
 {
     ///// <summary>
     ///// Encapsulates request to queue and account for synchronizer.

@@ -1,0 +1,93 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Calendar.Controls">
+
+    <!--  Top column header DayColumnControl  -->
+    <Style TargetType="controls:DayColumnControl">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:DayColumnControl">
+                    <Grid MinHeight="100" MaxHeight="150">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="25" />
+                            <RowDefinition Height="7" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!--  Name of the day. Monday, Tuesday etc. at the top.  -->
+                        <TextBlock
+                            x:Name="PART_ColumnHeaderText"
+                            Margin="8,0,0,0"
+                            FontSize="16"
+                            TextTrimming="CharacterEllipsis" />
+
+                        <Grid
+                            Grid.Row="2"
+                            Grid.RowSpan="2"
+                            BorderBrush="{ThemeResource CalendarSeperatorBrush}"
+                            BorderThickness="1,1,0,1" />
+
+                        <!--  Border for today indication.  -->
+                        <Border
+                            x:Name="PART_IsTodayBorder"
+                            Grid.Row="1"
+                            Height="5"
+                            Margin="2,0,2,0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Center"
+                            Background="{ThemeResource SystemAccentColor}"
+                            CornerRadius="2"
+                            Visibility="Collapsed" />
+
+                        <!--  Place where full day events go.  -->
+                        <Grid
+                            x:Name="PART_DayDataAreaGrid"
+                            Grid.Row="2"
+                            Padding="6"
+                            BorderBrush="{ThemeResource CalendarSeperatorBrush}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!--  Day number  -->
+                            <TextBlock x:Name="PART_HeaderDateDayText" FontSize="17" />
+
+                            <!--  Extras  -->
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
+
+                            <!--  Events  -->
+                            <ScrollViewer
+                                Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                VerticalScrollBarVisibility="Hidden" />
+                        </Grid>
+
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="TodayOrNotStates">
+                                <VisualState x:Name="NotTodayState" />
+                                <VisualState x:Name="TodayState">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_IsTodayBorder.Visibility" Value="Visible" />
+                                        <Setter Target="PART_HeaderDateDayText.Foreground" Value="{ThemeResource SystemAccentColor}" />
+                                        <Setter Target="PART_HeaderDateDayText.FontWeight" Value="Semibold" />
+                                        <Setter Target="PART_ColumnHeaderText.FontWeight" Value="Semibold" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+
+
+</ResourceDictionary>

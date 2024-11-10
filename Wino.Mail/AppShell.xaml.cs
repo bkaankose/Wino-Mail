@@ -10,13 +10,15 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Input;
-using Wino.Controls;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.UWP;
+using Wino.Core.UWP.Controls;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
@@ -39,6 +41,10 @@ namespace Wino.Views
             InitializeComponent();
 
             var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
+
+
+
+
             coreTitleBar.LayoutMetricsChanged += TitleBarLayoutUpdated;
         }
 
@@ -204,7 +210,7 @@ namespace Wino.Views
             {
                 var navigateFolderArgs = new NavigateMailFolderEventArgs(message.BaseFolderMenuItem, message.FolderInitLoadAwaitTask);
 
-                ViewModel.NavigationService.NavigateFolder(navigateFolderArgs);
+                ViewModel.NavigationService.Navigate(WinoPage.MailListPage, navigateFolderArgs, NavigationReferenceFrame.ShellFrame);
 
                 // Prevent double navigation.
                 navigationView.SelectionChanged -= MenuSelectionChanged;
@@ -221,7 +227,7 @@ namespace Wino.Views
         private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
             => RealAppBar.ShellFrameContent = (e.Content as BasePage).ShellContent;
 
-        private void BackButtonClicked(Controls.Advanced.WinoAppTitleBar sender, RoutedEventArgs args)
+        private void BackButtonClicked(WinoAppTitleBar sender, RoutedEventArgs args)
         {
             WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
             WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());

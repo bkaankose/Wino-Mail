@@ -8,15 +8,16 @@ using CommunityToolkit.Mvvm.Input;
 using MoreLinq;
 using MoreLinq.Extensions;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class SignatureManagementPageViewModel(IDialogService dialogService,
+    public partial class SignatureManagementPageViewModel(IMailDialogService dialogService,
                                             ISignatureService signatureService,
-                                            IAccountService accountService) : BaseViewModel(dialogService)
+                                            IAccountService accountService) : MailBaseViewModel
     {
         public ObservableCollection<AccountSignature> Signatures { get; set; } = [];
 
@@ -63,6 +64,7 @@ namespace Wino.Mail.ViewModels
 
         private MailAccount Account { get; set; }
 
+        private readonly IMailDialogService _dialogService = dialogService;
         private readonly ISignatureService _signatureService = signatureService;
         private readonly IAccountService _accountService = accountService;
 
@@ -114,7 +116,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task OpenSignatureEditorCreateAsync()
         {
-            var dialogResult = await DialogService.ShowSignatureEditorDialog();
+            var dialogResult = await _dialogService.ShowSignatureEditorDialog();
 
             if (dialogResult == null) return;
 
@@ -126,7 +128,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task OpenSignatureEditorEditAsync(AccountSignature signatureModel)
         {
-            var dialogResult = await DialogService.ShowSignatureEditorDialog(signatureModel);
+            var dialogResult = await _dialogService.ShowSignatureEditorDialog(signatureModel);
 
             if (dialogResult == null) return;
 
@@ -150,7 +152,7 @@ namespace Wino.Mail.ViewModels
         [RelayCommand]
         private async Task DeleteSignatureAsync(AccountSignature signatureModel)
         {
-            var shouldRemove = await DialogService.ShowConfirmationDialogAsync(string.Format(Translator.SignatureDeleteDialog_Message, signatureModel.Name), Translator.SignatureDeleteDialog_Title, Translator.Buttons_Delete);
+            var shouldRemove = await _dialogService.ShowConfirmationDialogAsync(string.Format(Translator.SignatureDeleteDialog_Message, signatureModel.Name), Translator.SignatureDeleteDialog_Title, Translator.Buttons_Delete);
 
             if (!shouldRemove) return;
 

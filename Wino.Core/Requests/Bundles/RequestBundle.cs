@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Domain.Models.Requests
+namespace Wino.Core.Requests.Bundles
 {
     /// <summary>
     /// Bundle that encapsulates batch request and native request without a response.

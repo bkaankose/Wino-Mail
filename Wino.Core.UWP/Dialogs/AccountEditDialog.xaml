@@ -1,0 +1,19 @@
+﻿<ContentDialog
+    x:Class="Wino.Dialogs.AccountEditDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.AccountEditDialog_Title}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="SaveClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Discard}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <Grid>
+        <TextBox Header="{x:Bind domain:Translator.AccountEditDialog_Message}" Text="{x:Bind Account.Name, Mode=TwoWay}" />
+    </Grid>
+</ContentDialog>

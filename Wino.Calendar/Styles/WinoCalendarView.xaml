@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Calendar.Controls">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="CalendarRenderStyles.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Style TargetType="controls:WinoCalendarView">
+        <Setter Property="VisibleDateBackground" Value="{ThemeResource WinoCalendarViewVisibleDayBackgroundBrush}" />
+        <Setter Property="TodayBackgroundBrush" Value="{ThemeResource SystemColorControlAccentBrush}" />
+
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:WinoCalendarView">
+                    <CalendarView
+                        x:Name="PART_CalendarView"
+                        BorderBrush="{ThemeResource WinoCalendarViewBorderBrush}"
+                        CalendarItemCornerRadius="5"
+                        CornerRadius="4"
+                        DayItemMargin="0"
+                        IsTodayHighlighted="False"
+                        SelectionMode="Single">
+                        <CalendarView.CalendarViewDayItemStyle>
+                            <Style TargetType="CalendarViewDayItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="CalendarViewDayItem">
+                                            <Grid>
+                                                <Border x:Name="PART_DayViewItemBorder" CornerRadius="5">
+                                                    <ContentPresenter />
+                                                </Border>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </CalendarView.CalendarViewDayItemStyle>
+                    </CalendarView>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

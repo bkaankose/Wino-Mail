@@ -4,7 +4,7 @@ using System.Linq;
 using System.Web;
 using Google.Apis.Gmail.v1.Data;
 using MimeKit;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Extensions

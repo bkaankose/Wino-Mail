@@ -96,7 +96,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\x64\Debug\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS; DEBUG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;NETFX_CORE;WINDOWS_UWP;CODE_ANALYSIS;CODE_ANALYSIS;MAIL</DefineConstants>
     <NoWarn>
     </NoWarn>
     <DebugType>full</DebugType>
@@ -128,49 +128,52 @@
       <Version>1.0.0</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Common">
-      <Version>8.2.2</Version>
+      <Version>8.3.2</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Diagnostics">
-      <Version>8.2.2</Version>
+      <Version>8.3.2</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Labs.Uwp.Controls.MarkdownTextBlock">
       <Version>0.1.240917-build.1755</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm">
-      <Version>8.2.2</Version>
+      <Version>8.3.2</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Animations">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Behaviors">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox">
-      <Version>8.1.240821</Version>
+      <Version>8.1.240916</Version>
+    </PackageReference>
+    <PackageReference Include="CommunityToolkit.Uwp.Extensions">
+      <Version>8.1.240916</Version>
     </PackageReference>
     <PackageReference Include="EmailValidation">
       <Version>1.2.0</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Analytics">
-      <Version>5.0.5</Version>
+      <Version>5.0.6</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.AppCenter.Crashes">
-      <Version>5.0.5</Version>
+      <Version>5.0.6</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection">
-      <Version>8.0.0</Version>
+      <Version>8.0.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Net.Native.Compiler">
       <Version>2.2.12-rel-33220-00</Version>
@@ -190,10 +193,10 @@
       <Version>5.1.2</Version>
     </PackageReference>
     <PackageReference Include="ReactiveUI">
-      <Version>20.1.1</Version>
+      <Version>20.1.63</Version>
     </PackageReference>
     <PackageReference Include="Serilog">
-      <Version>4.0.1</Version>
+      <Version>4.1.0</Version>
     </PackageReference>
     <PackageReference Include="Serilog.Exceptions">
       <Version>8.4.0</Version>
@@ -202,43 +205,23 @@
       <Version>1.9.172</Version>
     </PackageReference>
     <PackageReference Include="Win2D.uwp">
-      <Version>1.27.1</Version>
+      <Version>1.28.0</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Activation\ActivationHandler.cs" />
     <Compile Include="Activation\DefaultActivationHandler.cs" />
     <Compile Include="Activation\FileActivationHandler.cs" />
     <Compile Include="Activation\ProtocolActivationHandler.cs" />
     <Compile Include="Activation\ToastNotificationActivationHandler.cs" />
-    <Compile Include="BasePage.cs" />
     <Compile Include="Behaviors\BindableCommandBarBehavior.cs" />
     <Compile Include="Behaviors\CreateMailNavigationItemBehavior.cs" />
     <Compile Include="Controls\AccountNavigationItem.cs" />
-    <Compile Include="Controls\Advanced\WinoAppTitleBar.xaml.cs">
-      <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\ControlConstants.cs" />
     <Compile Include="Controls\SettingsMenuItemControl.cs" />
     <Compile Include="Controls\Advanced\WinoListView.cs" />
     <Compile Include="Controls\WinoExpander.cs" />
-    <Compile Include="Controls\WinoFontIconSource.cs" />
-    <Compile Include="Controls\WinoFontIcon.cs" />
     <Compile Include="Controls\WinoSwipeControlItems.cs" />
-    <Compile Include="Converters\GridLengthConverter.cs" />
-    <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
-      <DependentUpon>AccountEditDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\AccountPickerDialog.xaml.cs">
-      <DependentUpon>AccountPickerDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Dialogs\AccountReorderDialog.xaml.cs">
       <DependentUpon>AccountReorderDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
-    <Compile Include="Dialogs\CustomMessageDialogInformationContainer.cs" />
-    <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
-      <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\MoveMailDialog.xaml.cs">
       <DependentUpon>MoveMailDialog.xaml</DependentUpon>
@@ -255,11 +238,7 @@
     <Compile Include="Dialogs\SystemFolderConfigurationDialog.xaml.cs">
       <DependentUpon>SystemFolderConfigurationDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Dialogs\TextInputDialog.xaml.cs">
-      <DependentUpon>TextInputDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Extensions\MimeKitExtensions.cs" />
-    <Compile Include="Extensions\UIExtensions.cs" />
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="MenuFlyouts\AccountSelectorFlyout.cs" />
     <Compile Include="MenuFlyouts\FolderOperationFlyout.cs" />
@@ -268,46 +247,28 @@
     <Compile Include="MenuFlyouts\MailOperationMenuFlyoutItem.cs" />
     <Compile Include="MenuFlyouts\WinoOperationFlyout.cs" />
     <Compile Include="MenuFlyouts\WinoOperationFlyoutItem.cs" />
-    <Compile Include="Converters\ReverseBooleanConverter.cs" />
-    <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
-      <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Extensions\AnimationExtensions.cs" />
-    <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
-    <Compile Include="Extensions\CompositionExtensions.Size.cs" />
-    <Compile Include="Extensions\CompositionEnums.cs" />
-    <Compile Include="Extensions\UtilExtensions.cs" />
     <Compile Include="MenuFlyouts\FilterMenuFlyout.cs" />
     <Compile Include="Controls\ImagePreviewControl.cs" />
     <Compile Include="Controls\MailItemDisplayInformationControl.xaml.cs">
       <DependentUpon>MailItemDisplayInformationControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="MenuFlyouts\MoveButtonFlyout.cs" />
-    <Compile Include="Controls\WinoInfoBar.cs" />
-    <Compile Include="Controls\WinoNavigationViewItem.cs" />
-    <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
     <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
       <DependentUpon>NewAccountDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
-    <Compile Include="Helpers\XamlHelpers.cs" />
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
     <Compile Include="Selectors\AccountReorderTemplateSelector.cs" />
-    <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
-    <Compile Include="Selectors\CustomWinoMessageDialogIconSelector.cs" />
-    <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
     <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
-    <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
-    <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogService.cs" />
-    <Compile Include="Services\WinoNavigationService.cs" />
-    <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
-      <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
-    </Compile>
+    <Compile Include="Services\NavigationService.cs" />
+    <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\WinoExpanderStyle.xaml.cs">
       <DependentUpon>WinoExpanderStyle.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\AboutPage.xaml.cs">
+      <DependentUpon>AboutPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Abstract\AboutPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
@@ -325,9 +286,6 @@
     <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
     <Compile Include="Views\Abstract\ReadComposePanePageAbstract.cs" />
-    <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
-    <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
-    <Compile Include="Views\Abstract\SettingsPageBase.cs" />
     <Compile Include="Views\Abstract\SignatureManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\WelcomePageAbstract.cs" />
     <Compile Include="Views\Account\AccountDetailsPage.xaml.cs">
@@ -369,11 +327,8 @@
     <Compile Include="Views\NewAccountManagementPage.xaml.cs">
       <DependentUpon>NewAccountManagementPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\SettingsPage.xaml.cs">
-      <DependentUpon>SettingsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\Settings\AboutPage.xaml.cs">
-      <DependentUpon>AboutPage.xaml</DependentUpon>
+    <Compile Include="Views\PersonalizationPage.xaml.cs">
+      <DependentUpon>PersonalizationPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\AppPreferencesPage.xaml.cs">
       <DependentUpon>AppPreferencesPage.xaml</DependentUpon>
@@ -384,17 +339,11 @@
     <Compile Include="Views\Settings\MessageListPage.xaml.cs">
       <DependentUpon>MessageListPage.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\Settings\PersonalizationPage.xaml.cs">
-      <DependentUpon>PersonalizationPage.xaml</DependentUpon>
-    </Compile>
     <Compile Include="AppShell.xaml.cs">
       <DependentUpon>AppShell.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\ReadComposePanePage.xaml.cs">
       <DependentUpon>ReadComposePanePage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\Settings\SettingOptionsPage.xaml.cs">
-      <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\AliasManagementPage.xaml.cs">
       <DependentUpon>AliasManagementPage.xaml</DependentUpon>
@@ -413,59 +362,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="AppThemes\Mica.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Nighty.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Forest.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-    <Content Include="AppThemes\Clouds.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-    <Content Include="AppThemes\Snowflake.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-    <Content Include="AppThemes\Garden.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-    <Content Include="AppThemes\Acrylic.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-    <Content Include="AppThemes\Custom.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-    <Page Include="Controls\Advanced\WinoAppTitleBar.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Controls\MailItemDisplayInformationControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Dialogs\AccountEditDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Dialogs\AccountPickerDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Dialogs\AccountReorderDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Dialogs\CustomThemeBuilderDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -489,33 +390,9 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Dialogs\TextInputDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
     <Page Include="Dialogs\NewAccountDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Dialogs\AccountCreationDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\ContentPresenters.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\Converters.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\CustomMessageDialogStyles.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\FontIcons.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
     </Page>
     <Page Include="Styles\ImagePreviewControl.xaml">
       <SubType>Designer</SubType>
@@ -529,13 +406,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Styles\WinoInfoBar.xaml">
-      <SubType>Designer</SubType>
+    <Page Include="Views\AboutPage.xaml">
       <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\Colors.xaml">
       <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\Account\AccountDetailsPage.xaml">
       <SubType>Designer</SubType>
@@ -589,13 +462,9 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\SettingsPage.xaml">
-      <SubType>Designer</SubType>
+    <Page Include="Views\PersonalizationPage.xaml">
       <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Views\Settings\AboutPage.xaml">
       <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\Settings\AppPreferencesPage.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -609,19 +478,11 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="Views\Settings\PersonalizationPage.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="AppShell.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\Settings\ReadComposePanePage.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Views\Settings\SettingOptionsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -650,16 +511,6 @@
     <Content Include="Assets\BadgeLogo.scale-200.png" />
     <Content Include="Assets\BadgeLogo.scale-400.png" />
     <Content Include="Assets\EML\eml.png" />
-    <Content Include="Assets\FileTypes\type_archive.png" />
-    <Content Include="Assets\FileTypes\type_audio.png" />
-    <Content Include="Assets\FileTypes\type_executable.png" />
-    <Content Include="Assets\FileTypes\type_none.png" />
-    <Content Include="Assets\FileTypes\type_other.png" />
-    <Content Include="Assets\FileTypes\type_html.png" />
-    <Content Include="Assets\FileTypes\type_image.png" />
-    <Content Include="Assets\FileTypes\type_pdf.png" />
-    <Content Include="Assets\FileTypes\type_rar.png" />
-    <Content Include="Assets\FileTypes\type_video.png" />
     <Content Include="Assets\LargeTile.scale-100.png" />
     <Content Include="Assets\LargeTile.scale-125.png" />
     <Content Include="Assets\LargeTile.scale-150.png" />
@@ -670,11 +521,6 @@
     <Content Include="Assets\NotificationIcons\markread.png" />
     <Content Include="Assets\NotificationIcons\profile-dark.png" />
     <Content Include="Assets\NotificationIcons\profile-light.png" />
-    <Content Include="Assets\Providers\Gmail.png" />
-    <Content Include="Assets\Providers\IMAP4.png" />
-    <Content Include="Assets\Providers\Office 365.png" />
-    <Content Include="Assets\Providers\Outlook.png" />
-    <Content Include="Assets\Providers\Yahoo.png" />
     <Content Include="Assets\SmallTile.scale-100.png" />
     <Content Include="Assets\SmallTile.scale-125.png" />
     <Content Include="Assets\SmallTile.scale-150.png" />
@@ -721,13 +567,6 @@
     <Content Include="Assets\Wide310x150Logo.scale-125.png" />
     <Content Include="Assets\Wide310x150Logo.scale-150.png" />
     <Content Include="Assets\Wide310x150Logo.scale-400.png" />
-    <Content Include="BackgroundImages\Acrylic.jpg" />
-    <Content Include="BackgroundImages\Forest.jpg" />
-    <Content Include="BackgroundImages\Clouds.jpg" />
-    <Content Include="BackgroundImages\Garden.jpg" />
-    <Content Include="BackgroundImages\Mica.jpg" />
-    <Content Include="BackgroundImages\Nighty.jpg" />
-    <Content Include="BackgroundImages\Snowflake.jpg" />
     <Content Include="JS\libs\darkreader.js" />
     <Content Include="JS\editor.html" />
     <Content Include="JS\editor.js" />
@@ -768,6 +607,10 @@
       <Project>{395f19ba-1e42-495c-9db5-1a6f537fccb8}</Project>
       <Name>Wino.Core.UWP</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj">
+      <Project>{53723ae8-7e7e-4d54-adab-0a6033255cc8}</Project>
+      <Name>Wino.Core.ViewModels</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Wino.Core\Wino.Core.csproj">
       <Project>{E6B1632A-8901-41E8-9DDF-6793C7698B0B}</Project>
       <Name>Wino.Core</Name>
@@ -786,7 +629,9 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Helpers\" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>

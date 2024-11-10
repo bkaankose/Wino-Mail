@@ -6,17 +6,18 @@ using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels
 {
-    public partial class WelcomePageViewModel : BaseViewModel
+    public partial class WelcomePageViewModel : MailBaseViewModel
     {
         public const string VersionFile = "190.md";
-
+        private readonly IMailDialogService _dialogService;
         private readonly IFileService _fileService;
 
         [ObservableProperty]
         private string currentVersionNotes;
 
-        public WelcomePageViewModel(IDialogService dialogService, IFileService fileService) : base(dialogService)
+        public WelcomePageViewModel(IMailDialogService dialogService, IFileService fileService)
         {
+            _dialogService = dialogService;
             _fileService = fileService;
         }
 
@@ -30,7 +31,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception)
             {
-                DialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Can't find the patch notes.", Core.Domain.Enums.InfoBarMessageType.Information);
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Can't find the patch notes.", Core.Domain.Enums.InfoBarMessageType.Information);
             }
         }
     }

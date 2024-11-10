@@ -1,5 +1,6 @@
 ﻿using System;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces
@@ -11,6 +12,37 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         event EventHandler<string> PreferenceChanged;
 
+        #region Common
+
+        /// <summary>
+        /// Setting: Whether logs are enabled or not.
+        /// </summary>
+        bool IsLoggingEnabled { get; set; }
+
+        /// <summary>
+        /// Setting: Display language for the application.
+        /// </summary>
+        AppLanguage CurrentLanguage { get; set; }
+
+        /// <summary>
+        /// Setting: Whether the navigation pane is opened on the last session or not.
+        /// </summary>
+        bool IsNavigationPaneOpened { get; set; }
+
+        /// <summary>
+        /// Setting: Gets or sets what should happen to server app when the client is terminated.
+        /// </summary>
+        ServerBackgroundMode ServerTerminationBehavior { get; set; }
+
+        /// <summary>
+        /// Setting: Preferred time format for mail or calendar header display.
+        /// </summary>
+        bool Prefer24HourTimeFormat { get; set; }
+
+        #endregion
+
+        #region Mail
+
         /// <summary>
         /// Setting: For changing the mail display container mode.
         /// </summary>
@@ -20,11 +52,6 @@ namespace Wino.Core.Domain.Interfaces
         /// Setting: Marking the item as read preference mode.
         /// </summary>
         MailMarkAsOption MarkAsPreference { get; set; }
-
-        /// <summary>
-        /// Setting: Preferred time format for mail display.
-        /// </summary>
-        bool Prefer24HourTimeFormat { get; set; }
 
         /// <summary>
         /// Setting: How many seconds should be waited on rendering page to mark item as read.
@@ -102,11 +129,6 @@ namespace Wino.Core.Domain.Interfaces
         MailOperation RightHoverAction { get; set; }
 
         /// <summary>
-        /// Setting: Whether logs are enabled or not.
-        /// </summary>
-        bool IsLoggingEnabled { get; set; }
-
-        /// <summary>
         /// Setting: Whether Mailkit Protocol Logger is enabled for ImapTestService or not.
         /// </summary>
         bool IsMailkitProtocolLoggerEnabled { get; set; }
@@ -116,10 +138,7 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         Guid? StartupEntityId { get; set; }
 
-        /// <summary>
-        /// Setting: Display language for the application.
-        /// </summary>
-        AppLanguage CurrentLanguage { get; set; }
+
 
         /// <summary>
         /// Setting: Display font for the mail reader.
@@ -141,10 +160,7 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         int ComposerFontSize { get; set; }
 
-        /// <summary>
-        /// Setting: Whether the navigation pane is opened on the last session or not.
-        /// </summary>
-        bool IsNavigationPaneOpened { get; set; }
+
 
         /// <summary>
         /// Setting: Whether the next item should be automatically selected once the current item is moved or removed.
@@ -152,13 +168,23 @@ namespace Wino.Core.Domain.Interfaces
         bool AutoSelectNextItem { get; set; }
 
         /// <summary>
-        /// Setting: Gets or sets what should happen to server app when the client is terminated.
-        /// </summary>
-        ServerBackgroundMode ServerTerminationBehavior { get; set; }
-
-        /// <summary>
         /// Setting: Whether the mail list action bar is enabled or not.
         /// </summary>
         bool IsMailListActionBarEnabled { get; set; }
+
+        #endregion
+
+        #region Calendar
+
+        DayOfWeek FirstDayOfWeek { get; set; }
+        TimeSpan WorkingHourStart { get; set; }
+        TimeSpan WorkingHourEnd { get; set; }
+        DayOfWeek WorkingDayStart { get; set; }
+        DayOfWeek WorkingDayEnd { get; set; }
+        double HourHeight { get; set; }
+
+        CalendarSettings GetCurrentCalendarSettings();
+
+        #endregion
     }
 }

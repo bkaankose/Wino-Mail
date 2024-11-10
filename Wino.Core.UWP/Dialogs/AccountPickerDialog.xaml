@@ -1,0 +1,19 @@
+﻿<ContentDialog
+    x:Class="Wino.Dialogs.AccountPickerDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.AccountPickerDialog_Title}"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ListView
+        DisplayMemberPath="Address"
+        IsItemClickEnabled="True"
+        ItemClick="AccountClicked"
+        ItemsSource="{x:Bind AvailableAccounts}"
+        SelectionMode="None" />
+</ContentDialog>

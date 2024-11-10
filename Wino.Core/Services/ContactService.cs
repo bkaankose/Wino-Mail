@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MimeKit;
 using SqlKata;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Extensions;
 
 namespace Wino.Core.Services

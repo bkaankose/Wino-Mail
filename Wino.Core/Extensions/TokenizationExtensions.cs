@@ -1,6 +1,6 @@
 ﻿using System;
 using Microsoft.Identity.Client;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Extensions
 {

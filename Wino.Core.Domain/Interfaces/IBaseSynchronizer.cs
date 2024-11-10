@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using MailKit;
-using Wino.Core.Domain.Entities;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
@@ -9,7 +9,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface IBaseSynchronizer
+    public interface IBaseMailSynchronizer
     {
         /// <summary>
         /// Account that is assigned for this synchronizer.

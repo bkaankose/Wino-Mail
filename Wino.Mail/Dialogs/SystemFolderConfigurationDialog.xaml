@@ -2,21 +2,22 @@
     x:Class="Wino.Dialogs.SystemFolderConfigurationDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
-    mc:Ignorable="d"
-    Style="{StaticResource WinoDialogStyle}"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Title}"
+    Closing="DialogClosing"
     DefaultButton="Primary"
     IsPrimaryButtonEnabled="True"
-    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
-    xmlns:domain="using:Wino.Core.Domain"
-    PrimaryButtonText="{x:Bind domain:Translator.Buttons_SaveConfiguration}"
     PrimaryButtonClick="SaveClicked"
-    Closing="DialogClosing"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_SaveConfiguration}"
     SecondaryButtonClick="CancelClicked"
-    Title="{x:Bind domain:Translator.SettingsConfigureSpecialFolders_Title}">
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
 
     <ContentDialog.Resources>
         <Style TargetType="ComboBox">
@@ -35,60 +36,60 @@
                 <LineBreak />
                 <LineBreak />
                 <Run
-                    Text="{x:Bind domain:Translator.SystemFolderConfigDialog_MessageSecondLine}"
+                    FontWeight="SemiBold"
                     Foreground="{StaticResource SystemErrorTextColor}"
-                    FontWeight="SemiBold" />
+                    Text="{x:Bind domain:Translator.SystemFolderConfigDialog_MessageSecondLine}" />
             </TextBlock>
 
             <StackPanel Grid.Row="1" Spacing="6">
                 <controls1:SettingsCard
                     x:Name="SentCard"
-                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderHeader}"
-                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderDescription}">
+                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderDescription}"
+                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <controls:WinoFontIcon FontSize="16" Icon="SpecialFolderSent" />
+                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderSent" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox SelectedItem="{x:Bind Sent, Mode=TwoWay}" ItemsSource="{x:Bind AvailableFolders}" />
+                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Sent, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
                     x:Name="DraftCard"
-                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderHeader}"
-                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderDescription}">
+                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderDescription}"
+                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <controls:WinoFontIcon FontSize="16" Icon="SpecialFolderDraft" />
+                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderDraft" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox SelectedItem="{x:Bind Draft, Mode=TwoWay}" ItemsSource="{x:Bind AvailableFolders}" />
+                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Draft, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
                     x:Name="ArchiveCard"
-                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderHeader}"
-                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderDescription}">
+                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderDescription}"
+                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <controls:WinoFontIcon FontSize="16" Icon="SpecialFolderArchive" />
+                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderArchive" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox SelectedItem="{x:Bind Archive, Mode=TwoWay}" ItemsSource="{x:Bind AvailableFolders}" />
+                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Archive, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
                     x:Name="DeletedCard"
-                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderHeader}"
-                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderDescription}">
+                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderDescription}"
+                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <controls:WinoFontIcon FontSize="16" Icon="SpecialFolderDeleted" />
+                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderDeleted" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox SelectedItem="{x:Bind Trash, Mode=TwoWay}" ItemsSource="{x:Bind AvailableFolders}" />
+                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Trash, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <controls1:SettingsCard
                     x:Name="JunkCard"
-                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderHeader}"
-                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderDescription}">
+                    Description="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderDescription}"
+                    Header="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <controls:WinoFontIcon FontSize="16" Icon="SpecialFolderJunk" />
+                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderJunk" />
                     </controls1:SettingsCard.HeaderIcon>
-                    <ComboBox SelectedItem="{x:Bind Junk, Mode=TwoWay}" ItemsSource="{x:Bind AvailableFolders}" />
+                    <ComboBox ItemsSource="{x:Bind AvailableFolders}" SelectedItem="{x:Bind Junk, Mode=TwoWay}" />
                 </controls1:SettingsCard>
 
                 <TextBlock x:Name="ValidationErrorTextBlock" Foreground="{StaticResource SystemErrorTextColor}" />

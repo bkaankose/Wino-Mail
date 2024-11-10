@@ -421,6 +421,8 @@
     "SettingsAvailableThemes_Title": "Available Themes",
     "SettingsAutoSelectNextItem_Title": "Auto select next item",
     "SettingsAutoSelectNextItem_Description": "Select the next item after you delete or move a mail.",
+    "SettingsCalendarSettings_Title": "Calendar Settings",
+    "SettingsCalendarSettings_Description": "Change first day of week, hour cell height and more...",
     "SettingsCustomTheme_Description": "Create your own custom theme with custom wallpaper and accent color.",
     "SettingsCustomTheme_Title": "Custom Theme",
     "SettingsConfigureSpecialFolders_Title": "Configure System Folders",

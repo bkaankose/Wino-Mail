@@ -4,10 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:entities="using:Wino.Core.Domain.Entities"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mailkit="using:MimeKit"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -165,7 +166,7 @@
                                 ToolTipService.ToolTip="Light Theme"
                                 Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay}">
                                 <AppBarButton.Icon>
-                                    <controls:WinoFontIcon Icon="LightEditor" />
+                                    <coreControls:WinoFontIcon Icon="LightEditor" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
@@ -175,18 +176,18 @@
                                 ToolTipService.ToolTip="Dark Theme"
                                 Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
                                 <AppBarButton.Icon>
-                                    <controls:WinoFontIcon Icon="DarkEditor" />
+                                    <coreControls:WinoFontIcon Icon="DarkEditor" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
                             <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
                                 <AppBarButton.Icon>
-                                    <controls:WinoFontIcon Icon="Delete" />
+                                    <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
                             <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="{x:Bind domain:Translator.Buttons_Send}">
                                 <AppBarButton.Icon>
-                                    <controls:WinoFontIcon Icon="Send" />
+                                    <coreControls:WinoFontIcon Icon="Send" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
                         </toolkit:TabbedCommandBarItem>

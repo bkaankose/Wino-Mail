@@ -15,9 +15,9 @@ namespace Wino.Core.UWP.Services
         private const string LatestAskedKey = nameof(LatestAskedKey);
 
         private readonly IConfigurationService _configurationService;
-        private readonly IDialogService _dialogService;
+        private readonly IMailDialogService _dialogService;
 
-        public StoreRatingService(IConfigurationService configurationService, IDialogService dialogService)
+        public StoreRatingService(IConfigurationService configurationService, IMailDialogService dialogService)
         {
             _configurationService = configurationService;
             _dialogService = dialogService;

@@ -1,0 +1,37 @@
+﻿<abstract:SettingOptionsPageAbstract
+    x:Class="Wino.Views.Settings.SettingOptionsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:settings="using:Wino.Core.Domain.Models.Settings"
+    xmlns:translations="using:Wino.Core.Domain.Models.Translations"
+    x:Name="root"
+    Title="{x:Bind domain:Translator.SettingsOptions_Title, Mode=OneWay}"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Hidden">
+        <ItemsControl ItemsSource="{x:Bind ViewModel.SettingOptions, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="settings:SettingOption">
+                    <controls:SettingsCard
+                        Margin="0,2"
+                        Command="{Binding ElementName=root, Path=ViewModel.NavigateSubDetailCommand}"
+                        CommandParameter="{x:Bind NavigationPage}"
+                        Description="{x:Bind Description}"
+                        Header="{x:Bind Title}"
+                        IsClickEnabled="True">
+                        <controls:SettingsCard.HeaderIcon>
+                            <PathIcon Data="{x:Bind PathIcon}" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+    </ScrollViewer>
+</abstract:SettingOptionsPageAbstract>

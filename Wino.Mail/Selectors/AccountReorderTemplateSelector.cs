@@ -1,6 +1,6 @@
 ﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Wino.Mail.ViewModels.Data;
+using Wino.Core.ViewModels.Data;
 
 namespace Wino.Selectors
 {

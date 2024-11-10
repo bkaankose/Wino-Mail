@@ -18,7 +18,7 @@
   <Identity
     Name="58272BurakKSE.WinoCalendar"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="1.0.0.0" />
+    Version="1.0.7.0" />
 
   <mp:PhoneIdentity PhoneProductId="f047b7dd-96ec-4d54-a862-9321e271e449" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -46,7 +46,7 @@
         Square44x44Logo="Assets\Square44x44Logo.png"
         Description="Wino.Calendar"
         BackgroundColor="transparent">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
     </Application>

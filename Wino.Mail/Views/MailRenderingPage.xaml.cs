@@ -25,7 +25,7 @@ namespace Wino.Views
         IRecipient<ApplicationThemeChanged>
     {
         private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
-        private readonly IDialogService _dialogService = App.Current.Services.GetService<IDialogService>();
+        private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>();
 
         private bool isRenderingInProgress = false;
         private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
