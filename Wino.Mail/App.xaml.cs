@@ -93,6 +93,7 @@ namespace Wino
         {
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<IMailDialogService, DialogService>();
+            services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)
