@@ -317,6 +317,10 @@
       <Project>{cf3312e5-5da0-4867-9945-49ea7598af1f}</Project>
       <Name>Wino.Core.Domain</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.UWP.csproj">
+      <Project>{395f19ba-1e42-495c-9db5-1a6f537fccb8}</Project>
+      <Name>Wino.Core.UWP</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj">
       <Project>{53723ae8-7e7e-4d54-adab-0a6033255cc8}</Project>
       <Name>Wino.Core.ViewModels</Name>
