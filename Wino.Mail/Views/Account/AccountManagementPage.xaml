@@ -18,20 +18,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <!--  Root Account Template  -->
-        <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
-            <winuiControls:SettingsCard
-                Margin="0,2,0,0"
-                Command="{Binding ViewModel.NavigateAccountDetailsCommand, Mode=OneWay, ElementName=root}"
-                CommandParameter="{x:Bind}"
-                Description="{x:Bind Account.Address}"
-                Header="{x:Bind Account.Name}"
-                IsClickEnabled="True">
-                <winuiControls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
-                </winuiControls:SettingsCard.HeaderIcon>
-            </winuiControls:SettingsCard>
-        </DataTemplate>
+
 
         <!--  Merged Account Template  -->
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="data:MergedAccountProviderDetailViewModel">
