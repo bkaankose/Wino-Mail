@@ -246,7 +246,9 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Assets\WinoIcons.ttf" />
+  </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\FileTypes\type_archive.png" />
     <Content Include="Assets\FileTypes\type_audio.png" />

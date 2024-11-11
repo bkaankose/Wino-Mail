@@ -85,7 +85,7 @@ namespace Wino.Core.UWP.Controls
 
         public WinoFontIcon()
         {
-            FontFamily = new Windows.UI.Xaml.Media.FontFamily("ms-appx:///Assets/WinoIcons.ttf#WinoIcons");
+            FontFamily = new Windows.UI.Xaml.Media.FontFamily("ms-appx:///Wino.Core.UWP/Assets/WinoIcons.ttf#WinoIcons");
             FontSize = 32;
         }
 
