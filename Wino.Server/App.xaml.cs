@@ -151,6 +151,9 @@ namespace Wino.Server
 
             if (isCreatedNew)
             {
+                // Ensure proper encodings are available for MimeKit
+                System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
                 // Spawn a thread which will be waiting for our event
                 var thread = new Thread(() =>
                 {
