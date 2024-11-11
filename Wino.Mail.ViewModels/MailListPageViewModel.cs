@@ -470,7 +470,7 @@ namespace Wino.Mail.ViewModels
                 var options = new SynchronizationOptions()
                 {
                     AccountId = folder.MailAccountId,
-                    Type = SynchronizationType.Custom,
+                    Type = SynchronizationType.CustomFolders,
                     SynchronizationFolderIds = [folder.Id],
                     GroupedSynchronizationTrackingId = trackingSynchronizationId
                 };

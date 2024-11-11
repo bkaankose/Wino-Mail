@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -11,6 +12,8 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.UWP.Dialogs;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
 using Wino.Messaging.Client.Shell;
@@ -52,6 +55,14 @@ namespace Wino.Core.UWP.Services
             Windows.Storage.AccessCache.StorageApplicationPermissions.FutureAccessList.AddOrReplace("FilePickerPath", file);
 
             return file;
+        }
+
+        public virtual IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)
+        {
+            return new AccountCreationDialog
+            {
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            };
         }
 
         public async Task<byte[]> PickWindowsFileContentAsync(params object[] typeFilters)
@@ -200,6 +211,19 @@ namespace Wino.Core.UWP.Services
             var dialogResult = await HandleDialogPresentationAsync(themeBuilderDialog);
 
             return dialogResult == ContentDialogResult.Primary;
+        }
+
+        public async Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders)
+        {
+            var dialog = new NewAccountDialog
+            {
+                Providers = availableProviders,
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(dialog);
+
+            return dialog.Result;
         }
     }
 }

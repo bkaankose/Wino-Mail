@@ -93,7 +93,7 @@ namespace Wino.Server
                 var options = new SynchronizationOptions
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.Inbox,
+                    Type = SynchronizationType.InboxOnly,
                 };
 
                 var request = new NewSynchronizationRequested(options, SynchronizationSource.Server);

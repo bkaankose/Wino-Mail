@@ -4,6 +4,7 @@
     "AccountCreationDialog_PreparingFolders": "We are getting folder information at the moment.",
     "AccountCreationDialog_SigninIn": "Account information is being saved.",
     "AccountCreationDialog_FetchingProfileInformation": "Fetching profile details.",
+    "AccountCreationDialog_FetchingEvents": "Fetching calendar events.",
     "AccountCreationDialog_GoogleAuthHelpClipboardText_Row0": "If your browser did not launch automatically to complete authentication:",
     "AccountCreationDialog_GoogleAuthHelpClipboardText_Row1": "1) Click the button below to copy the authentication address",
     "AccountCreationDialog_GoogleAuthHelpClipboardText_Row2": "2) Launch your web browser (Edge, Chrome, Firefox etc...)",

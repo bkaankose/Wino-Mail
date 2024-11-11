@@ -96,6 +96,9 @@
     <Compile Include="Converters\ReverseBooleanConverter.cs" />
     <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
     <Compile Include="CoreUWPContainerSetup.cs" />
+    <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
+      <DependentUpon>NewAccountDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogServiceBase.cs" />
@@ -194,7 +197,6 @@
     <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
       <Version>8.1.240916</Version>
     </PackageReference>
-	  
     <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers">
       <Version>8.1.240916</Version>
     </PackageReference>
@@ -338,6 +340,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Dialogs\NewAccountDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Dialogs\TextInputDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -371,6 +377,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\DataTemplates.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles\SharedStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

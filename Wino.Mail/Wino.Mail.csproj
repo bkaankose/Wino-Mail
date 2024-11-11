@@ -253,9 +253,6 @@
       <DependentUpon>MailItemDisplayInformationControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="MenuFlyouts\MoveButtonFlyout.cs" />
-    <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
-      <DependentUpon>NewAccountDialog.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Selectors\AccountProviderViewModelTemplateSelector.cs" />
     <Compile Include="Selectors\AccountReorderTemplateSelector.cs" />
     <Compile Include="Selectors\MailItemContainerStyleSelector.cs" />
@@ -263,6 +260,7 @@
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
     <Compile Include="Services\DialogService.cs" />
     <Compile Include="Services\NavigationService.cs" />
+    <Compile Include="Services\ProviderService.cs" />
     <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\WinoExpanderStyle.xaml.cs">
       <DependentUpon>WinoExpanderStyle.xaml</DependentUpon>
@@ -387,10 +385,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Dialogs\SystemFolderConfigurationDialog.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Dialogs\NewAccountDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

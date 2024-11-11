@@ -21,6 +21,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP;
+using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Client.Navigation;
@@ -94,6 +95,8 @@ namespace Wino
             services.AddSingleton<INavigationService, NavigationService>();
             services.AddSingleton<IMailDialogService, DialogService>();
             services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
+            services.AddTransient<IProviderService, ProviderService>();
+
         }
 
         private void RegisterViewModels(IServiceCollection services)

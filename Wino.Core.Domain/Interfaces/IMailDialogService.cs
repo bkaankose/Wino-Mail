@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces
@@ -17,9 +16,6 @@ namespace Wino.Core.Domain.Interfaces
 
         // Custom dialogs
         Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
-        Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders);
-        IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
-
         Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);
         Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
 

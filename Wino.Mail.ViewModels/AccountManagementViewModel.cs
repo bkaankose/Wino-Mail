@@ -83,10 +83,10 @@ namespace Wino.Mail.ViewModels
 
             try
             {
-                var providers = ProviderService.GetProviderDetails();
+                var providers = ProviderService.GetAvailableProviders();
 
                 // Select provider.
-                var accountCreationDialogResult = await MailDialogService.ShowNewAccountMailProviderDialogAsync(providers);
+                var accountCreationDialogResult = await MailDialogService.ShowAccountProviderSelectionDialogAsync(providers);
 
                 var accountCreationCancellationTokenSource = new CancellationTokenSource();
 

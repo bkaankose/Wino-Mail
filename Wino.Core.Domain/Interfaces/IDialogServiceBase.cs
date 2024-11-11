@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces
 {
@@ -21,5 +23,7 @@ namespace Wino.Core.Domain.Interfaces
                                             string cancelButtonText = "",
                                             string dontAskAgainConfigurationKey = "");
         Task<bool> ShowCustomThemeBuilderDialogAsync();
+        Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders);
+        IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
     }
 }

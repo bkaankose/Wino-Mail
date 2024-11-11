@@ -29,7 +29,6 @@ namespace Wino.Core
             services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
 
             services.AddTransient<ITokenService, TokenService>();
-            services.AddTransient<IProviderService, ProviderService>();
             services.AddTransient<IFolderService, FolderService>();
             services.AddTransient<IMailService, MailService>();
             services.AddTransient<IAccountService, AccountService>();

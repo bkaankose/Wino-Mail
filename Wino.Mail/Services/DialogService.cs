@@ -10,7 +10,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Extensions;
@@ -27,41 +26,22 @@ namespace Wino.Services
                              IConfigurationService configurationService,
                              IApplicationResourceManager<ResourceDictionary> applicationResourceManager) : base(themeService, configurationService, applicationResourceManager)
         {
+
         }
 
-        public async Task<AccountCreationDialogResult> ShowNewAccountMailProviderDialogAsync(List<IProviderDetail> availableProviders)
+        public override IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)
         {
-            var dialog = new NewAccountDialog
-            {
-                Providers = availableProviders,
-                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-            };
-
-            await HandleDialogPresentationAsync(dialog);
-
-            return dialog.Result;
-        }
-
-        public IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)
-        {
-            IAccountCreationDialog dialog = null;
-
             if (type == MailProviderType.IMAP4)
             {
-                dialog = new NewImapSetupDialog
+                return new NewImapSetupDialog
                 {
                     RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
                 };
             }
             else
             {
-                dialog = new AccountCreationDialog
-                {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-                };
+                return base.GetAccountCreationDialog(type);
             }
-
-            return dialog;
         }
 
         public async Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account)
@@ -114,7 +94,7 @@ namespace Wino.Services
                     var options = new SynchronizationOptions()
                     {
                         AccountId = accountId,
-                        Type = SynchronizationType.Full,
+                        Type = SynchronizationType.FullFolders,
                     };
 
                     WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));

@@ -316,7 +316,7 @@ namespace Wino.Mail.ViewModels
                 var options = new SynchronizationOptions()
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.Full
+                    Type = SynchronizationType.FullFolders
                 };
 
                 Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
@@ -889,7 +889,7 @@ namespace Wino.Mail.ViewModels
             var options = new SynchronizationOptions()
             {
                 AccountId = createdAccount.Id,
-                Type = SynchronizationType.Full,
+                Type = SynchronizationType.FullFolders,
             };
 
             Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));

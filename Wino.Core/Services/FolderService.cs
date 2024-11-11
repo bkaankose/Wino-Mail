@@ -550,7 +550,7 @@ namespace Wino.Core.Services
         {
             var folders = new List<MailItemFolder>();
 
-            if (options.Type == SynchronizationType.Full)
+            if (options.Type == SynchronizationType.FullFolders)
             {
                 // Only get sync enabled folders.
 
@@ -568,11 +568,11 @@ namespace Wino.Core.Services
 
                 var mustHaveFolders = await GetInboxSynchronizationFoldersAsync(options.AccountId);
 
-                if (options.Type == SynchronizationType.Inbox)
+                if (options.Type == SynchronizationType.InboxOnly)
                 {
                     return mustHaveFolders;
                 }
-                else if (options.Type == SynchronizationType.Custom)
+                else if (options.Type == SynchronizationType.CustomFolders)
                 {
                     // Only get the specified and enabled folders.
 

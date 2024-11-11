@@ -5,7 +5,7 @@ namespace Wino.Core.Domain.Interfaces
 {
     public interface IProviderService
     {
-        List<IProviderDetail> GetProviderDetails();
+        List<IProviderDetail> GetAvailableProviders();
         IProviderDetail GetProviderDetail(MailProviderType type);
     }
 }

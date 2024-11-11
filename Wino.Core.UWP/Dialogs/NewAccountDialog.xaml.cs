@@ -4,7 +4,7 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Dialogs
+namespace Wino.Core.UWP.Dialogs
 {
     public sealed partial class NewAccountDialog : ContentDialog
     {

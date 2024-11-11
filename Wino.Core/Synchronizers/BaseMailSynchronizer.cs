@@ -397,13 +397,13 @@ namespace Wino.Core.Synchronizers
             {
                 // Gather FolderIds to synchronize.
 
-                options.Type = SynchronizationType.Custom;
+                options.Type = SynchronizationType.CustomFolders;
                 options.SynchronizationFolderIds = synchronizationFolderIds;
             }
             else
             {
                 // At this point it's a mix of everything. Do full sync.
-                options.Type = SynchronizationType.Full;
+                options.Type = SynchronizationType.FullFolders;
             }
 
             return options;

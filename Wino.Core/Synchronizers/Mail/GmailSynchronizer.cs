@@ -956,7 +956,7 @@ namespace Wino.Core.Synchronizers.Mail
                 var options = new SynchronizationOptions()
                 {
                     AccountId = Account.Id,
-                    Type = SynchronizationType.Full
+                    Type = SynchronizationType.FullFolders
                 };
 
                 await SynchronizeInternalAsync(options, cancellationToken);

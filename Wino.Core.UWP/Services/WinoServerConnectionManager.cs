@@ -288,6 +288,8 @@ namespace Wino.Core.UWP.Services
             if (Status != WinoServerConnectionStatus.Connected)
                 await ConnectAsync();
 
+            if (Connection == null) return WinoServerResponse<TResponse>.CreateErrorResponse("Server connection is not established.");
+
             string serializedMessage = string.Empty;
 
             try

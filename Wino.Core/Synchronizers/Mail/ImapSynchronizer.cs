@@ -437,7 +437,7 @@ namespace Wino.Core.Synchronizers.Mail
 
             PublishSynchronizationProgress(1);
 
-            bool shouldDoFolderSync = options.Type == SynchronizationType.Full || options.Type == SynchronizationType.FoldersOnly;
+            bool shouldDoFolderSync = options.Type == SynchronizationType.FullFolders || options.Type == SynchronizationType.FoldersOnly;
 
             if (shouldDoFolderSync)
             {

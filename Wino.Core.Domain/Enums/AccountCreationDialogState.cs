@@ -11,6 +11,7 @@
         AutoDiscoverySetup,
         AutoDiscoveryInProgress,
         FetchingProfileInformation,
-        Canceled
+        Canceled,
+        FetchingEvents
     }
 }
