@@ -8,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Authorization;
@@ -120,5 +121,25 @@ namespace Wino.Core.ViewModels
         }
 
         public abstract Task InitializeAccountsAsync();
+
+        public override void OnNavigatedTo(NavigationMode mode, object parameters)
+        {
+            base.OnNavigatedTo(mode, parameters);
+
+            Accounts.CollectionChanged -= AccountsChanged;
+            Accounts.CollectionChanged += AccountsChanged;
+        }
+
+        public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+        {
+            base.OnNavigatedFrom(mode, parameters);
+
+            Accounts.CollectionChanged -= AccountsChanged;
+        }
+
+        private void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            OnPropertyChanged(nameof(HasAccountsDefined));
+        }
     }
 }

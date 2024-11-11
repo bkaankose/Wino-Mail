@@ -234,7 +234,26 @@ namespace Wino.Core.UWP
             Analytics.TrackEvent("Wino Crashed", parameters);
         }
 
-        public virtual void OnResuming(object sender, object e) { }
+
+        public virtual async void OnResuming(object sender, object e)
+        {
+            // App Service connection was lost on suspension.
+            // We must restore it.
+            // Server might be running already, but re-launching it will trigger a new connection attempt.
+
+            try
+            {
+                await AppServiceConnectionManager.ConnectAsync();
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to connect to server after resuming the app.");
+            }
+        }
         public virtual void OnSuspending(object sender, SuspendingEventArgs e) { }
 
         public abstract IServiceProvider ConfigureServices();

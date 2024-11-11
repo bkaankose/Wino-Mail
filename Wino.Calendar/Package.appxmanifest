@@ -3,6 +3,8 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   IgnorableNamespaces="uap mp">
 
@@ -18,7 +20,7 @@
   <Identity
     Name="58272BurakKSE.WinoCalendar"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="1.0.7.0" />
+    Version="1.0.8.0" />
 
   <mp:PhoneIdentity PhoneProductId="f047b7dd-96ec-4d54-a862-9321e271e449" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -49,10 +51,28 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+
+		<Extensions>
+			<!-- Protocol activation: Google oAuth -->
+			<uap:Extension Category="windows.protocol">
+				<uap:Protocol Name="google.pw.oauth2">
+					<uap:DisplayName>Google Auth Protocol</uap:DisplayName>
+				</uap:Protocol>
+			</uap:Extension>
+
+			<uap5:Extension Category="windows.startupTask">
+				<uap5:StartupTask
+					TaskId="WinoStartupId"
+					Enabled="false"
+					DisplayName="Wino Startup Service" />
+			</uap5:Extension>
+		</Extensions>
     </Application>
   </Applications>
 
   <Capabilities>
-    <Capability Name="internetClient" />
+	  <Capability Name="internetClient" />
+	  <Capability Name="privateNetworkClientServer"/>
+	  <Capability Name="internetClientServer"/>
   </Capabilities>
 </Package>

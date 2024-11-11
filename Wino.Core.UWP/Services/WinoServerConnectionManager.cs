@@ -115,7 +115,7 @@ namespace Wino.Core.UWP.Services
 
                     var connectionCancellationToken = new CancellationTokenSource(TimeSpan.FromMilliseconds(ServerConnectionTimeoutMs));
 
-                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync();
+                    await FullTrustProcessLauncher.LaunchFullTrustProcessForCurrentAppAsync("WinoServer");
 
                     // Connection establishment handler is in App.xaml.cs OnBackgroundActivated.
                     // Once the connection is established, the handler will set the Connection property

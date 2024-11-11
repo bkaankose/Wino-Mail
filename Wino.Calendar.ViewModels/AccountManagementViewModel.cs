@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Server;
@@ -31,6 +32,13 @@ namespace Wino.Calendar.ViewModels
         }
 
         public ICalendarDialogService CalendarDialogService { get; }
+
+        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        {
+            base.OnNavigatedTo(mode, parameters);
+
+            await InitializeAccountsAsync();
+        }
 
         public override async Task InitializeAccountsAsync()
         {

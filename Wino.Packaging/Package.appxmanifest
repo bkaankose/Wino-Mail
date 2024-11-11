@@ -91,7 +91,11 @@
 				<uap:AppService Name="WinoInteropService" />
 			</uap:Extension>
 
-			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe" />
+			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe">
+				<desktop:FullTrustProcess>
+					<desktop:ParameterGroup GroupId="WinoServer" Parameters="Mail" />
+				</desktop:FullTrustProcess>
+			</desktop:Extension>
 
 			<!-- Startup Task -->
 			<uap5:Extension

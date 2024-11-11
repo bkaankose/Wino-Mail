@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,13 +37,21 @@ namespace Wino.Server
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         private const string FRAME_WINDOW = "ApplicationFrameWindow";
+
         public const string WinoMailLaunchProtocol = "wino.mail.launch";
+        public const string WinoCalendarLaunchProtocol = "wino.calendar.launch";
 
         private const string NotifyIconResourceKey = "NotifyIcon";
-        private const string WinoServerAppName = "Wino.Server";
-        private const string WinoServerActivatedName = "Wino.Server.Activated";
 
+
+        private const string WinoMailServerAppName = "Wino.Mail.Server";
+        private const string WinoMailServerActivatedName = "Wino.Mail.Server.Activated";
+
+        private const string WinoCalendarServerAppName = "Wino.Calendar.Server";
+        private const string WinoCalendarServerActivatedName = "Wino.Calendar.Server.Activated";
         public new static App Current => (App)Application.Current;
+
+        public WinoAppType WinoServerType { get; private set; }
 
         private TaskbarIcon? notifyIcon;
         private static Mutex _mutex = null;
@@ -124,8 +133,9 @@ namespace Wino.Server
         /// <returns>Pointer to running UWP app's hwnd.</returns>
         private IntPtr FindUWPClientWindowHandle()
         {
-            // TODO: Resilient.
-            var proc = Process.GetProcessesByName("Wino")[0];
+            string processName = WinoServerType == WinoAppType.Mail ? "Wino.Mail" : "Wino.Calendar";
+
+            var proc = Process.GetProcessesByName(processName).FirstOrDefault() ?? throw new Exception($"{processName} client is not running.");
 
             for (IntPtr appWindow = FindWindowEx(IntPtr.Zero, IntPtr.Zero, FRAME_WINDOW, null); appWindow != IntPtr.Zero;
                 appWindow = FindWindowEx(IntPtr.Zero, appWindow, FRAME_WINDOW, null))
@@ -146,8 +156,18 @@ namespace Wino.Server
 
         protected override async void OnStartup(StartupEventArgs e)
         {
-            _mutex = new Mutex(true, WinoServerAppName, out bool isCreatedNew);
-            _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, WinoServerActivatedName);
+            // Same server code runs for both Mail and Calendar.
+            var winoAppTypeParameter = e.Args[2];
+
+            WinoServerType = winoAppTypeParameter == "Mail" ? WinoAppType.Mail : WinoAppType.Calendar;
+
+            // TODO: Better abstraction.
+
+            string serverName = WinoServerType == WinoAppType.Mail ? WinoMailServerAppName : WinoCalendarServerAppName;
+            string serverActivatedName = WinoServerType == WinoAppType.Mail ? WinoMailServerActivatedName : WinoCalendarServerActivatedName;
+
+            _mutex = new Mutex(true, serverName, out bool isCreatedNew);
+            _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, serverActivatedName);
 
             if (isCreatedNew)
             {
