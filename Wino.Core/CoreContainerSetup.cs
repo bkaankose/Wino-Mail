@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
-using Wino.Core.Authenticators.Mail;
+using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration.Threading;
@@ -28,7 +28,6 @@ namespace Wino.Core
             services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
             services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
 
-            services.AddTransient<ITokenService, TokenService>();
             services.AddTransient<IFolderService, FolderService>();
             services.AddTransient<IMailService, MailService>();
             services.AddTransient<IAccountService, AccountService>();

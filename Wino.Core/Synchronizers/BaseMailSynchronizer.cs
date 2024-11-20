@@ -119,6 +119,11 @@ namespace Wino.Core.Synchronizers
             {
                 Account.SenderName = profileInformation.SenderName;
                 Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+
+                if (!string.IsNullOrEmpty(profileInformation.AccountAddress))
+                {
+                    Account.Address = profileInformation.AccountAddress;
+                }
             }
 
             return profileInformation;

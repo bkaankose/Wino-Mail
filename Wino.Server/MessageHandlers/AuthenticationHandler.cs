@@ -1,27 +1,27 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Server;
 using Wino.Messaging.Server;
 using Wino.Server.Core;
 
 namespace Wino.Server.MessageHandlers
 {
-    public class AuthenticationHandler : ServerMessageHandler<AuthorizationRequested, TokenInformation>
+    public class AuthenticationHandler : ServerMessageHandler<AuthorizationRequested, TokenInformationEx>
     {
         private readonly IAuthenticationProvider _authenticationProvider;
 
-        public override WinoServerResponse<TokenInformation> FailureDefaultResponse(Exception ex)
-            => WinoServerResponse<TokenInformation>.CreateErrorResponse(ex.Message);
+        public override WinoServerResponse<TokenInformationEx> FailureDefaultResponse(Exception ex)
+            => WinoServerResponse<TokenInformationEx>.CreateErrorResponse(ex.Message);
 
         public AuthenticationHandler(IAuthenticationProvider authenticationProvider)
         {
             _authenticationProvider = authenticationProvider;
         }
 
-        protected override async Task<WinoServerResponse<TokenInformation>> HandleAsync(AuthorizationRequested message,
+        protected override async Task<WinoServerResponse<TokenInformationEx>> HandleAsync(AuthorizationRequested message,
                                                                                         CancellationToken cancellationToken = default)
         {
             var authenticator = _authenticationProvider.GetAuthenticator(message.MailProviderType);
@@ -36,10 +36,21 @@ namespace Wino.Server.MessageHandlers
                 gmailAuthenticator.ProposeCopyAuthURL = true;
             }
 
-            // Do not save the token here. Call is coming from account creation and things are atomic there.
-            var generatedToken = await authenticator.GenerateTokenAsync(message.CreatedAccount, saveToken: false);
+            TokenInformationEx generatedToken = null;
 
-            return WinoServerResponse<TokenInformation>.CreateSuccessResponse(generatedToken);
+            if (message.CreatedAccount != null)
+            {
+                generatedToken = await authenticator.GetTokenInformationAsync(message.CreatedAccount);
+            }
+            else
+            {
+                // Initial authentication request.
+                // There is no account to get token for.
+
+                generatedToken = await authenticator.GenerateTokenInformationAsync(message.CreatedAccount);
+            }
+
+            return WinoServerResponse<TokenInformationEx>.CreateSuccessResponse(generatedToken);
         }
     }
 }

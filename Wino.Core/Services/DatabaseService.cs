@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Threading.Tasks;
 using SQLite;
 using Wino.Core.Domain.Entities.Mail;
@@ -35,16 +34,7 @@ namespace Wino.Core.Services
             var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
             var databaseFileName = Path.Combine(publisherCacheFolder, DatabaseName);
 
-            Connection = new SQLiteAsyncConnection(databaseFileName)
-            {
-                // Enable for debugging sqlite.
-                Trace = true,
-                Tracer = new Action<string>((t) =>
-                {
-                    // Debug.WriteLine(t);
-                    // Log.Debug(t);
-                })
-            };
+            Connection = new SQLiteAsyncConnection(databaseFileName);
 
             await CreateTablesAsync();
 
@@ -57,7 +47,6 @@ namespace Wino.Core.Services
                 typeof(MailCopy),
                 typeof(MailItemFolder),
                 typeof(MailAccount),
-                typeof(TokenInformation),
                 typeof(AccountContact),
                 typeof(CustomServerInformation),
                 typeof(AccountSignature),

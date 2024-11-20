@@ -5,5 +5,6 @@
     /// </summary>
     /// <param name="SenderName">Display sender name for the account.</param>
     /// <param name="Base64ProfilePictureData">Base 64 encoded profile picture data of the account. Thumbnail size.</param>
-    public record ProfileInformation(string SenderName, string Base64ProfilePictureData);
+    /// <param name="AccountAddress">Address of the profile.</param>
+    public record ProfileInformation(string SenderName, string Base64ProfilePictureData, string AccountAddress);
 }

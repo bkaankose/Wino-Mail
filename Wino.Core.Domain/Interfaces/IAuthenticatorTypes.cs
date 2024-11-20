@@ -5,5 +5,6 @@
     {
         bool ProposeCopyAuthURL { get; set; }
     }
+
     public interface IImapAuthenticator : IAuthenticator { }
 }

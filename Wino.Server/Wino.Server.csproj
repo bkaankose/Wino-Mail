@@ -18,6 +18,7 @@
 	  <None Remove="Images\Wino_Icon.ico" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Compile Include="..\Wino.Mail\Services\MailAuthenticatorConfiguration.cs" Link="Services\MailAuthenticatorConfiguration.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\ConfigurationService.cs" Link="Services\ConfigurationService.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\NativeAppService.cs" Link="Services\NativeAppService.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
@@ -36,6 +37,7 @@
 	  <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
 	</ItemGroup>
 	<ItemGroup>
+	  <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	  <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
 	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />

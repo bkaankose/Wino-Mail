@@ -96,7 +96,7 @@ namespace Wino
             services.AddSingleton<IMailDialogService, DialogService>();
             services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
             services.AddTransient<IProviderService, ProviderService>();
-
+            services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         }
 
         private void RegisterViewModels(IServiceCollection services)

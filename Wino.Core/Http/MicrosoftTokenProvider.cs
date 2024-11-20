@@ -22,12 +22,12 @@ namespace Wino.Core.Http
         public AllowedHostsValidator AllowedHostsValidator { get; }
 
         public async Task<string> GetAuthorizationTokenAsync(Uri uri,
-                                                             Dictionary<string, object> additionalAuthenticationContext = null,
-                                                             CancellationToken cancellationToken = default)
+                                                       Dictionary<string, object> additionalAuthenticationContext = null,
+                                                       CancellationToken cancellationToken = default)
         {
-            var token = await _authenticator.GetTokenAsync(_account).ConfigureAwait(false);
+            var tokenInfo = await _authenticator.GetTokenInformationAsync(_account);
 
-            return token?.AccessToken;
+            return tokenInfo.AccessToken;
         }
     }
 }

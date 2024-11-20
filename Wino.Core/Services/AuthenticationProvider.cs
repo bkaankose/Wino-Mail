@@ -1,5 +1,5 @@
 ﻿using System;
-using Wino.Core.Authenticators.Mail;
+using Wino.Authentication;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -10,14 +10,16 @@ namespace Wino.Core.Services
     public class AuthenticationProvider : IAuthenticationProvider
     {
         private readonly INativeAppService _nativeAppService;
-        private readonly ITokenService _tokenService;
         private readonly IApplicationConfiguration _applicationConfiguration;
+        private readonly IAuthenticatorConfig _authenticatorConfig;
 
-        public AuthenticationProvider(INativeAppService nativeAppService, ITokenService tokenService, IApplicationConfiguration applicationConfiguration)
+        public AuthenticationProvider(INativeAppService nativeAppService,
+                                      IApplicationConfiguration applicationConfiguration,
+                                      IAuthenticatorConfig authenticatorConfig)
         {
             _nativeAppService = nativeAppService;
-            _tokenService = tokenService;
             _applicationConfiguration = applicationConfiguration;
+            _authenticatorConfig = authenticatorConfig;
         }
 
         public IAuthenticator GetAuthenticator(MailProviderType providerType)
@@ -25,9 +27,9 @@ namespace Wino.Core.Services
             // TODO: Move DI
             return providerType switch
             {
-                MailProviderType.Outlook => new OutlookAuthenticator(_tokenService, _nativeAppService, _applicationConfiguration),
-                MailProviderType.Office365 => new Office365Authenticator(_tokenService, _nativeAppService, _applicationConfiguration),
-                MailProviderType.Gmail => new GmailAuthenticator(_tokenService, _nativeAppService),
+                MailProviderType.Outlook => new OutlookAuthenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
+                MailProviderType.Office365 => new Office365Authenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
+                MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig),
                 _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
             };
         }

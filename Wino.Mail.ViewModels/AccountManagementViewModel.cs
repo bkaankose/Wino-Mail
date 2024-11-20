@@ -14,6 +14,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
@@ -107,7 +108,7 @@ namespace Wino.Mail.ViewModels
                     creationDialog.ShowDialog(accountCreationCancellationTokenSource);
                     creationDialog.State = AccountCreationDialogState.SigningIn;
 
-                    TokenInformation tokenInformation = null;
+                    string tokenInformation = string.Empty;
 
                     // Custom server implementation requires more async waiting.
                     if (creationDialog is ICustomServerAccountCreationDialog customServerDialog)
@@ -129,24 +130,26 @@ namespace Wino.Mail.ViewModels
                     }
                     else
                     {
-                        // For OAuth authentications, we just generate token and assign it to the MailAccount.
+                        // OAuth authentication is handled here.
+                        // Server authenticates, returns the token info here.
 
                         var tokenInformationResponse = await WinoServerConnectionManager
-                            .GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
+                            .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
                                                                                                                    createdAccount,
                                                                                                                    createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
 
                         if (creationDialog.State == AccountCreationDialogState.Canceled)
                             throw new AccountSetupCanceledException();
 
-                        tokenInformationResponse.ThrowIfFailed();
+                        createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
 
-                        tokenInformation = tokenInformationResponse.Data;
-                        createdAccount.Address = tokenInformation.Address;
-                        tokenInformation.AccountId = createdAccount.Id;
+                        tokenInformationResponse.ThrowIfFailed();
                     }
 
-                    await AccountService.CreateAccountAsync(createdAccount, tokenInformation, customServerInformation);
+                    // Address is still doesn't have a value for API synchronizers.
+                    // It'll be synchronized with profile information.
+
+                    await AccountService.CreateAccountAsync(createdAccount, customServerInformation);
 
                     // Local account has been created.
 
@@ -171,6 +174,11 @@ namespace Wino.Mail.ViewModels
 
                         createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
                         createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
+
+                        if (!string.IsNullOrEmpty(profileSynchronizationResult.ProfileInformation.AccountAddress))
+                        {
+                            createdAccount.Address = profileSynchronizationResult.ProfileInformation.AccountAddress;
+                        }
 
                         await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
                     }

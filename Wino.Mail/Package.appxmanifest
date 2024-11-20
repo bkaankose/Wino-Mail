@@ -42,7 +42,7 @@
   <Applications>
     <Application Id="App"
       Executable="$targetnametoken$.exe"
-      EntryPoint="Wino.App">
+      EntryPoint="Wino.Mail.App">
       <uap:VisualElements
         DisplayName="Wino Mail"
         Square150x150Logo="Assets\Square150x150Logo.png"

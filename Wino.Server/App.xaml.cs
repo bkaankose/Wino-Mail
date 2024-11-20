@@ -83,6 +83,19 @@ namespace Wino.Server
 
             services.AddSingleton<IServerMessageHandlerFactory>(serverMessageHandlerFactory);
 
+            // Server type related services.
+            // TODO: Better abstraction.
+
+            if (WinoServerType == WinoAppType.Mail)
+            {
+                services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+            }
+            else
+            {
+                // TODO: Calendar config will be added here.
+            }
+
+
             return services.BuildServiceProvider();
         }
 
@@ -134,6 +147,8 @@ namespace Wino.Server
         private IntPtr FindUWPClientWindowHandle()
         {
             string processName = WinoServerType == WinoAppType.Mail ? "Wino.Mail" : "Wino.Calendar";
+
+            var processs = Process.GetProcesses();
 
             var proc = Process.GetProcessesByName(processName).FirstOrDefault() ?? throw new Exception($"{processName} client is not running.");
 

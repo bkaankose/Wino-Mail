@@ -4,22 +4,16 @@ using System.Threading.Tasks;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Broker;
 using Microsoft.Identity.Client.Extensions.Msal;
-using Wino.Core.Authenticators.Base;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Extensions;
-using Wino.Core.Services;
+using Wino.Core.Domain.Models.Authentication;
 
-namespace Wino.Core.Authenticators.Mail
+namespace Wino.Authentication
 {
-    /// <summary>
-    /// Authenticator for Outlook Mail provider.
-    /// Token cache is managed by MSAL, not by Wino.
-    /// </summary>
-    public class OutlookAuthenticator : OutlookAuthenticatorBase
+    public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     {
         private const string TokenCacheFileName = "OutlookCache.bin";
         private bool isTokenCacheAttached = false;
@@ -27,27 +21,14 @@ namespace Wino.Core.Authenticators.Mail
         // Outlook
         private const string Authority = "https://login.microsoftonline.com/common";
 
-        public override string ClientId { get; } = "b19c2035-d740-49ff-b297-de6ec561b208";
-
-        private readonly string[] MailScope =
-        [
-            "email",
-            "mail.readwrite",
-            "offline_access",
-            "mail.send",
-            "Mail.Send.Shared",
-            "Mail.ReadWrite.Shared",
-            "User.Read"
-        ];
-
         public override MailProviderType ProviderType => MailProviderType.Outlook;
 
         private readonly IPublicClientApplication _publicClientApplication;
         private readonly IApplicationConfiguration _applicationConfiguration;
 
-        public OutlookAuthenticator(ITokenService tokenService,
-                                    INativeAppService nativeAppService,
-                                    IApplicationConfiguration applicationConfiguration) : base(tokenService)
+        public OutlookAuthenticator(INativeAppService nativeAppService,
+                                    IApplicationConfiguration applicationConfiguration,
+                                    IAuthenticatorConfig authenticatorConfig) : base(authenticatorConfig)
         {
             _applicationConfiguration = applicationConfiguration;
 
@@ -59,7 +40,7 @@ namespace Wino.Core.Authenticators.Mail
                 ListOperatingSystemAccounts = true,
             };
 
-            var outlookAppBuilder = PublicClientApplicationBuilder.Create(ClientId)
+            var outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
                 .WithParentActivityOrWindow(nativeAppService.GetCoreWindowHwnd)
                 .WithBroker(options)
                 .WithDefaultRedirectUri()
@@ -68,7 +49,9 @@ namespace Wino.Core.Authenticators.Mail
             _publicClientApplication = outlookAppBuilder.Build();
         }
 
-        public override async Task<TokenInformation> GetTokenAsync(MailAccount account)
+        public string[] Scope => AuthenticatorConfig.OutlookScope;
+
+        private async Task EnsureTokenCacheAttachedAsync()
         {
             if (!isTokenCacheAttached)
             {
@@ -78,23 +61,29 @@ namespace Wino.Core.Authenticators.Mail
 
                 isTokenCacheAttached = true;
             }
+        }
+
+        public async Task<TokenInformationEx> GetTokenInformationAsync(MailAccount account)
+        {
+            await EnsureTokenCacheAttachedAsync();
 
             var storedAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(a => a.Username == account.Address);
 
-            // TODO: Handle it from the server.
-            if (storedAccount == null) throw new AuthenticationAttentionException(account);
+            if (storedAccount == null)
+                return await GenerateTokenInformationAsync(account);
 
             try
             {
-                var authResult = await _publicClientApplication.AcquireTokenSilent(MailScope, storedAccount).ExecuteAsync();
+                var authResult = await _publicClientApplication.AcquireTokenSilent(Scope, storedAccount).ExecuteAsync();
 
-                return authResult.CreateTokenInformation() ?? throw new Exception("Failed to get Outlook token.");
+                return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
             }
             catch (MsalUiRequiredException)
             {
                 // Somehow MSAL is not able to refresh the token silently.
                 // Force interactive login.
-                return await GenerateTokenAsync(account, true);
+
+                return await GenerateTokenInformationAsync(account);
             }
             catch (Exception)
             {
@@ -102,22 +91,26 @@ namespace Wino.Core.Authenticators.Mail
             }
         }
 
-        public override async Task<TokenInformation> GenerateTokenAsync(MailAccount account, bool saveToken)
+        public async Task<TokenInformationEx> GenerateTokenInformationAsync(MailAccount account)
         {
             try
             {
+                await EnsureTokenCacheAttachedAsync();
+
                 var authResult = await _publicClientApplication
-                    .AcquireTokenInteractive(MailScope)
+                    .AcquireTokenInteractive(Scope)
                     .ExecuteAsync();
 
-                var tokenInformation = authResult.CreateTokenInformation();
+                // If the account is null, it means it's the initial creation of it.
+                // If not, make sure the authenticated user address matches the username.
+                // When people refresh their token, accounts must match.
 
-                if (saveToken)
+                if (account?.Address != null && !account.Address.Equals(authResult.Account.Username, StringComparison.OrdinalIgnoreCase))
                 {
-                    await SaveTokenInternalAsync(account, tokenInformation);
+                    throw new AuthenticationException("Authenticated address does not match with your account address.");
                 }
 
-                return tokenInformation;
+                return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
             }
             catch (MsalClientException msalClientException)
             {

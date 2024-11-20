@@ -533,20 +533,20 @@ namespace Wino.Core.Synchronizers.Mail
         /// <summary>
         /// Get the user's display name.
         /// </summary>
-        /// <returns>Display name of the user.</returns>
-        private async Task<string> GetSenderNameAsync()
+        /// <returns>Display name and address of the user.</returns>
+        private async Task<Tuple<string, string>> GetDisplayNameAndAddressAsync()
         {
             var userInfo = await _graphClient.Me.GetAsync();
 
-            return userInfo.DisplayName;
+            return new Tuple<string, string>(userInfo.DisplayName, userInfo.Mail);
         }
 
         public override async Task<ProfileInformation> GetProfileInformationAsync()
         {
             var profilePictureData = await GetUserProfilePictureAsync().ConfigureAwait(false);
-            var senderName = await GetSenderNameAsync().ConfigureAwait(false);
+            var displayNameAndAddress = await GetDisplayNameAndAddressAsync().ConfigureAwait(false);
 
-            return new ProfileInformation(senderName, profilePictureData);
+            return new ProfileInformation(displayNameAndAddress.Item1, profilePictureData, displayNameAndAddress.Item2);
         }
 
         /// <summary>

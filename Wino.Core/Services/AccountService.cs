@@ -206,8 +206,9 @@ namespace Wino.Core.Services
             var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
 
             // This will re-generate token.
-            var token = await authenticator.GenerateTokenAsync(account, true);
+            var token = await authenticator.GenerateTokenInformationAsync(account);
 
+            // TODO: Rest?
             Guard.IsNotNull(token);
         }
 
@@ -267,10 +268,10 @@ namespace Wino.Core.Services
         public async Task DeleteAccountAsync(MailAccount account)
         {
             // TODO: Delete mime messages and attachments.
+            // TODO: Delete token cache by underlying provider.
 
             await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE Id IN(SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id from MailItemFolder WHERE MailAccountId == ?))", account.Id);
 
-            await Connection.Table<TokenInformation>().Where(a => a.AccountId == account.Id).DeleteAsync();
             await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
             await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
             await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id);
@@ -333,6 +334,10 @@ namespace Wino.Core.Services
                 account.SenderName = profileInformation.SenderName;
                 account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
 
+                if (string.IsNullOrEmpty(account.Address))
+                {
+                    account.Address = profileInformation.AccountAddress;
+                }
                 // Forcefully add or update a contact data with the provided information.
 
                 var accountContact = new AccountContact()
@@ -469,7 +474,7 @@ namespace Wino.Core.Services
             await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
         }
 
-        public async Task CreateAccountAsync(MailAccount account, TokenInformation tokenInformation, CustomServerInformation customServerInformation)
+        public async Task CreateAccountAsync(MailAccount account, CustomServerInformation customServerInformation)
         {
             Guard.IsNotNull(account);
 
@@ -518,12 +523,6 @@ namespace Wino.Core.Services
 
             if (customServerInformation != null)
                 await Connection.InsertAsync(customServerInformation);
-
-            // Outlook token cache is managed by MSAL.
-            // Don't save it to database.
-
-            if (tokenInformation != null && (account.ProviderType != MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365))
-                await Connection.InsertAsync(tokenInformation);
         }
 
         public async Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier)

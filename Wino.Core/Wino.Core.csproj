@@ -43,6 +43,7 @@
    </ItemGroup>
 
    <ItemGroup>
+     <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
      <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
      <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
    </ItemGroup>

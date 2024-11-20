@@ -14,8 +14,8 @@
     <ProjectGuid>{68A432B8-C1B7-494C-8D6D-230788EA683E}</ProjectGuid>
     <OutputType>AppContainerExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Wino</RootNamespace>
-    <AssemblyName>Wino</AssemblyName>
+    <RootNamespace>Wino.Mail</RootNamespace>
+    <AssemblyName>Wino.Mail</AssemblyName>
     <DefaultLanguage>en-US</DefaultLanguage>
     <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
     <TargetPlatformVersion Condition=" '$(TargetPlatformVersion)' == '' ">10.0.22621.0</TargetPlatformVersion>
@@ -259,6 +259,7 @@
     <Compile Include="Selectors\MailItemDisplayModePreviewTemplateSelector.cs" />
     <Compile Include="Selectors\MailItemDisplaySelector.cs" />
     <Compile Include="Services\DialogService.cs" />
+    <Compile Include="Services\MailAuthenticatorConfiguration.cs" />
     <Compile Include="Services\NavigationService.cs" />
     <Compile Include="Services\ProviderService.cs" />
     <Compile Include="Services\SettingsBuilderService.cs" />
@@ -565,7 +566,6 @@
     <Content Include="JS\editor.html" />
     <Content Include="JS\editor.js" />
     <Content Include="JS\global.css" />
-    <Content Include="Assets\WinoIcons.ttf" />
     <Content Include="JS\libs\jodit.min.css" />
     <Content Include="JS\libs\jodit.min.js" />
     <Content Include="JS\reader.html" />
@@ -623,9 +623,7 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Helpers\" />
-  </ItemGroup>
+  <ItemGroup />
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>

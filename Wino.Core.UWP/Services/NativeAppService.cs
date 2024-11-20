@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Threading;
 using System.Threading.Tasks;
-using Nito.AsyncEx;
 using Windows.ApplicationModel;
 using Windows.Foundation.Metadata;
 using Windows.Security.Authentication.Web;
@@ -11,8 +9,6 @@ using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Shell;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authorization;
 
@@ -154,26 +150,6 @@ namespace Wino.Services
             if (await taskbarManager.IsCurrentAppPinnedAsync()) return;
 
             await taskbarManager.RequestPinCurrentAppAsync();
-        }
-
-        public async Task<Uri> GetAuthorizationResponseUriAsync(IAuthenticator authenticator,
-                                                                string authorizationUri,
-                                                                CancellationToken cancellationToken = default)
-        {
-            if (authorizationCompletedTaskSource != null)
-            {
-                authorizationCompletedTaskSource.TrySetException(new AuthenticationException(Translator.Exception_AuthenticationCanceled));
-                authorizationCompletedTaskSource = null;
-            }
-
-            authorizationCompletedTaskSource = new TaskCompletionSource<Uri>();
-
-            bool isLaunched = await Launcher.LaunchUriAsync(new Uri(authorizationUri)).AsTask(cancellationToken);
-
-            if (!isLaunched)
-                throw new WinoServerException("Failed to launch Google Authentication dialog.");
-
-            return await authorizationCompletedTaskSource.Task.WaitAsync(cancellationToken);
         }
 
         public void ContinueAuthorization(Uri authorizationResponseUri)

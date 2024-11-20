@@ -26,22 +26,7 @@ namespace Wino.Server
         [RelayCommand]
         public Task LaunchWinoAsync()
         {
-            //var opt = new SynchronizationOptions()
-            //{
-            //    Type = Wino.Core.Domain.Enums.SynchronizationType.Full,
-            //    AccountId = Guid.Parse("b3620ce7-8a69-4d81-83d5-a94bbe177431")
-            //};
-
-            //var req = new NewSynchronizationRequested(opt, Wino.Core.Domain.Enums.SynchronizationSource.Server);
-            //WeakReferenceMessenger.Default.Send(req);
-
-            // return Task.CompletedTask;
-
             return Launcher.LaunchUriAsync(new Uri($"{App.WinoMailLaunchProtocol}:")).AsTask();
-            //await _notificationBuilder.CreateNotificationsAsync(Guid.Empty, new List<IMailItem>()
-            //{
-            //    new MailCopy(){  UniqueId = Guid.Parse("8f25d2a0-4448-4fee-96a9-c9b25a19e866")}
-            //});
         }
 
         /// <summary>

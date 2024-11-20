@@ -46,15 +46,15 @@ namespace Wino.Core.Synchronizers.Mail
         private readonly GmailService _gmailService;
         private readonly PeopleServiceService _peopleService;
 
-        private readonly IAuthenticator _authenticator;
+        private readonly IGmailAuthenticator _authenticator;
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
         private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
         public GmailSynchronizer(MailAccount account,
-                                 IAuthenticator authenticator,
+                                 IGmailAuthenticator authenticator,
                                  IGmailChangeProcessor gmailChangeProcessor) : base(account)
         {
-            var messageHandler = new GmailClientMessageHandler(() => _authenticator.GetTokenAsync(Account));
+            var messageHandler = new GmailClientMessageHandler(authenticator, account);
 
             var initializer = new BaseClientService.Initializer()
             {
@@ -77,8 +77,12 @@ namespace Wino.Core.Synchronizers.Mail
             var profileRequest = _peopleService.People.Get("people/me");
             profileRequest.PersonFields = "names,photos";
 
-            string senderName = string.Empty, base64ProfilePicture = string.Empty;
+            string senderName = string.Empty, base64ProfilePicture = string.Empty, address = string.Empty;
 
+            var gmailUserData = _gmailService.Users.GetProfile("me");
+            var gmailProfile = await gmailUserData.ExecuteAsync();
+
+            address = gmailProfile.EmailAddress;
             var userProfile = await profileRequest.ExecuteAsync();
 
             senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
@@ -90,7 +94,7 @@ namespace Wino.Core.Synchronizers.Mail
                 base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
             }
 
-            return new ProfileInformation(senderName, base64ProfilePicture);
+            return new ProfileInformation(senderName, base64ProfilePicture, address);
         }
 
         protected override async Task SynchronizeAliasesAsync()
