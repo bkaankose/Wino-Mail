@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
+using MailKit.Net.Imap;
+using MoreLinq;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -16,20 +18,30 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Integration;
 using Wino.Core.Misc;
 using Wino.Core.Requests;
+using Wino.Core.Requests.Bundles;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public abstract class BaseMailSynchronizer<TBaseRequest, TMessageType> : BaseMailIntegrator<TBaseRequest>, IBaseMailSynchronizer
+    public abstract class BaseMailSynchronizer<TBaseRequest, TMessageType> : IBaseMailSynchronizer
     {
         private SemaphoreSlim synchronizationSemaphore = new(1);
         private CancellationToken activeSynchronizationCancellationToken;
 
         protected ConcurrentBag<IRequestBase> changeRequestQueue = [];
         protected ILogger Logger = Log.ForContext<BaseMailSynchronizer<TBaseRequest, TMessageType>>();
+
+        /// <summary>
+        /// How many items per single HTTP call can be modified.
+        /// </summary>
+        public abstract uint BatchModificationSize { get; }
+
+        /// <summary>
+        /// How many items must be downloaded per folder when the folder is first synchronized.
+        /// </summary>
+        public abstract uint InitialMessageDownloadCountPerFolder { get; }
 
         protected BaseMailSynchronizer(MailAccount account)
         {
@@ -441,5 +453,122 @@ namespace Wino.Core.Synchronizers
             // TODO: What if account is deleted during synchronization?
             return true;
         }
+
+        #region Bundle Helpers
+
+        /// <summary>
+        /// Creates a batched HttpBundle without a response for a collection of MailItem.
+        /// </summary>
+        /// <param name="batchChangeRequest">Generated batch request.</param>
+        /// <param name="action">An action to get the native request from the MailItem.</param>
+        /// <returns>Collection of http bundle that contains batch and native request.</returns>
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateBatchedHttpBundleFromGroup(
+            IBatchChangeRequest batchChangeRequest,
+            Func<IEnumerable<IRequest>, TBaseRequest> action)
+        {
+            if (batchChangeRequest.Items == null) yield break;
+
+            var groupedItems = batchChangeRequest.Items.Batch((int)BatchModificationSize);
+
+            foreach (var group in groupedItems)
+                yield return new HttpRequestBundle<TBaseRequest>(action(group), batchChangeRequest);
+        }
+
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateBatchedHttpBundle(
+            IBatchChangeRequest batchChangeRequest,
+            Func<IRequest, TBaseRequest> action)
+        {
+            if (batchChangeRequest.Items == null) yield break;
+
+            var groupedItems = batchChangeRequest.Items.Batch((int)BatchModificationSize);
+
+            foreach (var group in groupedItems)
+                foreach (var item in group)
+                    yield return new HttpRequestBundle<TBaseRequest>(action(item), item);
+
+            yield break;
+        }
+
+        /// <summary>
+        /// Creates a single HttpBundle without a response for a collection of MailItem.
+        /// </summary>
+        /// <param name="batchChangeRequest">Batch request</param>
+        /// <param name="action">An action to get the native request from the MailItem</param>
+        /// <returns>Collection of http bundle that contains batch and native request.</returns>
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundle(
+            IBatchChangeRequest batchChangeRequest,
+            Func<IRequest, TBaseRequest> action)
+        {
+            if (batchChangeRequest.Items == null) yield break;
+
+            foreach (var item in batchChangeRequest.Items)
+                yield return new HttpRequestBundle<TBaseRequest>(action(item), batchChangeRequest);
+        }
+
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundle<TResponseType>(
+            IBatchChangeRequest batchChangeRequest,
+            Func<IRequest, TBaseRequest> action)
+        {
+            if (batchChangeRequest.Items == null) yield break;
+
+            foreach (var item in batchChangeRequest.Items)
+                yield return new HttpRequestBundle<TBaseRequest, TResponseType>(action(item), item);
+        }
+
+        /// <summary>
+        /// Creates HttpBundle with TResponse of expected response type from the http call for each of the items in the batch.
+        /// </summary>
+        /// <typeparam name="TResponse">Expected http response type after the call.</typeparam>
+        /// <param name="batchChangeRequest">Generated batch request.</param>
+        /// <param name="action">An action to get the native request from the MailItem.</param>
+        /// <returns>Collection of http bundle that contains batch and native request.</returns>
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundleWithResponse<TResponse>(
+            IBatchChangeRequest batchChangeRequest,
+            Func<IRequest, TBaseRequest> action)
+        {
+            if (batchChangeRequest.Items == null) yield break;
+
+            foreach (var item in batchChangeRequest.Items)
+                yield return new HttpRequestBundle<TBaseRequest, TResponse>(action(item), batchChangeRequest);
+        }
+
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundleWithResponse<TResponse>(
+            IRequestBase item,
+            Func<IRequestBase, TBaseRequest> action)
+        {
+            yield return new HttpRequestBundle<TBaseRequest, TResponse>(action(item), item);
+        }
+
+        /// <summary>
+        /// Creates a batched HttpBundle with TResponse of expected response type from the http call for each of the items in the batch.
+        /// Func will be executed for each item separately in the batch request.
+        /// </summary>
+        /// <typeparam name="TResponse">Expected http response type after the call.</typeparam>
+        /// <param name="batchChangeRequest">Generated batch request.</param>
+        /// <param name="action">An action to get the native request from the MailItem.</param>
+        /// <returns>Collection of http bundle that contains batch and native request.</returns>
+        public IEnumerable<IRequestBundle<TBaseRequest>> CreateBatchedHttpBundle<TResponse>(
+            IBatchChangeRequest batchChangeRequest,
+            Func<IRequest, TBaseRequest> action)
+        {
+            if (batchChangeRequest.Items == null) yield break;
+
+            var groupedItems = batchChangeRequest.Items.Batch((int)BatchModificationSize);
+
+            foreach (var group in groupedItems)
+                foreach (var item in group)
+                    yield return new HttpRequestBundle<TBaseRequest, TResponse>(action(item), item);
+
+            yield break;
+        }
+
+        public IEnumerable<IRequestBundle<ImapRequest>> CreateTaskBundle(Func<ImapClient, Task> value, IRequestBase request)
+        {
+            var imapreq = new ImapRequest(value, request);
+
+            return [new ImapRequestBundle(imapreq, request)];
+        }
+
+        #endregion
     }
 }
