@@ -15,6 +15,7 @@
         <ResourceDictionary Source="Styles/FontIcons.xaml" />
         <ResourceDictionary Source="Styles/WinoInfoBar.xaml" />
         <ResourceDictionary Source="Styles/SharedStyles.xaml" />
+        <ResourceDictionary Source="Styles/IconTemplates.xaml" />
 
         <styles:CustomMessageDialogStyles />
         <styles:DataTemplates />
@@ -98,3 +99,4 @@
         <ResourceDictionary Source="AppThemes/Mica.xaml" />
     </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>
+

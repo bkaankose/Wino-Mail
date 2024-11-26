@@ -97,7 +97,7 @@
             </TextBlock>
 
             <!--  Shell Sub Content  -->
-            <Grid Grid.Column="1" Canvas.ZIndex="2">
+            <Grid Grid.Column="1" Canvas.ZIndex="999">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />

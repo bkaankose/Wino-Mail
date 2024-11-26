@@ -154,7 +154,7 @@ namespace Wino.Core.UWP.Controls
         {
             if (IsDragArea)
             {
-                Window.Current.SetTitleBar(this);
+                Window.Current.SetTitleBar(dragbar);
             }
         }
 
