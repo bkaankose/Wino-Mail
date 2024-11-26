@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using MoreLinq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests
+namespace Wino.Core.Requests.Mail
 {
     /// <summary>
     /// Archive message request.
@@ -20,7 +18,8 @@ namespace Wino.Core.Requests
     /// <param name="Item">Mail to archive</param>
     /// <param name="FromFolder">Source folder.</param>
     /// <param name="ToFolder">Optional Target folder. Required for ImapSynchronizer and OutlookSynchronizer.</param>
-    public record ArchiveRequest(bool IsArchiving, MailCopy Item, MailItemFolder FromFolder, MailItemFolder ToFolder = null) : RequestBase<BatchArchiveRequest>(Item, MailSynchronizerOperation.Archive), ICustomFolderSynchronizationRequest
+    public record ArchiveRequest(bool IsArchiving, MailCopy Item, MailItemFolder FromFolder, MailItemFolder ToFolder = null)
+        : MailRequestBase(Item), ICustomFolderSynchronizationRequest
     {
         public List<Guid> SynchronizationFolderIds
         {
@@ -37,8 +36,7 @@ namespace Wino.Core.Requests
             }
         }
 
-        public override IBatchChangeRequest CreateBatch(IEnumerable<IRequest> matchingItems)
-            => new BatchArchiveRequest(IsArchiving, matchingItems, FromFolder, ToFolder);
+        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Archive;
 
         public override void ApplyUIChanges()
         {
@@ -51,17 +49,10 @@ namespace Wino.Core.Requests
         }
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public record BatchArchiveRequest(bool IsArchiving, IEnumerable<IRequest> Items, MailItemFolder FromFolder, MailItemFolder ToFolder = null) : BatchRequestBase(Items, MailSynchronizerOperation.Archive)
+    public class BatchArchiveRequest : BatchCollection<ArchiveRequest>
     {
-        public override void ApplyUIChanges()
+        public BatchArchiveRequest(IEnumerable<ArchiveRequest> collection) : base(collection)
         {
-            Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item.Item)));
-        }
-
-        public override void RevertUIChanges()
-        {
-            Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
     }
 }

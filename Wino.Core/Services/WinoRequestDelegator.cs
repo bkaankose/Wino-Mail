@@ -11,7 +11,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Requests;
+using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
 
 namespace Wino.Core.Services
@@ -37,7 +37,7 @@ namespace Wino.Core.Services
 
         public async Task ExecuteAsync(MailOperationPreperationRequest request)
         {
-            var requests = new List<IRequest>();
+            var requests = new List<IMailActionRequest>();
 
             try
             {

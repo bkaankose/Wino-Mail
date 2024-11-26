@@ -9,7 +9,8 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Requests;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 
 namespace Wino.Core.Services
 {
@@ -17,7 +18,7 @@ namespace Wino.Core.Services
     /// Intermediary processor for converting a user action to executable Wino requests.
     /// Primarily responsible for batching requests by AccountId and FolderId.
     /// </summary>
-    public class WinoRequestProcessor : BaseDatabaseService, IWinoRequestProcessor
+    public class WinoRequestProcessor : IWinoRequestProcessor
     {
         private readonly IFolderService _folderService;
         private readonly IKeyPressService _keyPressService;
@@ -37,13 +38,12 @@ namespace Wino.Core.Services
             new ToggleRequestRule(MailOperation.ClearFlag, MailOperation.SetFlag, new System.Func<IMailItem, bool>((item) => !item.IsFlagged)),
         ];
 
-        public WinoRequestProcessor(IDatabaseService databaseService,
-                                    IFolderService folderService,
+        public WinoRequestProcessor(IFolderService folderService,
                                     IKeyPressService keyPressService,
                                     IPreferencesService preferencesService,
                                     IAccountService accountService,
                                     IMailDialogService dialogService,
-                                    IMailService mailService) : base(databaseService)
+                                    IMailService mailService)
         {
             _folderService = folderService;
             _keyPressService = keyPressService;
@@ -53,7 +53,7 @@ namespace Wino.Core.Services
             _mailService = mailService;
         }
 
-        public async Task<List<IRequest>> PrepareRequestsAsync(MailOperationPreperationRequest preperationRequest)
+        public async Task<List<IMailActionRequest>> PrepareRequestsAsync(MailOperationPreperationRequest preperationRequest)
         {
             var action = preperationRequest.Action;
             var moveTargetStructure = preperationRequest.MoveTargetFolder;
@@ -89,7 +89,7 @@ namespace Wino.Core.Services
                     return default;
             }
 
-            var requests = new List<IRequest>();
+            var requests = new List<IMailActionRequest>();
 
             // TODO: Fix: Collection was modified; enumeration operation may not execute
             foreach (var item in preperationRequest.MailItems)
@@ -104,7 +104,7 @@ namespace Wino.Core.Services
             return requests;
         }
 
-        private async Task<IRequest> GetSingleRequestAsync(MailCopy mailItem, MailOperation action, IMailItemFolder moveTargetStructure, bool shouldToggleActions)
+        private async Task<IMailActionRequest> GetSingleRequestAsync(MailCopy mailItem, MailOperation action, IMailItemFolder moveTargetStructure, bool shouldToggleActions)
         {
             if (mailItem.AssignedAccount == null) throw new ArgumentException(Translator.Exception_NullAssignedAccount);
             if (mailItem.AssignedFolder == null) throw new ArgumentException(Translator.Exception_NullAssignedFolder);
@@ -215,11 +215,11 @@ namespace Wino.Core.Services
             return null;
         }
 
-        public async Task<IRequestBase> PrepareFolderRequestAsync(FolderOperationPreperationRequest request)
+        public async Task<IFolderActionRequest> PrepareFolderRequestAsync(FolderOperationPreperationRequest request)
         {
             if (request == null || request.Folder == null) return default;
 
-            IRequestBase change = null;
+            IFolderActionRequest change = null;
 
             var folder = request.Folder;
             var operation = request.Action;

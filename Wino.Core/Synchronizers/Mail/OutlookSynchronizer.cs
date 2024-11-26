@@ -27,14 +27,14 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
-using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 
 namespace Wino.Core.Synchronizers.Mail
 {
@@ -572,59 +572,61 @@ namespace Wino.Core.Synchronizers.Mail
 
         #region Mail Integration
 
+
+
         public override bool DelaySendOperationSynchronization() => true;
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> Move(BatchMoveRequest request)
+        public override List<IRequestBundle<RequestInformation>> Move(BatchMoveRequest request)
         {
-            var requestBody = new Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody()
+            return ForEachRequest(request, (item) =>
             {
-                DestinationId = request.ToFolder.RemoteFolderId
-            };
+                var requestBody = new Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody()
+                {
+                    DestinationId = item.ToFolder.RemoteFolderId
+                };
 
-            return CreateBatchedHttpBundle(request, (item) =>
-            {
                 return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id.ToString()].Move.ToPostRequestInformation(requestBody),
-                                                     requestBody);
+                                                                     requestBody);
             });
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> ChangeFlag(BatchChangeFlagRequest request)
+        public override List<IRequestBundle<RequestInformation>> ChangeFlag(BatchChangeFlagRequest request)
         {
-            return CreateBatchedHttpBundle(request, (item) =>
+            return ForEachRequest(request, (item) =>
             {
                 var message = new Message()
                 {
-                    Flag = new FollowupFlag() { FlagStatus = request.IsFlagged ? FollowupFlagStatus.Flagged : FollowupFlagStatus.NotFlagged }
+                    Flag = new FollowupFlag() { FlagStatus = item.IsFlagged ? FollowupFlagStatus.Flagged : FollowupFlagStatus.NotFlagged }
                 };
 
                 return _graphClient.Me.Messages[item.Item.Id.ToString()].ToPatchRequestInformation(message);
             });
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> MarkRead(BatchMarkReadRequest request)
+        public override List<IRequestBundle<RequestInformation>> MarkRead(BatchMarkReadRequest request)
         {
-            return CreateBatchedHttpBundle(request, (item) =>
+            return ForEachRequest(request, (item) =>
             {
                 var message = new Message()
                 {
-                    IsRead = request.IsRead
+                    IsRead = item.IsRead
                 };
 
                 return _graphClient.Me.Messages[item.Item.Id].ToPatchRequestInformation(message);
             });
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> Delete(BatchDeleteRequest request)
+        public override List<IRequestBundle<RequestInformation>> Delete(BatchDeleteRequest request)
         {
-            return CreateBatchedHttpBundle(request, (item) =>
+            return ForEachRequest(request, (item) =>
             {
                 return _graphClient.Me.Messages[item.Item.Id].ToDeleteRequestInformation();
             });
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> MoveToFocused(BatchMoveToFocusedRequest request)
+        public override List<IRequestBundle<RequestInformation>> MoveToFocused(BatchMoveToFocusedRequest request)
         {
-            return CreateBatchedHttpBundleFromGroup(request, (item) =>
+            return ForEachRequest(request, (item) =>
             {
                 if (item is MoveToFocusedRequest moveToFocusedRequest)
                 {
@@ -638,73 +640,64 @@ namespace Wino.Core.Synchronizers.Mail
 
                 throw new Exception("Invalid request type.");
             });
-
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> AlwaysMoveTo(BatchAlwaysMoveToRequest request)
+        public override List<IRequestBundle<RequestInformation>> AlwaysMoveTo(BatchAlwaysMoveToRequest request)
         {
-            return CreateBatchedHttpBundle<Message>(request, (item) =>
+            return ForEachRequest(request, (item) =>
             {
-                if (item is AlwaysMoveToRequest alwaysMoveToRequest)
+                var inferenceClassificationOverride = new InferenceClassificationOverride
                 {
-                    var inferenceClassificationOverride = new InferenceClassificationOverride
+                    ClassifyAs = item.MoveToFocused ? InferenceClassificationType.Focused : InferenceClassificationType.Other,
+                    SenderEmailAddress = new EmailAddress
                     {
-                        ClassifyAs = alwaysMoveToRequest.MoveToFocused ? InferenceClassificationType.Focused : InferenceClassificationType.Other,
-                        SenderEmailAddress = new EmailAddress
-                        {
-                            Name = alwaysMoveToRequest.Item.FromName,
-                            Address = alwaysMoveToRequest.Item.FromAddress
-                        }
-                    };
+                        Name = item.Item.FromName,
+                        Address = item.Item.FromAddress
+                    }
+                };
 
-                    return _graphClient.Me.InferenceClassification.Overrides.ToPostRequestInformation(inferenceClassificationOverride);
-                }
-
-                throw new Exception("Invalid request type.");
+                return _graphClient.Me.InferenceClassification.Overrides.ToPostRequestInformation(inferenceClassificationOverride);
             });
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> CreateDraft(BatchCreateDraftRequest request)
+        public override List<IRequestBundle<RequestInformation>> CreateDraft(CreateDraftRequest createDraftRequest)
         {
-            return CreateHttpBundle<Message>(request, (item) =>
+            var reason = createDraftRequest.DraftPreperationRequest.Reason;
+            var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
+
+            if (reason == DraftCreationReason.Empty)
             {
-                if (item is CreateDraftRequest createDraftRequest)
+                return [new HttpRequestBundle<RequestInformation>(_graphClient.Me.Messages.ToPostRequestInformation(message), createDraftRequest)];
+            }
+            else if (reason == DraftCreationReason.Reply)
+            {
+                return [new HttpRequestBundle<RequestInformation>(_graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReply.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReply.CreateReplyPostRequestBody()
                 {
-                    var reason = createDraftRequest.DraftPreperationRequest.Reason;
-                    var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
+                    Message = message
+                }), createDraftRequest)];
 
-                    if (reason == DraftCreationReason.Empty)
-                    {
-                        return _graphClient.Me.Messages.ToPostRequestInformation(message);
-                    }
-                    else if (reason == DraftCreationReason.Reply)
-                    {
-                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReply.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReply.CreateReplyPostRequestBody()
-                        {
-                            Message = message
-                        });
-                    }
-                    else if (reason == DraftCreationReason.ReplyAll)
-                    {
-                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReplyAll.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReplyAll.CreateReplyAllPostRequestBody()
-                        {
-                            Message = message
-                        });
-                    }
-                    else if (reason == DraftCreationReason.Forward)
-                    {
-                        return _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateForward.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateForward.CreateForwardPostRequestBody()
-                        {
-                            Message = message
-                        });
-                    }
-                }
-
-                throw new Exception("Invalid create draft request type.");
-            });
+            }
+            else if (reason == DraftCreationReason.ReplyAll)
+            {
+                return [new HttpRequestBundle<RequestInformation>(_graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateReplyAll.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateReplyAll.CreateReplyAllPostRequestBody()
+                {
+                    Message = message
+                }), createDraftRequest)];
+            }
+            else if (reason == DraftCreationReason.Forward)
+            {
+                return [new HttpRequestBundle<RequestInformation>( _graphClient.Me.Messages[createDraftRequest.DraftPreperationRequest.ReferenceMailCopy.Id].CreateForward.ToPostRequestInformation(new Microsoft.Graph.Me.Messages.Item.CreateForward.CreateForwardPostRequestBody()
+                {
+                    Message = message
+                }), createDraftRequest)];
+            }
+            else
+            {
+                throw new NotImplementedException("Draft creation reason is not implemented.");
+            }
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> SendDraft(BatchSendDraftRequestRequest request)
+        public override List<IRequestBundle<RequestInformation>> SendDraft(SendDraftRequest request)
         {
             var sendDraftPreparationRequest = request.Request;
 
@@ -740,7 +733,7 @@ namespace Wino.Core.Synchronizers.Mail
             return [.. attachmentRequestList, patchDraftRequestBundle, sendDraftRequestBundle];
         }
 
-        private IEnumerable<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId, IRequestBase sourceRequest)
+        private List<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId, IRequestBase sourceRequest)
         {
             var allAttachments = new List<OutlookFileAttachment>();
 
@@ -780,18 +773,29 @@ namespace Wino.Core.Synchronizers.Mail
                 return requestInformation;
             }
 
+            var retList = new List<IRequestBundle<RequestInformation>>();
+
             // Prepare attachment upload requests.
-            return allAttachments.Select(outlookAttachment =>
+
+            foreach (var attachment in allAttachments)
             {
                 var emptyPostRequest = _graphClient.Me.Messages[mailCopyId].Attachments.ToPostRequestInformation(new Attachment());
-                var modifiedAttachmentUploadRequest = PrepareUploadAttachmentRequest(emptyPostRequest, outlookAttachment);
+                var modifiedAttachmentUploadRequest = PrepareUploadAttachmentRequest(emptyPostRequest, attachment);
 
-                return new HttpRequestBundle<RequestInformation>(modifiedAttachmentUploadRequest, sourceRequest);
-            });
+                var bundle = new HttpRequestBundle<RequestInformation>(modifiedAttachmentUploadRequest, null);
+
+                retList.Add(bundle);
+            }
+
+            return retList;
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
-            => Move(new BatchMoveRequest(request.Items, request.FromFolder, request.ToFolder));
+        public override List<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
+        {
+            var batchMoveRequest = new BatchMoveRequest(request.Select(item => new MoveRequest(item.Item, item.FromFolder, item.ToFolder)));
+
+            return Move(batchMoveRequest);
+        }
 
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
                                                                MailKit.ITransferProgress transferProgress = null,
@@ -801,31 +805,27 @@ namespace Wino.Core.Synchronizers.Mail
             await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
+        public override List<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
         {
-            return CreateHttpBundleWithResponse<MailFolder>(request, (item) =>
+            var requestBody = new MailFolder
             {
-                if (item is not RenameFolderRequest renameFolderRequest)
-                    throw new ArgumentException($"Renaming folder must be handled with '{nameof(RenameFolderRequest)}'");
+                DisplayName = request.NewFolderName,
+            };
 
-                var requestBody = new MailFolder
-                {
-                    DisplayName = request.NewFolderName,
-                };
+            var networkCall = _graphClient.Me.MailFolders[request.Folder.RemoteFolderId].ToPatchRequestInformation(requestBody);
 
-                return _graphClient.Me.MailFolders[request.Folder.RemoteFolderId].ToPatchRequestInformation(requestBody);
-            });
+            return [new HttpRequestBundle<RequestInformation>(networkCall, request)];
         }
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> EmptyFolder(EmptyFolderRequest request)
+        public override List<IRequestBundle<RequestInformation>> EmptyFolder(EmptyFolderRequest request)
             => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
 
-        public override IEnumerable<IRequestBundle<RequestInformation>> MarkFolderAsRead(MarkFolderAsReadRequest request)
-            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
+        public override List<IRequestBundle<RequestInformation>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
         #endregion
 
-        public override async Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
+        public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
         {
             var batchRequestInformations = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
 
@@ -841,18 +841,18 @@ namespace Wino.Core.Synchronizers.Mail
                 {
                     var bundle = batch.ElementAt(i);
 
-                    if (bundle.Request is BatchRequestBase batchBundleRequest && batchBundleRequest.ExecuteSerialBatch)
-                    {
-                        // This bundle needs to run every request in serial.
-                        // By default requests are executed in parallel.
+                    // TODO: Serial execution
+                    //if (bundle.Request is BatchRequestBase batchBundleRequest && batchBundleRequest.ExecuteSerialBatch)
+                    //{
+                    //    // This bundle needs to run every request in serial.
+                    //    // By default requests are executed in parallel.
 
-                        serializeRequests = true;
-                    }
+                    //    serializeRequests = true;
+                    //}
 
-                    var request = bundle.Request;
                     var nativeRequest = bundle.NativeRequest;
 
-                    request.ApplyUIChanges();
+                    bundle.UIChangeRequest?.ApplyUIChanges();
 
                     var batchRequestId = await batchContent.AddBatchRequestStepAsync(nativeRequest).ConfigureAwait(false);
 
@@ -905,7 +905,7 @@ namespace Wino.Core.Synchronizers.Mail
                     {
                         if (!httpResponseMessage.IsSuccessStatusCode)
                         {
-                            bundle.Request.RevertUIChanges();
+                            bundle.UIChangeRequest?.RevertUIChanges();
 
                             var content = await httpResponseMessage.Content.ReadAsStringAsync();
                             var errorJson = JsonNode.Parse(content);

@@ -11,6 +11,7 @@ using Wino.Calendar.Models.CalendarTypeStrategies;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.MenuItems;
 using Wino.Core.ViewModels;

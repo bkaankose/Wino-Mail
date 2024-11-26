@@ -7,9 +7,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests
+namespace Wino.Core.Requests.Folder
 {
-    public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, MailSynchronizerOperation.EmptyFolder), ICustomFolderSynchronizationRequest
+    public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, FolderSynchronizerOperation.EmptyFolder), ICustomFolderSynchronizationRequest
     {
         public override void ApplyUIChanges()
         {

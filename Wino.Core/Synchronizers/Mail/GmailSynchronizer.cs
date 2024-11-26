@@ -27,8 +27,9 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers.Mail
@@ -596,151 +597,148 @@ namespace Wino.Core.Synchronizers.Mail
 
         #region Mail Integrations
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> Move(BatchMoveRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> Move(BatchMoveRequest request)
         {
-            return CreateBatchedHttpBundleFromGroup(request, (items) =>
+            var toFolder = request[0].ToFolder;
+            var fromFolder = request[0].FromFolder;
+
+            // Sent label can't be removed from mails for Gmail.
+            // They are automatically assigned by Gmail.
+            // When you delete sent mail from gmail web portal, it's moved to Trash
+            // but still has Sent label. It's just hidden from the user.
+            // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
+
+            var batchModifyRequest = new BatchModifyMessagesRequest
             {
-                // Sent label can't be removed from mails for Gmail.
-                // They are automatically assigned by Gmail.
-                // When you delete sent mail from gmail web portal, it's moved to Trash
-                // but still has Sent label. It's just hidden from the user.
-                // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
-                var batchModifyRequest = new BatchModifyMessagesRequest
-                {
-                    Ids = items.Select(a => a.Item.Id.ToString()).ToList(),
-                    AddLabelIds = [request.ToFolder.RemoteFolderId]
-                };
+                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+                AddLabelIds = [toFolder.RemoteFolderId]
+            };
 
-                // Only add remove label ids if the source folder is not sent folder.
-                if (request.FromFolder.SpecialFolderType != SpecialFolderType.Sent)
-                {
-                    batchModifyRequest.RemoveLabelIds = [request.FromFolder.RemoteFolderId];
-                }
+            // Only add remove label ids if the source folder is not sent folder.
+            if (fromFolder.SpecialFolderType != SpecialFolderType.Sent)
+            {
+                batchModifyRequest.RemoveLabelIds = [fromFolder.RemoteFolderId];
+            }
 
-                return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-            });
+            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> ChangeFlag(BatchChangeFlagRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> ChangeFlag(BatchChangeFlagRequest request)
         {
-            return CreateBatchedHttpBundleFromGroup(request, (items) =>
+            bool isFlagged = request[0].IsFlagged;
+
+            var batchModifyRequest = new BatchModifyMessagesRequest
             {
-                var batchModifyRequest = new BatchModifyMessagesRequest
-                {
-                    Ids = items.Select(a => a.Item.Id.ToString()).ToList(),
-                };
+                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+            };
 
-                if (request.IsFlagged)
-                    batchModifyRequest.AddLabelIds = new List<string>() { GoogleIntegratorExtensions.STARRED_LABEL_ID };
-                else
-                    batchModifyRequest.RemoveLabelIds = new List<string>() { GoogleIntegratorExtensions.STARRED_LABEL_ID };
+            if (isFlagged)
+                batchModifyRequest.AddLabelIds = new List<string>() { GoogleIntegratorExtensions.STARRED_LABEL_ID };
+            else
+                batchModifyRequest.RemoveLabelIds = new List<string>() { GoogleIntegratorExtensions.STARRED_LABEL_ID };
 
-                return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-            });
+            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> MarkRead(BatchMarkReadRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> MarkRead(BatchMarkReadRequest request)
         {
-            return CreateBatchedHttpBundleFromGroup(request, (items) =>
+            bool readStatus = request[0].IsRead;
+
+            var batchModifyRequest = new BatchModifyMessagesRequest
             {
-                var batchModifyRequest = new BatchModifyMessagesRequest
-                {
-                    Ids = items.Select(a => a.Item.Id.ToString()).ToList(),
-                };
+                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+            };
 
-                if (request.IsRead)
-                    batchModifyRequest.RemoveLabelIds = new List<string>() { GoogleIntegratorExtensions.UNREAD_LABEL_ID };
-                else
-                    batchModifyRequest.AddLabelIds = new List<string>() { GoogleIntegratorExtensions.UNREAD_LABEL_ID };
+            if (readStatus)
+                batchModifyRequest.RemoveLabelIds = new List<string>() { GoogleIntegratorExtensions.UNREAD_LABEL_ID };
+            else
+                batchModifyRequest.AddLabelIds = new List<string>() { GoogleIntegratorExtensions.UNREAD_LABEL_ID };
 
-                return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-            });
+            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> Delete(BatchDeleteRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> Delete(BatchDeleteRequest request)
         {
-            return CreateBatchedHttpBundleFromGroup(request, (items) =>
+            var batchModifyRequest = new BatchDeleteMessagesRequest
             {
-                var batchModifyRequest = new BatchDeleteMessagesRequest
-                {
-                    Ids = items.Select(a => a.Item.Id.ToString()).ToList(),
-                };
+                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+            };
 
-                return _gmailService.Users.Messages.BatchDelete(batchModifyRequest, "me");
-            });
+            var networkCall = _gmailService.Users.Messages.BatchDelete(batchModifyRequest, "me");
+
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> CreateDraft(BatchCreateDraftRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> CreateDraft(CreateDraftRequest singleRequest)
         {
-            return CreateHttpBundle(request, (item) =>
-            {
-                if (item is not CreateDraftRequest singleRequest)
-                    throw new ArgumentException("BatchCreateDraftRequest collection must be of type CreateDraftRequest.");
+            Draft draft = null;
 
-                Draft draft = null;
+            // It's new mail. Not a reply
+            if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
+                draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
+            else
+                draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
+                    singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
+                    singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
 
-                // It's new mail. Not a reply
-                if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
-                    draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
-                else
-                    draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
-                        singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
-                        singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
+            var networkCall = _gmailService.Users.Drafts.Create(draft, "me");
 
-                return _gmailService.Users.Drafts.Create(draft, "me");
-            });
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleRequest, singleRequest)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> Archive(BatchArchiveRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> Archive(BatchArchiveRequest request)
         {
-            return CreateBatchedHttpBundleFromGroup(request, (items) =>
+            bool isArchiving = request[0].IsArchiving;
+            var batchModifyRequest = new BatchModifyMessagesRequest
             {
-                var batchModifyRequest = new BatchModifyMessagesRequest
-                {
-                    Ids = items.Select(a => a.Item.Id.ToString()).ToList()
-                };
+                Ids = request.Select(a => a.Item.Id.ToString()).ToList()
+            };
 
-                if (request.IsArchiving)
-                {
-                    batchModifyRequest.RemoveLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
-                }
-                else
-                {
-                    batchModifyRequest.AddLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
-                }
+            if (isArchiving)
+            {
+                batchModifyRequest.RemoveLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
+            }
+            else
+            {
+                batchModifyRequest.AddLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
+            }
 
-                return _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-            });
+            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> SendDraft(BatchSendDraftRequestRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> SendDraft(SendDraftRequest singleDraftRequest)
         {
-            return CreateHttpBundle(request, (item) =>
+
+            var message = new Message();
+
+            if (!string.IsNullOrEmpty(singleDraftRequest.Item.ThreadId))
             {
-                if (item is not SendDraftRequest singleDraftRequest)
-                    throw new ArgumentException("BatchSendDraftRequestRequest collection must be of type SendDraftRequest.");
+                message.ThreadId = singleDraftRequest.Item.ThreadId;
+            }
 
-                var message = new Message();
+            singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
 
-                if (!string.IsNullOrEmpty(singleDraftRequest.Item.ThreadId))
-                {
-                    message.ThreadId = singleDraftRequest.Item.ThreadId;
-                }
+            var mimeString = singleDraftRequest.Request.Mime.ToString();
+            var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
+            message.Raw = base64UrlEncodedMime;
 
-                singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
+            var draft = new Draft()
+            {
+                Id = singleDraftRequest.Request.MailItem.DraftId,
+                Message = message
+            };
 
-                var mimeString = singleDraftRequest.Request.Mime.ToString();
-                var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
-                message.Raw = base64UrlEncodedMime;
+            var networkCall = _gmailService.Users.Drafts.Send(draft, "me");
 
-                var draft = new Draft()
-                {
-                    Id = singleDraftRequest.Request.MailItem.DraftId,
-                    Message = message
-                };
-
-                return _gmailService.Users.Drafts.Send(draft, "me");
-            });
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
         }
 
         public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
@@ -762,23 +760,19 @@ namespace Wino.Core.Synchronizers.Mail
             await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
         {
-            return CreateHttpBundleWithResponse<Label>(request, (item) =>
+            var label = new Label()
             {
-                if (item is not RenameFolderRequest renameFolderRequest)
-                    throw new ArgumentException($"Renaming folder must be handled with '{nameof(RenameFolderRequest)}'");
+                Name = request.NewFolderName
+            };
 
-                var label = new Label()
-                {
-                    Name = renameFolderRequest.NewFolderName
-                };
+            var networkCall = _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
 
-                return _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
-            });
+            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
+        public override List<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
         {
             // Create batch delete request.
 
@@ -787,14 +781,14 @@ namespace Wino.Core.Synchronizers.Mail
             return Delete(new BatchDeleteRequest(deleteRequests));
         }
 
-        public override IEnumerable<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
-            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)), true));
+        public override List<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
         #endregion
 
         #region Request Execution
 
-        public override async Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<IClientServiceRequest>> batchedRequests,
+        public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IClientServiceRequest>> batchedRequests,
                                                               CancellationToken cancellationToken = default)
         {
             var batchedBundles = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
@@ -813,13 +807,9 @@ namespace Wino.Core.Synchronizers.Mail
                 for (int k = 0; k < bundleRequestCount; k++)
                 {
                     var requestBundle = bundle.ElementAt(k);
+                    requestBundle.UIChangeRequest?.ApplyUIChanges();
 
-                    var nativeRequest = requestBundle.NativeRequest;
-                    var request = requestBundle.Request;
-
-                    request.ApplyUIChanges();
-
-                    nativeBatchRequest.Queue<object>(nativeRequest, (content, error, index, message)
+                    nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
                         => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
                 }
 
@@ -836,20 +826,20 @@ namespace Wino.Core.Synchronizers.Mail
             // OutOfMemoryException is a known bug in Gmail SDK.
             if (error.Code == 0)
             {
-                bundle?.Request.RevertUIChanges();
+                bundle?.UIChangeRequest?.RevertUIChanges();
                 throw new OutOfMemoryException(error.Message);
             }
 
             // Entity not found.
             if (error.Code == 404)
             {
-                bundle?.Request.RevertUIChanges();
+                bundle?.UIChangeRequest?.RevertUIChanges();
                 throw new SynchronizerEntityNotFoundException(error.Message);
             }
 
             if (!string.IsNullOrEmpty(error.Message))
             {
-                bundle?.Request.RevertUIChanges();
+                bundle?.UIChangeRequest?.RevertUIChanges();
                 error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
 
                 throw new SynchronizerException(error.Message);

@@ -1,27 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using MoreLinq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests
+namespace Wino.Core.Requests.Mail
 {
     /// <summary>
     /// Hard delete request. This request will delete the mail item from the server without moving it to the trash folder.
     /// </summary>
     /// <param name="MailItem">Item to delete permanently.</param>
-    public record DeleteRequest(MailCopy MailItem) : RequestBase<BatchDeleteRequest>(MailItem, MailSynchronizerOperation.Delete),
+    public record DeleteRequest(MailCopy MailItem) : MailRequestBase(MailItem),
         ICustomFolderSynchronizationRequest
     {
         public List<Guid> SynchronizationFolderIds => [Item.FolderId];
 
-        public override IBatchChangeRequest CreateBatch(IEnumerable<IRequest> matchingItems)
-            => new BatchDeleteRequest(matchingItems);
+        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Delete;
 
         public override void ApplyUIChanges()
         {
@@ -34,17 +31,10 @@ namespace Wino.Core.Requests
         }
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public record class BatchDeleteRequest(IEnumerable<IRequest> Items) : BatchRequestBase(Items, MailSynchronizerOperation.Delete)
+    public class BatchDeleteRequest : BatchCollection<DeleteRequest>
     {
-        public override void ApplyUIChanges()
+        public BatchDeleteRequest(IEnumerable<DeleteRequest> collection) : base(collection)
         {
-            Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item.Item)));
-        }
-
-        public override void RevertUIChanges()
-        {
-            Items.ForEach(item => WeakReferenceMessenger.Default.Send(new MailAddedMessage(item.Item)));
         }
     }
 }

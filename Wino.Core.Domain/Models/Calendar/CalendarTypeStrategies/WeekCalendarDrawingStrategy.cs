@@ -1,11 +1,11 @@
 ﻿using System;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Models.CalendarTypeStrategies
+namespace Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies
 {
     public class WeekCalendarDrawingStrategy : BaseCalendarTypeDrawingStrategy
     {
-        public WeekCalendarDrawingStrategy(CalendarSettings settings) : base(settings, Core.Domain.Enums.CalendarDisplayType.Week) { }
+        public WeekCalendarDrawingStrategy(CalendarSettings settings) : base(settings, Enums.CalendarDisplayType.Week) { }
 
         public override DateRange GetNextDateRange(DateRange CurrentDateRange, int DayDisplayCount)
             => new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(7 * 2));

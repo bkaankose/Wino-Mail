@@ -12,6 +12,10 @@
         AlwaysMoveTo,
         MoveToFocused,
         Archive,
+    }
+
+    public enum FolderSynchronizerOperation
+    {
         RenameFolder,
         EmptyFolder,
         MarkFolderRead,

@@ -4,9 +4,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests
+namespace Wino.Core.Requests.Folder
 {
-    public record RenameFolderRequest(MailItemFolder Folder, string CurrentFolderName, string NewFolderName) : FolderRequestBase(Folder, MailSynchronizerOperation.RenameFolder)
+    public record RenameFolderRequest(MailItemFolder Folder, string CurrentFolderName, string NewFolderName) : FolderRequestBase(Folder, FolderSynchronizerOperation.RenameFolder)
     {
         public override void ApplyUIChanges()
         {

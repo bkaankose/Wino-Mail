@@ -12,7 +12,7 @@ namespace Wino.Core.Domain.Interfaces
         /// </summary>
         /// <param name="request"></param>
         /// <returns>Base request that synchronizer can execute.</returns>
-        Task<IRequestBase> PrepareFolderRequestAsync(FolderOperationPreperationRequest request);
+        Task<IFolderActionRequest> PrepareFolderRequestAsync(FolderOperationPreperationRequest request);
 
         /// <summary>
         /// Prepares proper Wino requests for synchronizers to execute categorized by AccountId and FolderId.
@@ -21,6 +21,6 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="mailCopyIds">Selected mails.</param>
         /// <exception cref="UnavailableSpecialFolderException">When required folder target is not available for account.</exception>
         /// <returns>Base request that synchronizer can execute.</returns>
-        Task<List<IRequest>> PrepareRequestsAsync(MailOperationPreperationRequest request);
+        Task<List<IMailActionRequest>> PrepareRequestsAsync(MailOperationPreperationRequest request);
     }
 }

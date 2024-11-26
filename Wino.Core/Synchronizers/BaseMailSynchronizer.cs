@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -18,9 +17,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Misc;
-using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
@@ -30,7 +29,7 @@ namespace Wino.Core.Synchronizers
         private SemaphoreSlim synchronizationSemaphore = new(1);
         private CancellationToken activeSynchronizationCancellationToken;
 
-        protected ConcurrentBag<IRequestBase> changeRequestQueue = [];
+        protected List<IRequestBase> changeRequestQueue = [];
         protected ILogger Logger = Log.ForContext<BaseMailSynchronizer<TBaseRequest, TMessageType>>();
 
         /// <summary>
@@ -81,7 +80,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="batchedRequests">Batched requests to execute. Integrator methods will only receive batched requests.</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        public abstract Task ExecuteNativeRequestsAsync(IEnumerable<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
+        public abstract Task ExecuteNativeRequestsAsync(List<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Refreshes remote mail account profile if possible.
@@ -153,28 +152,68 @@ namespace Wino.Core.Synchronizers
             {
                 activeSynchronizationCancellationToken = cancellationToken;
 
-                var batches = CreateBatchRequests().Distinct();
+                State = AccountSynchronizerState.ExecutingRequests;
 
-                if (batches.Any())
+                List<IRequestBundle<TBaseRequest>> nativeRequests = new();
+
+                List<IRequestBase> requestCopies = new(changeRequestQueue);
+
+                var keys = changeRequestQueue.GroupBy(a => a.GroupingKey());
+
+                foreach (var group in keys)
                 {
-                    Logger.Information($"{batches?.Count() ?? 0} batched requests");
+                    var key = group.Key;
 
-                    State = AccountSynchronizerState.ExecutingRequests;
-
-                    var nativeRequests = CreateNativeRequestBundles(batches);
-
-                    Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
-
-                    await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken);
-
-                    PublishUnreadItemChanges();
-
-                    // Execute request sync options should be re-calculated after execution.
-                    // This is the part we decide which individual folders must be synchronized
-                    // after the batch request execution.
-                    if (options.Type == SynchronizationType.ExecuteRequests)
-                        options = GetSynchronizationOptionsAfterRequestExecution(batches);
+                    if (key is MailSynchronizerOperation mailSynchronizerOperation)
+                    {
+                        switch (mailSynchronizerOperation)
+                        {
+                            case MailSynchronizerOperation.MarkRead:
+                                nativeRequests.AddRange(MarkRead(new BatchMarkReadRequest(group.Cast<MarkReadRequest>())));
+                                break;
+                            case MailSynchronizerOperation.Move:
+                                nativeRequests.AddRange(Move(new BatchMoveRequest(group.Cast<MoveRequest>())));
+                                break;
+                            case MailSynchronizerOperation.Delete:
+                                nativeRequests.AddRange(Delete(new BatchDeleteRequest(group.Cast<DeleteRequest>())));
+                                break;
+                            case MailSynchronizerOperation.CreateDraft:
+                                nativeRequests.AddRange(CreateDraft(group.ElementAt(0) as CreateDraftRequest));
+                                break;
+                            case MailSynchronizerOperation.Send:
+                                nativeRequests.AddRange(SendDraft(group.ElementAt(0) as SendDraftRequest));
+                                break;
+                            case MailSynchronizerOperation.ChangeFlag:
+                                nativeRequests.AddRange(ChangeFlag(new BatchChangeFlagRequest(group.Cast<ChangeFlagRequest>())));
+                                break;
+                            case MailSynchronizerOperation.AlwaysMoveTo:
+                                nativeRequests.AddRange(AlwaysMoveTo(new BatchAlwaysMoveToRequest(group.Cast<AlwaysMoveToRequest>())));
+                                break;
+                            case MailSynchronizerOperation.MoveToFocused:
+                                nativeRequests.AddRange(MoveToFocused(new BatchMoveToFocusedRequest(group.Cast<MoveToFocusedRequest>())));
+                                break;
+                            case MailSynchronizerOperation.Archive:
+                                nativeRequests.AddRange(Archive(new BatchArchiveRequest(group.Cast<ArchiveRequest>())));
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                 }
+
+                changeRequestQueue.Clear();
+
+                Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
+
+                await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken);
+
+                PublishUnreadItemChanges();
+
+                // Execute request sync options should be re-calculated after execution.
+                // This is the part we decide which individual folders must be synchronized
+                // after the batch request execution.
+                if (options.Type == SynchronizationType.ExecuteRequests)
+                    options = GetSynchronizationOptionsAfterRequestExecution(requestCopies);
 
                 State = AccountSynchronizerState.Synchronizing;
 
@@ -228,11 +267,11 @@ namespace Wino.Core.Synchronizers
 
                 bool shouldDelayExecution =
                     (Account.ProviderType == MailProviderType.Outlook || Account.ProviderType == MailProviderType.Office365)
-                    && batches.Any(a => a.ResynchronizationDelay > 0);
+                    && requestCopies.Any(a => a.ResynchronizationDelay > 0);
 
                 if (shouldDelayExecution)
                 {
-                    var maxDelay = batches.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
+                    var maxDelay = requestCopies.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
 
                     await Task.Delay(maxDelay);
                 }
@@ -290,120 +329,112 @@ namespace Wino.Core.Synchronizers
         /// since all folders must be asynchronously opened/closed.
         /// </summary>
         /// <returns>Batch request collection for all these single requests.</returns>
-        private List<IRequestBase> CreateBatchRequests()
-        {
-            var batchList = new List<IRequestBase>();
-            var comparer = new RequestComparer();
+        //private List<IRequestBase> CreateBatchRequests()
+        //{
+        //    var batchList = new List<IRequestBase>();
+        //    var comparer = new RequestComparer();
 
-            while (changeRequestQueue.Count > 0)
-            {
-                if (changeRequestQueue.TryPeek(out IRequestBase request))
-                {
-                    // Mail request, must be batched.
-                    if (request is IRequest mailRequest)
-                    {
-                        var equalItems = changeRequestQueue
-                            .Where(a => a is IRequest && comparer.Equals(a, request))
-                            .Cast<IRequest>()
-                            .ToList();
+        //    while (changeRequestQueue.Count > 0)
+        //    {
+        //        if (changeRequestQueue.TryPeek(out IRequestBase request))
+        //        {
+        //            // Mail request, must be batched.
+        //            if (request is IMailActionRequest mailRequest)
+        //            {
+        //                var equalItems = changeRequestQueue
+        //                    .Where(a => a is IMailActionRequest && comparer.Equals(a, request))
+        //                    .Cast<IMailActionRequest>()
+        //                    .ToList();
 
-                        batchList.Add(mailRequest.CreateBatch(equalItems));
+        //                batchList.Add(mailRequest.CreateBatch(equalItems));
 
-                        // Remove these items from the queue.
-                        foreach (var item in equalItems)
-                        {
-                            changeRequestQueue.TryTake(out _);
-                        }
-                    }
-                    else if (changeRequestQueue.TryTake(out request))
-                    {
-                        // This is a folder operation.
-                        // There is no need to batch them since Users can't do folder ops in bulk.
+        //                // Remove these items from the queue.
+        //                foreach (var item in equalItems)
+        //                {
+        //                    changeRequestQueue.TryTake(out _);
+        //                }
+        //            }
+        //            else if (changeRequestQueue.TryTake(out request))
+        //            {
+        //                // This is a folder operation.
+        //                // There is no need to batch them since Users can't do folder ops in bulk.
 
-                        batchList.Add(request);
-                    }
-                }
-            }
+        //                batchList.Add(request);
+        //            }
+        //        }
+        //    }
 
-            return batchList;
-        }
+        //    return batchList;
+        //}
 
         /// <summary>
         /// Converts batched requests into HTTP/Task calls that derived synchronizers can execute.
         /// </summary>
         /// <param name="batchChangeRequests">Batch requests to be converted.</param>
         /// <returns>Collection of native requests for individual synchronizer type.</returns>
-        private IEnumerable<IRequestBundle<TBaseRequest>> CreateNativeRequestBundles(IEnumerable<IRequestBase> batchChangeRequests)
-        {
-            IEnumerable<IEnumerable<IRequestBundle<TBaseRequest>>> GetNativeRequests()
-            {
-                foreach (var item in batchChangeRequests)
-                {
-                    switch (item.Operation)
-                    {
-                        case MailSynchronizerOperation.Send:
-                            yield return SendDraft((BatchSendDraftRequestRequest)item);
-                            break;
-                        case MailSynchronizerOperation.MarkRead:
-                            yield return MarkRead((BatchMarkReadRequest)item);
-                            break;
-                        case MailSynchronizerOperation.Move:
-                            yield return Move((BatchMoveRequest)item);
-                            break;
-                        case MailSynchronizerOperation.Delete:
-                            yield return Delete((BatchDeleteRequest)item);
-                            break;
-                        case MailSynchronizerOperation.ChangeFlag:
-                            yield return ChangeFlag((BatchChangeFlagRequest)item);
-                            break;
-                        case MailSynchronizerOperation.AlwaysMoveTo:
-                            yield return AlwaysMoveTo((BatchAlwaysMoveToRequest)item);
-                            break;
-                        case MailSynchronizerOperation.MoveToFocused:
-                            yield return MoveToFocused((BatchMoveToFocusedRequest)item);
-                            break;
-                        case MailSynchronizerOperation.CreateDraft:
-                            yield return CreateDraft((BatchCreateDraftRequest)item);
-                            break;
-                        case MailSynchronizerOperation.RenameFolder:
-                            yield return RenameFolder((RenameFolderRequest)item);
-                            break;
-                        case MailSynchronizerOperation.EmptyFolder:
-                            yield return EmptyFolder((EmptyFolderRequest)item);
-                            break;
-                        case MailSynchronizerOperation.MarkFolderRead:
-                            yield return MarkFolderAsRead((MarkFolderAsReadRequest)item);
-                            break;
-                        case MailSynchronizerOperation.Archive:
-                            yield return Archive((BatchArchiveRequest)item);
-                            break;
-                    }
-                }
-            };
+        //private IEnumerable<IRequestBundle<TBaseRequest>> CreateNativeRequestBundles(IEnumerable<IRequestBase> batchChangeRequests)
+        //{
+        //    IEnumerable<IEnumerable<IRequestBundle<TBaseRequest>>> GetNativeRequests()
+        //    {
+        //        foreach (var item in batchChangeRequests)
+        //        {
+        //            switch (item.Operation)
+        //            {
+        //                case MailSynchronizerOperation.Send:
+        //                    yield return SendDraft((BatchSendDraftRequestRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.MarkRead:
+        //                    yield return MarkRead((BatchMarkReadRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.Move:
+        //                    yield return Move((BatchMoveRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.Delete:
+        //                    yield return Delete((BatchDeleteRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.ChangeFlag:
+        //                    yield return ChangeFlag((BatchChangeFlagRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.AlwaysMoveTo:
+        //                    yield return AlwaysMoveTo((BatchAlwaysMoveToRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.MoveToFocused:
+        //                    yield return MoveToFocused((BatchMoveToFocusedRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.CreateDraft:
+        //                    yield return CreateDraft((BatchCreateDraftRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.RenameFolder:
+        //                    yield return RenameFolder((RenameFolderRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.EmptyFolder:
+        //                    yield return EmptyFolder((EmptyFolderRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.MarkFolderRead:
+        //                    yield return MarkFolderAsRead((MarkFolderAsReadRequest)item);
+        //                    break;
+        //                case MailSynchronizerOperation.Archive:
+        //                    yield return Archive((BatchArchiveRequest)item);
+        //                    break;
+        //            }
+        //        }
+        //    };
 
-            return GetNativeRequests().SelectMany(collections => collections);
-        }
+        //    return GetNativeRequests().SelectMany(collections => collections);
+        //}
 
         /// <summary>
         /// Attempts to find out the best possible synchronization options after the batch request execution.
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
-        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(IEnumerable<IRequestBase> requests)
+        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests)
         {
-            List<Guid> synchronizationFolderIds = new();
-
-            if (requests.All(a => a is IBatchChangeRequest))
-            {
-                var requestsInsideBatches = requests.Cast<IBatchChangeRequest>().SelectMany(b => b.Items);
-
-                // Gather FolderIds to synchronize.
-                synchronizationFolderIds = requestsInsideBatches
+            List<Guid> synchronizationFolderIds = requests
                     .Where(a => a is ICustomFolderSynchronizationRequest)
                     .Cast<ICustomFolderSynchronizationRequest>()
                     .SelectMany(a => a.SynchronizationFolderIds)
                     .ToList();
-            }
 
             var options = new SynchronizationOptions()
             {
@@ -427,18 +458,20 @@ namespace Wino.Core.Synchronizers
         }
 
         public virtual bool DelaySendOperationSynchronization() => false;
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> Move(BatchMoveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> ChangeFlag(BatchChangeFlagRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> MarkRead(BatchMarkReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> Delete(BatchDeleteRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> AlwaysMoveTo(BatchAlwaysMoveToRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> MoveToFocused(BatchMoveToFocusedRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> CreateDraft(BatchCreateDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> SendDraft(BatchSendDraftRequestRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-        public virtual IEnumerable<IRequestBundle<TBaseRequest>> Archive(BatchArchiveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> Move(BatchMoveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> ChangeFlag(BatchChangeFlagRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> MarkRead(BatchMarkReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> Delete(BatchDeleteRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> AlwaysMoveTo(BatchAlwaysMoveToRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> MoveToFocused(BatchMoveToFocusedRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> CreateDraft(CreateDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> SendDraft(SendDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> Archive(BatchArchiveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+        public virtual List<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+        public virtual List<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
 
         /// <summary>
         /// Downloads a single missing message from synchronizer and saves it to given FileId from IMailItem.
@@ -456,117 +489,35 @@ namespace Wino.Core.Synchronizers
 
         #region Bundle Helpers
 
-        /// <summary>
-        /// Creates a batched HttpBundle without a response for a collection of MailItem.
-        /// </summary>
-        /// <param name="batchChangeRequest">Generated batch request.</param>
-        /// <param name="action">An action to get the native request from the MailItem.</param>
-        /// <returns>Collection of http bundle that contains batch and native request.</returns>
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateBatchedHttpBundleFromGroup(
-            IBatchChangeRequest batchChangeRequest,
-            Func<IEnumerable<IRequest>, TBaseRequest> action)
+        public List<IRequestBundle<TBaseRequest>> ForEachRequest<TWinoRequestType>(IEnumerable<TWinoRequestType> requests,
+            Func<TWinoRequestType, TBaseRequest> action)
+            where TWinoRequestType : IRequestBase
         {
-            if (batchChangeRequest.Items == null) yield break;
+            List<IRequestBundle<TBaseRequest>> ret = [];
 
-            var groupedItems = batchChangeRequest.Items.Batch((int)BatchModificationSize);
+            foreach (var request in requests)
+                ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request));
 
-            foreach (var group in groupedItems)
-                yield return new HttpRequestBundle<TBaseRequest>(action(group), batchChangeRequest);
+            return ret;
         }
 
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateBatchedHttpBundle(
-            IBatchChangeRequest batchChangeRequest,
-            Func<IRequest, TBaseRequest> action)
+        public List<IRequestBundle<ImapRequest>> CreateSingleBundle(Func<ImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
         {
-            if (batchChangeRequest.Items == null) yield break;
-
-            var groupedItems = batchChangeRequest.Items.Batch((int)BatchModificationSize);
-
-            foreach (var group in groupedItems)
-                foreach (var item in group)
-                    yield return new HttpRequestBundle<TBaseRequest>(action(item), item);
-
-            yield break;
+            return [new ImapRequestBundle(new ImapRequest(action, request), request, uIChangeRequest)];
         }
 
-        /// <summary>
-        /// Creates a single HttpBundle without a response for a collection of MailItem.
-        /// </summary>
-        /// <param name="batchChangeRequest">Batch request</param>
-        /// <param name="action">An action to get the native request from the MailItem</param>
-        /// <returns>Collection of http bundle that contains batch and native request.</returns>
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundle(
-            IBatchChangeRequest batchChangeRequest,
-            Func<IRequest, TBaseRequest> action)
+        public List<IRequestBundle<ImapRequest>> CreateTaskBundle<TSingeRequestType>(Func<ImapClient, TSingeRequestType, Task> value,
+            List<TSingeRequestType> requests)
+            where TSingeRequestType : IRequestBase, IUIChangeRequest
         {
-            if (batchChangeRequest.Items == null) yield break;
+            List<IRequestBundle<ImapRequest>> ret = [];
 
-            foreach (var item in batchChangeRequest.Items)
-                yield return new HttpRequestBundle<TBaseRequest>(action(item), batchChangeRequest);
-        }
+            foreach (var request in requests)
+            {
+                ret.Add(new ImapRequestBundle(new ImapRequest<TSingeRequestType>(value, request), request, request));
+            }
 
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundle<TResponseType>(
-            IBatchChangeRequest batchChangeRequest,
-            Func<IRequest, TBaseRequest> action)
-        {
-            if (batchChangeRequest.Items == null) yield break;
-
-            foreach (var item in batchChangeRequest.Items)
-                yield return new HttpRequestBundle<TBaseRequest, TResponseType>(action(item), item);
-        }
-
-        /// <summary>
-        /// Creates HttpBundle with TResponse of expected response type from the http call for each of the items in the batch.
-        /// </summary>
-        /// <typeparam name="TResponse">Expected http response type after the call.</typeparam>
-        /// <param name="batchChangeRequest">Generated batch request.</param>
-        /// <param name="action">An action to get the native request from the MailItem.</param>
-        /// <returns>Collection of http bundle that contains batch and native request.</returns>
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundleWithResponse<TResponse>(
-            IBatchChangeRequest batchChangeRequest,
-            Func<IRequest, TBaseRequest> action)
-        {
-            if (batchChangeRequest.Items == null) yield break;
-
-            foreach (var item in batchChangeRequest.Items)
-                yield return new HttpRequestBundle<TBaseRequest, TResponse>(action(item), batchChangeRequest);
-        }
-
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateHttpBundleWithResponse<TResponse>(
-            IRequestBase item,
-            Func<IRequestBase, TBaseRequest> action)
-        {
-            yield return new HttpRequestBundle<TBaseRequest, TResponse>(action(item), item);
-        }
-
-        /// <summary>
-        /// Creates a batched HttpBundle with TResponse of expected response type from the http call for each of the items in the batch.
-        /// Func will be executed for each item separately in the batch request.
-        /// </summary>
-        /// <typeparam name="TResponse">Expected http response type after the call.</typeparam>
-        /// <param name="batchChangeRequest">Generated batch request.</param>
-        /// <param name="action">An action to get the native request from the MailItem.</param>
-        /// <returns>Collection of http bundle that contains batch and native request.</returns>
-        public IEnumerable<IRequestBundle<TBaseRequest>> CreateBatchedHttpBundle<TResponse>(
-            IBatchChangeRequest batchChangeRequest,
-            Func<IRequest, TBaseRequest> action)
-        {
-            if (batchChangeRequest.Items == null) yield break;
-
-            var groupedItems = batchChangeRequest.Items.Batch((int)BatchModificationSize);
-
-            foreach (var group in groupedItems)
-                foreach (var item in group)
-                    yield return new HttpRequestBundle<TBaseRequest, TResponse>(action(item), item);
-
-            yield break;
-        }
-
-        public IEnumerable<IRequestBundle<ImapRequest>> CreateTaskBundle(Func<ImapClient, Task> value, IRequestBase request)
-        {
-            var imapreq = new ImapRequest(value, request);
-
-            return [new ImapRequestBundle(imapreq, request)];
+            return ret;
         }
 
         #endregion

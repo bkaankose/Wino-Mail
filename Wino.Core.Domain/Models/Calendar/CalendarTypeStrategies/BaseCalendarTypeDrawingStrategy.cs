@@ -2,7 +2,7 @@
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Models.CalendarTypeStrategies
+namespace Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies
 {
     public abstract class BaseCalendarTypeDrawingStrategy
     {

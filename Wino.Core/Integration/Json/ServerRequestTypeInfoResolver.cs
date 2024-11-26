@@ -2,7 +2,8 @@
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Requests;
+using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Mail;
 
 namespace Wino.Core.Integration.Json
 {
