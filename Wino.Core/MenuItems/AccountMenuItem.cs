@@ -22,7 +22,10 @@ namespace Wino.Core.MenuItems
         private bool _isEnabled = true;
 
         public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
-        public bool IsSynchronizationProgressVisible => SynchronizationProgress > 0 && SynchronizationProgress < 100;
+        public bool IsSynchronizationProgressVisible => (SynchronizationProgress > 0 && SynchronizationProgress < 100);
+
+        // We can't  determine the progress for gmail synchronization since it is based on history changes.
+        public bool IsProgressIndeterminate => Parameter?.ProviderType == MailProviderType.Gmail;
         public Guid AccountId => Parameter.Id;
 
         private AccountAttentionReason attentionReason;

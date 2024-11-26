@@ -222,6 +222,8 @@ namespace Wino.Core.Synchronizers
 
                 Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
 
+                PublishSynchronizationProgress(1);
+
                 await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken);
 
                 PublishUnreadItemChanges();
