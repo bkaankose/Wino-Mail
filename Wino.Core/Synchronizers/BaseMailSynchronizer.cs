@@ -199,6 +199,23 @@ namespace Wino.Core.Synchronizers
                                 break;
                         }
                     }
+                    else if (key is FolderSynchronizerOperation folderSynchronizerOperation)
+                    {
+                        switch (folderSynchronizerOperation)
+                        {
+                            case FolderSynchronizerOperation.RenameFolder:
+                                nativeRequests.AddRange(RenameFolder(group.ElementAt(0) as RenameFolderRequest));
+                                break;
+                            case FolderSynchronizerOperation.EmptyFolder:
+                                nativeRequests.AddRange(EmptyFolder(group.ElementAt(0) as EmptyFolderRequest));
+                                break;
+                            case FolderSynchronizerOperation.MarkFolderRead:
+                                nativeRequests.AddRange(MarkFolderAsRead(group.ElementAt(0) as MarkFolderAsReadRequest));
+                                break;
+                            default:
+                                break;
+                        }
+                    }
                 }
 
                 changeRequestQueue.Clear();
