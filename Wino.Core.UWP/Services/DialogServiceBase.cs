@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Helpers;
 using Serilog;
 using Windows.Storage;
+using Windows.Storage.AccessCache;
 using Windows.Storage.Pickers;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -13,6 +14,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Common;
 using Wino.Core.UWP.Dialogs;
 using Wino.Core.UWP.Extensions;
 using Wino.Dialogs;
@@ -36,6 +38,66 @@ namespace Wino.Core.UWP.Services
             ApplicationResourceManager = applicationResourceManager;
         }
 
+        public async Task<string> PickFilePathAsync(string saveFileName)
+        {
+            var picker = new FolderPicker()
+            {
+                SuggestedStartLocation = PickerLocationId.Desktop
+            };
+
+            picker.FileTypeFilter.Add("*");
+
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder == null) return string.Empty;
+
+            StorageApplicationPermissions.FutureAccessList.Add(folder);
+
+            return folder.Path;
+
+            //var picker = new FileSavePicker
+            //{
+            //    SuggestedStartLocation = PickerLocationId.Desktop,
+            //    SuggestedFileName = saveFileName
+            //};
+
+            //picker.FileTypeChoices.Add(Translator.FilteringOption_All, [".*"]);
+
+            //var file = await picker.PickSaveFileAsync();
+            //if (file == null) return string.Empty;
+
+            //StorageApplicationPermissions.FutureAccessList.Add(file);
+
+            //return file.Path;
+        }
+
+        public async Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters)
+        {
+            var returnList = new List<SharedFile>();
+            var picker = new FileOpenPicker
+            {
+                ViewMode = PickerViewMode.Thumbnail,
+                SuggestedStartLocation = PickerLocationId.Desktop
+            };
+
+            foreach (var filter in typeFilters)
+            {
+                picker.FileTypeFilter.Add(filter.ToString());
+            }
+
+            var files = await picker.PickMultipleFilesAsync();
+            if (files == null) return returnList;
+
+            foreach (var file in files)
+            {
+                StorageApplicationPermissions.FutureAccessList.Add(file);
+
+                var sharedFile = await file.ToSharedFileAsync();
+                returnList.Add(sharedFile);
+            }
+
+            return returnList;
+        }
+
         private async Task<StorageFile> PickFileAsync(params object[] typeFilters)
         {
             var picker = new FileOpenPicker
@@ -52,7 +114,7 @@ namespace Wino.Core.UWP.Services
 
             if (file == null) return null;
 
-            Windows.Storage.AccessCache.StorageApplicationPermissions.FutureAccessList.AddOrReplace("FilePickerPath", file);
+            StorageApplicationPermissions.FutureAccessList.Add(file);
 
             return file;
         }

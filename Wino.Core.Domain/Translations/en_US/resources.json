@@ -261,6 +261,8 @@
     "Info_BackgroundExecutionDeniedTitle": "Denied Background Execution",
     "Info_BackgroundExecutionUnknownErrorMessage": "Unknown exception occurred when registering background synchronizer.",
     "Info_BackgroundExecutionUnknownErrorTitle": "Background Execution Failure",
+    "Info_FailedToOpenFileTitle": "Failed to launch file.",
+    "Info_FailedToOpenFileMessage": "File might be removed from the disk.",
     "Info_ComposerMissingMIMEMessage": "Couldn't locate the MIME file. Synchronizing may help.",
     "Info_ComposerMissingMIMETitle": "Failed",
     "Info_ContactExistsMessage": "This contact is already in the recipient list.",

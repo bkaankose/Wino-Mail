@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:customcontrols="using:Wino.Core.UWP.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -15,6 +16,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:ui="using:CommunityToolkit.WinUI"
     x:Name="root"
     d:Background="White"
     Loaded="ComposerLoaded"
@@ -74,8 +76,24 @@
             <Grid
                 Height="50"
                 Margin="-8,0,0,0"
+                Padding="0"
                 Background="Transparent"
                 ColumnSpacing="3">
+                <Grid.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem
+                            Command="{Binding ElementName=root, Path=ViewModel.OpenAttachmentCommand}"
+                            CommandParameter="{Binding}"
+                            Text="{x:Bind domain:Translator.Buttons_Open}" />
+                        <MenuFlyoutItem
+                            Command="{Binding ElementName=root, Path=ViewModel.SaveAttachmentCommand}"
+                            CommandParameter="{Binding}"
+                            Text="{x:Bind domain:Translator.Buttons_Save}" />
+                    </MenuFlyout>
+                </Grid.ContextFlyout>
+                <ToolTipService.ToolTip>
+                    <ToolTip Content="{x:Bind FileName}" />
+                </ToolTipService.ToolTip>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="36" />
                     <ColumnDefinition Width="*" />
@@ -113,11 +131,21 @@
                         Text="{x:Bind ReadableSize}" />
                 </Grid>
 
-                <SymbolIcon
+                <Button
                     Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Foreground="{StaticResource DeleteBrush}"
-                    Symbol="Cancel" />
+                    Margin="0,4,-8,4"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Command="{Binding ElementName=root, Path=ViewModel.RemoveAttachmentCommand}"
+                    CommandParameter="{Binding}">
+                    <SymbolIcon
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Foreground="{StaticResource DeleteBrush}"
+                        Symbol="Delete" />
+                </Button>
+
             </Grid>
         </DataTemplate>
     </Page.Resources>
@@ -333,7 +361,7 @@
                         <toolkit:TabbedCommandBarItem Header="{x:Bind domain:Translator.EditorToolbarOption_Insert}">
                             <AppBarButton
                                 x:Name="FilesButton"
-                                Click="AddFilesClicked"
+                                Command="{x:Bind ViewModel.AttachFilesCommand}"
                                 Label="{x:Bind domain:Translator.Files}">
                                 <AppBarButton.Icon>
                                     <PathIcon Data="{StaticResource AttachPathIcon}" />
@@ -402,7 +430,7 @@
                 <!--  Mime Info  -->
                 <Grid
                     Grid.Row="1"
-                    Padding="16,0,16,10"
+                    Padding="16,0,16,4"
                     ColumnSpacing="12"
                     RowSpacing="3">
                     <Grid.RowDefinitions>
@@ -550,15 +578,15 @@
                         x:Name="AttachmentsListView"
                         Grid.Row="5"
                         Grid.ColumnSpan="2"
+                        ui:ListViewExtensions.Command="{x:Bind ViewModel.OpenAttachmentCommand}"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
                         IsItemClickEnabled="True"
-                        ItemClick="AttachmentClicked"
                         ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
                         ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
                         SelectionMode="None">
                         <ListView.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <toolkit:WrapPanel Orientation="Horizontal" />
+                                <customcontrols:CustomWrapPanel />
                             </ItemsPanelTemplate>
                         </ListView.ItemsPanel>
                     </ListView>

@@ -100,6 +100,7 @@
     <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
       <DependentUpon>NewAccountDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Extensions\StorageFileExtensions.cs" />
     <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
     <Compile Include="Services\ApplicationResourceManager.cs" />
     <Compile Include="Services\DialogServiceBase.cs" />

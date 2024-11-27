@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Common;
 
 namespace Wino.Core.Domain.Interfaces
 {
@@ -25,5 +26,7 @@ namespace Wino.Core.Domain.Interfaces
         Task<bool> ShowCustomThemeBuilderDialogAsync();
         Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders);
         IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
+        Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters);
+        Task<string> PickFilePathAsync(string saveFileName);
     }
 }

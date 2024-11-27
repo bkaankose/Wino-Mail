@@ -238,7 +238,6 @@
     <Compile Include="Dialogs\SystemFolderConfigurationDialog.xaml.cs">
       <DependentUpon>SystemFolderConfigurationDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Extensions\MimeKitExtensions.cs" />
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="MenuFlyouts\AccountSelectorFlyout.cs" />
     <Compile Include="MenuFlyouts\FolderOperationFlyout.cs" />
@@ -623,7 +622,9 @@
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Extensions\" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>

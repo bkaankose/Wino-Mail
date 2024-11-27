@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using MimeKit;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Common;
 using Wino.Core.Extensions;
 
 namespace Wino.Mail.ViewModels.Data
@@ -41,14 +42,14 @@ namespace Wino.Mail.ViewModels.Data
             AttachmentType = GetAttachmentType(extension);
         }
 
-        public MailAttachmentViewModel(string fullFilePath, byte[] content)
+        public MailAttachmentViewModel(SharedFile sharedFile)
         {
-            Content = content;
+            Content = sharedFile.Data;
 
-            FileName = Path.GetFileName(fullFilePath);
-            FilePath = fullFilePath;
+            FileName = sharedFile.FileName;
+            FilePath = sharedFile.FullFilePath;
 
-            ReadableSize = ((long)content.Length).GetBytesReadable();
+            ReadableSize = ((long)sharedFile.Data.Length).GetBytesReadable();
 
             var extension = Path.GetExtension(FileName);
             AttachmentType = GetAttachmentType(extension);

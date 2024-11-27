@@ -17,7 +17,6 @@ using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
-using Windows.Storage.Pickers;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -28,7 +27,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Extensions;
+using Wino.Core.UWP.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -107,20 +106,6 @@ namespace Wino.Views
                             }
                         }
                     });
-        }
-
-        private async void AddFilesClicked(object sender, RoutedEventArgs e)
-        {
-            // TODO: Pick files
-            var picker = new FileOpenPicker()
-            {
-                SuggestedStartLocation = PickerLocationId.Desktop
-            };
-
-            picker.FileTypeFilter.Add("*");
-            var files = await picker.PickMultipleFilesAsync();
-
-            await AttachFiles(files);
         }
 
         private void OnComposeGridDragOver(object sender, DragEventArgs e)
@@ -250,9 +235,9 @@ namespace Wino.Views
             // Convert files to MailAttachmentViewModel.
             foreach (var file in files)
             {
-                var attachmentViewModel = await file.ToAttachmentViewModelAsync();
+                var sharedFile = await file.ToSharedFileAsync();
 
-                ViewModel.IncludedAttachments.Add(attachmentViewModel);
+                ViewModel.IncludedAttachments.Add(new MailAttachmentViewModel(sharedFile));
             }
         }
 
@@ -625,14 +610,6 @@ namespace Wino.Views
 
                 ViewModel.SelectedMessageImportance = selectedImportance;
                 ((ImportanceSplitButton.Content as Viewbox).Child as SymbolIcon).Symbol = (senderButton.Content as SymbolIcon).Symbol;
-            }
-        }
-
-        private void AttachmentClicked(object sender, ItemClickEventArgs e)
-        {
-            if (e.ClickedItem is MailAttachmentViewModel attachmentViewModel)
-            {
-                ViewModel.RemoveAttachmentCommand.Execute(attachmentViewModel);
             }
         }
 

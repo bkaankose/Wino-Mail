@@ -96,6 +96,7 @@ namespace Wino.Mail.ViewModels
         private readonly IMailDialogService _dialogService;
         private readonly IMailService _mailService;
         private readonly IMimeFileService _mimeFileService;
+        private readonly IFileService _fileService;
         private readonly IFolderService _folderService;
         private readonly IAccountService _accountService;
         private readonly IWinoRequestDelegator _worker;
@@ -107,6 +108,7 @@ namespace Wino.Mail.ViewModels
         public ComposePageViewModel(IMailDialogService dialogService,
                                     IMailService mailService,
                                     IMimeFileService mimeFileService,
+                                    IFileService fileService,
                                     INativeAppService nativeAppService,
                                     IFolderService folderService,
                                     IAccountService accountService,
@@ -125,9 +127,56 @@ namespace Wino.Mail.ViewModels
             _dialogService = dialogService;
             _mailService = mailService;
             _mimeFileService = mimeFileService;
+            _fileService = fileService;
             _accountService = accountService;
             _worker = worker;
             _winoServerConnectionManager = winoServerConnectionManager;
+        }
+
+        [RelayCommand]
+        private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
+        {
+            if (string.IsNullOrEmpty(attachmentViewModel.FilePath)) return;
+
+            try
+            {
+                await NativeAppService.LaunchFileAsync(attachmentViewModel.FilePath);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_FailedToOpenFileTitle, Translator.Info_FailedToOpenFileMessage, InfoBarMessageType.Error);
+            }
+        }
+
+        [RelayCommand]
+        private async Task SaveAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
+        {
+            if (attachmentViewModel.Content == null) return;
+            var pickedFilePath = await _dialogService.PickFilePathAsync(attachmentViewModel.FileName);
+            if (string.IsNullOrWhiteSpace(pickedFilePath)) return;
+
+            try
+            {
+                await _fileService.CopyFileAsync(attachmentViewModel.FilePath, pickedFilePath);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_FailedToOpenFileTitle, Translator.Info_FailedToOpenFileMessage, InfoBarMessageType.Error);
+            }
+        }
+
+        [RelayCommand]
+        private async Task AttachFilesAsync()
+        {
+            var pickedFiles = await _dialogService.PickFilesAsync("*");
+
+            if (pickedFiles?.Count == 0) return;
+
+            foreach (var file in pickedFiles)
+            {
+                var attachmentViewModel = new MailAttachmentViewModel(file);
+                IncludedAttachments.Add(attachmentViewModel);
+            }
         }
 
         [RelayCommand]
