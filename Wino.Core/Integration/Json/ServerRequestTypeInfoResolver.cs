@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization.Metadata;
+using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -41,6 +42,16 @@ namespace Wino.Core.Integration.Json
                         DerivedTypes =
                         {
                             new JsonDerivedType(typeof(MailCopy), nameof(MailCopy)),
+                        }
+                    };
+                }
+                else if (t.Type == typeof(IMailFolder))
+                {
+                    t.PolymorphismOptions = new JsonPolymorphismOptions()
+                    {
+                        DerivedTypes =
+                        {
+                            new JsonDerivedType(typeof(MailItemFolder), nameof(MailItemFolder)),
                         }
                     };
                 }

@@ -1,6 +1,6 @@
-﻿using Wino.Core.Domain.Models.Folders;
+﻿using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Messaging.UI
 {
-    public record FolderRenamed(IMailItemFolder MailItemFolder) : UIMessageBase<FolderRenamed>;
+    public record FolderRenamed(MailItemFolder MailItemFolder) : UIMessageBase<FolderRenamed>;
 }
