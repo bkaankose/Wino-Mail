@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:customcontrols="using:Wino.Core.UWP.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
@@ -100,7 +101,7 @@
                         </MenuFlyout>
                     </Grid.ContextFlyout>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="36" />
+                        <ColumnDefinition Width="40" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
@@ -290,7 +291,7 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.ToItems.Count), Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <toolkit:WrapPanel Orientation="Horizontal" />
+                                        <customcontrols:CustomWrapPanel />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -313,7 +314,7 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.CcItems.Count), Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <toolkit:WrapPanel Orientation="Horizontal" />
+                                        <customcontrols:CustomWrapPanel />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -338,7 +339,8 @@
                                 Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.BccItems.Count), Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <toolkit:WrapPanel Orientation="Horizontal" />
+                                        <customcontrols:CustomWrapPanel />
+                                        <!--<toolkit:WrapPanel Orientation="Horizontal" />-->
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -364,7 +366,7 @@
                         SelectionMode="None">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <toolkit:WrapPanel Orientation="Horizontal" />
+                                <customcontrols:CustomWrapPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ListView>
