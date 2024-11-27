@@ -104,7 +104,7 @@ namespace Wino.Core.Synchronizers
             List<IRequestBundle<TBaseRequest>> ret = [];
 
             foreach (var request in requests)
-                ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request));
+                ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request, request));
 
             return ret;
         }
