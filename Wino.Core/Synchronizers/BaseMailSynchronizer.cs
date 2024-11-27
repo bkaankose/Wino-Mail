@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -24,13 +23,13 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public abstract class BaseMailSynchronizer<TBaseRequest, TMessageType> : IBaseMailSynchronizer
+    public abstract class BaseMailSynchronizer<TBaseRequest, TMessageType> : BaseSynchronizer<TBaseRequest>, IBaseMailSynchronizer
     {
-        private SemaphoreSlim synchronizationSemaphore = new(1);
-        private CancellationToken activeSynchronizationCancellationToken;
-
-        protected List<IRequestBase> changeRequestQueue = [];
         protected ILogger Logger = Log.ForContext<BaseMailSynchronizer<TBaseRequest, TMessageType>>();
+
+        protected BaseMailSynchronizer(MailAccount account) : base(account)
+        {
+        }
 
         /// <summary>
         /// How many items per single HTTP call can be modified.
@@ -42,31 +41,6 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         public abstract uint InitialMessageDownloadCountPerFolder { get; }
 
-        protected BaseMailSynchronizer(MailAccount account)
-        {
-            Account = account;
-        }
-
-        public MailAccount Account { get; }
-
-        private AccountSynchronizerState state;
-        public AccountSynchronizerState State
-        {
-            get { return state; }
-            private set
-            {
-                state = value;
-
-                WeakReferenceMessenger.Default.Send(new AccountSynchronizerStateChanged(Account.Id, value));
-            }
-        }
-
-        /// <summary>
-        /// Queues a single request to be executed in the next synchronization.
-        /// </summary>
-        /// <param name="request">Request to execute.</param>
-        public void QueueRequest(IRequestBase request) => changeRequestQueue.Add(request);
-
         /// <summary>
         /// Creates a new Wino Mail Item package out of native message type with full Mime.
         /// </summary>
@@ -76,38 +50,12 @@ namespace Wino.Core.Synchronizers
         public abstract Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(TMessageType message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Runs existing queued requests in the queue.
-        /// </summary>
-        /// <param name="batchedRequests">Batched requests to execute. Integrator methods will only receive batched requests.</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        public abstract Task ExecuteNativeRequestsAsync(List<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Refreshes remote mail account profile if possible.
-        /// Profile picture, sender name and mailbox settings (todo) will be handled in this step.
-        /// </summary>
-        public virtual Task<ProfileInformation> GetProfileInformationAsync() => default;
-
-        /// <summary>
         /// Refreshes the aliases of the account.
         /// Only available for Gmail right now.
         /// </summary>
         protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
 
-        /// <summary>
-        /// Returns the base64 encoded profile picture of the account from the given URL.
-        /// </summary>
-        /// <param name="url">URL to retrieve picture from.</param>
-        /// <returns>base64 encoded profile picture</returns>
-        protected async Task<string> GetProfilePictureBase64EncodedAsync(string url)
-        {
-            using var client = new HttpClient();
 
-            var response = await client.GetAsync(url).ConfigureAwait(false);
-            var byteContent = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-
-            return Convert.ToBase64String(byteContent);
-        }
 
         /// <summary>
         /// Internally synchronizes the account with the given options.
@@ -118,27 +66,7 @@ namespace Wino.Core.Synchronizers
         /// <returns>Synchronization result that contains summary of the sync.</returns>
         protected abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// Safely updates account's profile information.
-        /// Database changes are reflected after this call.
-        /// </summary>
-        private async Task<ProfileInformation> SynchronizeProfileInformationInternalAsync()
-        {
-            var profileInformation = await GetProfileInformationAsync();
 
-            if (profileInformation != null)
-            {
-                Account.SenderName = profileInformation.SenderName;
-                Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
-
-                if (!string.IsNullOrEmpty(profileInformation.AccountAddress))
-                {
-                    Account.Address = profileInformation.AccountAddress;
-                }
-            }
-
-            return profileInformation;
-        }
 
         /// <summary>
         /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
@@ -339,110 +267,6 @@ namespace Wino.Core.Synchronizers
             => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 
         /// <summary>
-        /// 1. Group all requests by operation type.
-        /// 2. Group all individual operation type requests with equality check.
-        /// Equality comparison in the records are done with RequestComparer
-        /// to ignore Item property. Each request can have their own logic for comparison.
-        /// For example, move requests for different mails from the same folder to the same folder
-        /// must be dispatched in the same batch. This is much faster for the server. Specially IMAP
-        /// since all folders must be asynchronously opened/closed.
-        /// </summary>
-        /// <returns>Batch request collection for all these single requests.</returns>
-        //private List<IRequestBase> CreateBatchRequests()
-        //{
-        //    var batchList = new List<IRequestBase>();
-        //    var comparer = new RequestComparer();
-
-        //    while (changeRequestQueue.Count > 0)
-        //    {
-        //        if (changeRequestQueue.TryPeek(out IRequestBase request))
-        //        {
-        //            // Mail request, must be batched.
-        //            if (request is IMailActionRequest mailRequest)
-        //            {
-        //                var equalItems = changeRequestQueue
-        //                    .Where(a => a is IMailActionRequest && comparer.Equals(a, request))
-        //                    .Cast<IMailActionRequest>()
-        //                    .ToList();
-
-        //                batchList.Add(mailRequest.CreateBatch(equalItems));
-
-        //                // Remove these items from the queue.
-        //                foreach (var item in equalItems)
-        //                {
-        //                    changeRequestQueue.TryTake(out _);
-        //                }
-        //            }
-        //            else if (changeRequestQueue.TryTake(out request))
-        //            {
-        //                // This is a folder operation.
-        //                // There is no need to batch them since Users can't do folder ops in bulk.
-
-        //                batchList.Add(request);
-        //            }
-        //        }
-        //    }
-
-        //    return batchList;
-        //}
-
-        /// <summary>
-        /// Converts batched requests into HTTP/Task calls that derived synchronizers can execute.
-        /// </summary>
-        /// <param name="batchChangeRequests">Batch requests to be converted.</param>
-        /// <returns>Collection of native requests for individual synchronizer type.</returns>
-        //private IEnumerable<IRequestBundle<TBaseRequest>> CreateNativeRequestBundles(IEnumerable<IRequestBase> batchChangeRequests)
-        //{
-        //    IEnumerable<IEnumerable<IRequestBundle<TBaseRequest>>> GetNativeRequests()
-        //    {
-        //        foreach (var item in batchChangeRequests)
-        //        {
-        //            switch (item.Operation)
-        //            {
-        //                case MailSynchronizerOperation.Send:
-        //                    yield return SendDraft((BatchSendDraftRequestRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.MarkRead:
-        //                    yield return MarkRead((BatchMarkReadRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.Move:
-        //                    yield return Move((BatchMoveRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.Delete:
-        //                    yield return Delete((BatchDeleteRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.ChangeFlag:
-        //                    yield return ChangeFlag((BatchChangeFlagRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.AlwaysMoveTo:
-        //                    yield return AlwaysMoveTo((BatchAlwaysMoveToRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.MoveToFocused:
-        //                    yield return MoveToFocused((BatchMoveToFocusedRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.CreateDraft:
-        //                    yield return CreateDraft((BatchCreateDraftRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.RenameFolder:
-        //                    yield return RenameFolder((RenameFolderRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.EmptyFolder:
-        //                    yield return EmptyFolder((EmptyFolderRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.MarkFolderRead:
-        //                    yield return MarkFolderAsRead((MarkFolderAsReadRequest)item);
-        //                    break;
-        //                case MailSynchronizerOperation.Archive:
-        //                    yield return Archive((BatchArchiveRequest)item);
-        //                    break;
-        //            }
-        //        }
-        //    };
-
-        //    return GetNativeRequests().SelectMany(collections => collections);
-        //}
-
-        /// <summary>
         /// Attempts to find out the best possible synchronization options after the batch request execution.
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
@@ -486,11 +310,9 @@ namespace Wino.Core.Synchronizers
         public virtual List<IRequestBundle<TBaseRequest>> CreateDraft(CreateDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> SendDraft(SendDraftRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> Archive(BatchArchiveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-
         public virtual List<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-
 
         /// <summary>
         /// Downloads a single missing message from synchronizer and saves it to given FileId from IMailItem.
@@ -500,27 +322,7 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token.</param>
         public virtual Task DownloadMissingMimeMessageAsync(IMailItem mailItem, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
-        public bool CancelActiveSynchronization()
-        {
-            // TODO: What if account is deleted during synchronization?
-            return true;
-        }
-
-        #region Bundle Helpers
-
-        public List<IRequestBundle<TBaseRequest>> ForEachRequest<TWinoRequestType>(IEnumerable<TWinoRequestType> requests,
-            Func<TWinoRequestType, TBaseRequest> action)
-            where TWinoRequestType : IRequestBase
-        {
-            List<IRequestBundle<TBaseRequest>> ret = [];
-
-            foreach (var request in requests)
-                ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request));
-
-            return ret;
-        }
-
-        public List<IRequestBundle<ImapRequest>> CreateSingleBundle(Func<ImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
+        public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<ImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
         {
             return [new ImapRequestBundle(new ImapRequest(action, request), request, uIChangeRequest)];
         }
@@ -538,7 +340,5 @@ namespace Wino.Core.Synchronizers
 
             return ret;
         }
-
-        #endregion
     }
 }

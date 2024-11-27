@@ -287,7 +287,7 @@ namespace Wino.Core.Synchronizers.Mail
 
         public override List<IRequestBundle<ImapRequest>> CreateDraft(CreateDraftRequest request)
         {
-            return CreateSingleBundle(async (client, item) =>
+            return CreateSingleTaskBundle(async (client, item) =>
             {
                 var remoteDraftFolder = await client.GetFolderAsync(request.DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.RemoteFolderId).ConfigureAwait(false);
 
@@ -312,7 +312,7 @@ namespace Wino.Core.Synchronizers.Mail
 
         public override List<IRequestBundle<ImapRequest>> SendDraft(SendDraftRequest request)
         {
-            return CreateSingleBundle(async (client, item) =>
+            return CreateSingleTaskBundle(async (client, item) =>
             {
                 // Batch sending is not supported. It will always be a single request therefore no need for a loop here.
 
@@ -388,7 +388,7 @@ namespace Wino.Core.Synchronizers.Mail
 
         public override List<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
         {
-            return CreateSingleBundle(async (client, item) =>
+            return CreateSingleTaskBundle(async (client, item) =>
             {
                 var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
                 await folder.RenameAsync(folder.ParentFolder, request.NewFolderName).ConfigureAwait(false);

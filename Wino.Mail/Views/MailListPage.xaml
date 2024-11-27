@@ -506,7 +506,7 @@
 
             </Grid>
         </Border>
-        
+
         <toolkit:PropertySizer
             x:Name="MailListSizer"
             Grid.Column="1"
