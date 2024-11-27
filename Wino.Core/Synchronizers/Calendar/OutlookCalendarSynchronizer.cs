@@ -1,21 +1,20 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Graph.Models;
 using Microsoft.Kiota.Abstractions;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Synchronizers.Calendar
 {
-    public class OutlookCalendarSynchronizer : BaseCalendarSynchronizer<RequestInformation, Event>
+    public class OutlookCalendarSynchronizer : BaseSynchronizer<RequestInformation>
     {
-        public OutlookCalendarSynchronizer(MailAccount account)
+        public OutlookCalendarSynchronizer(MailAccount account) : base(account)
         {
-            Account = account;
         }
 
-        public MailAccount Account { get; }
-
-        public override Task<Event> CreateCalendarEventAsync(RequestInformation request)
+        public override Task ExecuteNativeRequestsAsync(List<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

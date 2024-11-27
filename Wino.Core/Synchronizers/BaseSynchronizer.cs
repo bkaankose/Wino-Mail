@@ -13,7 +13,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public abstract class BaseSynchronizer<TBaseRequest>
+    public abstract class BaseSynchronizer<TBaseRequest> : IBaseSynchronizer
     {
         protected SemaphoreSlim synchronizationSemaphore = new(1);
         protected CancellationToken activeSynchronizationCancellationToken;
@@ -37,7 +37,6 @@ namespace Wino.Core.Synchronizers
         {
             Account = account;
         }
-
 
         /// <summary>
         /// Queues a single request to be executed in the next synchronization.
