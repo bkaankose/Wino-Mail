@@ -228,7 +228,7 @@
         </Grid>
     </wino:BasePage.ShellContent>
 
-    <Grid x:Name="RootGrid">
+    <Grid x:Name="RootGrid" Padding="0,2,0,0">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="MailListColumn" Width="{x:Bind ViewModel.MailListLength, Mode=OneWay, Converter={StaticResource GridLengthConverter}}" />
             <ColumnDefinition x:Name="RendererColumn" Width="*" />
@@ -506,6 +506,7 @@
 
             </Grid>
         </Border>
+        
         <toolkit:PropertySizer
             x:Name="MailListSizer"
             Grid.Column="1"
@@ -531,7 +532,8 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Opacity="0.5"
-                Spacing="6">
+                Spacing="6"
+                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.ThemeService.IsCustomTheme)}">
 
                 <coreControls:WinoFontIcon FontSize="80" Icon="Mail" />
 

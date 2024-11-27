@@ -23,11 +23,11 @@ namespace Wino.Core.UWP.Models.Personalization
         public override AppThemeType AppThemeType => AppThemeType.PreDefined;
 
         public override string GetBackgroundPreviewImagePath()
-            => $"ms-appx:///BackgroundImages/{ThemeName}.jpg";
+            => $"ms-appx:///Wino.Core.UWP/BackgroundImages/{ThemeName}.jpg";
 
         public override async Task<string> GetThemeResourceDictionaryContentAsync()
         {
-            var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///AppThemes/{ThemeName}.xaml"));
+            var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Wino.Core.UWP/AppThemes/{ThemeName}.xaml"));
             return await FileIO.ReadTextAsync(xamlDictionaryFile);
         }
     }

@@ -70,6 +70,7 @@ namespace Wino.Mail.ViewModels
         public INavigationService NavigationService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
+        public IThemeService ThemeService { get; }
 
         private readonly IMailService _mailService;
         private readonly IFolderService _folderService;
@@ -154,9 +155,11 @@ namespace Wino.Mail.ViewModels
                                      IWinoRequestDelegator winoRequestDelegator,
                                      IKeyPressService keyPressService,
                                      IPreferencesService preferencesService,
-                                     IWinoServerConnectionManager winoServerConnectionManager) 
+                                     IThemeService themeService,
+                                     IWinoServerConnectionManager winoServerConnectionManager)
         {
             PreferencesService = preferencesService;
+            ThemeService = themeService;
             _winoServerConnectionManager = winoServerConnectionManager;
             StatePersistenceService = statePersistenceService;
             NavigationService = navigationService;

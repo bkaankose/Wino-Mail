@@ -381,6 +381,7 @@
             x:Name="navigationView"
             Grid.Row="1"
             Grid.ColumnSpan="3"
+            Margin="-1,-1,0,0"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             AlwaysShowHeader="True"

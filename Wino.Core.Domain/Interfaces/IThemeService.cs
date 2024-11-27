@@ -22,5 +22,6 @@ namespace Wino.Core.Domain.Interfaces
         Guid CurrentApplicationThemeId { get; set; }
         string AccentColor { get; set; }
         string GetSystemAccentColorHex();
+        bool IsCustomTheme { get; }
     }
 }

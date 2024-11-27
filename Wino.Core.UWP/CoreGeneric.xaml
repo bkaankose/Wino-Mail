@@ -94,9 +94,6 @@
                 </Setter>
             </Style>
         </ResourceDictionary>
-
-        <!--  Last item must always be the default theme.  -->
-        <ResourceDictionary Source="AppThemes/Mica.xaml" />
     </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>
 

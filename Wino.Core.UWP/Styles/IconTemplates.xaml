@@ -6,43 +6,43 @@
     <!--  Attachment Icon Templates  -->
 
     <DataTemplate x:Key="NoneTemplate">
-        <Image Source="/Assets/FileTypes/type_none.png" />
+        <Image Source="Assets/FileTypes/type_none.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="ExecutableTemplate">
-        <Image Source="/Assets/FileTypes/type_executable.png" />
+        <Image Source="Assets/FileTypes/type_executable.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="ImageTemplate">
-        <Image Source="/Assets/FileTypes/type_image.png" />
+        <Image Source="Assets/FileTypes/type_image.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="VideoTemplate">
-        <Image Source="/Assets/FileTypes/type_video.png" />
+        <Image Source="Assets/FileTypes/type_video.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="AudioTemplate">
-        <Image Source="/Assets/FileTypes/type_audio.png" />
+        <Image Source="Assets/FileTypes/type_audio.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="PDFTemplate">
-        <Image Source="/Assets/FileTypes/type_pdf.png" />
+        <Image Source="Assets/FileTypes/type_pdf.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="HTMLTemplate">
-        <Image Source="/Assets/FileTypes/type_html.png" />
+        <Image Source="Assets/FileTypes/type_html.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="RarTemplate">
-        <Image Source="/Assets/FileTypes/type_rar.png" />
+        <Image Source="Assets/FileTypes/type_rar.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="ArchiveTemplate">
-        <Image Source="/Assets/FileTypes/type_archive.png" />
+        <Image Source="Assets/FileTypes/type_archive.png" />
     </DataTemplate>
 
     <DataTemplate x:Key="OtherTemplate">
-        <Image Source="/Assets/FileTypes/type_other.png" />
+        <Image Source="Assets/FileTypes/type_other.png" />
     </DataTemplate>
 
     <selectors:FileAttachmentTypeSelector
@@ -56,6 +56,5 @@
         PDF="{StaticResource PDFTemplate}"
         RarArchive="{StaticResource RarTemplate}"
         Video="{StaticResource VideoTemplate}" />
-
 
 </ResourceDictionary>

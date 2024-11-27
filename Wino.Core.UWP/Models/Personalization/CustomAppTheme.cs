@@ -24,7 +24,7 @@ namespace Wino.Core.UWP.Models.Personalization
 
         public override async Task<string> GetThemeResourceDictionaryContentAsync()
         {
-            var customAppThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///AppThemes/Custom.xaml"));
+            var customAppThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///Wino.Core.UWP/AppThemes/Custom.xaml"));
             return await FileIO.ReadTextAsync(customAppThemeFile);
         }
     }

@@ -17,6 +17,9 @@
                 <ResourceDictionary Source="Styles/ImagePreviewControl.xaml" />
 
                 <styles:WinoExpanderStyle />
+
+                <!--  Last item must always be the default theme.  -->
+                <ResourceDictionary Source="ms-appx:///Wino.Core.UWP/AppThemes/Mica.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

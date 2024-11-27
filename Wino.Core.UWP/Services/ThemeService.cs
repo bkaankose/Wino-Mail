@@ -143,6 +143,15 @@ namespace Wino.Services
             }
         }
 
+        public bool IsCustomTheme
+        {
+            get
+            {
+                return currentApplicationThemeId != Guid.Parse(_micaThemeId) &&
+                       currentApplicationThemeId != Guid.Parse(_acrylicThemeId);
+            }
+        }
+
         public async Task InitializeAsync()
         {
             // Already initialized. There is no need.

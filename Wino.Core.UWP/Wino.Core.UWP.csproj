@@ -85,6 +85,7 @@
     <Compile Include="Activation\ActivationHandler.cs" />
     <Compile Include="BasePage.cs" />
     <Compile Include="Controls\ControlConstants.cs" />
+    <Compile Include="Controls\CustomWrapPanel.cs" />
     <Compile Include="Controls\WinoAppTitleBar.xaml.cs">
       <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
     </Compile>
