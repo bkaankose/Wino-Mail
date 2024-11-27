@@ -62,6 +62,10 @@ namespace Wino.Views
         {
             base.OnNavigatedFrom(e);
 
+            // Dispose all WinoListView items.
+
+            MailListView.Dispose();
+
             this.Bindings.StopTracking();
 
             RenderingFrame.Navigate(typeof(IdlePage));
@@ -345,16 +349,6 @@ namespace Wino.Views
         private void SearchBarUnfocused(object sender, RoutedEventArgs e)
         {
             SearchBar.PlaceholderText = Translator.SearchBarPlaceholder;
-        }
-
-        private void ProcessMailItemKeyboardAccelerator(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
-        {
-            if (args.Key == Windows.System.VirtualKey.Delete)
-            {
-                args.Handled = true;
-
-                ViewModel?.ExecuteMailOperationCommand?.Execute(MailOperation.SoftDelete);
-            }
         }
 
         /// <summary>

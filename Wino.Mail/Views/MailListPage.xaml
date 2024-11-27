@@ -181,7 +181,6 @@
                                 IsThreadListView="True"
                                 ItemTemplate="{StaticResource ThreadSingleMailItemTemplate}"
                                 ItemsSource="{x:Bind ThreadItems}"
-                                ProcessKeyboardAccelerators="ProcessMailItemKeyboardAccelerator"
                                 ScrollViewer.VerticalScrollBarVisibility="Hidden">
                                 <ListView.ItemContainerTransitions>
                                     <TransitionCollection>
@@ -438,7 +437,6 @@
                                 ItemTemplateSelector="{StaticResource MailItemDisplaySelector}"
                                 ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                                 LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
-                                ProcessKeyboardAccelerators="ProcessMailItemKeyboardAccelerator"
                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <ListView.ItemContainerTransitions>
                                     <TransitionCollection>

@@ -405,6 +405,15 @@ namespace Wino.Controls.Advanced
             {
                 internalScrollviewer.ViewChanged -= InternalScrollVeiwerViewChanged;
             }
+
+            foreach (var item in Items)
+            {
+                if (item is ThreadMailItemViewModel threadMailItemViewModel)
+                {
+                    var threadListView = GetThreadInternalListView(threadMailItemViewModel);
+                    threadListView?.Dispose();
+                }
+            }
         }
     }
 }
