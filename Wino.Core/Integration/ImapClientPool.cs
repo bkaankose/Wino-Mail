@@ -79,15 +79,11 @@ namespace Wino.Core.Integration
             try
             {
                 bool isReconnected = await EnsureConnectedAsync(client);
-                
+
                 bool mustDoPostAuthIdentification = false;
 
                 if ((isCreatedNew || isReconnected) && client.IsConnected)
                 {
-                    // Activate supported pre-auth capabilities.
-                    if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
-                        await client.CompressAsync();
-
                     // Identify if the server supports ID extension.
                     // Some servers require it pre-authentication, some post-authentication.
                     // We'll observe the response here and do it after authentication if needed.
@@ -118,6 +114,9 @@ namespace Wino.Core.Integration
                     // Activate post-auth capabilities.
                     if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync))
                         await client.EnableQuickResyncAsync();
+
+                    if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
+                        await client.CompressAsync();
                 }
             }
             catch (Exception ex)
