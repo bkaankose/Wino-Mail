@@ -30,7 +30,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers.Mail
 {
-    public class ImapSynchronizer : BaseMailSynchronizer<ImapRequest, ImapMessageCreationPackage>
+    public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>
     {
         private CancellationTokenSource idleDoneToken;
         private CancellationTokenSource cancelInboxListeningToken = new CancellationTokenSource();

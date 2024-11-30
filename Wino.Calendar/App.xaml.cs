@@ -64,6 +64,7 @@ namespace Wino.Calendar
             services.AddSingleton<ICalendarDialogService, DialogService>();
             services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
             services.AddTransient<IProviderService, ProviderService>();
+            services.AddSingleton<IAuthenticatorConfig, CalendarAuthenticatorConfig>();
         }
 
         private void RegisterViewModels(IServiceCollection services)

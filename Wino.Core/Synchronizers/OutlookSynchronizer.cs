@@ -38,7 +38,7 @@ using Wino.Core.Requests.Mail;
 
 namespace Wino.Core.Synchronizers.Mail
 {
-    public class OutlookSynchronizer : BaseMailSynchronizer<RequestInformation, Message>
+    public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>
     {
         public override uint BatchModificationSize => 20;
         public override uint InitialMessageDownloadCountPerFolder => 250;
@@ -572,8 +572,6 @@ namespace Wino.Core.Synchronizers.Mail
 
         #region Mail Integration
 
-
-
         public override bool DelaySendOperationSynchronization() => true;
 
         public override List<IRequestBundle<RequestInformation>> Move(BatchMoveRequest request)
@@ -924,7 +922,6 @@ namespace Wino.Core.Synchronizers.Mail
                 }
             }
         }
-
 
         private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
         {

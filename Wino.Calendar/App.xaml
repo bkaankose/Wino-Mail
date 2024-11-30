@@ -27,6 +27,9 @@
                 <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
 
                 <styles:CalendarItemControlResources />
+
+                <!--  Last item must always be the default theme.  -->
+                <ResourceDictionary Source="ms-appx:///Wino.Core.UWP/AppThemes/Mica.xaml" />
             </controls:XamlControlsResources.MergedDictionaries>
         </controls:XamlControlsResources>
     </Application.Resources>

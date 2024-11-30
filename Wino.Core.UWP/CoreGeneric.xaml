@@ -31,8 +31,8 @@
             <SolidColorBrush x:Key="CommandBarBorderBrushOpen" Color="Transparent" />
             <Thickness x:Key="CommandBarBorderThicknessOpen">0</Thickness>
 
-            <x:Double x:Key="AppBarButtonContentHeight">19</x:Double>
-            <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">19</x:Double>
+            <!--<x:Double x:Key="AppBarButtonContentHeight">19</x:Double>
+            <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">19</x:Double>-->
             <Thickness x:Key="ImapSetupDialogSubPagePadding">24,24,24,24</Thickness>
 
             <!--  Border style for each page's root border for separation of zones.  -->

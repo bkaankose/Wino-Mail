@@ -16,6 +16,7 @@
    <ItemGroup>
      <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.3.2" />
      <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+     <PackageReference Include="Google.Apis.Calendar.v3" Version="1.68.0.3592" />
      <PackageReference Include="Google.Apis.Gmail.v1" Version="1.68.0.3427" />
      <PackageReference Include="Google.Apis.PeopleService.v1" Version="1.68.0.3359" />
      <PackageReference Include="HtmlAgilityPack" Version="1.11.70" />

@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
@@ -96,7 +97,7 @@ namespace Wino.Calendar.ViewModels
             };
 
             var tokenInformationResponse = await WinoServerConnectionManager
-                .GetResponseAsync<TokenInformation, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
+                .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
                                                                                                        createdAccount,
                                                                                                        createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
 
@@ -106,11 +107,11 @@ namespace Wino.Calendar.ViewModels
 
             tokenInformationResponse.ThrowIfFailed();
 
-            var tokenInformation = tokenInformationResponse.Data;
-            createdAccount.Address = tokenInformation.Address;
-            tokenInformation.AccountId = createdAccount.Id;
+            //var tokenInformation = tokenInformationResponse.Data;
+            //createdAccount.Address = tokenInformation.Address;
+            //tokenInformation.AccountId = createdAccount.Id;
 
-            await AccountService.CreateAccountAsync(createdAccount, tokenInformation, null);
+            await AccountService.CreateAccountAsync(createdAccount, null);
 
             // Sync profile information if supported.
             if (createdAccount.IsProfileInfoSyncSupported)

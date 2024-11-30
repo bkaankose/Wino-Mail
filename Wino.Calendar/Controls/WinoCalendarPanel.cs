@@ -75,7 +75,7 @@ namespace Wino.Calendar.Controls
         // No need to handle actions. Each action requires a full measurement update.
         private void EventCollectionChanged(object sender, NotifyCollectionChangedEventArgs e) => ResetMeasurements();
 
-        private double GetChildTopMargin(DateTime childStart, double availableHeight)
+        private double GetChildTopMargin(DateTimeOffset childStart, double availableHeight)
         {
             double totalMinutes = 1440;
             double minutesFromStart = (childStart - DayModel.RepresentingDate).TotalMinutes;
@@ -90,7 +90,7 @@ namespace Wino.Calendar.Controls
         private double GetChildLeftMargin(CalendarItemMeasurement calendarItemMeasurement, double availableWidth)
             => availableWidth * calendarItemMeasurement.Left;
 
-        private double GetChildHeight(DateTime childStart, DateTime childEnd)
+        private double GetChildHeight(DateTimeOffset childStart, DateTimeOffset childEnd)
         {
             double totalMinutes = 1440;
             double availableHeight = DayModel.CalendarRenderOptions.CalendarSettings.HourHeight * 24;
@@ -146,7 +146,7 @@ namespace Wino.Calendar.Controls
 
                 child.Measure(new Size(childWidth, childHeight));
 
-                var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, childWidth - extraRightMargin, childHeight);
+                var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, Math.Max(childWidth - extraRightMargin, 1), childHeight);
 
                 child.Arrange(arrangementRect);
             }

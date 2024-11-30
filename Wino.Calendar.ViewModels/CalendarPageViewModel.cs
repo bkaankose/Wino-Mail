@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using Wino.Calendar.Models.CalendarTypeStrategies;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -380,40 +379,40 @@ namespace Wino.Calendar.ViewModels
 
             var beforeAllDay = new CalendarItem(calendarItem.StartTime.Date.AddHours(0), calendarItem.StartTime.Date.AddMinutes(30))
             {
-                Name = "kj"
+                Title = "kj"
             };
 
             var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.Date.AddHours(10).AddMinutes(59))
             {
-                Name = "All day"
+                Title = "All day"
             };
 
             var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.Date.AddHours(4).AddMinutes(30))
             {
-                Name = "test"
+                Title = "test"
             };
 
             var hour = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8))
             {
-                Name = "1 h"
+                Title = "1 h"
             };
 
             var hourandhalf = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
             {
-                Name = "1.5 h"
+                Title = "1.5 h"
             };
             var halfhour1 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(7).AddMinutes(30))
             {
-                Name = "30 min"
+                Title = "30 min"
             };
 
             var halfhour2 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7).AddMinutes(30), calendarItem.StartTime.Date.AddHours(8))
             {
-                Name = "30 min"
+                Title = "30 min"
             };
             var halfhour3 = new CalendarItem(calendarItem.StartTime.Date.AddHours(8), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
             {
-                Name = "30 min"
+                Title = "30 min"
             };
 
             foreach (var day in eventDays)

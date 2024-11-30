@@ -9,6 +9,7 @@ using System.Windows;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.Storage;
+using Wino.Calendar.Services;
 using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -92,9 +93,8 @@ namespace Wino.Server
             }
             else
             {
-                // TODO: Calendar config will be added here.
+                services.AddSingleton<IAuthenticatorConfig, CalendarAuthenticatorConfig>();
             }
-
 
             return services.BuildServiceProvider();
         }

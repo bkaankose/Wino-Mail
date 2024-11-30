@@ -23,11 +23,11 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public abstract class BaseMailSynchronizer<TBaseRequest, TMessageType> : BaseSynchronizer<TBaseRequest>, IBaseMailSynchronizer
+    public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType> : BaseSynchronizer<TBaseRequest>, IBaseMailSynchronizer
     {
-        protected ILogger Logger = Log.ForContext<BaseMailSynchronizer<TBaseRequest, TMessageType>>();
+        protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType>>();
 
-        protected BaseMailSynchronizer(MailAccount account) : base(account)
+        protected WinoSynchronizer(MailAccount account) : base(account)
         {
         }
 
@@ -186,7 +186,7 @@ namespace Wino.Core.Synchronizers
                         return SynchronizationResult.Failed;
                     }
 
-                    return SynchronizationResult.Completed(null, newProfileInformation);
+                    return SynchronizationResult.Completed(newProfileInformation);
                 }
 
                 // Alias sync.
@@ -300,6 +300,8 @@ namespace Wino.Core.Synchronizers
             return options;
         }
 
+        #region Mail/Folder Operations
+
         public virtual bool DelaySendOperationSynchronization() => false;
         public virtual List<IRequestBundle<TBaseRequest>> Move(BatchMoveRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> ChangeFlag(BatchChangeFlagRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
@@ -313,6 +315,14 @@ namespace Wino.Core.Synchronizers
         public virtual List<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
         public virtual List<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+        #endregion
+
+        #region Calendar Operations
+
+
+        #endregion
+
 
         /// <summary>
         /// Downloads a single missing message from synchronizer and saves it to given FileId from IMailItem.

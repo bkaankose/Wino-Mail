@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Http;
@@ -34,7 +35,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers.Mail
 {
-    public class GmailSynchronizer : BaseMailSynchronizer<IClientServiceRequest, Message>, IHttpClientFactory
+    public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message, Event>, IHttpClientFactory
     {
         public override uint BatchModificationSize => 1000;
         public override uint InitialMessageDownloadCountPerFolder => 1200;
@@ -66,6 +67,7 @@ namespace Wino.Core.Synchronizers.Mail
 
             _gmailService = new GmailService(initializer);
             _peopleService = new PeopleServiceService(initializer);
+
 
             _authenticator = authenticator;
             _gmailChangeProcessor = gmailChangeProcessor;

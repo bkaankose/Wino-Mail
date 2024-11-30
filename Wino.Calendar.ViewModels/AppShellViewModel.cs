@@ -114,6 +114,7 @@ namespace Wino.Calendar.ViewModels
         /// </summary>
         private DateTime GetDisplayTypeSwitchDate()
         {
+            var settings = PreferencesService.GetCurrentCalendarSettings();
             switch (StatePersistenceService.CalendarDisplayType)
             {
                 case CalendarDisplayType.Day:
@@ -121,10 +122,12 @@ namespace Wino.Calendar.ViewModels
 
                     return HighlightedDateRange.StartDate;
                 case CalendarDisplayType.Week:
-                    // TODO: From settings
-                    if (HighlightedDateRange.IsInRange(DateTime.Now)) return DateTime.Now.Date.GetWeekStartDateForDate(DayOfWeek.Monday);
+                    if (HighlightedDateRange == null || HighlightedDateRange.IsInRange(DateTime.Now))
+                    {
+                        return DateTime.Now.Date.GetWeekStartDateForDate(settings.FirstDayOfWeek);
+                    }
 
-                    return HighlightedDateRange.StartDate.GetWeekStartDateForDate(DayOfWeek.Monday);
+                    return HighlightedDateRange.StartDate.GetWeekStartDateForDate(settings.FirstDayOfWeek);
                 case CalendarDisplayType.WorkWeek:
                     break;
                 case CalendarDisplayType.Month:

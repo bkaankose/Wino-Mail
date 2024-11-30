@@ -19,6 +19,7 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <Compile Include="..\Wino.Mail\Services\MailAuthenticatorConfiguration.cs" Link="Services\MailAuthenticatorConfiguration.cs" />
+	  <Compile Include="..\Wino.Calendar\Services\CalendarAuthenticatorConfig.cs" Link="Services\CalendarAuthenticatorConfig.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\ConfigurationService.cs" Link="Services\ConfigurationService.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\NativeAppService.cs" Link="Services\NativeAppService.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
