@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.MenuItems;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 

@@ -7,7 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Services;
+using Wino.Services;
 
 namespace Wino.Core.Integration.Processors
 {

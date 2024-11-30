@@ -11,7 +11,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Shapes;
-using Wino.Core.Services;
+using Wino.Core.UWP.Services;
 
 namespace Wino.Controls
 {

@@ -604,10 +604,6 @@
       <Project>{53723ae8-7e7e-4d54-adab-0a6033255cc8}</Project>
       <Name>Wino.Core.ViewModels</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj">
-      <Project>{E6B1632A-8901-41E8-9DDF-6793C7698B0B}</Project>
-      <Name>Wino.Core</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj">
       <Project>{d62f1c03-da57-4709-a640-0283296a8e66}</Project>
       <Name>Wino.Mail.ViewModels</Name>
@@ -615,6 +611,10 @@
     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
       <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
       <Name>Wino.Messaging</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj">
+      <Project>{4000a374-59fe-4400-acf6-d40473becd73}</Project>
+      <Name>Wino.Services</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -13,13 +13,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Json;
-using Wino.Core.Services;
 using Wino.Messaging;
 using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Enums;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Server.MessageHandlers;
+using Wino.Services;
 
 namespace Wino.Server
 {

@@ -23,7 +23,6 @@ namespace Wino.Core.Services
         private readonly IFolderService _folderService;
         private readonly IKeyPressService _keyPressService;
         private readonly IPreferencesService _preferencesService;
-        private readonly IAccountService _accountService;
         private readonly IMailDialogService _dialogService;
         private readonly IMailService _mailService;
 
@@ -41,14 +40,12 @@ namespace Wino.Core.Services
         public WinoRequestProcessor(IFolderService folderService,
                                     IKeyPressService keyPressService,
                                     IPreferencesService preferencesService,
-                                    IAccountService accountService,
                                     IMailDialogService dialogService,
                                     IMailService mailService)
         {
             _folderService = folderService;
             _keyPressService = keyPressService;
             _preferencesService = preferencesService;
-            _accountService = accountService;
             _dialogService = dialogService;
             _mailService = mailService;
         }

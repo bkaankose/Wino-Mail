@@ -4,6 +4,9 @@
     <TargetFramework>netstandard2.0</TargetFramework>
 	<LangVersion>12</LangVersion>
 	<Platforms>AnyCPU;x64;x86</Platforms>
+
+	<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>

@@ -7,6 +7,7 @@ using MimeKit;
 using MimeKit.IO;
 using MimeKit.IO.Filters;
 using MimeKit.Utils;
+using Wino.Services.Extensions;
 
 namespace Wino.Core.Extensions
 {

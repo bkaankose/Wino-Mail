@@ -6,6 +6,8 @@
     <Configurations>Debug;Release</Configurations>
 	<LangVersion>12</LangVersion>
 	<Platforms>AnyCPU;x64;x86</Platforms>
+	  <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+	  <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,5 +49,6 @@
      <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
      <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
      <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+     <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
    </ItemGroup>
 </Project>

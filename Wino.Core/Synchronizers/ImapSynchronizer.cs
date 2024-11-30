@@ -27,6 +27,7 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using Wino.Services.Extensions;
 
 namespace Wino.Core.Synchronizers.Mail
 {

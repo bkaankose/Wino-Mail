@@ -14,7 +14,6 @@ using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
 using Wino.Core.UWP.Services;
 using Wino.Server.Core;
 using Wino.Server.MessageHandlers;
@@ -68,6 +67,7 @@ namespace Wino.Server
             services.AddTransient<ServerViewModel>();
 
             services.RegisterCoreServices();
+            services.RegisterSharedServices();
 
             // Below services belongs to UWP.Core package and some APIs are not available for WPF.
             // We register them here to avoid compilation errors.
@@ -77,6 +77,7 @@ namespace Wino.Server
             services.AddSingleton<IPreferencesService, PreferencesService>();
             services.AddTransient<INotificationBuilder, NotificationBuilder>();
             services.AddTransient<IUnderlyingThemeService, UnderlyingThemeService>();
+            services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
 
             // Register server message handler factory.
             var serverMessageHandlerFactory = new ServerMessageHandlerFactory();

@@ -23,7 +23,7 @@ using Windows.UI.Xaml.Controls;
 using Wino.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
+using Wino.Services;
 
 namespace Wino.Core.UWP
 {

@@ -1,6 +1,6 @@
 ﻿using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Integration.Threading;
+using Wino.Services.Threading;
 
 namespace Wino.Core.Services
 {
@@ -8,11 +8,11 @@ namespace Wino.Core.Services
     {
         private readonly OutlookThreadingStrategy _outlookThreadingStrategy;
         private readonly GmailThreadingStrategy _gmailThreadingStrategy;
-        private readonly ImapThreadStrategy _imapThreadStrategy;
+        private readonly ImapThreadingStrategy _imapThreadStrategy;
 
         public ThreadingStrategyProvider(OutlookThreadingStrategy outlookThreadingStrategy,
                                          GmailThreadingStrategy gmailThreadingStrategy,
-                                         ImapThreadStrategy imapThreadStrategy)
+                                         ImapThreadingStrategy imapThreadStrategy)
         {
             _outlookThreadingStrategy = outlookThreadingStrategy;
             _gmailThreadingStrategy = gmailThreadingStrategy;

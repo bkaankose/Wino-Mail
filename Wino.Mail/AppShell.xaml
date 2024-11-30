@@ -15,7 +15,7 @@
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:menu="using:Wino.Core.MenuItems"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     x:Name="Root"
     muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"

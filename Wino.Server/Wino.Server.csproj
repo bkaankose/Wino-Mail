@@ -25,6 +25,7 @@
 	  <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\NotificationBuilder.cs" Link="Services\NotificationBuilder.cs" />
 	  <Compile Include="..\Wino.Core.UWP\Services\UnderlyingThemeService.cs" Link="Services\UnderlyingThemeService.cs" />
+	  <Compile Include="..\Wino.Core.UWP\Services\ThumbnailService.cs" Link="Services\ThumbnailService.cs" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Resource Include="Images\Wino_Icon.ico">
@@ -42,5 +43,6 @@
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	  <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
 	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>
 </Project>

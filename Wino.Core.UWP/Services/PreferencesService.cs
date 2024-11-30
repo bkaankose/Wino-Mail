@@ -9,7 +9,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
-using Wino.Core.Services;
+using Wino.Services;
 
 namespace Wino.Core.UWP.Services
 {

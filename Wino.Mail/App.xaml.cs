@@ -13,7 +13,6 @@ using Windows.ApplicationModel.Background;
 using Windows.UI.Core.Preview;
 using Windows.UI.Notifications;
 using Wino.Activation;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -70,7 +69,8 @@ namespace Wino
         {
             var services = new ServiceCollection();
 
-            services.RegisterCoreServices();
+            services.RegisterViewModelService();
+            services.RegisterSharedServices();
             services.RegisterCoreUWPServices();
             services.RegisterCoreViewModels();
 

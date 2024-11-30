@@ -32,6 +32,7 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
+using Wino.Services;
 
 namespace Wino.Core.Synchronizers.Mail
 {
@@ -532,11 +533,11 @@ namespace Wino.Core.Synchronizers.Mail
             foreach (var labelId in addedLabel.LabelIds)
             {
                 // When UNREAD label is added mark the message as un-read.
-                if (labelId == GoogleIntegratorExtensions.UNREAD_LABEL_ID)
+                if (labelId == ServiceConstants.UNREAD_LABEL_ID)
                     await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, false).ConfigureAwait(false);
 
                 // When STARRED label is added mark the message as flagged.
-                if (labelId == GoogleIntegratorExtensions.STARRED_LABEL_ID)
+                if (labelId == ServiceConstants.STARRED_LABEL_ID)
                     await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, true).ConfigureAwait(false);
 
                 await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
@@ -552,11 +553,11 @@ namespace Wino.Core.Synchronizers.Mail
             foreach (var labelId in removedLabel.LabelIds)
             {
                 // When UNREAD label is removed mark the message as read.
-                if (labelId == GoogleIntegratorExtensions.UNREAD_LABEL_ID)
+                if (labelId == ServiceConstants.UNREAD_LABEL_ID)
                     await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, true).ConfigureAwait(false);
 
                 // When STARRED label is removed mark the message as un-flagged.
-                if (labelId == GoogleIntegratorExtensions.STARRED_LABEL_ID)
+                if (labelId == ServiceConstants.STARRED_LABEL_ID)
                     await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, false).ConfigureAwait(false);
 
                 // For other labels remove the mail assignment.
@@ -637,9 +638,9 @@ namespace Wino.Core.Synchronizers.Mail
             };
 
             if (isFlagged)
-                batchModifyRequest.AddLabelIds = new List<string>() { GoogleIntegratorExtensions.STARRED_LABEL_ID };
+                batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
             else
-                batchModifyRequest.RemoveLabelIds = new List<string>() { GoogleIntegratorExtensions.STARRED_LABEL_ID };
+                batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
 
             var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
@@ -656,9 +657,9 @@ namespace Wino.Core.Synchronizers.Mail
             };
 
             if (readStatus)
-                batchModifyRequest.RemoveLabelIds = new List<string>() { GoogleIntegratorExtensions.UNREAD_LABEL_ID };
+                batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
             else
-                batchModifyRequest.AddLabelIds = new List<string>() { GoogleIntegratorExtensions.UNREAD_LABEL_ID };
+                batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
 
             var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
 
@@ -704,11 +705,11 @@ namespace Wino.Core.Synchronizers.Mail
 
             if (isArchiving)
             {
-                batchModifyRequest.RemoveLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
+                batchModifyRequest.RemoveLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
             }
             else
             {
-                batchModifyRequest.AddLabelIds = new[] { GoogleIntegratorExtensions.INBOX_LABEL_ID };
+                batchModifyRequest.AddLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
             }
 
             var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");

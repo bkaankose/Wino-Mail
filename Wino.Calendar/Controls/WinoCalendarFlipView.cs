@@ -3,8 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
 using Windows.UI.Xaml.Controls;
+using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Core.MenuItems;
 
 namespace Wino.Calendar.Controls
 {

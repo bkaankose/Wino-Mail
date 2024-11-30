@@ -17,17 +17,14 @@ namespace Wino.Activation
     /// </summary>
     internal class ToastNotificationActivationHandler : ActivationHandler<ToastNotificationActivatedEventArgs>
     {
-        private readonly INativeAppService _nativeAppService;
         private readonly IMailService _mailService;
         private readonly IFolderService _folderService;
 
         private ToastArguments _toastArguments;
 
-        public ToastNotificationActivationHandler(INativeAppService nativeAppService,
-                                                  IMailService mailService,
+        public ToastNotificationActivationHandler(IMailService mailService,
                                                   IFolderService folderService)
         {
-            _nativeAppService = nativeAppService;
             _mailService = mailService;
             _folderService = folderService;
         }

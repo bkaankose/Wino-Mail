@@ -8,7 +8,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Core.UWP.Styles"
-    xmlns:menu="using:Wino.Core.MenuItems"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">

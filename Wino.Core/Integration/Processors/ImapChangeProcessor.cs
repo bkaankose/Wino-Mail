@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
+using Wino.Services;
 
 namespace Wino.Core.Integration.Processors
 {

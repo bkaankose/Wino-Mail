@@ -144,6 +144,7 @@
     <Compile Include="Services\PrintService.cs" />
     <Compile Include="Services\StartupBehaviorService.cs" />
     <Compile Include="Services\StatePersistenceService.cs" />
+    <Compile Include="Services\ThumbnailService.cs" />
     <Compile Include="Services\WinoServerConnectionManager.cs" />
     <Compile Include="Services\BackgroundTaskService.cs" />
     <Compile Include="Services\ClipboardService.cs" />
@@ -241,6 +242,10 @@
     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
       <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
       <Name>Wino.Messaging</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj">
+      <Project>{4000a374-59fe-4400-acf6-d40473becd73}</Project>
+      <Name>Wino.Services</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

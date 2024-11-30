@@ -4,6 +4,9 @@
     <TargetFramework>netstandard2.0</TargetFramework>
 	<LangVersion>12</LangVersion>
 	<Platforms>AnyCPU;x64;x86</Platforms>
+
+	<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+	<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +24,7 @@
     <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
     <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
   </ItemGroup>
 
 </Project>

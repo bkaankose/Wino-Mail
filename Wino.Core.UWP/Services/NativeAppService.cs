@@ -3,14 +3,10 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.Foundation.Metadata;
 using Windows.Security.Authentication.Web;
-using Windows.Security.Cryptography;
-using Windows.Security.Cryptography.Core;
 using Windows.Storage;
-using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI.Shell;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Authorization;
 
 
 
@@ -51,46 +47,6 @@ namespace Wino.Services
             return _mimeMessagesFolder;
         }
 
-        #region Cryptography
-
-        public string randomDataBase64url(uint length)
-        {
-            IBuffer buffer = CryptographicBuffer.GenerateRandom(length);
-            return base64urlencodeNoPadding(buffer);
-        }
-
-        public IBuffer sha256(string inputString)
-        {
-            HashAlgorithmProvider sha = HashAlgorithmProvider.OpenAlgorithm(HashAlgorithmNames.Sha256);
-            IBuffer buff = CryptographicBuffer.ConvertStringToBinary(inputString, BinaryStringEncoding.Utf8);
-            return sha.HashData(buff);
-        }
-
-        public string base64urlencodeNoPadding(IBuffer buffer)
-        {
-            string base64 = CryptographicBuffer.EncodeToBase64String(buffer);
-
-            // Converts base64 to base64url.
-            base64 = base64.Replace("+", "-");
-            base64 = base64.Replace("/", "_");
-
-            // Strips padding.
-            base64 = base64.Replace("=", "");
-
-            return base64;
-        }
-
-        #endregion
-
-        // GMail Integration.
-        public GoogleAuthorizationRequest GetGoogleAuthorizationRequest()
-        {
-            string state = randomDataBase64url(32);
-            string code_verifier = randomDataBase64url(32);
-            string code_challenge = base64urlencodeNoPadding(sha256(code_verifier));
-
-            return new GoogleAuthorizationRequest(state, code_verifier, code_challenge);
-        }
 
         public async Task<string> GetEditorBundlePathAsync()
         {

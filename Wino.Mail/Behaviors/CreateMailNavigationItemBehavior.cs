@@ -1,27 +1,27 @@
 ﻿using System.Collections.ObjectModel;
 using Microsoft.Xaml.Interactivity;
 using Windows.UI.Xaml;
-using Wino.Core.MenuItems;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP.Controls;
 
 namespace Wino.Behaviors
 {
     public class CreateMailNavigationItemBehavior : Behavior<WinoNavigationViewItem>
     {
-        public MenuItemBase SelectedMenuItem
+        public IMenuItem SelectedMenuItem
         {
-            get { return (MenuItemBase)GetValue(SelectedMenuItemProperty); }
+            get { return (IMenuItem)GetValue(SelectedMenuItemProperty); }
             set { SetValue(SelectedMenuItemProperty, value); }
         }
 
-        public ObservableCollection<MenuItemBase> MenuItems
+        public ObservableCollection<IMenuItem> MenuItems
         {
-            get { return (ObservableCollection<MenuItemBase>)GetValue(MenuItemsProperty); }
+            get { return (ObservableCollection<IMenuItem>)GetValue(MenuItemsProperty); }
             set { SetValue(MenuItemsProperty, value); }
         }
 
-        public static readonly DependencyProperty MenuItemsProperty = DependencyProperty.Register(nameof(MenuItems), typeof(ObservableCollection<MenuItemBase>), typeof(CreateMailNavigationItemBehavior), new PropertyMetadata(null, OnMenuItemsChanged));
-        public static readonly DependencyProperty SelectedMenuItemProperty = DependencyProperty.Register(nameof(SelectedMenuItem), typeof(MenuItemBase), typeof(CreateMailNavigationItemBehavior), new PropertyMetadata(null, OnSelectedMenuItemChanged));
+        public static readonly DependencyProperty MenuItemsProperty = DependencyProperty.Register(nameof(MenuItems), typeof(ObservableCollection<IMenuItem>), typeof(CreateMailNavigationItemBehavior), new PropertyMetadata(null, OnMenuItemsChanged));
+        public static readonly DependencyProperty SelectedMenuItemProperty = DependencyProperty.Register(nameof(SelectedMenuItem), typeof(IMenuItem), typeof(CreateMailNavigationItemBehavior), new PropertyMetadata(null, OnSelectedMenuItemChanged));
 
         public CreateMailNavigationItemBehavior()
         {

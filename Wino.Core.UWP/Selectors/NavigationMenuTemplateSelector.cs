@@ -1,6 +1,6 @@
 ﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Wino.Core.MenuItems;
+using Wino.Core.Domain.MenuItems;
 
 namespace Wino.Core.UWP.Selectors
 {

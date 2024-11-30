@@ -16,12 +16,11 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.MenuItems;
-using Wino.Core.Services;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
@@ -55,7 +54,7 @@ namespace Wino.Mail.ViewModels
         private readonly SettingsItem SettingsItem = new SettingsItem();
         private readonly ManageAccountsMenuItem ManageAccountsMenuItem = new ManageAccountsMenuItem();
 
-        public NewMailMenuItem CreateMailMenuItem = new NewMailMenuItem();
+        public IMenuItem CreateMailMenuItem = new NewMailMenuItem();
 
         #endregion
 

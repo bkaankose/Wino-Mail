@@ -6,67 +6,21 @@ using Google.Apis.Gmail.v1.Data;
 using MimeKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Services;
+using Wino.Services.Extensions;
 
 namespace Wino.Core.Extensions
 {
     public static class GoogleIntegratorExtensions
     {
-        public const string INBOX_LABEL_ID = "INBOX";
-        public const string UNREAD_LABEL_ID = "UNREAD";
-        public const string IMPORTANT_LABEL_ID = "IMPORTANT";
-        public const string STARRED_LABEL_ID = "STARRED";
-        public const string DRAFT_LABEL_ID = "DRAFT";
-        public const string SENT_LABEL_ID = "SENT";
-        public const string SPAM_LABEL_ID = "SPAM";
-        public const string CHAT_LABEL_ID = "CHAT";
-        public const string TRASH_LABEL_ID = "TRASH";
 
-        // Category labels.
-        public const string FORUMS_LABEL_ID = "FORUMS";
-        public const string UPDATES_LABEL_ID = "UPDATES";
-        public const string PROMOTIONS_LABEL_ID = "PROMOTIONS";
-        public const string SOCIAL_LABEL_ID = "SOCIAL";
-        public const string PERSONAL_LABEL_ID = "PERSONAL";
 
-        // Label visibility identifiers.
-        private const string SYSTEM_FOLDER_IDENTIFIER = "system";
-        private const string FOLDER_HIDE_IDENTIFIER = "labelHide";
 
-        private const string CATEGORY_PREFIX = "CATEGORY_";
-        private const string FOLDER_SEPERATOR_STRING = "/";
-        private const char FOLDER_SEPERATOR_CHAR = '/';
-
-        private static Dictionary<string, SpecialFolderType> KnownFolderDictionary = new Dictionary<string, SpecialFolderType>()
-        {
-            { INBOX_LABEL_ID, SpecialFolderType.Inbox },
-            { CHAT_LABEL_ID, SpecialFolderType.Chat },
-            { IMPORTANT_LABEL_ID, SpecialFolderType.Important },
-            { TRASH_LABEL_ID, SpecialFolderType.Deleted },
-            { DRAFT_LABEL_ID, SpecialFolderType.Draft },
-            { SENT_LABEL_ID, SpecialFolderType.Sent },
-            { SPAM_LABEL_ID, SpecialFolderType.Junk },
-            { STARRED_LABEL_ID, SpecialFolderType.Starred },
-            { UNREAD_LABEL_ID, SpecialFolderType.Unread },
-            { FORUMS_LABEL_ID, SpecialFolderType.Forums },
-            { UPDATES_LABEL_ID, SpecialFolderType.Updates },
-            { PROMOTIONS_LABEL_ID, SpecialFolderType.Promotions },
-            { SOCIAL_LABEL_ID, SpecialFolderType.Social},
-            { PERSONAL_LABEL_ID, SpecialFolderType.Personal},
-        };
-
-        public static string[] SubCategoryFolderLabelIds =
-        [
-            FORUMS_LABEL_ID,
-            UPDATES_LABEL_ID,
-            PROMOTIONS_LABEL_ID,
-            SOCIAL_LABEL_ID,
-            PERSONAL_LABEL_ID
-        ];
 
         private static string GetNormalizedLabelName(string labelName)
         {
             // 1. Remove CATEGORY_ prefix.
-            var normalizedLabelName = labelName.Replace(CATEGORY_PREFIX, string.Empty);
+            var normalizedLabelName = labelName.Replace(ServiceConstants.CATEGORY_PREFIX, string.Empty);
 
             // 2. Normalize label name by capitalizing first letter.
             normalizedLabelName = char.ToUpper(normalizedLabelName[0]) + normalizedLabelName.Substring(1).ToLower();
@@ -81,9 +35,9 @@ namespace Wino.Core.Extensions
             // Even though we normalize the label name, check is done by capitalizing the label name.
             var capitalNormalizedLabelName = normalizedLabelName.ToUpper();
 
-            bool isSpecialFolder = KnownFolderDictionary.ContainsKey(capitalNormalizedLabelName);
+            bool isSpecialFolder = ServiceConstants.KnownFolderDictionary.ContainsKey(capitalNormalizedLabelName);
 
-            var specialFolderType = isSpecialFolder ? KnownFolderDictionary[capitalNormalizedLabelName] : SpecialFolderType.Other;
+            var specialFolderType = isSpecialFolder ? ServiceConstants.KnownFolderDictionary[capitalNormalizedLabelName] : SpecialFolderType.Other;
 
             // We used to support FOLDER_HIDE_IDENTIFIER to hide invisible folders.
             // However, a lot of people complained that they don't see their folders after the initial sync
@@ -96,13 +50,13 @@ namespace Wino.Core.Extensions
 
             bool isHidden = false;
 
-            bool isChildOfCategoryFolder = label.Name.StartsWith(CATEGORY_PREFIX);
+            bool isChildOfCategoryFolder = label.Name.StartsWith(ServiceConstants.CATEGORY_PREFIX);
             bool isSticky = isSpecialFolder && specialFolderType != SpecialFolderType.Category && !isChildOfCategoryFolder;
 
             // By default, all special folders update unread count in the UI except Trash.
             bool shouldShowUnreadCount = specialFolderType != SpecialFolderType.Deleted || specialFolderType != SpecialFolderType.Other;
 
-            bool isSystemFolder = label.Type == SYSTEM_FOLDER_IDENTIFIER;
+            bool isSystemFolder = label.Type == ServiceConstants.SYSTEM_FOLDER_IDENTIFIER;
 
             var localFolder = new MailItemFolder()
             {
@@ -126,16 +80,16 @@ namespace Wino.Core.Extensions
         }
 
         public static bool GetIsDraft(this Message message)
-            => message?.LabelIds?.Any(a => a == DRAFT_LABEL_ID) ?? false;
+            => message?.LabelIds?.Any(a => a == ServiceConstants.DRAFT_LABEL_ID) ?? false;
 
         public static bool GetIsUnread(this Message message)
-            => message?.LabelIds?.Any(a => a == UNREAD_LABEL_ID) ?? false;
+            => message?.LabelIds?.Any(a => a == ServiceConstants.UNREAD_LABEL_ID) ?? false;
 
         public static bool GetIsFocused(this Message message)
-            => message?.LabelIds?.Any(a => a == IMPORTANT_LABEL_ID) ?? false;
+            => message?.LabelIds?.Any(a => a == ServiceConstants.IMPORTANT_LABEL_ID) ?? false;
 
         public static bool GetIsFlagged(this Message message)
-            => message?.LabelIds?.Any(a => a == STARRED_LABEL_ID) ?? false;
+            => message?.LabelIds?.Any(a => a == ServiceConstants.STARRED_LABEL_ID) ?? false;
 
         private static string GetParentFolderRemoteId(string fullLabelName, ListLabelsResponse labelsResponse)
         {
@@ -158,9 +112,9 @@ namespace Wino.Core.Extensions
             if (string.IsNullOrEmpty(fullFolderName)) return string.Empty;
 
             // Folders with "//" at the end has "/" as the name.
-            if (fullFolderName.EndsWith(FOLDER_SEPERATOR_STRING)) return FOLDER_SEPERATOR_STRING;
+            if (fullFolderName.EndsWith(ServiceConstants.FOLDER_SEPERATOR_STRING)) return ServiceConstants.FOLDER_SEPERATOR_STRING;
 
-            string[] parts = fullFolderName.Split(FOLDER_SEPERATOR_CHAR);
+            string[] parts = fullFolderName.Split(ServiceConstants.FOLDER_SEPERATOR_CHAR);
 
             var lastPart = parts[parts.Length - 1];
 
