@@ -39,7 +39,6 @@ namespace Wino.Core.UWP
         protected IThemeService ThemeService { get; }
         protected IDatabaseService DatabaseService { get; }
         protected ITranslationService TranslationService { get; }
-        protected IMailDialogService DialogService { get; }
 
         // Order matters.
         private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
@@ -69,7 +68,6 @@ namespace Wino.Core.UWP
             ThemeService = Services.GetService<IThemeService>();
             DatabaseService = Services.GetService<IDatabaseService>();
             TranslationService = Services.GetService<ITranslationService>();
-            DialogService = Services.GetService<IMailDialogService>();
 
             // Make sure the paths are setup on app start.
             AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;

@@ -6,5 +6,6 @@
         string[] OutlookScope { get; }
         string GmailAuthenticatorClientId { get; }
         string[] GmailScope { get; }
+        string GmailTokenStoreIdentifier { get; }
     }
 }

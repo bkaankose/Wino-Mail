@@ -11,8 +11,6 @@ namespace Wino.Authentication
 {
     public class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     {
-        private const string FileDataStoreFolder = "WinoGmailStore";
-
         public GmailAuthenticator(IAuthenticatorConfig authConfig) : base(authConfig)
         {
         }
@@ -47,7 +45,7 @@ namespace Wino.Authentication
             return GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets()
             {
                 ClientId = ClientId
-            }, AuthenticatorConfig.GmailScope, account.Id.ToString(), CancellationToken.None, new FileDataStore(FileDataStoreFolder));
+            }, AuthenticatorConfig.GmailScope, account.Id.ToString(), CancellationToken.None, new FileDataStore(AuthenticatorConfig.GmailTokenStoreIdentifier));
         }
     }
 }

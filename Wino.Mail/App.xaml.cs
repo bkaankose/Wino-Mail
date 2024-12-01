@@ -233,7 +233,9 @@ namespace Wino
             }
             catch (WinoServerException serverException)
             {
-                DialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
+                var dialogService = Services.GetService<IMailDialogService>();
+
+                dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
             }
         }
 
@@ -260,7 +262,7 @@ namespace Wino
                 // Starting the server is fine, but check if server termination behavior is set to terminate.
                 // This state will kill the server once the app is terminated.
 
-                isGoToAppPreferencesRequested = await DialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
+                isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
                                                                  $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
                                                                  Translator.Buttons_Yes,
                                                                  WinoCustomMessageDialogIcon.Warning,

@@ -2,6 +2,8 @@
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Windows.UI.Xaml;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP;
 using Wino.Messaging.UI;
@@ -16,6 +18,11 @@ namespace Wino.Dialogs
             InitializeComponent();
 
             WeakReferenceMessenger.Default.Register(this);
+        }
+
+        public override void OnStateChanged(AccountCreationDialogState state)
+        {
+            var tt = VisualStateManager.GoToState(this, state.ToString(), true);
         }
 
         public async void Receive(CopyAuthURLRequested message)

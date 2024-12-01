@@ -12,11 +12,11 @@ using Wino.Activation;
 using Wino.Calendar.Activation;
 using Wino.Calendar.Services;
 using Wino.Calendar.ViewModels;
-using Wino.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Server;
+using Wino.Services;
 
 namespace Wino.Calendar
 {
@@ -38,7 +38,8 @@ namespace Wino.Calendar
         {
             var services = new ServiceCollection();
 
-            services.RegisterCoreServices();
+            services.RegisterSharedServices();
+            services.RegisterCalendarViewModelServices();
             services.RegisterCoreUWPServices();
             services.RegisterCoreViewModels();
 

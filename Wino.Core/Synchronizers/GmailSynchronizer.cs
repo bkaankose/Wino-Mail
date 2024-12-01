@@ -49,7 +49,6 @@ namespace Wino.Core.Synchronizers.Mail
         private readonly GmailService _gmailService;
         private readonly PeopleServiceService _peopleService;
 
-        private readonly IGmailAuthenticator _authenticator;
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
         private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
@@ -68,9 +67,6 @@ namespace Wino.Core.Synchronizers.Mail
 
             _gmailService = new GmailService(initializer);
             _peopleService = new PeopleServiceService(initializer);
-
-
-            _authenticator = authenticator;
             _gmailChangeProcessor = gmailChangeProcessor;
         }
 
@@ -79,14 +75,14 @@ namespace Wino.Core.Synchronizers.Mail
         public override async Task<ProfileInformation> GetProfileInformationAsync()
         {
             var profileRequest = _peopleService.People.Get("people/me");
-            profileRequest.PersonFields = "names,photos";
+            profileRequest.PersonFields = "names,photos,emailAddresses";
 
             string senderName = string.Empty, base64ProfilePicture = string.Empty, address = string.Empty;
 
-            var gmailUserData = _gmailService.Users.GetProfile("me");
-            var gmailProfile = await gmailUserData.ExecuteAsync();
+            //var gmailUserData = _gmailService.Users.GetProfile("me");
+            //var gmailProfile = await gmailUserData.ExecuteAsync();
 
-            address = gmailProfile.EmailAddress;
+
             var userProfile = await profileRequest.ExecuteAsync();
 
             senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
@@ -97,6 +93,8 @@ namespace Wino.Core.Synchronizers.Mail
             {
                 base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
             }
+
+            address = userProfile.EmailAddresses.FirstOrDefault().Value;
 
             return new ProfileInformation(senderName, base64ProfilePicture, address);
         }

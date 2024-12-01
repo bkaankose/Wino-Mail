@@ -16,7 +16,15 @@ namespace Wino.Dialogs
 
         public CancellationTokenSource CancellationTokenSource { get; private set; }
 
-        public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(AccountCreationDialogState), typeof(BaseAccountCreationDialog), new PropertyMetadata(AccountCreationDialogState.Idle));
+        public static readonly DependencyProperty StateProperty = DependencyProperty.Register(nameof(State), typeof(AccountCreationDialogState), typeof(BaseAccountCreationDialog), new PropertyMetadata(AccountCreationDialogState.Idle, OnStateChanged));
+
+        private static void OnStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var dialog = d as BaseAccountCreationDialog;
+            dialog.OnStateChanged((AccountCreationDialogState)e.NewValue);
+        }
+
+        public abstract void OnStateChanged(AccountCreationDialogState state);
 
         // Prevent users from dismissing it by ESC key.
         public void DialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
