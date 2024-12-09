@@ -96,7 +96,8 @@ namespace Wino.Views
             }
             else
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody);
+                var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
+                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody, shouldLinkifyText);
             }
 
             isRenderingInProgress = false;

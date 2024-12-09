@@ -94,6 +94,11 @@ namespace Wino.Core.Domain.Interfaces
         bool RenderStyles { get; set; }
 
         /// <summary>
+        /// Setting: Set whether plaintext links should be automatically converted to clickable links.
+        /// </summary>
+        bool RenderPlaintextLinks { get; set; }
+
+        /// <summary>
         /// Gets the preferred rendering options for HTML rendering.
         /// </summary>
         MailRenderingOptions GetRenderingOptions();

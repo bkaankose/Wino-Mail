@@ -567,6 +567,8 @@
     <Content Include="JS\global.css" />
     <Content Include="JS\libs\jodit.min.css" />
     <Content Include="JS\libs\jodit.min.js" />
+    <Content Include="JS\libs\linkify-element.min.js" />
+    <Content Include="JS\libs\linkify.min.js" />
     <Content Include="JS\reader.html" />
     <Content Include="Assets\ReleaseNotes\190.md" />
     <None Include="Package.StoreAssociation.xml" />

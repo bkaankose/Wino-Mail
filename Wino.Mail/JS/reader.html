@@ -1,52 +1,111 @@
 <html>
-<head>
-    <link rel="stylesheet" href="./global.css" />
-    <script src="./libs/darkreader.js"></script>
-    <style>
-        body {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            margin: 0px;
-            border-radius: 8px;
-        }
+    <head>
+        <link rel="stylesheet" href="./global.css" />
+        <script src="./libs/darkreader.js"></script>
 
-        #readerDiv {
-            font-family: Arial, Helvetica, sans-serif;
-            background-color: transparent !important;
-        }
-    </style>
-</head>
-<body>
-    <meta name="color-scheme" content="dark light">
-    <script>
-        function RenderHTML(htmlString) {
-            window.scroll(0, 0);
-            var containerDiv = document.getElementById("readerDiv");
-            containerDiv.innerHTML = htmlString;
-        }
+        <script src="./libs/linkify.min.js"></script>
+        <script src="./libs/linkify-element.min.js"></script>
 
-        function ChangeFontFamily(fontFamily) {
-            var containerDiv = document.getElementById("readerDiv");
-            containerDiv.style.fontFamily = fontFamily;
-        }
+        <style>
+            body {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 8px;
+                padding-bottom: 8px;
+                margin: 0px;
+                border-radius: 8px;
+            }
 
-        function ChangeFontSize(size) {
-            var containerDiv = document.getElementById("readerDiv");
-            containerDiv.style.fontSize = size;
-        }
+            #readerDiv {
+                font-family: Arial, Helvetica, sans-serif;
+                background-color: transparent !important;
+            }
 
-        function SetLightEditor() {
-            document.documentElement.setAttribute('data-theme', 'light');
-            DarkReader.disable();
-        }
+            a.wino-plain-link {
+                color: inherit !important;
+                text-decoration: underline dotted !important;
+            }
+        </style>
+    </head>
+    <body>
+        <meta name="color-scheme" content="dark light" />
+        <script>
+            var _htmlString = "";
+            var _shouldLinkifyText = true;
 
-        function SetDarkEditor() {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            DarkReader.enable();
-        }
-    </script>
-    <div id="readerDiv"></div>
-</body>
+            // Called when rendering a new email for the first time
+            function RenderHTML(htmlString, shouldLinkifyText = true) {
+                window.scroll(0, 0);
+
+                _htmlString = htmlString;
+                _shouldLinkifyText = shouldLinkifyText;
+
+                internalRenderHTML(htmlString);
+            }
+
+            // Called to render or refresh the email
+            function internalRenderHTML(htmlString) {
+                var containerDiv = document.getElementById("readerDiv");
+                try {
+                    containerDiv.innerHTML = htmlString;
+
+                    // Linkify plain text links if enabled
+                    if (_shouldLinkifyText) {
+                        linkifyElement(
+                            containerDiv,
+                            { className: "wino-plain-link" },
+                            document
+                        );
+                    }
+
+                    // Remove !important from inline styles if dark mode is enabled
+                    if (
+                        document.documentElement.getAttribute("data-theme") ===
+                        "dark"
+                    ) {
+                        removeImportantFromInlineStyles();
+                    }
+                } catch (e) {
+                    containerDiv.innerHTML = htmlString;
+                }
+            }
+
+            function ChangeFontFamily(fontFamily) {
+                var containerDiv = document.getElementById("readerDiv");
+                containerDiv.style.fontFamily = fontFamily;
+            }
+
+            function ChangeFontSize(size) {
+                var containerDiv = document.getElementById("readerDiv");
+                containerDiv.style.fontSize = size;
+            }
+
+            function SetLightEditor() {
+                document.documentElement.setAttribute("data-theme", "light");
+                DarkReader.disable();
+
+                internalRenderHTML(_htmlString);
+            }
+
+            function SetDarkEditor() {
+                document.documentElement.setAttribute("data-theme", "dark");
+                DarkReader.enable();
+
+                internalRenderHTML(_htmlString);
+            }
+
+            // Helper functions
+            function removeImportantFromInlineStyles() {
+                var allElements = document.querySelectorAll("*");
+                allElements.forEach(function (element) {
+                    var style = element.getAttribute("style");
+                    if (style) {
+                        var newStyle = style.replace(/!important/g, "");
+                        element.setAttribute("style", newStyle);
+                    }
+                });
+            }
+        </script>
+        <div id="readerDiv"></div>
+    </body>
 </html>
