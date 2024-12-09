@@ -484,6 +484,7 @@
     "SettingsLinkedAccountsSave_Title": "Save Changes",
     "SettingsLoadImages_Title": "Load images automatically",
     "SettingsLoadStyles_Title": "Load styles automatically",
+    "SettingsLoadPlaintextLinks_Title": "Convert plaintext links to clickable links",
     "SettingsMailSpacing_Description": "Adjust the spacing for listing mails.",
     "SettingsMailSpacing_Title": "Mail Spacing",
     "SettingsFolderMenuStyle_Title": "Create Nested Folders",

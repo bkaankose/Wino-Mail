@@ -69,6 +69,12 @@
                         </controls:SettingsCard.HeaderIcon>
                         <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.RenderStyles, Mode=TwoWay}" />
                     </controls:SettingsCard>
+                    <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsLoadPlaintextLinks_Title}">
+                        <controls:SettingsCard.HeaderIcon>
+                           <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.RenderPlaintextLinks, Mode=TwoWay}" />
+                    </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
@@ -117,4 +123,3 @@
         </StackPanel>
     </ScrollViewer>
 </abstract:ReadComposePanePageAbstract>
-
