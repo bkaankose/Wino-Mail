@@ -2,6 +2,10 @@
 <head>
     <link rel="stylesheet" href="./global.css" />
     <script src="./libs/darkreader.js"></script>
+
+    <script src="./libs/linkify.min.js"></script>
+    <script src="./libs/linkify-element.min.js"></script>
+
     <style>
         body {
             padding-left: 12px;
@@ -16,15 +20,42 @@
             font-family: Arial, Helvetica, sans-serif;
             background-color: transparent !important;
         }
+
+        a.wino-plain-link {
+            color: inherit !important;
+            text-decoration: underline dotted !important;
+        }
     </style>
 </head>
 <body>
     <meta name="color-scheme" content="dark light">
     <script>
+        var _htmlString = '';
+
+        // Called when rendering a new email for the first time
         function RenderHTML(htmlString) {
             window.scroll(0, 0);
+            
+            _htmlString = htmlString;
+
+            internalRenderHTML(htmlString);
+        }
+
+        // Called to render or refresh the email 
+        function internalRenderHTML(htmlString) {
             var containerDiv = document.getElementById("readerDiv");
-            containerDiv.innerHTML = htmlString;
+            try {
+                containerDiv.innerHTML = htmlString;
+
+                // Linkify plain text links
+                linkifyElement(containerDiv, { className: "wino-plain-link" }, document);
+
+                // Remove !important from inline styles if dark mode is enabled
+                if (document.documentElement.getAttribute('data-theme') === 'dark')
+                    removeImportantFromInlineStyles();
+            } catch (e) {
+                containerDiv.innerHTML = htmlString;
+            }
         }
 
         function ChangeFontFamily(fontFamily) {
@@ -40,11 +71,27 @@
         function SetLightEditor() {
             document.documentElement.setAttribute('data-theme', 'light');
             DarkReader.disable();
+
+            internalRenderHTML(_htmlString);
         }
 
         function SetDarkEditor() {
             document.documentElement.setAttribute('data-theme', 'dark');
             DarkReader.enable();
+
+            internalRenderHTML(_htmlString);
+        }
+
+        // Helper functions
+        function removeImportantFromInlineStyles() {
+            var allElements = document.querySelectorAll('*');
+            allElements.forEach(function (element) {
+                var style = element.getAttribute('style');
+                if (style) {
+                    var newStyle = style.replace(/!important/g, '');
+                    element.setAttribute('style', newStyle);
+                }
+            });
         }
     </script>
     <div id="readerDiv"></div>
