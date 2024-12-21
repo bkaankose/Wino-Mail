@@ -192,9 +192,6 @@
     <PackageReference Include="Nito.AsyncEx">
       <Version>5.1.2</Version>
     </PackageReference>
-    <PackageReference Include="ReactiveUI">
-      <Version>20.1.63</Version>
-    </PackageReference>
     <PackageReference Include="Serilog">
       <Version>4.1.0</Version>
     </PackageReference>

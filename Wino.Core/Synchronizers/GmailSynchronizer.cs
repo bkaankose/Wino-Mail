@@ -79,10 +79,6 @@ namespace Wino.Core.Synchronizers.Mail
 
             string senderName = string.Empty, base64ProfilePicture = string.Empty, address = string.Empty;
 
-            //var gmailUserData = _gmailService.Users.GetProfile("me");
-            //var gmailProfile = await gmailUserData.ExecuteAsync();
-
-
             var userProfile = await profileRequest.ExecuteAsync();
 
             senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
@@ -94,7 +90,7 @@ namespace Wino.Core.Synchronizers.Mail
                 base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
             }
 
-            address = userProfile.EmailAddresses.FirstOrDefault().Value;
+            address = userProfile.EmailAddresses.FirstOrDefault(a => a.Metadata.Primary == true).Value;
 
             return new ProfileInformation(senderName, base64ProfilePicture, address);
         }
