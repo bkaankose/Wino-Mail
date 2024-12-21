@@ -155,6 +155,6 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="accountId">Account id.</param>
         /// <returns>Primary alias for the account.</returns>
         Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId);
-
+        Task<bool> IsAccountFocusedEnabledAsync(Guid accountId);
     }
 }

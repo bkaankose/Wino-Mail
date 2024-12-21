@@ -578,5 +578,11 @@ namespace Wino.Services
 
             return aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.First();
         }
+
+        public async Task<bool> IsAccountFocusedEnabledAsync(Guid accountId)
+        {
+            var account = await GetAccountAsync(accountId);
+            return account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
+        }
     }
 }

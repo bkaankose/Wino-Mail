@@ -72,6 +72,7 @@ namespace Wino.Mail.ViewModels
         public IPreferencesService PreferencesService { get; }
         public IThemeService ThemeService { get; }
 
+        private readonly IAccountService _accountService;
         private readonly IMailService _mailService;
         private readonly IFolderService _folderService;
         private readonly IThreadingStrategyProvider _threadingStrategyProvider;
@@ -147,6 +148,7 @@ namespace Wino.Mail.ViewModels
 
         public MailListPageViewModel(IMailDialogService dialogService,
                                      INavigationService navigationService,
+                                     IAccountService accountService,
                                      IMailService mailService,
                                      IStatePersistanceService statePersistenceService,
                                      IFolderService folderService,
@@ -163,7 +165,7 @@ namespace Wino.Mail.ViewModels
             _winoServerConnectionManager = winoServerConnectionManager;
             StatePersistenceService = statePersistenceService;
             NavigationService = navigationService;
-
+            _accountService = accountService;
             _mailService = mailService;
             _folderService = folderService;
             _threadingStrategyProvider = threadingStrategyProvider;
@@ -376,7 +378,7 @@ namespace Wino.Mail.ViewModels
             SetupTopBarActions();
         }
 
-        private void UpdateFolderPivots()
+        private async Task UpdateFolderPivotsAsync()
         {
             PivotFolders.Clear();
             SelectedFolderPivot = null;
@@ -393,8 +395,7 @@ namespace Wino.Mail.ViewModels
             {
                 var parentAccount = singleFolderMenuItem.ParentAccount;
 
-                bool isAccountSupportsFocusedInbox = parentAccount.Preferences.IsFocusedInboxEnabled != null;
-                bool isFocusedInboxEnabled = isAccountSupportsFocusedInbox && parentAccount.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
+                bool isFocusedInboxEnabled = await _accountService.IsAccountFocusedEnabledAsync(parentAccount.Id);
                 bool isInboxFolder = ActiveFolder.SpecialFolderType == SpecialFolderType.Inbox;
 
                 // Folder supports Focused - Other
@@ -515,7 +516,7 @@ namespace Wino.Mail.ViewModels
         {
             if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
             {
-                UpdateFolderPivots();
+                UpdateFolderPivotsAsync();
                 IsInSearchMode = false;
                 await InitializeFolderAsync();
             }
@@ -891,7 +892,7 @@ namespace Wino.Mail.ViewModels
             OnPropertyChanged(nameof(IsArchiveSpecialFolder));
 
             // Prepare Focused - Other or folder name tabs.
-            UpdateFolderPivots();
+            UpdateFolderPivotsAsync();
 
             // Reset filters and sorting options.
             ResetFilters();
