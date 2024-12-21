@@ -9,6 +9,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
 	  <PackageReference Include="TimePeriodLibrary.NET" Version="2.1.5" />
 	</ItemGroup>
 

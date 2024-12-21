@@ -14,9 +14,9 @@
 		<PackageReference Include="CommunityToolkit.Diagnostics" Version="8.3.2" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
 		<PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
-		<PackageReference Include="Microsoft.Identity.Client" Version="4.66.1" />
-		<PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.66.1" />
-		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.66.1" />
+		<PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
+		<PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.66.2" />
+		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.66.2" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -175,6 +175,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection">
       <Version>8.0.1</Version>
     </PackageReference>
+    <PackageReference Include="Microsoft.Identity.Client">
+      <Version>4.66.2</Version>
+    </PackageReference>
     <PackageReference Include="Microsoft.Net.Native.Compiler">
       <Version>2.2.12-rel-33220-00</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

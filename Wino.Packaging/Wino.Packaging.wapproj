@@ -132,4 +132,7 @@
     <ProjectReference Include="..\Wino.Mail\Wino.Mail.csproj" />
     <ProjectReference Include="..\Wino.Server\Wino.Server.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
+  </ItemGroup>
 </Project>
