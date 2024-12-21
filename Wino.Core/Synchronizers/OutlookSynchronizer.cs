@@ -839,14 +839,13 @@ namespace Wino.Core.Synchronizers.Mail
                 {
                     var bundle = batch.ElementAt(i);
 
-                    // TODO: Serial execution
-                    //if (bundle.Request is BatchRequestBase batchBundleRequest && batchBundleRequest.ExecuteSerialBatch)
-                    //{
-                    //    // This bundle needs to run every request in serial.
-                    //    // By default requests are executed in parallel.
+                    if (bundle.UIChangeRequest is SendDraftRequest)
+                    {
+                        // This bundle needs to run every request in serial.
+                        // By default requests are executed in parallel.
 
-                    //    serializeRequests = true;
-                    //}
+                        serializeRequests = true;
+                    }
 
                     var nativeRequest = bundle.NativeRequest;
 
@@ -907,7 +906,9 @@ namespace Wino.Core.Synchronizers.Mail
 
                             var content = await httpResponseMessage.Content.ReadAsStringAsync();
                             var errorJson = JsonNode.Parse(content);
-                            var errorString = $"{httpResponseMessage.StatusCode} [{bundle.Request.GetType().Name}]\n{errorJson["error"]["code"]} - {errorJson["error"]["message"]}\n";
+                            var errorString = $"[{httpResponseMessage.StatusCode}] {errorJson["error"]["code"]} - {errorJson["error"]["message"]}\n";
+
+                            Debug.WriteLine(errorString);
 
                             exceptionBag.Add(errorString);
                         }
