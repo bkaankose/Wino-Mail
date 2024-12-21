@@ -42,7 +42,12 @@ namespace Wino.Core.UWP.Services
         }
 
         public MailRenderingOptions GetRenderingOptions()
-            => new MailRenderingOptions() { LoadImages = RenderImages, LoadStyles = RenderStyles };
+            => new MailRenderingOptions()
+            {
+                LoadImages = RenderImages,
+                LoadStyles = RenderStyles,
+                RenderPlaintextLinks = RenderPlaintextLinks
+            };
 
         public MailListDisplayMode MailItemDisplayMode
         {
@@ -90,6 +95,12 @@ namespace Wino.Core.UWP.Services
         {
             get => _configurationService.Get(nameof(RenderStyles), true);
             set => SetPropertyAndSave(nameof(RenderStyles), value);
+        }
+
+        public bool RenderPlaintextLinks
+        {
+            get => _configurationService.Get(nameof(RenderPlaintextLinks), true);
+            set => SetPropertyAndSave(nameof(RenderPlaintextLinks), value);
         }
 
         public bool RenderImages
