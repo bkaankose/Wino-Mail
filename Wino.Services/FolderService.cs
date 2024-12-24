@@ -542,11 +542,11 @@ namespace Wino.Services
         public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)
             => GetMailFolderPairMetadatasAsync(new List<string>() { mailCopyId });
 
-        public async Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
+        public async Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options)
         {
             var folders = new List<MailItemFolder>();
 
-            if (options.Type == SynchronizationType.FullFolders)
+            if (options.Type == MailSynchronizationType.FullFolders)
             {
                 // Only get sync enabled folders.
 
@@ -564,11 +564,11 @@ namespace Wino.Services
 
                 var mustHaveFolders = await GetInboxSynchronizationFoldersAsync(options.AccountId);
 
-                if (options.Type == SynchronizationType.InboxOnly)
+                if (options.Type == MailSynchronizationType.InboxOnly)
                 {
                     return mustHaveFolders;
                 }
-                else if (options.Type == SynchronizationType.CustomFolders)
+                else if (options.Type == MailSynchronizationType.CustomFolders)
                 {
                     // Only get the specified and enabled folders.
 

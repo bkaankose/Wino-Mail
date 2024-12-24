@@ -41,7 +41,7 @@ namespace Wino.Core.Integration.Processors
         Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId);
 
 
-        Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
+        Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
 
         Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
@@ -153,7 +153,7 @@ namespace Wino.Core.Integration.Processors
         public Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId)
             => FolderService.GetFoldersAsync(accountId);
 
-        public Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options)
+        public Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options)
             => FolderService.GetSynchronizationFoldersAsync(options);
 
         public Task DeleteFolderAsync(Guid accountId, string remoteFolderId)

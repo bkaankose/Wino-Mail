@@ -104,9 +104,9 @@ namespace Wino.Core.Synchronizers.Mail
             await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
         }
 
-        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
-            _logger.Information("Internal synchronization started for {Name}", Account.Name);
+            _logger.Information("Internal mail synchronization started for {Name}", Account.Name);
 
             // Gmail must always synchronize folders before because it doesn't have a per-folder sync.
             bool shouldSynchronizeFolders = true;
@@ -124,7 +124,7 @@ namespace Wino.Core.Synchronizers.Mail
             // Therefore we need to stop the synchronization at this point
             // if type is only folder metadata sync.
 
-            if (options.Type == SynchronizationType.FoldersOnly) return SynchronizationResult.Empty;
+            if (options.Type == MailSynchronizationType.FoldersOnly) return MailSynchronizationResult.Empty;
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -281,7 +281,14 @@ namespace Wino.Core.Synchronizers.Mail
 
             var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, missingMessageIds).ConfigureAwait(false);
 
-            return SynchronizationResult.Completed(unreadNewItems);
+            return MailSynchronizationResult.Completed(unreadNewItems);
+        }
+
+        protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+        {
+            _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
+
+            return default;
         }
 
         private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
@@ -944,16 +951,15 @@ namespace Wino.Core.Synchronizers.Mail
 
                 await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId);
 
-                var options = new SynchronizationOptions()
+                var options = new MailSynchronizationOptions()
                 {
                     AccountId = Account.Id,
-                    Type = SynchronizationType.FullFolders
+                    Type = MailSynchronizationType.FullFolders
                 };
 
-                await SynchronizeInternalAsync(options, cancellationToken);
+                await SynchronizeMailsInternalAsync(options, cancellationToken);
             }
         }
-
 
         /// <summary>
         /// Maps existing Gmail Draft resources to local mail copies.

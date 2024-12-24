@@ -26,7 +26,7 @@ namespace Wino.Core.Domain.Interfaces
         Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
         Task ChangeFolderShowUnreadCountStateAsync(Guid folderId, bool showUnreadCount);
 
-        Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(SynchronizationOptions options);
+        Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
 
         /// <summary>
         /// Returns the folder - mail mapping for the given mail copy ids.

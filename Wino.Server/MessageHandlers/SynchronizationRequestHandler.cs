@@ -16,10 +16,10 @@ namespace Wino.Server.MessageHandlers
     /// <summary>
     /// Handler for NewSynchronizationRequested from the client.
     /// </summary>
-    public class SynchronizationRequestHandler : ServerMessageHandler<NewSynchronizationRequested, SynchronizationResult>
+    public class SynchronizationRequestHandler : ServerMessageHandler<NewSynchronizationRequested, MailSynchronizationResult>
     {
-        public override WinoServerResponse<SynchronizationResult> FailureDefaultResponse(Exception ex)
-            => WinoServerResponse<SynchronizationResult>.CreateErrorResponse(ex.Message);
+        public override WinoServerResponse<MailSynchronizationResult> FailureDefaultResponse(Exception ex)
+            => WinoServerResponse<MailSynchronizationResult>.CreateErrorResponse(ex.Message);
 
         private readonly ISynchronizerFactory _synchronizerFactory;
         private readonly INotificationBuilder _notificationBuilder;
@@ -34,7 +34,7 @@ namespace Wino.Server.MessageHandlers
             _folderService = folderService;
         }
 
-        protected override async Task<WinoServerResponse<SynchronizationResult>> HandleAsync(NewSynchronizationRequested message, CancellationToken cancellationToken = default)
+        protected override async Task<WinoServerResponse<MailSynchronizationResult>> HandleAsync(NewSynchronizationRequested message, CancellationToken cancellationToken = default)
         {
             var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.Options.AccountId);
 
@@ -45,12 +45,12 @@ namespace Wino.Server.MessageHandlers
             // It happens very common and there is no need to send a message for each synchronization.
 
             bool shouldReportSynchronizationResult =
-                message.Options.Type != SynchronizationType.ExecuteRequests &&
+                message.Options.Type != MailSynchronizationType.ExecuteRequests &&
                 message.Source == SynchronizationSource.Client;
 
             try
             {
-                var synchronizationResult = await synchronizer.SynchronizeAsync(message.Options, cancellationToken).ConfigureAwait(false);
+                var synchronizationResult = await synchronizer.SynchronizeMailsAsync(message.Options, cancellationToken).ConfigureAwait(false);
 
                 if (synchronizationResult.DownloadedMessages?.Any() ?? false || !synchronizer.Account.Preferences.IsNotificationsEnabled)
                 {
@@ -79,7 +79,7 @@ namespace Wino.Server.MessageHandlers
                     WeakReferenceMessenger.Default.Send(completedMessage);
                 }
 
-                return WinoServerResponse<SynchronizationResult>.CreateSuccessResponse(synchronizationResult);
+                return WinoServerResponse<MailSynchronizationResult>.CreateSuccessResponse(synchronizationResult);
             }
             // TODO: Following cases might always be thrown from server. Handle them properly.
 

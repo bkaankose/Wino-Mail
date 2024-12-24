@@ -143,10 +143,10 @@ namespace Wino.Core.Services
         {
             await EnsureServerConnectedAsync();
 
-            var options = new SynchronizationOptions()
+            var options = new MailSynchronizationOptions()
             {
                 AccountId = accountId,
-                Type = SynchronizationType.ExecuteRequests
+                Type = MailSynchronizationType.ExecuteRequests
             };
 
             WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));

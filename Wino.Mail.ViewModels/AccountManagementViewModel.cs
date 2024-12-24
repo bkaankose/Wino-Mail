@@ -159,13 +159,13 @@ namespace Wino.Mail.ViewModels
                         // Start profile information synchronization.
                         // It's only available for Outlook and Gmail synchronizers.
 
-                        var profileSyncOptions = new SynchronizationOptions()
+                        var profileSyncOptions = new MailSynchronizationOptions()
                         {
                             AccountId = createdAccount.Id,
-                            Type = SynchronizationType.UpdateProfile
+                            Type = MailSynchronizationType.UpdateProfile
                         };
 
-                        var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+                        var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
 
                         var profileSynchronizationResult = profileSynchronizationResponse.Data;
 
@@ -189,13 +189,13 @@ namespace Wino.Mail.ViewModels
                         creationDialog.State = AccountCreationDialogState.PreparingFolders;
 
                     // Start synchronizing folders.
-                    var folderSyncOptions = new SynchronizationOptions()
+                    var folderSyncOptions = new MailSynchronizationOptions()
                     {
                         AccountId = createdAccount.Id,
-                        Type = SynchronizationType.FoldersOnly
+                        Type = MailSynchronizationType.FoldersOnly
                     };
 
-                    var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
+                    var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
 
                     var folderSynchronizationResult = folderSynchronizationResponse.Data;
 
@@ -207,13 +207,13 @@ namespace Wino.Mail.ViewModels
                     {
                         // Try to synchronize aliases for the account.
 
-                        var aliasSyncOptions = new SynchronizationOptions()
+                        var aliasSyncOptions = new MailSynchronizationOptions()
                         {
                             AccountId = createdAccount.Id,
-                            Type = SynchronizationType.Alias
+                            Type = MailSynchronizationType.Alias
                         };
 
-                        var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+                        var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
                         var aliasSynchronizationResult = folderSynchronizationResponse.Data;
 
                         if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)

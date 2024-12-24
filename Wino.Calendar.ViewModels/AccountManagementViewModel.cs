@@ -119,13 +119,13 @@ namespace Wino.Calendar.ViewModels
                 // Start profile information synchronization.
                 // It's only available for Outlook and Gmail synchronizers.
 
-                var profileSyncOptions = new SynchronizationOptions()
+                var profileSyncOptions = new MailSynchronizationOptions()
                 {
                     AccountId = createdAccount.Id,
-                    Type = SynchronizationType.UpdateProfile
+                    Type = MailSynchronizationType.UpdateProfile
                 };
 
-                var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+                var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
 
                 var profileSynchronizationResult = profileSynchronizationResponse.Data;
 
@@ -141,10 +141,10 @@ namespace Wino.Calendar.ViewModels
             accountCreationDialog.State = AccountCreationDialogState.FetchingEvents;
 
             // Start synchronizing events.
-            var eventsSyncOptions = new SynchronizationOptions()
+            var eventsSyncOptions = new MailSynchronizationOptions()
             {
                 AccountId = createdAccount.Id,
-                Type = SynchronizationType.Events
+                Type = MailSynchronizationType.Events
             };
         }
     }

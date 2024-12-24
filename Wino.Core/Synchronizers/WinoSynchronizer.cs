@@ -23,7 +23,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers
 {
-    public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType> : BaseSynchronizer<TBaseRequest>, IBaseMailSynchronizer
+    public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
     {
         protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType>>();
 
@@ -55,18 +55,23 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
 
-
-
         /// <summary>
-        /// Internally synchronizes the account with the given options.
+        /// Internally synchronizes the account's mails with the given options.
         /// Not exposed and overriden for each synchronizer.
         /// </summary>
         /// <param name="options">Synchronization options.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Synchronization result that contains summary of the sync.</returns>
-        protected abstract Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+        protected abstract Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default);
 
-
+        /// <summary>
+        /// Internally synchronizes the events of the account with given options.
+        /// Not exposed and overriden for each synchronizer.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
+        protected abstract Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
@@ -74,7 +79,7 @@ namespace Wino.Core.Synchronizers
         /// <param name="options">Synchronization options.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Synchronization result that contains summary of the sync.</returns>
-        public async Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        public async Task<MailSynchronizationResult> SynchronizeMailsAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -159,7 +164,7 @@ namespace Wino.Core.Synchronizers
                 // Execute request sync options should be re-calculated after execution.
                 // This is the part we decide which individual folders must be synchronized
                 // after the batch request execution.
-                if (options.Type == SynchronizationType.ExecuteRequests)
+                if (options.Type == MailSynchronizationType.ExecuteRequests)
                     options = GetSynchronizationOptionsAfterRequestExecution(requestCopies);
 
                 State = AccountSynchronizerState.Synchronizing;
@@ -169,9 +174,9 @@ namespace Wino.Core.Synchronizers
                 // Handle special synchronization types.
 
                 // Profile information sync.
-                if (options.Type == SynchronizationType.UpdateProfile)
+                if (options.Type == MailSynchronizationType.UpdateProfile)
                 {
-                    if (!Account.IsProfileInfoSyncSupported) return SynchronizationResult.Empty;
+                    if (!Account.IsProfileInfoSyncSupported) return MailSynchronizationResult.Empty;
 
                     ProfileInformation newProfileInformation = null;
 
@@ -183,28 +188,28 @@ namespace Wino.Core.Synchronizers
                     {
                         Log.Error(ex, "Failed to update profile information for {Name}", Account.Name);
 
-                        return SynchronizationResult.Failed;
+                        return MailSynchronizationResult.Failed;
                     }
 
-                    return SynchronizationResult.Completed(newProfileInformation);
+                    return MailSynchronizationResult.Completed(newProfileInformation);
                 }
 
                 // Alias sync.
-                if (options.Type == SynchronizationType.Alias)
+                if (options.Type == MailSynchronizationType.Alias)
                 {
-                    if (!Account.IsAliasSyncSupported) return SynchronizationResult.Empty;
+                    if (!Account.IsAliasSyncSupported) return MailSynchronizationResult.Empty;
 
                     try
                     {
                         await SynchronizeAliasesAsync();
 
-                        return SynchronizationResult.Empty;
+                        return MailSynchronizationResult.Empty;
                     }
                     catch (Exception ex)
                     {
                         Log.Error(ex, "Failed to update aliases for {Name}", Account.Name);
 
-                        return SynchronizationResult.Failed;
+                        return MailSynchronizationResult.Failed;
                     }
                 }
 
@@ -224,7 +229,7 @@ namespace Wino.Core.Synchronizers
                 }
 
                 // Start the internal synchronization.
-                var synchronizationResult = await SynchronizeInternalAsync(options, activeSynchronizationCancellationToken).ConfigureAwait(false);
+                var synchronizationResult = await SynchronizeMailsInternalAsync(options, activeSynchronizationCancellationToken).ConfigureAwait(false);
 
                 PublishUnreadItemChanges();
 
@@ -234,7 +239,7 @@ namespace Wino.Core.Synchronizers
             {
                 Logger.Warning("Synchronization canceled.");
 
-                return SynchronizationResult.Canceled;
+                return MailSynchronizationResult.Canceled;
             }
             catch (Exception ex)
             {
@@ -271,7 +276,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
-        private SynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests)
+        private MailSynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests)
         {
             List<Guid> synchronizationFolderIds = requests
                     .Where(a => a is ICustomFolderSynchronizationRequest)
@@ -279,7 +284,7 @@ namespace Wino.Core.Synchronizers
                     .SelectMany(a => a.SynchronizationFolderIds)
                     .ToList();
 
-            var options = new SynchronizationOptions()
+            var options = new MailSynchronizationOptions()
             {
                 AccountId = Account.Id,
             };
@@ -288,13 +293,13 @@ namespace Wino.Core.Synchronizers
             {
                 // Gather FolderIds to synchronize.
 
-                options.Type = SynchronizationType.CustomFolders;
+                options.Type = MailSynchronizationType.CustomFolders;
                 options.SynchronizationFolderIds = synchronizationFolderIds;
             }
             else
             {
                 // At this point it's a mix of everything. Do full sync.
-                options.Type = SynchronizationType.FullFolders;
+                options.Type = MailSynchronizationType.FullFolders;
             }
 
             return options;

@@ -91,10 +91,10 @@ namespace Wino.Services
 
                     WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
 
-                    var options = new SynchronizationOptions()
+                    var options = new MailSynchronizationOptions()
                     {
                         AccountId = accountId,
-                        Type = SynchronizationType.FullFolders,
+                        Type = MailSynchronizationType.FullFolders,
                     };
 
                     WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));

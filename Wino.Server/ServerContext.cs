@@ -90,10 +90,10 @@ namespace Wino.Server
 
             foreach (var account in accounts)
             {
-                var options = new SynchronizationOptions
+                var options = new MailSynchronizationOptions
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.InboxOnly,
+                    Type = MailSynchronizationType.InboxOnly,
                 };
 
                 var request = new NewSynchronizationRequested(options, SynchronizationSource.Server);

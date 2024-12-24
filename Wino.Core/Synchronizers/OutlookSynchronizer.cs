@@ -133,7 +133,7 @@ namespace Wino.Core.Synchronizers.Mail
         #endregion
 
 
-        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             var downloadedMessageIds = new List<string>();
 
@@ -146,7 +146,7 @@ namespace Wino.Core.Synchronizers.Mail
 
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
-                if (options.Type != SynchronizationType.FoldersOnly)
+                if (options.Type != MailSynchronizationType.FoldersOnly)
                 {
                     var synchronizationFolders = await _outlookChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
@@ -181,7 +181,7 @@ namespace Wino.Core.Synchronizers.Mail
 
             var unreadNewItems = await _outlookChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-            return SynchronizationResult.Completed(unreadNewItems);
+            return MailSynchronizationResult.Completed(unreadNewItems);
         }
 
         private async Task<IEnumerable<string>> SynchronizeFolderAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
@@ -955,6 +955,11 @@ namespace Wino.Core.Synchronizers.Mail
             var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId);
 
             return [package];
+        }
+
+        protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -312,10 +312,10 @@ namespace Wino.Mail.ViewModels
 
             foreach (var account in accounts)
             {
-                var options = new SynchronizationOptions()
+                var options = new MailSynchronizationOptions()
                 {
                     AccountId = account.Id,
-                    Type = SynchronizationType.FullFolders
+                    Type = MailSynchronizationType.FullFolders
                 };
 
                 Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
@@ -885,10 +885,10 @@ namespace Wino.Mail.ViewModels
             await ChangeLoadedAccountAsync(createdMenuItem);
 
             // Each created account should start a new synchronization automatically.
-            var options = new SynchronizationOptions()
+            var options = new MailSynchronizationOptions()
             {
                 AccountId = createdAccount.Id,
-                Type = SynchronizationType.FullFolders,
+                Type = MailSynchronizationType.FullFolders,
             };
 
             Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));

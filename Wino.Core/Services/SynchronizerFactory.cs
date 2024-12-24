@@ -20,7 +20,7 @@ namespace Wino.Core.Services
         private readonly IOutlookAuthenticator _outlookAuthenticator;
         private readonly IGmailAuthenticator _gmailAuthenticator;
 
-        private readonly List<IBaseMailSynchronizer> synchronizerCache = new();
+        private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
         public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                    IGmailChangeProcessor gmailChangeProcessor,
@@ -39,7 +39,7 @@ namespace Wino.Core.Services
             _applicationConfiguration = applicationConfiguration;
         }
 
-        public async Task<IBaseMailSynchronizer> GetAccountSynchronizerAsync(Guid accountId)
+        public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
         {
             var synchronizer = synchronizerCache.Find(a => a.Account.Id == accountId);
 
@@ -58,7 +58,7 @@ namespace Wino.Core.Services
             return synchronizer;
         }
 
-        private IBaseMailSynchronizer CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
+        private IWinoSynchronizerBase CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
         {
             var providerType = mailAccount.ProviderType;
 
@@ -78,7 +78,7 @@ namespace Wino.Core.Services
             return null;
         }
 
-        public IBaseMailSynchronizer CreateNewSynchronizer(MailAccount account)
+        public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)
         {
             var synchronizer = CreateIntegratorWithDefaultProcessor(account);
 

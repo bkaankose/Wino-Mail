@@ -471,10 +471,10 @@ namespace Wino.Mail.ViewModels
 
             foreach (var folder in ActiveFolder.HandlingFolders)
             {
-                var options = new SynchronizationOptions()
+                var options = new MailSynchronizationOptions()
                 {
                     AccountId = folder.MailAccountId,
-                    Type = SynchronizationType.CustomFolders,
+                    Type = MailSynchronizationType.CustomFolders,
                     SynchronizationFolderIds = [folder.Id],
                     GroupedSynchronizationTrackingId = trackingSynchronizationId
                 };
@@ -516,7 +516,7 @@ namespace Wino.Mail.ViewModels
         {
             if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
             {
-                UpdateFolderPivotsAsync();
+                await UpdateFolderPivotsAsync();
                 IsInSearchMode = false;
                 await InitializeFolderAsync();
             }
@@ -892,7 +892,7 @@ namespace Wino.Mail.ViewModels
             OnPropertyChanged(nameof(IsArchiveSpecialFolder));
 
             // Prepare Focused - Other or folder name tabs.
-            UpdateFolderPivotsAsync();
+            await UpdateFolderPivotsAsync();
 
             // Reset filters and sorting options.
             ResetFilters();

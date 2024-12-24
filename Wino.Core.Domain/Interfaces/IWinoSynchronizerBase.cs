@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface IBaseMailSynchronizer : IBaseSynchronizer
+    public interface IWinoSynchronizerBase : IBaseSynchronizer
     {
         /// <summary>
         /// Performs a full synchronization with the server with given options.
@@ -17,7 +17,7 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="options">Options for synchronization.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Result summary of synchronization.</returns>
-        Task<SynchronizationResult> SynchronizeAsync(SynchronizationOptions options, CancellationToken cancellationToken = default);
+        Task<MailSynchronizationResult> SynchronizeMailsAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Downloads a single MIME message from the server and saves it to disk.

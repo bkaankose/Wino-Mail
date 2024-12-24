@@ -228,7 +228,7 @@ namespace Wino
         {
             try
             {
-                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<SynchronizationResult, NewSynchronizationRequested>(message);
+                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(message);
                 synchronizationResultResponse.ThrowIfFailed();
             }
             catch (WinoServerException serverException)

@@ -435,7 +435,7 @@ namespace Wino.Core.Synchronizers.Mail
             ];
         }
 
-        protected override async Task<SynchronizationResult> SynchronizeInternalAsync(SynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             var downloadedMessageIds = new List<string>();
 
@@ -444,14 +444,14 @@ namespace Wino.Core.Synchronizers.Mail
 
             PublishSynchronizationProgress(1);
 
-            bool shouldDoFolderSync = options.Type == SynchronizationType.FullFolders || options.Type == SynchronizationType.FoldersOnly;
+            bool shouldDoFolderSync = options.Type == MailSynchronizationType.FullFolders || options.Type == MailSynchronizationType.FoldersOnly;
 
             if (shouldDoFolderSync)
             {
                 await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            if (options.Type != SynchronizationType.FoldersOnly)
+            if (options.Type != MailSynchronizationType.FoldersOnly)
             {
                 var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
@@ -474,7 +474,7 @@ namespace Wino.Core.Synchronizers.Mail
 
             var unreadNewItems = await _imapChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-            return SynchronizationResult.Completed(unreadNewItems);
+            return MailSynchronizationResult.Completed(unreadNewItems);
         }
 
         public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<ImapRequest>> batchedRequests, CancellationToken cancellationToken = default)
@@ -1035,5 +1035,10 @@ namespace Wino.Core.Synchronizers.Mail
         /// <param name="localFolder">Local folder.</param>
         public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
             => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
+
+        protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

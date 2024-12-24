@@ -4,7 +4,7 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Models.Synchronization
 {
-    public class SynchronizationOptions
+    public class MailSynchronizationOptions
     {
         /// <summary>
         /// Unique id of synchronization.
@@ -19,7 +19,7 @@ namespace Wino.Core.Domain.Models.Synchronization
         /// <summary>
         /// Type of the synchronization to be performed.
         /// </summary>
-        public SynchronizationType Type { get; set; }
+        public MailSynchronizationType Type { get; set; }
 
         /// <summary>
         /// Collection of FolderId to perform SynchronizationType.Custom type sync.
@@ -33,6 +33,6 @@ namespace Wino.Core.Domain.Models.Synchronization
         /// </summary>
         public Guid? GroupedSynchronizationTrackingId { get; set; }
 
-        public override string ToString() => $"Type: {Type}, Folders: {(SynchronizationFolderIds == null ? "None" : string.Join(",", SynchronizationFolderIds))}";
+        public override string ToString() => $"Type: {Type}, Folders: {(SynchronizationFolderIds == null ? "All" : string.Join(",", SynchronizationFolderIds))}";
     }
 }
