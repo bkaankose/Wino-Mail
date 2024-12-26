@@ -19,7 +19,7 @@
             <SolidColorBrush x:Key="CalendarFieldSelectedBackgroundBrush">#121212</SolidColorBrush>
 
             <SolidColorBrush x:Key="WinoCalendarViewBorderBrush">#3d3d3d</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoCalendarViewVisibleDayBackgroundBrush">#30336b</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoCalendarViewVisibleDayBackgroundBrush">#4b4b4b</SolidColorBrush>
 
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>

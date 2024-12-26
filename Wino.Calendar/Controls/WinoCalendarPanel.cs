@@ -129,7 +129,9 @@ namespace Wino.Calendar.Controls
 
                 var childMeasurement = _measurements[child.Item.Id];
 
-                double childHeight = Math.Max(0, GetChildHeight(child.Item.StartTime, child.Item.EndTime));
+                // TODO Math.Max(0, GetChildHeight(child.Item.StartTime, child.Item.EndTime));
+                // Recurring events may not have an end time. We need to calculate the height based on the start time and duration.
+                double childHeight = 50;
                 double childWidth = Math.Max(0, GetChildWidth(childMeasurement, finalSize.Width));
                 double childTop = Math.Max(0, GetChildTopMargin(child.Item.StartTime, availableHeight));
                 double childLeft = Math.Max(0, GetChildLeftMargin(childMeasurement, availableWidth));

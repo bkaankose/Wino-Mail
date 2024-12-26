@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using SQLite;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -52,7 +53,11 @@ namespace Wino.Services
                 typeof(AccountSignature),
                 typeof(MergedInbox),
                 typeof(MailAccountPreferences),
-                typeof(MailAccountAlias)
+                typeof(MailAccountAlias),
+                typeof(AccountCalendar),
+                typeof(CalendarEventAttendee),
+                typeof(CalendarItem),
+                typeof(Reminder)
                 );
         }
     }

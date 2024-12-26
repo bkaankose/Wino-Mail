@@ -4,7 +4,6 @@ using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
 using Wino.Calendar.Views.Abstract;
-using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views
@@ -30,24 +29,15 @@ namespace Wino.Calendar.Views
         {
             selectedDateTime = e.ClickedDate;
 
+            // TODO: Popup is not positioned well on daily view.
             TeachingTipPositionerGrid.Width = e.CellSize.Width;
             TeachingTipPositionerGrid.Height = e.CellSize.Height;
 
             Canvas.SetLeft(TeachingTipPositionerGrid, e.PositionerPoint.X);
             Canvas.SetTop(TeachingTipPositionerGrid, e.PositionerPoint.Y);
 
-            WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, default)));
-
-            //var t = new Flyout()
-            //{
-            //    Content = new TextBlock() { Text = "Create event" }
-            //};
-
-            //t.ShowAt(TeachingTipPositionerGrid, new FlyoutShowOptions()
-            //{
-            //    ShowMode = FlyoutShowMode.Transient,
-            //    Placement = FlyoutPlacementMode.Right
-            //});
+            // TODO: End time can be from settings.
+            // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, selectedDateTime.Value.AddMinutes(30))));
 
             NewEventTip.IsOpen = true;
         }
@@ -71,7 +61,7 @@ namespace Wino.Calendar.Views
             var eventEndDate = selectedDateTime.Value.Add(EventTimePicker.Time);
 
             // Create the event.
-            WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, eventEndDate)));
+            // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, eventEndDate)));
         }
     }
 }

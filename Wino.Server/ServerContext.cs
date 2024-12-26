@@ -84,6 +84,10 @@ namespace Wino.Server
 
         private async void SynchronizationTimerTriggered(object sender, System.Timers.ElapsedEventArgs e)
         {
+            // TODO: Disabled for calendar synchronization. Implement a separate timer for calendar synchronization.
+            // or completely separate contexts for both apps.
+            return;
+
             // Send sync request for all accounts.
 
             var accounts = await _accountService.GetAccountsAsync();
@@ -96,7 +100,7 @@ namespace Wino.Server
                     Type = MailSynchronizationType.InboxOnly,
                 };
 
-                var request = new NewSynchronizationRequested(options, SynchronizationSource.Server);
+                var request = new NewMailSynchronizationRequested(options, SynchronizationSource.Server);
 
                 await ExecuteServerMessageSafeAsync(null, request);
             }
@@ -279,10 +283,15 @@ namespace Wino.Server
         {
             switch (typeName)
             {
-                case nameof(NewSynchronizationRequested):
-                    Debug.WriteLine($"New synchronization requested.");
+                case nameof(NewMailSynchronizationRequested):
+                    Debug.WriteLine($"New mail synchronization requested.");
 
-                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<NewSynchronizationRequested>(messageJson, _jsonSerializerOptions));
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<NewMailSynchronizationRequested>(messageJson, _jsonSerializerOptions));
+                    break;
+                case nameof(NewCalendarSynchronizationRequested):
+                    Debug.WriteLine($"New calendar synchronization requested.");
+
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<NewCalendarSynchronizationRequested>(messageJson, _jsonSerializerOptions));
                     break;
                 case nameof(DownloadMissingMessageRequested):
                     Debug.WriteLine($"Download missing message requested.");

@@ -34,7 +34,7 @@ namespace Wino.Core.Domain.Entities.Shared
         public MailProviderType ProviderType { get; set; }
 
         /// <summary>
-        /// For tracking change delta.
+        /// For tracking mail change delta.
         /// Gmail  : historyId
         /// Outlook: deltaToken
         /// </summary>

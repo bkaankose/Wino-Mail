@@ -375,62 +375,62 @@ namespace Wino.Calendar.ViewModels
             base.OnCalendarEventAdded(calendarItem);
 
             // Test
-            var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => b.Period.Start.Date == calendarItem.StartTime.Date);
+            //var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => b.Period.Start.Date == calendarItem.StartTime.Date);
 
-            var beforeAllDay = new CalendarItem(calendarItem.StartTime.Date.AddHours(0), calendarItem.StartTime.Date.AddMinutes(30))
-            {
-                Title = "kj"
-            };
+            //var beforeAllDay = new CalendarItem(calendarItem.StartTime.Date.AddHours(0), calendarItem.StartTime.Date.AddMinutes(30))
+            //{
+            //    Title = "kj"
+            //};
 
-            var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.Date.AddHours(10).AddMinutes(59))
-            {
-                Title = "All day"
-            };
+            //var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.Date.AddHours(10).AddMinutes(59))
+            //{
+            //    Title = "All day"
+            //};
 
-            var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.Date.AddHours(4).AddMinutes(30))
-            {
-                Title = "test"
-            };
+            //var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.Date.AddHours(4).AddMinutes(30))
+            //{
+            //    Title = "test"
+            //};
 
-            var hour = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8))
-            {
-                Title = "1 h"
-            };
+            //var hour = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8))
+            //{
+            //    Title = "1 h"
+            //};
 
-            var hourandhalf = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
-            {
-                Title = "1.5 h"
-            };
-            var halfhour1 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(7).AddMinutes(30))
-            {
-                Title = "30 min"
-            };
+            //var hourandhalf = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
+            //{
+            //    Title = "1.5 h"
+            //};
+            //var halfhour1 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(7).AddMinutes(30))
+            //{
+            //    Title = "30 min"
+            //};
 
-            var halfhour2 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7).AddMinutes(30), calendarItem.StartTime.Date.AddHours(8))
-            {
-                Title = "30 min"
-            };
-            var halfhour3 = new CalendarItem(calendarItem.StartTime.Date.AddHours(8), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
-            {
-                Title = "30 min"
-            };
+            //var halfhour2 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7).AddMinutes(30), calendarItem.StartTime.Date.AddHours(8))
+            //{
+            //    Title = "30 min"
+            //};
+            //var halfhour3 = new CalendarItem(calendarItem.StartTime.Date.AddHours(8), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
+            //{
+            //    Title = "30 min"
+            //};
 
-            foreach (var day in eventDays)
-            {
-                await ExecuteUIThread(() =>
-                {
-                    day.Events.Add(beforeAllDay);
-                    day.Events.Add(allday);
-                    day.Events.Add(hourandhalf);
-                    day.Events.Add(hour);
-                    day.Events.Add(halfhour1);
-                    day.Events.Add(halfhour2);
-                    day.Events.Add(halfhour3);
-                    day.Events.Add(test);
-                });
-            }
+            //foreach (var day in eventDays)
+            //{
+            //    await ExecuteUIThread(() =>
+            //    {
+            //        day.Events.Add(beforeAllDay);
+            //        day.Events.Add(allday);
+            //        day.Events.Add(hourandhalf);
+            //        day.Events.Add(hour);
+            //        day.Events.Add(halfhour1);
+            //        day.Events.Add(halfhour2);
+            //        day.Events.Add(halfhour3);
+            //        day.Events.Add(test);
+            //    });
+            //}
 
-            return;
+            //return;
         }
     }
 }

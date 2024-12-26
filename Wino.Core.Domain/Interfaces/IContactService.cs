@@ -10,5 +10,6 @@ namespace Wino.Core.Domain.Interfaces
         Task<List<AccountContact>> GetAddressInformationAsync(string queryText);
         Task<AccountContact> GetAddressInformationByAddressAsync(string address);
         Task SaveAddressInformationAsync(MimeMessage message);
+        Task<AccountContact> CreateNewContactAsync(string address, string displayName);
     }
 }

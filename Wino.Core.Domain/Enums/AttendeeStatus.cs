@@ -2,6 +2,7 @@
 {
     public enum AttendeeStatus
     {
+        NeedsAction,
         Accepted,
         Tentative,
         Declined

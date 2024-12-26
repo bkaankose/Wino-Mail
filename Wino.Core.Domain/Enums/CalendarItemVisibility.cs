@@ -2,7 +2,9 @@
 {
     public enum CalendarItemVisibility
     {
+        Default,
         Public,
-        Private
+        Private,
+        Confidential
     }
 }

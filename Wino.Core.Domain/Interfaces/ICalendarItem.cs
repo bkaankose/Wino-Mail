@@ -8,7 +8,7 @@ namespace Wino.Core.Domain.Interfaces
         string Title { get; }
         Guid Id { get; }
         DateTimeOffset StartTime { get; }
-        DateTimeOffset EndTime { get; }
+        int DurationInMinutes { get; }
         TimeRange Period { get; }
     }
 }

@@ -16,6 +16,7 @@ namespace Wino.Services
             services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
             services.AddSingleton<IMimeFileService, MimeFileService>();
 
+            services.AddTransient<ICalendarService, CalendarService>();
             services.AddTransient<IMailService, MailService>();
             services.AddTransient<IFolderService, FolderService>();
             services.AddTransient<IAccountService, AccountService>();

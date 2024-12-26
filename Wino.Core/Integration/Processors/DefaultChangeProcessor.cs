@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Google.Apis.Calendar.v3.Data;
 using MimeKit;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -32,28 +34,28 @@ namespace Wino.Core.Integration.Processors
         Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
         Task InsertFolderAsync(MailItemFolder folder);
         Task UpdateFolderAsync(MailItemFolder folder);
-
-        /// <summary>
-        /// Returns the list of folders that are available for account.
-        /// </summary>
-        /// <param name="accountId">Account id to get folders for.</param>
-        /// <returns>All folders.</returns>
         Task<List<MailItemFolder>> GetLocalFoldersAsync(Guid accountId);
-
-
         Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
-
         Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
         Task UpdateFolderLastSyncDateAsync(Guid folderId);
-
         Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
         Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
+
+        // Calendar
+        Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
+
+        Task DeleteCalendarItemAsync(Guid calendarItemId);
+
+        Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
+        Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
+        Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
     }
 
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
     {
         Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
         Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
+        Task<CalendarItem> CreateCalendarItemAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     }
 
     public interface IOutlookChangeProcessor : IDefaultChangeProcessor
@@ -115,13 +117,15 @@ namespace Wino.Core.Integration.Processors
     public class DefaultChangeProcessor(IDatabaseService databaseService,
                                   IFolderService folderService,
                                   IMailService mailService,
+                                  ICalendarService calendarService,
                                   IAccountService accountService,
                                   IMimeFileService mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
     {
         protected IMailService MailService = mailService;
-
+        protected ICalendarService CalendarService = calendarService;
         protected IFolderService FolderService = folderService;
         protected IAccountService AccountService = accountService;
+
         private readonly IMimeFileService _mimeFileService = mimeFileService;
 
         public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
@@ -179,5 +183,20 @@ namespace Wino.Core.Integration.Processors
 
         public Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
             => AccountService.UpdateRemoteAliasInformationAsync(account, remoteAccountAliases);
+
+        public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
+            => CalendarService.GetAccountCalendarsAsync(accountId);
+
+        public Task DeleteCalendarItemAsync(Guid calendarItemId)
+            => CalendarService.DeleteCalendarItemAsync(calendarItemId);
+
+        public Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
+            => CalendarService.DeleteAccountCalendarAsync(accountCalendar);
+
+        public Task InsertAccountCalendarAsync(AccountCalendar accountCalendar)
+            => CalendarService.InsertAccountCalendarAsync(accountCalendar);
+
+        public Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
+            => CalendarService.UpdateAccountCalendarAsync(accountCalendar);
     }
 }

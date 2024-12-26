@@ -12,7 +12,8 @@ namespace Wino.Core.Integration.Processors
                                    IFolderService folderService,
                                    IMailService mailService,
                                    IAccountService accountService,
-                                   IMimeFileService mimeFileService) : base(databaseService, folderService, mailService, accountService, mimeFileService)
+                                   ICalendarService calendarService,
+                                   IMimeFileService mimeFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
         {
         }
 

@@ -12,7 +12,11 @@ using Wino.Activation;
 using Wino.Calendar.Activation;
 using Wino.Calendar.Services;
 using Wino.Calendar.ViewModels;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Server;
@@ -20,7 +24,7 @@ using Wino.Services;
 
 namespace Wino.Calendar
 {
-    public sealed partial class App : WinoApplication, IRecipient<NewSynchronizationRequested>
+    public sealed partial class App : WinoApplication, IRecipient<NewCalendarSynchronizationRequested>
     {
         public override string AppCenterKey => "dfdad6ab-95f9-44cc-9112-45ec6730c49e";
 
@@ -101,13 +105,6 @@ namespace Wino.Calendar
         protected override ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler()
             => new DefaultActivationHandler();
 
-        public void Receive(NewSynchronizationRequested message)
-        {
-
-        }
-
-
-
         protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
         {
             base.OnBackgroundActivated(args);
@@ -141,6 +138,21 @@ namespace Wino.Calendar
             connectionBackgroundTaskDeferral = null;
 
             AppServiceConnectionManager.Connection = null;
+        }
+
+        public async void Receive(NewCalendarSynchronizationRequested message)
+        {
+            try
+            {
+                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(message);
+                synchronizationResultResponse.ThrowIfFailed();
+            }
+            catch (WinoServerException serverException)
+            {
+                var dialogService = Services.GetService<ICalendarDialogService>();
+
+                dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
+            }
         }
     }
 }

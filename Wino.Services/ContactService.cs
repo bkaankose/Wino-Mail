@@ -13,6 +13,15 @@ namespace Wino.Services
     {
         public ContactService(IDatabaseService databaseService) : base(databaseService) { }
 
+        public async Task<AccountContact> CreateNewContactAsync(string address, string displayName)
+        {
+            var contact = new AccountContact() { Address = address, Name = displayName };
+
+            await Connection.InsertAsync(contact).ConfigureAwait(false);
+
+            return contact;
+        }
+
         public Task<List<AccountContact>> GetAddressInformationAsync(string queryText)
         {
             if (queryText == null || queryText.Length < 2)

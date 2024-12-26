@@ -19,6 +19,8 @@ namespace Wino.Core.Domain.Interfaces
         /// <returns>Result summary of synchronization.</returns>
         Task<MailSynchronizationResult> SynchronizeMailsAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default);
 
+        Task<CalendarSynchronizationResult> SynchronizeCalendarEventsAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Downloads a single MIME message from the server and saves it to disk.
         /// </summary>

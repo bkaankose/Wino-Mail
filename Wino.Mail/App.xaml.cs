@@ -29,7 +29,7 @@ using Wino.Services;
 
 namespace Wino
 {
-    public sealed partial class App : WinoApplication, IRecipient<NewSynchronizationRequested>
+    public sealed partial class App : WinoApplication, IRecipient<NewMailSynchronizationRequested>
     {
         public override string AppCenterKey { get; } = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
 
@@ -224,11 +224,11 @@ namespace Wino
             AppServiceConnectionManager.Connection = null;
         }
 
-        public async void Receive(NewSynchronizationRequested message)
+        public async void Receive(NewMailSynchronizationRequested message)
         {
             try
             {
-                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(message);
+                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(message);
                 synchronizationResultResponse.ThrowIfFailed();
             }
             catch (WinoServerException serverException)

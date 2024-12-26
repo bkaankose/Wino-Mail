@@ -14,9 +14,8 @@ namespace Wino.Core.Domain.Entities.Calendar
         public string Description { get; set; }
         public string Location { get; set; }
         public DateTimeOffset StartTime { get; set; }
-        public DateTimeOffset EndTime { get; set; }
-        public bool IsAllDay { get; set; }
-        public Guid? RecurrenceRuleId { get; set; }
+        public int DurationInMinutes { get; set; }
+        public string Recurrence { get; set; }
         public CalendarItemStatus Status { get; set; }
         public CalendarItemVisibility Visibility { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
@@ -24,6 +23,6 @@ namespace Wino.Core.Domain.Entities.Calendar
         public Guid CalendarId { get; set; }
 
         [Ignore]
-        public TimeRange Period => new TimeRange(StartTime.Date, EndTime.Date);
+        public TimeRange Period => new TimeRange(StartTime.Date, StartTime.Date.AddMinutes(DurationInMinutes));
     }
 }

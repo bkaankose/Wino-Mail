@@ -14,7 +14,8 @@ namespace Wino.Server.Core
         {
             return typeName switch
             {
-                nameof(NewSynchronizationRequested) => App.Current.Services.GetService<SynchronizationRequestHandler>(),
+                nameof(NewMailSynchronizationRequested) => App.Current.Services.GetService<MailSynchronizationRequestHandler>(),
+                nameof(NewCalendarSynchronizationRequested) => App.Current.Services.GetService<CalendarSynchronizationRequestHandler>(),
                 nameof(ServerRequestPackage) => App.Current.Services.GetService<UserActionRequestHandler>(),
                 nameof(DownloadMissingMessageRequested) => App.Current.Services.GetService<SingleMimeDownloadHandler>(),
                 nameof(AuthorizationRequested) => App.Current.Services.GetService<AuthenticationHandler>(),
@@ -31,7 +32,8 @@ namespace Wino.Server.Core
         {
             // Register all known handlers.
 
-            serviceCollection.AddTransient<SynchronizationRequestHandler>();
+            serviceCollection.AddTransient<MailSynchronizationRequestHandler>();
+            serviceCollection.AddTransient<CalendarSynchronizationRequestHandler>();
             serviceCollection.AddTransient<UserActionRequestHandler>();
             serviceCollection.AddTransient<SingleMimeDownloadHandler>();
             serviceCollection.AddTransient<AuthenticationHandler>();

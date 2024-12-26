@@ -258,6 +258,18 @@ namespace Wino.Core.Synchronizers
         }
 
         /// <summary>
+        /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
+        /// </summary>
+        /// <param name="options">Synchronization options.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Synchronization result that contains summary of the sync.</returns>
+        public Task<CalendarSynchronizationResult> SynchronizeCalendarEventsAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+        {
+            // TODO: Execute requests for calendar events.
+            return SynchronizeCalendarEventsInternalAsync(options, cancellationToken);
+        }
+
+        /// <summary>
         /// Updates unread item counts for some folders and account.
         /// Sends a message that shell can pick up and update the UI.
         /// </summary>
@@ -355,5 +367,7 @@ namespace Wino.Core.Synchronizers
 
             return ret;
         }
+
+
     }
 }

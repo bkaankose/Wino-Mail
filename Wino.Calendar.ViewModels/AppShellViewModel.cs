@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Globalization;
-using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,13 +7,14 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
 
 namespace Wino.Calendar.ViewModels
 {
@@ -22,18 +22,17 @@ namespace Wino.Calendar.ViewModels
         IRecipient<VisibleDateRangeChangedMessage>,
         IRecipient<CalendarEnableStatusChangedMessage>,
         IRecipient<CalendarInitializedMessage>,
-        IRecipient<NavigateManageAccountsRequested>
+        IRecipient<NavigateManageAccountsRequested>,
+        IRecipient<GoToCalendarDayMessage>
     {
         public event EventHandler<CalendarDisplayType> DisplayTypeChanged;
         public IPreferencesService PreferencesService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public INavigationService NavigationService { get; }
         public IWinoServerConnectionManager ServerConnectionManager { get; }
-        public MenuItemCollection FooterItems { get; set; }
-        public MenuItemCollection MenuItems { get; set; }
 
         [ObservableProperty]
-        private IMenuItem _selectedMenuItem;
+        private int _selectedMenuItemIndex = -1;
 
         [ObservableProperty]
         private bool isCalendarEnabled;
@@ -62,10 +61,13 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private int _selectedDateNavigationHeaderIndex;
 
+        private readonly IAccountService _accountService;
+
         public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
+                                 IAccountService accountService,
                                  INavigationService navigationService,
                                  IWinoServerConnectionManager serverConnectionManager)
         {
@@ -74,6 +76,7 @@ namespace Wino.Calendar.ViewModels
             PreferencesService = preferencesService;
 
             StatePersistenceService = statePersistanceService;
+            _accountService = accountService;
             StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
         }
 
@@ -93,20 +96,37 @@ namespace Wino.Calendar.ViewModels
         {
             base.OnNavigatedTo(mode, parameters);
 
-            CreateFooterItems();
             UpdateDateNavigationHeaderItems();
         }
 
-        partial void OnSelectedMenuItemChanged(IMenuItem oldValue, IMenuItem newValue)
+        partial void OnSelectedMenuItemIndexChanged(int oldValue, int newValue)
         {
-            if (newValue is SettingsItem)
+            switch (newValue)
             {
-                NavigationService.Navigate(WinoPage.SettingsPage);
+                case -1:
+                    NavigationService.Navigate(WinoPage.CalendarPage);
+                    break;
+                case 0:
+                    NavigationService.Navigate(WinoPage.AccountManagementPage);
+                    break;
+                case 1:
+                    NavigationService.Navigate(WinoPage.SettingsPage);
+                    break;
+                default:
+                    break;
             }
-            else if (newValue is ManageAccountsMenuItem)
+        }
+
+        [RelayCommand]
+        private void Sync()
+        {
+            var t = new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions()
             {
-                NavigationService.Navigate(WinoPage.AccountManagementPage);
-            }
+                AccountId = Guid.Parse("52fae547-0740-4aa3-8d51-519bd31278ca"),
+                Type = CalendarSynchronizationType.CalendarMetadata
+            }, SynchronizationSource.Client);
+
+            Messenger.Send(t);
         }
 
         /// <summary>
@@ -142,14 +162,6 @@ namespace Wino.Calendar.ViewModels
             return DateTime.Today.Date;
         }
 
-        protected override void OnDispatcherAssigned()
-        {
-            base.OnDispatcherAssigned();
-
-            MenuItems = new MenuItemCollection(Dispatcher);
-            FooterItems = new MenuItemCollection(Dispatcher);
-        }
-
         public override void OnPageLoaded()
         {
             base.OnPageLoaded();
@@ -158,13 +170,6 @@ namespace Wino.Calendar.ViewModels
             {
                 RequestDefaultNavigation = true
             });
-        }
-
-        private void CreateFooterItems()
-        {
-            FooterItems.Clear();
-            FooterItems.Add(new ManageAccountsMenuItem());
-            FooterItems.Add(new SettingsItem());
         }
 
         #region Commands
@@ -236,6 +241,8 @@ namespace Wino.Calendar.ViewModels
         // Calendar page is loaded and calendar is ready to recieve render requests.
         public void Receive(CalendarInitializedMessage message) => Messenger.Send(new GoToCalendarDayMessage(DateTime.Now.Date));
 
-        public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItem = FooterItems.FirstOrDefault(a => a is ManageAccountsMenuItem);
+        public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
+
+        public void Receive(GoToCalendarDayMessage message) => SelectedMenuItemIndex = -1;
     }
 }

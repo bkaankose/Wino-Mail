@@ -17,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 using MoreLinq;
 using Serilog;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -33,6 +34,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
 using Wino.Services;
+using CalendarService = Google.Apis.Calendar.v3.CalendarService;
 
 namespace Wino.Core.Synchronizers.Mail
 {
@@ -47,6 +49,7 @@ namespace Wino.Core.Synchronizers.Mail
 
         private readonly ConfigurableHttpClient _googleHttpClient;
         private readonly GmailService _gmailService;
+        private readonly CalendarService _calendarService;
         private readonly PeopleServiceService _peopleService;
 
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
@@ -64,9 +67,10 @@ namespace Wino.Core.Synchronizers.Mail
             };
 
             _googleHttpClient = new ConfigurableHttpClient(messageHandler);
-
             _gmailService = new GmailService(initializer);
             _peopleService = new PeopleServiceService(initializer);
+            _calendarService = new CalendarService(initializer);
+
             _gmailChangeProcessor = gmailChangeProcessor;
         }
 
@@ -284,109 +288,258 @@ namespace Wino.Core.Synchronizers.Mail
             return MailSynchronizationResult.Completed(unreadNewItems);
         }
 
-        protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
             _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+
+            bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
+
+            _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
+
+            var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+            // TODO: Better logging and exception handling.
+            foreach (var calendar in localCalendars)
+            {
+                var request = _calendarService.Events.List(calendar.RemoteCalendarId);
+
+                request.SingleEvents = false;
+                request.ShowDeleted = true;
+
+                if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
+                {
+                    // If a sync token is available, perform an incremental sync
+                    request.SyncToken = calendar.SynchronizationDeltaToken;
+                }
+                else
+                {
+                    // If no sync token, perform an initial sync
+                    // Fetch events from the past year
+
+                    request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
+                }
+
+                string nextPageToken;
+                string syncToken;
+
+                var allEvents = new List<Event>();
+
+                do
+                {
+                    // Execute the request
+                    var events = await request.ExecuteAsync();
+
+                    // Process the fetched events
+                    if (events.Items != null)
+                    {
+                        allEvents.AddRange(events.Items);
+                    }
+
+                    // Get the next page token and sync token
+                    nextPageToken = events.NextPageToken;
+                    syncToken = events.NextSyncToken;
+
+                    // Set the next page token for subsequent requests
+                    request.PageToken = nextPageToken;
+
+                } while (!string.IsNullOrEmpty(nextPageToken));
+
+                calendar.SynchronizationDeltaToken = syncToken;
+
+                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+
+                foreach (var @event in allEvents)
+                {
+                    // TODO: Exception handling for event processing.
+                    await _gmailChangeProcessor.CreateCalendarItemAsync(@event, calendar, Account).ConfigureAwait(false);
+                }
+            }
 
             return default;
         }
 
-        private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
+        private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
         {
-            try
+            var calendarListRequest = _calendarService.CalendarList.List();
+            var calendarListResponse = await calendarListRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+            if (calendarListResponse.Items == null)
             {
-                var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
-                var folderRequest = _gmailService.Users.Labels.List("me");
+                _logger.Warning("No calendars found for {Name}", Account.Name);
+                return;
+            }
 
-                var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
-                if (labelsResponse.Labels == null)
+            List<AccountCalendar> insertedCalendars = new();
+            List<AccountCalendar> updatedCalendars = new();
+            List<AccountCalendar> deletedCalendars = new();
+
+            // 1. Handle deleted calendars.
+
+            foreach (var calendar in localCalendars)
+            {
+                var remoteCalendar = calendarListResponse.Items.FirstOrDefault(a => a.Id == calendar.RemoteCalendarId);
+                if (remoteCalendar == null)
                 {
-                    _logger.Warning("No folders found for {Name}", Account.Name);
-                    return;
+                    // Local calendar doesn't exists remotely. Delete local copy.
+
+                    await _gmailChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                    deletedCalendars.Add(calendar);
                 }
+            }
 
-                List<MailItemFolder> insertedFolders = new();
-                List<MailItemFolder> updatedFolders = new();
-                List<MailItemFolder> deletedFolders = new();
+            // Delete the deleted folders from local list.
+            deletedCalendars.ForEach(a => localCalendars.Remove(a));
 
-                // 1. Handle deleted labels.
-
-                foreach (var localFolder in localFolders)
+            // 2. Handle update/insert based on remote calendars.
+            foreach (var calendar in calendarListResponse.Items)
+            {
+                var existingLocalCalendar = localCalendars.FirstOrDefault(a => a.RemoteCalendarId == calendar.Id);
+                if (existingLocalCalendar == null)
                 {
-                    // Category folder is virtual folder for Wino. Skip it.
-                    if (localFolder.SpecialFolderType == SpecialFolderType.Category) continue;
-
-                    var remoteFolder = labelsResponse.Labels.FirstOrDefault(a => a.Id == localFolder.RemoteFolderId);
-
-                    if (remoteFolder == null)
-                    {
-                        // Local folder doesn't exists remotely. Delete local copy.
-                        await _gmailChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
-
-                        deletedFolders.Add(localFolder);
-                    }
+                    // Insert new calendar.
+                    var localCalendar = calendar.AsCalendar(Account.Id);
+                    insertedCalendars.Add(localCalendar);
                 }
-
-                // Delete the deleted folders from local list.
-                deletedFolders.ForEach(a => localFolders.Remove(a));
-
-                // 2. Handle update/insert based on remote folders.
-                foreach (var remoteFolder in labelsResponse.Labels)
+                else
                 {
-                    var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.Id);
-
-                    if (existingLocalFolder == null)
+                    // Update existing calendar. Right now we only update the name.
+                    if (ShouldUpdateCalendar(calendar, existingLocalCalendar))
                     {
-                        // Insert new folder.
-                        var localFolder = remoteFolder.GetLocalFolder(labelsResponse, Account.Id);
+                        existingLocalCalendar.Name = calendar.Summary;
 
-                        insertedFolders.Add(localFolder);
+                        updatedCalendars.Add(existingLocalCalendar);
                     }
                     else
                     {
-                        // Update existing folder. Right now we only update the name.
-
-                        // TODO: Moving folders around different parents. This is not supported right now.
-                        // We will need more comphrensive folder update mechanism to support this.
-
-                        if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
-                        {
-                            existingLocalFolder.FolderName = remoteFolder.Name;
-                            existingLocalFolder.TextColorHex = remoteFolder.Color?.TextColor;
-                            existingLocalFolder.BackgroundColorHex = remoteFolder.Color?.BackgroundColor;
-
-                            updatedFolders.Add(existingLocalFolder);
-                        }
-                        else
-                        {
-                            // Remove it from the local folder list to skip additional folder updates.
-                            localFolders.Remove(existingLocalFolder);
-                        }
+                        // Remove it from the local folder list to skip additional calendar updates.
+                        localCalendars.Remove(existingLocalCalendar);
                     }
                 }
-
-                // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
-
-                foreach (var folder in insertedFolders)
-                {
-                    await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
-                }
-
-                foreach (var folder in updatedFolders)
-                {
-                    await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
-                }
-
-                if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
-                {
-                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
-                }
             }
-            catch (Exception)
+
+            // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
+            foreach (var calendar in insertedCalendars)
             {
-                throw;
+                await _gmailChangeProcessor.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
             }
+
+            foreach (var calendar in updatedCalendars)
+            {
+                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+            }
+
+            if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
+            {
+                // TODO: Notify calendar updates.
+                // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            }
+        }
+
+        private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
+        {
+            var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+            var folderRequest = _gmailService.Users.Labels.List("me");
+
+            var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+            if (labelsResponse.Labels == null)
+            {
+                _logger.Warning("No folders found for {Name}", Account.Name);
+                return;
+            }
+
+            List<MailItemFolder> insertedFolders = new();
+            List<MailItemFolder> updatedFolders = new();
+            List<MailItemFolder> deletedFolders = new();
+
+            // 1. Handle deleted labels.
+
+            foreach (var localFolder in localFolders)
+            {
+                // Category folder is virtual folder for Wino. Skip it.
+                if (localFolder.SpecialFolderType == SpecialFolderType.Category) continue;
+
+                var remoteFolder = labelsResponse.Labels.FirstOrDefault(a => a.Id == localFolder.RemoteFolderId);
+
+                if (remoteFolder == null)
+                {
+                    // Local folder doesn't exists remotely. Delete local copy.
+                    await _gmailChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+
+                    deletedFolders.Add(localFolder);
+                }
+            }
+
+            // Delete the deleted folders from local list.
+            deletedFolders.ForEach(a => localFolders.Remove(a));
+
+            // 2. Handle update/insert based on remote folders.
+            foreach (var remoteFolder in labelsResponse.Labels)
+            {
+                var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.Id);
+
+                if (existingLocalFolder == null)
+                {
+                    // Insert new folder.
+                    var localFolder = remoteFolder.GetLocalFolder(labelsResponse, Account.Id);
+
+                    insertedFolders.Add(localFolder);
+                }
+                else
+                {
+                    // Update existing folder. Right now we only update the name.
+
+                    // TODO: Moving folders around different parents. This is not supported right now.
+                    // We will need more comphrensive folder update mechanism to support this.
+
+                    if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
+                    {
+                        existingLocalFolder.FolderName = remoteFolder.Name;
+                        existingLocalFolder.TextColorHex = remoteFolder.Color?.TextColor;
+                        existingLocalFolder.BackgroundColorHex = remoteFolder.Color?.BackgroundColor;
+
+                        updatedFolders.Add(existingLocalFolder);
+                    }
+                    else
+                    {
+                        // Remove it from the local folder list to skip additional folder updates.
+                        localFolders.Remove(existingLocalFolder);
+                    }
+                }
+            }
+
+            // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
+
+            foreach (var folder in insertedFolders)
+            {
+                await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
+            }
+
+            foreach (var folder in updatedFolders)
+            {
+                await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
+            }
+
+            if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
+            {
+                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            }
+        }
+
+        private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar)
+        {
+            // TODO: Only calendar name is updated for now. We can add more checks here.
+
+            var remoteCalendarName = calendarListEntry.Summary;
+            var localCalendarName = accountCalendar.Name;
+
+            return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
         }
 
         private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)

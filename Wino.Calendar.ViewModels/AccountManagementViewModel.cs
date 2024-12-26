@@ -125,7 +125,7 @@ namespace Wino.Calendar.ViewModels
                     Type = MailSynchronizationType.UpdateProfile
                 };
 
-                var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+                var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
 
                 var profileSynchronizationResult = profileSynchronizationResponse.Data;
 
@@ -141,11 +141,13 @@ namespace Wino.Calendar.ViewModels
             accountCreationDialog.State = AccountCreationDialogState.FetchingEvents;
 
             // Start synchronizing events.
-            var eventsSyncOptions = new MailSynchronizationOptions()
+            var synchronizationOptions = new CalendarSynchronizationOptions()
             {
                 AccountId = createdAccount.Id,
-                Type = MailSynchronizationType.Events
+                Type = CalendarSynchronizationType.CalendarMetadata
             };
+
+            var synchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(new NewCalendarSynchronizationRequested(synchronizationOptions, SynchronizationSource.Client));
         }
     }
 }

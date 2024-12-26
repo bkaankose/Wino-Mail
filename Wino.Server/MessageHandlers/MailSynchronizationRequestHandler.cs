@@ -14,9 +14,9 @@ using Wino.Server.Core;
 namespace Wino.Server.MessageHandlers
 {
     /// <summary>
-    /// Handler for NewSynchronizationRequested from the client.
+    /// Handler for NewMailSynchronizationRequested from the client.
     /// </summary>
-    public class SynchronizationRequestHandler : ServerMessageHandler<NewSynchronizationRequested, MailSynchronizationResult>
+    public class MailSynchronizationRequestHandler : ServerMessageHandler<NewMailSynchronizationRequested, MailSynchronizationResult>
     {
         public override WinoServerResponse<MailSynchronizationResult> FailureDefaultResponse(Exception ex)
             => WinoServerResponse<MailSynchronizationResult>.CreateErrorResponse(ex.Message);
@@ -25,7 +25,7 @@ namespace Wino.Server.MessageHandlers
         private readonly INotificationBuilder _notificationBuilder;
         private readonly IFolderService _folderService;
 
-        public SynchronizationRequestHandler(ISynchronizerFactory synchronizerFactory,
+        public MailSynchronizationRequestHandler(ISynchronizerFactory synchronizerFactory,
                                              INotificationBuilder notificationBuilder,
                                              IFolderService folderService)
         {
@@ -34,7 +34,7 @@ namespace Wino.Server.MessageHandlers
             _folderService = folderService;
         }
 
-        protected override async Task<WinoServerResponse<MailSynchronizationResult>> HandleAsync(NewSynchronizationRequested message, CancellationToken cancellationToken = default)
+        protected override async Task<WinoServerResponse<MailSynchronizationResult>> HandleAsync(NewMailSynchronizationRequested message, CancellationToken cancellationToken = default)
         {
             var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.Options.AccountId);
 

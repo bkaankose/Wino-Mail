@@ -19,6 +19,7 @@ namespace Wino.Helpers
     {
         private const string TwentyFourHourTimeFormat = "HH:mm";
         private const string TwelveHourTimeFormat = "hh:mm tt";
+
         #region Converters
 
         public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
@@ -40,6 +41,19 @@ namespace Wino.Helpers
                 _ => InfoBarSeverity.Informational,
             };
         }
+
+        public static Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode NavigationViewDisplayModeConverter(SplitViewDisplayMode splitViewDisplayMode)
+        {
+            return splitViewDisplayMode switch
+            {
+                SplitViewDisplayMode.CompactOverlay => Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Compact,
+                SplitViewDisplayMode.CompactInline => Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Minimal,
+                SplitViewDisplayMode.Overlay => Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Expanded,
+                SplitViewDisplayMode.Inline => Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Expanded,
+                _ => Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode.Minimal,
+            };
+        }
+
         public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
         public static Visibility IsSelectionModeMultiple(ListViewSelectionMode mode) => mode == ListViewSelectionMode.Multiple ? Visibility.Visible : Visibility.Collapsed;
         public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;

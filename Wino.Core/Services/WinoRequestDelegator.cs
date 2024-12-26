@@ -149,7 +149,7 @@ namespace Wino.Core.Services
                 Type = MailSynchronizationType.ExecuteRequests
             };
 
-            WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
         }
 
         private async Task EnsureServerConnectedAsync()
