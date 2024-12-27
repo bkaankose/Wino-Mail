@@ -97,7 +97,7 @@ namespace Wino.Services
                         Type = MailSynchronizationType.FullFolders,
                     };
 
-                    WeakReferenceMessenger.Default.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+                    WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
                 }
             }
             catch (Exception ex)
