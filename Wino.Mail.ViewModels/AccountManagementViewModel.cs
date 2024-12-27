@@ -165,7 +165,7 @@ namespace Wino.Mail.ViewModels
                             Type = MailSynchronizationType.UpdateProfile
                         };
 
-                        var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
+                        var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
 
                         var profileSynchronizationResult = profileSynchronizationResponse.Data;
 
@@ -195,7 +195,7 @@ namespace Wino.Mail.ViewModels
                         Type = MailSynchronizationType.FoldersOnly
                     };
 
-                    var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
+                    var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
 
                     var folderSynchronizationResult = folderSynchronizationResponse.Data;
 
@@ -213,7 +213,7 @@ namespace Wino.Mail.ViewModels
                             Type = MailSynchronizationType.Alias
                         };
 
-                        var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+                        var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
                         var aliasSynchronizationResult = folderSynchronizationResponse.Data;
 
                         if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)

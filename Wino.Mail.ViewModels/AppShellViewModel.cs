@@ -318,7 +318,7 @@ namespace Wino.Mail.ViewModels
                     Type = MailSynchronizationType.FullFolders
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+                Messenger.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 
@@ -891,7 +891,7 @@ namespace Wino.Mail.ViewModels
                 Type = MailSynchronizationType.FullFolders,
             };
 
-            Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+            Messenger.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
 
             try
             {

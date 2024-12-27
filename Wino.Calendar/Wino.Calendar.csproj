@@ -6,6 +6,8 @@
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
     <!-- UWP WAM Authentication on Xbox needs this. -->
     <UseDotNetNativeSharedAssemblyFrameworkPackage>false</UseDotNetNativeSharedAssemblyFrameworkPackage>
+    <PackageCertificateThumbprint>125A5273FCFE8D551C3FED87F67C87A663E98F1B</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>Wino.Mail_TemporaryKey.pfx</PackageCertificateKeyFile>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
@@ -32,8 +34,6 @@
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <PackageCertificateThumbprint>125A5273FCFE8D551C3FED87F67C87A663E98F1B</PackageCertificateThumbprint>
-    <PackageCertificateKeyFile />
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
