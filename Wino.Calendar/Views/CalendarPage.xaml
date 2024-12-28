@@ -8,15 +8,15 @@
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
     mc:Ignorable="d">
+
     <!--<Page.Resources>
         <x:Double x:Key="TeachingTipMinWidth">500</x:Double>
         <x:Double x:Key="TeachingTipMaxWidth">500</x:Double>
     </Page.Resources>-->
+
     <Border
         Margin="0,0,7,7"
-        Background="{ThemeResource WinoContentZoneBackgroud}"
         BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
         BorderThickness="1"
         CornerRadius="7">

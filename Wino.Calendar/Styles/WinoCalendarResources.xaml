@@ -28,6 +28,7 @@
     <DataTemplate x:Key="FlipTemplate" x:DataType="models:DayRangeRenderModel">
         <Grid
             x:Name="RootGrid"
+            Background="Transparent"
             ColumnSpacing="0"
             RowSpacing="0">
             <Grid.RowDefinitions>
@@ -110,6 +111,7 @@
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
                             ActiveCanvas="{x:Bind ActiveCanvas, Mode=TwoWay}"
+                            Background="Transparent"
                             IsTabStop="False"
                             ItemTemplate="{StaticResource FlipTemplate}"
                             ItemsSource="{TemplateBinding DayRanges}"

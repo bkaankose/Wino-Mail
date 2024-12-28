@@ -18,6 +18,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP;
+using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Server;
 using Wino.Services;
@@ -78,6 +79,7 @@ namespace Wino.Calendar
             services.AddSingleton(typeof(CalendarPageViewModel));
             services.AddTransient(typeof(CalendarSettingsPageViewModel));
             services.AddTransient(typeof(AccountManagementViewModel));
+            services.AddTransient(typeof(PersonalizationPageViewModel));
         }
 
         #endregion

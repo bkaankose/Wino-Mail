@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Input;
 using CommunityToolkit.Diagnostics;
+using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
@@ -16,8 +17,14 @@ namespace Wino.Calendar.Controls
 
         public static readonly DependencyProperty HighlightedDateRangeProperty = DependencyProperty.Register(nameof(HighlightedDateRange), typeof(DateRange), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnHighlightedDateRangeChanged)));
         public static readonly DependencyProperty VisibleDateBackgroundProperty = DependencyProperty.Register(nameof(VisibleDateBackground), typeof(Brush), typeof(WinoCalendarView), new PropertyMetadata(null, new PropertyChangedCallback(OnPropertiesChanged)));
-        public static readonly DependencyProperty TodayBackgroundBrushProperty = DependencyProperty.Register(nameof(TodayBackgroundBrush), typeof(Brush), typeof(WinoCalendarView), new PropertyMetadata(null));
         public static readonly DependencyProperty DateClickedCommandProperty = DependencyProperty.Register(nameof(DateClickedCommand), typeof(ICommand), typeof(WinoCalendarView), new PropertyMetadata(null));
+        public static readonly DependencyProperty TodayBackgroundColorProperty = DependencyProperty.Register(nameof(TodayBackgroundColor), typeof(Color), typeof(WinoCalendarView), new PropertyMetadata(null));
+
+        public Color TodayBackgroundColor
+        {
+            get { return (Color)GetValue(TodayBackgroundColorProperty); }
+            set { SetValue(TodayBackgroundColorProperty, value); }
+        }
 
         /// <summary>
         /// Gets or sets the command to execute when a date is picked.
@@ -44,11 +51,7 @@ namespace Wino.Calendar.Controls
             set { SetValue(VisibleDateBackgroundProperty, value); }
         }
 
-        public Brush TodayBackgroundBrush
-        {
-            get { return (Brush)GetValue(TodayBackgroundBrushProperty); }
-            set { SetValue(TodayBackgroundBrushProperty, value); }
-        }
+
 
         private CalendarView CalendarView;
 
@@ -117,7 +120,7 @@ namespace Wino.Calendar.Controls
 
         public void UpdateVisibleDateRangeBackgrounds()
         {
-            if (HighlightedDateRange == null || VisibleDateBackground == null || TodayBackgroundBrush == null || CalendarView == null) return;
+            if (HighlightedDateRange == null || VisibleDateBackground == null || TodayBackgroundColor == null || CalendarView == null) return;
 
             var markDateCalendarDayItems = WinoVisualTreeHelper.FindDescendants<CalendarViewDayItem>(CalendarView);
 
@@ -129,7 +132,7 @@ namespace Wino.Calendar.Controls
 
                 if (calendarDayItem.Date.Date == DateTime.Today.Date)
                 {
-                    border.Background = TodayBackgroundBrush;
+                    border.Background = new SolidColorBrush(TodayBackgroundColor);
                 }
                 else if (calendarDayItem.Date.Date >= HighlightedDateRange.StartDate.Date && calendarDayItem.Date.Date < HighlightedDateRange.EndDate.Date)
                 {

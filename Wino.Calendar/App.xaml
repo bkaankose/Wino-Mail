@@ -8,8 +8,8 @@
     xmlns:local="using:Wino.Calendar"
     xmlns:styles="using:Wino.Calendar.Styles">
     <Application.Resources>
-        <controls:XamlControlsResources>
-            <controls:XamlControlsResources.MergedDictionaries>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
 
                 <core:CoreGeneric />
@@ -30,8 +30,8 @@
 
                 <!--  Last item must always be the default theme.  -->
                 <ResourceDictionary Source="ms-appx:///Wino.Core.UWP/AppThemes/Mica.xaml" />
-            </controls:XamlControlsResources.MergedDictionaries>
-        </controls:XamlControlsResources>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </core:WinoApplication>
 

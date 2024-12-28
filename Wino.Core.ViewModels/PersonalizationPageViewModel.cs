@@ -18,7 +18,7 @@ namespace Wino.Core.ViewModels
         public IStatePersistanceService StatePersistenceService { get; }
         public IPreferencesService PreferencesService { get; }
 
-        private readonly IMailDialogService _dialogService;
+        private readonly IDialogServiceBase _dialogService;
         private readonly IThemeService _themeService;
 
         private bool isPropChangeDisabled = false;
@@ -128,17 +128,18 @@ namespace Wino.Core.ViewModels
         }
 
         public AsyncRelayCommand CreateCustomThemeCommand { get; set; }
-        public PersonalizationPageViewModel(IMailDialogService dialogService,
+        public PersonalizationPageViewModel(IDialogServiceBase dialogService,
                                             IStatePersistanceService statePersistanceService,
                                             IThemeService themeService,
                                             IPreferencesService preferencesService)
         {
-            CreateCustomThemeCommand = new AsyncRelayCommand(CreateCustomThemeAsync);
             _dialogService = dialogService;
-            StatePersistenceService = statePersistanceService;
-
             _themeService = themeService;
+
+            StatePersistenceService = statePersistanceService;
             PreferencesService = preferencesService;
+
+            CreateCustomThemeCommand = new AsyncRelayCommand(CreateCustomThemeAsync);
         }
 
         private async Task CreateCustomThemeAsync()

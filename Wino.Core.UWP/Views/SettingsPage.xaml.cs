@@ -38,6 +38,9 @@ namespace Wino.Views
                     case WinoPage.AppPreferencesPage:
                         WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsAppPreferences_Title, WinoPage.AppPreferencesPage));
                         break;
+                    case WinoPage.PersonalizationPage:
+                        WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsPersonalization_Title, WinoPage.PersonalizationPage));
+                        break;
                 }
             }
         }

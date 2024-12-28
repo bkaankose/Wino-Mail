@@ -13,9 +13,13 @@
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b2dffc</SolidColorBrush>
+
+            <SolidColorBrush x:Key="CalendarSeperatorBrush">#222f3e</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b2dffc</SolidColorBrush>
+
+            <SolidColorBrush x:Key="CalendarSeperatorBrush">#222f3e</SolidColorBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

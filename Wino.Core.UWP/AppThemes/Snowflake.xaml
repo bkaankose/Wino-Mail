@@ -4,7 +4,7 @@
     xmlns:xaml="using:Windows.UI.Xaml">
 
     <x:String x:Key="ThemeName">Snowflake</x:String>
-    <x:String x:Key="ThemeBackgroundImage">ms-appx:///Wino.Core.UWP/Snowflake.jpg</x:String>
+    <x:String x:Key="ThemeBackgroundImage">ms-appx:///Wino.Core.UWP/BackgroundImages/Snowflake.jpg</x:String>
     <x:Boolean x:Key="UseMica">False</x:Boolean>
 
     <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />

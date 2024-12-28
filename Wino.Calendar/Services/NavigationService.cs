@@ -26,6 +26,8 @@ namespace Wino.Calendar.Services
                     return typeof(CalendarSettingsPage);
                 case WinoPage.AccountManagementPage:
                     return typeof(AccountManagementPage);
+                case WinoPage.PersonalizationPage:
+                    return typeof(PersonalizationPage);
                 default:
                     throw new Exception("Page is not implemented yet.");
             }

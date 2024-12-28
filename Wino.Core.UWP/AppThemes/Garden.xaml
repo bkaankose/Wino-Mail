@@ -13,7 +13,10 @@
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#dcfad8</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarSeperatorBrush">#576574</SolidColorBrush>
         </ResourceDictionary>
+
+        <!--  N/A. Light theme only.  -->
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#dcfad8</SolidColorBrush>
         </ResourceDictionary>

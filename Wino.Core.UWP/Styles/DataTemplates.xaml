@@ -5,17 +5,36 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Core.UWP.Styles"
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">
 
     <!--  Removes default styles for content of navigation view  -->
     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
     <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+
+    <!--  Root Account Template  -->
+    <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
+        <winuiControls:SettingsCard
+            Margin="0,2,0,0"
+            Command="{Binding ViewModel.NavigateAccountDetailsCommand, Mode=OneWay, ElementName=root}"
+            CommandParameter="{x:Bind}"
+            Description="{x:Bind Account.Address}"
+            Header="{x:Bind Account.Name}"
+            IsClickEnabled="True">
+            <winuiControls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
+            </winuiControls:SettingsCard.HeaderIcon>
+        </winuiControls:SettingsCard>
+    </DataTemplate>
+
+
 
     <!--#region Navigation Menu Templates-->
 
@@ -68,19 +87,134 @@
 
     <!--#endregion-->
 
-    <!--  Root Account Template  -->
-    <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
-        <winuiControls:SettingsCard
-            Margin="0,2,0,0"
-            Command="{Binding ViewModel.NavigateAccountDetailsCommand, Mode=OneWay, ElementName=root}"
-            CommandParameter="{x:Bind}"
-            Description="{x:Bind Account.Address}"
-            Header="{x:Bind Account.Name}"
-            IsClickEnabled="True">
-            <winuiControls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
-            </winuiControls:SettingsCard.HeaderIcon>
-        </winuiControls:SettingsCard>
+    <!--#region Settings-->
+    <!--  System Theme Template  -->
+    <DataTemplate x:Key="SystemAppThemeTemplate" x:DataType="personalization:SystemAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                </Grid.Background>
+                <Grid
+                    Width="20"
+                    Height="20"
+                    Margin="0,12,12,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource SystemAccentColor}" />
+            </Grid>
+
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
     </DataTemplate>
+
+    <!--  Custom Theme Template  -->
+    <DataTemplate x:Key="CustomAppThemeTemplate" x:DataType="personalization:CustomAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                </Grid.Background>
+                <!--  Accent Assigned  -->
+                <Grid x:Name="AccentAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned}">
+                    <Grid
+                        Width="20"
+                        Height="20"
+                        Margin="0,12,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+                </Grid>
+
+                <!--  Accent Not Assigned  -->
+                <Grid x:Name="AccentNotAssignedGrid" x:Load="{x:Bind IsAccentColorAssigned, Converter={StaticResource ReverseBooleanConverter}}">
+                    <Grid
+                        Width="20"
+                        Height="20"
+                        Margin="0,12,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{ThemeResource SystemAccentColor}" />
+                </Grid>
+
+            </Grid>
+
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Wino Template  -->
+    <DataTemplate x:Key="PreDefinedAppThemeTemplate" x:DataType="personalization:PreDefinedAppTheme">
+        <Grid
+            Width="175"
+            CornerRadius="6"
+            RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="125" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid CornerRadius="6,6,0,0">
+                <Grid.Background>
+                    <ImageBrush ImageSource="{x:Bind BackgroundPreviewImage}" />
+                </Grid.Background>
+
+                <Grid
+                    Width="20"
+                    Height="20"
+                    Margin="0,12,12,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccentColor)}" />
+            </Grid>
+
+            <!--  Dark Theme Title  -->
+            <Grid Grid.Row="1" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+                <TextBlock
+                    Padding="0,8"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind ThemeName}" />
+            </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <coreSelectors:AppThemePreviewTemplateSelector
+        x:Key="AppThemePreviewTemplateSelector"
+        CustomAppTemplate="{StaticResource CustomAppThemeTemplate}"
+        PreDefinedThemeTemplate="{StaticResource PreDefinedAppThemeTemplate}"
+        SystemThemeTemplate="{StaticResource SystemAppThemeTemplate}" />
+
+    <Style x:Key="SettingTitleTextBlockStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!--#endregion-->
 
 </ResourceDictionary>

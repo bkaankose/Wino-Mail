@@ -4,20 +4,24 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
+            <!--  CalendarControl  -->
             <SolidColorBrush x:Key="CalendarSeperatorBrush">#D9D9D9</SolidColorBrush>
-            <SolidColorBrush x:Key="CalendarFieldWorkingHoursBackgroundBrush">#ffffff</SolidColorBrush>
-            <SolidColorBrush x:Key="CalendarFieldWorkingNonHoursBackgroundBrush">#f9f9f9</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarFieldWorkingHoursBackgroundBrush">#32000000</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarFieldSelectedBackgroundBrush">#ebebeb</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoCalendarViewBorderBrush">Yellow</SolidColorBrush>
+
+            <!--  CalendarView  -->
+            <SolidColorBrush x:Key="WinoCalendarViewBorderBrush">#2e86de</SolidColorBrush>
             <SolidColorBrush x:Key="WinoCalendarViewVisibleDayBackgroundBrush">#dfe4ea</SolidColorBrush>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
+
+            <!--  CalendarControl  -->
             <SolidColorBrush x:Key="CalendarSeperatorBrush">#000000</SolidColorBrush>
-            <SolidColorBrush x:Key="CalendarFieldWorkingHoursBackgroundBrush">#262626</SolidColorBrush>
-            <SolidColorBrush x:Key="CalendarFieldWorkingNonHoursBackgroundBrush">#1a1a1a</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarFieldWorkingHoursBackgroundBrush">#32262626</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarFieldSelectedBackgroundBrush">#121212</SolidColorBrush>
 
+            <!--  CalendarView  -->
             <SolidColorBrush x:Key="WinoCalendarViewBorderBrush">#3d3d3d</SolidColorBrush>
             <SolidColorBrush x:Key="WinoCalendarViewVisibleDayBackgroundBrush">#4b4b4b</SolidColorBrush>
 

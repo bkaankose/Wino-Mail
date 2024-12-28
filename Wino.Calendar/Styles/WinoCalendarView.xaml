@@ -10,7 +10,6 @@
 
     <Style TargetType="controls:WinoCalendarView">
         <Setter Property="VisibleDateBackground" Value="{ThemeResource WinoCalendarViewVisibleDayBackgroundBrush}" />
-        <Setter Property="TodayBackgroundBrush" Value="{ThemeResource SystemColorControlAccentBrush}" />
 
         <Setter Property="Template">
             <Setter.Value>
@@ -29,7 +28,10 @@
                                     <Setter.Value>
                                         <ControlTemplate TargetType="CalendarViewDayItem">
                                             <Grid>
-                                                <Border x:Name="PART_DayViewItemBorder" CornerRadius="5">
+                                                <Border
+                                                    x:Name="PART_DayViewItemBorder"
+                                                    Margin="0,-1,0,-3"
+                                                    CornerRadius="5">
                                                     <ContentPresenter />
                                                 </Border>
                                             </Grid>

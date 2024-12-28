@@ -163,6 +163,7 @@
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarPageAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarSettingsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
     <Compile Include="Views\Account\AccountManagementPage.xaml.cs">
       <DependentUpon>AccountManagementPage.xaml</DependentUpon>
     </Compile>
@@ -174,6 +175,9 @@
     </Compile>
     <Compile Include="Views\Settings\CalendarSettingsPage.xaml.cs">
       <DependentUpon>CalendarSettingsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\PersonalizationPage.xaml.cs">
+      <DependentUpon>PersonalizationPage.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -294,6 +298,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\Settings\CalendarSettingsPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\PersonalizationPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -26,7 +26,7 @@ namespace Wino.Core.UWP
             services.AddSingleton<IThemeService, ThemeService>();
             services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
 
-
+            services.AddSingleton<IDialogServiceBase, DialogServiceBase>();
             services.AddTransient<IConfigurationService, ConfigurationService>();
             services.AddTransient<IFileService, FileService>();
             services.AddTransient<IStoreRatingService, StoreRatingService>();

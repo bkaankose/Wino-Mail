@@ -169,10 +169,10 @@
 
                     <calendarControls:WinoCalendarView
                         x:Name="CalendarView"
-                        
                         HorizontalAlignment="Center"
                         DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
-                        HighlightedDateRange="{x:Bind ViewModel.HighlightedDateRange, Mode=OneWay}" />
+                        HighlightedDateRange="{x:Bind ViewModel.HighlightedDateRange, Mode=OneWay}"
+                        TodayBackgroundColor="{ThemeResource SystemAccentColor}" />
 
                     <ScrollViewer
                         Grid.Row="1"
@@ -180,6 +180,7 @@
                         VerticalScrollBarVisibility="Hidden">
                         <Grid>
                             <Button
+                                Margin="14,0"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Bottom"
                                 Command="{x:Bind ViewModel.SyncCommand}"
@@ -262,64 +263,6 @@
                 </Grid>
             </SplitView.Content>
         </SplitView>
-
-        <!--<muxc:NavigationView
-            x:Name="MainNavigationView"
-            Grid.Row="1"
-            Grid.ColumnSpan="3"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch"
-            AlwaysShowHeader="True"
-            FooterMenuItemsSource="{x:Bind ViewModel.FooterItems, Mode=OneWay}"
-            IsBackButtonVisible="Collapsed"
-            IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
-            IsPaneToggleButtonVisible="False"
-            IsSettingsVisible="False"
-            IsTabStop="True"
-            IsTitleBarAutoPaddingEnabled="False"
-            MenuItemTemplateSelector="{StaticResource NavigationMenuTemplateSelector}"
-            MenuItemsSource="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
-            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=TwoWay}"
-            SelectedItem="{x:Bind ViewModel.SelectedMenuItem, Mode=TwoWay}"
-            Visibility="Collapsed">
-            <muxc:NavigationView.ContentTransitions>
-                <TransitionCollection>
-                    <AddDeleteThemeTransition />
-                </TransitionCollection>
-            </muxc:NavigationView.ContentTransitions>
-
-            <muxc:NavigationView.PaneHeader>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <calendarControls:WinoCalendarView
-                        x:Name="CalendarView"
-                        HorizontalAlignment="Center"
-                        DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
-                        HighlightedDateRange="{x:Bind ViewModel.HighlightedDateRange, Mode=OneWay}" />
-
-                    <ScrollViewer
-                        Grid.Row="1"
-                        HorizontalScrollMode="Disabled"
-                        VerticalScrollBarVisibility="Hidden">
-                        <StackPanel>
-                            <Button
-                                Margin="0,24"
-                                VerticalAlignment="Bottom"
-                                Command="{x:Bind ViewModel.SyncCommand}"
-                                Content="Sync" />
-
-
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </muxc:NavigationView.PaneHeader>
-            <muxc:NavigationView.Content>
-
-            </muxc:NavigationView.Content>
-        </muxc:NavigationView>-->
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="LowResolutionStates">
