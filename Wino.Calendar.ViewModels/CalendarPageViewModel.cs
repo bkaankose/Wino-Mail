@@ -34,6 +34,7 @@ namespace Wino.Calendar.ViewModels
 
         // Get rid of some of the items if we have too many.
         private const int maxDayRangeSize = 10;
+        private readonly ICalendarService _calendarService;
         private readonly IPreferencesService _preferencesService;
 
         // Store latest rendered options.
@@ -47,9 +48,11 @@ namespace Wino.Calendar.ViewModels
         public IStatePersistanceService StatePersistanceService { get; }
 
         public CalendarPageViewModel(IStatePersistanceService statePersistanceService,
+                                     ICalendarService calendarService,
                                      IPreferencesService preferencesService)
         {
             StatePersistanceService = statePersistanceService;
+            _calendarService = calendarService;
             _preferencesService = preferencesService;
 
             _currentSettings = _preferencesService.GetCurrentCalendarSettings();
@@ -187,6 +190,8 @@ namespace Wino.Calendar.ViewModels
                 }
             }
 
+
+
             // Create day ranges for each flip item until we reach the total days to load.
             int totalFlipItemCount = (int)Math.Ceiling((double)flipLoadRange.TotalDays / eachFlipItemCount);
 
@@ -201,6 +206,21 @@ namespace Wino.Calendar.ViewModels
                 var renderOptions = new CalendarRenderOptions(range, _currentSettings);
 
                 renderModels.Add(new DayRangeRenderModel(renderOptions));
+            }
+
+            // Dates are loaded. Now load the events for them.
+
+            foreach (var renderModel in renderModels)
+            {
+                foreach (var day in renderModel.CalendarDays)
+                {
+                    var events = await _calendarService.GetCalendarEventsAsync(Guid.Parse("13e8e385-a1bb-4764-95b4-757901cad35a"), day.Period.Start, day.Period.End).ConfigureAwait(false);
+
+                    foreach (var calendarItem in events)
+                    {
+                        day.EventsCollection.Add(calendarItem);
+                    }
+                }
             }
 
             CalendarLoadDirection animationDirection = calendarLoadDirection;

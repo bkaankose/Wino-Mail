@@ -42,7 +42,10 @@
                 ItemsSource="{x:Bind CalendarDays}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:CalendarDayModel">
-                        <controls:DayColumnControl DayModel="{x:Bind}" />
+                        <controls:DayColumnControl
+                            MinHeight="100"
+                            MaxHeight="200"
+                            DayModel="{x:Bind}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
                 <ItemsControl.ItemsPanel>

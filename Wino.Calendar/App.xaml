@@ -20,9 +20,8 @@
                 <ResourceDictionary Source="Styles/CalendarRenderStyles.xaml" />
 
                 <ResourceDictionary Source="Styles/CalendarDayItemsControl.xaml" />
-                <ResourceDictionary Source="Styles/DayHeaderControl.xaml" />
+                <styles:DayColumnControlResources />
                 <ResourceDictionary Source="Styles/WinoDayTimelineCanvas.xaml" />
-                <ResourceDictionary Source="Styles/DayColumnControl.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarView.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
 

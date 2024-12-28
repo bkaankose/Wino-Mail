@@ -5,6 +5,7 @@ using System.Web;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1.Data;
 using MimeKit;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -278,7 +279,7 @@ namespace Wino.Core.Extensions
                 return null;
             }
 
-            return string.Join("___", calendarEvent.Recurrence);
+            return string.Join(Constants.CalendarEventRecurrenceRuleSeperator, calendarEvent.Recurrence);
         }
     }
 }

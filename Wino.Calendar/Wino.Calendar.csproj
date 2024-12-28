@@ -158,6 +158,9 @@
     <Compile Include="Services\ProviderService.cs" />
     <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\CalendarItemControlResources.xaml.cs" />
+    <Compile Include="Styles\DayColumnControlResources.xaml.cs">
+      <DependentUpon>DayColumnControlResources.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Styles\WinoCalendarResources.xaml.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
@@ -261,9 +264,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Styles\DayColumnControl.xaml">
-      <Generator>MSBuild:Compile</Generator>
+    <Page Include="Styles\DayColumnControlResources.xaml">
       <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\DayHeaderControl.xaml">
       <Generator>MSBuild:Compile</Generator>

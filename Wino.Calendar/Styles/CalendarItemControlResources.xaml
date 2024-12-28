@@ -18,7 +18,8 @@
                             <TextBlock
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Text="{x:Bind Item.Title, Mode=OneWay}" />
+                                Text="{x:Bind Item.Title, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>

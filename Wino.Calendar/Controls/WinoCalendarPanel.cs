@@ -41,12 +41,12 @@ namespace Wino.Calendar.Controls
                 // We need to listen for new events being added or removed from the collection to reset measurements.
                 if (e.OldValue is CalendarDayModel oldDayModel)
                 {
-                    control.DetachCollection(oldDayModel.Events);
+                    control.DetachCollection(oldDayModel.EventsCollection);
                 }
 
                 if (e.NewValue is CalendarDayModel newDayModel)
                 {
-                    control.AttachCollection(newDayModel.Events);
+                    control.AttachCollection(newDayModel.EventsCollection);
                 }
 
                 control.ResetMeasurements();
@@ -114,12 +114,17 @@ namespace Wino.Calendar.Controls
 
             var calendarControls = Children.Cast<CalendarItemControl>();
 
-            if (_measurements.Count == 0 && DayModel.Events.Count > 0)
+            // We need to exclude all-day events from the layout algorithm.
+            // All-day events are displayed in a separate panel.
+
+            calendarControls = calendarControls.Where(x => x.Item.DurationInMinutes != 1440);
+
+            if (_measurements.Count == 0 && DayModel.EventsCollection.Count > 0)
             {
                 // We keep track of this collection when event is added/removed/reset etc.
                 // So if the collection is empty, we must fill it up again for proper calculations.
 
-                LayoutEvents(DayModel.Events);
+                LayoutEvents(DayModel.EventsCollection);
             }
 
             foreach (var child in calendarControls)
@@ -129,9 +134,7 @@ namespace Wino.Calendar.Controls
 
                 var childMeasurement = _measurements[child.Item.Id];
 
-                // TODO Math.Max(0, GetChildHeight(child.Item.StartTime, child.Item.EndTime));
-                // Recurring events may not have an end time. We need to calculate the height based on the start time and duration.
-                double childHeight = 50;
+                double childHeight = Math.Max(0, GetChildHeight(child.Item.StartTime, child.Item.StartTime.AddMinutes(child.Item.DurationInMinutes)));
                 double childWidth = Math.Max(0, GetChildWidth(childMeasurement, finalSize.Width));
                 double childTop = Math.Max(0, GetChildTopMargin(child.Item.StartTime, availableHeight));
                 double childLeft = Math.Max(0, GetChildLeftMargin(childMeasurement, availableWidth));
@@ -139,12 +142,10 @@ namespace Wino.Calendar.Controls
                 bool isHorizontallyLastItem = childMeasurement.Right == 1;
 
                 // Add additional right margin to items that falls on the right edge of the panel.
-                // Max of 5% of the width or 20px.
+                // Max of 5% of the width or 20px max.
                 var extraRightMargin = isHorizontallyLastItem ? Math.Max(LastItemRightExtraMargin, finalSize.Width * 5 / 100) : 0;
 
-                var finalChildWidth = childWidth - extraRightMargin;
-
-                if (finalChildWidth < 0) finalChildWidth = 1;
+                if (childWidth < 0) childWidth = 1;
 
                 child.Measure(new Size(childWidth, childHeight));
 
@@ -178,6 +179,8 @@ namespace Wino.Calendar.Controls
 
             foreach (var ev in events.OrderBy(ev => ev.Period.Start).ThenBy(ev => ev.Period.End))
             {
+                if (ev.Period.Duration.TotalMinutes == 1440) continue;
+
                 if (ev.Period.Start >= lastEventEnding)
                 {
                     PackEvents(columns);

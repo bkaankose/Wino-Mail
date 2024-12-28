@@ -8,6 +8,8 @@
         public const string WinoLocalDraftHeader = "X-Wino-Draft-Id";
         public const string LocalDraftStartPrefix = "localDraft_";
 
+        public const string CalendarEventRecurrenceRuleSeperator = "___";
+
         public const string ToastMailUniqueIdKey = nameof(ToastMailUniqueIdKey);
         public const string ToastActionKey = nameof(ToastActionKey);
 

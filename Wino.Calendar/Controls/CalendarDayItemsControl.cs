@@ -29,12 +29,12 @@ namespace Wino.Calendar.Controls
             {
                 if (e.OldValue != null && e.OldValue is CalendarDayModel oldCalendarDayModel)
                 {
-                    control.DetachCollection(oldCalendarDayModel.Events);
+                    control.DetachCollection(oldCalendarDayModel.EventsCollection);
                 }
 
                 if (e.NewValue != null && e.NewValue is CalendarDayModel newCalendarDayModel)
                 {
-                    control.AttachCollection(newCalendarDayModel.Events);
+                    control.AttachCollection(newCalendarDayModel.EventsCollection);
                 }
 
                 control.ResetItems();
@@ -109,13 +109,13 @@ namespace Wino.Calendar.Controls
 
         private void RenderCalendarItems()
         {
-            if (DayModel == null || DayModel.Events == null || DayModel.Events.Count == 0)
+            if (DayModel == null || DayModel.EventsCollection == null || DayModel.EventsCollection.Count == 0)
             {
                 ResetItems();
                 return;
             }
 
-            foreach (var item in DayModel.Events)
+            foreach (var item in DayModel.EventsCollection)
             {
                 AddItem(item);
             }
