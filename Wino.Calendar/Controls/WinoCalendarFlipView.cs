@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Models.Calendar;
@@ -10,29 +11,42 @@ namespace Wino.Calendar.Controls
 {
     public class WinoCalendarFlipView : CustomCalendarFlipView
     {
-        public event EventHandler<WinoDayTimelineCanvas> ActiveTimelineCanvasChanged;
+        public WinoDayTimelineCanvas ActiveCanvas
+        {
+            get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
+            set { SetValue(ActiveCanvasProperty, value); }
+        }
+
+        public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarFlipView), new PropertyMetadata(null));
 
         public WinoCalendarFlipView()
         {
-            SelectionChanged += CalendarDisplayRangeChanged;
+            RegisterPropertyChangedCallback(SelectedIndexProperty, new DependencyPropertyChangedCallback(OnSelectedIndexUpdated));
         }
 
-        private async void CalendarDisplayRangeChanged(object sender, SelectionChangedEventArgs e)
+        private static void OnSelectedIndexUpdated(DependencyObject d, DependencyProperty e)
+        {
+            if (d is WinoCalendarFlipView flipView)
+            {
+                flipView.UpdateActiveCanvas();
+            }
+        }
+
+        public async void UpdateActiveCanvas()
         {
             if (SelectedIndex < 0)
-                ActiveTimelineCanvasChanged?.Invoke(this, null);
+                ActiveCanvas = null;
             else
             {
                 // TODO: Refactor this mechanism by listening to PrepareContainerForItemOverride and Loaded events together.
                 while (ContainerFromIndex(SelectedIndex) == null)
                 {
-                    await Task.Delay(250);
+                    await Task.Delay(100);
                 }
 
                 if (ContainerFromIndex(SelectedIndex) is FlipViewItem flipViewItem)
                 {
-                    var canvas = flipViewItem.FindDescendant<WinoDayTimelineCanvas>();
-                    ActiveTimelineCanvasChanged?.Invoke(this, canvas);
+                    ActiveCanvas = flipViewItem.FindDescendant<WinoDayTimelineCanvas>();
                 }
             }
         }
@@ -43,41 +57,45 @@ namespace Wino.Calendar.Controls
         /// <param name="dateTime">Date to navigate.</param>
         public async void NavigateToDay(DateTime dateTime)
         {
-            // Find the day range that contains the date.
-            var dayRange = GetItemsSource()?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
+            await Task.Yield();
 
-            if (dayRange != null)
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
             {
-                var navigationItemIndex = GetItemsSource().IndexOf(dayRange);
+                // Find the day range that contains the date.
+                var dayRange = GetItemsSource()?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
 
-                if (Math.Abs(navigationItemIndex - SelectedIndex) > 4)
+                if (dayRange != null)
                 {
-                    // Difference between dates are high.
-                    // No need to animate this much, just go without animating.
+                    var navigationItemIndex = GetItemsSource().IndexOf(dayRange);
 
-                    SelectedIndex = navigationItemIndex;
-                }
-                else
-                {
-                    // Until we reach the day in the flip, simulate next-prev button clicks.
-                    // This will make sure the FlipView animations are triggered.
-                    // Setting SelectedIndex directly doesn't trigger the animations.
-
-                    while (SelectedIndex != navigationItemIndex)
+                    if (Math.Abs(navigationItemIndex - SelectedIndex) > 4)
                     {
-                        if (SelectedIndex > navigationItemIndex)
+                        // Difference between dates are high.
+                        // No need to animate this much, just go without animating.
+
+                        SelectedIndex = navigationItemIndex;
+                    }
+                    else
+                    {
+                        // Until we reach the day in the flip, simulate next-prev button clicks.
+                        // This will make sure the FlipView animations are triggered.
+                        // Setting SelectedIndex directly doesn't trigger the animations.
+
+                        while (SelectedIndex != navigationItemIndex)
                         {
-                            GoPreviousFlip();
-                        }
-                        else
-                        {
-                            GoNextFlip();
+                            if (SelectedIndex > navigationItemIndex)
+                            {
+                                GoPreviousFlip();
+                            }
+                            else
+                            {
+                                GoNextFlip();
+                            }
                         }
                     }
                 }
-            }
+            });
         }
-
 
         public void NavigateHour(TimeSpan hourTimeSpan)
         {

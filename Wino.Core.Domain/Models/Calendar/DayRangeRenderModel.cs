@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Models.Calendar
     /// </summary>
     public class DayRangeRenderModel
     {
-        ITimePeriod Period { get; }
+        public ITimePeriod Period { get; }
         public List<CalendarDayModel> CalendarDays { get; } = new List<CalendarDayModel>();
         public List<DayHeaderRenderModel> DayHeaders { get; } = new List<DayHeaderRenderModel>();
         public CalendarRenderOptions CalendarRenderOptions { get; }

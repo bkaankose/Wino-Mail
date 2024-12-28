@@ -109,6 +109,7 @@
                             x:Name="PART_WinoFlipView"
                             HorizontalContentAlignment="Stretch"
                             VerticalContentAlignment="Stretch"
+                            ActiveCanvas="{x:Bind ActiveCanvas, Mode=TwoWay}"
                             IsTabStop="False"
                             ItemTemplate="{StaticResource FlipTemplate}"
                             ItemsSource="{TemplateBinding DayRanges}"

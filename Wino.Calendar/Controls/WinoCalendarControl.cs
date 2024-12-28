@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.Messaging;
+using System.Diagnostics;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
 using Wino.Core.Domain.Models.Calendar;
-using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Controls
 {
@@ -21,11 +20,18 @@ namespace Wino.Calendar.Controls
         public static readonly DependencyProperty DayRangesProperty = DependencyProperty.Register(nameof(DayRanges), typeof(ObservableCollection<DayRangeRenderModel>), typeof(WinoCalendarControl), new PropertyMetadata(null));
         public static readonly DependencyProperty SelectedFlipViewIndexProperty = DependencyProperty.Register(nameof(SelectedFlipViewIndex), typeof(int), typeof(WinoCalendarControl), new PropertyMetadata(-1));
         public static readonly DependencyProperty SelectedFlipViewDayRangeProperty = DependencyProperty.Register(nameof(SelectedFlipViewDayRange), typeof(DayRangeRenderModel), typeof(WinoCalendarControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveCanvasChanged)));
 
         public DayRangeRenderModel SelectedFlipViewDayRange
         {
             get { return (DayRangeRenderModel)GetValue(SelectedFlipViewDayRangeProperty); }
             set { SetValue(SelectedFlipViewDayRangeProperty, value); }
+        }
+
+        public WinoDayTimelineCanvas ActiveCanvas
+        {
+            get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
+            set { SetValue(ActiveCanvasProperty, value); }
         }
 
         /// <summary>
@@ -46,44 +52,65 @@ namespace Wino.Calendar.Controls
 
         #endregion
 
-        private WinoDayTimelineCanvas _activeCanvas;
-
-        public WinoDayTimelineCanvas ActiveCanvas
-        {
-            get { return _activeCanvas; }
-            set
-            {
-                // FlipView's timeline is changing.
-                // Make sure to unregister from the old one.
-
-                if (_activeCanvas != null)
-                {
-                    // Dismiss any selection on the old canvas.
-
-                    _activeCanvas.SelectedDateTime = null;
-                    _activeCanvas.TimelineCellSelected -= ActiveTimelineCellSelected;
-                    _activeCanvas.TimelineCellUnselected -= ActiveTimelineCellUnselected;
-                }
-
-                _activeCanvas = value;
-
-                if (_activeCanvas != null)
-                {
-                    _activeCanvas.TimelineCellSelected += ActiveTimelineCellSelected;
-                    _activeCanvas.TimelineCellUnselected += ActiveTimelineCellUnselected;
-
-                    // Raise visible date range change to shell.
-                    WeakReferenceMessenger.Default.Send(new VisibleDateRangeChangedMessage(_activeCanvas.RenderOptions.DateRange));
-                }
-            }
-        }
-
         private WinoCalendarFlipView InternalFlipView;
 
         public WinoCalendarControl()
         {
             DefaultStyleKey = typeof(WinoCalendarControl);
             SizeChanged += CalendarSizeChanged;
+        }
+
+        private static void OnActiveCanvasChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+        {
+            if (calendar is WinoCalendarControl calendarControl)
+            {
+                if (e.OldValue is WinoDayTimelineCanvas oldCanvas)
+                {
+                    // Dismiss any selection on the old canvas.
+                    calendarControl.DeregisterCanvas(oldCanvas);
+                }
+
+                if (e.NewValue is WinoDayTimelineCanvas newCanvas)
+                {
+                    calendarControl.RegisterCanvas(newCanvas);
+                }
+
+                calendarControl.ManageHighlightedDateRange();
+            }
+        }
+
+        private void ManageHighlightedDateRange()
+        {
+            if (ActiveCanvas == null)
+            {
+                SelectedFlipViewDayRange = null;
+            }
+            else
+            {
+                SelectedFlipViewDayRange = InternalFlipView.SelectedItem as DayRangeRenderModel;
+            }
+        }
+
+        private void DeregisterCanvas(WinoDayTimelineCanvas canvas)
+        {
+            if (canvas == null) return;
+
+            Debug.WriteLine("Deregister active canvas.");
+
+            canvas.SelectedDateTime = null;
+            canvas.TimelineCellSelected -= ActiveTimelineCellSelected;
+            canvas.TimelineCellUnselected -= ActiveTimelineCellUnselected;
+        }
+
+        private void RegisterCanvas(WinoDayTimelineCanvas canvas)
+        {
+            if (canvas == null) return;
+
+            Debug.WriteLine("Register new canvas.");
+
+            canvas.SelectedDateTime = null;
+            canvas.TimelineCellSelected += ActiveTimelineCellSelected;
+            canvas.TimelineCellUnselected += ActiveTimelineCellUnselected;
         }
 
         private void CalendarSizeChanged(object sender, SizeChangedEventArgs e)
@@ -98,11 +125,6 @@ namespace Wino.Calendar.Controls
             base.OnApplyTemplate();
 
             InternalFlipView = GetTemplateChild(PART_WinoFlipView) as WinoCalendarFlipView;
-
-            // Each FlipViewItem will have 1 timeline canvas to draw hour cells in the background that supports selection of them.
-            // When the selection changes, we need to stop listening to the old canvas and start listening to the new one to catch events.
-
-            InternalFlipView.ActiveTimelineCanvasChanged += FlipViewsActiveTimelineCanvasChanged;
         }
 
         private void FlipViewsActiveTimelineCanvasChanged(object sender, WinoDayTimelineCanvas e)

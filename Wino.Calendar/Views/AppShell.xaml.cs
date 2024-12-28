@@ -6,8 +6,7 @@ using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views
 {
-    public sealed partial class AppShell : AppShellAbstract,
-        IRecipient<GoToCalendarDayMessage>
+    public sealed partial class AppShell : AppShellAbstract
     {
         private const string STATE_HorizontalCalendar = "HorizontalCalendar";
         private const string STATE_VerticalCalendar = "VerticalCalendar";
@@ -45,10 +44,10 @@ namespace Wino.Calendar.Views
 
         }
 
-        public void Receive(GoToCalendarDayMessage message)
-        {
-            CalendarView.GoToDay(message.DateTime);
-        }
+        //public void Receive(GoToCalendarDayMessage message)
+        //{
+        //    CalendarView.GoToDay(message.DateTime);
+        //}
 
         private void PreviousDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoPreviousDateRequestedMessage());
 

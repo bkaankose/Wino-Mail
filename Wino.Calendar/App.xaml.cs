@@ -75,7 +75,7 @@ namespace Wino.Calendar
         private void RegisterViewModels(IServiceCollection services)
         {
             services.AddSingleton(typeof(AppShellViewModel));
-            services.AddTransient(typeof(CalendarPageViewModel));
+            services.AddSingleton(typeof(CalendarPageViewModel));
             services.AddTransient(typeof(CalendarSettingsPageViewModel));
             services.AddTransient(typeof(AccountManagementViewModel));
         }

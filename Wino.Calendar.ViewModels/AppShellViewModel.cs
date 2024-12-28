@@ -21,9 +21,7 @@ namespace Wino.Calendar.ViewModels
     public partial class AppShellViewModel : CalendarBaseViewModel,
         IRecipient<VisibleDateRangeChangedMessage>,
         IRecipient<CalendarEnableStatusChangedMessage>,
-        IRecipient<CalendarInitializedMessage>,
-        IRecipient<NavigateManageAccountsRequested>,
-        IRecipient<GoToCalendarDayMessage>
+        IRecipient<NavigateManageAccountsRequested>
     {
         public event EventHandler<CalendarDisplayType> DisplayTypeChanged;
         public IPreferencesService PreferencesService { get; }
@@ -61,13 +59,10 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private int _selectedDateNavigationHeaderIndex;
 
-        private readonly IAccountService _accountService;
-
         public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
-                                 IAccountService accountService,
                                  INavigationService navigationService,
                                  IWinoServerConnectionManager serverConnectionManager)
         {
@@ -76,7 +71,6 @@ namespace Wino.Calendar.ViewModels
             PreferencesService = preferencesService;
 
             StatePersistenceService = statePersistanceService;
-            _accountService = accountService;
             StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
         }
 
@@ -99,12 +93,32 @@ namespace Wino.Calendar.ViewModels
             UpdateDateNavigationHeaderItems();
         }
 
+        private void ForceNavigateCalendarDate()
+        {
+            if (SelectedMenuItemIndex == -1)
+            {
+                var args = new CalendarPageNavigationArgs()
+                {
+                    NavigationDate = _navigationDate ?? DateTime.Now.Date
+                };
+
+                // Already on calendar. Just navigate.
+                NavigationService.Navigate(WinoPage.CalendarPage, args);
+
+                _navigationDate = null;
+            }
+            else
+            {
+                SelectedMenuItemIndex = -1;
+            }
+        }
+
         partial void OnSelectedMenuItemIndexChanged(int oldValue, int newValue)
         {
             switch (newValue)
             {
                 case -1:
-                    NavigationService.Navigate(WinoPage.CalendarPage);
+                    ForceNavigateCalendarDate();
                     break;
                 case 0:
                     NavigationService.Navigate(WinoPage.AccountManagementPage);
@@ -162,20 +176,24 @@ namespace Wino.Calendar.ViewModels
             return DateTime.Today.Date;
         }
 
+        private DateTime? _navigationDate;
+
         public override void OnPageLoaded()
         {
             base.OnPageLoaded();
 
-            NavigationService.Navigate(WinoPage.CalendarPage, new CalendarPageNavigationArgs()
-            {
-                RequestDefaultNavigation = true
-            });
+            TodayClicked();
         }
 
         #region Commands
 
         [RelayCommand]
-        private void TodayClicked() => Messenger.Send(new GoToCalendarDayMessage(DateTime.Now.Date));
+        private void TodayClicked()
+        {
+            _navigationDate = DateTime.Now.Date;
+
+            ForceNavigateCalendarDate();
+        }
 
         [RelayCommand]
         public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
@@ -184,8 +202,12 @@ namespace Wino.Calendar.ViewModels
         private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
         [RelayCommand]
-        private void DateClicked(CalendarViewDayClickedEventArgs clickedDate)
-            => Messenger.Send(new CalendarInitializeMessage(clickedDate.ClickedDate, CalendarInitInitiative.User));
+        private void DateClicked(CalendarViewDayClickedEventArgs clickedDateArgs)
+        {
+            _navigationDate = clickedDateArgs.ClickedDate;
+
+            ForceNavigateCalendarDate();
+        }
 
         #endregion
 
@@ -238,11 +260,8 @@ namespace Wino.Calendar.ViewModels
         public async void Receive(CalendarEnableStatusChangedMessage message)
             => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
-        // Calendar page is loaded and calendar is ready to recieve render requests.
-        public void Receive(CalendarInitializedMessage message) => Messenger.Send(new GoToCalendarDayMessage(DateTime.Now.Date));
-
         public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
 
-        public void Receive(GoToCalendarDayMessage message) => SelectedMenuItemIndex = -1;
+        //public void Receive(GoToCalendarDayMessage message) => SelectedMenuItemIndex = -1;
     }
 }

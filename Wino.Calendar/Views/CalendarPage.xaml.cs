@@ -2,8 +2,11 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Navigation;
 using Wino.Calendar.Args;
 using Wino.Calendar.Views.Abstract;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views
@@ -17,6 +20,7 @@ namespace Wino.Calendar.Views
         public CalendarPage()
         {
             InitializeComponent();
+            NavigationCacheMode = Windows.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
         }
 
         public void Receive(ScrollToDateMessage message) => CalendarControl.NavigateToDay(message.Date);
@@ -24,6 +28,25 @@ namespace Wino.Calendar.Views
         public void Receive(GoNextDateRequestedMessage message) => CalendarControl.GoNextRange();
 
         public void Receive(GoPreviousDateRequestedMessage message) => CalendarControl.GoPreviousRange();
+
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+
+            if (e.Parameter is CalendarPageNavigationArgs args)
+            {
+                if (args.RequestDefaultNavigation)
+                {
+                    // Go today.
+                    WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(DateTime.Now.Date, CalendarInitInitiative.App));
+                }
+                else
+                {
+                    // Go specified date.
+                    WeakReferenceMessenger.Default.Send(new LoadCalendarMessage(args.NavigationDate, CalendarInitInitiative.User));
+                }
+            }
+        }
 
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {
