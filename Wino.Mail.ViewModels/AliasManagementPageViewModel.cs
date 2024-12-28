@@ -82,7 +82,7 @@ namespace Wino.Mail.ViewModels
                 Type = MailSynchronizationType.Alias
             };
 
-            var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewSynchronizationRequested>(new NewSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+            var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
 
             if (aliasSyncResponse.IsSuccess)
                 await LoadAliasesAsync();

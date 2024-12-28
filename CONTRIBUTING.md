@@ -15,7 +15,12 @@ Wino Mail is [Universal Windows Platform](https://learn.microsoft.com/en-us/wind
 **Min Version:** Windows 10 1809 
 **Target Version:** Windows 11 22H2
 
-It's pretty straightforward after cloning the repo. There are no prerequisites needed. Just open **Wino.sln** solution in your IDE and launch.
+## Prerequisites
+
+* ".NET desktop development" workload in Visual Studio 2022+
+* .NET SDK 8.0+
+
+With those installed, it's pretty straightforward after cloning the repo.  Just open **Wino.sln** solution in your IDE and launch.
 
 ## Project Architecture
 

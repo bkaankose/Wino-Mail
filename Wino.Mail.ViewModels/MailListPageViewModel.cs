@@ -40,7 +40,7 @@ namespace Wino.Mail.ViewModels
         IRecipient<MailItemSelectedEvent>,
         IRecipient<MailItemSelectionRemovedEvent>,
         IRecipient<AccountSynchronizationCompleted>,
-        IRecipient<NewSynchronizationRequested>,
+        IRecipient<NewMailSynchronizationRequested>,
         IRecipient<AccountSynchronizerStateChanged>
     {
         private bool isChangingFolder = false;
@@ -479,7 +479,7 @@ namespace Wino.Mail.ViewModels
                     GroupedSynchronizationTrackingId = trackingSynchronizationId
                 };
 
-                Messenger.Send(new NewSynchronizationRequested(options, SynchronizationSource.Client));
+                Messenger.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
 
@@ -989,7 +989,7 @@ namespace Wino.Mail.ViewModels
 
         #endregion
 
-        public async void Receive(NewSynchronizationRequested message)
+        public async void Receive(NewMailSynchronizationRequested message)
             => await ExecuteUIThread(() => { OnPropertyChanged(nameof(CanSynchronize)); });
 
         protected override async void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
