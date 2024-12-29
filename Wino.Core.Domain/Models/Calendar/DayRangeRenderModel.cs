@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Enums;
@@ -7,13 +8,15 @@ namespace Wino.Core.Domain.Models.Calendar
 {
     /// <summary>
     /// Represents a range of days in the calendar.
-    /// Usually it's used for day or week, but supports custom ranges.
+    /// Corresponds to 1 view of the FlipView in CalendarPage.
     /// </summary>
     public class DayRangeRenderModel
     {
+        public event EventHandler<CalendarDayModel> CalendarDayEventCollectionUpdated;
+
         public ITimePeriod Period { get; }
-        public List<CalendarDayModel> CalendarDays { get; } = new List<CalendarDayModel>();
-        public List<DayHeaderRenderModel> DayHeaders { get; } = new List<DayHeaderRenderModel>();
+        public List<CalendarDayModel> CalendarDays { get; } = [];
+        public List<DayHeaderRenderModel> DayHeaders { get; } = [];
         public CalendarRenderOptions CalendarRenderOptions { get; }
 
         public DayRangeRenderModel(CalendarRenderOptions calendarRenderOptions)
@@ -46,5 +49,39 @@ namespace Wino.Core.Domain.Models.Calendar
                 DayHeaders.Add(new DayHeaderRenderModel(dayHeader, calendarRenderOptions.CalendarSettings.HourHeight));
             }
         }
+
+        //private void RegisterCalendarDayEvents(CalendarDayModel calendarDayModel)
+        //{
+        //    calendarDayModel.EventsCollection.CalendarItemAdded += CalendarItemAdded;
+        //    calendarDayModel.EventsCollection.CalendarItemRangeRemoved += CalendarItemRangeRemoved;
+        //    calendarDayModel.EventsCollection.CalendarItemRemoved += CalendarItemRemoved;
+        //    calendarDayModel.EventsCollection.CalendarItemRangeAdded += CalendarItemRangeAdded;
+        //}
+
+        //private void CalendarItemRangeAdded(object sender, List<ICalendarItem> e)
+        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+
+        //private void CalendarItemRemoved(object sender, ICalendarItem e)
+        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+
+        //private void CalendarItemAdded(object sender, ICalendarItem e)
+        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+
+        //private void CalendarItemRangeRemoved(object sender, List<ICalendarItem> e)
+        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+
+        ///// <summary>
+        ///// Unregisters all calendar item change listeners to draw the UI for calendar events.
+        ///// </summary>
+        //public void UnregisterAll()
+        //{
+        //    foreach (var day in CalendarDays)
+        //    {
+        //        day.EventsCollection.CalendarItemRangeRemoved -= CalendarItemRangeRemoved;
+        //        day.EventsCollection.CalendarItemRemoved -= CalendarItemRemoved;
+        //        day.EventsCollection.CalendarItemRangeAdded -= CalendarItemRangeAdded;
+        //        day.EventsCollection.CalendarItemAdded -= CalendarItemAdded;
+        //    }
+        //}
     }
 }

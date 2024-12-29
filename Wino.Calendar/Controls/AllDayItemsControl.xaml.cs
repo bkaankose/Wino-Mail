@@ -1,6 +1,7 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Generic;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Interfaces;
 
 
@@ -13,19 +14,36 @@ namespace Wino.Calendar.Controls
 
         #region Dependency Properties
 
-        public static readonly DependencyProperty AllDayEventsProperty = DependencyProperty.Register(nameof(AllDayEvents), typeof(ObservableCollection<ICalendarItem>), typeof(AllDayItemsControl), new PropertyMetadata(null, new PropertyChangedCallback(OnAllDayEventsChanged)));
+        public static readonly DependencyProperty EventCollectionProperty = DependencyProperty.Register(nameof(EventCollection), typeof(CalendarEventCollection), typeof(AllDayItemsControl), new PropertyMetadata(null, new PropertyChangedCallback(OnAllDayEventsChanged)));
         public static readonly DependencyProperty AllDayEventTemplateProperty = DependencyProperty.Register(nameof(AllDayEventTemplate), typeof(DataTemplate), typeof(AllDayItemsControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty RegularEventItemTemplateProperty = DependencyProperty.Register(nameof(RegularEventItemTemplate), typeof(DataTemplate), typeof(AllDayItemsControl), new PropertyMetadata(null));
 
+        /// <summary>
+        /// Item template for all-day events to display in summary view area.
+        /// More than 2 events will be shown in Flyout.
+        /// </summary>
         public DataTemplate AllDayEventTemplate
         {
             get { return (DataTemplate)GetValue(AllDayEventTemplateProperty); }
             set { SetValue(AllDayEventTemplateProperty, value); }
         }
 
-        public ObservableCollection<ICalendarItem> AllDayEvents
+        /// <summary>
+        /// Item template for all-day events to display in summary view's Flyout.
+        /// </summary>
+        public DataTemplate RegularEventItemTemplate
         {
-            get { return (ObservableCollection<ICalendarItem>)GetValue(AllDayEventsProperty); }
-            set { SetValue(AllDayEventsProperty, value); }
+            get { return (DataTemplate)GetValue(RegularEventItemTemplateProperty); }
+            set { SetValue(RegularEventItemTemplateProperty, value); }
+        }
+
+        /// <summary>
+        /// Whole collection of events to display.
+        /// </summary>
+        public CalendarEventCollection EventCollection
+        {
+            get { return (CalendarEventCollection)GetValue(EventCollectionProperty); }
+            set { SetValue(EventCollectionProperty, value); }
         }
 
         #endregion
@@ -39,12 +57,12 @@ namespace Wino.Calendar.Controls
         {
             if (d is AllDayItemsControl control)
             {
-                if (e.OldValue != null && e.OldValue is ObservableCollection<ICalendarItem> oldCollection)
+                if (e.OldValue != null && e.OldValue is CalendarEventCollection oldCollection)
                 {
                     control.UnregisterEventCollectionChanged(oldCollection);
                 }
 
-                if (e.NewValue != null && e.NewValue is ObservableCollection<ICalendarItem> newCollection)
+                if (e.NewValue != null && e.NewValue is CalendarEventCollection newCollection)
                 {
                     control.RegisterEventCollectionChanged(newCollection);
                 }
@@ -53,32 +71,35 @@ namespace Wino.Calendar.Controls
             }
         }
 
-        private void RegisterEventCollectionChanged(ObservableCollection<ICalendarItem> collection)
+        private void RegisterEventCollectionChanged(CalendarEventCollection collection)
         {
-            collection.CollectionChanged += EventsCollectionUpdated;
+            collection.CalendarItemAdded += SingleEventUpdated;
+            collection.CalendarItemRemoved += SingleEventUpdated;
+
+            collection.CalendarItemRangeAdded += CollectionOfEventsUpdated;
+            collection.CalendarItemRangeRemoved += CollectionOfEventsUpdated;
         }
 
-        private void UnregisterEventCollectionChanged(ObservableCollection<ICalendarItem> collection)
+        private void UnregisterEventCollectionChanged(CalendarEventCollection collection)
         {
-            collection.CollectionChanged -= EventsCollectionUpdated;
+            collection.CalendarItemAdded -= SingleEventUpdated;
+            collection.CalendarItemRemoved -= SingleEventUpdated;
+
+            collection.CalendarItemRangeAdded -= CollectionOfEventsUpdated;
+            collection.CalendarItemRangeRemoved -= CollectionOfEventsUpdated;
         }
 
-        private void EventsCollectionUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            UpdateCollectionVisuals();
-        }
+        private void SingleEventUpdated(object sender, ICalendarItem calendarItem) => UpdateCollectionVisuals();
+        private void CollectionOfEventsUpdated(object sender, List<ICalendarItem> calendarItems) => UpdateCollectionVisuals();
 
         private void UpdateCollectionVisuals()
         {
-            if (AllDayEvents == null) return;
+            if (EventCollection == null) return;
 
-            if (AllDayEvents.Count > 1)
+            if (EventCollection.AllDayEvents.Count > 1)
             {
                 // Summarize
-
                 VisualStateManager.GoToState(this, STATE_SummaryView, false);
-
-                // AllDayItemsSummaryButton.Content = $"{AllDayEvents.Count} {Translator.CalendarAllDayEventSummary}";
             }
             else
             {

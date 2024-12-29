@@ -5,7 +5,7 @@
     xmlns:controls="using:Wino.Calendar.Controls">
 
     <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="CalendarRenderStyles.xaml" />
+        <ResourceDictionary Source="CalendarThemeResources.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <Style TargetType="controls:WinoCalendarView">

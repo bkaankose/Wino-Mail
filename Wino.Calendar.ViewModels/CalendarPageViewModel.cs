@@ -63,7 +63,9 @@ namespace Wino.Calendar.ViewModels
             _calendarService = calendarService;
             _accountCalendarStateService = accountCalendarStateService;
             _preferencesService = preferencesService;
+
         }
+
 
         // TODO: Replace when calendar settings are updated.
         // Should be a field ideally.
@@ -225,7 +227,8 @@ namespace Wino.Calendar.ViewModels
                 var range = new DateRange(startDate, endDate);
                 var renderOptions = new CalendarRenderOptions(range, _currentSettings);
 
-                renderModels.Add(new DayRangeRenderModel(renderOptions));
+                var dayRangeHeaderModel = new DayRangeRenderModel(renderOptions);
+                renderModels.Add(dayRangeHeaderModel);
             }
 
             // Dates are loaded. Now load the events for them.
@@ -334,20 +337,24 @@ namespace Wino.Calendar.ViewModels
                     dayRangeRenderModel.Period.End)
                     .ConfigureAwait(false);
 
-                foreach (var calendarItem in events)
+                var groupedEvents = events.GroupBy(a => a.StartTime.Date);
+
+                foreach (var group in groupedEvents)
                 {
-                    var calendarDayModel = dayRangeRenderModel.CalendarDays.FirstOrDefault(a => a.RepresentingDate.Date == calendarItem.StartTime.Date);
+                    var startDate = group.Key;
+
+                    var calendarDayModel = dayRangeRenderModel.CalendarDays.FirstOrDefault(a => a.RepresentingDate.Date == startDate);
 
                     if (calendarDayModel == null) continue;
 
-                    var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
+                    var calendarItemViewModels = group.Select(a => new CalendarItemViewModel(a));
 
                     await ExecuteUIThread(() =>
                     {
-                        // TODO: EventsCollection should not take CalendarItem, but CalendarItemViewModel.
-                        // Enforce it later on.
+                        // Use range-based add for performance.
+                        // No need to report changes since at this point nothing is rendered on the UI.
 
-                        calendarDayModel.EventsCollection.Add(calendarItemViewModel);
+                        calendarDayModel.EventsCollection.AddCalendarItemRange(calendarItemViewModels, reportChange: false);
                     });
                 }
             }

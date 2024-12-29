@@ -15,7 +15,7 @@
             <ItemsControl
                 x:Name="PART_AllDayItemsList"
                 ItemTemplate="{x:Bind AllDayEventTemplate}"
-                ItemsSource="{x:Bind AllDayEvents, Mode=OneWay}" />
+                ItemsSource="{x:Bind EventCollection.AllDayEvents}" />
         </ScrollViewer>
         <Button
             x:Name="AllDayItemsSummaryButton"
@@ -25,7 +25,7 @@
             <Button.Flyout>
                 <Flyout Placement="Bottom">
                     <ScrollViewer>
-                        <ItemsControl ItemTemplate="{x:Bind AllDayEventTemplate}" ItemsSource="{x:Bind AllDayEvents, Mode=OneWay}" />
+                        <ItemsControl ItemTemplate="{x:Bind RegularEventItemTemplate}" ItemsSource="{x:Bind EventCollection.AllDayEvents}" />
                     </ScrollViewer>
                 </Flyout>
             </Button.Flyout>
@@ -42,7 +42,7 @@
                         <Setter Target="AllDayItemsSummaryButton.Content">
                             <Setter.Value>
                                 <TextBlock>
-                                    <Run Text="{x:Bind AllDayEvents.Count, Mode=OneWay, TargetNullValue='0'}" /> <Run Text="{x:Bind domain:Translator.CalendarAllDayEventSummary}" />
+                                    <Run Text="{x:Bind EventCollection.AllDayEvents.Count, Mode=OneWay, TargetNullValue='0'}" /> <Run Text="{x:Bind domain:Translator.CalendarAllDayEventSummary}" />
                                 </TextBlock>
                             </Setter.Value>
                         </Setter>

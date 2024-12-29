@@ -7,8 +7,8 @@ using Windows.Foundation;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Models;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls
 {
@@ -20,12 +20,13 @@ namespace Wino.Calendar.Controls
         private readonly Dictionary<Guid, CalendarItemMeasurement> _measurements = new Dictionary<Guid, CalendarItemMeasurement>();
 
         public static readonly DependencyProperty EventItemMarginProperty = DependencyProperty.Register(nameof(EventItemMargin), typeof(Thickness), typeof(WinoCalendarPanel), new PropertyMetadata(new Thickness(0, 0, 0, 0)));
-        public static readonly DependencyProperty DayModelProperty = DependencyProperty.Register(nameof(DayModel), typeof(CalendarDayModel), typeof(WinoCalendarPanel), new PropertyMetadata(null, new PropertyChangedCallback(OnDayChanged)));
+        // public static readonly DependencyProperty RepresentingDateProperty = DependencyProperty.Register(nameof(RepresentingDate), typeof(DateTime), typeof(WinoCalendarControl), new PropertyMetadata(DateTime.MinValue));
+        public static readonly DependencyProperty HourHeightProperty = DependencyProperty.Register(nameof(HourHeight), typeof(double), typeof(WinoCalendarPanel), new PropertyMetadata(0d));
 
-        public CalendarDayModel DayModel
+        public double HourHeight
         {
-            get { return (CalendarDayModel)GetValue(DayModelProperty); }
-            set { SetValue(DayModelProperty, value); }
+            get { return (double)GetValue(HourHeightProperty); }
+            set { SetValue(HourHeightProperty, value); }
         }
 
         public Thickness EventItemMargin
@@ -34,51 +35,55 @@ namespace Wino.Calendar.Controls
             set { SetValue(EventItemMarginProperty, value); }
         }
 
-        private static void OnDayChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is WinoCalendarPanel control)
-            {
-                // We need to listen for new events being added or removed from the collection to reset measurements.
-                if (e.OldValue is CalendarDayModel oldDayModel)
-                {
-                    control.DetachCollection(oldDayModel.EventsCollection);
-                }
+        //private static void OnDayChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        //{
+        //    if (d is WinoCalendarPanel control)
+        //    {
+        //        // We need to listen for new events being added or removed from the collection to reset measurements.
+        //        if (e.OldValue is CalendarDayModel oldDayModel)
+        //        {
+        //            control.DetachCollection(oldDayModel.EventsCollection.RegularEvents);
+        //        }
 
-                if (e.NewValue is CalendarDayModel newDayModel)
-                {
-                    control.AttachCollection(newDayModel.EventsCollection);
-                }
+        //        if (e.NewValue is CalendarDayModel newDayModel)
+        //        {
+        //            control.AttachCollection(newDayModel.EventsCollection.RegularEvents);
+        //        }
 
-                control.ResetMeasurements();
-                control.UpdateLayout();
-            }
-        }
+        //        control.ResetMeasurements();
+        //        control.UpdateLayout();
+        //    }
+        //}
 
-        private void AttachCollection(IEnumerable<ICalendarItem> events)
-        {
-            if (events is INotifyCollectionChanged collection)
-            {
-                collection.CollectionChanged += EventCollectionChanged;
-            }
-        }
+        //private void AttachCollection(IEnumerable<ICalendarItem> events)
+        //{
+        //    if (events is INotifyCollectionChanged collection)
+        //    {
+        //        // var t = new Grid();
 
-        private void DetachCollection(IEnumerable<ICalendarItem> events)
-        {
-            if (events is INotifyCollectionChanged collection)
-            {
-                collection.CollectionChanged -= EventCollectionChanged;
-            }
-        }
+        //        collection.CollectionChanged += EventCollectionChanged;
+        //    }
+        //}
+
+        //private void DetachCollection(IEnumerable<ICalendarItem> events)
+        //{
+        //    if (events is INotifyCollectionChanged collection)
+        //    {
+        //        collection.CollectionChanged -= EventCollectionChanged;
+        //    }
+        //}
 
         private void ResetMeasurements() => _measurements.Clear();
 
         // No need to handle actions. Each action requires a full measurement update.
         private void EventCollectionChanged(object sender, NotifyCollectionChangedEventArgs e) => ResetMeasurements();
 
-        private double GetChildTopMargin(DateTimeOffset childStart, double availableHeight)
+        private double GetChildTopMargin(ICalendarItem calendarItemViewModel, double availableHeight)
         {
+            var childStart = calendarItemViewModel.StartTime;
+
             double totalMinutes = 1440;
-            double minutesFromStart = (childStart - DayModel.RepresentingDate).TotalMinutes;
+            double minutesFromStart = (childStart - childStart.DateTime.Date).TotalMinutes;
             return (minutesFromStart / totalMinutes) * availableHeight;
         }
 
@@ -93,7 +98,7 @@ namespace Wino.Calendar.Controls
         private double GetChildHeight(DateTimeOffset childStart, DateTimeOffset childEnd)
         {
             double totalMinutes = 1440;
-            double availableHeight = DayModel.CalendarRenderOptions.CalendarSettings.HourHeight * 24;
+            double availableHeight = HourHeight * 24;
             double childDuration = (childEnd - childStart).TotalMinutes;
             return (childDuration / totalMinutes) * availableHeight;
         }
@@ -112,31 +117,30 @@ namespace Wino.Calendar.Controls
             double availableHeight = finalSize.Height;
             double availableWidth = finalSize.Width;
 
-            var calendarControls = Children.Cast<CalendarItemControl>();
+            var calendarControls = Children.Cast<ContentPresenter>();
 
-            // We need to exclude all-day events from the layout algorithm.
-            // All-day events are displayed in a separate panel.
+            if (!calendarControls.Any()) return base.ArrangeOverride(finalSize);
 
-            calendarControls = calendarControls.Where(x => x.Item.DurationInMinutes != 1440);
-
-            if (_measurements.Count == 0 && DayModel.EventsCollection.Count > 0)
+            if (_measurements.Count == 0 && calendarControls.Any())
             {
                 // We keep track of this collection when event is added/removed/reset etc.
                 // So if the collection is empty, we must fill it up again for proper calculations.
 
-                LayoutEvents(DayModel.EventsCollection);
+                var events = calendarControls.Select(a => a.Content as CalendarItemViewModel);
+
+                LayoutEvents(events);
             }
 
-            foreach (var child in calendarControls)
+            foreach (var control in calendarControls)
             {
                 // We can't arrange this child. It doesn't have a valid ICalendarItem or measurement.
-                if (child.Item == null || !_measurements.ContainsKey(child.Item.Id)) continue;
+                if (!(control.Content is ICalendarItem child) || !_measurements.ContainsKey(child.Id)) continue;
 
-                var childMeasurement = _measurements[child.Item.Id];
+                var childMeasurement = _measurements[child.Id];
 
-                double childHeight = Math.Max(0, GetChildHeight(child.Item.StartTime, child.Item.StartTime.AddMinutes(child.Item.DurationInMinutes)));
+                double childHeight = Math.Max(0, GetChildHeight(child.StartTime, child.StartTime.AddMinutes(child.DurationInMinutes)));
                 double childWidth = Math.Max(0, GetChildWidth(childMeasurement, finalSize.Width));
-                double childTop = Math.Max(0, GetChildTopMargin(child.Item.StartTime, availableHeight));
+                double childTop = Math.Max(0, GetChildTopMargin(child, availableHeight));
                 double childLeft = Math.Max(0, GetChildLeftMargin(childMeasurement, availableWidth));
 
                 bool isHorizontallyLastItem = childMeasurement.Right == 1;
@@ -147,11 +151,11 @@ namespace Wino.Calendar.Controls
 
                 if (childWidth < 0) childWidth = 1;
 
-                child.Measure(new Size(childWidth, childHeight));
+                control.Measure(new Size(childWidth, childHeight));
 
                 var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, Math.Max(childWidth - extraRightMargin, 1), childHeight);
 
-                child.Arrange(arrangementRect);
+                control.Arrange(arrangementRect);
             }
 
             return finalSize;
@@ -179,8 +183,6 @@ namespace Wino.Calendar.Controls
 
             foreach (var ev in events.OrderBy(ev => ev.Period.Start).ThenBy(ev => ev.Period.End))
             {
-                if (ev.Period.Duration.TotalMinutes == 1440) continue;
-
                 if (ev.Period.Start >= lastEventEnding)
                 {
                     PackEvents(columns);

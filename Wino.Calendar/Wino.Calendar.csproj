@@ -139,8 +139,6 @@
     <Compile Include="Controls\AllDayItemsControl.xaml.cs">
       <DependentUpon>AllDayItemsControl.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controls\CalendarDayItemsControl.cs" />
-    <Compile Include="Controls\CalendarItemControl.cs" />
     <Compile Include="Controls\CustomCalendarFlipView.cs" />
     <Compile Include="Controls\DayColumnControl.cs" />
     <Compile Include="Controls\DayHeaderControl.cs" />
@@ -161,10 +159,6 @@
     <Compile Include="Services\NavigationService.cs" />
     <Compile Include="Services\ProviderService.cs" />
     <Compile Include="Services\SettingsBuilderService.cs" />
-    <Compile Include="Styles\CalendarItemControlResources.xaml.cs" />
-    <Compile Include="Styles\DayColumnControlResources.xaml.cs">
-      <DependentUpon>DayColumnControlResources.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Styles\WinoCalendarResources.xaml.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
@@ -260,21 +254,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Styles\CalendarDayItemsControl.xaml">
+    <Page Include="Styles\CalendarThemeResources.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\CalendarItemControlResources.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\CalendarRenderStyles.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\DayColumnControlResources.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\DayHeaderControl.xaml">
       <Generator>MSBuild:Compile</Generator>

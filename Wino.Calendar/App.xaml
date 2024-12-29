@@ -14,18 +14,13 @@
 
                 <core:CoreGeneric />
 
-                <!--  Calendar Specific  -->
                 <styles:WinoCalendarResources />
 
-                <ResourceDictionary Source="Styles/CalendarRenderStyles.xaml" />
+                <ResourceDictionary Source="Styles/CalendarThemeResources.xaml" />
 
-                <ResourceDictionary Source="Styles/CalendarDayItemsControl.xaml" />
-                <styles:DayColumnControlResources />
                 <ResourceDictionary Source="Styles/WinoDayTimelineCanvas.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarView.xaml" />
                 <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
-
-                <styles:CalendarItemControlResources />
 
                 <!--  Last item must always be the default theme.  -->
                 <ResourceDictionary Source="ms-appx:///Wino.Core.UWP/AppThemes/Mica.xaml" />
