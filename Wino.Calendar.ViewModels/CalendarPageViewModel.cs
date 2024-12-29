@@ -7,18 +7,21 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.ViewModels
 {
     public partial class CalendarPageViewModel : CalendarBaseViewModel,
-        IRecipient<LoadCalendarMessage>
+        IRecipient<LoadCalendarMessage>,
+        IRecipient<CalendarSettingsUpdatedMessage>
     {
         [ObservableProperty]
         private ObservableRangeCollection<DayRangeRenderModel> _dayRanges = [];
@@ -32,9 +35,11 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private bool _isCalendarEnabled = true;
 
-        // Get rid of some of the items if we have too many.
+        // TODO: Get rid of some of the items if we have too many.
         private const int maxDayRangeSize = 10;
+
         private readonly ICalendarService _calendarService;
+        private readonly IAccountCalendarStateService _accountCalendarStateService;
         private readonly IPreferencesService _preferencesService;
 
         // Store latest rendered options.
@@ -49,13 +54,14 @@ namespace Wino.Calendar.ViewModels
 
         public CalendarPageViewModel(IStatePersistanceService statePersistanceService,
                                      ICalendarService calendarService,
+                                     IAccountCalendarStateService accountCalendarStateService,
                                      IPreferencesService preferencesService)
         {
             StatePersistanceService = statePersistanceService;
-            _calendarService = calendarService;
-            _preferencesService = preferencesService;
 
-            _currentSettings = _preferencesService.GetCurrentCalendarSettings();
+            _calendarService = calendarService;
+            _accountCalendarStateService = accountCalendarStateService;
+            _preferencesService = preferencesService;
         }
 
         // TODO: Replace when calendar settings are updated.
@@ -70,10 +76,25 @@ namespace Wino.Calendar.ViewModels
             };
         }
 
+        public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+        {
+            // Do not call base method because that will unregister messenger recipient.
+            // This is a singleton view model and should not be unregistered.
+        }
+
+        public override void OnNavigatedTo(NavigationMode mode, object parameters)
+        {
+            base.OnNavigatedTo(mode, parameters);
+
+            _currentSettings = _preferencesService.GetCurrentCalendarSettings();
+        }
+
         partial void OnIsCalendarEnabledChanging(bool oldValue, bool newValue) => Messenger.Send(new CalendarEnableStatusChangedMessage(newValue));
 
         private bool ShouldResetDayRanges(LoadCalendarMessage message)
         {
+            if (message.ForceRedraw) return true;
+
             // Never reset if the initiative is from the app.
             if (message.CalendarInitInitiative == CalendarInitInitiative.App) return false;
 
@@ -168,14 +189,14 @@ namespace Wino.Calendar.ViewModels
 
             DateRange flipLoadRange = null;
 
-            if (calendarInitInitiative == CalendarInitInitiative.User)
+            var initializedDateRange = GetLoadedDateRange();
+
+            if (calendarInitInitiative == CalendarInitInitiative.User || initializedDateRange == null)
             {
                 flipLoadRange = strategy.GetRenderDateRange(displayDate, StatePersistanceService.DayDisplayCount);
             }
             else
             {
-                var initializedDateRange = GetLoadedDateRange();
-
                 // App is trying to load.
                 // This should be based on direction. We'll load the next or previous range.
                 // DisplayDate is either the start or end date of the current visible range.
@@ -214,7 +235,7 @@ namespace Wino.Calendar.ViewModels
             {
                 foreach (var day in renderModel.CalendarDays)
                 {
-                    var events = await _calendarService.GetCalendarEventsAsync(Guid.Parse("13e8e385-a1bb-4764-95b4-757901cad35a"), day.Period.Start, day.Period.End).ConfigureAwait(false);
+                    var events = await _calendarService.GetCalendarEventsAsync(Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"), day.Period.Start, day.Period.End).ConfigureAwait(false);
 
                     foreach (var calendarItem in events)
                     {
@@ -343,6 +364,8 @@ namespace Wino.Calendar.ViewModels
 
             var initializedDateRange = GetLoadedDateRange();
 
+            if (initializedDateRange == null) return false;
+
             var selectedDate = message.DisplayDate;
 
             return selectedDate >= initializedDateRange.StartDate && selectedDate <= initializedDateRange.EndDate;
@@ -391,67 +414,14 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        protected override async void OnCalendarEventAdded(ICalendarItem calendarItem)
+        public void Receive(CalendarSettingsUpdatedMessage message)
         {
-            base.OnCalendarEventAdded(calendarItem);
+            _currentSettings = _preferencesService.GetCurrentCalendarSettings();
 
-            // Test
-            //var eventDays = DayRanges.SelectMany(a => a.CalendarDays).Where(b => b.Period.Start.Date == calendarItem.StartTime.Date);
+            // TODO: This might need throttling due to slider in the settings page for hour height.
+            // or make sure the slider does not update on each tick but on focus lost.
 
-            //var beforeAllDay = new CalendarItem(calendarItem.StartTime.Date.AddHours(0), calendarItem.StartTime.Date.AddMinutes(30))
-            //{
-            //    Title = "kj"
-            //};
-
-            //var allday = new CalendarItem(calendarItem.StartTime.Date.AddHours(1), calendarItem.StartTime.Date.AddHours(10).AddMinutes(59))
-            //{
-            //    Title = "All day"
-            //};
-
-            //var test = new CalendarItem(calendarItem.StartTime.Date.AddHours(4), calendarItem.StartTime.Date.AddHours(4).AddMinutes(30))
-            //{
-            //    Title = "test"
-            //};
-
-            //var hour = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8))
-            //{
-            //    Title = "1 h"
-            //};
-
-            //var hourandhalf = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
-            //{
-            //    Title = "1.5 h"
-            //};
-            //var halfhour1 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7), calendarItem.StartTime.Date.AddHours(7).AddMinutes(30))
-            //{
-            //    Title = "30 min"
-            //};
-
-            //var halfhour2 = new CalendarItem(calendarItem.StartTime.Date.AddHours(7).AddMinutes(30), calendarItem.StartTime.Date.AddHours(8))
-            //{
-            //    Title = "30 min"
-            //};
-            //var halfhour3 = new CalendarItem(calendarItem.StartTime.Date.AddHours(8), calendarItem.StartTime.Date.AddHours(8).AddMinutes(30))
-            //{
-            //    Title = "30 min"
-            //};
-
-            //foreach (var day in eventDays)
-            //{
-            //    await ExecuteUIThread(() =>
-            //    {
-            //        day.Events.Add(beforeAllDay);
-            //        day.Events.Add(allday);
-            //        day.Events.Add(hourandhalf);
-            //        day.Events.Add(hour);
-            //        day.Events.Add(halfhour1);
-            //        day.Events.Add(halfhour2);
-            //        day.Events.Add(halfhour3);
-            //        day.Events.Add(test);
-            //    });
-            //}
-
-            //return;
+            Messenger.Send(new LoadCalendarMessage(DateTime.UtcNow.Date, CalendarInitInitiative.App, true));
         }
     }
 }

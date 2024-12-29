@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Calendar.ViewModels.Data;
+using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -26,6 +29,7 @@ namespace Wino.Calendar.ViewModels
         public event EventHandler<CalendarDisplayType> DisplayTypeChanged;
         public IPreferencesService PreferencesService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
+        public IAccountCalendarStateService AccountCalendarStateService { get; }
         public INavigationService NavigationService { get; }
         public IWinoServerConnectionManager ServerConnectionManager { get; }
 
@@ -63,9 +67,16 @@ namespace Wino.Calendar.ViewModels
 
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
+                                 IAccountService accountService,
+                                 ICalendarService calendarService,
+                                 IAccountCalendarStateService accountCalendarStateService,
                                  INavigationService navigationService,
                                  IWinoServerConnectionManager serverConnectionManager)
         {
+            _accountService = accountService;
+            _calendarService = calendarService;
+
+            AccountCalendarStateService = accountCalendarStateService;
             NavigationService = navigationService;
             ServerConnectionManager = serverConnectionManager;
             PreferencesService = preferencesService;
@@ -86,11 +97,53 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        public override void OnNavigatedTo(NavigationMode mode, object parameters)
+        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
 
             UpdateDateNavigationHeaderItems();
+
+            await InitializeAccountCalendarsAsync();
+        }
+
+        private void AddGroupedAccountCalendarViewModel(GroupedAccountCalendarViewModel groupedAccountCalendarViewModel)
+        {
+            foreach (var calendarViewModel in groupedAccountCalendarViewModel.AccountCalendars)
+            {
+                calendarViewModel.CalendarSelectionStateChanged += UpdateAccountCalendarRequested;
+            }
+
+            AccountCalendarStateService.GroupedAccountCalendars.Add(groupedAccountCalendarViewModel);
+        }
+
+        private async void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
+            => await _calendarService.UpdateAccountCalendarAsync(e.AccountCalendar).ConfigureAwait(false);
+
+        private async Task InitializeAccountCalendarsAsync()
+        {
+            await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.GroupedAccountCalendars.Clear());
+
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+
+            foreach (var account in accounts)
+            {
+                var accountCalendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
+                var calendarViewModels = new List<AccountCalendarViewModel>();
+
+                foreach (var calendar in accountCalendars)
+                {
+                    var calendarViewModel = new AccountCalendarViewModel(account, calendar);
+
+                    calendarViewModels.Add(calendarViewModel);
+                }
+
+                var groupedAccountCalendarViewModel = new GroupedAccountCalendarViewModel(account, calendarViewModels);
+
+                await Dispatcher.ExecuteOnUIThread(() =>
+                {
+                    AddGroupedAccountCalendarViewModel(groupedAccountCalendarViewModel);
+                });
+            }
         }
 
         private void ForceNavigateCalendarDate()
@@ -177,6 +230,8 @@ namespace Wino.Calendar.ViewModels
         }
 
         private DateTime? _navigationDate;
+        private readonly IAccountService _accountService;
+        private readonly ICalendarService _calendarService;
 
         public override void OnPageLoaded()
         {

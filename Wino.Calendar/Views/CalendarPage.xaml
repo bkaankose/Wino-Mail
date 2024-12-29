@@ -56,7 +56,6 @@
 
                             <TimePicker x:Name="EventTimePicker" ClockIdentifier="24HourClock" />
 
-
                             <!--  Create events dialog  -->
                             <Button
                                 x:Name="AddEvent"

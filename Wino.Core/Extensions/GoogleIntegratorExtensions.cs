@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
+using CommunityToolkit.Diagnostics;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1.Data;
 using MimeKit;
@@ -9,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Misc;
 using Wino.Services;
 using Wino.Services.Extensions;
 
@@ -170,7 +172,7 @@ namespace Wino.Core.Extensions
 
         public static AccountCalendar AsCalendar(this CalendarListEntry calendarListEntry, Guid accountId)
         {
-            return new AccountCalendar()
+            var calendar = new AccountCalendar()
             {
                 RemoteCalendarId = calendarListEntry.Id,
                 AccountId = accountId,
@@ -179,6 +181,25 @@ namespace Wino.Core.Extensions
                 TimeZone = calendarListEntry.TimeZone,
                 IsPrimary = calendarListEntry.Primary.GetValueOrDefault(),
             };
+
+            // Optional background color.
+            if (calendarListEntry.BackgroundColor != null) calendar.BackgroundColorHex = calendarListEntry.BackgroundColor;
+
+            if (!string.IsNullOrEmpty(calendarListEntry.ForegroundColor))
+            {
+                calendar.TextColorHex = calendarListEntry.ForegroundColor;
+            }
+            else
+            {
+                // Calendars must have text color assigned.
+                // Generate one if not provided.
+
+                var randomColor = RandomFlatColorGenerator.Generate();
+
+                calendar.TextColorHex = randomColor.ToHexString();
+            }
+
+            return calendar;
         }
 
         /// <summary>

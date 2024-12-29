@@ -12,6 +12,7 @@ using Wino.Activation;
 using Wino.Calendar.Activation;
 using Wino.Calendar.Services;
 using Wino.Calendar.ViewModels;
+using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
@@ -71,6 +72,7 @@ namespace Wino.Calendar
             services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
             services.AddTransient<IProviderService, ProviderService>();
             services.AddSingleton<IAuthenticatorConfig, CalendarAuthenticatorConfig>();
+            services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
         }
 
         private void RegisterViewModels(IServiceCollection services)

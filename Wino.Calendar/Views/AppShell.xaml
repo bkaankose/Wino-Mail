@@ -9,6 +9,7 @@
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
@@ -174,20 +175,87 @@
                         HighlightedDateRange="{x:Bind ViewModel.HighlightedDateRange, Mode=OneWay}"
                         TodayBackgroundColor="{ThemeResource SystemAccentColor}" />
 
-                    <ScrollViewer
+                    <!--  Account Calendars Host  -->
+                    <ListView
                         Grid.Row="1"
-                        HorizontalScrollMode="Disabled"
-                        VerticalScrollBarVisibility="Hidden">
-                        <Grid>
+                        ItemsSource="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendars}"
+                        SelectionMode="None">
+                        <ListView.Header>
+                            <TextBlock
+                                Margin="20,12,12,12"
+                                FontSize="16"
+                                Text="Calendars" />
+                        </ListView.Header>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="data:GroupedAccountCalendarViewModel">
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}">
+                                    <muxc:Expander.Header>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <CheckBox
+                                                Width="26"
+                                                MinWidth="0"
+                                                IsChecked="{x:Bind IsCheckedState, Mode=TwoWay}"
+                                                IsThreeState="True" />
+
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                TextWrapping="Wrap">
+                                                <Run FontWeight="SemiBold" Text="{x:Bind Account.Name}" />
+                                                <Run FontSize="12" Text="(" /><Run FontSize="12" Text="{x:Bind Account.Address}" /><Run FontSize="12" Text=")" />
+                                            </TextBlock>
+                                        </Grid>
+                                    </muxc:Expander.Header>
+                                    <muxc:Expander.Content>
+                                        <ItemsControl ItemsSource="{x:Bind AccountCalendars}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                                    <CheckBox
+                                                        HorizontalAlignment="Stretch"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        VerticalContentAlignment="Stretch"
+                                                        IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
+                                                        <Border
+                                                            Margin="0,0,0,4"
+                                                            Padding="4,2,4,2"
+                                                            HorizontalAlignment="Stretch"
+                                                            VerticalAlignment="Center"
+                                                            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                                            CornerRadius="3">
+                                                            <TextBlock
+                                                                FontSize="14"
+                                                                Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                                                                Text="{x:Bind Name, Mode=OneWay}"
+                                                                TextWrapping="Wrap" />
+                                                        </Border>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </muxc:Expander.Content>
+                                </muxc:Expander>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                        <ListView.Footer>
                             <Button
                                 Margin="14,0"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Bottom"
                                 Command="{x:Bind ViewModel.SyncCommand}"
                                 Content="Test Sync" />
-                        </Grid>
-                    </ScrollViewer>
+                        </ListView.Footer>
+                    </ListView>
 
+                    <!--  Menu Items  -->
                     <ListView
                         Grid.Row="2"
                         ItemTemplateSelector="{StaticResource NavigationMenuTemplateSelector}"
@@ -219,6 +287,7 @@
                             </ListViewItem>
                         </ListView.Items>
                     </ListView>
+
                     <!--<CommandBar Grid.Row="2" DefaultLabelPosition="Right">
                         <AppBarButton Label="Manage Accounts">
                             <AppBarButton.Icon>
@@ -270,11 +339,15 @@
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="1200" />
                     </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="MainSplitView.IsPaneOpen" Value="True" />
+                    </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="SmallScreen">
                     <VisualState.Setters>
                         <Setter Target="NavigationTitleStack.Visibility" Value="Collapsed" />
                         <Setter Target="SearchBox.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="MainSplitView.IsPaneOpen" Value="False" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
                         <AdaptiveTrigger MinWindowWidth="0" />
