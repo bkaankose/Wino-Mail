@@ -190,11 +190,11 @@
                                 <local:AnimatedIcon.RenderTransform />
                             </local:AnimatedIcon>
 
+                            <!--  Subject is bound in the code behind.  -->
                             <TextBlock
                                 x:Name="TitleText"
                                 Grid.Column="1"
                                 MaxLines="1"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubject(MailItem.Subject)}"
                                 TextTrimming="CharacterEllipsis" />
 
                             <TextBlock

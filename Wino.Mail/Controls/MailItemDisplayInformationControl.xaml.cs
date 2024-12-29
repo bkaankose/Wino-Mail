@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Windows.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
@@ -27,7 +28,7 @@ namespace Wino.Controls
         public static readonly DependencyProperty CenterHoverActionProperty = DependencyProperty.Register(nameof(CenterHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
         public static readonly DependencyProperty RightHoverActionProperty = DependencyProperty.Register(nameof(RightHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
         public static readonly DependencyProperty HoverActionExecutedCommandProperty = DependencyProperty.Register(nameof(HoverActionExecutedCommand), typeof(ICommand), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
-        public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailItem), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailItem), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null, new PropertyChangedCallback(OnMailItemChanged)));
         public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
         public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
         public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
@@ -139,6 +140,21 @@ namespace Wino.Controls
             IconsContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
             RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
+        }
+
+        private static void OnMailItemChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+        {
+            if (obj is MailItemDisplayInformationControl control)
+            {
+                control.UpdateInformation();
+            }
+        }
+
+        private void UpdateInformation()
+        {
+            if (MailItem == null) return;
+
+            TitleText.Text = string.IsNullOrWhiteSpace(MailItem.Subject) ? Translator.MailItemNoSubject : MailItem.Subject;
         }
 
         private void ControlPointerEntered(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)

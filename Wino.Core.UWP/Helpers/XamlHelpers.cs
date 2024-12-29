@@ -71,7 +71,6 @@ namespace Wino.Helpers
                 return prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat);
             }
         }
-        public static string GetMailItemSubject(string subject) => string.IsNullOrWhiteSpace(subject) ? $"({Translator.MailItemNoSubject})" : subject;
         public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
         {
             var localTime = date.ToLocalTime();
