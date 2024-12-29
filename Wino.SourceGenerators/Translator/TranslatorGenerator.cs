@@ -41,16 +41,17 @@ namespace Wino.Core.SourceGeneration.Translator
                 predicate: static (node, _) => node is ClassDeclarationSyntax,
                 transform: static (context, _) => (ClassDeclarationSyntax)context.TargetNode);
 
-        // Get the JSON schema
+        // Get the JSON schema and track changes
         var jsonSchema = context.AdditionalTextsProvider
             .Where(static file => file.Path.EndsWith("en_US\\resources.json"))
             .Select((text, _) => (text, text.GetText()))
-            .Collect();
+            .Collect()
+            .WithTrackingName("JsonSchema");
 
         // Combine the JSON schema with the marked classes
         var combined = classDeclarations.Combine(jsonSchema);
 
-        // Generate the source
+        // Generate the source only when the JSON schema changes
         context.RegisterSourceOutput(combined,
             static (spc, source) => Execute(source.Left, source.Right, spc));
     }

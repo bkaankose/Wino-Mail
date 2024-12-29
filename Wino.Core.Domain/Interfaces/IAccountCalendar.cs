@@ -11,5 +11,6 @@ namespace Wino.Core.Domain.Interfaces
         Guid AccountId { get; set; }
         string RemoteCalendarId { get; set; }
         bool IsExtended { get; set; }
+        Guid Id { get; set; }
     }
 }

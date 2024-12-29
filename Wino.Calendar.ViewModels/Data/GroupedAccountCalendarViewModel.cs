@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
@@ -9,6 +10,9 @@ namespace Wino.Calendar.ViewModels.Data
 {
     public partial class GroupedAccountCalendarViewModel : ObservableObject
     {
+        public event EventHandler CollectiveSelectionStateChanged;
+        public event EventHandler<AccountCalendarViewModel> CalendarSelectionStateChanged;
+
         public MailAccount Account { get; }
         public ObservableCollection<AccountCalendarViewModel> AccountCalendars { get; }
 
@@ -59,6 +63,7 @@ namespace Wino.Calendar.ViewModels.Data
                 if (e.PropertyName == nameof(AccountCalendarViewModel.IsChecked))
                 {
                     ManageIsCheckedState();
+                    UpdateCalendarCheckedState(viewModel, viewModel.IsChecked, true);
                 }
             }
         }
@@ -73,6 +78,8 @@ namespace Wino.Calendar.ViewModels.Data
 
         private void ManageIsCheckedState()
         {
+            if (_isExternalPropChangeBlocked) return;
+
             _isExternalPropChangeBlocked = true;
 
             if (AccountCalendars.All(c => c.IsChecked))
@@ -95,22 +102,45 @@ namespace Wino.Calendar.ViewModels.Data
         {
             if (_isExternalPropChangeBlocked) return;
 
+            // Update is triggered by user on the three-state checkbox.
+            // We should not report all changes one by one.
+
+            _isExternalPropChangeBlocked = true;
+
             if (newValue == null)
             {
                 // Only primary calendars must be checked.
 
                 foreach (var calendar in AccountCalendars)
                 {
-                    calendar.IsChecked = calendar.IsPrimary;
+                    UpdateCalendarCheckedState(calendar, calendar.IsPrimary);
                 }
             }
             else
             {
                 foreach (var calendar in AccountCalendars)
                 {
-                    calendar.IsChecked = newValue.GetValueOrDefault();
+                    UpdateCalendarCheckedState(calendar, newValue.GetValueOrDefault());
                 }
             }
+
+            _isExternalPropChangeBlocked = false;
+
+            CollectiveSelectionStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void UpdateCalendarCheckedState(AccountCalendarViewModel accountCalendarViewModel, bool newValue, bool ignoreValueCheck = false)
+        {
+            var currentValue = accountCalendarViewModel.IsChecked;
+
+            if (currentValue == newValue && !ignoreValueCheck) return;
+
+            accountCalendarViewModel.IsChecked = newValue;
+
+            // No need to report.
+            if (_isExternalPropChangeBlocked == true) return;
+
+            CalendarSelectionStateChanged?.Invoke(this, accountCalendarViewModel);
         }
     }
 }

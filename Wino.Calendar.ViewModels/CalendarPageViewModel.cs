@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
@@ -211,8 +212,6 @@ namespace Wino.Calendar.ViewModels
                 }
             }
 
-
-
             // Create day ranges for each flip item until we reach the total days to load.
             int totalFlipItemCount = (int)Math.Ceiling((double)flipLoadRange.TotalDays / eachFlipItemCount);
 
@@ -233,15 +232,7 @@ namespace Wino.Calendar.ViewModels
 
             foreach (var renderModel in renderModels)
             {
-                foreach (var day in renderModel.CalendarDays)
-                {
-                    var events = await _calendarService.GetCalendarEventsAsync(Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"), day.Period.Start, day.Period.End).ConfigureAwait(false);
-
-                    foreach (var calendarItem in events)
-                    {
-                        day.EventsCollection.Add(calendarItem);
-                    }
-                }
+                await InitializeCalendarEventsAsync(renderModel).ConfigureAwait(false);
             }
 
             CalendarLoadDirection animationDirection = calendarLoadDirection;
@@ -323,6 +314,42 @@ namespace Wino.Calendar.ViewModels
                 _displayDayCount = StatePersistanceService.DayDisplayCount;
 
                 Messenger.Send(new ScrollToDateMessage(displayDate));
+            }
+        }
+
+        private async Task InitializeCalendarEventsAsync(DayRangeRenderModel dayRangeRenderModel)
+        {
+            // Load for each selected calendar from the state.
+            var checkedCalendarViewModels = _accountCalendarStateService.GroupedAccountCalendars
+                .SelectMany(a => a.AccountCalendars)
+                .Where(b => b.IsChecked);
+
+            foreach (var calendarViewModel in checkedCalendarViewModels)
+            {
+                // Check all the events for the given date range and calendar.
+                // Then find the day representation for all the events returned, and add to the collection.
+
+                var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel,
+                    dayRangeRenderModel.Period.Start,
+                    dayRangeRenderModel.Period.End)
+                    .ConfigureAwait(false);
+
+                foreach (var calendarItem in events)
+                {
+                    var calendarDayModel = dayRangeRenderModel.CalendarDays.FirstOrDefault(a => a.RepresentingDate.Date == calendarItem.StartTime.Date);
+
+                    if (calendarDayModel == null) continue;
+
+                    var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
+
+                    await ExecuteUIThread(() =>
+                    {
+                        // TODO: EventsCollection should not take CalendarItem, but CalendarItemViewModel.
+                        // Enforce it later on.
+
+                        calendarDayModel.EventsCollection.Add(calendarItemViewModel);
+                    });
+                }
             }
         }
 

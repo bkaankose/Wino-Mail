@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
@@ -65,6 +67,9 @@ namespace Wino.Calendar.ViewModels
 
         public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
+        // For updating account calendars asynchronously.
+        private SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
+
         public AppShellViewModel(IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistanceService,
                                  IAccountService accountService,
@@ -77,6 +82,9 @@ namespace Wino.Calendar.ViewModels
             _calendarService = calendarService;
 
             AccountCalendarStateService = accountCalendarStateService;
+            AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
+            AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
+
             NavigationService = navigationService;
             ServerConnectionManager = serverConnectionManager;
             PreferencesService = preferencesService;
@@ -104,16 +112,33 @@ namespace Wino.Calendar.ViewModels
             UpdateDateNavigationHeaderItems();
 
             await InitializeAccountCalendarsAsync();
+
+            TodayClicked();
         }
 
-        private void AddGroupedAccountCalendarViewModel(GroupedAccountCalendarViewModel groupedAccountCalendarViewModel)
+        private async void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
         {
-            foreach (var calendarViewModel in groupedAccountCalendarViewModel.AccountCalendars)
-            {
-                calendarViewModel.CalendarSelectionStateChanged += UpdateAccountCalendarRequested;
-            }
+            // When using three-state checkbox, multiple accounts will be selected/unselected at the same time.
+            // Reporting all these changes one by one to the UI is not efficient and may cause problems in the future.
 
-            AccountCalendarStateService.GroupedAccountCalendars.Add(groupedAccountCalendarViewModel);
+            // Update all calendar states at once.
+            try
+            {
+                await _accountCalendarUpdateSemaphoreSlim.WaitAsync();
+
+                foreach (var calendar in e.AccountCalendars)
+                {
+                    await _calendarService.UpdateAccountCalendarAsync(calendar.AccountCalendar).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error while waiting for account calendar update semaphore.");
+            }
+            finally
+            {
+                _accountCalendarUpdateSemaphoreSlim.Release();
+            }
         }
 
         private async void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
@@ -121,7 +146,7 @@ namespace Wino.Calendar.ViewModels
 
         private async Task InitializeAccountCalendarsAsync()
         {
-            await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.GroupedAccountCalendars.Clear());
+            await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.ClearGroupedAccountCalendar());
 
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
@@ -141,7 +166,7 @@ namespace Wino.Calendar.ViewModels
 
                 await Dispatcher.ExecuteOnUIThread(() =>
                 {
-                    AddGroupedAccountCalendarViewModel(groupedAccountCalendarViewModel);
+                    AccountCalendarStateService.AddGroupedAccountCalendar(groupedAccountCalendarViewModel);
                 });
             }
         }
@@ -233,12 +258,12 @@ namespace Wino.Calendar.ViewModels
         private readonly IAccountService _accountService;
         private readonly ICalendarService _calendarService;
 
-        public override void OnPageLoaded()
-        {
-            base.OnPageLoaded();
+        //public override void OnPageLoaded()
+        //{
+        //    base.OnPageLoaded();
 
-            TodayClicked();
-        }
+        //    TodayClicked();
+        //}
 
         #region Commands
 

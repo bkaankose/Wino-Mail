@@ -71,16 +71,18 @@ namespace Wino.Services
                });
         }
 
-        public async Task<List<ICalendarItem>> GetCalendarEventsAsync(Guid calendarId, DateTime rangeStart, DateTime rangeEnd)
+        public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DateTime rangeStart, DateTime rangeEnd)
         {
             // TODO: We might need to implement caching here.
             // I don't know how much of the events we'll have in total, but this logic scans all events every time.
 
-            var accountEvents = await Connection.Table<CalendarItem>().Where(x => x.CalendarId == calendarId).ToListAsync();
-            var result = new List<ICalendarItem>();
+            var accountEvents = await Connection.Table<CalendarItem>().Where(x => x.CalendarId == calendar.Id).ToListAsync();
+            var result = new List<CalendarItem>();
 
             foreach (var ev in accountEvents)
             {
+                ev.AssignedCalendar = calendar;
+
                 // Parse recurrence rules
                 var calendarEvent = new Ical.Net.CalendarComponents.CalendarEvent
                 {

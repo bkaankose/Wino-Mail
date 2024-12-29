@@ -10,5 +10,6 @@ namespace Wino.Core.Domain.Interfaces
         DateTimeOffset StartTime { get; }
         int DurationInMinutes { get; }
         TimeRange Period { get; }
+        IAccountCalendar AssignedCalendar { get; }
     }
 }

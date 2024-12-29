@@ -1,13 +1,14 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Itenso.TimePeriod;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.ViewModels.Data
 {
-    public partial class CalendarItemViewModel : ObservableObject, ICalendarItem
+    public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, ICalendarItemViewModel
     {
-        public ICalendarItem CalendarItem { get; }
+        public CalendarItem CalendarItem { get; }
 
         public string Title => CalendarItem.Title;
 
@@ -19,7 +20,9 @@ namespace Wino.Calendar.ViewModels.Data
 
         public TimeRange Period => CalendarItem.Period;
 
-        public CalendarItemViewModel(ICalendarItem calendarItem)
+        public IAccountCalendar AssignedCalendar => ((ICalendarItem)CalendarItem).AssignedCalendar;
+
+        public CalendarItemViewModel(CalendarItem calendarItem)
         {
             CalendarItem = calendarItem;
         }

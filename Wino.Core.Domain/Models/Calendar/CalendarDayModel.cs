@@ -12,6 +12,7 @@ namespace Wino.Core.Domain.Models.Calendar
     {
         public TimeRange Period { get; }
         public CalendarEventCollection EventsCollection { get; } = new CalendarEventCollection();
+
         public CalendarDayModel(DateTime representingDate, CalendarRenderOptions calendarRenderOptions)
         {
             RepresentingDate = representingDate;

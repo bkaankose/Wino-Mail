@@ -8,8 +8,6 @@ namespace Wino.Calendar.ViewModels.Data
 {
     public partial class AccountCalendarViewModel : ObservableObject, IAccountCalendar
     {
-        public event EventHandler<AccountCalendarViewModel> CalendarSelectionStateChanged;
-
         public MailAccount Account { get; }
         public AccountCalendar AccountCalendar { get; }
 
@@ -24,11 +22,7 @@ namespace Wino.Calendar.ViewModels.Data
         [ObservableProperty]
         private bool _isChecked;
 
-        partial void OnIsCheckedChanged(bool value)
-        {
-            IsExtended = value;
-            CalendarSelectionStateChanged?.Invoke(this, this);
-        }
+        partial void OnIsCheckedChanged(bool value) => IsExtended = value;
 
         public string Name
         {
@@ -71,5 +65,6 @@ namespace Wino.Calendar.ViewModels.Data
             get => AccountCalendar.RemoteCalendarId;
             set => SetProperty(AccountCalendar.RemoteCalendarId, value, AccountCalendar, (u, r) => u.RemoteCalendarId = r);
         }
+        public Guid Id { get => ((IAccountCalendar)AccountCalendar).Id; set => ((IAccountCalendar)AccountCalendar).Id = value; }
     }
 }

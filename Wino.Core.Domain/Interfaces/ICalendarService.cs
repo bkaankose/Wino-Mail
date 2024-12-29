@@ -14,6 +14,6 @@ namespace Wino.Core.Domain.Interfaces
         Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
         Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
         Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
-        Task<List<ICalendarItem>> GetCalendarEventsAsync(Guid calendarId, DateTime rangeStart, DateTime rangeEnd);
+        Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DateTime rangeStart, DateTime rangeEnd);
     }
 }

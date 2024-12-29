@@ -24,5 +24,8 @@ namespace Wino.Core.Domain.Entities.Calendar
 
         [Ignore]
         public TimeRange Period => new TimeRange(StartTime.Date, StartTime.Date.AddMinutes(DurationInMinutes));
+
+        [Ignore]
+        public IAccountCalendar AssignedCalendar { get; set; }
     }
 }
