@@ -130,6 +130,7 @@
     "DialogMessage_EnableStartupLaunchMessage": "Let Wino Mail automatically launch minimized on Windows startup to not miss any notifications.\n\nDo you want to enable startup launch?",
     "DialogMessage_EnableStartupLaunchDeniedMessage": "You can enable startup launch from Settings -> App Preferences.",
     "Dialog_DontAskAgain": "Don't ask again",
+    "CalendarAllDayEventSummary": "all-day events",
     "CreateAccountAliasDialog_Title": "Create Account Alias",
     "CreateAccountAliasDialog_Description": "Make sure your outgoing server allows sending mails from this alias.",
     "CreateAccountAliasDialog_AliasAddress": "Address",

@@ -136,6 +136,9 @@
     </Compile>
     <Compile Include="Args\TimelineCellSelectedArgs.cs" />
     <Compile Include="Args\TimelineCellUnselectedArgs.cs" />
+    <Compile Include="Controls\AllDayItemsControl.xaml.cs">
+      <DependentUpon>AllDayItemsControl.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\CalendarDayItemsControl.cs" />
     <Compile Include="Controls\CalendarItemControl.cs" />
     <Compile Include="Controls\CustomCalendarFlipView.cs" />
@@ -248,6 +251,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="Controls\AllDayItemsControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

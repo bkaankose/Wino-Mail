@@ -33,6 +33,8 @@
 
             <!--  Override AppBarToggleButton's checked background color.  -->
             <StaticResource x:Key="AppBarToggleButtonBackgroundChecked" ResourceKey="SystemAccentColor" />
+            <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPointerOver" ResourceKey="SystemAccentColor" />
+            <StaticResource x:Key="AppBarToggleButtonBackgroundCheckedPressed" ResourceKey="SystemAccentColor" />
 
             <Thickness x:Key="ImapSetupDialogSubPagePadding">24,24,24,24</Thickness>
 

@@ -261,7 +261,7 @@ namespace Wino.Calendar.ViewModels
                 // Wait for the animation to finish.
                 // Otherwise it somehow shutters a little, which is annoying.
 
-                if (!removeCurrent) await Task.Delay(500);
+                if (!removeCurrent) await Task.Delay(350);
 
                 // Insert each render model in reverse order.
                 for (int i = renderModels.Count - 1; i >= 0; i--)

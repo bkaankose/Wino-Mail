@@ -66,19 +66,17 @@
                             <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
 
                             <!--  All-Day Events  -->
-                            <ScrollViewer
+                            <controls:AllDayItemsControl
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
-                                VerticalScrollBarVisibility="Hidden">
-                                <ItemsControl ItemsSource="{Binding EventsCollection.AllDayEvents, Mode=OneWay}">
-                                    <ItemsControl.ItemTemplate>
-                                        <!--  All-Day Event template  -->
-                                        <DataTemplate x:DataType="interfaces:ICalendarItem">
-                                            <TextBlock Text="{x:Bind Title}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                                AllDayEvents="{Binding EventsCollection.AllDayEvents}">
+                                <controls:AllDayItemsControl.AllDayEventTemplate>
+                                    <!--  All-Day Event template  -->
+                                    <DataTemplate x:DataType="interfaces:ICalendarItem">
+                                        <TextBlock Text="{x:Bind Title}" />
+                                    </DataTemplate>
+                                </controls:AllDayItemsControl.AllDayEventTemplate>
+                            </controls:AllDayItemsControl>
                         </Grid>
 
                         <VisualStateManager.VisualStateGroups>
