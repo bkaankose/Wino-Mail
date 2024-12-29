@@ -22,7 +22,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
@@ -429,7 +428,7 @@ namespace Wino.Mail.ViewModels
                 foreach (var item in bccAccountContacts)
                     BccItems.Add(item);
 
-                Subject = message.Subject;
+                Subject = string.IsNullOrWhiteSpace(message.Subject) ? Translator.MailItemNoSubject : message.Subject;
 
                 // TODO: FromName and FromAddress is probably not correct here for mail lists.
                 FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
