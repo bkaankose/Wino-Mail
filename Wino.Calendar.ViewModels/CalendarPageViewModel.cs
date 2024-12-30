@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
@@ -64,8 +65,26 @@ namespace Wino.Calendar.ViewModels
             _accountCalendarStateService = accountCalendarStateService;
             _preferencesService = preferencesService;
 
+            _accountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
+            _accountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
         }
 
+        private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
+        {
+            // For all date ranges, update the events.
+            foreach (var dayRange in DayRanges)
+            {
+                _ = InitializeCalendarEventsForDayRangeAsync(dayRange);
+            }
+        }
+
+        private void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
+        {
+            foreach (var range in DayRanges)
+            {
+                _ = InitializeCalendarEventsForDayRangeAsync(range);
+            }
+        }
 
         // TODO: Replace when calendar settings are updated.
         // Should be a field ideally.
@@ -125,9 +144,8 @@ namespace Wino.Calendar.ViewModels
 
                 if (ShouldResetDayRanges(message))
                 {
-                    DayRanges.Clear();
-
                     Debug.WriteLine("Will reset day ranges.");
+                    await ClearDayRangeModelsAsync();
                 }
                 else if (ShouldScrollToItem(message))
                 {
@@ -145,6 +163,7 @@ namespace Wino.Calendar.ViewModels
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Error while loading calendar.");
                 Debugger.Break();
             }
             finally
@@ -163,6 +182,47 @@ namespace Wino.Calendar.ViewModels
             var maximumLoadedDate = DayRanges[DayRanges.Count - 1].CalendarRenderOptions.DateRange.EndDate;
 
             return new DateRange(minimumLoadedDate, maximumLoadedDate);
+        }
+
+        private async Task AddDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel)
+        {
+            dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
+            dayRangeRenderModel.CalendarDayEventCollectionUpdated += EventsUpdatedInDayHeader;
+
+            await ExecuteUIThread(() =>
+            {
+                DayRanges.Add(dayRangeRenderModel);
+            });
+        }
+
+        private async Task InsertDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel, int index)
+        {
+            dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
+            dayRangeRenderModel.CalendarDayEventCollectionUpdated += EventsUpdatedInDayHeader;
+
+            await ExecuteUIThread(() =>
+            {
+                DayRanges.Insert(index, dayRangeRenderModel);
+            });
+        }
+
+        private async Task RemoveDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel)
+        {
+            dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
+            dayRangeRenderModel.UnregisterAll();
+
+            await ExecuteUIThread(() =>
+            {
+                DayRanges.Remove(dayRangeRenderModel);
+            });
+        }
+
+        private async Task ClearDayRangeModelsAsync()
+        {
+            while (DayRanges.Count > 0)
+            {
+                await RemoveDayRangeModelAsync(DayRanges[0]);
+            }
         }
 
         private async Task RenderDatesAsync(CalendarInitInitiative calendarInitInitiative,
@@ -232,10 +292,9 @@ namespace Wino.Calendar.ViewModels
             }
 
             // Dates are loaded. Now load the events for them.
-
             foreach (var renderModel in renderModels)
             {
-                await InitializeCalendarEventsAsync(renderModel).ConfigureAwait(false);
+                await InitializeCalendarEventsForDayRangeAsync(renderModel).ConfigureAwait(false);
             }
 
             CalendarLoadDirection animationDirection = calendarLoadDirection;
@@ -251,11 +310,12 @@ namespace Wino.Calendar.ViewModels
                 isLoadMoreBlocked = true;
 
                 // Remove all other dates except this one.
+                var rangesToRemove = DayRanges.Where(a => a != SelectedDayRange).ToList();
 
-                await ExecuteUIThread(() =>
+                foreach (var range in rangesToRemove)
                 {
-                    DayRanges.RemoveRange(DayRanges.Where(a => a != SelectedDayRange).ToList());
-                });
+                    await RemoveDayRangeModelAsync(range);
+                }
 
                 animationDirection = displayDate <= SelectedDayRange?.CalendarRenderOptions.DateRange.StartDate ?
                     CalendarLoadDirection.Previous : CalendarLoadDirection.Next;
@@ -263,13 +323,10 @@ namespace Wino.Calendar.ViewModels
 
             if (animationDirection == CalendarLoadDirection.Next)
             {
-                await ExecuteUIThread(() =>
+                foreach (var item in renderModels)
                 {
-                    foreach (var item in renderModels)
-                    {
-                        DayRanges.Add(item);
-                    }
-                });
+                    await AddDayRangeModelAsync(item);
+                }
             }
             else if (animationDirection == CalendarLoadDirection.Previous)
             {
@@ -281,10 +338,7 @@ namespace Wino.Calendar.ViewModels
                 // Insert each render model in reverse order.
                 for (int i = renderModels.Count - 1; i >= 0; i--)
                 {
-                    await ExecuteUIThread(() =>
-                    {
-                        DayRanges.Insert(0, renderModels[i]);
-                    });
+                    await InsertDayRangeModelAsync(renderModels[i], 0);
                 }
             }
 
@@ -297,10 +351,7 @@ namespace Wino.Calendar.ViewModels
 
             if (removeCurrent)
             {
-                await ExecuteUIThread(() =>
-                {
-                    DayRanges.Remove(SelectedDayRange);
-                });
+                await RemoveDayRangeModelAsync(SelectedDayRange);
             }
 
             // TODO...
@@ -320,8 +371,36 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        private async Task InitializeCalendarEventsAsync(DayRangeRenderModel dayRangeRenderModel)
+        // TODO...
+        private async void EventsUpdatedInDayHeader(object sender, CalendarDayModel e)
         {
+            // Find the day range model that contains the day model.
+            // TODO: Maybe optimize by just updating the day?
+
+            if (sender is DayRangeRenderModel dayRangeRenderModel)
+            {
+                await InitializeCalendarEventsForDayRangeAsync(dayRangeRenderModel);
+            }
+
+
+            //var dayRange = DayRanges.FirstOrDefault(a => a.CalendarDays.Contains(e));
+
+            //if (dayRange == null) return;
+
+            //await InitializeCalendarEventsForDayRangeAsync(dayRange);
+        }
+
+        private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel)
+        {
+            // Clear all events first for all days.
+            foreach (var day in dayRangeRenderModel.CalendarDays)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    day.EventsCollection.Clear();
+                });
+            }
+
             // Load for each selected calendar from the state.
             var checkedCalendarViewModels = _accountCalendarStateService.GroupedAccountCalendars
                 .SelectMany(a => a.AccountCalendars)
@@ -352,9 +431,7 @@ namespace Wino.Calendar.ViewModels
                     await ExecuteUIThread(() =>
                     {
                         // Use range-based add for performance.
-                        // No need to report changes since at this point nothing is rendered on the UI.
-
-                        calendarDayModel.EventsCollection.AddCalendarItemRange(calendarItemViewModels, reportChange: false);
+                        calendarDayModel.EventsCollection.AddCalendarItemRange(calendarItemViewModels);
                     });
                 }
             }

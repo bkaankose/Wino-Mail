@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Calendar
 {
@@ -28,6 +29,8 @@ namespace Wino.Core.Domain.Models.Calendar
                 var representingDate = calendarRenderOptions.DateRange.StartDate.AddDays(i);
                 var calendarDayModel = new CalendarDayModel(representingDate, calendarRenderOptions);
 
+                RegisterCalendarDayEvents(calendarDayModel);
+
                 CalendarDays.Add(calendarDayModel);
             }
 
@@ -50,38 +53,40 @@ namespace Wino.Core.Domain.Models.Calendar
             }
         }
 
-        //private void RegisterCalendarDayEvents(CalendarDayModel calendarDayModel)
-        //{
-        //    calendarDayModel.EventsCollection.CalendarItemAdded += CalendarItemAdded;
-        //    calendarDayModel.EventsCollection.CalendarItemRangeRemoved += CalendarItemRangeRemoved;
-        //    calendarDayModel.EventsCollection.CalendarItemRemoved += CalendarItemRemoved;
-        //    calendarDayModel.EventsCollection.CalendarItemRangeAdded += CalendarItemRangeAdded;
-        //}
+        private void RegisterCalendarDayEvents(CalendarDayModel calendarDayModel)
+        {
+            calendarDayModel.EventsCollection.CalendarItemAdded += CalendarItemAdded;
+            calendarDayModel.EventsCollection.CalendarItemRangeRemoved += CalendarItemRangeRemoved;
+            calendarDayModel.EventsCollection.CalendarItemRemoved += CalendarItemRemoved;
+            calendarDayModel.EventsCollection.CalendarItemRangeAdded += CalendarItemRangeAdded;
+        }
 
-        //private void CalendarItemRangeAdded(object sender, List<ICalendarItem> e)
-        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+        // TODO: These handlers have incorrect senders. They should be the CalendarDayModel.
 
-        //private void CalendarItemRemoved(object sender, ICalendarItem e)
-        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+        private void CalendarItemRangeAdded(object sender, List<ICalendarItem> e)
+            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
 
-        //private void CalendarItemAdded(object sender, ICalendarItem e)
-        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+        private void CalendarItemRemoved(object sender, ICalendarItem e)
+            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
 
-        //private void CalendarItemRangeRemoved(object sender, List<ICalendarItem> e)
-        //    => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+        private void CalendarItemAdded(object sender, ICalendarItem e)
+            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
 
-        ///// <summary>
-        ///// Unregisters all calendar item change listeners to draw the UI for calendar events.
-        ///// </summary>
-        //public void UnregisterAll()
-        //{
-        //    foreach (var day in CalendarDays)
-        //    {
-        //        day.EventsCollection.CalendarItemRangeRemoved -= CalendarItemRangeRemoved;
-        //        day.EventsCollection.CalendarItemRemoved -= CalendarItemRemoved;
-        //        day.EventsCollection.CalendarItemRangeAdded -= CalendarItemRangeAdded;
-        //        day.EventsCollection.CalendarItemAdded -= CalendarItemAdded;
-        //    }
-        //}
+        private void CalendarItemRangeRemoved(object sender, List<ICalendarItem> e)
+            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
+
+        /// <summary>
+        /// Unregisters all calendar item change listeners to draw the UI for calendar events.
+        /// </summary>
+        public void UnregisterAll()
+        {
+            foreach (var day in CalendarDays)
+            {
+                day.EventsCollection.CalendarItemRangeRemoved -= CalendarItemRangeRemoved;
+                day.EventsCollection.CalendarItemRemoved -= CalendarItemRemoved;
+                day.EventsCollection.CalendarItemRangeAdded -= CalendarItemRangeAdded;
+                day.EventsCollection.CalendarItemAdded -= CalendarItemAdded;
+            }
+        }
     }
 }

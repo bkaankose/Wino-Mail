@@ -20,7 +20,6 @@ namespace Wino.Calendar.Controls
         private readonly Dictionary<Guid, CalendarItemMeasurement> _measurements = new Dictionary<Guid, CalendarItemMeasurement>();
 
         public static readonly DependencyProperty EventItemMarginProperty = DependencyProperty.Register(nameof(EventItemMargin), typeof(Thickness), typeof(WinoCalendarPanel), new PropertyMetadata(new Thickness(0, 0, 0, 0)));
-        // public static readonly DependencyProperty RepresentingDateProperty = DependencyProperty.Register(nameof(RepresentingDate), typeof(DateTime), typeof(WinoCalendarControl), new PropertyMetadata(DateTime.MinValue));
         public static readonly DependencyProperty HourHeightProperty = DependencyProperty.Register(nameof(HourHeight), typeof(double), typeof(WinoCalendarPanel), new PropertyMetadata(0d));
 
         public double HourHeight
@@ -34,44 +33,6 @@ namespace Wino.Calendar.Controls
             get { return (Thickness)GetValue(EventItemMarginProperty); }
             set { SetValue(EventItemMarginProperty, value); }
         }
-
-        //private static void OnDayChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        //{
-        //    if (d is WinoCalendarPanel control)
-        //    {
-        //        // We need to listen for new events being added or removed from the collection to reset measurements.
-        //        if (e.OldValue is CalendarDayModel oldDayModel)
-        //        {
-        //            control.DetachCollection(oldDayModel.EventsCollection.RegularEvents);
-        //        }
-
-        //        if (e.NewValue is CalendarDayModel newDayModel)
-        //        {
-        //            control.AttachCollection(newDayModel.EventsCollection.RegularEvents);
-        //        }
-
-        //        control.ResetMeasurements();
-        //        control.UpdateLayout();
-        //    }
-        //}
-
-        //private void AttachCollection(IEnumerable<ICalendarItem> events)
-        //{
-        //    if (events is INotifyCollectionChanged collection)
-        //    {
-        //        // var t = new Grid();
-
-        //        collection.CollectionChanged += EventCollectionChanged;
-        //    }
-        //}
-
-        //private void DetachCollection(IEnumerable<ICalendarItem> events)
-        //{
-        //    if (events is INotifyCollectionChanged collection)
-        //    {
-        //        collection.CollectionChanged -= EventCollectionChanged;
-        //    }
-        //}
 
         private void ResetMeasurements() => _measurements.Clear();
 

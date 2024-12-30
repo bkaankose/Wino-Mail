@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Collections
@@ -12,6 +14,8 @@ namespace Wino.Core.Domain.Collections
 
         public event EventHandler<List<ICalendarItem>> CalendarItemRangeAdded;
         public event EventHandler<List<ICalendarItem>> CalendarItemRangeRemoved;
+
+        public event EventHandler CalendarItemsCleared;
 
         private ObservableRangeCollection<ICalendarItem> _internalRegularEvents = [];
         private ObservableRangeCollection<ICalendarItem> _internalAllDayEvents = [];
@@ -25,27 +29,33 @@ namespace Wino.Core.Domain.Collections
             AllDayEvents = new ReadOnlyObservableCollection<ICalendarItem>(_internalAllDayEvents);
         }
 
-        public void AddCalendarItemRange(IEnumerable<ICalendarItem> calendarItems, bool reportChange = true)
+        public bool HasCalendarEvent(AccountCalendar accountCalendar)
+        {
+            return _internalAllDayEvents.Any(x => x.AssignedCalendar.Id == accountCalendar.Id) ||
+                   _internalRegularEvents.Any(x => x.AssignedCalendar.Id == accountCalendar.Id);
+        }
+
+        public void AddCalendarItemRange(IEnumerable<ICalendarItem> calendarItems)
         {
             foreach (var calendarItem in calendarItems)
             {
-                AddCalendarItem(calendarItem, reportChange: false);
+                AddCalendarItem(calendarItem);
             }
 
             CalendarItemRangeAdded?.Invoke(this, new List<ICalendarItem>(calendarItems));
         }
 
-        public void RemoveCalendarItemRange(IEnumerable<ICalendarItem> calendarItems, bool reportChange = true)
+        public void RemoveCalendarItemRange(IEnumerable<ICalendarItem> calendarItems)
         {
             foreach (var calendarItem in calendarItems)
             {
-                RemoveCalendarItem(calendarItem, reportChange);
+                RemoveCalendarItem(calendarItem);
             }
 
             CalendarItemRangeRemoved?.Invoke(this, new List<ICalendarItem>(calendarItems));
         }
 
-        public void AddCalendarItem(ICalendarItem calendarItem, bool reportChange = true)
+        public void AddCalendarItem(ICalendarItem calendarItem)
         {
             if (calendarItem is not ICalendarItemViewModel)
                 throw new ArgumentException("CalendarItem must be of type ICalendarItemViewModel", nameof(calendarItem));
@@ -59,13 +69,18 @@ namespace Wino.Core.Domain.Collections
                 _internalRegularEvents.Add(calendarItem);
             }
 
-            if (reportChange)
-            {
-                CalendarItemAdded?.Invoke(this, calendarItem);
-            }
+            CalendarItemAdded?.Invoke(this, calendarItem);
         }
 
-        public void RemoveCalendarItem(ICalendarItem calendarItem, bool reportChange = true)
+        public void Clear()
+        {
+            _internalAllDayEvents.Clear();
+            _internalRegularEvents.Clear();
+
+            CalendarItemsCleared?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RemoveCalendarItem(ICalendarItem calendarItem)
         {
             if (calendarItem is not ICalendarItemViewModel)
                 throw new ArgumentException("CalendarItem must be of type ICalendarItemViewModel", nameof(calendarItem));
@@ -79,10 +94,7 @@ namespace Wino.Core.Domain.Collections
                 _internalRegularEvents.Remove(calendarItem);
             }
 
-            if (reportChange)
-            {
-                CalendarItemRemoved?.Invoke(this, calendarItem);
-            }
+            CalendarItemRemoved?.Invoke(this, calendarItem);
         }
     }
 }

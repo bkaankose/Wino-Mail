@@ -78,6 +78,8 @@ namespace Wino.Calendar.Controls
 
             collection.CalendarItemRangeAdded += CollectionOfEventsUpdated;
             collection.CalendarItemRangeRemoved += CollectionOfEventsUpdated;
+
+            collection.CalendarItemsCleared += EventsCleared;
         }
 
         private void UnregisterEventCollectionChanged(CalendarEventCollection collection)
@@ -87,10 +89,13 @@ namespace Wino.Calendar.Controls
 
             collection.CalendarItemRangeAdded -= CollectionOfEventsUpdated;
             collection.CalendarItemRangeRemoved -= CollectionOfEventsUpdated;
+
+            collection.CalendarItemsCleared -= EventsCleared;
         }
 
         private void SingleEventUpdated(object sender, ICalendarItem calendarItem) => UpdateCollectionVisuals();
         private void CollectionOfEventsUpdated(object sender, List<ICalendarItem> calendarItems) => UpdateCollectionVisuals();
+        private void EventsCleared(object sender, System.EventArgs e) => UpdateCollectionVisuals();
 
         private void UpdateCollectionVisuals()
         {
