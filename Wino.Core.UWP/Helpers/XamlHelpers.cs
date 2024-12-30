@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
@@ -40,6 +41,37 @@ namespace Wino.Helpers
                 InfoBarMessageType.Error => InfoBarSeverity.Error,
                 _ => InfoBarSeverity.Informational,
             };
+        }
+
+        public static SolidColorBrush GetReadableTextColor(string backgroundColor)
+        {
+            if (!backgroundColor.StartsWith("#")) throw new ArgumentException("Hex color must start with #.");
+
+            backgroundColor = backgroundColor.TrimStart('#');
+
+            if (backgroundColor.Length == 6)
+            {
+                var r = int.Parse(backgroundColor.Substring(0, 2), NumberStyles.HexNumber);
+                var g = int.Parse(backgroundColor.Substring(2, 2), NumberStyles.HexNumber);
+                var b = int.Parse(backgroundColor.Substring(4, 2), NumberStyles.HexNumber);
+
+                // Calculate relative luminance
+                double luminance = (0.2126 * GetLinearValue(r)) +
+                                   (0.7152 * GetLinearValue(g)) +
+                                   (0.0722 * GetLinearValue(b));
+
+                return luminance > 0.5 ? new SolidColorBrush(Colors.Black) : new SolidColorBrush(Colors.White);
+            }
+            else
+            {
+                throw new ArgumentException("Hex color must be 6 characters long (e.g., #RRGGBB).");
+            }
+        }
+
+        private static double GetLinearValue(int colorComponent)
+        {
+            double sRGB = colorComponent / 255.0;
+            return sRGB <= 0.03928 ? sRGB / 12.92 : Math.Pow((sRGB + 0.055) / 1.055, 2.4);
         }
 
         public static Microsoft.UI.Xaml.Controls.NavigationViewDisplayMode NavigationViewDisplayModeConverter(SplitViewDisplayMode splitViewDisplayMode)
