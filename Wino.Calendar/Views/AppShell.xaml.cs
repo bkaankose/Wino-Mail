@@ -44,11 +44,6 @@ namespace Wino.Calendar.Views
 
         }
 
-        //public void Receive(GoToCalendarDayMessage message)
-        //{
-        //    CalendarView.GoToDay(message.DateTime);
-        //}
-
         private void PreviousDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoPreviousDateRequestedMessage());
 
         private void NextDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoNextDateRequestedMessage());

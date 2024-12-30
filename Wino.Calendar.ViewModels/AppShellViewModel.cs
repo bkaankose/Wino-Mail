@@ -258,13 +258,6 @@ namespace Wino.Calendar.ViewModels
         private readonly IAccountService _accountService;
         private readonly ICalendarService _calendarService;
 
-        //public override void OnPageLoaded()
-        //{
-        //    base.OnPageLoaded();
-
-        //    TodayClicked();
-        //}
-
         #region Commands
 
         [RelayCommand]
@@ -341,7 +334,5 @@ namespace Wino.Calendar.ViewModels
             => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
         public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
-
-        //public void Receive(GoToCalendarDayMessage message) => SelectedMenuItemIndex = -1;
     }
 }

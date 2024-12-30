@@ -14,13 +14,15 @@ namespace Wino.Calendar.ViewModels.Data
 
         public Guid Id => CalendarItem.Id;
 
-        public DateTimeOffset StartTime => CalendarItem.StartTime;
+        public IAccountCalendar AssignedCalendar => CalendarItem.AssignedCalendar;
 
-        public int DurationInMinutes => CalendarItem.DurationInMinutes;
+        public DateTime StartDate { get => CalendarItem.StartDate; set => CalendarItem.StartDate = value; }
 
-        public TimeRange Period => CalendarItem.Period;
+        public DateTime EndDate => CalendarItem.EndDate;
 
-        public IAccountCalendar AssignedCalendar => ((ICalendarItem)CalendarItem).AssignedCalendar;
+        public double DurationInSeconds { get => CalendarItem.DurationInSeconds; set => CalendarItem.DurationInSeconds = value; }
+
+        public ITimePeriod Period => CalendarItem.Period;
 
         public CalendarItemViewModel(CalendarItem calendarItem)
         {

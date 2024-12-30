@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using Itenso.TimePeriod;
 using Windows.Foundation;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -21,6 +22,14 @@ namespace Wino.Calendar.Controls
 
         public static readonly DependencyProperty EventItemMarginProperty = DependencyProperty.Register(nameof(EventItemMargin), typeof(Thickness), typeof(WinoCalendarPanel), new PropertyMetadata(new Thickness(0, 0, 0, 0)));
         public static readonly DependencyProperty HourHeightProperty = DependencyProperty.Register(nameof(HourHeight), typeof(double), typeof(WinoCalendarPanel), new PropertyMetadata(0d));
+        public static readonly DependencyProperty PeriodProperty = DependencyProperty.Register(nameof(Period), typeof(ITimePeriod), typeof(WinoCalendarPanel), new PropertyMetadata(null));
+
+
+        public ITimePeriod Period
+        {
+            get { return (ITimePeriod)GetValue(PeriodProperty); }
+            set { SetValue(PeriodProperty, value); }
+        }
 
         public double HourHeight
         {
@@ -41,11 +50,18 @@ namespace Wino.Calendar.Controls
 
         private double GetChildTopMargin(ICalendarItem calendarItemViewModel, double availableHeight)
         {
-            var childStart = calendarItemViewModel.StartTime;
+            var childStart = calendarItemViewModel.StartDate;
 
-            double totalMinutes = 1440;
-            double minutesFromStart = (childStart - childStart.DateTime.Date).TotalMinutes;
-            return (minutesFromStart / totalMinutes) * availableHeight;
+            if (childStart <= Period.Start)
+            {
+                // Event started before or exactly at the periods tart. This might be a multi-day event.
+                // We can simply consider event must not have a top margin.
+
+                return 0d;
+            }
+
+            double minutesFromStart = (childStart - Period.Start).TotalMinutes;
+            return (minutesFromStart / 1440) * availableHeight;
         }
 
         private double GetChildWidth(CalendarItemMeasurement calendarItemMeasurement, double availableWidth)
@@ -56,16 +72,48 @@ namespace Wino.Calendar.Controls
         private double GetChildLeftMargin(CalendarItemMeasurement calendarItemMeasurement, double availableWidth)
             => availableWidth * calendarItemMeasurement.Left;
 
-        private double GetChildHeight(DateTimeOffset childStart, DateTimeOffset childEnd)
+        private double GetChildHeight(ICalendarItem child)
         {
-            double totalMinutes = 1440;
+            double childDurationInMinutes = 0d;
+
             double availableHeight = HourHeight * 24;
-            double childDuration = (childEnd - childStart).TotalMinutes;
-            return (childDuration / totalMinutes) * availableHeight;
+
+            var childStart = child.Period.Start;
+            var childEnd = child.Period.End;
+
+            // Multi-day event.
+
+            if (childStart < Period.Start)
+            {
+                if (childEnd >= Period.End)
+                {
+                    // Event spans the whole period.
+                    return availableHeight;
+                }
+                else
+                {
+                    // Check how many of the event falls into the current period.
+                    childDurationInMinutes = (childEnd - Period.Start).TotalMinutes;
+                }
+            }
+            else
+            {
+                childDurationInMinutes = (childEnd - childStart).TotalMinutes;
+            }
+
+            return (childDurationInMinutes / 1440) * availableHeight;
+        }
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            ResetMeasurements();
+            return base.MeasureOverride(availableSize);
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
+            if (Period == null || HourHeight == 0d) return finalSize;
+
             // Measure/arrange each child height and width.
             // This is a vertical calendar. Therefore the height of each child is the duration of the event.
             // Children weights for left and right will be saved if they don't exist.
@@ -99,7 +147,7 @@ namespace Wino.Calendar.Controls
 
                 var childMeasurement = _measurements[child.Id];
 
-                double childHeight = Math.Max(0, GetChildHeight(child.StartTime, child.StartTime.AddMinutes(child.DurationInMinutes)));
+                double childHeight = Math.Max(0, GetChildHeight(child));
                 double childWidth = Math.Max(0, GetChildWidth(childMeasurement, finalSize.Width));
                 double childTop = Math.Max(0, GetChildTopMargin(child, availableHeight));
                 double childLeft = Math.Max(0, GetChildLeftMargin(childMeasurement, availableWidth));
@@ -142,7 +190,7 @@ namespace Wino.Calendar.Controls
             var columns = new List<List<ICalendarItem>>();
             DateTime? lastEventEnding = null;
 
-            foreach (var ev in events.OrderBy(ev => ev.Period.Start).ThenBy(ev => ev.Period.End))
+            foreach (var ev in events.OrderBy(ev => ev.StartDate).ThenBy(ev => ev.EndDate))
             {
                 if (ev.Period.Start >= lastEventEnding)
                 {

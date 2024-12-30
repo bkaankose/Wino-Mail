@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using MoreLinq;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -70,20 +72,16 @@ namespace Wino.Calendar.ViewModels
         }
 
         private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
-        {
-            // For all date ranges, update the events.
-            foreach (var dayRange in DayRanges)
-            {
-                _ = InitializeCalendarEventsForDayRangeAsync(dayRange);
-            }
-        }
+            => FilterActiveCalendars(DayRanges);
 
         private void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
+            => FilterActiveCalendars(DayRanges);
+
+        private void FilterActiveCalendars(IEnumerable<DayRangeRenderModel> dayRangeRenderModels)
         {
-            foreach (var range in DayRanges)
-            {
-                _ = InitializeCalendarEventsForDayRangeAsync(range);
-            }
+            var days = dayRangeRenderModels.SelectMany(a => a.CalendarDays);
+
+            days.ForEach(a => a.EventsCollection.FilterByCalendars(_accountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
         }
 
         // TODO: Replace when calendar settings are updated.
@@ -297,6 +295,9 @@ namespace Wino.Calendar.ViewModels
                 await InitializeCalendarEventsForDayRangeAsync(renderModel).ConfigureAwait(false);
             }
 
+            // Filter by active calendars. This is a quick operation, and things are not on the UI yet.
+            FilterActiveCalendars(renderModels);
+
             CalendarLoadDirection animationDirection = calendarLoadDirection;
 
             bool removeCurrent = calendarLoadDirection == CalendarLoadDirection.Replace;
@@ -372,22 +373,39 @@ namespace Wino.Calendar.ViewModels
         }
 
         // TODO...
-        private async void EventsUpdatedInDayHeader(object sender, CalendarDayModel e)
+        private void EventsUpdatedInDayHeader(object sender, CalendarDayModel e)
         {
-            // Find the day range model that contains the day model.
-            // TODO: Maybe optimize by just updating the day?
 
-            if (sender is DayRangeRenderModel dayRangeRenderModel)
-            {
-                await InitializeCalendarEventsForDayRangeAsync(dayRangeRenderModel);
-            }
+        }
 
+        protected override async void OnCalendarEventAdded(CalendarItem calendarItem)
+        {
+            base.OnCalendarEventAdded(calendarItem);
 
-            //var dayRange = DayRanges.FirstOrDefault(a => a.CalendarDays.Contains(e));
+            // test
+            var calendar = await _calendarService.GetAccountCalendarAsync(Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"));
 
-            //if (dayRange == null) return;
+            calendarItem.AssignedCalendar = calendar;
+            // Check if event falls into the current date range.
 
-            //await InitializeCalendarEventsForDayRangeAsync(dayRange);
+            var loadedDateRange = GetLoadedDateRange();
+
+            if (loadedDateRange == null) return;
+
+            // Check whether this event falls into any of the loaded date ranges.
+
+            //if (calendarItem.Period.Start >= loadedDateRange.StartDate && calendarItem.Period.Start.Date <= loadedDateRange.EndDate)
+            //{
+            //    // Find the day representation for the event.
+            //    var dayModel = DayRanges.SelectMany(a => a.CalendarDays).FirstOrDefault(a => a.RepresentingDate.Date == calendarItem.Period.Start.Date);
+            //    if (dayModel == null) return;
+
+            //    var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
+            //    await ExecuteUIThread(() =>
+            //    {
+            //        dayModel.EventsCollection.AddCalendarItem(calendarItemViewModel);
+            //    });
+            //}
         }
 
         private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel)
@@ -401,38 +419,32 @@ namespace Wino.Calendar.ViewModels
                 });
             }
 
-            // Load for each selected calendar from the state.
-            var checkedCalendarViewModels = _accountCalendarStateService.GroupedAccountCalendars
-                .SelectMany(a => a.AccountCalendars)
-                .Where(b => b.IsChecked);
+            // Initialization is done for all calendars, regardless whether they are actively selected or not.
+            // This is because the filtering is cached internally of the calendar items in CalendarEventCollection.
+            var allCalendars = _accountCalendarStateService.GroupedAccountCalendars.SelectMany(a => a.AccountCalendars);
 
-            foreach (var calendarViewModel in checkedCalendarViewModels)
+            foreach (var calendarViewModel in allCalendars)
             {
                 // Check all the events for the given date range and calendar.
                 // Then find the day representation for all the events returned, and add to the collection.
 
-                var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel,
-                    dayRangeRenderModel.Period.Start,
-                    dayRangeRenderModel.Period.End)
-                    .ConfigureAwait(false);
+                var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, dayRangeRenderModel).ConfigureAwait(false);
 
-                var groupedEvents = events.GroupBy(a => a.StartTime.Date);
-
-                foreach (var group in groupedEvents)
+                foreach (var @event in events)
                 {
-                    var startDate = group.Key;
+                    // Find the days that the event falls into.
+                    // TODO: Multi-day events are not fully supported yet.
 
-                    var calendarDayModel = dayRangeRenderModel.CalendarDays.FirstOrDefault(a => a.RepresentingDate.Date == startDate);
+                    var allDaysForEvent = dayRangeRenderModel.CalendarDays.Where(a => a.Period.OverlapsWith(@event.Period));
 
-                    if (calendarDayModel == null) continue;
-
-                    var calendarItemViewModels = group.Select(a => new CalendarItemViewModel(a));
-
-                    await ExecuteUIThread(() =>
+                    foreach (var calendarDay in allDaysForEvent)
                     {
-                        // Use range-based add for performance.
-                        calendarDayModel.EventsCollection.AddCalendarItemRange(calendarItemViewModels);
-                    });
+                        var calendarItemViewModel = new CalendarItemViewModel(@event);
+                        await ExecuteUIThread(() =>
+                        {
+                            calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
+                        });
+                    }
                 }
             }
         }
@@ -532,7 +544,7 @@ namespace Wino.Calendar.ViewModels
             // TODO: This might need throttling due to slider in the settings page for hour height.
             // or make sure the slider does not update on each tick but on focus lost.
 
-            Messenger.Send(new LoadCalendarMessage(DateTime.UtcNow.Date, CalendarInitInitiative.App, true));
+            // Messenger.Send(new LoadCalendarMessage(DateTime.UtcNow.Date, CalendarInitInitiative.App, true));
         }
     }
 }

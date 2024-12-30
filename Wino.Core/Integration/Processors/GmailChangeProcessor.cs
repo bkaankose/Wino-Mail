@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Google.Apis.Calendar.v3.Data;
 using Wino.Core.Domain.Entities.Calendar;
@@ -33,21 +34,31 @@ namespace Wino.Core.Integration.Processors
 
         public async Task<CalendarItem> CreateCalendarItemAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
         {
+            var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
+            var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
+
+            var totalDurationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
+
             var calendarItem = new CalendarItem()
             {
                 CalendarId = assignedCalendar.Id,
                 CreatedAt = DateTimeOffset.UtcNow,
                 Description = calendarEvent.Description,
-                StartTime = GoogleIntegratorExtensions.GetEventStartDateTimeOffset(calendarEvent) ?? throw new Exception("Event without a start time."),
-                DurationInMinutes = GoogleIntegratorExtensions.GetEventDurationInMinutes(calendarEvent) ?? throw new Exception("Event without a duration."),
                 Id = Guid.NewGuid(),
+                StartDate = eventStartDateTimeOffset.DateTime,
+                StartDateOffset = eventStartDateTimeOffset.Offset,
+                EndDateOffset = eventEndDateTimeOffset.Offset,
+                DurationInSeconds = totalDurationInSeconds,
                 Location = calendarEvent.Location,
                 Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
                 Status = GetStatus(calendarEvent.Status),
                 Title = calendarEvent.Summary,
                 UpdatedAt = DateTimeOffset.UtcNow,
                 Visibility = GetVisibility(calendarEvent.Visibility),
+                HtmlLink = calendarEvent.HtmlLink
             };
+
+            Debug.WriteLine($"({assignedCalendar.Name}) {calendarItem.Title}, Start: {calendarItem.StartDate.ToString("f")}, End: {calendarItem.EndDate.ToString("f")}");
 
             // TODO: There are some edge cases with cancellation here.
             CalendarItemStatus GetStatus(string status)

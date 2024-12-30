@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Wino.Calendar.ViewModels.Data;
 
@@ -17,5 +18,10 @@ namespace Wino.Calendar.ViewModels.Interfaces
 
         public void AddAccountCalendar(AccountCalendarViewModel accountCalendar);
         public void RemoveAccountCalendar(AccountCalendarViewModel accountCalendar);
+
+        /// <summary>
+        /// Enumeration of currently selected calendars.
+        /// </summary>
+        IEnumerable<AccountCalendarViewModel> ActiveCalendars { get; }
     }
 }

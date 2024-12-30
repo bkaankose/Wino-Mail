@@ -209,88 +209,74 @@ namespace Wino.Core.Extensions
         /// </summary>
         /// <param name="calendarEvent">The Google Calendar Event object.</param>
         /// <returns>The start DateTimeOffset of the event, or null if it cannot be determined.</returns>
-        public static DateTimeOffset? GetEventStartDateTimeOffset(this Event calendarEvent)
-        {
-            if (calendarEvent == null)
-            {
-                return null;
-            }
+        //public static DateTimeOffset GetEventStartDateTimeOffset(this Event calendarEvent)
+        //{
+        //    return GetEventDateTimeOffset(calendarEvent.Start);
+        //}
 
-            if (calendarEvent.Start != null)
+        public static DateTimeOffset GetEventDateTimeOffset(EventDateTime calendarEvent)
+        {
+            if (calendarEvent != null)
             {
-                if (calendarEvent.Start.DateTimeDateTimeOffset != null)
+                if (calendarEvent.DateTimeDateTimeOffset != null)
                 {
-                    return calendarEvent.Start.DateTimeDateTimeOffset; // Use the direct DateTimeOffset property!
+                    return calendarEvent.DateTimeDateTimeOffset.Value;
                 }
-                else if (calendarEvent.Start.Date != null)
+                else if (calendarEvent.Date != null)
                 {
-                    if (DateTime.TryParse(calendarEvent.Start.Date, out DateTime startDate))
+                    if (DateTime.TryParse(calendarEvent.Date, out DateTime eventDateTime))
                     {
                         // Date-only events are treated as UTC midnight
-                        return new DateTimeOffset(startDate, TimeSpan.Zero);
+                        return new DateTimeOffset(eventDateTime, TimeSpan.Zero);
                     }
                     else
                     {
-                        return null;
+                        throw new Exception("Invalid date format in Google Calendar event date.");
                     }
                 }
             }
 
-            return null; // Start time not found
+            throw new Exception("Google Calendar event has no date.");
         }
 
         /// <summary>
-        /// Calculates the duration of a Google Calendar Event in minutes.
+        /// Calculates the duration of a Google Calendar Event in seconds.
         /// Handles date-only and date-time events, but *does not* handle recurring events correctly.
         /// For recurring events, this method will return the duration of the *first* instance.
         /// </summary>
         /// <param name="calendarEvent">The Google Calendar Event object.</param>
         /// <returns>The duration of the event in minutes, or null if it cannot be determined.</returns>
-        public static int? GetEventDurationInMinutes(this Event calendarEvent)
-        {
-            if (calendarEvent == null)
-            {
-                return null;
-            }
+        //public static int GetEventDurationInSeconds(this Event calendarEvent)
+        //{
+        //    var start = calendarEvent.GetEventStartDateTimeOffset();
 
-            DateTimeOffset? start = calendarEvent.GetEventStartDateTimeOffset();
-            if (start == null)
-            {
-                return null;
-            }
+        //    DateTimeOffset? end = null;
+        //    if (calendarEvent.End != null)
+        //    {
+        //        if (calendarEvent.End.DateTimeDateTimeOffset != null)
+        //        {
+        //            end = calendarEvent.End.DateTimeDateTimeOffset;
+        //        }
+        //        else if (calendarEvent.End.Date != null)
+        //        {
+        //            if (DateTime.TryParse(calendarEvent.End.Date, out DateTime endDate))
+        //            {
+        //                end = new DateTimeOffset(endDate, TimeSpan.Zero);
+        //            }
+        //            else
+        //            {
+        //                throw new Exception("Invalid date format in Google Calendar event end date.");
+        //            }
+        //        }
+        //    }
 
-            DateTimeOffset? end = null;
-            if (calendarEvent.End != null)
-            {
-                if (calendarEvent.End.DateTimeDateTimeOffset != null)
-                {
-                    end = calendarEvent.End.DateTimeDateTimeOffset;
-                }
-                else if (calendarEvent.End.Date != null)
-                {
-                    if (DateTime.TryParse(calendarEvent.End.Date, out DateTime endDate))
-                    {
-                        end = new DateTimeOffset(endDate, TimeSpan.Zero);
-                    }
-                    else
-                    {
-                        return null;
-                    }
-                }
-            }
+        //    if (end == null) throw new Exception("Google Calendar event has no end date.");
 
-            if (end == null)
-            {
-                return null;
-            }
-
-            return (int)(end.Value - start.Value).TotalMinutes;
-        }
-
+        //    return (int)(end.Value - start).TotalSeconds;
+        //}
 
         /// <summary>
         /// RRULE, EXRULE, RDATE and EXDATE lines for a recurring event, as specified in RFC5545.
-        /// 
         /// </summary>
         /// <returns>___ separated lines.</returns>
         public static string GetRecurrenceString(this Event calendarEvent)

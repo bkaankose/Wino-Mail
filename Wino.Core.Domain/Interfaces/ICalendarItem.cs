@@ -7,9 +7,10 @@ namespace Wino.Core.Domain.Interfaces
     {
         string Title { get; }
         Guid Id { get; }
-        DateTimeOffset StartTime { get; }
-        int DurationInMinutes { get; }
-        TimeRange Period { get; }
         IAccountCalendar AssignedCalendar { get; }
+        DateTime StartDate { get; set; }
+        DateTime EndDate { get; }
+        double DurationInSeconds { get; set; }
+        ITimePeriod Period { get; }
     }
 }

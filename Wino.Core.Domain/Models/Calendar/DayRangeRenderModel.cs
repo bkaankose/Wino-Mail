@@ -56,23 +56,14 @@ namespace Wino.Core.Domain.Models.Calendar
         private void RegisterCalendarDayEvents(CalendarDayModel calendarDayModel)
         {
             calendarDayModel.EventsCollection.CalendarItemAdded += CalendarItemAdded;
-            calendarDayModel.EventsCollection.CalendarItemRangeRemoved += CalendarItemRangeRemoved;
             calendarDayModel.EventsCollection.CalendarItemRemoved += CalendarItemRemoved;
-            calendarDayModel.EventsCollection.CalendarItemRangeAdded += CalendarItemRangeAdded;
         }
 
         // TODO: These handlers have incorrect senders. They should be the CalendarDayModel.
-
-        private void CalendarItemRangeAdded(object sender, List<ICalendarItem> e)
-            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
-
         private void CalendarItemRemoved(object sender, ICalendarItem e)
             => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
 
         private void CalendarItemAdded(object sender, ICalendarItem e)
-            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
-
-        private void CalendarItemRangeRemoved(object sender, List<ICalendarItem> e)
             => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
 
         /// <summary>
@@ -82,9 +73,7 @@ namespace Wino.Core.Domain.Models.Calendar
         {
             foreach (var day in CalendarDays)
             {
-                day.EventsCollection.CalendarItemRangeRemoved -= CalendarItemRangeRemoved;
                 day.EventsCollection.CalendarItemRemoved -= CalendarItemRemoved;
-                day.EventsCollection.CalendarItemRangeAdded -= CalendarItemRangeAdded;
                 day.EventsCollection.CalendarItemAdded -= CalendarItemAdded;
             }
         }

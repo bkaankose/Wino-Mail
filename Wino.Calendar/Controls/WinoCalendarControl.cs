@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
@@ -95,8 +94,6 @@ namespace Wino.Calendar.Controls
         {
             if (canvas == null) return;
 
-            Debug.WriteLine("Deregister active canvas.");
-
             canvas.SelectedDateTime = null;
             canvas.TimelineCellSelected -= ActiveTimelineCellSelected;
             canvas.TimelineCellUnselected -= ActiveTimelineCellUnselected;
@@ -105,8 +102,6 @@ namespace Wino.Calendar.Controls
         private void RegisterCanvas(WinoDayTimelineCanvas canvas)
         {
             if (canvas == null) return;
-
-            Debug.WriteLine("Register new canvas.");
 
             canvas.SelectedDateTime = null;
             canvas.TimelineCellSelected += ActiveTimelineCellSelected;
@@ -125,13 +120,6 @@ namespace Wino.Calendar.Controls
             base.OnApplyTemplate();
 
             InternalFlipView = GetTemplateChild(PART_WinoFlipView) as WinoCalendarFlipView;
-        }
-
-        private void FlipViewsActiveTimelineCanvasChanged(object sender, WinoDayTimelineCanvas e)
-        {
-            ActiveCanvas = e;
-
-            SelectedFlipViewDayRange = InternalFlipView.SelectedItem as DayRangeRenderModel;
         }
 
         private void ActiveTimelineCellUnselected(object sender, TimelineCellUnselectedArgs e)

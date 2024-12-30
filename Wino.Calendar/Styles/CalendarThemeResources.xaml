@@ -17,7 +17,7 @@
         <ResourceDictionary x:Key="Dark">
 
             <!--  CalendarControl  -->
-            <SolidColorBrush x:Key="CalendarSeperatorBrush">#000000</SolidColorBrush>
+            <SolidColorBrush x:Key="CalendarSeperatorBrush">#525252</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarFieldWorkingHoursBackgroundBrush">#32262626</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarFieldSelectedBackgroundBrush">#121212</SolidColorBrush>
 

@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
 using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
 using Wino.Services.Extensions;
 
@@ -71,7 +73,7 @@ namespace Wino.Services
                });
         }
 
-        public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DateTime rangeStart, DateTime rangeEnd)
+        public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel)
         {
             // TODO: We might need to implement caching here.
             // I don't know how much of the events we'll have in total, but this logic scans all events every time.
@@ -84,19 +86,22 @@ namespace Wino.Services
                 ev.AssignedCalendar = calendar;
 
                 // Parse recurrence rules
-                var calendarEvent = new Ical.Net.CalendarComponents.CalendarEvent
+                var calendarEvent = new CalendarEvent
                 {
-                    Start = new CalDateTime(ev.StartTime.UtcDateTime),
-                    Duration = TimeSpan.FromMinutes(ev.DurationInMinutes),
+                    Start = new CalDateTime(ev.StartDate),
+                    End = new CalDateTime(ev.EndDate),
                 };
 
                 if (string.IsNullOrEmpty(ev.Recurrence))
                 {
-                    // No recurrence, only check if we fall into the date range.
-                    // All events are saved in UTC, so we need to convert the range to UTC as well.
-                    if (ev.StartTime.UtcDateTime < rangeEnd
-                        && ev.StartTime.UtcDateTime.AddMinutes(ev.DurationInMinutes) > rangeStart)
+                    // No recurrence, only check if we fall into the given period.
+
+                    if (ev.Period.OverlapsWith(dayRangeRenderModel.Period))
                     {
+                        // TODO: We overlap, but this might be a multi-day event.
+                        // Should we split the events here or in panel?
+                        // For now just continue.
+
                         result.Add(ev);
                     }
                 }
@@ -110,7 +115,7 @@ namespace Wino.Services
                     }
 
                     // Calculate occurrences in the range.
-                    var occurrences = calendarEvent.GetOccurrences(rangeStart, rangeEnd);
+                    var occurrences = calendarEvent.GetOccurrences(dayRangeRenderModel.Period.Start, dayRangeRenderModel.Period.End);
 
                     foreach (var occurrence in occurrences)
                     {
@@ -121,5 +126,8 @@ namespace Wino.Services
 
             return result;
         }
+
+        public Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
+            => Connection.GetAsync<AccountCalendar>(accountCalendarId);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.Messaging;
+using Itenso.TimePeriod;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -16,7 +17,7 @@ namespace Wino.Calendar.Views
         IRecipient<GoNextDateRequestedMessage>,
         IRecipient<GoPreviousDateRequestedMessage>
     {
-        private DateTime? selectedDateTime;
+        private DateTimeOffset? selectedDateTime;
         public CalendarPage()
         {
             InitializeComponent();
@@ -50,7 +51,13 @@ namespace Wino.Calendar.Views
 
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {
+            // Selected date is in Local kind.
             selectedDateTime = e.ClickedDate;
+            var utc = DateTime.SpecifyKind(e.ClickedDate, DateTimeKind.Utc);
+            var unspecified = DateTime.SpecifyKind(e.ClickedDate, DateTimeKind.Unspecified);
+
+            var putc = new TimeRange(utc, utc.AddMinutes(30));
+            var punspecified = new TimeRange(unspecified, unspecified.AddMinutes(30));
 
             // TODO: Popup is not positioned well on daily view.
             TeachingTipPositionerGrid.Width = e.CellSize.Width;
@@ -59,8 +66,19 @@ namespace Wino.Calendar.Views
             Canvas.SetLeft(TeachingTipPositionerGrid, e.PositionerPoint.X);
             Canvas.SetTop(TeachingTipPositionerGrid, e.PositionerPoint.Y);
 
-            // TODO: End time can be from settings.
-            // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, selectedDateTime.Value.AddMinutes(30))));
+            //var testCalendarItem = new CalendarItem
+            //{
+            //    CalendarId = Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"),
+            //    StartTime = selectedDateTime.Value, // All events are saved in UTC.
+            //    DurationInMinutes = 30,
+            //    CreatedAt = DateTime.UtcNow,
+            //    Description = "Test Description",
+            //    Location = "Poland",
+            //    Title = "Test event",
+            //    Id = Guid.NewGuid()
+            //};
+
+            //WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
 
             NewEventTip.IsOpen = true;
         }

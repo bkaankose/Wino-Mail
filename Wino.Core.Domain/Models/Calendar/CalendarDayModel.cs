@@ -10,14 +10,15 @@ namespace Wino.Core.Domain.Models.Calendar
     /// </summary>
     public class CalendarDayModel
     {
-        public TimeRange Period { get; }
-        public CalendarEventCollection EventsCollection { get; } = new CalendarEventCollection();
+        public ITimePeriod Period { get; }
+        public CalendarEventCollection EventsCollection { get; }
 
         public CalendarDayModel(DateTime representingDate, CalendarRenderOptions calendarRenderOptions)
         {
             RepresentingDate = representingDate;
             Period = new TimeRange(representingDate, representingDate.AddDays(1));
             CalendarRenderOptions = calendarRenderOptions;
+            EventsCollection = new CalendarEventCollection(Period);
         }
 
         public DateTime RepresentingDate { get; }

@@ -1,5 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
-using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Core.ViewModels
@@ -8,6 +8,6 @@ namespace Wino.Core.ViewModels
     {
         public void Receive(CalendarEventAdded message) => OnCalendarEventAdded(message.CalendarItem);
 
-        protected virtual void OnCalendarEventAdded(ICalendarItem calendarItem) { }
+        protected virtual void OnCalendarEventAdded(CalendarItem calendarItem) { }
     }
 }

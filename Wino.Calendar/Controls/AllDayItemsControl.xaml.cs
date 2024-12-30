@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Windows.UI.Xaml;
+﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Interfaces;
@@ -76,9 +75,6 @@ namespace Wino.Calendar.Controls
             collection.CalendarItemAdded += SingleEventUpdated;
             collection.CalendarItemRemoved += SingleEventUpdated;
 
-            collection.CalendarItemRangeAdded += CollectionOfEventsUpdated;
-            collection.CalendarItemRangeRemoved += CollectionOfEventsUpdated;
-
             collection.CalendarItemsCleared += EventsCleared;
         }
 
@@ -87,14 +83,10 @@ namespace Wino.Calendar.Controls
             collection.CalendarItemAdded -= SingleEventUpdated;
             collection.CalendarItemRemoved -= SingleEventUpdated;
 
-            collection.CalendarItemRangeAdded -= CollectionOfEventsUpdated;
-            collection.CalendarItemRangeRemoved -= CollectionOfEventsUpdated;
-
             collection.CalendarItemsCleared -= EventsCleared;
         }
 
         private void SingleEventUpdated(object sender, ICalendarItem calendarItem) => UpdateCollectionVisuals();
-        private void CollectionOfEventsUpdated(object sender, List<ICalendarItem> calendarItems) => UpdateCollectionVisuals();
         private void EventsCleared(object sender, System.EventArgs e) => UpdateCollectionVisuals();
 
         private void UpdateCollectionVisuals()
