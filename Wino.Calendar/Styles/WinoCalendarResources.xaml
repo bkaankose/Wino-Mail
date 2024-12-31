@@ -215,12 +215,14 @@
                             <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
 
                             <!--  All-Day Events  -->
-                            <controls:AllDayItemsControl
+
+                            <!--  TODO: This control leaks.  -->
+                            <!--<controls:AllDayItemsControl
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
                                 AllDayEventTemplate="{StaticResource AllDayEventItemTemplate}"
                                 EventCollection="{Binding EventsCollection}"
-                                RegularEventItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" />
+                                RegularEventItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" />-->
                         </Grid>
 
                         <VisualStateManager.VisualStateGroups>
