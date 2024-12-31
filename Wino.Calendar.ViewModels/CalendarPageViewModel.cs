@@ -195,6 +195,8 @@ namespace Wino.Calendar.ViewModels
 
         private async Task InsertDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel, int index)
         {
+            if (dayRangeRenderModel == null) return;
+
             dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
             dayRangeRenderModel.CalendarDayEventCollectionUpdated += EventsUpdatedInDayHeader;
 
@@ -206,6 +208,8 @@ namespace Wino.Calendar.ViewModels
 
         private async Task RemoveDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel)
         {
+            if (dayRangeRenderModel == null) return;
+
             dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
             dayRangeRenderModel.UnregisterAll();
 
@@ -217,10 +221,18 @@ namespace Wino.Calendar.ViewModels
 
         private async Task ClearDayRangeModelsAsync()
         {
-            while (DayRanges.Count > 0)
+            // Unregister all events and clear the list directly.
+
+            foreach (var dayRangeModel in DayRanges)
             {
-                await RemoveDayRangeModelAsync(DayRanges[0]);
+                dayRangeModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
+                dayRangeModel.UnregisterAll();
             }
+
+            await ExecuteUIThread(() =>
+            {
+                DayRanges.Clear();
+            });
         }
 
         private async Task RenderDatesAsync(CalendarInitInitiative calendarInitInitiative,

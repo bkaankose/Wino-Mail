@@ -10,6 +10,7 @@ namespace Wino.Calendar.Controls
     public class WinoCalendarControl : Control
     {
         private const string PART_WinoFlipView = nameof(PART_WinoFlipView);
+        private const string PART_IdleGrid = nameof(PART_IdleGrid);
 
         public event EventHandler<TimelineCellSelectedArgs> TimelineCellSelected;
         public event EventHandler<TimelineCellUnselectedArgs> TimelineCellUnselected;
@@ -20,6 +21,7 @@ namespace Wino.Calendar.Controls
         public static readonly DependencyProperty SelectedFlipViewIndexProperty = DependencyProperty.Register(nameof(SelectedFlipViewIndex), typeof(int), typeof(WinoCalendarControl), new PropertyMetadata(-1));
         public static readonly DependencyProperty SelectedFlipViewDayRangeProperty = DependencyProperty.Register(nameof(SelectedFlipViewDayRange), typeof(DayRangeRenderModel), typeof(WinoCalendarControl), new PropertyMetadata(null));
         public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveCanvasChanged)));
+        public static readonly DependencyProperty IsFlipIdleProperty = DependencyProperty.Register(nameof(IsFlipIdle), typeof(bool), typeof(WinoCalendarControl), new PropertyMetadata(true, new PropertyChangedCallback(OnIdleStateChanged)));
 
         public DayRangeRenderModel SelectedFlipViewDayRange
         {
@@ -31,6 +33,12 @@ namespace Wino.Calendar.Controls
         {
             get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
             set { SetValue(ActiveCanvasProperty, value); }
+        }
+
+        public bool IsFlipIdle
+        {
+            get { return (bool)GetValue(IsFlipIdleProperty); }
+            set { SetValue(IsFlipIdleProperty, value); }
         }
 
         /// <summary>
@@ -52,11 +60,20 @@ namespace Wino.Calendar.Controls
         #endregion
 
         private WinoCalendarFlipView InternalFlipView;
+        private Grid IdleGrid;
 
         public WinoCalendarControl()
         {
             DefaultStyleKey = typeof(WinoCalendarControl);
             SizeChanged += CalendarSizeChanged;
+        }
+
+        private static void OnIdleStateChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+        {
+            if (calendar is WinoCalendarControl calendarControl)
+            {
+                calendarControl.UpdateIdleState();
+            }
         }
 
         private static void OnActiveCanvasChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
@@ -120,6 +137,15 @@ namespace Wino.Calendar.Controls
             base.OnApplyTemplate();
 
             InternalFlipView = GetTemplateChild(PART_WinoFlipView) as WinoCalendarFlipView;
+            IdleGrid = GetTemplateChild(PART_IdleGrid) as Grid;
+
+            UpdateIdleState();
+        }
+
+        private void UpdateIdleState()
+        {
+            InternalFlipView.Visibility = IsFlipIdle ? Visibility.Collapsed : Visibility.Visible;
+            IdleGrid.Visibility = IsFlipIdle ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void ActiveTimelineCellUnselected(object sender, TimelineCellUnselectedArgs e)

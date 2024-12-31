@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
@@ -11,17 +12,33 @@ namespace Wino.Calendar.Controls
 {
     public class WinoCalendarFlipView : CustomCalendarFlipView
     {
+        public static readonly DependencyProperty IsIdleProperty = DependencyProperty.Register(nameof(IsIdle), typeof(bool), typeof(WinoCalendarFlipView), new PropertyMetadata(true));
+        public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarFlipView), new PropertyMetadata(null));
+
         public WinoDayTimelineCanvas ActiveCanvas
         {
             get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
             set { SetValue(ActiveCanvasProperty, value); }
         }
 
-        public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarFlipView), new PropertyMetadata(null));
+        public bool IsIdle
+        {
+            get { return (bool)GetValue(IsIdleProperty); }
+            set { SetValue(IsIdleProperty, value); }
+        }
 
         public WinoCalendarFlipView()
         {
             RegisterPropertyChangedCallback(SelectedIndexProperty, new DependencyPropertyChangedCallback(OnSelectedIndexUpdated));
+            RegisterPropertyChangedCallback(ItemsSourceProperty, new DependencyPropertyChangedCallback(OnItemsSourceChanged));
+        }
+
+        private static void OnItemsSourceChanged(DependencyObject d, DependencyProperty e)
+        {
+            if (d is WinoCalendarFlipView flipView)
+            {
+                flipView.RegisterItemsSourceChange();
+            }
         }
 
         private static void OnSelectedIndexUpdated(DependencyObject d, DependencyProperty e)
@@ -30,6 +47,19 @@ namespace Wino.Calendar.Controls
             {
                 flipView.UpdateActiveCanvas();
             }
+        }
+
+        private void RegisterItemsSourceChange()
+        {
+            if (GetItemsSource() is INotifyCollectionChanged notifyCollectionChanged)
+            {
+                notifyCollectionChanged.CollectionChanged += ItemsSourceUpdated;
+            }
+        }
+
+        private void ItemsSourceUpdated(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            IsIdle = e.Action == NotifyCollectionChangedAction.Reset || e.Action == NotifyCollectionChangedAction.Replace;
         }
 
         public async void UpdateActiveCanvas()

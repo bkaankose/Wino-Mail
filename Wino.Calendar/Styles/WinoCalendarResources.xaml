@@ -139,16 +139,28 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="controls:WinoCalendarControl">
-                        <controls:WinoCalendarFlipView
-                            x:Name="PART_WinoFlipView"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalContentAlignment="Stretch"
-                            ActiveCanvas="{x:Bind ActiveCanvas, Mode=TwoWay}"
-                            Background="Transparent"
-                            IsTabStop="False"
-                            ItemTemplate="{StaticResource FlipTemplate}"
-                            ItemsSource="{TemplateBinding DayRanges}"
-                            SelectedIndex="{Binding SelectedFlipViewIndex, RelativeSource={RelativeSource Mode=TemplatedParent}, Mode=TwoWay}" />
+                        <Grid>
+                            <controls:WinoCalendarFlipView
+                                x:Name="PART_WinoFlipView"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                ActiveCanvas="{x:Bind ActiveCanvas, Mode=TwoWay}"
+                                Background="Transparent"
+                                IsIdle="{x:Bind IsFlipIdle, Mode=TwoWay}"
+                                IsTabStop="False"
+                                ItemTemplate="{StaticResource FlipTemplate}"
+                                ItemsSource="{TemplateBinding DayRanges}"
+                                SelectedIndex="{Binding SelectedFlipViewIndex, RelativeSource={RelativeSource Mode=TemplatedParent}, Mode=TwoWay}" />
+
+                            <Grid x:Name="PART_IdleGrid" Visibility="Collapsed">
+                                <muxc:ProgressRing
+                                    Width="50"
+                                    Height="50"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsActive="True" />
+                            </Grid>
+                        </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
