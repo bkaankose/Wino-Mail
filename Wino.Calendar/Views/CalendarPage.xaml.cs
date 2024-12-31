@@ -1,11 +1,11 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.Messaging;
-using Itenso.TimePeriod;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 using Wino.Calendar.Args;
 using Wino.Calendar.Views.Abstract;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
@@ -17,7 +17,7 @@ namespace Wino.Calendar.Views
         IRecipient<GoNextDateRequestedMessage>,
         IRecipient<GoPreviousDateRequestedMessage>
     {
-        private DateTimeOffset? selectedDateTime;
+        private DateTime? selectedDateTime;
         public CalendarPage()
         {
             InitializeComponent();
@@ -53,11 +53,6 @@ namespace Wino.Calendar.Views
         {
             // Selected date is in Local kind.
             selectedDateTime = e.ClickedDate;
-            var utc = DateTime.SpecifyKind(e.ClickedDate, DateTimeKind.Utc);
-            var unspecified = DateTime.SpecifyKind(e.ClickedDate, DateTimeKind.Unspecified);
-
-            var putc = new TimeRange(utc, utc.AddMinutes(30));
-            var punspecified = new TimeRange(unspecified, unspecified.AddMinutes(30));
 
             // TODO: Popup is not positioned well on daily view.
             TeachingTipPositionerGrid.Width = e.CellSize.Width;
@@ -66,19 +61,19 @@ namespace Wino.Calendar.Views
             Canvas.SetLeft(TeachingTipPositionerGrid, e.PositionerPoint.X);
             Canvas.SetTop(TeachingTipPositionerGrid, e.PositionerPoint.Y);
 
-            //var testCalendarItem = new CalendarItem
-            //{
-            //    CalendarId = Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"),
-            //    StartTime = selectedDateTime.Value, // All events are saved in UTC.
-            //    DurationInMinutes = 30,
-            //    CreatedAt = DateTime.UtcNow,
-            //    Description = "Test Description",
-            //    Location = "Poland",
-            //    Title = "Test event",
-            //    Id = Guid.NewGuid()
-            //};
+            var testCalendarItem = new CalendarItem
+            {
+                CalendarId = Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"),
+                StartDate = selectedDateTime.Value,
+                DurationInSeconds = TimeSpan.FromMinutes(30).TotalSeconds,
+                CreatedAt = DateTime.UtcNow,
+                Description = "Test Description",
+                Location = "Poland",
+                Title = "Test event",
+                Id = Guid.NewGuid()
+            };
 
-            //WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
+            WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
 
             NewEventTip.IsOpen = true;
         }

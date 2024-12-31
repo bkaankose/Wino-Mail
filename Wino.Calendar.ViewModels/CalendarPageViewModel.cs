@@ -383,7 +383,7 @@ namespace Wino.Calendar.ViewModels
             base.OnCalendarEventAdded(calendarItem);
 
             // test
-            var calendar = await _calendarService.GetAccountCalendarAsync(Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"));
+            var calendar = await _calendarService.GetAccountCalendarAsync(Guid.Parse("40aa0bf0-9ea7-40d8-b426-9c78281723c9"));
 
             calendarItem.AssignedCalendar = calendar;
             // Check if event falls into the current date range.
@@ -393,19 +393,19 @@ namespace Wino.Calendar.ViewModels
             if (loadedDateRange == null) return;
 
             // Check whether this event falls into any of the loaded date ranges.
+            var allDaysForEvent = DayRanges.SelectMany(a => a.CalendarDays).Where(a => a.Period.OverlapsWith(calendarItem.Period));
 
-            //if (calendarItem.Period.Start >= loadedDateRange.StartDate && calendarItem.Period.Start.Date <= loadedDateRange.EndDate)
-            //{
-            //    // Find the day representation for the event.
-            //    var dayModel = DayRanges.SelectMany(a => a.CalendarDays).FirstOrDefault(a => a.RepresentingDate.Date == calendarItem.Period.Start.Date);
-            //    if (dayModel == null) return;
+            foreach (var calendarDay in allDaysForEvent)
+            {
+                var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
 
-            //    var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
-            //    await ExecuteUIThread(() =>
-            //    {
-            //        dayModel.EventsCollection.AddCalendarItem(calendarItemViewModel);
-            //    });
-            //}
+                await ExecuteUIThread(() =>
+                {
+                    calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
+                });
+            }
+
+            FilterActiveCalendars(DayRanges);
         }
 
         private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel)
