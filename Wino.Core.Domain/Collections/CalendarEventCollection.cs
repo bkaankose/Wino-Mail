@@ -26,9 +26,10 @@ namespace Wino.Core.Domain.Collections
 
         public CalendarEventCollection(ITimePeriod period)
         {
+            Period = period;
+
             RegularEvents = new ReadOnlyObservableCollection<ICalendarItem>(_internalRegularEvents);
             AllDayEvents = new ReadOnlyObservableCollection<ICalendarItem>(_internalAllDayEvents);
-            Period = period;
         }
 
         public bool HasCalendarEvent(AccountCalendar accountCalendar)

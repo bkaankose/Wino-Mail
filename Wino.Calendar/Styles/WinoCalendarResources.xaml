@@ -13,19 +13,7 @@
 
     <!--  Default Calendar Item View Model Template  -->
     <DataTemplate x:Key="CalendarItemViewModelItemTemplate" x:DataType="data:CalendarItemViewModel">
-        <Grid
-            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
-            BorderBrush="{ThemeResource CalendarSeperatorBrush}"
-            BorderThickness="1"
-            CornerRadius="6">
-            <TextBlock
-                Margin="2,0"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
-                Text="{x:Bind CalendarItem.Title}"
-                TextWrapping="Wrap" />
-        </Grid>
+        <controls:CalendarItemControl CalendarItem="{x:Bind}" />
     </DataTemplate>
 
     <!--  All-Day Event template  -->
@@ -46,6 +34,11 @@
     <!--  Vertical panel that renders items on canvas.  -->
     <DataTemplate x:Key="DayCalendarItemVerticalRenderTemplate" x:DataType="models:CalendarDayModel">
         <ItemsControl ItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" ItemsSource="{x:Bind EventsCollection.RegularEvents}">
+            <ItemsControl.ItemContainerTransitions>
+                <TransitionCollection>
+                    <PaneThemeTransition Edge="Left" />
+                </TransitionCollection>
+            </ItemsControl.ItemContainerTransitions>
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <controls:WinoCalendarPanel HourHeight="{Binding Path=CalendarRenderOptions.CalendarSettings.HourHeight}" Period="{Binding Path=Period}" />
@@ -229,12 +222,12 @@
                             <!--  All-Day Events  -->
 
                             <!--  TODO: This control leaks.  -->
-                            <!--<controls:AllDayItemsControl
+                            <controls:AllDayItemsControl
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
-                                AllDayEventTemplate="{StaticResource AllDayEventItemTemplate}"
+                                AllDayEventTemplate="{StaticResource CalendarItemViewModelItemTemplate}"
                                 EventCollection="{Binding EventsCollection}"
-                                RegularEventItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" />-->
+                                RegularEventItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" />
                         </Grid>
 
                         <VisualStateManager.VisualStateGroups>

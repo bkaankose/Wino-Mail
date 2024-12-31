@@ -4,19 +4,20 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Calendar.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DesignHeight="300"
     d:DesignWidth="400"
     mc:Ignorable="d">
 
     <Grid>
-        <ScrollViewer x:Name="PART_AllDayItemsListScrollHost">
-            <ItemsControl
-                x:Name="PART_AllDayItemsList"
-                ItemTemplate="{x:Bind AllDayEventTemplate}"
-                ItemsSource="{x:Bind EventCollection.AllDayEvents}" />
-        </ScrollViewer>
+        <controls:CalendarItemControl
+            x:Name="SingleAllDayEventHolder"
+            CalendarItem="{x:Bind helpers:XamlHelpers.GetFirstAllDayEvent(EventCollection), Mode=OneWay}"
+            Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(EventCollection.AllDayEvents.Count), Mode=OneWay}" />
+
         <Button
             x:Name="AllDayItemsSummaryButton"
             HorizontalAlignment="Stretch"
@@ -36,8 +37,7 @@
                 <VisualState x:Name="FullView" />
                 <VisualState x:Name="SummaryView">
                     <VisualState.Setters>
-                        <Setter Target="PART_AllDayItemsListScrollHost.Visibility" Value="Collapsed" />
-                        <Setter Target="PART_AllDayItemsList.Visibility" Value="Collapsed" />
+                        <Setter Target="SingleAllDayEventHolder.Visibility" Value="Collapsed" />
                         <Setter Target="AllDayItemsSummaryButton.Visibility" Value="Visible" />
                         <Setter Target="AllDayItemsSummaryButton.Content">
                             <Setter.Value>
@@ -47,6 +47,9 @@
                             </Setter.Value>
                         </Setter>
                     </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.IsMultiple(EventCollection.AllDayEvents.Count), Mode=OneWay, FallbackValue='False'}" />
+                    </VisualState.StateTriggers>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>

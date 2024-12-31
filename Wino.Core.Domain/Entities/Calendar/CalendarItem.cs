@@ -38,6 +38,22 @@ namespace Wino.Core.Domain.Entities.Calendar
             }
         }
 
+        public bool IsAllDayEvent
+        {
+            get
+            {
+                return StartDate.TimeOfDay == TimeSpan.Zero && EndDate.TimeOfDay == TimeSpan.Zero;
+            }
+        }
+
+        public bool IsMultiDayEvent
+        {
+            get
+            {
+                return StartDate.Date != EndDate.Date;
+            }
+        }
+
         public double DurationInSeconds { get; set; }
         public string Recurrence { get; set; }
 

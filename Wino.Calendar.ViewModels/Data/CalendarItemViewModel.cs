@@ -24,6 +24,10 @@ namespace Wino.Calendar.ViewModels.Data
 
         public ITimePeriod Period => CalendarItem.Period;
 
+        public bool IsAllDayEvent => ((ICalendarItem)CalendarItem).IsAllDayEvent;
+
+        public bool IsMultiDayEvent => ((ICalendarItem)CalendarItem).IsMultiDayEvent;
+
         public CalendarItemViewModel(CalendarItem calendarItem)
         {
             CalendarItem = calendarItem;
