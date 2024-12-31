@@ -249,8 +249,5 @@
         </Setter>
     </Style>
 
-    <!--  Teaching tip dialog sizing.  -->
-    <x:Double x:Key="TeachingTipMinWidth">1000</x:Double>
-    <x:Double x:Key="TeachingTipMaxWidth">1000</x:Double>
 
 </ResourceDictionary>

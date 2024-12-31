@@ -73,7 +73,7 @@ namespace Wino.Calendar.Views
                 Id = Guid.NewGuid()
             };
 
-            WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
+            //WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
 
             NewEventTip.IsOpen = true;
         }
@@ -94,10 +94,15 @@ namespace Wino.Calendar.Views
         {
             if (selectedDateTime == null) return;
 
-            var eventEndDate = selectedDateTime.Value.Add(EventTimePicker.Time);
+            // var eventEndDate = selectedDateTime.Value.Add(EventTimePicker.Time);
 
             // Create the event.
             // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, eventEndDate)));
+        }
+
+        private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            QuickEventAccountSelectorFlyout.Hide();
         }
     }
 }

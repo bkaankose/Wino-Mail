@@ -5,6 +5,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Calendar.Services
 {
@@ -29,6 +30,17 @@ namespace Wino.Calendar.Services
                 return GroupedAccountCalendars
                 .SelectMany(a => a.AccountCalendars)
                 .Where(b => b.IsChecked);
+            }
+        }
+
+        public IEnumerable<IGrouping<MailAccount, AccountCalendarViewModel>> GroupedAccountCalendarsEnumerable
+        {
+            get
+            {
+                return GroupedAccountCalendars
+                .Select(a => a.AccountCalendars)
+                .SelectMany(b => b)
+                .GroupBy(c => c.Account);
             }
         }
 

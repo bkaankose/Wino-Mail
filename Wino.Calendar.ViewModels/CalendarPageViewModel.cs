@@ -37,13 +37,24 @@ namespace Wino.Calendar.ViewModels
         private DayRangeRenderModel _selectedDayRange;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(SelectedQuickEventAccountCalendarName))]
+        private AccountCalendarViewModel _selectedQuickEventAccountCalendar;
+
+        public string SelectedQuickEventAccountCalendarName
+        {
+            get
+            {
+                return SelectedQuickEventAccountCalendar == null ? "Pick a calendar" : SelectedQuickEventAccountCalendar.Name;
+            }
+        }
+
+        [ObservableProperty]
         private bool _isCalendarEnabled = true;
 
         // TODO: Get rid of some of the items if we have too many.
         private const int maxDayRangeSize = 10;
 
         private readonly ICalendarService _calendarService;
-        private readonly IAccountCalendarStateService _accountCalendarStateService;
         private readonly IPreferencesService _preferencesService;
 
         // Store latest rendered options.
@@ -55,6 +66,7 @@ namespace Wino.Calendar.ViewModels
         private CalendarSettings _currentSettings = null;
 
         public IStatePersistanceService StatePersistanceService { get; }
+        public IAccountCalendarStateService AccountCalendarStateService { get; }
 
         public CalendarPageViewModel(IStatePersistanceService statePersistanceService,
                                      ICalendarService calendarService,
@@ -62,13 +74,13 @@ namespace Wino.Calendar.ViewModels
                                      IPreferencesService preferencesService)
         {
             StatePersistanceService = statePersistanceService;
+            AccountCalendarStateService = accountCalendarStateService;
 
             _calendarService = calendarService;
-            _accountCalendarStateService = accountCalendarStateService;
             _preferencesService = preferencesService;
 
-            _accountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
-            _accountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
+            AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
+            AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
         }
 
         private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
@@ -81,7 +93,7 @@ namespace Wino.Calendar.ViewModels
         {
             var days = dayRangeRenderModels.SelectMany(a => a.CalendarDays);
 
-            days.ForEach(a => a.EventsCollection.FilterByCalendars(_accountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
+            days.ForEach(a => a.EventsCollection.FilterByCalendars(AccountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
         }
 
         // TODO: Replace when calendar settings are updated.
@@ -435,7 +447,7 @@ namespace Wino.Calendar.ViewModels
 
             // Initialization is done for all calendars, regardless whether they are actively selected or not.
             // This is because the filtering is cached internally of the calendar items in CalendarEventCollection.
-            var allCalendars = _accountCalendarStateService.GroupedAccountCalendars.SelectMany(a => a.AccountCalendars);
+            var allCalendars = AccountCalendarStateService.GroupedAccountCalendars.SelectMany(a => a.AccountCalendars);
 
             foreach (var calendarViewModel in allCalendars)
             {
