@@ -227,6 +227,8 @@ namespace Wino.Calendar.ViewModels
                                             DateTime? loadingDisplayDate = null,
                                             CalendarLoadDirection calendarLoadDirection = CalendarLoadDirection.Replace)
         {
+            isLoadMoreBlocked = calendarLoadDirection == CalendarLoadDirection.Replace;
+
             // This is the part we arrange the flip view calendar logic.
 
             /* Loading for a month of the selected date is fine.
@@ -504,28 +506,28 @@ namespace Wino.Calendar.ViewModels
 
             if (isLoadMoreBlocked) return;
 
-            // Send the loading message initiated by the app.
-            if (SelectedDateRangeIndex == DayRanges.Count - 1)
-            {
-                // Load next, starting from the end date.
-                _ = LoadMoreAsync(CalendarLoadDirection.Next);
-            }
-            else if (SelectedDateRangeIndex == 0)
-            {
-                // Load previous, starting from the start date.
-
-                _ = LoadMoreAsync(CalendarLoadDirection.Previous);
-            }
+            _ = LoadMoreAsync();
         }
 
-        private async Task LoadMoreAsync(CalendarLoadDirection direction)
+        private async Task LoadMoreAsync()
         {
-            Debug.WriteLine($"Loading {direction} items.");
-
             try
             {
                 await _calendarLoadingSemaphore.WaitAsync();
-                await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: direction);
+
+                // Depending on the selected index, we'll load more dates.
+                // Day ranges may change while the async update is in progress.
+                // Therefore we wait for semaphore to be released before we continue.
+                // There is no need to load more if the current index is not in ideal position.
+
+                if (SelectedDateRangeIndex == DayRanges.Count - 1)
+                {
+                    await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Next);
+                }
+                else if (SelectedDateRangeIndex == 0)
+                {
+                    await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Previous);
+                }
             }
             catch (Exception)
             {
