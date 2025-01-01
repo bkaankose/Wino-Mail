@@ -1,8 +1,10 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.Messaging;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Navigation;
 using Wino.Calendar.Args;
+using Wino.Calendar.ViewModels.Messages;
 using Wino.Calendar.Views.Abstract;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -13,7 +15,8 @@ namespace Wino.Calendar.Views
     public sealed partial class CalendarPage : CalendarPageAbstract,
         IRecipient<ScrollToDateMessage>,
         IRecipient<GoNextDateRequestedMessage>,
-        IRecipient<GoPreviousDateRequestedMessage>
+        IRecipient<GoPreviousDateRequestedMessage>,
+        IRecipient<CalendarItemRightTappedMessage>
     {
         private const int PopupDialogOffset = 12;
 
@@ -83,34 +86,44 @@ namespace Wino.Calendar.Views
             CalendarControl.ResetTimelineSelection();
         }
 
-        private void QuickEventPopupPlacementChanged(object sender, object e)
+        private void PopupPlacementChanged(object sender, object e)
         {
-            // When the quick event Popup is positioned for different calendar types,
-            // we must adjust the offset to make sure the tip is not hidden and has nice
-            // spacing from the cell.
-
-            switch (QuickEventPopupDialog.ActualPlacement)
+            if (sender is Popup senderPopup)
             {
-                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Top:
-                    QuickEventPopupDialog.VerticalOffset = PopupDialogOffset * -1;
-                    break;
-                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Bottom:
-                    QuickEventPopupDialog.VerticalOffset = PopupDialogOffset;
-                    break;
-                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Left:
-                    QuickEventPopupDialog.HorizontalOffset = PopupDialogOffset * -1;
-                    break;
-                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Right:
-                    QuickEventPopupDialog.HorizontalOffset = PopupDialogOffset;
-                    break;
-                default:
-                    break;
+                // When the quick event Popup is positioned for different calendar types,
+                // we must adjust the offset to make sure the tip is not hidden and has nice
+                // spacing from the cell.
+
+                switch (senderPopup.ActualPlacement)
+                {
+                    case PopupPlacementMode.Top:
+                        senderPopup.VerticalOffset = PopupDialogOffset * -1;
+                        break;
+                    case PopupPlacementMode.Bottom:
+                        senderPopup.VerticalOffset = PopupDialogOffset;
+                        break;
+                    case PopupPlacementMode.Left:
+                        senderPopup.HorizontalOffset = PopupDialogOffset * -1;
+                        break;
+                    case PopupPlacementMode.Right:
+                        senderPopup.HorizontalOffset = PopupDialogOffset;
+                        break;
+                    default:
+                        break;
+                }
             }
+
         }
 
-        private void ComboBox_TextSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
+        public void Receive(CalendarItemRightTappedMessage message)
         {
-            ViewModel.SelectedStartTimeString = args.Text;
+
         }
+
+        private void StartTimeDurationSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
+            => ViewModel.SelectedStartTimeString = args.Text;
+
+        private void EndTimeDurationSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
+            => ViewModel.SelectedEndTimeString = args.Text;
     }
 }

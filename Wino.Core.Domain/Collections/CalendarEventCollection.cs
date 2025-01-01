@@ -35,6 +35,11 @@ namespace Wino.Core.Domain.Collections
         public bool HasCalendarEvent(AccountCalendar accountCalendar)
             => _allItems.Any(x => x.AssignedCalendar.Id == accountCalendar.Id);
 
+        public ICalendarItem GetCalendarItem(Guid calendarItemId)
+        {
+            return _allItems.FirstOrDefault(x => x.Id == calendarItemId);
+        }
+
         public void FilterByCalendars(IEnumerable<Guid> visibleCalendarIds)
         {
             foreach (var item in _allItems)

@@ -29,6 +29,8 @@ namespace Wino.Calendar.ViewModels
         IRecipient<NavigateManageAccountsRequested>,
         IRecipient<CalendarDisplayTypeChangedMessage>
     {
+
+
         public IPreferencesService PreferencesService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IAccountCalendarStateService AccountCalendarStateService { get; }
@@ -65,6 +67,9 @@ namespace Wino.Calendar.ViewModels
         [ObservableProperty]
         private int _selectedDateNavigationHeaderIndex;
 
+
+
+
         public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
         // For updating account calendars asynchronously.
@@ -91,6 +96,11 @@ namespace Wino.Calendar.ViewModels
 
             StatePersistenceService = statePersistanceService;
             StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
+        }
+
+        private void SelectedCalendarItemsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            throw new NotImplementedException();
         }
 
         private void PrefefencesChanged(object sender, string e)

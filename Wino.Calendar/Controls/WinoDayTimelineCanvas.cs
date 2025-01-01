@@ -76,6 +76,7 @@ namespace Wino.Calendar.Controls
 
             Canvas = GetTemplateChild(PART_InternalCanvas) as CanvasControl;
 
+            // TODO: These will leak. Dispose them properly when needed.
             Canvas.Draw += OnCanvasDraw;
             Canvas.PointerPressed += OnCanvasPointerPressed;
 

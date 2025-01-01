@@ -152,6 +152,7 @@
     <Compile Include="Controls\WinoCalendarTypeSelectorControl.cs" />
     <Compile Include="Controls\WinoCalendarView.cs" />
     <Compile Include="Controls\WinoDayTimelineCanvas.cs" />
+    <Compile Include="Helpers\CalendarXamlHelpers.cs" />
     <Compile Include="MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>

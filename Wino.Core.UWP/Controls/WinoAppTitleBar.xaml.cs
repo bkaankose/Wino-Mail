@@ -43,16 +43,11 @@ namespace Wino.Core.UWP.Controls
             set { SetValue(CoreWindowTextProperty, value); }
         }
 
-
-
         public bool IsDragArea
         {
             get { return (bool)GetValue(IsDragAreaProperty); }
             set { SetValue(IsDragAreaProperty, value); }
         }
-
-
-
 
 
         public double SystemReserved
@@ -108,9 +103,6 @@ namespace Wino.Core.UWP.Controls
             get { return (bool)GetValue(IsRenderingPaneVisibleProperty); }
             set { SetValue(IsRenderingPaneVisibleProperty, value); }
         }
-
-
-
 
         public double ReadingPaneLength
         {

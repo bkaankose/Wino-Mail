@@ -12,6 +12,7 @@ using MoreLinq;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
@@ -26,7 +27,10 @@ namespace Wino.Calendar.ViewModels
 {
     public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IRecipient<LoadCalendarMessage>,
-        IRecipient<CalendarSettingsUpdatedMessage>
+        IRecipient<CalendarSettingsUpdatedMessage>,
+        IRecipient<CalendarItemTappedMessage>,
+        IRecipient<CalendarItemDoubleTappedMessage>,
+        IRecipient<CalendarItemRightTappedMessage>
     {
         #region Quick Event Creation
 
@@ -101,6 +105,7 @@ namespace Wino.Calendar.ViewModels
         private const int maxDayRangeSize = 10;
 
         private readonly ICalendarService _calendarService;
+        private readonly IKeyPressService _keyPressService;
         private readonly IPreferencesService _preferencesService;
 
         // Store latest rendered options.
@@ -116,6 +121,7 @@ namespace Wino.Calendar.ViewModels
 
         public CalendarPageViewModel(IStatePersistanceService statePersistanceService,
                                      ICalendarService calendarService,
+                                     IKeyPressService keyPressService,
                                      IAccountCalendarStateService accountCalendarStateService,
                                      IPreferencesService preferencesService)
         {
@@ -123,6 +129,7 @@ namespace Wino.Calendar.ViewModels
             AccountCalendarStateService = accountCalendarStateService;
 
             _calendarService = calendarService;
+            _keyPressService = keyPressService;
             _preferencesService = preferencesService;
 
             AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
@@ -179,7 +186,7 @@ namespace Wino.Calendar.ViewModels
 
             var testCalendarItem = new CalendarItem
             {
-                CalendarId = Guid.Parse("40aa0bf0-9ea7-40d8-b426-9c78281723c9"),
+                CalendarId = SelectedQuickEventAccountCalendar.Id,
                 StartDate = QuickEventStartTime,
                 DurationInSeconds = durationSeconds,
                 CreatedAt = DateTime.UtcNow,
@@ -522,10 +529,6 @@ namespace Wino.Calendar.ViewModels
         {
             base.OnCalendarItemAdded(calendarItem);
 
-            // test
-            var calendar = await _calendarService.GetAccountCalendarAsync(Guid.Parse("40aa0bf0-9ea7-40d8-b426-9c78281723c9"));
-
-            calendarItem.AssignedCalendar = calendar;
             // Check if event falls into the current date range.
 
             var loadedDateRange = GetLoadedDateRange();
@@ -732,6 +735,73 @@ namespace Wino.Calendar.ViewModels
             // or make sure the slider does not update on each tick but on focus lost.
 
             // Messenger.Send(new LoadCalendarMessage(DateTime.UtcNow.Date, CalendarInitInitiative.App, true));
+        }
+
+        private IEnumerable<CalendarItemViewModel> GetCalendarItems(Guid calendarItemId)
+        {
+            // Multi-day events are sprated in multiple days.
+            // We need to find the day that the event is in, and then select the event.
+
+            return DayRanges
+                .SelectMany(a => a.CalendarDays)
+                .Select(b => b.EventsCollection.GetCalendarItem(calendarItemId))
+                .Where(c => c != null)
+                .Cast<CalendarItemViewModel>()
+                .Distinct();
+        }
+
+        private void ResetSelectedItems()
+        {
+            foreach (var item in AccountCalendarStateService.SelectedItems)
+            {
+                var items = GetCalendarItems(item.Id);
+
+                foreach (var childItem in items)
+                {
+                    childItem.IsSelected = false;
+                }
+            }
+
+            AccountCalendarStateService.SelectedItems.Clear();
+        }
+
+        public async void Receive(CalendarItemTappedMessage message)
+        {
+            if (message.CalendarItemViewModel == null) return;
+
+            await ExecuteUIThread(() =>
+            {
+                var calendarItems = GetCalendarItems(message.CalendarItemViewModel.Id);
+
+                if (!_keyPressService.IsCtrlKeyPressed())
+                {
+                    ResetSelectedItems();
+                }
+
+                foreach (var item in calendarItems)
+                {
+                    item.IsSelected = !item.IsSelected;
+
+                    // Multi-select logic.
+                    if (item.IsSelected && !AccountCalendarStateService.SelectedItems.Contains(item))
+                    {
+                        AccountCalendarStateService.SelectedItems.Add(message.CalendarItemViewModel);
+                    }
+                    else if (!item.IsSelected && AccountCalendarStateService.SelectedItems.Contains(item))
+                    {
+                        AccountCalendarStateService.SelectedItems.Remove(item);
+                    }
+                }
+            });
+        }
+
+        public void Receive(CalendarItemDoubleTappedMessage message)
+        {
+            // TODO: Navigate to the event details page.
+        }
+
+        public void Receive(CalendarItemRightTappedMessage message)
+        {
         }
     }
 }

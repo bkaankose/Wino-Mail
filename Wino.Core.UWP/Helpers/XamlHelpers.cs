@@ -11,9 +11,7 @@ using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Markup;
 using Windows.UI.Xaml.Media;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.UWP.Controls;
 
@@ -36,8 +34,7 @@ namespace Wino.Helpers
                 _ => PopupPlacementMode.Bottom,
             };
         }
-        public static ICalendarItem GetFirstAllDayEvent(CalendarEventCollection collection)
-            => collection.AllDayEvents.FirstOrDefault();
+
 
         public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
         public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;

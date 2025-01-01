@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Helpers;
 
 namespace Wino.Calendar.Controls
 {
@@ -175,6 +178,13 @@ namespace Wino.Calendar.Controls
             if (InternalFlipView == null) return;
 
             InternalFlipView.GoPreviousFlip();
+        }
+
+        public CalendarItemControl GetCalendarItemControl(CalendarItemViewModel calendarItemViewModel)
+        {
+            if (ActiveCanvas == null) return null;
+
+            return this.FindDescendants<CalendarItemControl>().FirstOrDefault(a => a.CalendarItem == calendarItemViewModel);
         }
     }
 }

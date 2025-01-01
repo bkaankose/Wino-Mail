@@ -92,6 +92,8 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
+
+
                     <!--  Rendering left hour headers.  -->
                     <ItemsControl ItemTemplate="{StaticResource DayCalendarHourHeaderTemplate}" ItemsSource="{x:Bind DayHeaders}" />
 

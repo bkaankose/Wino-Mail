@@ -28,6 +28,11 @@ namespace Wino.Calendar.ViewModels.Data
 
         public bool IsMultiDayEvent => ((ICalendarItem)CalendarItem).IsMultiDayEvent;
 
+        public bool IsRecurringEvent => !string.IsNullOrEmpty(CalendarItem.Recurrence);
+
+        [ObservableProperty]
+        private bool _isSelected;
+
         public CalendarItemViewModel(CalendarItem calendarItem)
         {
             CalendarItem = calendarItem;
