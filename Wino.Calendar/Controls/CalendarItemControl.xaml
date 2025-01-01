@@ -8,6 +8,9 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     d:DesignHeight="300"
     d:DesignWidth="400"
+    CanDrag="True"
+    DragStarting="ControlDragStarting"
+    DropCompleted="ControlDropped"
     mc:Ignorable="d">
 
     <Grid
@@ -29,6 +32,18 @@
             TextWrapping="Wrap" />
 
         <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="DraggingStates">
+                <VisualState x:Name="NotDragging" />
+                <VisualState x:Name="Dragging">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind IsDragging, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="MainGrid.BorderThickness" Value="3" />
+                        <Setter Target="MainGrid.BorderBrush" Value="Red" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
             <VisualStateGroup x:Name="EventDurationStates">
                 <VisualState x:Name="RegularEvent" />
                 <VisualState x:Name="AllDayEvent">
