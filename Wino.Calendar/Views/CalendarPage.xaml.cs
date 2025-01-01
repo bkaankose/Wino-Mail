@@ -15,13 +15,13 @@ namespace Wino.Calendar.Views
     public sealed partial class CalendarPage : CalendarPageAbstract,
         IRecipient<ScrollToDateMessage>,
         IRecipient<GoNextDateRequestedMessage>,
-        IRecipient<GoPreviousDateRequestedMessage>
+        IRecipient<GoPreviousDateRequestedMessage>,
+        IRecipient<CalendarDisplayTypeChangedMessage>
     {
-        private DateTime? selectedDateTime;
         public CalendarPage()
         {
             InitializeComponent();
-            NavigationCacheMode = Windows.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+            NavigationCacheMode = NavigationCacheMode.Enabled;
         }
 
         public void Receive(ScrollToDateMessage message) => CalendarControl.NavigateToDay(message.Date);
@@ -52,9 +52,8 @@ namespace Wino.Calendar.Views
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {
             // Selected date is in Local kind.
-            selectedDateTime = e.ClickedDate;
+            ViewModel.SelectedQuickEventDate = e.ClickedDate;
 
-            // TODO: Popup is not positioned well on daily view.
             TeachingTipPositionerGrid.Width = e.CellSize.Width;
             TeachingTipPositionerGrid.Height = e.CellSize.Height;
 
@@ -64,7 +63,7 @@ namespace Wino.Calendar.Views
             var testCalendarItem = new CalendarItem
             {
                 CalendarId = Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"),
-                StartDate = selectedDateTime.Value,
+                StartDate = ViewModel.SelectedQuickEventDate.Value,
                 DurationInSeconds = TimeSpan.FromMinutes(30).TotalSeconds,
                 CreatedAt = DateTime.UtcNow,
                 Description = "Test Description",
@@ -73,7 +72,13 @@ namespace Wino.Calendar.Views
                 Id = Guid.NewGuid()
             };
 
-            //WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
+            // Adjust the start and end time in the flyout.
+            var startTime = ViewModel.SelectedQuickEventDate.Value.TimeOfDay;
+            var endTime = startTime.Add(TimeSpan.FromMinutes(30));
+
+            ViewModel.SelectQuickEventTimeRange(startTime, endTime);
+
+            // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
 
             NewEventTip.IsOpen = true;
         }
@@ -81,7 +86,7 @@ namespace Wino.Calendar.Views
         private void CellUnselected(object sender, TimelineCellUnselectedArgs e)
         {
             NewEventTip.IsOpen = false;
-            selectedDateTime = null;
+            ViewModel.SelectedQuickEventDate = null;
         }
 
         private void CreateEventTipClosed(TeachingTip sender, TeachingTipClosedEventArgs args)
@@ -90,19 +95,17 @@ namespace Wino.Calendar.Views
             CalendarControl.ResetTimelineSelection();
         }
 
-        private void AddEventClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-        {
-            if (selectedDateTime == null) return;
-
-            // var eventEndDate = selectedDateTime.Value.Add(EventTimePicker.Time);
-
-            // Create the event.
-            // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(new CalendarItem(selectedDateTime.Value, eventEndDate)));
-        }
-
         private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             QuickEventAccountSelectorFlyout.Hide();
+        }
+
+        public void Receive(CalendarDisplayTypeChangedMessage message)
+        {
+            // It makes sense to show the quick event flyout horizontally for week view.
+            // But for daily view, it should be vertical.
+
+            NewEventTip.PreferredPlacement = message.NewDisplayType == CalendarDisplayType.Day ? TeachingTipPlacementMode.Top : TeachingTipPlacementMode.Right;
         }
     }
 }

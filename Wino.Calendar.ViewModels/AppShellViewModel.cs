@@ -26,9 +26,9 @@ namespace Wino.Calendar.ViewModels
     public partial class AppShellViewModel : CalendarBaseViewModel,
         IRecipient<VisibleDateRangeChangedMessage>,
         IRecipient<CalendarEnableStatusChangedMessage>,
-        IRecipient<NavigateManageAccountsRequested>
+        IRecipient<NavigateManageAccountsRequested>,
+        IRecipient<CalendarDisplayTypeChangedMessage>
     {
-        public event EventHandler<CalendarDisplayType> DisplayTypeChanged;
         public IPreferencesService PreferencesService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IAccountCalendarStateService AccountCalendarStateService { get; }
@@ -97,8 +97,8 @@ namespace Wino.Calendar.ViewModels
         {
             if (e == nameof(StatePersistenceService.CalendarDisplayType))
             {
-                DisplayTypeChanged?.Invoke(this, StatePersistenceService.CalendarDisplayType);
-                OnPropertyChanged(nameof(IsVerticalCalendar));
+                Messenger.Send(new CalendarDisplayTypeChangedMessage(StatePersistenceService.CalendarDisplayType));
+
 
                 // Change the calendar.
                 DateClicked(new CalendarViewDayClickedEventArgs(GetDisplayTypeSwitchDate()));
@@ -334,5 +334,10 @@ namespace Wino.Calendar.ViewModels
             => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
         public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
+
+        public void Receive(CalendarDisplayTypeChangedMessage message)
+        {
+            OnPropertyChanged(nameof(IsVerticalCalendar));
+        }
     }
 }

@@ -627,5 +627,10 @@
     "TitleBarServerDisconnectedButton_Description": "Wino is disconnected from the network. Click reconnect to restore connection.",
     "TitleBarServerReconnectButton_Title": "reconnect",
     "TitleBarServerReconnectingButton_Title": "connecting",
-    "MailItemNoSubject": "No subject"
+    "MailItemNoSubject": "No subject",
+    "QuickEventDialogMoreDetailsButtonText": "More details",
+    "QuickEventDialog_RemindMe": "Remind me",
+    "QuickEventDialog_Location": "Location",
+    "QuickEventDialog_EventName": "Event name",
+    "QuickEventDialog_IsAllDay": "All day"
 }

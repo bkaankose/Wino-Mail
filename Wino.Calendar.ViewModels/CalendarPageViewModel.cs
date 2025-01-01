@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
 using Serilog;
@@ -27,17 +28,14 @@ namespace Wino.Calendar.ViewModels
         IRecipient<LoadCalendarMessage>,
         IRecipient<CalendarSettingsUpdatedMessage>
     {
-        [ObservableProperty]
-        private ObservableRangeCollection<DayRangeRenderModel> _dayRanges = [];
+        #region Quick Event Creation
 
         [ObservableProperty]
-        private int _selectedDateRangeIndex;
-
-        [ObservableProperty]
-        private DayRangeRenderModel _selectedDayRange;
+        private bool _isQuickEventDialogOpen;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(SelectedQuickEventAccountCalendarName))]
+        [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
         private AccountCalendarViewModel _selectedQuickEventAccountCalendar;
 
         public string SelectedQuickEventAccountCalendarName
@@ -47,6 +45,54 @@ namespace Wino.Calendar.ViewModels
                 return SelectedQuickEventAccountCalendar == null ? "Pick a calendar" : SelectedQuickEventAccountCalendar.Name;
             }
         }
+
+        [ObservableProperty]
+        private List<string> _hourSelectionStrings;
+
+        // To be able to revert the values when the user enters an invalid time.
+        private string _previousSelectedStartTimeString;
+        private string _previousSelectedEndTimeString;
+
+        [ObservableProperty]
+        private DateTime? _selectedQuickEventDate;
+
+        [ObservableProperty]
+        private bool _isAllDay;
+
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+        private string _selectedStartTimeString;
+
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+        private string _selectedEndTimeString;
+
+        [ObservableProperty]
+        private string _location;
+
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+        private string _eventName;
+
+        public DateTime QuickEventStartTime => SelectedQuickEventDate.Value.Date.Add(_currentSettings.GetTimeSpan(SelectedStartTimeString).Value);
+        public DateTime QuickEventEndTime => SelectedQuickEventDate.Value.Date.Add(_currentSettings.GetTimeSpan(SelectedEndTimeString).Value);
+
+        public bool CanSaveQuickEvent => SelectedQuickEventAccountCalendar != null &&
+                                        !string.IsNullOrWhiteSpace(EventName) &&
+                                        !string.IsNullOrWhiteSpace(SelectedStartTimeString) &&
+                                        !string.IsNullOrWhiteSpace(SelectedEndTimeString) &&
+                                        QuickEventEndTime > QuickEventStartTime;
+
+        #endregion
+
+        [ObservableProperty]
+        private ObservableRangeCollection<DayRangeRenderModel> _dayRanges = [];
+
+        [ObservableProperty]
+        private int _selectedDateRangeIndex;
+
+        [ObservableProperty]
+        private DayRangeRenderModel _selectedDayRange;
 
         [ObservableProperty]
         private bool _isCalendarEnabled = true;
@@ -96,6 +142,8 @@ namespace Wino.Calendar.ViewModels
             days.ForEach(a => a.EventsCollection.FilterByCalendars(AccountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
         }
 
+
+
         // TODO: Replace when calendar settings are updated.
         // Should be a field ideally.
         private BaseCalendarTypeDrawingStrategy GetDrawingStrategy(CalendarDisplayType displayType)
@@ -118,7 +166,74 @@ namespace Wino.Calendar.ViewModels
         {
             base.OnNavigatedTo(mode, parameters);
 
+            RefreshSettings();
+
+            // Automatically select the first primary calendar for quick event dialog.
+            SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary);
+        }
+
+        [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]
+        private async Task SaveQuickEventAsync()
+        {
+            var durationSeconds = (QuickEventEndTime - QuickEventStartTime).TotalSeconds;
+
+            var testCalendarItem = new CalendarItem
+            {
+                CalendarId = Guid.Parse("40aa0bf0-9ea7-40d8-b426-9c78281723c9"),
+                StartDate = QuickEventStartTime,
+                DurationInSeconds = durationSeconds,
+                CreatedAt = DateTime.UtcNow,
+                Description = string.Empty,
+                Location = Location,
+                Title = EventName,
+                Id = Guid.NewGuid()
+            };
+
+            IsQuickEventDialogOpen = false;
+            await _calendarService.CreateNewCalendarItemAsync(testCalendarItem, null);
+
+            // TODO: Create the request with the synchronizer.
+        }
+
+        [RelayCommand]
+        private void MoreDetails()
+        {
+            // TODO: Navigate to advanced event creation  page with existing parameters.
+        }
+
+        public void SelectQuickEventTimeRange(TimeSpan startTime, TimeSpan endTime)
+        {
+            IsAllDay = false;
+
+            SelectedStartTimeString = _currentSettings.GetTimeString(startTime);
+            SelectedEndTimeString = _currentSettings.GetTimeString(endTime);
+        }
+
+        private void RefreshSettings()
+        {
             _currentSettings = _preferencesService.GetCurrentCalendarSettings();
+
+            // Populate the hour selection strings.
+            var timeStrings = new List<string>();
+
+            for (int hour = 0; hour < 24; hour++)
+            {
+                for (int minute = 0; minute < 60; minute += 30)
+                {
+                    var time = new DateTime(1, 1, 1, hour, minute, 0);
+
+                    if (_currentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour)
+                    {
+                        timeStrings.Add(time.ToString("HH:mm"));
+                    }
+                    else
+                    {
+                        timeStrings.Add(time.ToString("h:mm tt"));
+                    }
+                }
+            }
+
+            HourSelectionStrings = timeStrings;
         }
 
         partial void OnIsCalendarEnabledChanging(bool oldValue, bool newValue) => Messenger.Send(new CalendarEnableStatusChangedMessage(newValue));
@@ -160,7 +275,6 @@ namespace Wino.Calendar.ViewModels
                 else if (ShouldScrollToItem(message))
                 {
                     // Scroll to the selected date.
-
                     Messenger.Send(new ScrollToDateMessage(message.DisplayDate));
                     Debug.WriteLine("Scrolling to selected date.");
                     return;
@@ -404,9 +518,9 @@ namespace Wino.Calendar.ViewModels
 
         }
 
-        protected override async void OnCalendarEventAdded(CalendarItem calendarItem)
+        protected override async void OnCalendarItemAdded(CalendarItem calendarItem)
         {
-            base.OnCalendarEventAdded(calendarItem);
+            base.OnCalendarItemAdded(calendarItem);
 
             // test
             var calendar = await _calendarService.GetAccountCalendarAsync(Guid.Parse("40aa0bf0-9ea7-40d8-b426-9c78281723c9"));
@@ -520,6 +634,48 @@ namespace Wino.Calendar.ViewModels
             return selectedDate >= initializedDateRange.StartDate && selectedDate <= initializedDateRange.EndDate;
         }
 
+        partial void OnIsAllDayChanged(bool value)
+        {
+            if (value)
+            {
+                SelectedStartTimeString = HourSelectionStrings.FirstOrDefault();
+                SelectedEndTimeString = HourSelectionStrings.FirstOrDefault();
+            }
+            else
+            {
+                SelectedStartTimeString = _previousSelectedStartTimeString;
+                SelectedEndTimeString = _previousSelectedEndTimeString;
+            }
+        }
+
+        partial void OnSelectedStartTimeStringChanged(string newValue)
+        {
+            var parsedTime = _currentSettings.GetTimeSpan(newValue);
+
+            if (parsedTime == null)
+            {
+                SelectedStartTimeString = _previousSelectedStartTimeString;
+            }
+            else if (IsAllDay)
+            {
+                _previousSelectedStartTimeString = newValue;
+            }
+        }
+
+        partial void OnSelectedEndTimeStringChanged(string newValue)
+        {
+            var parsedTime = _currentSettings.GetTimeSpan(newValue);
+
+            if (parsedTime == null)
+            {
+                SelectedEndTimeString = _previousSelectedStartTimeString;
+            }
+            else if (IsAllDay)
+            {
+                _previousSelectedEndTimeString = newValue;
+            }
+        }
+
         partial void OnSelectedDayRangeChanged(DayRangeRenderModel value)
         {
             if (DayRanges.Count == 0 || SelectedDateRangeIndex < 0) return;
@@ -565,7 +721,7 @@ namespace Wino.Calendar.ViewModels
 
         public void Receive(CalendarSettingsUpdatedMessage message)
         {
-            _currentSettings = _preferencesService.GetCurrentCalendarSettings();
+            RefreshSettings();
 
             // TODO: This might need throttling due to slider in the settings page for hour height.
             // or make sure the slider does not update on each tick but on focus lost.

@@ -6,7 +6,8 @@ using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views
 {
-    public sealed partial class AppShell : AppShellAbstract
+    public sealed partial class AppShell : AppShellAbstract,
+        IRecipient<CalendarDisplayTypeChangedMessage>
     {
         private const string STATE_HorizontalCalendar = "HorizontalCalendar";
         private const string STATE_VerticalCalendar = "VerticalCalendar";
@@ -17,11 +18,10 @@ namespace Wino.Calendar.Views
             InitializeComponent();
 
             Window.Current.SetTitleBar(DragArea);
-
-            ViewModel.DisplayTypeChanged += CalendarDisplayTypeChanged;
         }
 
-        private void CalendarDisplayTypeChanged(object sender, Core.Domain.Enums.CalendarDisplayType e)
+
+        private void ManageCalendarDisplayType()
         {
             // Go to different states based on the display type.
             if (ViewModel.IsVerticalCalendar)
@@ -34,18 +34,13 @@ namespace Wino.Calendar.Views
             }
         }
 
-        private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
-        {
-
-        }
-
-        private void BackButtonClicked(Core.UWP.Controls.WinoAppTitleBar sender, Windows.UI.Xaml.RoutedEventArgs args)
-        {
-
-        }
-
         private void PreviousDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoPreviousDateRequestedMessage());
 
         private void NextDateClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new GoNextDateRequestedMessage());
+
+        public void Receive(CalendarDisplayTypeChangedMessage message)
+        {
+            ManageCalendarDisplayType();
+        }
     }
 }

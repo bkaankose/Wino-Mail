@@ -64,13 +64,19 @@ namespace Wino.Services
             WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem));
         }
 
-        public Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
+        public async Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
         {
-            return Connection.RunInTransactionAsync((conn) =>
+            await Connection.RunInTransactionAsync((conn) =>
                {
                    conn.Insert(calendarItem);
-                   conn.InsertAll(attendees);
+
+                   if (attendees != null)
+                   {
+                       conn.InsertAll(attendees);
+                   }
                });
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
         }
 
         public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel)

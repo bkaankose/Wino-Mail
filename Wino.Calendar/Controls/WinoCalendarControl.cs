@@ -144,7 +144,7 @@ namespace Wino.Calendar.Controls
 
         private void UpdateIdleState()
         {
-            InternalFlipView.Visibility = IsFlipIdle ? Visibility.Collapsed : Visibility.Visible;
+            InternalFlipView.Opacity = IsFlipIdle ? 0 : 1;
             IdleGrid.Visibility = IsFlipIdle ? Visibility.Visible : Visibility.Collapsed;
         }
 

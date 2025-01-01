@@ -55,7 +55,6 @@
         <coreControls:WinoAppTitleBar
             x:Name="RealAppBar"
             Grid.ColumnSpan="2"
-            BackButtonClicked="BackButtonClicked"
             Canvas.ZIndex="150"
             ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="Wino Calendar"
@@ -311,8 +310,7 @@
                     <Frame
                         x:Name="ShellFrame"
                         Padding="0,0,7,7"
-                        IsNavigationStackEnabled="False"
-                        Navigated="ShellFrameContentNavigated">
+                        IsNavigationStackEnabled="False">
                         <Frame.ContentTransitions>
                             <TransitionCollection>
                                 <PopupThemeTransition />

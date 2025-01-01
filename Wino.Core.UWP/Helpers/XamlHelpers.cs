@@ -27,7 +27,14 @@ namespace Wino.Helpers
 
         public static bool IsMultiple(int count) => count > 1;
         public static bool ReverseIsMultiple(int count) => count < 1;
-
+        public static TeachingTipPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
+        {
+            return type switch
+            {
+                CalendarDisplayType.Week => TeachingTipPlacementMode.Right,
+                _ => TeachingTipPlacementMode.Bottom,
+            };
+        }
         public static ICalendarItem GetFirstAllDayEvent(CalendarEventCollection collection)
             => collection.AllDayEvents.FirstOrDefault();
 

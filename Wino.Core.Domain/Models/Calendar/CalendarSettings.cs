@@ -11,5 +11,39 @@ namespace Wino.Core.Domain.Models.Calendar
                                    TimeSpan WorkingHourEnd,
                                    double HourHeight,
                                    DayHeaderDisplayType DayHeaderDisplayType,
-                                   CultureInfo CultureInfo);
+                                   CultureInfo CultureInfo)
+    {
+        public TimeSpan? GetTimeSpan(string selectedTime)
+        {
+            var format = DayHeaderDisplayType switch
+            {
+                DayHeaderDisplayType.TwelveHour => "h:mm tt",
+                DayHeaderDisplayType.TwentyFourHour => "HH:mm",
+                _ => throw new ArgumentOutOfRangeException(nameof(DayHeaderDisplayType))
+            };
+
+            if (DateTime.TryParseExact(selectedTime, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedTime))
+            {
+                return parsedTime.TimeOfDay;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public string GetTimeString(TimeSpan timeSpan)
+        {
+            var format = DayHeaderDisplayType switch
+            {
+                DayHeaderDisplayType.TwelveHour => "h:mm tt",
+                DayHeaderDisplayType.TwentyFourHour => "HH:mm",
+                _ => throw new ArgumentOutOfRangeException(nameof(DayHeaderDisplayType))
+            };
+
+
+            var dateTime = DateTime.Today.Add(timeSpan);
+            return dateTime.ToString(format, CultureInfo.InvariantCulture);
+        }
+    }
 }

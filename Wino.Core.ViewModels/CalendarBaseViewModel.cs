@@ -4,10 +4,10 @@ using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Core.ViewModels
 {
-    public class CalendarBaseViewModel : CoreBaseViewModel, IRecipient<CalendarEventAdded>
+    public class CalendarBaseViewModel : CoreBaseViewModel, IRecipient<CalendarItemAdded>
     {
-        public void Receive(CalendarEventAdded message) => OnCalendarEventAdded(message.CalendarItem);
+        public void Receive(CalendarItemAdded message) => OnCalendarItemAdded(message.CalendarItem);
 
-        protected virtual void OnCalendarEventAdded(CalendarItem calendarItem) { }
+        protected virtual void OnCalendarItemAdded(CalendarItem calendarItem) { }
     }
 }
