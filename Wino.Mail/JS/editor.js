@@ -8,6 +8,9 @@ const joditConfig = {
     "showCharsCounter": false,
     "showWordsCounter": false,
     "showXPathInStatusbar": false,
+    "link": {
+        "processVideoLink": false
+    },
     "disablePlugins": "add-new-line,backspace",
     "showPlaceholder": false,
     "uploader": {
