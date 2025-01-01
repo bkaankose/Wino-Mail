@@ -7,6 +7,7 @@ using Windows.UI;
 using Windows.UI.Text;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Markup;
 using Windows.UI.Xaml.Media;
 using Wino.Core.Domain;
@@ -27,12 +28,12 @@ namespace Wino.Helpers
 
         public static bool IsMultiple(int count) => count > 1;
         public static bool ReverseIsMultiple(int count) => count < 1;
-        public static TeachingTipPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
+        public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
         {
             return type switch
             {
-                CalendarDisplayType.Week => TeachingTipPlacementMode.Right,
-                _ => TeachingTipPlacementMode.Bottom,
+                CalendarDisplayType.Week => PopupPlacementMode.Right,
+                _ => PopupPlacementMode.Bottom,
             };
         }
         public static ICalendarItem GetFirstAllDayEvent(CalendarEventCollection collection)

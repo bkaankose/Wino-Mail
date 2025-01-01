@@ -15,14 +15,11 @@ namespace Wino.Core.Domain.Models.Calendar
     {
         public TimeSpan? GetTimeSpan(string selectedTime)
         {
-            var format = DayHeaderDisplayType switch
-            {
-                DayHeaderDisplayType.TwelveHour => "h:mm tt",
-                DayHeaderDisplayType.TwentyFourHour => "HH:mm",
-                _ => throw new ArgumentOutOfRangeException(nameof(DayHeaderDisplayType))
-            };
+            // Regardless of the format, we need to parse the time to a TimeSpan.
+            // User may list as 14:00 but enters 2:00 PM by input.
+            // Be flexible, not annoying.
 
-            if (DateTime.TryParseExact(selectedTime, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedTime))
+            if (DateTime.TryParse(selectedTime, out DateTime parsedTime))
             {
                 return parsedTime.TimeOfDay;
             }
@@ -34,13 +31,15 @@ namespace Wino.Core.Domain.Models.Calendar
 
         public string GetTimeString(TimeSpan timeSpan)
         {
+            // Here we don't need to be flexible cuz we're saving back the value to the combos.
+            // They are populated based on the format and must be returned with the format.
+
             var format = DayHeaderDisplayType switch
             {
                 DayHeaderDisplayType.TwelveHour => "h:mm tt",
                 DayHeaderDisplayType.TwentyFourHour => "HH:mm",
                 _ => throw new ArgumentOutOfRangeException(nameof(DayHeaderDisplayType))
             };
-
 
             var dateTime = DateTime.Today.Add(timeSpan);
             return dateTime.ToString(format, CultureInfo.InvariantCulture);

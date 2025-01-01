@@ -648,6 +648,11 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
+        partial void OnSelectedQuickEventDateChanged(DateTime? value)
+        {
+
+        }
+
         partial void OnSelectedStartTimeStringChanged(string newValue)
         {
             var parsedTime = _currentSettings.GetTimeSpan(newValue);

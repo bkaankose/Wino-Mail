@@ -1,11 +1,9 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 using Wino.Calendar.Args;
 using Wino.Calendar.Views.Abstract;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
@@ -15,9 +13,10 @@ namespace Wino.Calendar.Views
     public sealed partial class CalendarPage : CalendarPageAbstract,
         IRecipient<ScrollToDateMessage>,
         IRecipient<GoNextDateRequestedMessage>,
-        IRecipient<GoPreviousDateRequestedMessage>,
-        IRecipient<CalendarDisplayTypeChangedMessage>
+        IRecipient<GoPreviousDateRequestedMessage>
     {
+        private const int PopupDialogOffset = 12;
+
         public CalendarPage()
         {
             InitializeComponent();
@@ -51,7 +50,6 @@ namespace Wino.Calendar.Views
 
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {
-            // Selected date is in Local kind.
             ViewModel.SelectedQuickEventDate = e.ClickedDate;
 
             TeachingTipPositionerGrid.Width = e.CellSize.Width;
@@ -60,39 +58,18 @@ namespace Wino.Calendar.Views
             Canvas.SetLeft(TeachingTipPositionerGrid, e.PositionerPoint.X);
             Canvas.SetTop(TeachingTipPositionerGrid, e.PositionerPoint.Y);
 
-            var testCalendarItem = new CalendarItem
-            {
-                CalendarId = Guid.Parse("9ead7613-dacb-4163-8d33-2e32e65008a1"),
-                StartDate = ViewModel.SelectedQuickEventDate.Value,
-                DurationInSeconds = TimeSpan.FromMinutes(30).TotalSeconds,
-                CreatedAt = DateTime.UtcNow,
-                Description = "Test Description",
-                Location = "Poland",
-                Title = "Test event",
-                Id = Guid.NewGuid()
-            };
-
             // Adjust the start and end time in the flyout.
             var startTime = ViewModel.SelectedQuickEventDate.Value.TimeOfDay;
             var endTime = startTime.Add(TimeSpan.FromMinutes(30));
 
             ViewModel.SelectQuickEventTimeRange(startTime, endTime);
 
-            // WeakReferenceMessenger.Default.Send(new CalendarEventAdded(testCalendarItem));
-
-            NewEventTip.IsOpen = true;
+            QuickEventPopupDialog.IsOpen = true;
         }
 
         private void CellUnselected(object sender, TimelineCellUnselectedArgs e)
         {
-            NewEventTip.IsOpen = false;
-            ViewModel.SelectedQuickEventDate = null;
-        }
-
-        private void CreateEventTipClosed(TeachingTip sender, TeachingTipClosedEventArgs args)
-        {
-            // Reset the timeline selection when the tip is closed.
-            CalendarControl.ResetTimelineSelection();
+            QuickEventPopupDialog.IsOpen = false;
         }
 
         private void QuickEventAccountSelectorSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -100,12 +77,40 @@ namespace Wino.Calendar.Views
             QuickEventAccountSelectorFlyout.Hide();
         }
 
-        public void Receive(CalendarDisplayTypeChangedMessage message)
+        private void QuickEventPopupClosed(object sender, object e)
         {
-            // It makes sense to show the quick event flyout horizontally for week view.
-            // But for daily view, it should be vertical.
+            // Reset the timeline selection when the tip is closed.
+            CalendarControl.ResetTimelineSelection();
+        }
 
-            NewEventTip.PreferredPlacement = message.NewDisplayType == CalendarDisplayType.Day ? TeachingTipPlacementMode.Top : TeachingTipPlacementMode.Right;
+        private void QuickEventPopupPlacementChanged(object sender, object e)
+        {
+            // When the quick event Popup is positioned for different calendar types,
+            // we must adjust the offset to make sure the tip is not hidden and has nice
+            // spacing from the cell.
+
+            switch (QuickEventPopupDialog.ActualPlacement)
+            {
+                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Top:
+                    QuickEventPopupDialog.VerticalOffset = PopupDialogOffset * -1;
+                    break;
+                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Bottom:
+                    QuickEventPopupDialog.VerticalOffset = PopupDialogOffset;
+                    break;
+                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Left:
+                    QuickEventPopupDialog.HorizontalOffset = PopupDialogOffset * -1;
+                    break;
+                case Windows.UI.Xaml.Controls.Primitives.PopupPlacementMode.Right:
+                    QuickEventPopupDialog.HorizontalOffset = PopupDialogOffset;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void ComboBox_TextSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
+        {
+            ViewModel.SelectedStartTimeString = args.Text;
         }
     }
 }
