@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using CommunityToolkit.WinUI;
 using Itenso.TimePeriod;
 using Windows.Foundation;
 using Windows.UI.Xaml;
@@ -160,11 +161,14 @@ namespace Wino.Calendar.Controls
 
                 if (childWidth < 0) childWidth = 1;
 
-                control.Measure(new Size(childWidth, childHeight));
-
                 var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, Math.Max(childWidth - extraRightMargin, 1), childHeight);
 
+                // Make sure measured size will fit in the arranged box.
+                var measureSize = arrangementRect.ToSize();
+                control.Measure(measureSize);
                 control.Arrange(arrangementRect);
+
+                //Debug.WriteLine($"{child.Title}, Measured: {measureSize}, Arranged: {arrangementRect}");
             }
 
             return finalSize;
