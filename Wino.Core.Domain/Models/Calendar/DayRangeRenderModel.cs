@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Calendar
 {
@@ -13,8 +11,6 @@ namespace Wino.Core.Domain.Models.Calendar
     /// </summary>
     public class DayRangeRenderModel
     {
-        public event EventHandler<CalendarDayModel> CalendarDayEventCollectionUpdated;
-
         public ITimePeriod Period { get; }
         public List<CalendarDayModel> CalendarDays { get; } = [];
         public List<DayHeaderRenderModel> DayHeaders { get; } = [];
@@ -28,8 +24,6 @@ namespace Wino.Core.Domain.Models.Calendar
             {
                 var representingDate = calendarRenderOptions.DateRange.StartDate.AddDays(i);
                 var calendarDayModel = new CalendarDayModel(representingDate, calendarRenderOptions);
-
-                RegisterCalendarDayEvents(calendarDayModel);
 
                 CalendarDays.Add(calendarDayModel);
             }
@@ -53,29 +47,11 @@ namespace Wino.Core.Domain.Models.Calendar
             }
         }
 
-        private void RegisterCalendarDayEvents(CalendarDayModel calendarDayModel)
-        {
-            calendarDayModel.EventsCollection.CalendarItemAdded += CalendarItemAdded;
-            calendarDayModel.EventsCollection.CalendarItemRemoved += CalendarItemRemoved;
-        }
 
-        // TODO: These handlers have incorrect senders. They should be the CalendarDayModel.
-        private void CalendarItemRemoved(object sender, ICalendarItem e)
-            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
-
-        private void CalendarItemAdded(object sender, ICalendarItem e)
-            => CalendarDayEventCollectionUpdated?.Invoke(this, sender as CalendarDayModel);
-
-        /// <summary>
-        /// Unregisters all calendar item change listeners to draw the UI for calendar events.
-        /// </summary>
-        public void UnregisterAll()
-        {
-            foreach (var day in CalendarDays)
-            {
-                day.EventsCollection.CalendarItemRemoved -= CalendarItemRemoved;
-                day.EventsCollection.CalendarItemAdded -= CalendarItemAdded;
-            }
-        }
+        //public void AddEvent(ICalendarItem calendarEventModel)
+        //{
+        //    var calendarDayModel = CalendarDays.FirstOrDefault(x => x.Period.HasInside(calendarEventModel.Period.Start));
+        //    calendarDayModel?.EventsCollection.AddCalendarItem(calendarEventModel);
+        //}
     }
 }

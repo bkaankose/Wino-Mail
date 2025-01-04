@@ -9,12 +9,47 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:selectors="using:Wino.Calendar.Selectors"
+    x:Name="AllDayControl"
     d:DesignHeight="300"
     d:DesignWidth="400"
     mc:Ignorable="d">
 
     <Grid>
-        <controls:CalendarItemControl
+        <ItemsControl x:Name="EventItemsControl" ItemsSource="{x:Bind CalendarDayModel.EventsCollection.AllDayEvents, Mode=OneWay}">
+            <ItemsControl.ItemTemplateSelector>
+                <selectors:CustomAreaCalendarItemSelector>
+                    <selectors:CustomAreaCalendarItemSelector.AllDayTemplate>
+                        <DataTemplate x:DataType="data:CalendarItemViewModel">
+                            <controls:CalendarItemControl
+                                CalendarItem="{x:Bind}"
+                                DisplayingDate="{Binding CalendarDayModel, ElementName=AllDayControl}"
+                                IsCustomEventArea="True" />
+                        </DataTemplate>
+                    </selectors:CustomAreaCalendarItemSelector.AllDayTemplate>
+                    <selectors:CustomAreaCalendarItemSelector.MultiDayTemplate>
+                        <DataTemplate x:DataType="data:CalendarItemViewModel">
+                            <controls:CalendarItemControl
+                                CalendarItem="{x:Bind}"
+                                DisplayingDate="{Binding CalendarDayModel, ElementName=AllDayControl}"
+                                IsCustomEventArea="True" />
+                        </DataTemplate>
+                    </selectors:CustomAreaCalendarItemSelector.MultiDayTemplate>
+                </selectors:CustomAreaCalendarItemSelector>
+            </ItemsControl.ItemTemplateSelector>
+            <ItemsControl.ItemContainerTransitions>
+                <TransitionCollection>
+                    <AddDeleteThemeTransition />
+                </TransitionCollection>
+            </ItemsControl.ItemContainerTransitions>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" Spacing="2" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <!--<controls:CalendarItemControl
             x:Name="SingleAllDayEventHolder"
             CalendarItem="{x:Bind calendarHelpers:CalendarXamlHelpers.GetFirstAllDayEvent(EventCollection), Mode=OneWay}"
             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(EventCollection.AllDayEvents.Count), Mode=OneWay}" />
@@ -53,6 +88,6 @@
                     </VisualState.StateTriggers>
                 </VisualState>
             </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
+        </VisualStateManager.VisualStateGroups>-->
     </Grid>
 </UserControl>

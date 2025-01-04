@@ -27,6 +27,7 @@ namespace Wino.Calendar.ViewModels
 {
     public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IRecipient<LoadCalendarMessage>,
+        IRecipient<CalendarItemDeleted>,
         IRecipient<CalendarSettingsUpdatedMessage>,
         IRecipient<CalendarItemTappedMessage>,
         IRecipient<CalendarItemDoubleTappedMessage>,
@@ -90,7 +91,7 @@ namespace Wino.Calendar.ViewModels
         #endregion
 
         [ObservableProperty]
-        private ObservableRangeCollection<DayRangeRenderModel> _dayRanges = [];
+        private DayRangeCollection _dayRanges = [];
 
         [ObservableProperty]
         private int _selectedDateRangeIndex;
@@ -148,8 +149,6 @@ namespace Wino.Calendar.ViewModels
 
             days.ForEach(a => a.EventsCollection.FilterByCalendars(AccountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
         }
-
-
 
         // TODO: Replace when calendar settings are updated.
         // Should be a field ideally.
@@ -256,14 +255,13 @@ namespace Wino.Calendar.ViewModels
             // 2. Day display count is different.
             // 3. Display date is not in the visible range.
 
-            var loadedRange = GetLoadedDateRange();
 
-            if (loadedRange == null) return false;
+            if (DayRanges.DisplayRange == null) return false;
 
             return
                 (_currentDisplayType != StatePersistanceService.CalendarDisplayType ||
                 _displayDayCount != StatePersistanceService.DayDisplayCount ||
-                !(message.DisplayDate >= loadedRange.StartDate && message.DisplayDate <= loadedRange.EndDate));
+                !(message.DisplayDate >= DayRanges.DisplayRange.StartDate && message.DisplayDate <= DayRanges.DisplayRange.EndDate));
         }
 
         public async void Receive(LoadCalendarMessage message)
@@ -305,20 +303,10 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        private DateRange GetLoadedDateRange()
-        {
-            if (DayRanges.Count == 0) return null;
-
-            var minimumLoadedDate = DayRanges[0].CalendarRenderOptions.DateRange.StartDate;
-            var maximumLoadedDate = DayRanges[DayRanges.Count - 1].CalendarRenderOptions.DateRange.EndDate;
-
-            return new DateRange(minimumLoadedDate, maximumLoadedDate);
-        }
 
         private async Task AddDayRangeModelAsync(DayRangeRenderModel dayRangeRenderModel)
         {
-            dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
-            dayRangeRenderModel.CalendarDayEventCollectionUpdated += EventsUpdatedInDayHeader;
+            if (dayRangeRenderModel == null) return;
 
             await ExecuteUIThread(() =>
             {
@@ -330,9 +318,6 @@ namespace Wino.Calendar.ViewModels
         {
             if (dayRangeRenderModel == null) return;
 
-            dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
-            dayRangeRenderModel.CalendarDayEventCollectionUpdated += EventsUpdatedInDayHeader;
-
             await ExecuteUIThread(() =>
             {
                 DayRanges.Insert(index, dayRangeRenderModel);
@@ -343,9 +328,6 @@ namespace Wino.Calendar.ViewModels
         {
             if (dayRangeRenderModel == null) return;
 
-            dayRangeRenderModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
-            dayRangeRenderModel.UnregisterAll();
-
             await ExecuteUIThread(() =>
             {
                 DayRanges.Remove(dayRangeRenderModel);
@@ -354,14 +336,6 @@ namespace Wino.Calendar.ViewModels
 
         private async Task ClearDayRangeModelsAsync()
         {
-            // Unregister all events and clear the list directly.
-
-            foreach (var dayRangeModel in DayRanges)
-            {
-                dayRangeModel.CalendarDayEventCollectionUpdated -= EventsUpdatedInDayHeader;
-                dayRangeModel.UnregisterAll();
-            }
-
             await ExecuteUIThread(() =>
             {
                 DayRanges.Clear();
@@ -397,9 +371,8 @@ namespace Wino.Calendar.ViewModels
 
             DateRange flipLoadRange = null;
 
-            var initializedDateRange = GetLoadedDateRange();
 
-            if (calendarInitInitiative == CalendarInitInitiative.User || initializedDateRange == null)
+            if (calendarInitInitiative == CalendarInitInitiative.User || DayRanges.DisplayRange == null)
             {
                 flipLoadRange = strategy.GetRenderDateRange(displayDate, StatePersistanceService.DayDisplayCount);
             }
@@ -411,11 +384,11 @@ namespace Wino.Calendar.ViewModels
 
                 if (calendarLoadDirection == CalendarLoadDirection.Previous)
                 {
-                    flipLoadRange = strategy.GetPreviousDateRange(initializedDateRange, StatePersistanceService.DayDisplayCount);
+                    flipLoadRange = strategy.GetPreviousDateRange(DayRanges.DisplayRange, StatePersistanceService.DayDisplayCount);
                 }
                 else
                 {
-                    flipLoadRange = strategy.GetNextDateRange(initializedDateRange, StatePersistanceService.DayDisplayCount);
+                    flipLoadRange = strategy.GetNextDateRange(DayRanges.DisplayRange, StatePersistanceService.DayDisplayCount);
                 }
             }
 
@@ -519,21 +492,14 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        // TODO...
-        private void EventsUpdatedInDayHeader(object sender, CalendarDayModel e)
-        {
-
-        }
-
         protected override async void OnCalendarItemAdded(CalendarItem calendarItem)
         {
             base.OnCalendarItemAdded(calendarItem);
 
             // Check if event falls into the current date range.
 
-            var loadedDateRange = GetLoadedDateRange();
 
-            if (loadedDateRange == null) return;
+            if (DayRanges.DisplayRange == null) return;
 
             // Check whether this event falls into any of the loaded date ranges.
             var allDaysForEvent = DayRanges.SelectMany(a => a.CalendarDays).Where(a => a.Period.OverlapsWith(calendarItem.Period));
@@ -576,8 +542,6 @@ namespace Wino.Calendar.ViewModels
                 foreach (var @event in events)
                 {
                     // Find the days that the event falls into.
-                    // TODO: Multi-day events are not fully supported yet.
-
                     var allDaysForEvent = dayRangeRenderModel.CalendarDays.Where(a => a.Period.OverlapsWith(@event.Period));
 
                     foreach (var calendarDay in allDaysForEvent)
@@ -628,13 +592,11 @@ namespace Wino.Calendar.ViewModels
             // Nothing to scroll.
             if (DayRanges.Count == 0) return false;
 
-            var initializedDateRange = GetLoadedDateRange();
-
-            if (initializedDateRange == null) return false;
+            if (DayRanges.DisplayRange == null) return false;
 
             var selectedDate = message.DisplayDate;
 
-            return selectedDate >= initializedDateRange.StartDate && selectedDate <= initializedDateRange.EndDate;
+            return selectedDate >= DayRanges.DisplayRange.StartDate && selectedDate <= DayRanges.DisplayRange.EndDate;
         }
 
         partial void OnIsAllDayChanged(bool value)
@@ -802,6 +764,23 @@ namespace Wino.Calendar.ViewModels
 
         public void Receive(CalendarItemRightTappedMessage message)
         {
+        }
+
+        public async void Receive(CalendarItemDeleted message)
+        {
+            // Each deleted recurrence will report for it's own.
+
+            await ExecuteUIThread(() =>
+            {
+                var deletedItem = message.CalendarItem;
+
+                // Event might be spreaded into multiple days.
+                // Remove from all.
+
+                var calendarItems = GetCalendarItems(deletedItem.Id);
+
+
+            });
         }
     }
 }

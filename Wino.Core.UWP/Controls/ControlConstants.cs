@@ -71,7 +71,25 @@ namespace Wino.Core.UWP.Controls
             { WinoIconGlyph.Message, "\uE8BD" },
             { WinoIconGlyph.New, "\U000F002A" },
             { WinoIconGlyph.Blocked,"\uF140" },
-            { WinoIconGlyph.IMAP, "\uE715" }
+            { WinoIconGlyph.Calendar, "\uE912" },
+            { WinoIconGlyph.CalendarToday, "\uE911" },
+            { WinoIconGlyph.CalendarDay, "\uE913" },
+            { WinoIconGlyph.CalendarWeek, "\uE914" },
+            { WinoIconGlyph.CalendarMonth, "\uE91c" },
+            { WinoIconGlyph.CalendarYear, "\uE917" },
+            { WinoIconGlyph.WeatherBlow, "\uE907" },
+            { WinoIconGlyph.WeatherCloudy, "\uE920" },
+            { WinoIconGlyph.WeatherSunny, "\uE90e" },
+            { WinoIconGlyph.WeatherRainy, "\uE908" },
+            { WinoIconGlyph.WeatherSnowy, "\uE90a" },
+            { WinoIconGlyph.WeatherSnowShowerAtNight, "\uE90c" },
+            { WinoIconGlyph.WeatherThunderstorm, "\uE906" },
+            { WinoIconGlyph.CalendarEventRepeat, "\uE915" },
+            { WinoIconGlyph.CalendarEventMuiltiDay, "\uE91b" },
+            { WinoIconGlyph.Reminder, "\uE918" },
+            { WinoIconGlyph.CalendarAttendee, "\uE91a" },
+            { WinoIconGlyph.CalendarSync, "\uE91d" },
+            { WinoIconGlyph.CalendarError, "\uE916" },
         };
     }
 }

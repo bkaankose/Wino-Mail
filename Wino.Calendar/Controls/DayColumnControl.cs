@@ -11,12 +11,15 @@ namespace Wino.Calendar.Controls
         private const string PART_IsTodayBorder = nameof(PART_IsTodayBorder);
         private const string PART_ColumnHeaderText = nameof(PART_ColumnHeaderText);
 
+        private const string PART_AllDayItemsControl = nameof(PART_AllDayItemsControl);
+
         private const string TodayState = nameof(TodayState);
         private const string NotTodayState = nameof(NotTodayState);
 
         private TextBlock HeaderDateDayText;
         private TextBlock ColumnHeaderText;
         private Border IsTodayBorder;
+        private AllDayItemsControl AllDayItemsControl;
 
         public CalendarDayModel DayModel
         {
@@ -38,6 +41,7 @@ namespace Wino.Calendar.Controls
             HeaderDateDayText = GetTemplateChild(PART_HeaderDateDayText) as TextBlock;
             ColumnHeaderText = GetTemplateChild(PART_ColumnHeaderText) as TextBlock;
             IsTodayBorder = GetTemplateChild(PART_IsTodayBorder) as Border;
+            AllDayItemsControl = GetTemplateChild(PART_AllDayItemsControl) as AllDayItemsControl;
 
             UpdateValues();
         }
@@ -56,6 +60,8 @@ namespace Wino.Calendar.Controls
 
             HeaderDateDayText.Text = DayModel.RepresentingDate.Day.ToString();
             ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CalendarSettings.CultureInfo);
+
+            AllDayItemsControl.CalendarDayModel = DayModel;
 
             bool isToday = DayModel.RepresentingDate.Date == DateTime.Now.Date;
 

@@ -22,6 +22,9 @@ namespace Wino.Calendar.ViewModels
         private bool _is24HourHeaders;
 
         [ObservableProperty]
+        private bool _ghostRenderAllDayEvents;
+
+        [ObservableProperty]
         private TimeSpan _workingHourStart;
 
         [ObservableProperty]
@@ -61,6 +64,7 @@ namespace Wino.Calendar.ViewModels
             _workingHourStart = preferencesService.WorkingHourStart;
             _workingHourEnd = preferencesService.WorkingHourEnd;
             _cellHourHeight = preferencesService.HourHeight;
+            _ghostRenderAllDayEvents = preferencesService.GhostRenderAllDayEvents;
 
             _workingDayStartIndex = _dayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
             _workingDayEndIndex = _dayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
@@ -75,6 +79,7 @@ namespace Wino.Calendar.ViewModels
         partial void OnWorkingHourEndChanged(TimeSpan value) => SaveSettings();
         partial void OnWorkingDayStartIndexChanged(int value) => SaveSettings();
         partial void OnWorkingDayEndIndexChanged(int value) => SaveSettings();
+        partial void OnGhostRenderAllDayEventsChanged(bool value) => SaveSettings();
 
         public void SaveSettings()
         {

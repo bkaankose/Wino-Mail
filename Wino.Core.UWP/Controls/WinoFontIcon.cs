@@ -70,7 +70,27 @@ namespace Wino.Core.UWP.Controls
         Message,
         New,
         IMAP,
-        Print
+        Print,
+        Calendar,
+        CalendarToday,
+        CalendarDay,
+        CalendarWeek,
+        CalendarWorkWeek,
+        CalendarMonth,
+        CalendarYear,
+        WeatherBlow,
+        WeatherCloudy,
+        WeatherSunny,
+        WeatherRainy,
+        WeatherSnowy,
+        WeatherSnowShowerAtNight,
+        WeatherThunderstorm,
+        CalendarEventRepeat,
+        CalendarEventMuiltiDay,
+        CalendarError,
+        Reminder,
+        CalendarAttendee,
+        CalendarSync,
     }
 
     public class WinoFontIcon : FontIcon

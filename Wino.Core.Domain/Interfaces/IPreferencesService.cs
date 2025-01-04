@@ -187,6 +187,7 @@ namespace Wino.Core.Domain.Interfaces
         DayOfWeek WorkingDayStart { get; set; }
         DayOfWeek WorkingDayEnd { get; set; }
         double HourHeight { get; set; }
+        bool GhostRenderAllDayEvents { get; set; }
 
         CalendarSettings GetCurrentCalendarSettings();
 

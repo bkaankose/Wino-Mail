@@ -2,6 +2,7 @@
     x:Class="Wino.Calendar.Controls.CalendarItemControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Controls"
@@ -18,7 +19,13 @@
         CornerRadius="4"
         DoubleTapped="ControlDoubleTapped"
         RightTapped="ControlRightTapped"
-        Tapped="ControlTapped">
+        Tapped="ControlTapped"
+        ToolTipService.ToolTip="{x:Bind CalendarItemTitle, Mode=OneWay}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
         <Grid.ContextFlyout>
             <MenuFlyout Opened="ContextFlyoutOpened">
                 <MenuFlyoutItem Text="as" />
@@ -26,33 +33,49 @@
                 <MenuFlyoutItem Text="as" />
             </MenuFlyout>
         </Grid.ContextFlyout>
-        <Grid x:Name="MainBackground" Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}" />
+
+        <Grid
+            x:Name="MainBackground"
+            Grid.ColumnSpan="2"
+            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}" />
+
         <Rectangle
             x:Name="MainBorder"
+            Grid.ColumnSpan="2"
             Stroke="{ThemeResource CalendarItemBorderBrush}"
             StrokeThickness="0" />
 
         <TextBlock
             x:Name="EventTitleTextblock"
             Margin="2,0"
-            HorizontalAlignment="Center"
+            HorizontalAlignment="Stretch"
             VerticalAlignment="Center"
             CharacterSpacing="8"
             FontSize="13"
             Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
-            Text="{x:Bind CalendarItem.Title}"
-            TextWrapping="Wrap" />
+            HorizontalTextAlignment="Center"
+            Text="{x:Bind CalendarItemTitle, Mode=OneWay}"
+            TextTrimming="CharacterEllipsis" />
 
         <!--  TODO: Event attributes  -->
         <StackPanel
+            x:Name="AttributeStack"
+            Grid.Column="1"
+            Margin="0,4,4,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Orientation="Horizontal">
-            <PathIcon
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Data="F1 M 7.5 3.75 C 6.634114 3.75 5.82194 3.912762 5.063477 4.238281 C 4.305013 4.563803 3.642578 5.009766 3.076172 5.576172 C 2.509766 6.142578 2.063802 6.805014 1.738281 7.563477 C 1.41276 8.32194 1.25 9.134115 1.25 10 C 1.25 10.527344 1.318359 11.056315 1.455078 11.586914 C 1.591797 12.117514 1.79362 12.613933 2.060547 13.076172 C 2.099609 13.147787 2.150065 13.225912 2.211914 13.310547 C 2.273763 13.395183 2.333984 13.483073 2.392578 13.574219 C 2.451172 13.665365 2.501627 13.756511 2.543945 13.847656 C 2.586263 13.938803 2.607422 14.023438 2.607422 14.101562 C 2.607422 14.270834 2.545573 14.417318 2.421875 14.541016 C 2.298177 14.664714 2.151693 14.726562 1.982422 14.726562 C 1.871745 14.726562 1.778971 14.703776 1.704102 14.658203 C 1.629232 14.612631 1.55599 14.550781 1.484375 14.472656 C 1.24349 14.192709 1.030273 13.870443 0.844727 13.505859 C 0.65918 13.141276 0.504557 12.760417 0.380859 12.363281 C 0.257161 11.966146 0.16276 11.564128 0.097656 11.157227 C 0.032552 10.750326 0 10.364584 0 10 C 0 9.316406 0.089518 8.6556 0.268555 8.017578 C 0.447591 7.379558 0.69987 6.782227 1.025391 6.225586 C 1.350911 5.668945 1.741536 5.162761 2.197266 4.707031 C 2.652995 4.251303 3.157552 3.859051 3.710938 3.530273 C 4.264323 3.201498 4.861653 2.947592 5.50293 2.768555 C 6.144206 2.58952 6.809896 2.5 7.5 2.5 L 14.121094 2.5 L 12.685547 1.064453 C 12.561849 0.940756 12.5 0.794271 12.5 0.625 C 12.5 0.45573 12.561849 0.309246 12.685547 0.185547 C 12.809244 0.06185 12.955729 0 13.125 0 C 13.294271 0 13.440755 0.06185 13.564453 0.185547 L 16.064453 2.685547 C 16.18815 2.809246 16.25 2.95573 16.25 3.125 C 16.25 3.294271 16.18815 3.440756 16.064453 3.564453 L 13.564453 6.064453 C 13.440755 6.188151 13.294271 6.25 13.125 6.25 C 12.955729 6.25 12.809244 6.188151 12.685547 6.064453 C 12.561849 5.940756 12.5 5.794271 12.5 5.625 C 12.5 5.455729 12.561849 5.309245 12.685547 5.185547 L 14.121094 3.75 Z M 20 10 C 20 10.690104 19.91048 11.352539 19.731445 11.987305 C 19.552408 12.62207 19.300129 13.217773 18.974609 13.774414 C 18.649088 14.331055 18.258463 14.83724 17.802734 15.292969 C 17.347004 15.748698 16.842447 16.140951 16.289062 16.469727 C 15.735677 16.798502 15.138346 17.052408 14.49707 17.231445 C 13.855793 17.410482 13.190104 17.5 12.5 17.5 L 5.888672 17.5 L 7.314453 18.935547 C 7.43815 19.059244 7.5 19.205729 7.5 19.375 C 7.5 19.544271 7.43815 19.690756 7.314453 19.814453 C 7.190755 19.93815 7.044271 20 6.875 20 C 6.705729 20 6.559244 19.93815 6.435547 19.814453 L 3.935547 17.314453 C 3.811849 17.190756 3.75 17.044271 3.75 16.875 C 3.75 16.705729 3.811849 16.559244 3.935547 16.435547 L 6.435547 13.935547 C 6.559244 13.81185 6.705729 13.75 6.875 13.75 C 7.044271 13.75 7.190755 13.81185 7.314453 13.935547 C 7.43815 14.059245 7.5 14.205729 7.5 14.375 C 7.5 14.544271 7.43815 14.690756 7.314453 14.814453 L 5.888672 16.25 L 12.5 16.25 C 13.365885 16.25 14.178059 16.08724 14.936523 15.761719 C 15.694986 15.436198 16.357422 14.990234 16.923828 14.423828 C 17.490234 13.857422 17.936197 13.194987 18.261719 12.436523 C 18.587238 11.678061 18.75 10.865886 18.75 10 C 18.75 9.628906 18.723957 9.283854 18.671875 8.964844 C 18.619791 8.645834 18.541666 8.336589 18.4375 8.037109 C 18.333332 7.737631 18.204752 7.444662 18.051758 7.158203 C 17.898762 6.871746 17.721354 6.575521 17.519531 6.269531 C 17.473957 6.197917 17.441406 6.139323 17.421875 6.09375 C 17.402344 6.048178 17.392578 5.983074 17.392578 5.898438 C 17.392578 5.729168 17.452799 5.581056 17.573242 5.454102 C 17.693684 5.327149 17.841797 5.263673 18.017578 5.263672 C 18.128254 5.263673 18.221027 5.286459 18.295898 5.332031 C 18.370768 5.377604 18.44401 5.439453 18.515625 5.517578 C 18.75651 5.797527 18.969727 6.119793 19.155273 6.484375 C 19.34082 6.848959 19.495441 7.231445 19.619141 7.631836 C 19.742838 8.032227 19.837238 8.435873 19.902344 8.842773 C 19.967447 9.249675 20 9.635417 20 10 Z "
-                Visibility="{x:Bind CalendarItem.IsRecurringEvent}" />
+            <controls:WinoFontIcon
+                FontSize="10"
+                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                Icon="CalendarEventRepeat"
+                Visibility="{x:Bind CalendarItem.IsRecurringEvent, Mode=OneWay}" />
+
+            <controls:WinoFontIcon
+                FontSize="16"
+                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                Icon="CalendarEventMuiltiDay"
+                Visibility="{x:Bind CalendarItem.IsMultiDayEvent, Mode=OneWay}" />
         </StackPanel>
 
         <VisualStateManager.VisualStateGroups>
@@ -78,7 +101,6 @@
                         <Setter Target="MainBorder.StrokeThickness" Value="2" />
                         <Setter Target="MainBorder.Stroke" Value="{ThemeResource CalendarItemDraggingBorderBrush}" />
                         <Setter Target="MainBorder.StrokeDashArray" Value="2.5" />
-
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -86,19 +108,35 @@
                 <VisualState x:Name="RegularEvent" />
                 <VisualState x:Name="AllDayEvent">
                     <VisualState.Setters>
-                        <Setter Target="MainGrid.MinHeight" Value="25" />
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="MainGrid.MinHeight" Value="30" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0.5" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="CustomAreaMultiDayEvent">
+                    <VisualState.Setters>
+                        <Setter Target="MainBackground.Opacity" Value="1" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0.5" />
+                        <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
+                        <Setter Target="MainGrid.MinHeight" Value="30" />
+                        <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
                         <Setter Target="EventTitleTextblock.Margin" Value="6,0" />
                     </VisualState.Setters>
                 </VisualState>
 
                 <VisualState x:Name="MultiDayEvent">
                     <VisualState.Setters>
-                        <Setter Target="MainBackground.Opacity" Value="0.6" />
-                        <Setter Target="MainGrid.CornerRadius" Value="0" />
+                        <Setter Target="MainBackground.Opacity" Value="0.2" />
+                        <Setter Target="MainGrid.IsHitTestVisible" Value="False" />
                         <Setter Target="MainBorder.StrokeThickness" Value="0.5" />
+                        <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
+                        <Setter Target="EventTitleTextblock.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
     </Grid>
 </UserControl>
+

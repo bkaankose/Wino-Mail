@@ -18,7 +18,7 @@ namespace Wino.Core.Domain.Models.Calendar
             RepresentingDate = representingDate;
             Period = new TimeRange(representingDate, representingDate.AddDays(1));
             CalendarRenderOptions = calendarRenderOptions;
-            EventsCollection = new CalendarEventCollection(Period);
+            EventsCollection = new CalendarEventCollection(Period, calendarRenderOptions.CalendarSettings);
         }
 
         public DateTime RepresentingDate { get; }

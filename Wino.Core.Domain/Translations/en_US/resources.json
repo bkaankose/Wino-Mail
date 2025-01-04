@@ -131,6 +131,7 @@
     "DialogMessage_EnableStartupLaunchDeniedMessage": "You can enable startup launch from Settings -> App Preferences.",
     "Dialog_DontAskAgain": "Don't ask again",
     "CalendarAllDayEventSummary": "all-day events",
+    "CalendarItemAllDay": "all day",
     "CreateAccountAliasDialog_Title": "Create Account Alias",
     "CreateAccountAliasDialog_Description": "Make sure your outgoing server allows sending mails from this alias.",
     "CreateAccountAliasDialog_AliasAddress": "Address",

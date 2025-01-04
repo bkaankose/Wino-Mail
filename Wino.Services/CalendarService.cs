@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -59,9 +60,23 @@ namespace Wino.Services
 
             if (calendarItem == null) return;
 
-            await Connection.Table<CalendarItem>().DeleteAsync(x => x.Id == calendarItemId);
+            List<CalendarItem> eventsToRemove = new() { calendarItem };
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem));
+            if (!string.IsNullOrEmpty(calendarItem.Recurrence))
+            {
+                // Delete recurring events as well.
+                var recurringEvents = await Connection.Table<CalendarItem>().Where(a => a.RecurringCalendarItemId == calendarItemId).ToListAsync().ConfigureAwait(false);
+
+                eventsToRemove.AddRange(recurringEvents);
+            }
+
+            foreach (var @event in eventsToRemove)
+            {
+                await Connection.Table<CalendarItem>().DeleteAsync(x => x.Id == @event.Id).ConfigureAwait(false);
+                await Connection.Table<CalendarEventAttendee>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
+
+                WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event));
+            }
         }
 
         public async Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
@@ -84,7 +99,9 @@ namespace Wino.Services
             // TODO: We might need to implement caching here.
             // I don't know how much of the events we'll have in total, but this logic scans all events every time.
 
-            var accountEvents = await Connection.Table<CalendarItem>().Where(x => x.CalendarId == calendar.Id).ToListAsync();
+            var accountEvents = await Connection.Table<CalendarItem>()
+                .Where(x => x.CalendarId == calendar.Id && !x.IsHidden).ToListAsync();
+
             var result = new List<CalendarItem>();
 
             foreach (var ev in accountEvents)
@@ -104,15 +121,17 @@ namespace Wino.Services
 
                     if (ev.Period.OverlapsWith(dayRangeRenderModel.Period))
                     {
-                        // TODO: We overlap, but this might be a multi-day event.
-                        // Should we split the events here or in panel?
-                        // For now just continue.
-
                         result.Add(ev);
                     }
                 }
                 else
                 {
+                    // This event has recurrences.
+                    // Wino stores recurrent events as a separae calendar item, without the recurrence rule.
+                    // Because each isntance of recurrent event can have different attendees, properties etc.
+                    // Even though the event is recurrent, each updated instance is a separate calendar item.
+                    // Calculate the all recurrences, and remove the exceptional instances like hidden ones.
+
                     var recurrenceLines = Regex.Split(ev.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
 
                     foreach (var line in recurrenceLines)
@@ -123,9 +142,34 @@ namespace Wino.Services
                     // Calculate occurrences in the range.
                     var occurrences = calendarEvent.GetOccurrences(dayRangeRenderModel.Period.Start, dayRangeRenderModel.Period.End);
 
+                    // Get all recurrent exceptional calendar events.
+                    var exceptionalRecurrences = await Connection.Table<CalendarItem>()
+                        .Where(a => a.RecurringCalendarItemId == ev.Id)
+                        .ToListAsync()
+                        .ConfigureAwait(false);
+
                     foreach (var occurrence in occurrences)
                     {
-                        result.Add(ev);
+                        var singleInstance = exceptionalRecurrences.FirstOrDefault(a =>
+                        a.StartDate == occurrence.Period.StartTime.Value &&
+                        a.EndDate == occurrence.Period.EndTime.Value);
+
+                        if (singleInstance == null)
+                        {
+                            // This occurrence is not an exceptional instance.
+                            // Change the start and end date of the event and add as calendar item.
+                            // Other properties are guaranteed to be the same as the parent event.
+                            ev.StartDate = occurrence.Period.StartTime.Value;
+                            ev.DurationInSeconds = (occurrence.Period.EndTime.Value - occurrence.Period.StartTime.Value).TotalSeconds;
+
+                            result.Add(ev);
+                        }
+                        else
+                        {
+                            // There is a single instance of this recurrent event.
+                            // It will be added as single item if it's not hidden.
+                            // We don't need to do anything here.
+                        }
                     }
                 }
             }
@@ -135,5 +179,25 @@ namespace Wino.Services
 
         public Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
             => Connection.GetAsync<AccountCalendar>(accountCalendarId);
+
+        public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
+        {
+            var query = new Query()
+                .From(nameof(CalendarItem))
+                .Where(nameof(CalendarItem.CalendarId), accountCalendarId)
+                .Where(nameof(CalendarItem.RemoteEventId), remoteEventId);
+
+            var rawQuery = query.GetRawQuery();
+
+            var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(rawQuery);
+
+            // Load assigned calendar.
+            if (calendarItem != null)
+            {
+                calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
+            }
+
+            return calendarItem;
+        }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Wino.Core.Domain.Collections;
+using Wino.Core.Domain.Models.Calendar;
 
 
 namespace Wino.Calendar.Controls
@@ -9,36 +9,12 @@ namespace Wino.Calendar.Controls
     {
         #region Dependency Properties
 
-        public static readonly DependencyProperty EventCollectionProperty = DependencyProperty.Register(nameof(EventCollection), typeof(CalendarEventCollection), typeof(AllDayItemsControl), new PropertyMetadata(null));
-        public static readonly DependencyProperty AllDayEventTemplateProperty = DependencyProperty.Register(nameof(AllDayEventTemplate), typeof(DataTemplate), typeof(AllDayItemsControl), new PropertyMetadata(null));
-        public static readonly DependencyProperty RegularEventItemTemplateProperty = DependencyProperty.Register(nameof(RegularEventItemTemplate), typeof(DataTemplate), typeof(AllDayItemsControl), new PropertyMetadata(null));
+        public static readonly DependencyProperty CalendarDayModelProperty = DependencyProperty.Register(nameof(CalendarDayModel), typeof(CalendarDayModel), typeof(AllDayItemsControl), new PropertyMetadata(null));
 
-        /// <summary>
-        /// Item template for all-day events to display in summary view area.
-        /// More than 2 events will be shown in Flyout.
-        /// </summary>
-        public DataTemplate AllDayEventTemplate
+        public CalendarDayModel CalendarDayModel
         {
-            get { return (DataTemplate)GetValue(AllDayEventTemplateProperty); }
-            set { SetValue(AllDayEventTemplateProperty, value); }
-        }
-
-        /// <summary>
-        /// Item template for all-day events to display in summary view's Flyout.
-        /// </summary>
-        public DataTemplate RegularEventItemTemplate
-        {
-            get { return (DataTemplate)GetValue(RegularEventItemTemplateProperty); }
-            set { SetValue(RegularEventItemTemplateProperty, value); }
-        }
-
-        /// <summary>
-        /// Whole collection of events to display.
-        /// </summary>
-        public CalendarEventCollection EventCollection
-        {
-            get { return (CalendarEventCollection)GetValue(EventCollectionProperty); }
-            set { SetValue(EventCollectionProperty, value); }
+            get { return (CalendarDayModel)GetValue(CalendarDayModelProperty); }
+            set { SetValue(CalendarDayModelProperty, value); }
         }
 
         #endregion

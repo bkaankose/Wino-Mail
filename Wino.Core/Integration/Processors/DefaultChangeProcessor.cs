@@ -55,7 +55,7 @@ namespace Wino.Core.Integration.Processors
     {
         Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
         Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
-        Task<CalendarItem> CreateCalendarItemAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
+        Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     }
 
     public interface IOutlookChangeProcessor : IDefaultChangeProcessor

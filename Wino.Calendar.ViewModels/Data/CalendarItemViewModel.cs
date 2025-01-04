@@ -37,5 +37,7 @@ namespace Wino.Calendar.ViewModels.Data
         {
             CalendarItem = calendarItem;
         }
+
+        public override string ToString() => CalendarItem.Title;
     }
 }

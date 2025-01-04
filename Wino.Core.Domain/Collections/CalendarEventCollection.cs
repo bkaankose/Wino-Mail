@@ -5,6 +5,7 @@ using System.Linq;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Collections
 {
@@ -19,14 +20,16 @@ namespace Wino.Core.Domain.Collections
         private ObservableRangeCollection<ICalendarItem> _internalAllDayEvents = [];
 
         public ReadOnlyObservableCollection<ICalendarItem> RegularEvents { get; }
-        public ReadOnlyObservableCollection<ICalendarItem> AllDayEvents { get; }
+        public ReadOnlyObservableCollection<ICalendarItem> AllDayEvents { get; } // TODO: Rename this to include multi-day events.
         public ITimePeriod Period { get; }
+        public CalendarSettings Settings { get; }
 
         private readonly List<ICalendarItem> _allItems = new List<ICalendarItem>();
 
-        public CalendarEventCollection(ITimePeriod period)
+        public CalendarEventCollection(ITimePeriod period, CalendarSettings settings)
         {
             Period = period;
+            Settings = settings;
 
             RegularEvents = new ReadOnlyObservableCollection<ICalendarItem>(_internalRegularEvents);
             AllDayEvents = new ReadOnlyObservableCollection<ICalendarItem>(_internalAllDayEvents);
@@ -44,40 +47,67 @@ namespace Wino.Core.Domain.Collections
         {
             foreach (var item in _allItems)
             {
-                var collection = GetProperCollectionForCalendarItem(item);
+                var collections = GetProperCollectionsForCalendarItem(item);
 
-                if (!visibleCalendarIds.Contains(item.AssignedCalendar.Id) && collection.Contains(item))
+                foreach (var collection in collections)
                 {
-                    RemoveCalendarItemInternal(collection, item, false);
-                }
-                else if (visibleCalendarIds.Contains(item.AssignedCalendar.Id) && !collection.Contains(item))
-                {
-                    AddCalendarItemInternal(collection, item, false);
+                    if (!visibleCalendarIds.Contains(item.AssignedCalendar.Id) && collection.Contains(item))
+                    {
+                        RemoveCalendarItemInternal(collection, item, false);
+                    }
+                    else if (visibleCalendarIds.Contains(item.AssignedCalendar.Id) && !collection.Contains(item))
+                    {
+                        AddCalendarItemInternal(collection, item, false);
+                    }
                 }
             }
         }
 
-        private ObservableRangeCollection<ICalendarItem> GetProperCollectionForCalendarItem(ICalendarItem calendarItem)
+        private IEnumerable<ObservableRangeCollection<ICalendarItem>> GetProperCollectionsForCalendarItem(ICalendarItem calendarItem)
         {
-            // Event duration is not simply enough to determine whether it's an all-day event or not.
-            // Event may start at 11:00 PM and end next day at 11:00 PM. It's not an all-day event.
-            // It's a multi-day event.
+            // All-day events go to all days.
+            // Multi-day events go to both.
+            // Anything else goes to regular.
 
-            bool isAllDayEvent = calendarItem.Period.Duration.TotalDays == 1 && calendarItem.Period.Start.TimeOfDay == TimeSpan.Zero;
-
-            return isAllDayEvent ? _internalAllDayEvents : _internalRegularEvents;
+            if (calendarItem.IsAllDayEvent)
+            {
+                return [_internalAllDayEvents];
+            }
+            else if (calendarItem.IsMultiDayEvent)
+            {
+                if (Settings.GhostRenderAllDayItems)
+                {
+                    return [_internalRegularEvents, _internalAllDayEvents];
+                }
+                else
+                {
+                    return [_internalAllDayEvents];
+                }
+            }
+            else
+            {
+                return [_internalRegularEvents];
+            }
         }
 
         public void AddCalendarItem(ICalendarItem calendarItem)
         {
-            var collection = GetProperCollectionForCalendarItem(calendarItem);
-            AddCalendarItemInternal(collection, calendarItem);
+            var collections = GetProperCollectionsForCalendarItem(calendarItem);
+
+            foreach (var collection in collections)
+            {
+                AddCalendarItemInternal(collection, calendarItem);
+            }
         }
 
         public void RemoveCalendarItem(ICalendarItem calendarItem)
         {
-            var collection = GetProperCollectionForCalendarItem(calendarItem);
-            RemoveCalendarItemInternal(collection, calendarItem);
+            var collections = GetProperCollectionsForCalendarItem(calendarItem);
+
+            foreach (var collection in collections)
+            {
+                RemoveCalendarItemInternal(collection, calendarItem);
+            }
         }
 
         private void AddCalendarItemInternal(ObservableRangeCollection<ICalendarItem> collection, ICalendarItem calendarItem, bool create = true)

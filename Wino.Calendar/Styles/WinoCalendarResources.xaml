@@ -11,15 +11,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:toolkitControls="using:CommunityToolkit.WinUI.Controls">
 
-    <!--  Default Calendar Item View Model Template  -->
-    <DataTemplate x:Key="CalendarItemViewModelItemTemplate" x:DataType="data:CalendarItemViewModel">
-        <controls:CalendarItemControl CalendarItem="{x:Bind}" />
-    </DataTemplate>
 
-    <!--  All-Day Event template  -->
-    <DataTemplate x:Key="AllDayEventItemTemplate" x:DataType="data:CalendarItemViewModel">
-        <TextBlock Text="{x:Bind Title}" />
-    </DataTemplate>
 
     <!--  08:00 or 8 AM/PM on the left etc.  -->
     <DataTemplate x:Key="DayCalendarHourHeaderTemplate" x:DataType="models:DayHeaderRenderModel">
@@ -33,7 +25,16 @@
 
     <!--  Vertical panel that renders items on canvas.  -->
     <DataTemplate x:Key="DayCalendarItemVerticalRenderTemplate" x:DataType="models:CalendarDayModel">
-        <ItemsControl ItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" ItemsSource="{x:Bind EventsCollection.RegularEvents}">
+        <ItemsControl x:Name="RegularEventItemsControl" ItemsSource="{x:Bind EventsCollection.RegularEvents}">
+            <ItemsControl.ItemTemplate>
+                <!--  Default Calendar Item View Model Template  -->
+                <DataTemplate x:DataType="data:CalendarItemViewModel">
+                    <controls:CalendarItemControl
+                        CalendarItem="{x:Bind}"
+                        DisplayingDate="{Binding ElementName=RegularEventItemsControl, Path=DataContext}"
+                        IsCustomEventArea="False" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
             <ItemsControl.ItemContainerTransitions>
                 <TransitionCollection>
                     <PaneThemeTransition Edge="Left" />
@@ -65,10 +66,7 @@
                 ItemsSource="{x:Bind CalendarDays}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:CalendarDayModel">
-                        <controls:DayColumnControl
-                            MinHeight="100"
-                            MaxHeight="200"
-                            DayModel="{x:Bind}" />
+                        <controls:DayColumnControl DayModel="{x:Bind}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
                 <ItemsControl.ItemsPanel>
@@ -212,7 +210,7 @@
 
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" MinHeight="35" />
                             </Grid.RowDefinitions>
 
                             <!--  Day number  -->
@@ -221,15 +219,12 @@
                             <!--  Extras  -->
                             <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
 
-                            <!--  All-Day Events  -->
-
-                            <!--  TODO: This control leaks.  -->
+                            <!--  All-Multi Day Events  -->
                             <controls:AllDayItemsControl
+                                x:Name="PART_AllDayItemsControl"
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
-                                AllDayEventTemplate="{StaticResource CalendarItemViewModelItemTemplate}"
-                                EventCollection="{Binding EventsCollection}"
-                                RegularEventItemTemplate="{StaticResource CalendarItemViewModelItemTemplate}" />
+                                Margin="0,6" />
                         </Grid>
 
                         <VisualStateManager.VisualStateGroups>

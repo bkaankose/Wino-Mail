@@ -11,7 +11,8 @@ namespace Wino.Core.Domain.Models.Calendar
                                    TimeSpan WorkingHourEnd,
                                    double HourHeight,
                                    DayHeaderDisplayType DayHeaderDisplayType,
-                                   CultureInfo CultureInfo)
+                                   CultureInfo CultureInfo,
+                                   bool GhostRenderAllDayItems)
     {
         public TimeSpan? GetTimeSpan(string selectedTime)
         {

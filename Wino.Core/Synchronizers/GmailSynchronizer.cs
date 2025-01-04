@@ -350,13 +350,18 @@ namespace Wino.Core.Synchronizers.Mail
 
                 calendar.SynchronizationDeltaToken = syncToken;
 
-                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                // allEvents contains new or updated events.
+                // Process them and create/update local calendar items.
 
                 foreach (var @event in allEvents)
                 {
                     // TODO: Exception handling for event processing.
-                    await _gmailChangeProcessor.CreateCalendarItemAsync(@event, calendar, Account).ConfigureAwait(false);
+                    // TODO: Also update attendees and other properties.
+
+                    await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
                 }
+
+                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
             }
 
             return default;
