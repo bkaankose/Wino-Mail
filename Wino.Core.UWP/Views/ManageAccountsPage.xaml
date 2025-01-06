@@ -1,8 +1,8 @@
-﻿<abstract:NewAccountManagementPageAbstract
-    x:Class="Wino.Views.NewAccountManagementPage"
+﻿<abstract:ManageAccountsPageAbstract
+    x:Class="Wino.Views.ManageAccountsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:abstract="using:Wino.Core.UWP.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -46,4 +46,4 @@
             <Frame x:Name="AccountPagesFrame" Grid.Row="1" />
         </Grid>
     </Border>
-</abstract:NewAccountManagementPageAbstract>
+</abstract:ManageAccountsPageAbstract>

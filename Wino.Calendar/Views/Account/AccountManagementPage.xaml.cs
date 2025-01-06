@@ -6,7 +6,7 @@ namespace Wino.Calendar.Views.Account
     {
         public AccountManagementPage()
         {
-            this.InitializeComponent();
+            InitializeComponent();
         }
     }
 }

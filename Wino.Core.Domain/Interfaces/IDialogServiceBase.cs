@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
@@ -16,6 +17,7 @@ namespace Wino.Core.Domain.Interfaces
         void InfoBarMessage(string title, string message, InfoBarMessageType messageType);
         void InfoBarMessage(string title, string message, InfoBarMessageType messageType, string actionButtonText, Action action);
         void ShowNotSupportedMessage();
+        Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);
         Task<string> ShowTextInputDialogAsync(string currentInput, string dialogTitle, string dialogDescription, string primaryButtonText);
         Task<bool> ShowWinoCustomMessageDialogAsync(string title,
                                             string description,

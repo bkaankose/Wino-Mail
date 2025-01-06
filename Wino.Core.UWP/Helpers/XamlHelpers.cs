@@ -101,6 +101,9 @@ namespace Wino.Helpers
             };
         }
 
+        public static string GetColorFromHex(Color color) => color.ToHex();
+        public static Color GetWindowsColorFromHex(string hex) => hex.ToColor();
+
         public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
         public static Visibility IsSelectionModeMultiple(ListViewSelectionMode mode) => mode == ListViewSelectionMode.Multiple ? Visibility.Visible : Visibility.Collapsed;
         public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;

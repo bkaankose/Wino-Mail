@@ -16,7 +16,6 @@ namespace Wino.Core.Domain.Interfaces
 
         // Custom dialogs
         Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders);
-        Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account);
         Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
 
         /// <summary>

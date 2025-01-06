@@ -45,7 +45,7 @@ namespace Wino.Core.UWP
             services.AddTransient(typeof(SettingOptionsPageViewModel));
             services.AddTransient(typeof(AboutPageViewModel));
             services.AddTransient(typeof(SettingsPageViewModel));
-            services.AddTransient(typeof(NewAccountManagementPageViewModel));
+            services.AddTransient(typeof(ManageAccountsPagePageViewModel));
         }
     }
 }

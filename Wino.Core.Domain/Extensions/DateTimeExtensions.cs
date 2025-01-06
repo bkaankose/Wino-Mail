@@ -1,7 +1,7 @@
 ﻿using System;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Core.Extensions
+namespace Wino.Core.Domain.Extensions
 {
     public static class DateTimeExtensions
     {
@@ -11,16 +11,14 @@ namespace Wino.Core.Extensions
         /// <param name="date">Date to get range for.</param>
         public static DateRange GetMonthDateRangeStartingWeekday(this DateTime date, DayOfWeek WeekStartDay)
         {
-            var firstDayOfMonth = new DateTime(date.Year, date.Month, 1);
+            DateTime firstDayOfMonth = new DateTime(date.Year, date.Month, 1);
 
-            int daysToWeekDay = (int)firstDayOfMonth.DayOfWeek - (int)WeekStartDay;
-            if (daysToWeekDay < 0) daysToWeekDay += 7;
+            int daysToSubtract = (7 + (firstDayOfMonth.DayOfWeek - WeekStartDay)) % 7;
+            DateTime rangeStart = firstDayOfMonth.AddDays(-daysToSubtract);
 
-            firstDayOfMonth = firstDayOfMonth.AddDays(-daysToWeekDay);
+            DateTime rangeEnd = rangeStart.AddDays(34);
 
-            var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
-
-            return new DateRange(firstDayOfMonth, lastDayOfMonth);
+            return new DateRange(rangeStart, rangeEnd);
         }
 
         public static DateTime GetWeekStartDateForDate(this DateTime date, DayOfWeek firstDayOfWeek)

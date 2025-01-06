@@ -156,6 +156,7 @@
     <Compile Include="Models\CalendarItemMeasurement.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Selectors\CustomAreaCalendarItemSelector.cs" />
+    <Compile Include="Selectors\WinoCalendarItemTemplateSelector.cs" />
     <Compile Include="Services\AccountCalendarStateService.cs" />
     <Compile Include="Services\CalendarAuthenticatorConfig.cs" />
     <Compile Include="Services\DialogService.cs" />
@@ -163,6 +164,7 @@
     <Compile Include="Services\ProviderService.cs" />
     <Compile Include="Services\SettingsBuilderService.cs" />
     <Compile Include="Styles\WinoCalendarResources.xaml.cs" />
+    <Compile Include="Views\Abstract\AccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\AccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarPageAbstract.cs" />
@@ -176,6 +178,9 @@
     </Compile>
     <Compile Include="Views\CalendarPage.xaml.cs">
       <DependentUpon>CalendarPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Settings\AccountDetailsPage.xaml.cs">
+      <DependentUpon>AccountDetailsPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\CalendarSettingsPage.xaml.cs">
       <DependentUpon>CalendarSettingsPage.xaml</DependentUpon>
@@ -290,6 +295,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\CalendarPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\AccountDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

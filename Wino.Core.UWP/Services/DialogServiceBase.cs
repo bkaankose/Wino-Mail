@@ -11,6 +11,7 @@ using Windows.Storage.Pickers;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -36,6 +37,18 @@ namespace Wino.Core.UWP.Services
             ThemeService = themeService;
             ConfigurationService = configurationService;
             ApplicationResourceManager = applicationResourceManager;
+        }
+
+        public async Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account)
+        {
+            var editAccountDialog = new AccountEditDialog(account)
+            {
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(editAccountDialog);
+
+            return editAccountDialog.IsSaved ? editAccountDialog.Account : null;
         }
 
         public async Task<string> PickFilePathAsync(string saveFileName)

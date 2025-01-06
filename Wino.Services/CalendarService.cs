@@ -23,7 +23,7 @@ namespace Wino.Services
         }
 
         public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
-            => Connection.Table<AccountCalendar>().Where(x => x.AccountId == accountId).ToListAsync();
+            => Connection.Table<AccountCalendar>().Where(x => x.AccountId == accountId).OrderByDescending(a => a.IsPrimary).ToListAsync();
 
         public async Task InsertAccountCalendarAsync(AccountCalendar accountCalendar)
         {

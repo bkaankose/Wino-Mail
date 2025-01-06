@@ -1,28 +1,27 @@
-﻿using System;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
+using Wino.Core.UWP.Views.Abstract;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
-using Wino.Views.Abstract;
-using Wino.Views.Account;
-using Wino.Views.Settings;
 
 namespace Wino.Views
 {
-    public sealed partial class NewAccountManagementPage : NewAccountManagementPageAbstract,
+    public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         IRecipient<BackBreadcrumNavigationRequested>,
         IRecipient<BreadcrumbNavigationRequested>,
         IRecipient<MergedInboxRenamed>
     {
         public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = new ObservableCollection<BreadcrumbNavigationItemViewModel>();
 
-        public NewAccountManagementPage()
+
+        public ManageAccountsPage()
         {
             InitializeComponent();
         }
@@ -31,27 +30,18 @@ namespace Wino.Views
         {
             base.OnNavigatedTo(e);
 
-            var initialRequest = new BreadcrumbNavigationRequested("Manage Accounts", Core.Domain.Enums.WinoPage.AccountManagementPage);
+            var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuManageAccounts, WinoPage.AccountManagementPage);
             PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
 
-            AccountPagesFrame.Navigate(typeof(AccountManagementPage), null, new SuppressNavigationTransitionInfo());
+            var accountManagementPageType = ViewModel.NavigationService.GetPageType(WinoPage.AccountManagementPage);
+
+            AccountPagesFrame.Navigate(accountManagementPageType, null, new SuppressNavigationTransitionInfo());
         }
 
-        private Type GetPageNavigationType(WinoPage page)
-        {
-            return page switch
-            {
-                WinoPage.SignatureManagementPage => typeof(SignatureManagementPage),
-                WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
-                WinoPage.MergedAccountDetailsPage => typeof(MergedAccountDetailsPage),
-                WinoPage.AliasManagementPage => typeof(AliasManagementPage),
-                _ => null,
-            };
-        }
 
         void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
         {
-            var pageType = GetPageNavigationType(message.PageType);
+            var pageType = ViewModel.NavigationService.GetPageType(message.PageType);
 
             if (pageType == null) return;
 

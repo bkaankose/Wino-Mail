@@ -86,6 +86,7 @@
     <Compile Include="BasePage.cs" />
     <Compile Include="Controls\ControlConstants.cs" />
     <Compile Include="Controls\CustomWrapPanel.cs" />
+    <Compile Include="Controls\EqualGridPanel.cs" />
     <Compile Include="Controls\WinoAppTitleBar.xaml.cs">
       <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
     </Compile>
@@ -166,9 +167,13 @@
     <Compile Include="Styles\DataTemplates.xaml.cs">
       <DependentUpon>DataTemplates.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\Abstract\ManageAccountsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
     <Compile Include="Views\Abstract\SettingsPageBase.cs" />
+    <Compile Include="Views\ManageAccountsPage.xaml.cs">
+      <DependentUpon>ManageAccountsPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\SettingOptionsPage.xaml.cs">
       <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
     </Compile>
@@ -397,6 +402,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Styles\WinoInfoBar.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\ManageAccountsPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

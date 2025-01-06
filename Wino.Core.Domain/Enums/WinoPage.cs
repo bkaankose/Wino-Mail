@@ -13,6 +13,7 @@
         WelcomePage,
         AccountDetailsPage,
         MergedAccountDetailsPage,
+        ManageAccountsPage,
         AccountManagementPage,
         SignatureManagementPage,
         AboutPage,

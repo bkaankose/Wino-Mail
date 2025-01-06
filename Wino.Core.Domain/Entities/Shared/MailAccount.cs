@@ -41,6 +41,13 @@ namespace Wino.Core.Domain.Entities.Shared
         public string SynchronizationDeltaIdentifier { get; set; }
 
         /// <summary>
+        /// For tracking calendar change delta.
+        /// Gmail: It's per-calendar, so unused.
+        /// Outlook: deltaLink
+        /// </summary>
+        public string CalendarSynchronizationDeltaIdentifier { get; set; }
+
+        /// <summary>
         /// TODO: Gets or sets the custom account identifier color in hex.
         /// </summary>
         public string AccountColorHex { get; set; }

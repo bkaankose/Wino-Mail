@@ -8,7 +8,6 @@
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:entites="using:Wino.Core.Domain.Entities"
     xmlns:folders="using:Wino.Core.Domain.Models.Folders"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:interactionsCore="using:Microsoft.Xaml.Interactions.Core"

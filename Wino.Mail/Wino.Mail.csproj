@@ -281,7 +281,6 @@
     <Compile Include="Views\Abstract\MailRenderingPageAbstract.cs" />
     <Compile Include="Views\Abstract\MergedAccountDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\MessageListPageAbstract.cs" />
-    <Compile Include="Views\Abstract\NewAccountManagementPageAbstract.cs" />
     <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
     <Compile Include="Views\Abstract\ReadComposePanePageAbstract.cs" />
     <Compile Include="Views\Abstract\SignatureManagementPageAbstract.cs" />
@@ -321,9 +320,6 @@
     </Compile>
     <Compile Include="Views\MailRenderingPage.xaml.cs">
       <DependentUpon>MailRenderingPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\NewAccountManagementPage.xaml.cs">
-      <DependentUpon>NewAccountManagementPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\PersonalizationPage.xaml.cs">
       <DependentUpon>PersonalizationPage.xaml</DependentUpon>
@@ -449,10 +445,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\MailRenderingPage.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Views\NewAccountManagementPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

@@ -135,6 +135,8 @@
     "CalendarItem_DetailsPopup_JoinOnline": "Join online",
     "CalendarItem_DetailsPopup_ViewEventButton": "View event",
     "CalendarItem_DetailsPopup_ViewSeriesButton": "View series",
+    "CalendarDisplayOptions_Expand": "Expand",
+    "CalendarDisplayOptions_Color": "Color",
     "CreateAccountAliasDialog_Title": "Create Account Alias",
     "CreateAccountAliasDialog_Description": "Make sure your outgoing server allows sending mails from this alias.",
     "CreateAccountAliasDialog_AliasAddress": "Address",

@@ -966,85 +966,83 @@ namespace Wino.Core.Synchronizers.Mail
 
             // await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
+            bool isInitialSync = string.IsNullOrEmpty(Account.CalendarSynchronizationDeltaIdentifier);
+
             var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
-            foreach (var calendar in localCalendars)
+            Microsoft.Graph.Me.CalendarView.Delta.DeltaGetResponse eventsDeltaResponse = null;
+
+            if (isInitialSync)
             {
-                bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
+                _logger.Debug("No calendar sync identifier for account {Name}. Performing initial sync.", Account.Name);
 
-                Microsoft.Graph.Me.CalendarView.Delta.DeltaGetResponse eventsDeltaResponse = null;
+                var startDate = DateTime.UtcNow.AddYears(-2).ToString("u");
+                var endDate = DateTime.UtcNow.ToString("u");
 
-                if (isInitialSync)
+                // No delta link. Performing initial sync.
+                eventsDeltaResponse = await _graphClient.Me.CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                 {
-                    _logger.Debug("No sync identifier for Calendar {FolderName}. Performing initial sync.", calendar.Name);
+                    requestConfiguration.QueryParameters.StartDateTime = startDate;
+                    requestConfiguration.QueryParameters.EndDateTime = endDate;
 
-                    var startDate = DateTime.UtcNow.AddYears(-2).ToString("u");
-                    var endDate = DateTime.UtcNow.ToString("u");
+                    // TODO: Expand does not work.
+                    // https://github.com/microsoftgraph/msgraph-sdk-dotnet/issues/2358
 
-                    // No delta link. Performing initial sync.
-                    eventsDeltaResponse = await _graphClient.Me.CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
-                    {
-                        requestConfiguration.QueryParameters.StartDateTime = startDate;
-                        requestConfiguration.QueryParameters.EndDateTime = endDate;
-                        requestConfiguration.QueryParameters.Expand = ["calendar"];
-                    }, cancellationToken: cancellationToken);
-                }
-                else
-                {
-                    var currentDeltaToken = calendar.SynchronizationDeltaToken;
-
-                    var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.Delta.ToGetRequestInformation((config) =>
-                    {
-                        config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
-                        config.QueryParameters.Select = outlookMessageSelectParameters;
-                        config.QueryParameters.Orderby = ["receivedDateTime desc"];
-                    });
-
-                    requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
-                    requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
-
-                    // eventsDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
-                }
-
-                List<Event> events = new();
-
-                // We must first save the parent recurring events to not lose exceptions.
-                // Therefore, order the existing items by their type and save the parent recurring events first.
-
-                var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
-                {
-                    events.Add(item);
-
-                    return true;
-                });
-
-                await messageIteratorAsync
-                    .IterateAsync(cancellationToken)
-                    .ConfigureAwait(false);
-
-                // Desc-order will move parent recurring events to the top.
-                events = events.OrderByDescending(a => a.Type).ToList();
-
-                foreach (var item in events)
-                {
-                    try
-                    {
-                        await _handleItemRetrievalSemaphore.WaitAsync();
-
-                        await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
-                    }
-                    finally
-                    {
-                        _handleItemRetrievalSemaphore.Release();
-                    }
-                }
-
-                // latestDeltaLink = messageIteratorAsync.Deltalink;
+                    requestConfiguration.QueryParameters.Expand = new string[] { "calendar($select=name,id)" }; // Expand the calendar and select name and id. Customize as needed.
+                }, cancellationToken: cancellationToken);
             }
+            else
+            {
+                //var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.Delta.ToGetRequestInformation((config) =>
+                //{
+                //    config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
+                //    config.QueryParameters.Select = outlookMessageSelectParameters;
+                //    config.QueryParameters.Orderby = ["receivedDateTime desc"];
+                //});
+
+                //requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
+                //requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
+
+                // eventsDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+            }
+
+            List<Event> events = new();
+
+            // We must first save the parent recurring events to not lose exceptions.
+            // Therefore, order the existing items by their type and save the parent recurring events first.
+
+            var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
+            {
+                events.Add(item);
+
+                return true;
+            });
+
+            await messageIteratorAsync
+                .IterateAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            // Desc-order will move parent recurring events to the top.
+            events = events.OrderByDescending(a => a.Type).ToList();
+
+            foreach (var item in events)
+            {
+                try
+                {
+                    await _handleItemRetrievalSemaphore.WaitAsync();
+                    //await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    // _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
+                }
+                finally
+                {
+                    _handleItemRetrievalSemaphore.Release();
+                }
+            }
+
+            // latestDeltaLink = messageIteratorAsync.Deltalink;
 
             return default;
         }

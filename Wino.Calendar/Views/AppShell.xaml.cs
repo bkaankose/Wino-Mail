@@ -18,8 +18,8 @@ namespace Wino.Calendar.Views
             InitializeComponent();
 
             Window.Current.SetTitleBar(DragArea);
+            ManageCalendarDisplayType();
         }
-
 
         private void ManageCalendarDisplayType()
         {

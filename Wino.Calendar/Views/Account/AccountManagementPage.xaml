@@ -9,6 +9,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls"
+    x:Name="root"
     mc:Ignorable="d">
 
     <ScrollViewer Margin="-12,0">

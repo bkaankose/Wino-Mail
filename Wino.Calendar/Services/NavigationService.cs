@@ -16,21 +16,17 @@ namespace Wino.Calendar.Services
     {
         public Type GetPageType(WinoPage winoPage)
         {
-            switch (winoPage)
+            return winoPage switch
             {
-                case WinoPage.CalendarPage:
-                    return typeof(CalendarPage);
-                case WinoPage.SettingsPage:
-                    return typeof(SettingsPage);
-                case WinoPage.CalendarSettingsPage:
-                    return typeof(CalendarSettingsPage);
-                case WinoPage.AccountManagementPage:
-                    return typeof(AccountManagementPage);
-                case WinoPage.PersonalizationPage:
-                    return typeof(PersonalizationPage);
-                default:
-                    throw new Exception("Page is not implemented yet.");
-            }
+                WinoPage.CalendarPage => typeof(CalendarPage),
+                WinoPage.SettingsPage => typeof(SettingsPage),
+                WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
+                WinoPage.AccountManagementPage => typeof(AccountManagementPage),
+                WinoPage.ManageAccountsPage => typeof(ManageAccountsPage),
+                WinoPage.PersonalizationPage => typeof(PersonalizationPage),
+                WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
+                _ => throw new Exception("Page is not implemented yet."),
+            };
         }
 
         public bool Navigate(WinoPage page, object parameter = null, NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame, NavigationTransitionType transition = NavigationTransitionType.None)

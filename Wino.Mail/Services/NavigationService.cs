@@ -34,49 +34,30 @@ namespace Wino.Services
 
         public Type GetPageType(WinoPage winoPage)
         {
-            switch (winoPage)
+            return winoPage switch
             {
-                case WinoPage.None:
-                    return null;
-                case WinoPage.IdlePage:
-                    return typeof(IdlePage);
-                case WinoPage.AccountDetailsPage:
-                    return typeof(AccountDetailsPage);
-                case WinoPage.MergedAccountDetailsPage:
-                    return typeof(MergedAccountDetailsPage);
-                case WinoPage.AccountManagementPage:
-                    return typeof(NewAccountManagementPage);
-                case WinoPage.SignatureManagementPage:
-                    return typeof(SignatureManagementPage);
-                case WinoPage.AboutPage:
-                    return typeof(AboutPage);
-                case WinoPage.PersonalizationPage:
-                    return typeof(PersonalizationPage);
-                case WinoPage.MessageListPage:
-                    return typeof(MessageListPage);
-                case WinoPage.ReadComposePanePage:
-                    return typeof(ReadComposePanePage);
-                case WinoPage.MailRenderingPage:
-                    return typeof(MailRenderingPage);
-                case WinoPage.ComposePage:
-                    return typeof(ComposePage);
-                case WinoPage.MailListPage:
-                    return typeof(MailListPage);
-                case WinoPage.SettingsPage:
-                    return typeof(SettingsPage);
-                case WinoPage.WelcomePage:
-                    return typeof(WelcomePage);
-                case WinoPage.SettingOptionsPage:
-                    return typeof(SettingOptionsPage);
-                case WinoPage.AppPreferencesPage:
-                    return typeof(AppPreferencesPage);
-                case WinoPage.AliasManagementPage:
-                    return typeof(AliasManagementPage);
-                case WinoPage.LanguageTimePage:
-                    return typeof(LanguageTimePage);
-                default:
-                    return null;
-            }
+                WinoPage.None => null,
+                WinoPage.IdlePage => typeof(IdlePage),
+                WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
+                WinoPage.MergedAccountDetailsPage => typeof(MergedAccountDetailsPage),
+                WinoPage.AccountManagementPage => typeof(AccountManagementPage),
+                WinoPage.ManageAccountsPage => typeof(ManageAccountsPage),
+                WinoPage.SignatureManagementPage => typeof(SignatureManagementPage),
+                WinoPage.AboutPage => typeof(AboutPage),
+                WinoPage.PersonalizationPage => typeof(PersonalizationPage),
+                WinoPage.MessageListPage => typeof(MessageListPage),
+                WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
+                WinoPage.MailRenderingPage => typeof(MailRenderingPage),
+                WinoPage.ComposePage => typeof(ComposePage),
+                WinoPage.MailListPage => typeof(MailListPage),
+                WinoPage.SettingsPage => typeof(SettingsPage),
+                WinoPage.WelcomePage => typeof(WelcomePage),
+                WinoPage.SettingOptionsPage => typeof(SettingOptionsPage),
+                WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
+                WinoPage.AliasManagementPage => typeof(AliasManagementPage),
+                WinoPage.LanguageTimePage => typeof(LanguageTimePage),
+                _ => null,
+            };
         }
 
         public Frame GetCoreFrame(NavigationReferenceFrame frameType)

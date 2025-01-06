@@ -2,10 +2,13 @@
 
 namespace Wino.Core.ViewModels
 {
-    public class NewAccountManagementPageViewModel : CoreBaseViewModel
+    public class ManageAccountsPagePageViewModel : CoreBaseViewModel
     {
-        public NewAccountManagementPageViewModel(IMailDialogService dialogService) 
+        public ManageAccountsPagePageViewModel(INavigationService navigationService)
         {
+            NavigationService = navigationService;
         }
+
+        public INavigationService NavigationService { get; }
     }
 }

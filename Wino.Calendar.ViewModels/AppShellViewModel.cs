@@ -11,11 +11,11 @@ using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Collections;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.Extensions;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
@@ -66,9 +66,6 @@ namespace Wino.Calendar.ViewModels
 
         [ObservableProperty]
         private int _selectedDateNavigationHeaderIndex;
-
-
-
 
         public bool IsVerticalCalendar => StatePersistenceService.CalendarDisplayType == CalendarDisplayType.Month;
 
@@ -209,7 +206,7 @@ namespace Wino.Calendar.ViewModels
                     ForceNavigateCalendarDate();
                     break;
                 case 0:
-                    NavigationService.Navigate(WinoPage.AccountManagementPage);
+                    NavigationService.Navigate(WinoPage.ManageAccountsPage);
                     break;
                 case 1:
                     NavigationService.Navigate(WinoPage.SettingsPage);

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Itenso.TimePeriod;
 using Windows.UI.Xaml;
@@ -126,7 +125,7 @@ namespace Wino.Calendar.Controls
                     CalendarItemTitle = CalendarItem.Title;
                 }
 
-                Debug.WriteLine($"{CalendarItem.Title} Period relation with {DisplayingDate.Period.ToString()}: {periodRelation}");
+                // Debug.WriteLine($"{CalendarItem.Title} Period relation with {DisplayingDate.Period.ToString()}: {periodRelation}");
             }
             else
             {

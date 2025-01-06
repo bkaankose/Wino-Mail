@@ -56,10 +56,15 @@ namespace Wino.Calendar.Controls
 
         private void UpdateValues()
         {
-            if (HeaderDateDayText == null || ColumnHeaderText == null || IsTodayBorder == null || DayModel == null) return;
+            if (HeaderDateDayText == null || IsTodayBorder == null || DayModel == null) return;
 
             HeaderDateDayText.Text = DayModel.RepresentingDate.Day.ToString();
-            ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CalendarSettings.CultureInfo);
+
+            // Monthly template does not use it.
+            if (ColumnHeaderText != null)
+            {
+                ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CalendarSettings.CultureInfo);
+            }
 
             AllDayItemsControl.ItemsSource = DayModel.EventsCollection.AllDayEvents;
 

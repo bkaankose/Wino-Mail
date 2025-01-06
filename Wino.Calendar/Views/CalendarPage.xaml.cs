@@ -155,7 +155,5 @@ namespace Wino.Calendar.Views
             // In case of scrolling, we must dismiss the event details dialog.
             ViewModel.DisplayDetailsCalendarItemViewModel = null;
         }
-
-
     }
 }

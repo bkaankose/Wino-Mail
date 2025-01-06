@@ -31,7 +31,9 @@ namespace Wino.Calendar.ViewModels
         IRecipient<CalendarSettingsUpdatedMessage>,
         IRecipient<CalendarItemTappedMessage>,
         IRecipient<CalendarItemDoubleTappedMessage>,
-        IRecipient<CalendarItemRightTappedMessage>
+        IRecipient<CalendarItemRightTappedMessage>,
+        IRecipient<CalendarDisplayTypeChangedMessage>
+
     {
         #region Quick Event Creation
 
@@ -91,6 +93,8 @@ namespace Wino.Calendar.ViewModels
         #endregion
 
         #region Data Initialization
+
+        public bool IsVerticalCalendar => StatePersistanceService.CalendarDisplayType == CalendarDisplayType.Month;
 
         [ObservableProperty]
         private DayRangeCollection _dayRanges = [];
@@ -161,13 +165,16 @@ namespace Wino.Calendar.ViewModels
         private void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
             => FilterActiveCalendars(DayRanges);
 
-        private void FilterActiveCalendars(IEnumerable<DayRangeRenderModel> dayRangeRenderModels)
+        private async void FilterActiveCalendars(IEnumerable<DayRangeRenderModel> dayRangeRenderModels)
         {
-            var days = dayRangeRenderModels.SelectMany(a => a.CalendarDays);
+            await ExecuteUIThread(() =>
+            {
+                var days = dayRangeRenderModels.SelectMany(a => a.CalendarDays);
 
-            days.ForEach(a => a.EventsCollection.FilterByCalendars(AccountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
+                days.ForEach(a => a.EventsCollection.FilterByCalendars(AccountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
 
-            DisplayDetailsCalendarItemViewModel = null;
+                DisplayDetailsCalendarItemViewModel = null;
+            });
         }
 
         // TODO: Replace when calendar settings are updated.
@@ -178,6 +185,7 @@ namespace Wino.Calendar.ViewModels
             {
                 CalendarDisplayType.Day => new DayCalendarDrawingStrategy(CurrentSettings),
                 CalendarDisplayType.Week => new WeekCalendarDrawingStrategy(CurrentSettings),
+                CalendarDisplayType.Month => new MonthCalendarDrawingStrategy(CurrentSettings),
                 _ => throw new NotImplementedException(),
             };
         }
@@ -831,5 +839,7 @@ namespace Wino.Calendar.ViewModels
                 // var calendarItems = GetCalendarItems(deletedItem.Id);
             });
         }
+
+        public void Receive(CalendarDisplayTypeChangedMessage message) => OnPropertyChanged(nameof(IsVerticalCalendar));
     }
 }

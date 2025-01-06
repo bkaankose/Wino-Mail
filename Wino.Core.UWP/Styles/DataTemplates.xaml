@@ -34,8 +34,6 @@
         </winuiControls:SettingsCard>
     </DataTemplate>
 
-
-
     <!--#region Navigation Menu Templates-->
 
     <!--  Manage Accounts etc. Other navigatable.  -->
