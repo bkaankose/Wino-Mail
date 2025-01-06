@@ -103,6 +103,7 @@ namespace Wino.Core.Integration.Processors
         /// <param name="accountId">Account identifier to reset delta token for.</param>
         /// <returns>Empty string to assign account delta sync for.</returns>
         Task<string> ResetAccountDeltaTokenAsync(Guid accountId);
+        Task ManageCalendarEventAsync(Microsoft.Graph.Models.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     }
 
     public interface IImapChangeProcessor : IDefaultChangeProcessor

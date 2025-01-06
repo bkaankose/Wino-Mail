@@ -14,6 +14,10 @@ namespace Wino.Core.Domain.Entities.Calendar
         public string Name { get; set; }
         public bool IsPrimary { get; set; }
         public bool IsExtended { get; set; } = true;
+
+        /// <summary>
+        /// Unused for now.
+        /// </summary>
         public string TextColorHex { get; set; }
         public string BackgroundColorHex { get; set; }
         public string TimeZone { get; set; }

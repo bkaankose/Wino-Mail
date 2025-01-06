@@ -13,6 +13,8 @@ namespace Wino.Core.Domain.Models.Calendar
     {
         public ITimePeriod Period { get; }
         public List<CalendarDayModel> CalendarDays { get; } = [];
+
+        // TODO: Get rid of this at some point.
         public List<DayHeaderRenderModel> DayHeaders { get; } = [];
         public CalendarRenderOptions CalendarRenderOptions { get; }
 
@@ -46,12 +48,5 @@ namespace Wino.Core.Domain.Models.Calendar
                 DayHeaders.Add(new DayHeaderRenderModel(dayHeader, calendarRenderOptions.CalendarSettings.HourHeight));
             }
         }
-
-
-        //public void AddEvent(ICalendarItem calendarEventModel)
-        //{
-        //    var calendarDayModel = CalendarDays.FirstOrDefault(x => x.Period.HasInside(calendarEventModel.Period.Start));
-        //    calendarDayModel?.EventsCollection.AddCalendarItem(calendarEventModel);
-        //}
     }
 }

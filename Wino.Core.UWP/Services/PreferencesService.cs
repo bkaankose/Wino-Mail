@@ -265,12 +265,6 @@ namespace Wino.Core.UWP.Services
             set => SaveProperty(propertyName: nameof(WorkingDayEnd), value);
         }
 
-        public bool GhostRenderAllDayEvents
-        {
-            get => _configurationService.Get(nameof(GhostRenderAllDayEvents), true);
-            set => SaveProperty(nameof(GhostRenderAllDayEvents), value);
-        }
-
         public CalendarSettings GetCurrentCalendarSettings()
         {
             var workingDays = GetDaysBetween(WorkingDayStart, WorkingDayEnd);
@@ -281,8 +275,7 @@ namespace Wino.Core.UWP.Services
                                         WorkingHourEnd,
                                         HourHeight,
                                         Prefer24HourTimeFormat ? DayHeaderDisplayType.TwentyFourHour : DayHeaderDisplayType.TwelveHour,
-                                        new CultureInfo(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage)),
-                                        GhostRenderAllDayEvents);
+                                        new CultureInfo(WinoTranslationDictionary.GetLanguageFileNameRelativePath(CurrentLanguage)));
         }
 
         private List<DayOfWeek> GetDaysBetween(DayOfWeek startDay, DayOfWeek endDay)

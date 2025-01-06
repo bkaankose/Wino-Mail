@@ -62,9 +62,9 @@ namespace Wino.Services
 
             List<CalendarItem> eventsToRemove = new() { calendarItem };
 
+            // In case of parent event, delete all child events as well.
             if (!string.IsNullOrEmpty(calendarItem.Recurrence))
             {
-                // Delete recurring events as well.
                 var recurringEvents = await Connection.Table<CalendarItem>().Where(a => a.RecurringCalendarItemId == calendarItemId).ToListAsync().ConfigureAwait(false);
 
                 eventsToRemove.AddRange(recurringEvents);
@@ -97,7 +97,7 @@ namespace Wino.Services
         public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel)
         {
             // TODO: We might need to implement caching here.
-            // I don't know how much of the events we'll have in total, but this logic scans all events every time.
+            // I don't know how much of the events we'll have in total, but this logic scans all events every time for given calendar.
 
             var accountEvents = await Connection.Table<CalendarItem>()
                 .Where(x => x.CalendarId == calendar.Id && !x.IsHidden).ToListAsync();
@@ -127,8 +127,8 @@ namespace Wino.Services
                 else
                 {
                     // This event has recurrences.
-                    // Wino stores recurrent events as a separae calendar item, without the recurrence rule.
-                    // Because each isntance of recurrent event can have different attendees, properties etc.
+                    // Wino stores exceptional recurrent events as a separate calendar item, without the recurrence rule.
+                    // Because each instance of recurrent event can have different attendees, properties etc.
                     // Even though the event is recurrent, each updated instance is a separate calendar item.
                     // Calculate the all recurrences, and remove the exceptional instances like hidden ones.
 
@@ -150,15 +150,14 @@ namespace Wino.Services
 
                     foreach (var occurrence in occurrences)
                     {
-                        var singleInstance = exceptionalRecurrences.FirstOrDefault(a =>
-                        a.StartDate == occurrence.Period.StartTime.Value &&
-                        a.EndDate == occurrence.Period.EndTime.Value);
+                        var exactInstanceCheck = exceptionalRecurrences.FirstOrDefault(a =>
+                        a.Period.OverlapsWith(dayRangeRenderModel.Period));
 
-                        if (singleInstance == null)
+                        if (exactInstanceCheck == null)
                         {
-                            // This occurrence is not an exceptional instance.
-                            // Change the start and end date of the event and add as calendar item.
-                            // Other properties are guaranteed to be the same as the parent event.
+                            // There is no exception for the period.
+                            // Change the instance StartDate and Duration.
+
                             ev.StartDate = occurrence.Period.StartTime.Value;
                             ev.DurationInSeconds = (occurrence.Period.EndTime.Value - occurrence.Period.StartTime.Value).TotalSeconds;
 

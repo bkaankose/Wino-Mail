@@ -4,7 +4,6 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Navigation;
 using Wino.Calendar.Args;
-using Wino.Calendar.ViewModels.Messages;
 using Wino.Calendar.Views.Abstract;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
@@ -14,9 +13,9 @@ namespace Wino.Calendar.Views
 {
     public sealed partial class CalendarPage : CalendarPageAbstract,
         IRecipient<ScrollToDateMessage>,
+        IRecipient<ScrollToHourMessage>,
         IRecipient<GoNextDateRequestedMessage>,
-        IRecipient<GoPreviousDateRequestedMessage>,
-        IRecipient<CalendarItemRightTappedMessage>
+        IRecipient<GoPreviousDateRequestedMessage>
     {
         private const int PopupDialogOffset = 12;
 
@@ -24,12 +23,26 @@ namespace Wino.Calendar.Views
         {
             InitializeComponent();
             NavigationCacheMode = NavigationCacheMode.Enabled;
+
+            ViewModel.DetailsShowCalendarItemChanged += CalendarItemDetailContextChanged;
         }
 
+        private void CalendarItemDetailContextChanged(object sender, EventArgs e)
+        {
+            if (ViewModel.DisplayDetailsCalendarItemViewModel != null)
+            {
+                var control = CalendarControl.GetCalendarItemControl(ViewModel.DisplayDetailsCalendarItemViewModel);
+
+                if (control != null)
+                {
+                    EventDetailsPopup.PlacementTarget = control;
+                }
+            }
+        }
+
+        public void Receive(ScrollToHourMessage message) => CalendarControl.NavigateToHour(message.TimeSpan);
         public void Receive(ScrollToDateMessage message) => CalendarControl.NavigateToDay(message.Date);
-
         public void Receive(GoNextDateRequestedMessage message) => CalendarControl.GoNextRange();
-
         public void Receive(GoPreviousDateRequestedMessage message) => CalendarControl.GoPreviousRange();
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -53,6 +66,17 @@ namespace Wino.Calendar.Views
 
         private void CellSelected(object sender, TimelineCellSelectedArgs e)
         {
+            // Dismiss event details if exists and cancel the selection.
+            // This is to prevent the event details from being displayed when the user clicks somewhere else.
+
+            if (EventDetailsPopup.IsOpen)
+            {
+                CalendarControl.UnselectActiveTimelineCell();
+                ViewModel.DisplayDetailsCalendarItemViewModel = null;
+
+                return;
+            }
+
             ViewModel.SelectedQuickEventDate = e.ClickedDate;
 
             TeachingTipPositionerGrid.Width = e.CellSize.Width;
@@ -115,15 +139,23 @@ namespace Wino.Calendar.Views
 
         }
 
-        public void Receive(CalendarItemRightTappedMessage message)
-        {
-
-        }
-
         private void StartTimeDurationSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
             => ViewModel.SelectedStartTimeString = args.Text;
 
         private void EndTimeDurationSubmitted(ComboBox sender, ComboBoxTextSubmittedEventArgs args)
             => ViewModel.SelectedEndTimeString = args.Text;
+
+        private void EventDetailsPopupClosed(object sender, object e)
+        {
+            ViewModel.DisplayDetailsCalendarItemViewModel = null;
+        }
+
+        private void CalendarScrolling(object sender, EventArgs e)
+        {
+            // In case of scrolling, we must dismiss the event details dialog.
+            ViewModel.DisplayDetailsCalendarItemViewModel = null;
+        }
+
+
     }
 }

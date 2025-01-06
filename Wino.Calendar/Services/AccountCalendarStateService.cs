@@ -19,11 +19,6 @@ namespace Wino.Calendar.Services
         public event EventHandler<AccountCalendarViewModel> AccountCalendarSelectionStateChanged;
 
         [ObservableProperty]
-        public ObservableCollection<CalendarItemViewModel> _selectedItems = new ObservableCollection<CalendarItemViewModel>();
-
-        public bool HasMultipleSelectedItems => SelectedItems.Count > 1;
-
-        [ObservableProperty]
         private ReadOnlyObservableCollection<GroupedAccountCalendarViewModel> groupedAccountCalendars;
 
         private ObservableCollection<GroupedAccountCalendarViewModel> _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
@@ -52,13 +47,6 @@ namespace Wino.Calendar.Services
         public AccountCalendarStateService()
         {
             GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_internalGroupedAccountCalendars);
-
-            SelectedItems.CollectionChanged += SelectedCalendarItemsUpdated;
-        }
-
-        private void SelectedCalendarItemsUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            OnPropertyChanged(nameof(HasMultipleSelectedItems));
         }
 
         private void SingleGroupCalendarCollectiveStateChanged(object sender, EventArgs e)

@@ -22,9 +22,6 @@ namespace Wino.Calendar.ViewModels.Interfaces
         public void AddAccountCalendar(AccountCalendarViewModel accountCalendar);
         public void RemoveAccountCalendar(AccountCalendarViewModel accountCalendar);
 
-        ObservableCollection<CalendarItemViewModel> SelectedItems { get; }
-        bool HasMultipleSelectedItems { get; }
-
         /// <summary>
         /// Enumeration of currently selected calendars.
         /// </summary>

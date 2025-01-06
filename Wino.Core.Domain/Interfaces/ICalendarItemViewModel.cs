@@ -3,5 +3,8 @@
     /// <summary>
     /// Temporarily to enforce CalendarItemViewModel. Used in CalendarEventCollection.
     /// </summary>
-    public interface ICalendarItemViewModel { }
+    public interface ICalendarItemViewModel
+    {
+        bool IsSelected { get; set; }
+    }
 }

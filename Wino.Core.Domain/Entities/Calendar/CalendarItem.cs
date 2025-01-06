@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Itenso.TimePeriod;
 using SQLite;
 using Wino.Core.Domain.Enums;
@@ -6,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Entities.Calendar
 {
+    [DebuggerDisplay("{Title} ({StartDate} - {EndDate})")]
     public class CalendarItem : ICalendarItem
     {
         [PrimaryKey]
@@ -53,6 +55,29 @@ namespace Wino.Core.Domain.Entities.Calendar
         }
 
         /// <summary>
+        /// Events that are either an exceptional instance of a recurring event or a recurring event itself.
+        /// </summary>
+        public bool IsRecurringEvent
+        {
+            get
+            {
+                return !string.IsNullOrEmpty(Recurrence) || RecurringCalendarItemId != null;
+            }
+        }
+
+        /// <summary>
+        /// Events that are belong to parent recurring event, but updated individually are considered single exceptional instances.
+        /// They will have different Id of their own.
+        /// </summary>
+        public bool IsSingleExceptionalInstance
+        {
+            get
+            {
+                return RecurringCalendarItemId != null;
+            }
+        }
+
+        /// <summary>
         /// Events that are not all-day events and last more than one day are considered multi-day events.
         /// </summary>
         public bool IsMultiDayEvent
@@ -66,10 +91,13 @@ namespace Wino.Core.Domain.Entities.Calendar
         public double DurationInSeconds { get; set; }
         public string Recurrence { get; set; }
 
+        public string OrganizerDisplayName { get; set; }
+        public string OrganizerEmail { get; set; }
+
         /// <summary>
         /// The id of the parent calendar item of the recurring event.
         /// Exceptional instances are stored as a separate calendar item.
-        /// This makes the calendar item a child of the recurring event.s
+        /// This makes the calendar item a child of the recurring event.
         /// </summary>
         public Guid? RecurringCalendarItemId { get; set; }
 
@@ -80,7 +108,7 @@ namespace Wino.Core.Domain.Entities.Calendar
 
         /// <summary>
         /// Hidden events must not be displayed to the user.
-        /// This usually happens when a child instance of recurring parent hapens.
+        /// This usually happens when a child instance of recurring parent is cancelled after creation.
         /// </summary>
         public bool IsHidden { get; set; }
 

@@ -132,6 +132,9 @@
     "Dialog_DontAskAgain": "Don't ask again",
     "CalendarAllDayEventSummary": "all-day events",
     "CalendarItemAllDay": "all day",
+    "CalendarItem_DetailsPopup_JoinOnline": "Join online",
+    "CalendarItem_DetailsPopup_ViewEventButton": "View event",
+    "CalendarItem_DetailsPopup_ViewSeriesButton": "View series",
     "CreateAccountAliasDialog_Title": "Create Account Alias",
     "CreateAccountAliasDialog_Description": "Make sure your outgoing server allows sending mails from this alias.",
     "CreateAccountAliasDialog_AliasAddress": "Address",
@@ -635,3 +638,4 @@
     "QuickEventDialog_EventName": "Event name",
     "QuickEventDialog_IsAllDay": "All day"
 }
+

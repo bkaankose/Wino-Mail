@@ -24,11 +24,13 @@ namespace Wino.Calendar.ViewModels.Data
 
         public ITimePeriod Period => CalendarItem.Period;
 
-        public bool IsAllDayEvent => ((ICalendarItem)CalendarItem).IsAllDayEvent;
+        public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
 
-        public bool IsMultiDayEvent => ((ICalendarItem)CalendarItem).IsMultiDayEvent;
+        public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
 
-        public bool IsRecurringEvent => !string.IsNullOrEmpty(CalendarItem.Recurrence);
+        public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
+
+        public bool IsSingleExceptionalInstance => CalendarItem.IsSingleExceptionalInstance;
 
         [ObservableProperty]
         private bool _isSelected;

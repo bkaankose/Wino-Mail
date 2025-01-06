@@ -43,6 +43,17 @@ namespace Wino.Core.Domain.Collections
             return _allItems.FirstOrDefault(x => x.Id == calendarItemId);
         }
 
+        public void ClearSelectionStates()
+        {
+            foreach (var item in _allItems)
+            {
+                if (item is ICalendarItemViewModel calendarItemViewModel)
+                {
+                    calendarItemViewModel.IsSelected = false;
+                }
+            }
+        }
+
         public void FilterByCalendars(IEnumerable<Guid> visibleCalendarIds)
         {
             foreach (var item in _allItems)
@@ -75,14 +86,7 @@ namespace Wino.Core.Domain.Collections
             }
             else if (calendarItem.IsMultiDayEvent)
             {
-                if (Settings.GhostRenderAllDayItems)
-                {
-                    return [_internalRegularEvents, _internalAllDayEvents];
-                }
-                else
-                {
-                    return [_internalAllDayEvents];
-                }
+                return [_internalRegularEvents, _internalAllDayEvents];
             }
             else
             {

@@ -42,6 +42,7 @@
         <Rectangle
             x:Name="MainBorder"
             Grid.ColumnSpan="2"
+            Canvas.ZIndex="2"
             Stroke="{ThemeResource CalendarItemBorderBrush}"
             StrokeThickness="0" />
 
@@ -61,18 +62,19 @@
         <StackPanel
             x:Name="AttributeStack"
             Grid.Column="1"
-            Margin="0,4,4,0"
+            Margin="0,4,0,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
-            Orientation="Horizontal">
+            Orientation="Horizontal"
+            Spacing="6">
             <controls:WinoFontIcon
-                FontSize="10"
+                FontSize="12"
                 Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                 Icon="CalendarEventRepeat"
                 Visibility="{x:Bind CalendarItem.IsRecurringEvent, Mode=OneWay}" />
 
             <controls:WinoFontIcon
-                FontSize="16"
+                FontSize="12"
                 Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                 Icon="CalendarEventMuiltiDay"
                 Visibility="{x:Bind CalendarItem.IsMultiDayEvent, Mode=OneWay}" />
@@ -83,7 +85,8 @@
                 <VisualState x:Name="NonSelected" />
                 <VisualState x:Name="Selected">
                     <VisualState.Setters>
-                        <Setter Target="MainBorder.StrokeThickness" Value="2" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="1" />
+                        <Setter Target="MainBorder.Margin" Value="1" />
                         <Setter Target="MainBorder.Stroke" Value="{ThemeResource CalendarItemSelectedBorderBrush}" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
@@ -105,20 +108,27 @@
                 </VisualState>
             </VisualStateGroup>
             <VisualStateGroup x:Name="EventDurationStates">
+                <!--  Regular event template in the panel.  -->
                 <VisualState x:Name="RegularEvent" />
+
+                <!--  All-Day template for top area.  -->
                 <VisualState x:Name="AllDayEvent">
                     <VisualState.Setters>
+
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
                         <Setter Target="MainGrid.MinHeight" Value="30" />
-                        <Setter Target="MainBorder.StrokeThickness" Value="0.5" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
                     </VisualState.Setters>
                 </VisualState>
 
+                <!--  Multi-Day template for top area.  -->
                 <VisualState x:Name="CustomAreaMultiDayEvent">
                     <VisualState.Setters>
                         <Setter Target="MainBackground.Opacity" Value="1" />
-                        <Setter Target="MainBorder.StrokeThickness" Value="0.5" />
-                        <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
+                        <Setter Target="AttributeStack.Visibility" Value="Visible" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
                         <Setter Target="MainGrid.MinHeight" Value="30" />
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
@@ -126,11 +136,18 @@
                     </VisualState.Setters>
                 </VisualState>
 
+                <!--
+                    Ghost rendering for multi-day events in the panel.
+                    All-Multi day area template is CustomAreaMultiDayEvent
+                -->
+
                 <VisualState x:Name="MultiDayEvent">
                     <VisualState.Setters>
+
+                        <Setter Target="MainGrid.CornerRadius" Value="0" />
                         <Setter Target="MainBackground.Opacity" Value="0.2" />
                         <Setter Target="MainGrid.IsHitTestVisible" Value="False" />
-                        <Setter Target="MainBorder.StrokeThickness" Value="0.5" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
                         <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
                         <Setter Target="EventTitleTextblock.Visibility" Value="Collapsed" />
                     </VisualState.Setters>

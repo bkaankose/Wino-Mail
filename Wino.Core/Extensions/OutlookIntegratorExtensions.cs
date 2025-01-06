@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.Graph.Models;
 using MimeKit;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Misc;
 
 namespace Wino.Core.Extensions
 {
@@ -101,6 +105,148 @@ namespace Wino.Core.Extensions
             return message;
         }
 
+        public static AccountCalendar AsCalendar(this Calendar outlookCalendar, MailAccount assignedAccount)
+        {
+            var calendar = new AccountCalendar()
+            {
+                AccountId = assignedAccount.Id,
+                Id = Guid.NewGuid(),
+                RemoteCalendarId = outlookCalendar.Id,
+                IsPrimary = outlookCalendar.IsDefaultCalendar.GetValueOrDefault(),
+                Name = outlookCalendar.Name,
+                IsExtended = true,
+            };
+
+            // Colors:
+            // Bg must be present. Generate flat one if doesn't exists.
+            // Text doesnt exists for Outlook.
+
+            calendar.BackgroundColorHex = string.IsNullOrEmpty(outlookCalendar.HexColor) ? ColorHelpers.GenerateFlatColorHex() : outlookCalendar.HexColor;
+            calendar.TextColorHex = "#000000";
+
+            return calendar;
+        }
+
+        private static string GetRfc5545DayOfWeek(DayOfWeekObject dayOfWeek)
+        {
+            return dayOfWeek switch
+            {
+                DayOfWeekObject.Monday => "MO",
+                DayOfWeekObject.Tuesday => "TU",
+                DayOfWeekObject.Wednesday => "WE",
+                DayOfWeekObject.Thursday => "TH",
+                DayOfWeekObject.Friday => "FR",
+                DayOfWeekObject.Saturday => "SA",
+                DayOfWeekObject.Sunday => "SU",
+                _ => throw new ArgumentOutOfRangeException(nameof(dayOfWeek), dayOfWeek, null)
+            };
+        }
+
+        public static string ToRfc5545RecurrenceString(this PatternedRecurrence recurrence)
+        {
+            if (recurrence == null || recurrence.Pattern == null)
+                throw new ArgumentNullException(nameof(recurrence), "PatternedRecurrence or its Pattern cannot be null.");
+
+            var ruleBuilder = new StringBuilder("RRULE:");
+            var pattern = recurrence.Pattern;
+
+            // Frequency
+            switch (pattern.Type)
+            {
+                case RecurrencePatternType.Daily:
+                    ruleBuilder.Append("FREQ=DAILY;");
+                    break;
+                case RecurrencePatternType.Weekly:
+                    ruleBuilder.Append("FREQ=WEEKLY;");
+                    break;
+                case RecurrencePatternType.AbsoluteMonthly:
+                    ruleBuilder.Append("FREQ=MONTHLY;");
+                    break;
+                case RecurrencePatternType.AbsoluteYearly:
+                    ruleBuilder.Append("FREQ=YEARLY;");
+                    break;
+                case RecurrencePatternType.RelativeMonthly:
+                    ruleBuilder.Append("FREQ=MONTHLY;");
+                    break;
+                case RecurrencePatternType.RelativeYearly:
+                    ruleBuilder.Append("FREQ=YEARLY;");
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported recurrence pattern type: {pattern.Type}");
+            }
+
+            // Interval
+            if (pattern.Interval > 0)
+                ruleBuilder.Append($"INTERVAL={pattern.Interval};");
+
+            // Days of Week
+            if (pattern.DaysOfWeek?.Any() == true)
+            {
+                var days = string.Join(",", pattern.DaysOfWeek.Select(day => day.ToString().ToUpperInvariant().Substring(0, 2)));
+                ruleBuilder.Append($"BYDAY={days};");
+            }
+
+            // Day of Month (BYMONTHDAY)
+            if (pattern.Type == RecurrencePatternType.AbsoluteMonthly || pattern.Type == RecurrencePatternType.AbsoluteYearly)
+            {
+                if (pattern.DayOfMonth <= 0)
+                    throw new ArgumentException("DayOfMonth must be greater than 0 for absoluteMonthly or absoluteYearly patterns.");
+
+                ruleBuilder.Append($"BYMONTHDAY={pattern.DayOfMonth};");
+            }
+
+            // Month (BYMONTH)
+            if (pattern.Type == RecurrencePatternType.AbsoluteYearly || pattern.Type == RecurrencePatternType.RelativeYearly)
+            {
+                if (pattern.Month <= 0)
+                    throw new ArgumentException("Month must be greater than 0 for absoluteYearly or relativeYearly patterns.");
+
+                ruleBuilder.Append($"BYMONTH={pattern.Month};");
+            }
+
+            // Count or Until
+            if (recurrence.Range != null)
+            {
+                if (recurrence.Range.Type == RecurrenceRangeType.EndDate && recurrence.Range.EndDate != null)
+                {
+                    ruleBuilder.Append($"UNTIL={recurrence.Range.EndDate.Value:yyyyMMddTHHmmssZ};");
+                }
+                else if (recurrence.Range.Type == RecurrenceRangeType.Numbered && recurrence.Range.NumberOfOccurrences.HasValue)
+                {
+                    ruleBuilder.Append($"COUNT={recurrence.Range.NumberOfOccurrences.Value};");
+                }
+            }
+
+            // Remove trailing semicolon
+            return ruleBuilder.ToString().TrimEnd(';');
+        }
+
+        public static DateTimeOffset GetDateTimeOffsetFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
+        {
+            if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime) || string.IsNullOrEmpty(dateTimeTimeZone.TimeZone))
+            {
+                throw new ArgumentException("DateTimeTimeZone is null or empty.");
+            }
+
+            try
+            {
+                // Parse the DateTime string
+                if (DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+                {
+                    // Get TimeZoneInfo to get the offset
+                    TimeZoneInfo timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(dateTimeTimeZone.TimeZone);
+                    TimeSpan offset = timeZoneInfo.GetUtcOffset(parsedDateTime);
+                    return new DateTimeOffset(parsedDateTime, offset);
+                }
+                else
+                    throw new ArgumentException("DateTime string is not in a valid format.");
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+        }
+
         #region Mime to Outlook Message Helpers
 
         private static IEnumerable<Recipient> GetRecipients(this InternetAddressList internetAddresses)
@@ -176,6 +322,8 @@ namespace Wino.Core.Extensions
 
             return id;
         }
+
+
         #endregion
     }
 }

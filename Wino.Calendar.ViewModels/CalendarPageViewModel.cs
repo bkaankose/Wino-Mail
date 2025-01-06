@@ -79,8 +79,8 @@ namespace Wino.Calendar.ViewModels
         [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
         private string _eventName;
 
-        public DateTime QuickEventStartTime => SelectedQuickEventDate.Value.Date.Add(_currentSettings.GetTimeSpan(SelectedStartTimeString).Value);
-        public DateTime QuickEventEndTime => SelectedQuickEventDate.Value.Date.Add(_currentSettings.GetTimeSpan(SelectedEndTimeString).Value);
+        public DateTime QuickEventStartTime => SelectedQuickEventDate.Value.Date.Add(CurrentSettings.GetTimeSpan(SelectedStartTimeString).Value);
+        public DateTime QuickEventEndTime => SelectedQuickEventDate.Value.Date.Add(CurrentSettings.GetTimeSpan(SelectedEndTimeString).Value);
 
         public bool CanSaveQuickEvent => SelectedQuickEventAccountCalendar != null &&
                                         !string.IsNullOrWhiteSpace(EventName) &&
@@ -89,6 +89,8 @@ namespace Wino.Calendar.ViewModels
                                         QuickEventEndTime > QuickEventStartTime;
 
         #endregion
+
+        #region Data Initialization
 
         [ObservableProperty]
         private DayRangeCollection _dayRanges = [];
@@ -101,6 +103,20 @@ namespace Wino.Calendar.ViewModels
 
         [ObservableProperty]
         private bool _isCalendarEnabled = true;
+
+        #endregion
+
+        #region Event Details
+
+        public event EventHandler DetailsShowCalendarItemChanged;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsEventDetailsVisible))]
+        private CalendarItemViewModel _displayDetailsCalendarItemViewModel;
+
+        public bool IsEventDetailsVisible => DisplayDetailsCalendarItemViewModel != null;
+
+        #endregion
 
         // TODO: Get rid of some of the items if we have too many.
         private const int maxDayRangeSize = 10;
@@ -115,7 +131,9 @@ namespace Wino.Calendar.ViewModels
 
         private SemaphoreSlim _calendarLoadingSemaphore = new(1);
         private bool isLoadMoreBlocked = false;
-        private CalendarSettings _currentSettings = null;
+
+        [ObservableProperty]
+        private CalendarSettings _currentSettings;
 
         public IStatePersistanceService StatePersistanceService { get; }
         public IAccountCalendarStateService AccountCalendarStateService { get; }
@@ -148,6 +166,8 @@ namespace Wino.Calendar.ViewModels
             var days = dayRangeRenderModels.SelectMany(a => a.CalendarDays);
 
             days.ForEach(a => a.EventsCollection.FilterByCalendars(AccountCalendarStateService.ActiveCalendars.Select(a => a.Id)));
+
+            DisplayDetailsCalendarItemViewModel = null;
         }
 
         // TODO: Replace when calendar settings are updated.
@@ -156,8 +176,8 @@ namespace Wino.Calendar.ViewModels
         {
             return displayType switch
             {
-                CalendarDisplayType.Day => new DayCalendarDrawingStrategy(_currentSettings),
-                CalendarDisplayType.Week => new WeekCalendarDrawingStrategy(_currentSettings),
+                CalendarDisplayType.Day => new DayCalendarDrawingStrategy(CurrentSettings),
+                CalendarDisplayType.Week => new WeekCalendarDrawingStrategy(CurrentSettings),
                 _ => throw new NotImplementedException(),
             };
         }
@@ -176,6 +196,26 @@ namespace Wino.Calendar.ViewModels
 
             // Automatically select the first primary calendar for quick event dialog.
             SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary);
+        }
+
+        [RelayCommand]
+        private void NavigateSeries()
+        {
+
+        }
+
+        [RelayCommand]
+        private void NavigateEventDetails()
+        {
+            if (DisplayDetailsCalendarItemViewModel == null) return;
+
+            NavigateEvent(DisplayDetailsCalendarItemViewModel);
+        }
+
+        [RelayCommand]
+        private void NavigateEvent(CalendarItemViewModel calendarItemViewModel)
+        {
+            // Double tap or clicked 'view details' of the event detail popup.
         }
 
         [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]
@@ -211,13 +251,33 @@ namespace Wino.Calendar.ViewModels
         {
             IsAllDay = false;
 
-            SelectedStartTimeString = _currentSettings.GetTimeString(startTime);
-            SelectedEndTimeString = _currentSettings.GetTimeString(endTime);
+            SelectedStartTimeString = CurrentSettings.GetTimeString(startTime);
+            SelectedEndTimeString = CurrentSettings.GetTimeString(endTime);
         }
+
+        // Manage event detail popup context and select-unselect the proper items.
+        // Item selection rules are defined in the selection method.
+        partial void OnDisplayDetailsCalendarItemViewModelChanging(CalendarItemViewModel oldValue, CalendarItemViewModel newValue)
+        {
+            if (oldValue != null)
+            {
+                UnselectCalendarItem(oldValue);
+            }
+
+            if (newValue != null)
+            {
+                SelectCalendarItem(newValue);
+            }
+        }
+
+        // Notify view that the detail context changed.
+        // This will align the event detail popup to the selected event.
+        partial void OnDisplayDetailsCalendarItemViewModelChanged(CalendarItemViewModel value)
+            => DetailsShowCalendarItemChanged?.Invoke(this, EventArgs.Empty);
 
         private void RefreshSettings()
         {
-            _currentSettings = _preferencesService.GetCurrentCalendarSettings();
+            CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
 
             // Populate the hour selection strings.
             var timeStrings = new List<string>();
@@ -228,7 +288,7 @@ namespace Wino.Calendar.ViewModels
                 {
                     var time = new DateTime(1, 1, 1, hour, minute, 0);
 
-                    if (_currentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour)
+                    if (CurrentSettings.DayHeaderDisplayType == DayHeaderDisplayType.TwentyFourHour)
                     {
                         timeStrings.Add(time.ToString("HH:mm"));
                     }
@@ -254,7 +314,6 @@ namespace Wino.Calendar.ViewModels
             // 1. Display type is different.
             // 2. Day display count is different.
             // 3. Display date is not in the visible range.
-
 
             if (DayRanges.DisplayRange == null) return false;
 
@@ -289,6 +348,9 @@ namespace Wino.Calendar.ViewModels
                 await RenderDatesAsync(message.CalendarInitInitiative,
                                        message.DisplayDate,
                                        CalendarLoadDirection.Replace);
+
+                // Scroll to the current hour.
+                Messenger.Send(new ScrollToHourMessage(TimeSpan.FromHours(DateTime.Now.Hour)));
             }
             catch (Exception ex)
             {
@@ -403,7 +465,7 @@ namespace Wino.Calendar.ViewModels
                 var endDate = startDate.AddDays(eachFlipItemCount);
 
                 var range = new DateRange(startDate, endDate);
-                var renderOptions = new CalendarRenderOptions(range, _currentSettings);
+                var renderOptions = new CalendarRenderOptions(range, CurrentSettings);
 
                 var dayRangeHeaderModel = new DayRangeRenderModel(renderOptions);
                 renderModels.Add(dayRangeHeaderModel);
@@ -613,14 +675,9 @@ namespace Wino.Calendar.ViewModels
             }
         }
 
-        partial void OnSelectedQuickEventDateChanged(DateTime? value)
-        {
-
-        }
-
         partial void OnSelectedStartTimeStringChanged(string newValue)
         {
-            var parsedTime = _currentSettings.GetTimeSpan(newValue);
+            var parsedTime = CurrentSettings.GetTimeSpan(newValue);
 
             if (parsedTime == null)
             {
@@ -634,7 +691,7 @@ namespace Wino.Calendar.ViewModels
 
         partial void OnSelectedEndTimeStringChanged(string newValue)
         {
-            var parsedTime = _currentSettings.GetTimeSpan(newValue);
+            var parsedTime = CurrentSettings.GetTimeSpan(newValue);
 
             if (parsedTime == null)
             {
@@ -648,6 +705,8 @@ namespace Wino.Calendar.ViewModels
 
         partial void OnSelectedDayRangeChanged(DayRangeRenderModel value)
         {
+            DisplayDetailsCalendarItemViewModel = null;
+
             if (DayRanges.Count == 0 || SelectedDateRangeIndex < 0) return;
 
             var selectedRange = DayRanges[SelectedDateRangeIndex];
@@ -699,71 +758,63 @@ namespace Wino.Calendar.ViewModels
             // Messenger.Send(new LoadCalendarMessage(DateTime.UtcNow.Date, CalendarInitInitiative.App, true));
         }
 
-        private IEnumerable<CalendarItemViewModel> GetCalendarItems(Guid calendarItemId)
+        private IEnumerable<CalendarItemViewModel> GetCalendarItems(CalendarItemViewModel calendarItemViewModel, CalendarDayModel selectedDay)
         {
-            // Multi-day events are sprated in multiple days.
+            // All-day and multi-day events are selected collectively.
+            // Recurring events must be selected as a single instance.
             // We need to find the day that the event is in, and then select the event.
 
-            return DayRanges
-                .SelectMany(a => a.CalendarDays)
-                .Select(b => b.EventsCollection.GetCalendarItem(calendarItemId))
-                .Where(c => c != null)
-                .Cast<CalendarItemViewModel>()
-                .Distinct();
-        }
-
-        private void ResetSelectedItems()
-        {
-            foreach (var item in AccountCalendarStateService.SelectedItems)
+            if (calendarItemViewModel.IsSingleExceptionalInstance)
             {
-                var items = GetCalendarItems(item.Id);
-
-                foreach (var childItem in items)
-                {
-                    childItem.IsSelected = false;
-                }
+                return [calendarItemViewModel];
             }
-
-            AccountCalendarStateService.SelectedItems.Clear();
+            else
+            {
+                return DayRanges
+                    .SelectMany(a => a.CalendarDays)
+                    .Select(b => b.EventsCollection.GetCalendarItem(calendarItemViewModel.Id))
+                    .Where(c => c != null)
+                    .Cast<CalendarItemViewModel>()
+                    .Distinct();
+            }
         }
 
-        public async void Receive(CalendarItemTappedMessage message)
+        private void UnselectCalendarItem(CalendarItemViewModel calendarItemViewModel, CalendarDayModel calendarDay = null)
+        {
+            if (calendarItemViewModel == null) return;
+
+            var itemsToUnselect = GetCalendarItems(calendarItemViewModel, calendarDay);
+
+            foreach (var item in itemsToUnselect)
+            {
+                item.IsSelected = false;
+            }
+        }
+
+        private void SelectCalendarItem(CalendarItemViewModel calendarItemViewModel, CalendarDayModel calendarDay = null)
+        {
+            if (calendarItemViewModel == null) return;
+
+            var itemsToSelect = GetCalendarItems(calendarItemViewModel, calendarDay);
+
+            foreach (var item in itemsToSelect)
+            {
+                item.IsSelected = true;
+            }
+        }
+
+        public void Receive(CalendarItemTappedMessage message)
         {
             if (message.CalendarItemViewModel == null) return;
 
-            await ExecuteUIThread(() =>
-            {
-                var calendarItems = GetCalendarItems(message.CalendarItemViewModel.Id);
-
-                if (!_keyPressService.IsCtrlKeyPressed())
-                {
-                    ResetSelectedItems();
-                }
-
-                foreach (var item in calendarItems)
-                {
-                    item.IsSelected = !item.IsSelected;
-
-                    // Multi-select logic.
-                    if (item.IsSelected && !AccountCalendarStateService.SelectedItems.Contains(item))
-                    {
-                        AccountCalendarStateService.SelectedItems.Add(message.CalendarItemViewModel);
-                    }
-                    else if (!item.IsSelected && AccountCalendarStateService.SelectedItems.Contains(item))
-                    {
-                        AccountCalendarStateService.SelectedItems.Remove(item);
-                    }
-                }
-            });
+            DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel;
         }
 
-        public void Receive(CalendarItemDoubleTappedMessage message)
-        {
-            // TODO: Navigate to the event details page.
-        }
+        public void Receive(CalendarItemDoubleTappedMessage message) => NavigateEvent(message.CalendarItemViewModel);
 
         public void Receive(CalendarItemRightTappedMessage message)
         {
+
         }
 
         public async void Receive(CalendarItemDeleted message)
@@ -777,9 +828,7 @@ namespace Wino.Calendar.ViewModels
                 // Event might be spreaded into multiple days.
                 // Remove from all.
 
-                var calendarItems = GetCalendarItems(deletedItem.Id);
-
-
+                // var calendarItems = GetCalendarItems(deletedItem.Id);
             });
         }
     }

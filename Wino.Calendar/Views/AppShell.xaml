@@ -150,7 +150,11 @@
             Grid.RowSpan="2"
             Grid.ColumnSpan="2"
             Background="{ThemeResource WinoApplicationBackgroundColor}"
-            IsHitTestVisible="False" />
+            IsHitTestVisible="False">
+            <Grid.BackgroundTransition>
+                <BrushTransition />
+            </Grid.BackgroundTransition>
+        </Grid>
 
         <SplitView
             x:Name="MainSplitView"
@@ -236,7 +240,7 @@
                                                             CornerRadius="3">
                                                             <TextBlock
                                                                 FontSize="14"
-                                                                Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                                                                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(BackgroundColorHex), Mode=OneWay}"
                                                                 Text="{x:Bind Name, Mode=OneWay}"
                                                                 TextWrapping="Wrap" />
                                                         </Border>

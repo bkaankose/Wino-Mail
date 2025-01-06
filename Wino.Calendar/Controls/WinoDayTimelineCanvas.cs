@@ -145,8 +145,8 @@ namespace Wino.Calendar.Controls
             }
             else
             {
-                TimelineCellSelected?.Invoke(this, new TimelineCellSelectedArgs(clickedDateTime, touchPoint, positionerPoint, cellSize));
                 SelectedDateTime = clickedDateTime;
+                TimelineCellSelected?.Invoke(this, new TimelineCellSelectedArgs(clickedDateTime, touchPoint, positionerPoint, cellSize));
             }
 
             Debug.WriteLine($"Clicked: {clickedDateTime}");

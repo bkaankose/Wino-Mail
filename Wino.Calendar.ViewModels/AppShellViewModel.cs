@@ -224,7 +224,7 @@ namespace Wino.Calendar.ViewModels
         {
             var t = new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions()
             {
-                AccountId = Guid.Parse("52fae547-0740-4aa3-8d51-519bd31278ca"),
+                AccountId = Guid.Parse("bd0fc1ab-168a-436d-86ce-0661c0eabaf9"),
                 Type = CalendarSynchronizationType.CalendarMetadata
             }, SynchronizationSource.Client);
 

@@ -24,6 +24,8 @@ namespace Wino.Calendar.Controls
             // Hide navigation buttons
             PreviousButton.Opacity = NextButton.Opacity = 0;
             PreviousButton.IsHitTestVisible = NextButton.IsHitTestVisible = false;
+
+            var t = FindName("ScrollingHost");
         }
 
         public void GoPreviousFlip()
@@ -37,6 +39,5 @@ namespace Wino.Calendar.Controls
             var nextPeer = new ButtonAutomationPeer(NextButton);
             nextPeer.Invoke();
         }
-
     }
 }

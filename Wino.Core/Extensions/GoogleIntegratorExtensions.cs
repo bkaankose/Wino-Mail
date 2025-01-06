@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
-using CommunityToolkit.Diagnostics;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1.Data;
 using MimeKit;
@@ -182,22 +181,11 @@ namespace Wino.Core.Extensions
                 IsPrimary = calendarListEntry.Primary.GetValueOrDefault(),
             };
 
-            // Optional background color.
-            if (calendarListEntry.BackgroundColor != null) calendar.BackgroundColorHex = calendarListEntry.BackgroundColor;
+            // Bg color must present. Generate one if doesnt exists.
+            // Text color is optional. It'll be overriden by UI for readibility.
 
-            if (!string.IsNullOrEmpty(calendarListEntry.ForegroundColor))
-            {
-                calendar.TextColorHex = calendarListEntry.ForegroundColor;
-            }
-            else
-            {
-                // Calendars must have text color assigned.
-                // Generate one if not provided.
-
-                var randomColor = RandomFlatColorGenerator.Generate();
-
-                calendar.TextColorHex = randomColor.ToHexString();
-            }
+            calendar.BackgroundColorHex = string.IsNullOrEmpty(calendarListEntry.BackgroundColor) ? ColorHelpers.GenerateFlatColorHex() : calendar.BackgroundColorHex;
+            calendar.TextColorHex = string.IsNullOrEmpty(calendarListEntry.ForegroundColor) ? "#000000" : calendarListEntry.ForegroundColor;
 
             return calendar;
         }

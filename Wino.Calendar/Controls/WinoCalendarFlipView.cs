@@ -14,11 +14,27 @@ namespace Wino.Calendar.Controls
     {
         public static readonly DependencyProperty IsIdleProperty = DependencyProperty.Register(nameof(IsIdle), typeof(bool), typeof(WinoCalendarFlipView), new PropertyMetadata(true));
         public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarFlipView), new PropertyMetadata(null));
+        public static readonly DependencyProperty ActiveVerticalScrollViewerProperty = DependencyProperty.Register(nameof(ActiveVerticalScrollViewer), typeof(ScrollViewer), typeof(WinoCalendarFlipView), new PropertyMetadata(null));
 
+        /// <summary>
+        /// Gets or sets the active canvas that is currently displayed in the flip view.
+        /// Each day-range of flip view item has a canvas that displays the day timeline.
+        /// </summary>
         public WinoDayTimelineCanvas ActiveCanvas
         {
             get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
             set { SetValue(ActiveCanvasProperty, value); }
+        }
+
+        /// <summary>
+        /// Gets or sets the scroll viewer that is currently active in the flip view.
+        /// It's the vertical scroll that scrolls the timeline only, not the header part that belongs
+        /// to parent FlipView control.
+        /// </summary>
+        public ScrollViewer ActiveVerticalScrollViewer
+        {
+            get { return (ScrollViewer)GetValue(ActiveVerticalScrollViewerProperty); }
+            set { SetValue(ActiveVerticalScrollViewerProperty, value); }
         }
 
         public bool IsIdle
@@ -46,6 +62,7 @@ namespace Wino.Calendar.Controls
             if (d is WinoCalendarFlipView flipView)
             {
                 flipView.UpdateActiveCanvas();
+                flipView.UpdateActiveScrollViewer();
             }
         }
 
@@ -62,22 +79,58 @@ namespace Wino.Calendar.Controls
             IsIdle = e.Action == NotifyCollectionChangedAction.Reset || e.Action == NotifyCollectionChangedAction.Replace;
         }
 
-        public async void UpdateActiveCanvas()
+        private async Task<FlipViewItem> GetCurrentFlipViewItem()
+        {
+            // TODO: Refactor this mechanism by listening to PrepareContainerForItemOverride and Loaded events together.
+            while (ContainerFromIndex(SelectedIndex) == null)
+            {
+                await Task.Delay(100);
+            }
+
+            return ContainerFromIndex(SelectedIndex) as FlipViewItem;
+
+
+        }
+
+        private void UpdateActiveScrollViewer()
+        {
+            if (SelectedIndex < 0)
+                ActiveVerticalScrollViewer = null;
+            else
+            {
+                GetCurrentFlipViewItem().ContinueWith(task =>
+                {
+                    if (task.IsCompletedSuccessfully)
+                    {
+                        var flipViewItem = task.Result;
+
+                        _ = Dispatcher.TryRunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                        {
+                            ActiveVerticalScrollViewer = flipViewItem.FindDescendant<ScrollViewer>();
+                        });
+                    }
+                });
+            }
+        }
+
+        public void UpdateActiveCanvas()
         {
             if (SelectedIndex < 0)
                 ActiveCanvas = null;
             else
             {
-                // TODO: Refactor this mechanism by listening to PrepareContainerForItemOverride and Loaded events together.
-                while (ContainerFromIndex(SelectedIndex) == null)
+                GetCurrentFlipViewItem().ContinueWith(task =>
                 {
-                    await Task.Delay(100);
-                }
+                    if (task.IsCompletedSuccessfully)
+                    {
+                        var flipViewItem = task.Result;
 
-                if (ContainerFromIndex(SelectedIndex) is FlipViewItem flipViewItem)
-                {
-                    ActiveCanvas = flipViewItem.FindDescendant<WinoDayTimelineCanvas>();
-                }
+                        _ = Dispatcher.TryRunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                        {
+                            ActiveCanvas = flipViewItem.FindDescendant<WinoDayTimelineCanvas>();
+                        });
+                    }
+                });
             }
         }
 
@@ -125,12 +178,6 @@ namespace Wino.Calendar.Controls
                     }
                 }
             });
-        }
-
-        public void NavigateHour(TimeSpan hourTimeSpan)
-        {
-            // Total height of the FlipViewItem is the same as vertical ScrollViewer to position day headers.
-            // Find the day range that contains the hour.
         }
 
         private ObservableRangeCollection<DayRangeRenderModel> GetItemsSource()

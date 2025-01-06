@@ -12,7 +12,10 @@ namespace Wino.Core.Domain.Interfaces
         DateTime EndDate { get; }
         double DurationInSeconds { get; set; }
         ITimePeriod Period { get; }
+
+        bool IsRecurringEvent { get; }
         bool IsAllDayEvent { get; }
         bool IsMultiDayEvent { get; }
+        bool IsSingleExceptionalInstance { get; }
     }
 }

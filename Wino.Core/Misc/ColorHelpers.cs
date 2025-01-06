@@ -3,17 +3,23 @@ using System.Drawing;
 
 namespace Wino.Core.Misc
 {
-    public static class RandomFlatColorGenerator
+    public static class ColorHelpers
     {
-        public static Color Generate()
+        public static string GenerateFlatColorHex()
         {
             Random random = new();
             int hue = random.Next(0, 360);      // Full hue range
             int saturation = 70 + random.Next(30); // High saturation (70-100%)
             int lightness = 50 + random.Next(20);  // Bright colors (50-70%)
 
-            return FromHsl(hue, saturation, lightness);
+            var color = FromHsl(hue, saturation, lightness);
+
+            return ToHexString(color);
         }
+
+        public static string ToHexString(this Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+
+        public static string ToRgbString(this Color c) => $"RGB({c.R}, {c.G}, {c.B})";
 
         private static Color FromHsl(int h, int s, int l)
         {

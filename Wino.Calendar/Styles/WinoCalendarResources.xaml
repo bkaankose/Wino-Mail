@@ -9,6 +9,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:Wino.Core.Domain.Models.Calendar"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:selectors="using:Wino.Calendar.Selectors"
     xmlns:toolkitControls="using:CommunityToolkit.WinUI.Controls">
 
 
@@ -90,8 +91,6 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-
-
                     <!--  Rendering left hour headers.  -->
                     <ItemsControl ItemTemplate="{StaticResource DayCalendarHourHeaderTemplate}" ItemsSource="{x:Bind DayHeaders}" />
 
@@ -138,6 +137,7 @@
                                 HorizontalContentAlignment="Stretch"
                                 VerticalContentAlignment="Stretch"
                                 ActiveCanvas="{x:Bind ActiveCanvas, Mode=TwoWay}"
+                                ActiveVerticalScrollViewer="{x:Bind ActiveScrollViewer, Mode=TwoWay}"
                                 Background="Transparent"
                                 IsIdle="{x:Bind IsFlipIdle, Mode=TwoWay}"
                                 IsTabStop="False"
@@ -220,11 +220,42 @@
                             <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
 
                             <!--  All-Multi Day Events  -->
-                            <controls:AllDayItemsControl
+                            <ItemsControl
                                 x:Name="PART_AllDayItemsControl"
                                 Grid.Row="1"
                                 Grid.ColumnSpan="2"
-                                Margin="0,6" />
+                                Margin="0,6">
+                                <ItemsControl.ItemTemplateSelector>
+                                    <selectors:CustomAreaCalendarItemSelector>
+                                        <selectors:CustomAreaCalendarItemSelector.AllDayTemplate>
+                                            <DataTemplate x:DataType="data:CalendarItemViewModel">
+                                                <controls:CalendarItemControl
+                                                    CalendarItem="{x:Bind}"
+                                                    DisplayingDate="{Binding DataContext, ElementName=PART_AllDayItemsControl}"
+                                                    IsCustomEventArea="True" />
+                                            </DataTemplate>
+                                        </selectors:CustomAreaCalendarItemSelector.AllDayTemplate>
+                                        <selectors:CustomAreaCalendarItemSelector.MultiDayTemplate>
+                                            <DataTemplate x:DataType="data:CalendarItemViewModel">
+                                                <controls:CalendarItemControl
+                                                    CalendarItem="{x:Bind}"
+                                                    DisplayingDate="{Binding DataContext, ElementName=PART_AllDayItemsControl}"
+                                                    IsCustomEventArea="True" />
+                                            </DataTemplate>
+                                        </selectors:CustomAreaCalendarItemSelector.MultiDayTemplate>
+                                    </selectors:CustomAreaCalendarItemSelector>
+                                </ItemsControl.ItemTemplateSelector>
+                                <ItemsControl.ItemContainerTransitions>
+                                    <TransitionCollection>
+                                        <AddDeleteThemeTransition />
+                                    </TransitionCollection>
+                                </ItemsControl.ItemContainerTransitions>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Vertical" Spacing="2" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
                         </Grid>
 
                         <VisualStateManager.VisualStateGroups>

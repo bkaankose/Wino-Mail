@@ -20,6 +20,7 @@ using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -957,9 +958,177 @@ namespace Wino.Core.Synchronizers.Mail
             return [package];
         }
 
-        protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+        protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+
+            var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+            foreach (var calendar in localCalendars)
+            {
+                bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
+
+                Microsoft.Graph.Me.CalendarView.Delta.DeltaGetResponse eventsDeltaResponse = null;
+
+                if (isInitialSync)
+                {
+                    _logger.Debug("No sync identifier for Calendar {FolderName}. Performing initial sync.", calendar.Name);
+
+                    var startDate = DateTime.UtcNow.AddYears(-2).ToString("u");
+                    var endDate = DateTime.UtcNow.ToString("u");
+
+                    // No delta link. Performing initial sync.
+                    eventsDeltaResponse = await _graphClient.Me.CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
+                    {
+                        requestConfiguration.QueryParameters.StartDateTime = startDate;
+                        requestConfiguration.QueryParameters.EndDateTime = endDate;
+                        requestConfiguration.QueryParameters.Expand = ["calendar"];
+                    }, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    var currentDeltaToken = calendar.SynchronizationDeltaToken;
+
+                    var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.Delta.ToGetRequestInformation((config) =>
+                    {
+                        config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
+                        config.QueryParameters.Select = outlookMessageSelectParameters;
+                        config.QueryParameters.Orderby = ["receivedDateTime desc"];
+                    });
+
+                    requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
+                    requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
+
+                    // eventsDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+                }
+
+                List<Event> events = new();
+
+                // We must first save the parent recurring events to not lose exceptions.
+                // Therefore, order the existing items by their type and save the parent recurring events first.
+
+                var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
+                {
+                    events.Add(item);
+
+                    return true;
+                });
+
+                await messageIteratorAsync
+                    .IterateAsync(cancellationToken)
+                    .ConfigureAwait(false);
+
+                // Desc-order will move parent recurring events to the top.
+                events = events.OrderByDescending(a => a.Type).ToList();
+
+                foreach (var item in events)
+                {
+                    try
+                    {
+                        await _handleItemRetrievalSemaphore.WaitAsync();
+
+                        await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
+                    }
+                    finally
+                    {
+                        _handleItemRetrievalSemaphore.Release();
+                    }
+                }
+
+                // latestDeltaLink = messageIteratorAsync.Deltalink;
+            }
+
+            return default;
+        }
+
+        private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
+        {
+            var calendars = await _graphClient.Me.Calendars.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+            List<AccountCalendar> insertedCalendars = new();
+            List<AccountCalendar> updatedCalendars = new();
+            List<AccountCalendar> deletedCalendars = new();
+
+            // 1. Handle deleted calendars.
+
+            foreach (var calendar in localCalendars)
+            {
+                var remoteCalendar = calendars.Value.FirstOrDefault(a => a.Id == calendar.RemoteCalendarId);
+                if (remoteCalendar == null)
+                {
+                    // Local calendar doesn't exists remotely. Delete local copy.
+
+                    await _outlookChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                    deletedCalendars.Add(calendar);
+                }
+            }
+
+            // Delete the deleted folders from local list.
+            deletedCalendars.ForEach(a => localCalendars.Remove(a));
+
+            // 2. Handle update/insert based on remote calendars.
+            foreach (var calendar in calendars.Value)
+            {
+                var existingLocalCalendar = localCalendars.FirstOrDefault(a => a.RemoteCalendarId == calendar.Id);
+                if (existingLocalCalendar == null)
+                {
+                    // Insert new calendar.
+                    var localCalendar = calendar.AsCalendar(Account);
+                    insertedCalendars.Add(localCalendar);
+                }
+                else
+                {
+                    // Update existing calendar. Right now we only update the name.
+                    if (ShouldUpdateCalendar(calendar, existingLocalCalendar))
+                    {
+                        existingLocalCalendar.Name = calendar.Name;
+
+                        updatedCalendars.Add(existingLocalCalendar);
+                    }
+                    else
+                    {
+                        // Remove it from the local folder list to skip additional calendar updates.
+                        localCalendars.Remove(existingLocalCalendar);
+                    }
+                }
+            }
+
+            // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
+            foreach (var calendar in insertedCalendars)
+            {
+                await _outlookChangeProcessor.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
+            }
+
+            foreach (var calendar in updatedCalendars)
+            {
+                await _outlookChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+            }
+
+            if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
+            {
+                // TODO: Notify calendar updates.
+                // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+            }
+        }
+
+        private bool ShouldUpdateCalendar(Calendar calendar, AccountCalendar accountCalendar)
+        {
+            // TODO: Only calendar name is updated for now. We can add more checks here.
+
+            var remoteCalendarName = calendar.Name;
+            var localCalendarName = accountCalendar.Name;
+
+            return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

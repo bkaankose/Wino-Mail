@@ -1,8 +1,10 @@
 ﻿using System.Diagnostics;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Itenso.TimePeriod;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
@@ -12,7 +14,8 @@ namespace Wino.Calendar.Controls
 {
     public sealed partial class CalendarItemControl : UserControl
     {
-        public bool IsAllDayMultiDayEvent { get; set; }
+        // Single tap has a delay to report double taps properly.
+        private bool isSingleTap = false;
 
         public static readonly DependencyProperty CalendarItemProperty = DependencyProperty.Register(nameof(CalendarItem), typeof(CalendarItemViewModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarItemChanged)));
         public static readonly DependencyProperty IsDraggingProperty = DependencyProperty.Register(nameof(IsDragging), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
@@ -163,21 +166,30 @@ namespace Wino.Calendar.Controls
 
         private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;
 
-        private void ControlTapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private async void ControlTapped(object sender, TappedRoutedEventArgs e)
         {
             if (CalendarItem == null) return;
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem));
+            isSingleTap = true;
+
+            await Task.Delay(100);
+
+            if (isSingleTap)
+            {
+                WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem, DisplayingDate));
+            }
         }
 
-        private void ControlDoubleTapped(object sender, Windows.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+        private void ControlDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         {
             if (CalendarItem == null) return;
+
+            isSingleTap = false;
 
             WeakReferenceMessenger.Default.Send(new CalendarItemDoubleTappedMessage(CalendarItem));
         }
 
-        private void ControlRightTapped(object sender, Windows.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+        private void ControlRightTapped(object sender, RightTappedRoutedEventArgs e)
         {
             if (CalendarItem == null) return;
 
@@ -188,10 +200,6 @@ namespace Wino.Calendar.Controls
         {
             if (CalendarItem == null) return;
 
-            if (!CalendarItem.IsSelected)
-            {
-                WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem));
-            }
         }
     }
 }

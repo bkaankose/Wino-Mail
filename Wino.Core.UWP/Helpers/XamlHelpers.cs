@@ -36,6 +36,8 @@ namespace Wino.Helpers
         }
 
 
+
+
         public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
         public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         public static bool ReverseBoolConverter(bool value) => !value;

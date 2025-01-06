@@ -85,6 +85,10 @@ namespace Wino.Core.Integration.Processors
                         totalDurationInSeconds = parentRecurringEvent.DurationInSeconds;
                     }
 
+                    var organizerMail = GetOrganizerEmail(calendarEvent, organizerAccount);
+                    var organizerName = GetOrganizerName(calendarEvent, organizerAccount);
+
+
                     calendarItem = new CalendarItem()
                     {
                         CalendarId = assignedCalendar.Id,
@@ -103,9 +107,11 @@ namespace Wino.Core.Integration.Processors
                         Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
                         UpdatedAt = DateTimeOffset.UtcNow,
                         Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetVisibility(calendarEvent.Visibility),
-                        HtmlLink = calendarEvent.HtmlLink,
+                        HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent.HtmlLink : calendarEvent.HtmlLink,
                         RemoteEventId = calendarEvent.Id,
-                        IsLocked = calendarEvent.Locked.GetValueOrDefault()
+                        IsLocked = calendarEvent.Locked.GetValueOrDefault(),
+                        OrganizerDisplayName = string.IsNullOrEmpty(organizerName) ? parentRecurringEvent.OrganizerDisplayName : organizerName,
+                        OrganizerEmail = string.IsNullOrEmpty(organizerMail) ? parentRecurringEvent.OrganizerEmail : organizerMail
                     };
                 }
                 else
@@ -137,7 +143,9 @@ namespace Wino.Core.Integration.Processors
                         Visibility = GetVisibility(calendarEvent.Visibility),
                         HtmlLink = calendarEvent.HtmlLink,
                         RemoteEventId = calendarEvent.Id,
-                        IsLocked = calendarEvent.Locked.GetValueOrDefault()
+                        IsLocked = calendarEvent.Locked.GetValueOrDefault(),
+                        OrganizerDisplayName = GetOrganizerName(calendarEvent, organizerAccount),
+                        OrganizerEmail = GetOrganizerEmail(calendarEvent, organizerAccount)
                     };
                 }
 
@@ -216,8 +224,6 @@ namespace Wino.Core.Integration.Processors
                 // We have this event already. Update it.
                 if (calendarEvent.Status == "cancelled")
                 {
-                    // Event is canceled.
-
                     // Parent event is canceled. We must delete everything.
                     if (string.IsNullOrEmpty(recurringEventId))
                     {
@@ -247,6 +253,30 @@ namespace Wino.Core.Integration.Processors
 
             // Upsert the event.
             await Connection.InsertOrReplaceAsync(existingCalendarItem);
+        }
+
+        private string GetOrganizerName(Event calendarEvent, MailAccount account)
+        {
+            if (calendarEvent.Organizer == null) return string.Empty;
+
+            if (calendarEvent.Organizer.Self == true)
+            {
+                return account.SenderName;
+            }
+            else
+                return calendarEvent.Organizer.DisplayName;
+        }
+
+        private string GetOrganizerEmail(Event calendarEvent, MailAccount account)
+        {
+            if (calendarEvent.Organizer == null) return string.Empty;
+
+            if (calendarEvent.Organizer.Self == true)
+            {
+                return account.Address;
+            }
+            else
+                return calendarEvent.Organizer.Email;
         }
 
         private CalendarItemStatus GetStatus(string status)

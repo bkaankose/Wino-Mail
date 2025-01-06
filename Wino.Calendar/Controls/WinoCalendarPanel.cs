@@ -1,7 +1,6 @@
 ﻿
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.WinUI;
 using Itenso.TimePeriod;
@@ -79,7 +78,7 @@ namespace Wino.Calendar.Controls
 
             var periodRelation = child.Period.GetRelation(Period);
 
-            Debug.WriteLine($"Render relation of {child.Title} ({child.Period.Start} - {child.Period.End}) is {periodRelation} with {Period.Start.Day}");
+            // Debug.WriteLine($"Render relation of {child.Title} ({child.Period.Start} - {child.Period.End}) is {periodRelation} with {Period.Start.Day}");
 
             if (!child.IsMultiDayEvent)
             {
@@ -169,6 +168,15 @@ namespace Wino.Calendar.Controls
 
                 if (childWidth < 0) childWidth = 1;
 
+                // Regular events must have 2px margin
+                if (!child.IsMultiDayEvent && !child.IsAllDayEvent)
+                {
+                    childLeft += 2;
+                    childTop += 2;
+                    childHeight -= 2;
+                    childWidth -= 2;
+                }
+
                 var arrangementRect = new Rect(childLeft + EventItemMargin.Left, childTop + EventItemMargin.Top, Math.Max(childWidth - extraRightMargin, 1), childHeight);
 
                 // Make sure measured size will fit in the arranged box.
@@ -178,6 +186,7 @@ namespace Wino.Calendar.Controls
 
                 //Debug.WriteLine($"{child.Title}, Measured: {measureSize}, Arranged: {arrangementRect}");
             }
+
 
             return finalSize;
         }

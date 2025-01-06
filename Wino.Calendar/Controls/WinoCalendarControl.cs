@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Args;
@@ -18,6 +19,8 @@ namespace Wino.Calendar.Controls
         public event EventHandler<TimelineCellSelectedArgs> TimelineCellSelected;
         public event EventHandler<TimelineCellUnselectedArgs> TimelineCellUnselected;
 
+        public event EventHandler ScrollPositionChanging;
+
         #region Dependency Properties
 
         public static readonly DependencyProperty DayRangesProperty = DependencyProperty.Register(nameof(DayRanges), typeof(ObservableCollection<DayRangeRenderModel>), typeof(WinoCalendarControl), new PropertyMetadata(null));
@@ -25,11 +28,18 @@ namespace Wino.Calendar.Controls
         public static readonly DependencyProperty SelectedFlipViewDayRangeProperty = DependencyProperty.Register(nameof(SelectedFlipViewDayRange), typeof(DayRangeRenderModel), typeof(WinoCalendarControl), new PropertyMetadata(null));
         public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveCanvasChanged)));
         public static readonly DependencyProperty IsFlipIdleProperty = DependencyProperty.Register(nameof(IsFlipIdle), typeof(bool), typeof(WinoCalendarControl), new PropertyMetadata(true, new PropertyChangedCallback(OnIdleStateChanged)));
+        public static readonly DependencyProperty ActiveScrollViewerProperty = DependencyProperty.Register(nameof(ActiveScrollViewer), typeof(ScrollViewer), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveVerticalScrollViewerChanged)));
 
         public DayRangeRenderModel SelectedFlipViewDayRange
         {
             get { return (DayRangeRenderModel)GetValue(SelectedFlipViewDayRangeProperty); }
             set { SetValue(SelectedFlipViewDayRangeProperty, value); }
+        }
+
+        public ScrollViewer ActiveScrollViewer
+        {
+            get { return (ScrollViewer)GetValue(ActiveScrollViewerProperty); }
+            set { SetValue(ActiveScrollViewerProperty, value); }
         }
 
         public WinoDayTimelineCanvas ActiveCanvas
@@ -76,6 +86,22 @@ namespace Wino.Calendar.Controls
             if (calendar is WinoCalendarControl calendarControl)
             {
                 calendarControl.UpdateIdleState();
+            }
+        }
+
+        private static void OnActiveVerticalScrollViewerChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+        {
+            if (calendar is WinoCalendarControl calendarControl)
+            {
+                if (e.OldValue is ScrollViewer oldScrollViewer)
+                {
+                    calendarControl.DeregisterScrollChanges(oldScrollViewer);
+                }
+
+                if (e.NewValue is ScrollViewer newScrollViewer)
+                {
+                    calendarControl.RegisterScrollChanges(newScrollViewer);
+                }
             }
         }
 
@@ -128,6 +154,23 @@ namespace Wino.Calendar.Controls
             canvas.TimelineCellUnselected += ActiveTimelineCellUnselected;
         }
 
+        private void RegisterScrollChanges(ScrollViewer scrollViewer)
+        {
+            if (scrollViewer == null) return;
+
+            scrollViewer.ViewChanging += ScrollViewChanging;
+        }
+
+        private void DeregisterScrollChanges(ScrollViewer scrollViewer)
+        {
+            if (scrollViewer == null) return;
+
+            scrollViewer.ViewChanging -= ScrollViewChanging;
+        }
+
+        private void ScrollViewChanging(object sender, ScrollViewerViewChangingEventArgs e)
+            => ScrollPositionChanging?.Invoke(this, EventArgs.Empty);
+
         private void CalendarSizeChanged(object sender, SizeChangedEventArgs e)
         {
             if (ActiveCanvas == null) return;
@@ -159,6 +202,22 @@ namespace Wino.Calendar.Controls
 
         public void NavigateToDay(DateTime dateTime) => InternalFlipView.NavigateToDay(dateTime);
 
+        public async void NavigateToHour(TimeSpan timeSpan)
+        {
+            if (ActiveScrollViewer == null) return;
+
+            // Total height of the FlipViewItem is the same as vertical ScrollViewer to position day headers.
+
+            await Task.Yield();
+            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
+            {
+                double hourHeght = 60;
+                double totalHeight = ActiveScrollViewer.ScrollableHeight;
+                double scrollPosition = timeSpan.TotalHours * hourHeght;
+
+                ActiveScrollViewer.ChangeView(null, scrollPosition, null, disableAnimation: false);
+            });
+        }
         public void ResetTimelineSelection()
         {
             if (ActiveCanvas == null) return;
@@ -178,6 +237,13 @@ namespace Wino.Calendar.Controls
             if (InternalFlipView == null) return;
 
             InternalFlipView.GoPreviousFlip();
+        }
+
+        public void UnselectActiveTimelineCell()
+        {
+            if (ActiveCanvas == null) return;
+
+            ActiveCanvas.SelectedDateTime = null;
         }
 
         public CalendarItemControl GetCalendarItemControl(CalendarItemViewModel calendarItemViewModel)
