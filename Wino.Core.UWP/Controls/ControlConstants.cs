@@ -62,7 +62,7 @@ namespace Wino.Core.UWP.Controls
             { WinoIconGlyph.Mail, "\uF509" },
             { WinoIconGlyph.More, "\uE824" },
             { WinoIconGlyph.CustomServer, "\uF509" },
-            { WinoIconGlyph.Print, "\uE954" },
+            { WinoIconGlyph.Print, "\uE922" },
             { WinoIconGlyph.Attachment, "\uE723" },
             { WinoIconGlyph.SortTextDesc, "\U000F3606" },
             { WinoIconGlyph.SortLinesDesc, "\U000F038A" },
