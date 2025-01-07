@@ -217,15 +217,21 @@ namespace Wino.Calendar.ViewModels
         }
 
         [RelayCommand]
-        private void Sync()
+        private async Task Sync()
         {
-            var t = new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions()
-            {
-                AccountId = Guid.Parse("5b2e28bb-3179-4a7f-a62b-373878ee2b53"),
-                Type = CalendarSynchronizationType.CalendarMetadata
-            }, SynchronizationSource.Client);
+            // Sync all calendars.
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
-            Messenger.Send(t);
+            foreach (var account in accounts)
+            {
+                var t = new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions()
+                {
+                    AccountId = account.Id,
+                    Type = CalendarSynchronizationType.CalendarMetadata
+                }, SynchronizationSource.Client);
+
+                Messenger.Send(t);
+            }
         }
 
         /// <summary>
