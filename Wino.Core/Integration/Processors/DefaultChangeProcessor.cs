@@ -49,6 +49,8 @@ namespace Wino.Core.Integration.Processors
         Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
         Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
         Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
+
+        Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
     }
 
     public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -103,7 +105,11 @@ namespace Wino.Core.Integration.Processors
         /// <param name="accountId">Account identifier to reset delta token for.</param>
         /// <returns>Empty string to assign account delta sync for.</returns>
         Task<string> ResetAccountDeltaTokenAsync(Guid accountId);
+
+
         Task ManageCalendarEventAsync(Microsoft.Graph.Models.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
+
+
     }
 
     public interface IImapChangeProcessor : IDefaultChangeProcessor
@@ -199,5 +205,8 @@ namespace Wino.Core.Integration.Processors
 
         public Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
             => CalendarService.UpdateAccountCalendarAsync(accountCalendar);
+
+        public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
+            => CalendarService.UpdateCalendarDeltaSynchronizationToken(calendarId, deltaToken);
     }
 }

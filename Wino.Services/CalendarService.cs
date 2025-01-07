@@ -198,5 +198,15 @@ namespace Wino.Services
 
             return calendarItem;
         }
+
+        public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
+        {
+            var query = new Query()
+                .From(nameof(AccountCalendar))
+                .Where(nameof(AccountCalendar.Id), calendarId)
+                .AsUpdate(new { SynchronizationDeltaToken = deltaToken });
+
+            return Connection.ExecuteAsync(query.GetRawQuery());
+        }
     }
 }

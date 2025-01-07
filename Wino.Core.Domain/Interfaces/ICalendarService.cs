@@ -18,5 +18,6 @@ namespace Wino.Core.Domain.Interfaces
         Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
         Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel);
         Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
+        Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
     }
 }

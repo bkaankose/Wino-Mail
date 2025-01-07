@@ -295,7 +295,7 @@
                     Closed="EventDetailsPopupClosed"
                     DesiredPlacement="{x:Bind calendarHelpers:CalendarXamlHelpers.GetDesiredPlacementModeForEventsDetailsPopup(ViewModel.DisplayDetailsCalendarItemViewModel, ViewModel.StatePersistanceService.CalendarDisplayType), Mode=OneWay}"
                     HorizontalOffset="16"
-                    IsLightDismissEnabled="False"
+                    IsLightDismissEnabled="True"
                     IsOpen="{x:Bind ViewModel.IsEventDetailsVisible, Mode=OneWay}"
                     PlacementTarget="{x:Bind TeachingTipPositionerGrid}"
                     VerticalOffset="16">
@@ -319,7 +319,6 @@
                         </Grid.RowDefinitions>
                         <TextBlock
                             FontWeight="Normal"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.DisplayDetailsCalendarItemViewModel.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                             Style="{StaticResource SubtitleTextBlockStyle}"
                             Text="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.Title, Mode=OneWay}" />
 
