@@ -71,6 +71,8 @@ namespace Wino.Calendar.Controls
             bool isToday = DayModel.RepresentingDate.Date == DateTime.Now.Date;
 
             VisualStateManager.GoToState(this, isToday ? TodayState : NotTodayState, false);
+
+            UpdateLayout();
         }
     }
 }

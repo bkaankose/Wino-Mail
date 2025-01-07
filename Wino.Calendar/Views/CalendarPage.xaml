@@ -35,6 +35,7 @@
                 DayRanges="{x:Bind ViewModel.DayRanges}"
                 DisplayType="{x:Bind ViewModel.StatePersistanceService.CalendarDisplayType, Mode=OneWay}"
                 IsHitTestVisible="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
+                Orientation="{x:Bind ViewModel.CalendarOrientation, Mode=OneWay}"
                 ScrollPositionChanging="CalendarScrolling"
                 SelectedFlipViewDayRange="{x:Bind ViewModel.SelectedDayRange, Mode=TwoWay}"
                 SelectedFlipViewIndex="{x:Bind ViewModel.SelectedDateRangeIndex, Mode=TwoWay}"

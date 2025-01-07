@@ -31,9 +31,7 @@ namespace Wino.Calendar.ViewModels
         IRecipient<CalendarSettingsUpdatedMessage>,
         IRecipient<CalendarItemTappedMessage>,
         IRecipient<CalendarItemDoubleTappedMessage>,
-        IRecipient<CalendarItemRightTappedMessage>,
-        IRecipient<CalendarDisplayTypeChangedMessage>
-
+        IRecipient<CalendarItemRightTappedMessage>
     {
         #region Quick Event Creation
 
@@ -94,7 +92,8 @@ namespace Wino.Calendar.ViewModels
 
         #region Data Initialization
 
-        public bool IsVerticalCalendar => StatePersistanceService.CalendarDisplayType == CalendarDisplayType.Month;
+        [ObservableProperty]
+        private CalendarOrientation _calendarOrientation = CalendarOrientation.Horizontal;
 
         [ObservableProperty]
         private DayRangeCollection _dayRanges = [];
@@ -331,6 +330,8 @@ namespace Wino.Calendar.ViewModels
                 !(message.DisplayDate >= DayRanges.DisplayRange.StartDate && message.DisplayDate <= DayRanges.DisplayRange.EndDate));
         }
 
+
+
         public async void Receive(LoadCalendarMessage message)
         {
             await _calendarLoadingSemaphore.WaitAsync();
@@ -343,6 +344,23 @@ namespace Wino.Calendar.ViewModels
                 {
                     Debug.WriteLine("Will reset day ranges.");
                     await ClearDayRangeModelsAsync();
+
+                    // Orientation only changes when we should reset.
+                    // Handle the FlipView orientation here.
+                    // We don't want to change the orientation while the item manipulation is going on.
+                    // That causes a glitch in the UI.
+
+                    bool isRequestedVerticalCalendar = StatePersistanceService.CalendarDisplayType == CalendarDisplayType.Month;
+                    bool isLastRenderedVerticalCalendar = _currentDisplayType == CalendarDisplayType.Month;
+
+                    if (isRequestedVerticalCalendar && !isLastRenderedVerticalCalendar)
+                    {
+                        CalendarOrientation = CalendarOrientation.Vertical;
+                    }
+                    else
+                    {
+                        CalendarOrientation = CalendarOrientation.Horizontal;
+                    }
                 }
                 else if (ShouldScrollToItem(message))
                 {
@@ -490,7 +508,7 @@ namespace Wino.Calendar.ViewModels
 
             CalendarLoadDirection animationDirection = calendarLoadDirection;
 
-            bool removeCurrent = calendarLoadDirection == CalendarLoadDirection.Replace;
+            //bool removeCurrent = calendarLoadDirection == CalendarLoadDirection.Replace;
 
             if (calendarLoadDirection == CalendarLoadDirection.Replace)
             {
@@ -524,7 +542,7 @@ namespace Wino.Calendar.ViewModels
                 // Wait for the animation to finish.
                 // Otherwise it somehow shutters a little, which is annoying.
 
-                if (!removeCurrent) await Task.Delay(350);
+                // if (!removeCurrent) await Task.Delay(350);
 
                 // Insert each render model in reverse order.
                 for (int i = renderModels.Count - 1; i >= 0; i--)
@@ -540,10 +558,10 @@ namespace Wino.Calendar.ViewModels
                 Debug.WriteLine($"- {item.CalendarRenderOptions.DateRange.ToString()}");
             }
 
-            if (removeCurrent)
-            {
-                await RemoveDayRangeModelAsync(SelectedDayRange);
-            }
+            //if (removeCurrent)
+            //{
+            //    await RemoveDayRangeModelAsync(SelectedDayRange);
+            //}
 
             // TODO...
             // await TryConsolidateItemsAsync();
@@ -737,13 +755,13 @@ namespace Wino.Calendar.ViewModels
                 // Therefore we wait for semaphore to be released before we continue.
                 // There is no need to load more if the current index is not in ideal position.
 
-                if (SelectedDateRangeIndex == DayRanges.Count - 1)
-                {
-                    await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Next);
-                }
-                else if (SelectedDateRangeIndex == 0)
+                if (SelectedDateRangeIndex == 0)
                 {
                     await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Previous);
+                }
+                else if (SelectedDateRangeIndex == DayRanges.Count - 1)
+                {
+                    await RenderDatesAsync(CalendarInitInitiative.App, calendarLoadDirection: CalendarLoadDirection.Next);
                 }
             }
             catch (Exception)
@@ -839,7 +857,5 @@ namespace Wino.Calendar.ViewModels
                 // var calendarItems = GetCalendarItems(deletedItem.Id);
             });
         }
-
-        public void Receive(CalendarDisplayTypeChangedMessage message) => OnPropertyChanged(nameof(IsVerticalCalendar));
     }
 }

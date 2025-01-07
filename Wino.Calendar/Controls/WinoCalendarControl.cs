@@ -31,14 +31,26 @@ namespace Wino.Calendar.Controls
         public static readonly DependencyProperty IsFlipIdleProperty = DependencyProperty.Register(nameof(IsFlipIdle), typeof(bool), typeof(WinoCalendarControl), new PropertyMetadata(true, new PropertyChangedCallback(OnIdleStateChanged)));
         public static readonly DependencyProperty ActiveScrollViewerProperty = DependencyProperty.Register(nameof(ActiveScrollViewer), typeof(ScrollViewer), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveVerticalScrollViewerChanged)));
 
-        public static readonly DependencyProperty VerticalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(VerticalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnIsVerticalCalendarChanged)));
-        public static readonly DependencyProperty HorizontalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(HorizontalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnIsVerticalCalendarChanged)));
-        public static readonly DependencyProperty DisplayTypeProperty = DependencyProperty.Register(nameof(DisplayType), typeof(CalendarDisplayType), typeof(WinoCalendarControl), new PropertyMetadata(CalendarDisplayType.Day, new PropertyChangedCallback(OnIsVerticalCalendarChanged)));
+        public static readonly DependencyProperty VerticalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(VerticalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
+        public static readonly DependencyProperty HorizontalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(HorizontalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
+        public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(nameof(Orientation), typeof(CalendarOrientation), typeof(WinoCalendarControl), new PropertyMetadata(CalendarOrientation.Horizontal, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
+        public static readonly DependencyProperty DisplayTypeProperty = DependencyProperty.Register(nameof(DisplayType), typeof(CalendarDisplayType), typeof(WinoCalendarControl), new PropertyMetadata(CalendarDisplayType.Day));
 
+        /// <summary>
+        /// Gets or sets the day-week-month-year display type.
+        /// Orientation is not determined by this property, but Orientation property.
+        /// This property is used to determine the template to use for the calendar.
+        /// </summary>
         public CalendarDisplayType DisplayType
         {
             get { return (CalendarDisplayType)GetValue(DisplayTypeProperty); }
             set { SetValue(DisplayTypeProperty, value); }
+        }
+
+        public CalendarOrientation Orientation
+        {
+            get { return (CalendarOrientation)GetValue(OrientationProperty); }
+            set { SetValue(OrientationProperty, value); }
         }
 
         public ItemsPanelTemplate VerticalItemsPanelTemplate
@@ -104,7 +116,7 @@ namespace Wino.Calendar.Controls
             SizeChanged += CalendarSizeChanged;
         }
 
-        private static void OnIsVerticalCalendarChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+        private static void OnCalendarOrientationPropertiesUpdated(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
         {
             if (calendar is WinoCalendarControl control)
             {
@@ -134,8 +146,11 @@ namespace Wino.Calendar.Controls
                 {
                     calendarControl.RegisterScrollChanges(newScrollViewer);
                 }
+
+                calendarControl.ManageHighlightedDateRange();
             }
         }
+
 
         private static void OnActiveCanvasChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
         {
@@ -160,29 +175,11 @@ namespace Wino.Calendar.Controls
         {
             if (InternalFlipView == null || HorizontalItemsPanelTemplate == null || VerticalItemsPanelTemplate == null) return;
 
-            bool isHorizontalCalendar = DisplayType == CalendarDisplayType.Day || DisplayType == CalendarDisplayType.Week || DisplayType == CalendarDisplayType.WorkWeek;
-
-            if (isHorizontalCalendar)
-            {
-                InternalFlipView.ItemsPanel = HorizontalItemsPanelTemplate;
-            }
-            else
-            {
-                InternalFlipView.ItemsPanel = VerticalItemsPanelTemplate;
-            }
+            InternalFlipView.ItemsPanel = Orientation == CalendarOrientation.Horizontal ? HorizontalItemsPanelTemplate : VerticalItemsPanelTemplate;
         }
 
         private void ManageHighlightedDateRange()
-        {
-            if (ActiveCanvas == null)
-            {
-                SelectedFlipViewDayRange = null;
-            }
-            else
-            {
-                SelectedFlipViewDayRange = InternalFlipView.SelectedItem as DayRangeRenderModel;
-            }
-        }
+            => SelectedFlipViewDayRange = InternalFlipView.SelectedItem as DayRangeRenderModel;
 
         private void DeregisterCanvas(WinoDayTimelineCanvas canvas)
         {

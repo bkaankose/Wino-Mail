@@ -13,22 +13,19 @@ namespace Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies
 
         public override DateRange GetNextDateRange(DateRange CurrentDateRange, int DayDisplayCount)
         {
-            return DateTimeExtensions.GetMonthDateRangeStartingWeekday(CurrentDateRange.EndDate, Settings.FirstDayOfWeek);
+            return new DateRange(CurrentDateRange.EndDate, CurrentDateRange.EndDate.AddDays(35));
         }
 
         public override DateRange GetPreviousDateRange(DateRange CurrentDateRange, int DayDisplayCount)
         {
-            return DateTimeExtensions.GetMonthDateRangeStartingWeekday(CurrentDateRange.StartDate, Settings.FirstDayOfWeek);
+            return new DateRange(CurrentDateRange.StartDate.AddDays(-35), CurrentDateRange.StartDate);
         }
 
         public override DateRange GetRenderDateRange(DateTime DisplayDate, int DayDisplayCount)
         {
-            // Load 2 months at first.
-            var initialRange = DateTimeExtensions.GetMonthDateRangeStartingWeekday(DisplayDate.Date, Settings.FirstDayOfWeek);
-
-            var nextRange = GetNextDateRange(initialRange, DayDisplayCount);
-
-            return new DateRange(initialRange.StartDate, nextRange.EndDate);
+            // Get the first day of the month.
+            var firstDayOfMonth = new DateTime(DisplayDate.Year, DisplayDate.Month, 1);
+            return DateTimeExtensions.GetMonthDateRangeStartingWeekday(firstDayOfMonth, Settings.FirstDayOfWeek);
         }
 
         public override int GetRenderDayCount(DateTime DisplayDate, int DayDisplayCount) => 35;
