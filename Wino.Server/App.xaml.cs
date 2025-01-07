@@ -173,7 +173,8 @@ namespace Wino.Server
         protected override async void OnStartup(StartupEventArgs e)
         {
             // Same server code runs for both Mail and Calendar.
-            var winoAppTypeParameter = e.Args[2];
+
+            string winoAppTypeParameter = e.Args.Length > 0 ? e.Args[e.Args.Length - 1] : "Mail";
 
             WinoServerType = winoAppTypeParameter == "Mail" ? WinoAppType.Mail : WinoAppType.Calendar;
 
