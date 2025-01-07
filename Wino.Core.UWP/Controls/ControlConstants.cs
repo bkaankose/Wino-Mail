@@ -71,6 +71,7 @@ namespace Wino.Core.UWP.Controls
             { WinoIconGlyph.Message, "\uE8BD" },
             { WinoIconGlyph.New, "\U000F002A" },
             { WinoIconGlyph.Blocked,"\uF140" },
+            { WinoIconGlyph.IMAP, "\uE715" },
             { WinoIconGlyph.Calendar, "\uE912" },
             { WinoIconGlyph.CalendarToday, "\uE911" },
             { WinoIconGlyph.CalendarDay, "\uE913" },
