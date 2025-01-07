@@ -622,7 +622,7 @@ namespace Wino.Mail.ViewModels
             }
             else if (clickedMenuItem is ManageAccountsMenuItem)
             {
-                NavigationService.Navigate(WinoPage.AccountManagementPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+                NavigationService.Navigate(WinoPage.ManageAccountsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
             }
             else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem && latestSelectedAccountMenuItem != clickedAccountMenuItem)
             {
