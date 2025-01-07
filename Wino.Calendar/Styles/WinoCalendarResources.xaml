@@ -367,9 +367,6 @@
                     <RowDefinition Height="*" MinHeight="35" />
                 </Grid.RowDefinitions>
 
-                <!--  Day number  -->
-                <TextBlock x:Name="PART_HeaderDateDayText" FontSize="17" />
-
                 <!--  Extras  -->
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
 
@@ -380,26 +377,14 @@
                     Margin="0,6"
                     Padding="0,0,16,0">
                     <ItemsControl x:Name="PART_AllDayItemsControl">
-                        <ItemsControl.ItemTemplateSelector>
-                            <selectors:CustomAreaCalendarItemSelector>
-                                <selectors:CustomAreaCalendarItemSelector.AllDayTemplate>
-                                    <DataTemplate x:DataType="data:CalendarItemViewModel">
-                                        <controls:CalendarItemControl
-                                            CalendarItem="{x:Bind}"
-                                            DisplayingDate="{Binding DataContext, ElementName=PART_AllDayItemsControl}"
-                                            IsCustomEventArea="True" />
-                                    </DataTemplate>
-                                </selectors:CustomAreaCalendarItemSelector.AllDayTemplate>
-                                <selectors:CustomAreaCalendarItemSelector.MultiDayTemplate>
-                                    <DataTemplate x:DataType="data:CalendarItemViewModel">
-                                        <controls:CalendarItemControl
-                                            CalendarItem="{x:Bind}"
-                                            DisplayingDate="{Binding DataContext, ElementName=PART_AllDayItemsControl}"
-                                            IsCustomEventArea="True" />
-                                    </DataTemplate>
-                                </selectors:CustomAreaCalendarItemSelector.MultiDayTemplate>
-                            </selectors:CustomAreaCalendarItemSelector>
-                        </ItemsControl.ItemTemplateSelector>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="data:CalendarItemViewModel">
+                                <controls:CalendarItemControl
+                                    CalendarItem="{x:Bind}"
+                                    DisplayingDate="{Binding DataContext, ElementName=PART_AllDayItemsControl}"
+                                    IsCustomEventArea="True" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
                         <ItemsControl.ItemContainerTransitions>
                             <TransitionCollection>
                                 <AddDeleteThemeTransition />

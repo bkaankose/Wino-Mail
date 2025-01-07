@@ -158,10 +158,9 @@ namespace Wino.Services
                             // There is no exception for the period.
                             // Change the instance StartDate and Duration.
 
-                            ev.StartDate = occurrence.Period.StartTime.Value;
-                            ev.DurationInSeconds = (occurrence.Period.EndTime.Value - occurrence.Period.StartTime.Value).TotalSeconds;
+                            var recurrence = ev.CreateRecurrence(occurrence.Period.StartTime.Value, occurrence.Period.Duration.TotalSeconds);
 
-                            result.Add(ev);
+                            result.Add(recurrence);
                         }
                         else
                         {

@@ -330,7 +330,25 @@ namespace Wino.Calendar.ViewModels
                 !(message.DisplayDate >= DayRanges.DisplayRange.StartDate && message.DisplayDate <= DayRanges.DisplayRange.EndDate));
         }
 
+        private void AdjustCalendarOrientation()
+        {
+            // Orientation only changes when we should reset.
+            // Handle the FlipView orientation here.
+            // We don't want to change the orientation while the item manipulation is going on.
+            // That causes a glitch in the UI.
 
+            bool isRequestedVerticalCalendar = StatePersistanceService.CalendarDisplayType == CalendarDisplayType.Month;
+            bool isLastRenderedVerticalCalendar = _currentDisplayType == CalendarDisplayType.Month;
+
+            if (isRequestedVerticalCalendar && !isLastRenderedVerticalCalendar)
+            {
+                CalendarOrientation = CalendarOrientation.Vertical;
+            }
+            else
+            {
+                CalendarOrientation = CalendarOrientation.Horizontal;
+            }
+        }
 
         public async void Receive(LoadCalendarMessage message)
         {
@@ -344,23 +362,6 @@ namespace Wino.Calendar.ViewModels
                 {
                     Debug.WriteLine("Will reset day ranges.");
                     await ClearDayRangeModelsAsync();
-
-                    // Orientation only changes when we should reset.
-                    // Handle the FlipView orientation here.
-                    // We don't want to change the orientation while the item manipulation is going on.
-                    // That causes a glitch in the UI.
-
-                    bool isRequestedVerticalCalendar = StatePersistanceService.CalendarDisplayType == CalendarDisplayType.Month;
-                    bool isLastRenderedVerticalCalendar = _currentDisplayType == CalendarDisplayType.Month;
-
-                    if (isRequestedVerticalCalendar && !isLastRenderedVerticalCalendar)
-                    {
-                        CalendarOrientation = CalendarOrientation.Vertical;
-                    }
-                    else
-                    {
-                        CalendarOrientation = CalendarOrientation.Horizontal;
-                    }
                 }
                 else if (ShouldScrollToItem(message))
                 {
@@ -369,6 +370,8 @@ namespace Wino.Calendar.ViewModels
                     Debug.WriteLine("Scrolling to selected date.");
                     return;
                 }
+
+                AdjustCalendarOrientation();
 
                 // This will replace the whole collection because the user initiated a new render.
                 await RenderDatesAsync(message.CalendarInitInitiative,

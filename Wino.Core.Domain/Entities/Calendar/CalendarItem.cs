@@ -123,5 +123,37 @@ namespace Wino.Core.Domain.Entities.Calendar
 
         [Ignore]
         public IAccountCalendar AssignedCalendar { get; set; }
+
+        public CalendarItem CreateRecurrence(DateTime startDate, double durationInSeconds)
+        {
+            // Create a copy with the new start date and duration
+
+            return new CalendarItem
+            {
+                Id = Guid.NewGuid(),
+                Title = Title,
+                Description = Description,
+                Location = Location,
+                StartDate = startDate,
+                DurationInSeconds = durationInSeconds,
+                Recurrence = Recurrence,
+                OrganizerDisplayName = OrganizerDisplayName,
+                OrganizerEmail = OrganizerEmail,
+                RecurringCalendarItemId = Id,
+                AssignedCalendar = AssignedCalendar,
+                CalendarId = CalendarId,
+                CreatedAt = CreatedAt,
+                UpdatedAt = UpdatedAt,
+                Visibility = Visibility,
+                Status = Status,
+                CustomEventColorHex = CustomEventColorHex,
+                HtmlLink = HtmlLink,
+                StartDateOffset = StartDateOffset,
+                EndDateOffset = EndDateOffset,
+                RemoteEventId = RemoteEventId,
+                IsHidden = IsHidden,
+                IsLocked = IsLocked,
+            };
+        }
     }
 }
