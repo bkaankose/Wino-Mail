@@ -84,10 +84,6 @@ namespace Wino.Server
 
         private async void SynchronizationTimerTriggered(object sender, System.Timers.ElapsedEventArgs e)
         {
-            // TODO: Disabled for calendar synchronization. Implement a separate timer for calendar synchronization.
-            // or completely separate contexts for both apps.
-            return;
-
             // Send sync request for all accounts.
 
             var accounts = await _accountService.GetAccountsAsync();
