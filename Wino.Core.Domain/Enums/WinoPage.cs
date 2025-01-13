@@ -29,5 +29,6 @@
         // Calendar
         CalendarPage,
         CalendarSettingsPage,
+        EventDetailsPage
     }
 }

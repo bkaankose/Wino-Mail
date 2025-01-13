@@ -2,6 +2,7 @@
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Views.Abstract;
+using Wino.Core.UWP;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Calendar.Views
@@ -42,5 +43,11 @@ namespace Wino.Calendar.Views
         {
             ManageCalendarDisplayType();
         }
+
+        private void ShellFrameContentNavigated(object sender, Windows.UI.Xaml.Navigation.NavigationEventArgs e)
+            => RealAppBar.ShellFrameContent = (e.Content as BasePage).ShellContent;
+
+        private void AppBarBackButtonClicked(Core.UWP.Controls.WinoAppTitleBar sender, RoutedEventArgs args)
+            => ViewModel.NavigationService.GoBack();
     }
 }

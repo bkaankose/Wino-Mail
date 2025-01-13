@@ -56,6 +56,7 @@
         <coreControls:WinoAppTitleBar
             x:Name="RealAppBar"
             Grid.ColumnSpan="2"
+            BackButtonClicked="AppBarBackButtonClicked"
             Canvas.ZIndex="150"
             ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="Wino Calendar"
@@ -78,7 +79,7 @@
                         Grid.ColumnSpan="3"
                         Background="Transparent" />
 
-                    <Grid ColumnSpacing="12">
+                    <Grid x:Name="ShellContentArea" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="3*" />
                             <ColumnDefinition Width="7*" />
@@ -137,6 +138,7 @@
                     </Grid>
 
                     <calendarControls:WinoCalendarTypeSelectorControl
+                        x:Name="CalendarTypeSelector"
                         Grid.Column="2"
                         HorizontalAlignment="Right"
                         DisplayDayCount="{x:Bind ViewModel.StatePersistenceService.DayDisplayCount, Mode=OneWay}"
@@ -165,7 +167,7 @@
             IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
             PaneBackground="Transparent">
             <SplitView.Pane>
-                <Grid Padding="0,30,0,6">
+                <Grid Padding="0,20,0,6">
                     <Grid.RowDefinitions>
 
                         <RowDefinition Height="Auto" />
@@ -184,6 +186,7 @@
 
                     <!--  Account Calendars Host  -->
                     <ListView
+                        x:Name="CalendarHostListView"
                         Grid.Row="1"
                         ItemsSource="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendars}"
                         SelectionMode="None">
@@ -320,7 +323,8 @@
                     <Frame
                         x:Name="ShellFrame"
                         Padding="0,0,7,7"
-                        IsNavigationStackEnabled="False">
+                        CacheSize="2"
+                        IsNavigationStackEnabled="True">
                         <Frame.ContentTransitions>
                             <TransitionCollection>
                                 <PopupThemeTransition />
@@ -379,7 +383,23 @@
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
+
+            <VisualStateGroup x:Name="ShellStateContentGroup">
+                <VisualState x:Name="DefaultShellContentState" />
+                <VisualState x:Name="EventDetailsContentState">
+                    <VisualState.Setters>
+                        <Setter Target="ShellContentArea.Visibility" Value="Collapsed" />
+                        <Setter Target="CalendarTypeSelector.Visibility" Value="Collapsed" />
+                        <Setter Target="CalendarView.IsEnabled" Value="False" />
+                        <Setter Target="CalendarHostListView.IsEnabled" Value="False" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ViewModel.IsEventDetailsPageActive, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:AppShellAbstract>
+
 

@@ -125,6 +125,7 @@ namespace Wino.Calendar.ViewModels
         private const int maxDayRangeSize = 10;
 
         private readonly ICalendarService _calendarService;
+        private readonly INavigationService _navigationService;
         private readonly IKeyPressService _keyPressService;
         private readonly IPreferencesService _preferencesService;
 
@@ -143,6 +144,7 @@ namespace Wino.Calendar.ViewModels
 
         public CalendarPageViewModel(IStatePersistanceService statePersistanceService,
                                      ICalendarService calendarService,
+                                     INavigationService navigationService,
                                      IKeyPressService keyPressService,
                                      IAccountCalendarStateService accountCalendarStateService,
                                      IPreferencesService preferencesService)
@@ -151,6 +153,7 @@ namespace Wino.Calendar.ViewModels
             AccountCalendarStateService = accountCalendarStateService;
 
             _calendarService = calendarService;
+            _navigationService = navigationService;
             _keyPressService = keyPressService;
             _preferencesService = preferencesService;
 
@@ -191,6 +194,7 @@ namespace Wino.Calendar.ViewModels
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
+            ;
             // Do not call base method because that will unregister messenger recipient.
             // This is a singleton view model and should not be unregistered.
         }
@@ -198,6 +202,8 @@ namespace Wino.Calendar.ViewModels
         public override void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
+
+            if (mode == NavigationMode.Back) return;
 
             RefreshSettings();
 
@@ -208,7 +214,6 @@ namespace Wino.Calendar.ViewModels
         [RelayCommand]
         private void NavigateSeries()
         {
-
         }
 
         [RelayCommand]
@@ -223,6 +228,7 @@ namespace Wino.Calendar.ViewModels
         private void NavigateEvent(CalendarItemViewModel calendarItemViewModel)
         {
             // Double tap or clicked 'view details' of the event detail popup.
+            _navigationService.Navigate(WinoPage.EventDetailsPage, calendarItemViewModel);
         }
 
         [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]

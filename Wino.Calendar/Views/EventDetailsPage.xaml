@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<abstract:EventDetailsPageAbstract
+    x:Class="Wino.Calendar.Views.EventDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Calendar.Views.Abstract"
+    xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
+    xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:local="using:Wino.Calendar.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:wino="using:Wino.Core.UWP"
+    Style="{StaticResource PageStyle}"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style x:Key="ActionBarElementContainerStackStyle" TargetType="StackPanel">
+            <Setter Property="Spacing" Value="6" />
+            <Setter Property="Padding" Value="10,0,4,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Orientation" Value="Horizontal" />
+        </Style>
+
+        <Style TargetType="AppBarElementContainer">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="EventDetailsPanelGridStyle" TargetType="Grid">
+            <Setter Property="Padding" Value="0,12" />
+            <Setter Property="Margin" Value="12,0" />
+        </Style>
+
+        <Style
+            x:Key="EventDetailsPanelTitleStyle"
+            BasedOn="{StaticResource SubtitleTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Margin" Value="0,0,0,20" />
+        </Style>
+    </Page.Resources>
+    <Grid Padding="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Action Bar  -->
+        <Border
+            VerticalAlignment="Top"
+            Background="{ThemeResource WinoContentZoneBackgroud}"
+            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="7">
+            <CommandBar
+                HorizontalAlignment="Left"
+                Background="Transparent"
+                DefaultLabelPosition="Right"
+                IsSticky="True"
+                OverflowButtonVisibility="Auto">
+                <AppBarToggleButton
+                    x:Name="ReadOnlyToggle"
+                    Content="Read-only event"
+                    IsChecked="True" />
+                <AppBarButton Label="{x:Bind domain:Translator.Buttons_Save}">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Icon="Save" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+                <AppBarButton Label="{x:Bind domain:Translator.Buttons_Delete}">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Icon="Delete" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarSeparator />
+
+                <!--  Join Online  -->
+                <AppBarButton Label="Join Online">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Icon="EventJoinOnline" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarSeparator />
+
+                <!--  Join Options  -->
+                <AppBarButton Label="Accept">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Foreground="#527257" Icon="EventAccept" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton Label="Tentative">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Foreground="#805682" Icon="EventTentative" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton Label="Decline">
+                    <AppBarButton.Icon>
+                        <PathIcon Data="F1 M 10.253906 9.375 L 16.064453 15.185547 C 16.18815 15.309245 16.25 15.455729 16.25 15.625 C 16.25 15.794271 16.18815 15.940756 16.064453 16.064453 C 15.940754 16.188152 15.79427 16.25 15.625 16.25 C 15.455729 16.25 15.309244 16.188152 15.185547 16.064453 L 9.375 10.253906 L 3.564453 16.064453 C 3.440755 16.188152 3.294271 16.25 3.125 16.25 C 2.955729 16.25 2.809245 16.188152 2.685547 16.064453 C 2.561849 15.940756 2.5 15.794271 2.5 15.625 C 2.5 15.455729 2.561849 15.309245 2.685547 15.185547 L 8.496094 9.375 L 2.685547 3.564453 C 2.561849 3.440756 2.5 3.294271 2.5 3.125 C 2.5 2.95573 2.561849 2.809246 2.685547 2.685547 C 2.809245 2.56185 2.955729 2.5 3.125 2.5 C 3.294271 2.5 3.440755 2.56185 3.564453 2.685547 L 9.375 8.496094 L 15.185547 2.685547 C 15.309244 2.56185 15.455729 2.5 15.625 2.5 C 15.79427 2.5 15.940754 2.56185 16.064453 2.685547 C 16.18815 2.809246 16.25 2.95573 16.25 3.125 C 16.25 3.294271 16.18815 3.440756 16.064453 3.564453 Z " Foreground="#d94b4e" />
+
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton Label="Respond">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Foreground="#805682" Icon="EventRespond" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarSeparator />
+
+                <!--  Show as  -->
+                <AppBarElementContainer>
+                    <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
+                        <TextBlock VerticalAlignment="Center" Text="Show as" />
+                        <ComboBox Width="150" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <!--  Reminder  -->
+                <AppBarElementContainer>
+                    <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
+                        <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
+                        <TextBlock VerticalAlignment="Center" Text="Reminder" />
+                        <ComboBox Width="150" />
+                    </StackPanel>
+                </AppBarElementContainer>
+
+                <AppBarSeparator />
+
+                <!--  Edit Series  -->
+                <AppBarButton Label="Edit Series">
+                    <AppBarButton.Icon>
+                        <coreControls:WinoFontIcon Icon="EventEditSeries" />
+                    </AppBarButton.Icon>
+                </AppBarButton>
+            </CommandBar>
+        </Border>
+
+        <!--  Event details  -->
+        <ScrollViewer Grid.Row="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!--  Details  -->
+                <Grid x:Name="DetailsGrid" Style="{StaticResource EventDetailsPanelGridStyle}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="Details" />
+
+                    <Grid Grid.Row="1">
+                        <!--  Read-Only Event  -->
+                        <Grid
+                            x:Name="ReadOnlyDetailsGrid"
+                            RowSpacing="6"
+                            Visibility="{x:Bind ReadOnlyToggle.IsChecked, Mode=OneWay}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!--  Title  -->
+                            <TextBlock Style="{StaticResource SubheaderTextBlockStyle}" Text="{x:Bind ViewModel.CurrentEvent.Title, Mode=OneWay}" />
+
+                            <!--  Date and Duration  -->
+                            <TextBlock Grid.Row="2" Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventDetailsDateString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}" />
+
+                            <!--  Recurrence Info  -->
+                            <Grid
+                                Grid.Row="3"
+                                ColumnSpacing="6"
+                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringEvent}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <coreControls:WinoFontIcon FontSize="14" Icon="CalendarEventRepeat" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent)}" />
+                            </Grid>
+
+                        </Grid>
+
+                        <!--  Editable Event  -->
+                        <Grid Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(ReadOnlyDetailsGrid.Visibility), Mode=OneWay}">
+                            <TextBlock Text="editing" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <!--  People  -->
+                <Grid
+                    x:Name="PeopleGrid"
+                    Grid.Column="1"
+                    Style="{StaticResource EventDetailsPanelGridStyle}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="People" />
+
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <AutoSuggestBox BorderThickness="0" PlaceholderText="Invite someone" />
+
+                        <!--  TODO: Attendees  -->
+                        <ListView Grid.Row="1" />
+                    </Grid>
+                </Grid>
+
+                <!--  Attachments  -->
+                <Grid
+                    x:Name="AttachmentsGrid"
+                    Grid.Column="2"
+                    Style="{StaticResource EventDetailsPanelGridStyle}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="Attachments" />
+
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</abstract:EventDetailsPageAbstract>

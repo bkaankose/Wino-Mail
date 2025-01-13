@@ -12,5 +12,6 @@ namespace Wino.Core.Domain.Interfaces
                              NavigationTransitionType transition = NavigationTransitionType.None);
 
         Type GetPageType(WinoPage winoPage);
+        void GoBack();
     }
 }

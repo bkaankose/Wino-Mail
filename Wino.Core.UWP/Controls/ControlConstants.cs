@@ -91,6 +91,13 @@ namespace Wino.Core.UWP.Controls
             { WinoIconGlyph.CalendarAttendee, "\uE91a" },
             { WinoIconGlyph.CalendarSync, "\uE91d" },
             { WinoIconGlyph.CalendarError, "\uE916" },
+            { WinoIconGlyph.CalendarAttendees, "\uE929" },
+            { WinoIconGlyph.EventEditSeries, "\uE92A" },
+            { WinoIconGlyph.EventTentative, "\uE928" },
+            { WinoIconGlyph.EventAccept, "\uE925" },
+            { WinoIconGlyph.EventRespond, "\uE924" },
+            { WinoIconGlyph.EventReminder, "\uE923" },
+            { WinoIconGlyph.EventJoinOnline, "\uE926" },
         };
     }
 }

@@ -194,11 +194,5 @@ namespace Wino.Calendar.Controls
 
             WeakReferenceMessenger.Default.Send(new CalendarItemRightTappedMessage(CalendarItem));
         }
-
-        private void ContextFlyoutOpened(object sender, object e)
-        {
-            if (CalendarItem == null) return;
-
-        }
     }
 }

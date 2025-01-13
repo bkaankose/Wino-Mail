@@ -7,6 +7,7 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     d:DesignHeight="300"
     d:DesignWidth="400"
     CanDrag="True"
@@ -27,11 +28,12 @@
         </Grid.ColumnDefinitions>
 
         <Grid.ContextFlyout>
-            <MenuFlyout Opened="ContextFlyoutOpened">
-                <MenuFlyoutItem Text="as" />
-                <MenuFlyoutItem Text="as" />
-                <MenuFlyoutItem Text="as" />
-            </MenuFlyout>
+            <local:CalendarItemCommandBarFlyout Placement="Top">
+                <local:CalendarItemCommandBarFlyout.PrimaryCommands>
+                    <AppBarButton Icon="Save" Label="save" />
+                    <AppBarButton Icon="Delete" Label="Delet" />
+                </local:CalendarItemCommandBarFlyout.PrimaryCommands>
+            </local:CalendarItemCommandBarFlyout>
         </Grid.ContextFlyout>
 
         <Grid
@@ -143,7 +145,6 @@
 
                 <VisualState x:Name="MultiDayEvent">
                     <VisualState.Setters>
-
                         <Setter Target="MainGrid.CornerRadius" Value="0" />
                         <Setter Target="MainBackground.Opacity" Value="0.2" />
                         <Setter Target="MainGrid.IsHitTestVisible" Value="False" />

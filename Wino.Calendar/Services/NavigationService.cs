@@ -25,8 +25,22 @@ namespace Wino.Calendar.Services
                 WinoPage.ManageAccountsPage => typeof(ManageAccountsPage),
                 WinoPage.PersonalizationPage => typeof(PersonalizationPage),
                 WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
+                WinoPage.EventDetailsPage => typeof(EventDetailsPage),
                 _ => throw new Exception("Page is not implemented yet."),
             };
+        }
+
+        public void GoBack()
+        {
+            if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
+            {
+                var shellFrame = shellPage.GetShellFrame();
+
+                if (shellFrame.CanGoBack)
+                {
+                    shellFrame.GoBack();
+                }
+            }
         }
 
         public bool Navigate(WinoPage page, object parameter = null, NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame, NavigationTransitionType transition = NavigationTransitionType.None)

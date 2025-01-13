@@ -17,7 +17,10 @@
 
                             <CommandBar.PrimaryCommands>
                                 <!--  Today  -->
-                                <AppBarButton x:Name="PART_TodayButton" Label="Today">
+                                <AppBarButton
+                                    x:Name="PART_TodayButton"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Today">
                                     <AppBarButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarToday" />
                                     </AppBarButton.Icon>
@@ -27,7 +30,10 @@
 
                                 <!--  Day  -->
                                 <!--  TODO: Specific days  -->
-                                <AppBarToggleButton x:Name="PART_DayToggle" Label="Day">
+                                <AppBarToggleButton
+                                    x:Name="PART_DayToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Day">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarDay" />
                                     </AppBarToggleButton.Icon>
@@ -36,21 +42,30 @@
                                 <!--  Week  -->
                                 <!--  TODO: Work week  -->
 
-                                <AppBarToggleButton x:Name="PART_WeekToggle" Label="Week">
+                                <AppBarToggleButton
+                                    x:Name="PART_WeekToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Week">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarWeek" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
                                 <!--  Month  -->
-                                <AppBarToggleButton x:Name="PART_MonthToggle" Label="Month">
+                                <AppBarToggleButton
+                                    x:Name="PART_MonthToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Month">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon FontSize="44" Icon="CalendarMonth" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
                                 <!--  Year  -->
-                                <AppBarToggleButton x:Name="PART_YearToggle" Label="Year">
+                                <AppBarToggleButton
+                                    x:Name="PART_YearToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Year">
                                     <AppBarToggleButton.Icon>
                                         <controls1:WinoFontIcon Icon="CalendarYear" />
                                     </AppBarToggleButton.Icon>

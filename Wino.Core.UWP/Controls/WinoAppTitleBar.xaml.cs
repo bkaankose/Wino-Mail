@@ -24,6 +24,14 @@ namespace Wino.Core.UWP.Controls
         public static readonly DependencyProperty ReconnectCommandProperty = DependencyProperty.Register(nameof(ReconnectCommand), typeof(ICommand), typeof(WinoAppTitleBar), new PropertyMetadata(null));
         public static readonly DependencyProperty ShrinkShellContentOnExpansionProperty = DependencyProperty.Register(nameof(ShrinkShellContentOnExpansion), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(true));
         public static readonly DependencyProperty IsDragAreaProperty = DependencyProperty.Register(nameof(IsDragArea), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, new PropertyChangedCallback(OnIsDragAreaChanged)));
+        public static readonly DependencyProperty IsShellFrameContentVisibleProperty = DependencyProperty.Register(nameof(IsShellFrameContentVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(true));
+
+
+        public bool IsShellFrameContentVisible
+        {
+            get { return (bool)GetValue(IsShellFrameContentVisibleProperty); }
+            set { SetValue(IsShellFrameContentVisibleProperty, value); }
+        }
 
         public ICommand ReconnectCommand
         {

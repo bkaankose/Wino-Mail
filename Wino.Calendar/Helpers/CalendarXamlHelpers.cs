@@ -1,4 +1,7 @@
 ﻿using System.Linq;
+using System.Text.RegularExpressions;
+using Ical.Net.CalendarComponents;
+using Ical.Net.DataTypes;
 using Windows.UI.Xaml.Controls.Primitives;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
@@ -13,6 +16,61 @@ namespace Wino.Calendar.Helpers
     {
         public static CalendarItemViewModel GetFirstAllDayEvent(CalendarEventCollection collection)
             => (CalendarItemViewModel)collection.AllDayEvents.FirstOrDefault();
+
+        /// <summary>
+        /// Returns full date + duration info in Event Details page details title.
+        /// </summary>
+        public static string GetEventDetailsDateString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
+        {
+            if (calendarItemViewModel == null || settings == null) return string.Empty;
+
+            var start = calendarItemViewModel.Period.Start;
+            var end = calendarItemViewModel.Period.End;
+
+            string timeFormat = settings.DayHeaderDisplayType == DayHeaderDisplayType.TwelveHour ? "h:mm tt" : "HH:mm";
+            string dateFormat = settings.DayHeaderDisplayType == DayHeaderDisplayType.TwelveHour ? "dddd, dd MMMM h:mm tt" : "dddd, dd MMMM HH:mm";
+
+            if (calendarItemViewModel.IsMultiDayEvent)
+            {
+                return $"{start.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)} - {end.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)}";
+            }
+            else
+            {
+                return $"{start.ToString(dateFormat, settings.CultureInfo)} - {end.ToString(timeFormat, settings.CultureInfo)}";
+            }
+        }
+
+        public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel)
+        {
+            if (calendarItemViewModel == null || !calendarItemViewModel.IsRecurringEvent) return string.Empty;
+
+            // Parse recurrence rules
+            var calendarEvent = new CalendarEvent
+            {
+                Start = new CalDateTime(calendarItemViewModel.StartDate),
+                End = new CalDateTime(calendarItemViewModel.EndDate),
+            };
+
+            var recurrenceLines = Regex.Split(calendarItemViewModel.CalendarItem.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
+
+            foreach (var line in recurrenceLines)
+            {
+                calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
+            }
+
+            if (calendarEvent.RecurrenceRules == null || !calendarEvent.RecurrenceRules.Any())
+            {
+                return "No recurrence pattern.";
+            }
+
+            var recurrenceRule = calendarEvent.RecurrenceRules.First();
+            var daysOfWeek = string.Join(", ", recurrenceRule.ByDay.Select(day => day.DayOfWeek.ToString()));
+            string timeZone = calendarEvent.DtStart.TzId ?? "UTC";
+
+            return $"Every {daysOfWeek}, effective {calendarEvent.DtStart.Value.ToShortDateString()} " +
+                   $"from {calendarEvent.DtStart.Value.ToShortTimeString()} to {calendarEvent.DtEnd.Value.ToShortTimeString()} " +
+                   $"{timeZone}.";
+        }
 
         public static string GetDetailsPopupDurationString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
         {

@@ -90,7 +90,15 @@ namespace Wino.Core.UWP.Controls
         CalendarError,
         Reminder,
         CalendarAttendee,
+        CalendarAttendees,
         CalendarSync,
+        EventRespond,
+        EventAccept,
+        EventTentative,
+        EventDecline,
+        EventReminder,
+        EventEditSeries,
+        EventJoinOnline,
     }
 
     public class WinoFontIcon : FontIcon

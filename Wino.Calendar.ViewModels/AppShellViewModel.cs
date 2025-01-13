@@ -27,15 +27,17 @@ namespace Wino.Calendar.ViewModels
         IRecipient<VisibleDateRangeChangedMessage>,
         IRecipient<CalendarEnableStatusChangedMessage>,
         IRecipient<NavigateManageAccountsRequested>,
-        IRecipient<CalendarDisplayTypeChangedMessage>
+        IRecipient<CalendarDisplayTypeChangedMessage>,
+        IRecipient<DetailsPageStateChangedMessage>
     {
-
-
         public IPreferencesService PreferencesService { get; }
         public IStatePersistanceService StatePersistenceService { get; }
         public IAccountCalendarStateService AccountCalendarStateService { get; }
         public INavigationService NavigationService { get; }
         public IWinoServerConnectionManager ServerConnectionManager { get; }
+
+        [ObservableProperty]
+        private bool _isEventDetailsPageActive;
 
         [ObservableProperty]
         private int _selectedMenuItemIndex = -1;
@@ -348,9 +350,18 @@ namespace Wino.Calendar.ViewModels
 
         public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
 
-        public void Receive(CalendarDisplayTypeChangedMessage message)
+        public void Receive(CalendarDisplayTypeChangedMessage message) => OnPropertyChanged(nameof(IsVerticalCalendar));
+
+        public async void Receive(DetailsPageStateChangedMessage message)
         {
-            OnPropertyChanged(nameof(IsVerticalCalendar));
+            await ExecuteUIThread(() =>
+            {
+                IsEventDetailsPageActive = message.IsActivated;
+
+                // TODO: This is for Wino Mail. Generalize this later on.
+                StatePersistenceService.IsReaderNarrowed = message.IsActivated;
+                StatePersistenceService.IsReadingMail = message.IsActivated;
+            });
         }
     }
 }

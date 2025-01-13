@@ -140,6 +140,7 @@
     </Compile>
     <Compile Include="Args\TimelineCellSelectedArgs.cs" />
     <Compile Include="Args\TimelineCellUnselectedArgs.cs" />
+    <Compile Include="Controls\CalendarItemCommandBarFlyout.cs" />
     <Compile Include="Controls\CalendarItemControl.xaml.cs">
       <DependentUpon>CalendarItemControl.xaml</DependentUpon>
     </Compile>
@@ -172,6 +173,7 @@
     <Compile Include="Views\Abstract\AppShellAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarPageAbstract.cs" />
     <Compile Include="Views\Abstract\CalendarSettingsPageAbstract.cs" />
+    <Compile Include="Views\Abstract\EventDetailsPageAbstract.cs" />
     <Compile Include="Views\Abstract\PersonalizationPageAbstract.cs" />
     <Compile Include="Views\Account\AccountManagementPage.xaml.cs">
       <DependentUpon>AccountManagementPage.xaml</DependentUpon>
@@ -181,6 +183,9 @@
     </Compile>
     <Compile Include="Views\CalendarPage.xaml.cs">
       <DependentUpon>CalendarPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\EventDetailsPage.xaml.cs">
+      <DependentUpon>EventDetailsPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Views\Settings\AccountDetailsPage.xaml.cs">
       <DependentUpon>AccountDetailsPage.xaml</DependentUpon>
@@ -298,6 +303,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\CalendarPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\EventDetailsPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
