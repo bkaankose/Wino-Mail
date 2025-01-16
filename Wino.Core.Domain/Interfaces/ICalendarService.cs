@@ -19,5 +19,14 @@ namespace Wino.Core.Domain.Interfaces
         Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel);
         Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
         Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
+
+        /// <summary>
+        /// Returns the correct calendar item based on the target details.
+        /// </summary>
+        /// <param name="targetDetails">Target details.</param>
+        Task<CalendarItem> GetCalendarItemTargetAsync(CalendarItemTarget targetDetails);
+        Task<CalendarItem> GetCalendarItemAsync(Guid id);
+        Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
+        Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     }
 }

@@ -25,7 +25,7 @@ namespace Wino.Core.UWP.Controls
         public static readonly DependencyProperty ShrinkShellContentOnExpansionProperty = DependencyProperty.Register(nameof(ShrinkShellContentOnExpansion), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(true));
         public static readonly DependencyProperty IsDragAreaProperty = DependencyProperty.Register(nameof(IsDragArea), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(false, new PropertyChangedCallback(OnIsDragAreaChanged)));
         public static readonly DependencyProperty IsShellFrameContentVisibleProperty = DependencyProperty.Register(nameof(IsShellFrameContentVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(true));
-
+        public static readonly DependencyProperty IsMenuButtonVisibleProperty = DependencyProperty.Register(nameof(IsMenuButtonVisible), typeof(bool), typeof(WinoAppTitleBar), new PropertyMetadata(true));
 
         public bool IsShellFrameContentVisible
         {
@@ -93,6 +93,15 @@ namespace Wino.Core.UWP.Controls
             get { return (double)GetValue(OpenPaneLengthProperty); }
             set { SetValue(OpenPaneLengthProperty, value); }
         }
+
+
+
+        public bool IsMenuButtonVisible
+        {
+            get { return (bool)GetValue(IsMenuButtonVisibleProperty); }
+            set { SetValue(IsMenuButtonVisibleProperty, value); }
+        }
+
 
         public bool IsBackButtonVisible
         {
@@ -206,8 +215,14 @@ namespace Wino.Core.UWP.Controls
                 }
                 else
                 {
-                    // EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Pixel);
-                    EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Star);
+                    if (ShrinkShellContentOnExpansion)
+                    {
+                        EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Pixel);
+                    }
+                    else
+                    {
+                        EmptySpaceWidth.Width = new GridLength(ReadingPaneLength, GridUnitType.Star);
+                    }
                 }
             }
         }

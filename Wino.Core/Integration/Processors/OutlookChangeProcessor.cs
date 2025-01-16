@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Graph.Models;
 using Serilog;
@@ -44,9 +45,6 @@ namespace Wino.Core.Integration.Processors
 
         public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
         {
-            // TODO: Make sure to call this method ordered by type:SeriesMaster first.
-            // otherwise we might lose exceptions.s
-
             // We parse the occurrences based on the parent event.
             // There is literally no point to store them because
             // type=Exception events are the exceptional childs of recurrency parent event.
@@ -140,6 +138,14 @@ namespace Wino.Core.Integration.Processors
 
             // Upsert the event.
             await Connection.InsertOrReplaceAsync(savingItem);
+
+            // Manage attendees.
+            if (calendarEvent.Attendees != null)
+            {
+                // Clear all attendees for this event.
+                var attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
+                await CalendarService.ManageEventAttendeesAsync(savingItemId, attendees).ConfigureAwait(false);
+            }
         }
     }
 }

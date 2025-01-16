@@ -380,7 +380,7 @@
                                 HorizontalAlignment="Stretch"
                                 Command="{x:Bind ViewModel.NavigateSeriesCommand}"
                                 Content="{x:Bind domain:Translator.CalendarItem_DetailsPopup_ViewSeriesButton}"
-                                Visibility="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.CalendarItem.IsRecurringEvent, Mode=OneWay}" />
+                                Visibility="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.IsRecurringEvent, Mode=OneWay}" />
 
                             <Button
                                 Grid.Column="1"

@@ -964,7 +964,7 @@ namespace Wino.Core.Synchronizers.Mail
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+            await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
             var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 

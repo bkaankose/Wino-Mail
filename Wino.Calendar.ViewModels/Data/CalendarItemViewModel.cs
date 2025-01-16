@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
@@ -25,15 +26,15 @@ namespace Wino.Calendar.ViewModels.Data
         public ITimePeriod Period => CalendarItem.Period;
 
         public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
-
         public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
-
         public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
-
-        public bool IsSingleExceptionalInstance => CalendarItem.IsSingleExceptionalInstance;
+        public bool IsRecurringChild => CalendarItem.IsRecurringChild;
+        public bool IsRecurringParent => CalendarItem.IsRecurringParent;
 
         [ObservableProperty]
         private bool _isSelected;
+
+        public ObservableCollection<CalendarEventAttendee> Attendees { get; } = new ObservableCollection<CalendarEventAttendee>();
 
         public CalendarItemViewModel(CalendarItem calendarItem)
         {

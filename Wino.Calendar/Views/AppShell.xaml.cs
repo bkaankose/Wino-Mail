@@ -14,6 +14,7 @@ namespace Wino.Calendar.Views
         private const string STATE_VerticalCalendar = "VerticalCalendar";
 
         public Frame GetShellFrame() => ShellFrame;
+
         public AppShell()
         {
             InitializeComponent();

@@ -194,7 +194,6 @@ namespace Wino.Calendar.ViewModels
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)
         {
-            ;
             // Do not call base method because that will unregister messenger recipient.
             // This is a singleton view model and should not be unregistered.
         }
@@ -214,6 +213,9 @@ namespace Wino.Calendar.ViewModels
         [RelayCommand]
         private void NavigateSeries()
         {
+            if (DisplayDetailsCalendarItemViewModel == null) return;
+
+            NavigateEvent(DisplayDetailsCalendarItemViewModel, CalendarEventTargetType.Series);
         }
 
         [RelayCommand]
@@ -221,14 +223,13 @@ namespace Wino.Calendar.ViewModels
         {
             if (DisplayDetailsCalendarItemViewModel == null) return;
 
-            NavigateEvent(DisplayDetailsCalendarItemViewModel);
+            NavigateEvent(DisplayDetailsCalendarItemViewModel, CalendarEventTargetType.Single);
         }
 
-        [RelayCommand]
-        private void NavigateEvent(CalendarItemViewModel calendarItemViewModel)
+        private void NavigateEvent(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType calendarEventTargetType)
         {
-            // Double tap or clicked 'view details' of the event detail popup.
-            _navigationService.Navigate(WinoPage.EventDetailsPage, calendarItemViewModel);
+            var target = new CalendarItemTarget(calendarItemViewModel.CalendarItem, calendarEventTargetType);
+            _navigationService.Navigate(WinoPage.EventDetailsPage, target);
         }
 
         [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]
@@ -799,7 +800,7 @@ namespace Wino.Calendar.ViewModels
             // Recurring events must be selected as a single instance.
             // We need to find the day that the event is in, and then select the event.
 
-            if (calendarItemViewModel.IsSingleExceptionalInstance)
+            if (!calendarItemViewModel.IsRecurringEvent)
             {
                 return [calendarItemViewModel];
             }
@@ -845,7 +846,7 @@ namespace Wino.Calendar.ViewModels
             DisplayDetailsCalendarItemViewModel = message.CalendarItemViewModel;
         }
 
-        public void Receive(CalendarItemDoubleTappedMessage message) => NavigateEvent(message.CalendarItemViewModel);
+        public void Receive(CalendarItemDoubleTappedMessage message) => NavigateEvent(message.CalendarItemViewModel, CalendarEventTargetType.Single);
 
         public void Receive(CalendarItemRightTappedMessage message)
         {

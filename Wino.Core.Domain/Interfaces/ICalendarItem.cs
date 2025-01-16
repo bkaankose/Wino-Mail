@@ -13,9 +13,11 @@ namespace Wino.Core.Domain.Interfaces
         double DurationInSeconds { get; set; }
         ITimePeriod Period { get; }
 
-        bool IsRecurringEvent { get; }
         bool IsAllDayEvent { get; }
         bool IsMultiDayEvent { get; }
-        bool IsSingleExceptionalInstance { get; }
+
+        bool IsRecurringChild { get; }
+        bool IsRecurringParent { get; }
+        bool IsRecurringEvent { get; }
     }
 }

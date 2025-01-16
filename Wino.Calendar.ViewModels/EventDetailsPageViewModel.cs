@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -27,7 +28,10 @@ namespace Wino.Calendar.ViewModels
         [NotifyPropertyChangedFor(nameof(CanViewSeries))]
         private CalendarItemViewModel _currentEvent;
 
-        public bool CanViewSeries => CurrentEvent?.CalendarItem.RecurringCalendarItemId != null;
+        [ObservableProperty]
+        private CalendarItemViewModel _seriesParent;
+
+        public bool CanViewSeries => CurrentEvent?.IsRecurringChild ?? false;
 
         #endregion
 
@@ -40,16 +44,40 @@ namespace Wino.Calendar.ViewModels
             CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         }
 
-        public override void OnNavigatedTo(NavigationMode mode, object parameters)
+        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
         {
             base.OnNavigatedTo(mode, parameters);
 
             Messenger.Send(new DetailsPageStateChangedMessage(true));
 
-            if (parameters == null || parameters is not CalendarItemViewModel passedCalendarItem)
+            if (parameters == null || parameters is not CalendarItemTarget args)
                 return;
 
-            CurrentEvent = passedCalendarItem;
+            await LoadCalendarItemTargetAsync(args);
+        }
+
+        private async Task LoadCalendarItemTargetAsync(CalendarItemTarget target)
+        {
+            try
+            {
+                var currentEventItem = await _calendarService.GetCalendarItemTargetAsync(target);
+
+                if (currentEventItem == null)
+                    return;
+
+                CurrentEvent = new CalendarItemViewModel(currentEventItem);
+
+                var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.EventTrackingId);
+
+                foreach (var item in attendees)
+                {
+                    CurrentEvent.Attendees.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
         }
 
         public override void OnNavigatedFrom(NavigationMode mode, object parameters)

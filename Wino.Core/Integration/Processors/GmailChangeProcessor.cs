@@ -163,59 +163,59 @@ namespace Wino.Core.Integration.Processors
                 // Attendees
                 var attendees = new List<CalendarEventAttendee>();
 
-                //if (calendarEvent.Attendees == null)
-                //{
-                //    // Self-only event.
+                if (calendarEvent.Attendees == null)
+                {
+                    // Self-only event.
 
-                //    attendees.Add(new CalendarEventAttendee()
-                //    {
-                //        CalendarItemId = calendarItem.Id,
-                //        IsOrganizer = true,
-                //        Email = organizerAccount.Address,
-                //        Name = organizerAccount.SenderName,
-                //        AttendenceStatus = AttendeeStatus.Accepted,
-                //        Id = Guid.NewGuid(),
-                //        IsOptionalAttendee = false,
-                //    });
-                //}
-                //else
-                //{
-                //    foreach (var attendee in calendarEvent.Attendees)
-                //    {
-                //        if (attendee.Self == true)
-                //        {
-                //            // TODO: 
-                //        }
-                //        else if (!string.IsNullOrEmpty(attendee.Email))
-                //        {
-                //            AttendeeStatus GetAttendenceStatus(string responseStatus)
-                //            {
-                //                return responseStatus switch
-                //                {
-                //                    "accepted" => AttendeeStatus.Accepted,
-                //                    "declined" => AttendeeStatus.Declined,
-                //                    "tentative" => AttendeeStatus.Tentative,
-                //                    "needsAction" => AttendeeStatus.NeedsAction,
-                //                    _ => AttendeeStatus.NeedsAction
-                //                };
-                //            }
+                    attendees.Add(new CalendarEventAttendee()
+                    {
+                        CalendarItemId = calendarItem.Id,
+                        IsOrganizer = true,
+                        Email = organizerAccount.Address,
+                        Name = organizerAccount.SenderName,
+                        AttendenceStatus = AttendeeStatus.Accepted,
+                        Id = Guid.NewGuid(),
+                        IsOptionalAttendee = false,
+                    });
+                }
+                else
+                {
+                    foreach (var attendee in calendarEvent.Attendees)
+                    {
+                        if (attendee.Self == true)
+                        {
+                            // TODO: 
+                        }
+                        else if (!string.IsNullOrEmpty(attendee.Email))
+                        {
+                            AttendeeStatus GetAttendenceStatus(string responseStatus)
+                            {
+                                return responseStatus switch
+                                {
+                                    "accepted" => AttendeeStatus.Accepted,
+                                    "declined" => AttendeeStatus.Declined,
+                                    "tentative" => AttendeeStatus.Tentative,
+                                    "needsAction" => AttendeeStatus.NeedsAction,
+                                    _ => AttendeeStatus.NeedsAction
+                                };
+                            }
 
-                //            var eventAttendee = new CalendarEventAttendee()
-                //            {
-                //                CalendarItemId = calendarItem.Id,
-                //                IsOrganizer = attendee.Organizer ?? false,
-                //                Comment = attendee.Comment,
-                //                Email = attendee.Email,
-                //                Name = attendee.DisplayName,
-                //                AttendenceStatus = GetAttendenceStatus(attendee.ResponseStatus),
-                //                Id = Guid.NewGuid(),
-                //                IsOptionalAttendee = attendee.Optional ?? false,
-                //            };
+                            var eventAttendee = new CalendarEventAttendee()
+                            {
+                                CalendarItemId = calendarItem.Id,
+                                IsOrganizer = attendee.Organizer ?? false,
+                                Comment = attendee.Comment,
+                                Email = attendee.Email,
+                                Name = attendee.DisplayName,
+                                AttendenceStatus = GetAttendenceStatus(attendee.ResponseStatus),
+                                Id = Guid.NewGuid(),
+                                IsOptionalAttendee = attendee.Optional ?? false,
+                            };
 
-                //            attendees.Add(eventAttendee);
-                //        }
-                //    }
-                //}
+                            attendees.Add(eventAttendee);
+                        }
+                    }
+                }
 
                 await CalendarService.CreateNewCalendarItemAsync(calendarItem, attendees);
             }

@@ -247,6 +247,38 @@ namespace Wino.Core.Extensions
             }
         }
 
+        private static AttendeeStatus GetAttendeeStatus(ResponseType? responseType)
+        {
+            return responseType switch
+            {
+                ResponseType.None => AttendeeStatus.NeedsAction,
+                ResponseType.NotResponded => AttendeeStatus.NeedsAction,
+                ResponseType.Organizer => AttendeeStatus.Accepted,
+                ResponseType.TentativelyAccepted => AttendeeStatus.Tentative,
+                ResponseType.Accepted => AttendeeStatus.Accepted,
+                ResponseType.Declined => AttendeeStatus.Declined,
+                _ => AttendeeStatus.NeedsAction
+            };
+        }
+
+        public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId)
+        {
+            bool isOrganizer = attendee?.Status?.Response == ResponseType.Organizer;
+
+            var eventAttendee = new CalendarEventAttendee()
+            {
+                CalendarItemId = calendarItemId,
+                Id = Guid.NewGuid(),
+                Email = attendee.EmailAddress?.Address,
+                Name = attendee.EmailAddress?.Name,
+                AttendenceStatus = GetAttendeeStatus(attendee.Status.Response),
+                IsOrganizer = isOrganizer,
+                IsOptionalAttendee = attendee.Type == AttendeeType.Optional,
+            };
+
+            return eventAttendee;
+        }
+
         #region Mime to Outlook Message Helpers
 
         private static IEnumerable<Recipient> GetRecipients(this InternetAddressList internetAddresses)

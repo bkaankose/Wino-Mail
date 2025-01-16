@@ -49,6 +49,8 @@ namespace Wino.Calendar.Views
         {
             base.OnNavigatedTo(e);
 
+            if (e.NavigationMode == NavigationMode.Back) return;
+
             if (e.Parameter is CalendarPageNavigationArgs args)
             {
                 if (args.RequestDefaultNavigation)

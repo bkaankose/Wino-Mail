@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using Ical.Net.DataTypes;
 using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
@@ -178,6 +180,16 @@ namespace Wino.Services
         public Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
             => Connection.GetAsync<AccountCalendar>(accountCalendarId);
 
+        public Task<CalendarItem> GetCalendarItemAsync(Guid id)
+        {
+            var query = new Query()
+                .From(nameof(CalendarItem))
+                .Where(nameof(CalendarItem.Id), id);
+
+            var rawQuery = query.GetRawQuery();
+            return Connection.FindWithQueryAsync<CalendarItem>(rawQuery);
+        }
+
         public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
         {
             var query = new Query()
@@ -206,6 +218,89 @@ namespace Wino.Services
                 .AsUpdate(new { SynchronizationDeltaToken = deltaToken });
 
             return Connection.ExecuteAsync(query.GetRawQuery());
+        }
+
+        public Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId)
+            => Connection.Table<CalendarEventAttendee>().Where(x => x.CalendarItemId == calendarEventTrackingId).ToListAsync();
+
+        public async Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees)
+        {
+            await Connection.RunInTransactionAsync((connection) =>
+            {
+                // Clear all attendees.
+                var query = new Query()
+                    .From(nameof(CalendarEventAttendee))
+                    .Where(nameof(CalendarEventAttendee.CalendarItemId), calendarItemId)
+                    .AsDelete();
+
+                connection.Execute(query.GetRawQuery());
+
+                // Insert new attendees.
+                connection.InsertAll(allAttendees);
+            });
+
+            return await Connection.Table<CalendarEventAttendee>().Where(a => a.CalendarItemId == calendarItemId).ToListAsync();
+        }
+
+        public async Task<CalendarItem> GetCalendarItemTargetAsync(CalendarItemTarget targetDetails)
+        {
+            var eventId = targetDetails.Item.Id;
+
+            // Get the event by Id first.
+            var item = await GetCalendarItemAsync(eventId).ConfigureAwait(false);
+
+            bool isRecurringChild = targetDetails.Item.IsRecurringChild;
+            bool isRecurringParent = targetDetails.Item.IsRecurringParent;
+
+            if (targetDetails.TargetType == CalendarEventTargetType.Single)
+            {
+                if (isRecurringChild)
+                {
+                    if (item == null)
+                    {
+                        // This is an occurrence of a recurring event.
+                        // They don't exist in db.
+
+                        return targetDetails.Item;
+                    }
+                    else
+                    {
+                        // Single exception occurrence of recurring event.
+                        // Return the item.
+
+                        return item;
+                    }
+                }
+                else if (isRecurringParent)
+                {
+                    // Parent recurring events are never listed.
+                    Debugger.Break();
+                    return null;
+                }
+                else
+                {
+                    // Single event.
+                    return item;
+                }
+            }
+            else
+            {
+                // Series.
+
+                if (isRecurringChild)
+                {
+                    // Return the parent.
+                    return await GetCalendarItemAsync(targetDetails.Item.RecurringCalendarItemId.Value).ConfigureAwait(false);
+                }
+                else if (isRecurringParent)
+                    return item;
+                else
+                {
+                    // NA. Single events don't have series.
+                    Debugger.Break();
+                    return null;
+                }
+            }
         }
     }
 }

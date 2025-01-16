@@ -136,6 +136,8 @@ namespace Wino.Services
             return false;
         }
 
+        public void GoBack() => throw new NotImplementedException("GoBack method is not implemented in Wino Mail.");
+
         // Standalone EML viewer.
         //public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)
         //{

@@ -45,7 +45,8 @@
                     BorderBrush="Transparent"
                     Click="PaneClicked"
                     FocusVisualPrimaryThickness="0"
-                    FocusVisualSecondaryThickness="0">
+                    FocusVisualSecondaryThickness="0"
+                    Visibility="{x:Bind IsMenuButtonVisible, Mode=OneWay}">
                     <muxc:AnimatedIcon Width="16">
                         <muxc:AnimatedIcon.Source>
                             <animatedvisuals:AnimatedGlobalNavigationButtonVisualSource />

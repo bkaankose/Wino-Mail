@@ -42,7 +42,7 @@ namespace Wino.Calendar.Helpers
 
         public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel)
         {
-            if (calendarItemViewModel == null || !calendarItemViewModel.IsRecurringEvent) return string.Empty;
+            if (calendarItemViewModel == null || !calendarItemViewModel.IsRecurringChild) return string.Empty;
 
             // Parse recurrence rules
             var calendarEvent = new CalendarEvent

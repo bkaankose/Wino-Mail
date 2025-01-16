@@ -55,25 +55,31 @@ namespace Wino.Core.Domain.Entities.Calendar
         }
 
         /// <summary>
-        /// Events that are either an exceptional instance of a recurring event or a recurring event itself.
+        /// Events that are either an exceptional instance of a recurring event or occurrences.
+        /// IsOccurrence is used to display occurrence instances of parent recurring events.
+        /// IsOccurrence == false && IsRecurringChild == true => exceptional single instance.
         /// </summary>
-        public bool IsRecurringEvent
-        {
-            get
-            {
-                return !string.IsNullOrEmpty(Recurrence) || RecurringCalendarItemId != null;
-            }
-        }
-
-        /// <summary>
-        /// Events that are belong to parent recurring event, but updated individually are considered single exceptional instances.
-        /// They will have different Id of their own.
-        /// </summary>
-        public bool IsSingleExceptionalInstance
+        public bool IsRecurringChild
         {
             get
             {
                 return RecurringCalendarItemId != null;
+            }
+        }
+
+        /// <summary>
+        /// Events that are either an exceptional instance of a recurring event or occurrences.
+        /// </summary>
+        public bool IsRecurringEvent => IsRecurringChild || IsRecurringParent;
+
+        /// <summary>
+        /// Events that are the master event definition of recurrence events.
+        /// </summary>
+        public bool IsRecurringParent
+        {
+            get
+            {
+                return !string.IsNullOrEmpty(Recurrence) && RecurringCalendarItemId == null;
             }
         }
 
@@ -124,6 +130,20 @@ namespace Wino.Core.Domain.Entities.Calendar
         [Ignore]
         public IAccountCalendar AssignedCalendar { get; set; }
 
+        /// <summary>
+        /// Whether this item does not really exist in the database or not.
+        /// These are used to display occurrence instances of parent recurring events.
+        /// </summary>
+        [Ignore]
+        public bool IsOccurrence { get; set; }
+
+        /// <summary>
+        /// Id to load information related to this event.
+        /// Occurrences tracked by the parent recurring event if they are not exceptional instances.
+        /// Recurring children here are exceptional instances. They have their own info in the database including Id.
+        /// </summary>
+        public Guid EventTrackingId => IsOccurrence ? RecurringCalendarItemId.Value : Id;
+
         public CalendarItem CreateRecurrence(DateTime startDate, double durationInSeconds)
         {
             // Create a copy with the new start date and duration
@@ -153,6 +173,7 @@ namespace Wino.Core.Domain.Entities.Calendar
                 RemoteEventId = RemoteEventId,
                 IsHidden = IsHidden,
                 IsLocked = IsLocked,
+                IsOccurrence = true
             };
         }
     }
