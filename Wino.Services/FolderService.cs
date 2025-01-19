@@ -143,7 +143,7 @@ namespace Wino.Services
                             if (!string.IsNullOrEmpty(unstickyItem.ParentRemoteFolderId))
                                 continue;
                         }
-                        else if (account.ProviderType == MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365)
+                        else if (account.ProviderType == MailProviderType.Outlook)
                         {
                             bool belongsToExistingParent = await Connection
                                 .Table<MailItemFolder>()

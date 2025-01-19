@@ -27,7 +27,7 @@ namespace Wino.Calendar.Services
 
             foreach (var type in providers)
             {
-                providerList.Add(new ProviderDetail(type));
+                providerList.Add(new ProviderDetail(type, SpecialImapProvider.None));
             }
 
             return providerList;

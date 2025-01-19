@@ -193,7 +193,7 @@ namespace Wino.Core.Synchronizers
                     // message will not appear in user's inbox since it's not in the Sent Items folder.
 
                     shouldDelayExecution =
-                        (Account.ProviderType == MailProviderType.Outlook || Account.ProviderType == MailProviderType.Office365)
+                        (Account.ProviderType == MailProviderType.Outlook)
                         && requestCopies.Any(a => a.ResynchronizationDelay > 0);
 
                     if (shouldDelayExecution)

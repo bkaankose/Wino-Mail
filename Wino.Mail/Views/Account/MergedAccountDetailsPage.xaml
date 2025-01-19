@@ -24,7 +24,7 @@
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.ActionIcon>
                     <PathIcon
@@ -45,7 +45,7 @@
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
                 </controls:SettingsCard.HeaderIcon>
 
                 <controls:SettingsCard.ActionIcon>

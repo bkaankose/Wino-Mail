@@ -69,7 +69,6 @@ namespace Wino.Core.Services
             switch (providerType)
             {
                 case Domain.Enums.MailProviderType.Outlook:
-                case Domain.Enums.MailProviderType.Office365:
                     return new OutlookSynchronizer(mailAccount, _outlookAuthenticator, _outlookChangeProcessor);
                 case Domain.Enums.MailProviderType.Gmail:
                     return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor);

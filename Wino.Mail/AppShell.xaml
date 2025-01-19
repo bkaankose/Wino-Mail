@@ -41,7 +41,7 @@
                     </TransitionCollection>
                 </coreControls:WinoNavigationViewItem.ContentTransitions>
                 <muxc:NavigationViewItem.Icon>
-                    <coreControls:WinoFontIcon FontSize="12" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter.ProviderType)}" />
+                    <coreControls:WinoFontIcon FontSize="12" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter)}" />
                 </muxc:NavigationViewItem.Icon>
                 <muxc:NavigationViewItem.InfoBadge>
                     <muxc:InfoBadge
