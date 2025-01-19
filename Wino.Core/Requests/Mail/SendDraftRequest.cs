@@ -28,6 +28,8 @@ namespace Wino.Core.Requests.Mail
             }
         }
 
+        public bool ExcludeMustHaveFolders => false;
+
         public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Send;
 
         public override void ApplyUIChanges()

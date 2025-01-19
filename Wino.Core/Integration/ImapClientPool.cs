@@ -48,10 +48,11 @@ namespace Wino.Core.Integration
 
         public bool ThrowOnSSLHandshakeCallback { get; set; }
         public ImapClientPoolOptions ImapClientPoolOptions { get; }
+        internal WinoImapClient IdleClient { get; set; }
 
         private readonly int MinimumPoolSize = 5;
 
-        private readonly ConcurrentStack<ImapClient> _clients = [];
+        private readonly ConcurrentStack<IImapClient> _clients = [];
         private readonly SemaphoreSlim _semaphore;
         private readonly CustomServerInformation _customServerInformation;
         private readonly Stream _protocolLogStream;
@@ -74,7 +75,7 @@ namespace Wino.Core.Integration
         /// Reconnects and reauthenticates if necessary.
         /// </summary>
         /// <param name="isCreatedNew">Whether the client has been newly created.</param>
-        private async Task EnsureCapabilitiesAsync(ImapClient client, bool isCreatedNew)
+        private async Task EnsureCapabilitiesAsync(IImapClient client, bool isCreatedNew)
         {
             try
             {
@@ -84,6 +85,9 @@ namespace Wino.Core.Integration
 
                 if ((isCreatedNew || isReconnected) && client.IsConnected)
                 {
+                    if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
+                        await client.CompressAsync();
+
                     // Identify if the server supports ID extension.
                     // Some servers require it pre-authentication, some post-authentication.
                     // We'll observe the response here and do it after authentication if needed.
@@ -113,10 +117,11 @@ namespace Wino.Core.Integration
 
                     // Activate post-auth capabilities.
                     if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync))
-                        await client.EnableQuickResyncAsync();
+                    {
+                        await client.EnableQuickResyncAsync().ConfigureAwait(false);
 
-                    if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
-                        await client.CompressAsync();
+                        if (client is WinoImapClient winoImapClient) winoImapClient.IsQResyncEnabled = true;
+                    }
                 }
             }
             catch (Exception ex)
@@ -145,11 +150,11 @@ namespace Wino.Core.Integration
             return reader.ReadToEnd();
         }
 
-        public async Task<ImapClient> GetClientAsync()
+        public async Task<IImapClient> GetClientAsync()
         {
             await _semaphore.WaitAsync();
 
-            if (_clients.TryPop(out ImapClient item))
+            if (_clients.TryPop(out IImapClient item))
             {
                 await EnsureCapabilitiesAsync(item, false);
 
@@ -163,17 +168,21 @@ namespace Wino.Core.Integration
             return client;
         }
 
-        public void Release(ImapClient item, bool destroyClient = false)
+        public void Release(IImapClient item, bool destroyClient = false)
         {
             if (item != null)
             {
                 if (destroyClient)
                 {
-                    lock (item.SyncRoot)
+                    if (item.IsConnected)
                     {
-                        item.Disconnect(true);
+                        lock (item.SyncRoot)
+                        {
+                            item.Disconnect(quit: true);
+                        }
                     }
 
+                    _clients.TryPop(out _);
                     item.Dispose();
                 }
                 else
@@ -185,23 +194,15 @@ namespace Wino.Core.Integration
             }
         }
 
-        public void DestroyClient(ImapClient client)
+        private IImapClient CreateNewClient()
         {
-            if (client == null) return;
-
-            client.Disconnect(true);
-            client.Dispose();
-        }
-
-        private ImapClient CreateNewClient()
-        {
-            ImapClient client = null;
+            WinoImapClient client = null;
 
             // Make sure to create a ImapClient with a protocol logger if enabled.
 
             client = _protocolLogStream != null
-                ? new ImapClient(new ProtocolLogger(_protocolLogStream))
-                : new ImapClient();
+                ? new WinoImapClient(new ProtocolLogger(_protocolLogStream))
+                : new WinoImapClient();
 
             HttpProxyClient proxyClient = null;
 
@@ -213,7 +214,7 @@ namespace Wino.Core.Integration
 
             client.ProxyClient = proxyClient;
 
-            _logger.Debug("Created new ImapClient. Current clients: {Count}", _clients.Count);
+            _logger.Debug("Creating new ImapClient. Current clients: {Count}", _clients.Count);
 
             return client;
         }
@@ -229,7 +230,7 @@ namespace Wino.Core.Integration
             };
 
         /// <returns>True if the connection is newly established.</returns>
-        public async Task<bool> EnsureConnectedAsync(ImapClient client)
+        public async Task<bool> EnsureConnectedAsync(IImapClient client)
         {
             if (client.IsConnected) return false;
 
@@ -263,8 +264,20 @@ namespace Wino.Core.Integration
         {
             if (_protocolLogStream == null) return;
 
-            var messageBytes = Encoding.UTF8.GetBytes($"W: {message}\n");
-            _protocolLogStream.Write(messageBytes, 0, messageBytes.Length);
+            try
+            {
+                var messageBytes = Encoding.UTF8.GetBytes($"W: {message}\n");
+                _protocolLogStream.Write(messageBytes, 0, messageBytes.Length);
+            }
+            catch (ObjectDisposedException)
+            {
+                Log.Warning($"Protocol log stream is disposed. Cannot write to it.");
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         bool MyServerCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
@@ -281,7 +294,7 @@ namespace Wino.Core.Integration
             return true;
         }
 
-        public async Task EnsureAuthenticatedAsync(ImapClient client)
+        public async Task EnsureAuthenticatedAsync(IImapClient client)
         {
             if (client.IsAuthenticated) return;
 
@@ -336,10 +349,7 @@ namespace Wino.Core.Integration
 
             _clients.Clear();
 
-            if (_protocolLogStream != null)
-            {
-                _protocolLogStream.Dispose();
-            }
+            _protocolLogStream?.Dispose();
         }
     }
 }

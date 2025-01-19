@@ -7,10 +7,10 @@ namespace Wino.Core.Requests.Bundles
 {
     public class ImapRequest
     {
-        public Func<ImapClient, IRequestBase, Task> IntegratorTask { get; }
+        public Func<IImapClient, IRequestBase, Task> IntegratorTask { get; }
         public IRequestBase Request { get; }
 
-        public ImapRequest(Func<ImapClient, IRequestBase, Task> integratorTask, IRequestBase request)
+        public ImapRequest(Func<IImapClient, IRequestBase, Task> integratorTask, IRequestBase request)
         {
             IntegratorTask = integratorTask;
             Request = request;
@@ -19,7 +19,7 @@ namespace Wino.Core.Requests.Bundles
 
     public class ImapRequest<TRequestBaseType> : ImapRequest where TRequestBaseType : IRequestBase
     {
-        public ImapRequest(Func<ImapClient, TRequestBaseType, Task> integratorTask, TRequestBaseType request)
+        public ImapRequest(Func<IImapClient, TRequestBaseType, Task> integratorTask, TRequestBaseType request)
             : base((client, request) => integratorTask(client, (TRequestBaseType)request), request)
         {
         }

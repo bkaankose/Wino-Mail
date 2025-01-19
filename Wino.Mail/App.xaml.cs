@@ -233,6 +233,7 @@ namespace Wino
             }
             catch (WinoServerException serverException)
             {
+                // TODO: Exception context is lost.
                 var dialogService = Services.GetService<IMailDialogService>();
 
                 dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);

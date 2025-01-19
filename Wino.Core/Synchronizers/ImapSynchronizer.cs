@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
-using MailKit.Search;
 using MimeKit;
 using MoreLinq;
 using Serilog;
@@ -22,7 +21,6 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Mime;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
@@ -31,56 +29,37 @@ using Wino.Services.Extensions;
 
 namespace Wino.Core.Synchronizers.Mail
 {
-    public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>
+    public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer
     {
-        private CancellationTokenSource idleDoneToken;
-        private CancellationTokenSource cancelInboxListeningToken = new CancellationTokenSource();
+        public override uint BatchModificationSize => 1000;
+        public override uint InitialMessageDownloadCountPerFolder => 250;
 
-        private IMailFolder inboxFolder;
+        #region Idle Implementation
+
+        private CancellationTokenSource idleCancellationTokenSource;
+        private CancellationTokenSource idleDoneTokenSource;
+
+        #endregion
 
         private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
         private readonly ImapClientPool _clientPool;
         private readonly IImapChangeProcessor _imapChangeProcessor;
+        private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
         private readonly IApplicationConfiguration _applicationConfiguration;
-
-        // Minimum summary items to Fetch for mail synchronization from IMAP.
-        private readonly MessageSummaryItems mailSynchronizationFlags =
-            MessageSummaryItems.Flags |
-            MessageSummaryItems.UniqueId |
-            MessageSummaryItems.ThreadId |
-            MessageSummaryItems.EmailId |
-            MessageSummaryItems.Headers |
-            MessageSummaryItems.PreviewText |
-            MessageSummaryItems.GMailThreadId |
-            MessageSummaryItems.References |
-            MessageSummaryItems.ModSeq;
-
-        /// <summary>
-        /// Timer that keeps the <see cref="InboxClient"/> alive for the lifetime of the pool.
-        /// Sends NOOP command to the server periodically.
-        /// </summary>
-        private Timer _noOpTimer;
-
-        /// <summary>
-        /// ImapClient that keeps the Inbox folder opened all the time for listening notifications.
-        /// </summary>
-        private ImapClient _inboxIdleClient;
-
-        public override uint BatchModificationSize => 1000;
-        public override uint InitialMessageDownloadCountPerFolder => 250;
 
         public ImapSynchronizer(MailAccount account,
                                 IImapChangeProcessor imapChangeProcessor,
+                                IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                                 IApplicationConfiguration applicationConfiguration) : base(account)
         {
             // Create client pool with account protocol log.
             _imapChangeProcessor = imapChangeProcessor;
+            _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
             _applicationConfiguration = applicationConfiguration;
 
             var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, CreateAccountProtocolLogFileStream());
 
             _clientPool = new ImapClientPool(poolOptions);
-            idleDoneToken = new CancellationTokenSource();
         }
 
         private Stream CreateAccountProtocolLogFileStream()
@@ -95,136 +74,10 @@ namespace Wino.Core.Synchronizers.Mail
             return new FileStream(logFile, FileMode.CreateNew);
         }
 
-        // TODO
-        // private async void NoOpTimerTriggered(object state) => await AwaitInboxIdleAsync();
-
-        private async Task AwaitInboxIdleAsync()
-        {
-            if (_inboxIdleClient == null)
-            {
-                _logger.Warning("InboxClient is null. Cannot send NOOP command.");
-                return;
-            }
-
-            await _clientPool.EnsureConnectedAsync(_inboxIdleClient);
-            await _clientPool.EnsureAuthenticatedAsync(_inboxIdleClient);
-
-            try
-            {
-                if (inboxFolder == null)
-                {
-                    inboxFolder = _inboxIdleClient.Inbox;
-                    await inboxFolder.OpenAsync(FolderAccess.ReadOnly, cancelInboxListeningToken.Token);
-                }
-
-                idleDoneToken = new CancellationTokenSource();
-
-                await _inboxIdleClient.IdleAsync(idleDoneToken.Token, cancelInboxListeningToken.Token);
-            }
-            finally
-            {
-                idleDoneToken.Dispose();
-                idleDoneToken = null;
-            }
-        }
-
-        private async Task StopInboxListeningAsync()
-        {
-            if (inboxFolder != null)
-            {
-                inboxFolder.CountChanged -= InboxFolderCountChanged;
-                inboxFolder.MessageExpunged -= InboxFolderMessageExpunged;
-                inboxFolder.MessageFlagsChanged -= InboxFolderMessageFlagsChanged;
-            }
-
-            if (_noOpTimer != null)
-            {
-                _noOpTimer.Dispose();
-                _noOpTimer = null;
-            }
-
-            if (idleDoneToken != null)
-            {
-                idleDoneToken.Cancel();
-                idleDoneToken.Dispose();
-                idleDoneToken = null;
-            }
-
-            if (_inboxIdleClient != null)
-            {
-                await _inboxIdleClient.DisconnectAsync(true);
-                _inboxIdleClient.Dispose();
-                _inboxIdleClient = null;
-            }
-        }
-
-        /// <summary>
-        /// Tries to connect & authenticate with the given credentials.
-        /// Prepares synchronizer for active listening of Inbox folder.
-        /// </summary>
-        public async Task StartInboxListeningAsync()
-        {
-            _inboxIdleClient = await _clientPool.GetClientAsync();
-
-            // Run it every 8 minutes after 1 minute delay.
-            // _noOpTimer = new Timer(NoOpTimerTriggered, null, 60000, 8 * 60 * 1000);
-
-            await _clientPool.EnsureConnectedAsync(_inboxIdleClient);
-            await _clientPool.EnsureAuthenticatedAsync(_inboxIdleClient);
-
-            if (!_inboxIdleClient.Capabilities.HasFlag(ImapCapabilities.Idle))
-            {
-                _logger.Information("Imap server does not support IDLE command. Listening live changes is not supported for {Name}", Account.Name);
-                return;
-            }
-
-            inboxFolder = _inboxIdleClient.Inbox;
-
-            if (inboxFolder == null)
-            {
-                _logger.Information("Inbox folder is null. Cannot listen for changes.");
-                return;
-            }
-
-            inboxFolder.CountChanged += InboxFolderCountChanged;
-            inboxFolder.MessageExpunged += InboxFolderMessageExpunged;
-            inboxFolder.MessageFlagsChanged += InboxFolderMessageFlagsChanged;
-
-            while (!cancelInboxListeningToken.IsCancellationRequested)
-            {
-                await AwaitInboxIdleAsync();
-            }
-
-            await StopInboxListeningAsync();
-        }
-
-        private void InboxFolderMessageFlagsChanged(object sender, MessageFlagsChangedEventArgs e)
-        {
-            Console.WriteLine("Flags have changed for message #{0} ({1}).", e.Index, e.Flags);
-        }
-
-        private void InboxFolderMessageExpunged(object sender, MessageEventArgs e)
-        {
-            _logger.Information("Inbox folder message expunged");
-        }
-
-        private void InboxFolderCountChanged(object sender, EventArgs e)
-        {
-            _logger.Information("Inbox folder count changed.");
-        }
-
-        /// <summary>
-        /// Parses List of string of mail copy ids and return valid uIds.
-        /// Follow the rules for creating arbitrary unique id for mail copies.
-        /// </summary>
-        private UniqueIdSet GetUniqueIds(IEnumerable<string> mailCopyIds)
-            => new(mailCopyIds.Select(a => new UniqueId(MailkitClientExtensions.ResolveUid(a))));
-
         /// <summary>
         /// Returns UniqueId for the given mail copy id.
         /// </summary>
-        private UniqueId GetUniqueId(string mailCopyId)
-            => new(MailkitClientExtensions.ResolveUid(mailCopyId));
+        private UniqueId GetUniqueId(string mailCopyId) => new(MailkitClientExtensions.ResolveUid(mailCopyId));
 
         #region Mail Integrations
 
@@ -400,11 +253,7 @@ namespace Wino.Core.Synchronizers.Mail
 
         public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(ImapMessageCreationPackage message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
         {
-            var imapFolder = message.MailFolder;
-            var summary = message.MessageSummary;
-
-            var mimeMessage = await imapFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
-            var mailCopy = summary.GetMailDetails(assignedFolder, mimeMessage);
+            var mailCopy = message.MessageSummary.GetMailDetails(assignedFolder, message.MimeMessage);
 
             // Draft folder message updates must be updated as IsDraft.
             // I couldn't find it in MimeMessage...
@@ -414,8 +263,8 @@ namespace Wino.Core.Synchronizers.Mail
             // Check draft mapping.
             // This is the same implementation as in the OutlookSynchronizer.
 
-            if (mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
-                && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
+            if (message.MimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
+                && Guid.TryParse(message.MimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
             {
                 // This message belongs to existing local draft copy.
                 // We don't need to create a new mail copy for this message, just update the existing one.
@@ -427,7 +276,7 @@ namespace Wino.Core.Synchronizers.Mail
                 // Local copy doesn't exists. Continue execution to insert mail copy.
             }
 
-            var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId);
+            var package = new NewMailItemPackage(mailCopy, message.MimeMessage, assignedFolder.RemoteFolderId);
 
             return
             [
@@ -463,6 +312,7 @@ namespace Wino.Core.Synchronizers.Mail
                     PublishSynchronizationProgress(progress);
 
                     var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
+
                     downloadedMessageIds.AddRange(folderDownloadedMessageIds);
                 }
             }
@@ -497,7 +347,7 @@ namespace Wino.Core.Synchronizers.Mail
                 // At this point this client is ready to execute async commands.
                 // Each task bundle will await and execution will continue in case of error.
 
-                ImapClient executorClient = null;
+                IImapClient executorClient = null;
 
                 bool isCrashed = false;
 
@@ -550,7 +400,7 @@ namespace Wino.Core.Synchronizers.Mail
         /// <param name="executorClient">ImapClient from the pool</param>
         /// <param name="remoteFolder">Assigning remote folder.</param>
         /// <param name="localFolder">Assigning local folder.</param>
-        private void AssignSpecialFolderType(ImapClient executorClient, IMailFolder remoteFolder, MailItemFolder localFolder)
+        private void AssignSpecialFolderType(IImapClient executorClient, IMailFolder remoteFolder, MailItemFolder localFolder)
         {
             // Inbox is awlawys available. Don't miss it for assignment even though XList or SpecialUser is not supported.
             if (executorClient.Inbox == remoteFolder)
@@ -592,7 +442,7 @@ namespace Wino.Core.Synchronizers.Mail
 
             var localFolders = await _imapChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
-            ImapClient executorClient = null;
+            IImapClient executorClient = null;
 
             try
             {
@@ -768,262 +618,31 @@ namespace Wino.Core.Synchronizers.Mail
             }
         }
 
-
-
         private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
         {
             if (!folder.IsSynchronizationEnabled) return default;
 
             var downloadedMessageIds = new List<string>();
 
-            // STEP1: Ask for flag changes for older mails.
-            // STEP2: Get new mail changes.
-            // https://www.rfc-editor.org/rfc/rfc4549 - Section 4.3
-
-            var _synchronizationClient = await _clientPool.GetClientAsync();
-
-            IMailFolder imapFolder = null;
-
-            var knownMailIds = new UniqueIdSet();
-            var locallyKnownMailUids = await _imapChangeProcessor.GetKnownUidsForFolderAsync(folder.Id);
-            knownMailIds.AddRange(locallyKnownMailUids.Select(a => new UniqueId(a)));
-
-            var highestUniqueId = Math.Max(0, locallyKnownMailUids.Count == 0 ? 0 : locallyKnownMailUids.Max());
-
-            var missingMailIds = new UniqueIdSet();
-
-            var uidValidity = folder.UidValidity;
-            var highestModeSeq = folder.HighestModeSeq;
-
-            var logger = Log.ForContext("FolderName", folder.FolderName);
-
-            logger.Verbose("HighestModeSeq: {HighestModeSeq}, HighestUniqueId: {HighestUniqueId}, UIDValidity: {UIDValidity}", highestModeSeq, highestUniqueId, uidValidity);
-
-            // Event handlers are placed here to handle existing MailItemFolder and IIMailFolder from MailKit.
-            // MailKit doesn't expose folder data when these events are emitted.
-
-            // Use local folder's UidValidty because cache might've been expired for remote IMAP folder.
-            // That will make our mail copy id invalid.
-
-            EventHandler<MessagesVanishedEventArgs> MessageVanishedHandler = async (s, e) =>
-            {
-                if (imapFolder == null) return;
-
-                foreach (var uniqueId in e.UniqueIds)
-                {
-                    var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, uniqueId.Id);
-
-                    await _imapChangeProcessor.DeleteMailAsync(Account.Id, localMailCopyId);
-                }
-            };
-
-            EventHandler<MessageFlagsChangedEventArgs> MessageFlagsChangedHandler = async (s, e) =>
-            {
-                if (imapFolder == null) return;
-                if (e.UniqueId == null) return;
-
-                var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, e.UniqueId.Value.Id);
-
-                var isFlagged = MailkitClientExtensions.GetIsFlagged(e.Flags);
-                var isRead = MailkitClientExtensions.GetIsRead(e.Flags);
-
-                await _imapChangeProcessor.ChangeMailReadStatusAsync(localMailCopyId, isRead);
-                await _imapChangeProcessor.ChangeFlagStatusAsync(localMailCopyId, isFlagged);
-            };
-
-            EventHandler<MessageEventArgs> MessageExpungedHandler = async (s, e) =>
-            {
-                if (imapFolder == null) return;
-                if (e.UniqueId == null) return;
-
-                var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, e.UniqueId.Value.Id);
-                await _imapChangeProcessor.DeleteMailAsync(Account.Id, localMailCopyId);
-            };
+            IImapClient availableClient = null;
 
             try
             {
-                imapFolder = await _synchronizationClient.GetFolderAsync(folder.RemoteFolderId, cancellationToken);
+                availableClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
-                imapFolder.MessageFlagsChanged += MessageFlagsChangedHandler;
-
-                // TODO: Bug: Enabling quick re-sync actually doesn't enable it.
-
-                var qsyncEnabled = false; // _synchronizationClient.Capabilities.HasFlag(ImapCapabilities.QuickResync);
-                var condStoreEnabled = _synchronizationClient.Capabilities.HasFlag(ImapCapabilities.CondStore);
-
-                if (qsyncEnabled)
-                {
-
-                    imapFolder.MessagesVanished += MessageVanishedHandler;
-
-                    await imapFolder.OpenAsync(FolderAccess.ReadWrite, uidValidity, (ulong)highestModeSeq, knownMailIds, cancellationToken);
-
-                    // Check the folder validity.
-                    // We'll delete our existing cache if it's not.
-
-                    // Get all messages after the last successful synchronization date.
-                    // This is fine for Wino synchronization because we're not really looking to
-                    // synchronize all folder.
-
-                    var allMessageIds = await imapFolder.SearchAsync(SearchQuery.All, cancellationToken);
-
-                    if (uidValidity != imapFolder.UidValidity)
-                    {
-                        // TODO: Cache is invalid. Delete all local cache.
-                        //await ChangeProcessor.FolderService.ClearImapFolderCacheAsync(folder.Id);
-
-                        folder.UidValidity = imapFolder.UidValidity;
-                        missingMailIds.AddRange(allMessageIds);
-                    }
-                    else
-                    {
-                        // Cache is valid.
-                        // Add missing mails only.
-
-                        missingMailIds.AddRange(allMessageIds.Except(knownMailIds).Where(a => a.Id > highestUniqueId));
-                    }
-                }
-                else
-                {
-                    // QSYNC extension is not enabled for the server.
-                    // We rely on ConditionalStore.
-
-                    imapFolder.MessageExpunged += MessageExpungedHandler;
-                    await imapFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken);
-
-                    // Get all messages after the last succesful synchronization date.
-                    // This is fine for Wino synchronization because we're not really looking to
-                    // synchronize all folder.
-
-                    var allMessageIds = await imapFolder.SearchAsync(SearchQuery.All, cancellationToken);
-
-                    if (uidValidity != imapFolder.UidValidity)
-                    {
-                        // TODO: Cache is invalid. Delete all local cache.
-                        // await ChangeProcessor.FolderService.ClearImapFolderCacheAsync(folder.Id);
-
-                        folder.UidValidity = imapFolder.UidValidity;
-                        missingMailIds.AddRange(allMessageIds);
-                    }
-                    else
-                    {
-                        // Cache is valid.
-
-                        var purgedMessages = knownMailIds.Except(allMessageIds);
-
-                        foreach (var purgedMessage in purgedMessages)
-                        {
-                            var mailId = MailkitClientExtensions.CreateUid(folder.Id, purgedMessage.Id);
-
-                            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailId);
-                        }
-
-                        IList<IMessageSummary> changed;
-
-                        if (knownMailIds.Count > 0)
-                        {
-                            // CONDSTORE enabled. Fetch items with highest mode seq for known items
-                            // to track flag changes. Otherwise just get changes without the mode seq.
-
-                            if (condStoreEnabled)
-                                changed = await imapFolder.FetchAsync(knownMailIds, (ulong)highestModeSeq, MessageSummaryItems.Flags | MessageSummaryItems.ModSeq | MessageSummaryItems.UniqueId);
-                            else
-                                changed = await imapFolder.FetchAsync(knownMailIds, MessageSummaryItems.Flags | MessageSummaryItems.UniqueId);
-
-                            foreach (var changedItem in changed)
-                            {
-                                var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, changedItem.UniqueId.Id);
-
-                                var isFlagged = changedItem.Flags.GetIsFlagged();
-                                var isRead = changedItem.Flags.GetIsRead();
-
-                                await _imapChangeProcessor.ChangeMailReadStatusAsync(localMailCopyId, isRead);
-                                await _imapChangeProcessor.ChangeFlagStatusAsync(localMailCopyId, isFlagged);
-                            }
-                        }
-
-                        // We're only interested in items that has highier known uid than we fetched before.
-                        // Others are just older messages.
-
-                        missingMailIds.AddRange(allMessageIds.Except(knownMailIds).Where(a => a.Id > highestUniqueId));
-                    }
-                }
-
-                // Fetch completely missing new items in the end.
-
-                // Limit check.
-                if (missingMailIds.Count > InitialMessageDownloadCountPerFolder)
-                {
-                    missingMailIds = new UniqueIdSet(missingMailIds.TakeLast((int)InitialMessageDownloadCountPerFolder));
-                }
-
-                // In case of the high input, we'll batch them by 50 to reflect changes quickly.
-                var batchedMissingMailIds = missingMailIds.Batch(50).Select(a => new UniqueIdSet(a, SortOrder.Ascending));
-
-                foreach (var batchMissingMailIds in batchedMissingMailIds)
-                {
-                    var summaries = await imapFolder.FetchAsync(batchMissingMailIds, mailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
-
-                    foreach (var summary in summaries)
-                    {
-                        // We pass the opened folder and summary to retrieve raw MimeMessage.
-
-                        var creationPackage = new ImapMessageCreationPackage(summary, imapFolder);
-                        var createdMailPackages = await CreateNewMailPackagesAsync(creationPackage, folder, cancellationToken).ConfigureAwait(false);
-
-                        // Local draft is mapped. We don't need to create a new mail copy.
-                        if (createdMailPackages == null)
-                            continue;
-
-                        foreach (var mailPackage in createdMailPackages)
-                        {
-                            bool isCreated = await _imapChangeProcessor.CreateMailAsync(Account.Id, mailPackage).ConfigureAwait(false);
-
-                            if (isCreated)
-                            {
-                                downloadedMessageIds.Add(mailPackage.Copy.Id);
-                            }
-                        }
-                    }
-                }
-
-                if (folder.HighestModeSeq != (long)imapFolder.HighestModSeq)
-                {
-                    folder.HighestModeSeq = (long)imapFolder.HighestModSeq;
-
-                    await _imapChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
-                }
-
-                // Update last synchronization date for the folder..
-
-                await _imapChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
-
-                return downloadedMessageIds;
-            }
-            catch (FolderNotFoundException)
-            {
-                await _imapChangeProcessor.DeleteFolderAsync(Account.Id, folder.RemoteFolderId).ConfigureAwait(false);
-
-                return default;
+                var strategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(availableClient);
+                return await strategy.HandleSynchronizationAsync(availableClient, folder, this, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception)
             {
-                throw;
+
             }
             finally
             {
-                if (imapFolder != null)
-                {
-                    imapFolder.MessageFlagsChanged -= MessageFlagsChangedHandler;
-                    imapFolder.MessageExpunged -= MessageExpungedHandler;
-                    imapFolder.MessagesVanished -= MessageVanishedHandler;
-
-                    if (imapFolder.IsOpen)
-                        await imapFolder.CloseAsync();
-                }
-
-                _clientPool.Release(_synchronizationClient);
+                _clientPool.Release(availableClient, false);
             }
+
+            return new List<string>();
         }
 
 
@@ -1037,8 +656,123 @@ namespace Wino.Core.Synchronizers.Mail
             => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
 
         protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public async Task StartIdleClientAsync()
         {
-            throw new NotImplementedException();
+            IImapClient idleClient = null;
+            IMailFolder inboxFolder = null;
+
+            bool? reconnect = null;
+
+            try
+            {
+                var client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+
+                if (!client.Capabilities.HasFlag(ImapCapabilities.Idle))
+                {
+                    Log.Debug($"{Account.Name} does not support Idle command. Ignored.");
+                    return;
+                }
+
+                if (client.Inbox == null)
+                {
+                    Log.Warning($"{Account.Name} does not have an Inbox folder for idle client to track. Ignored.");
+                    return;
+                }
+
+                // Setup idle client.
+                idleClient = client;
+
+
+                idleDoneTokenSource ??= new CancellationTokenSource();
+                idleCancellationTokenSource ??= new CancellationTokenSource();
+
+                inboxFolder = client.Inbox;
+
+                await inboxFolder.OpenAsync(FolderAccess.ReadOnly, idleCancellationTokenSource.Token);
+
+                inboxFolder.CountChanged += IdleNotificationTriggered;
+                inboxFolder.MessageFlagsChanged += IdleNotificationTriggered;
+                inboxFolder.MessageExpunged += IdleNotificationTriggered;
+
+                await client.IdleAsync(idleDoneTokenSource.Token, idleCancellationTokenSource.Token);
+            }
+            catch (ImapProtocolException protocolException)
+            {
+                Log.Warning(protocolException, "Idle client received protocol exception.");
+                reconnect = true;
+            }
+            catch (IOException ioException)
+            {
+                Log.Warning(ioException, "Idle client received IO exception.");
+                reconnect = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Idle client failed to start.");
+                reconnect = false;
+            }
+            finally
+            {
+                if (inboxFolder != null)
+                {
+                    inboxFolder.CountChanged -= IdleNotificationTriggered;
+                    inboxFolder.MessageFlagsChanged -= IdleNotificationTriggered;
+                    inboxFolder.MessageExpunged -= IdleNotificationTriggered;
+                }
+
+                if (idleDoneTokenSource != null)
+                {
+                    idleDoneTokenSource.Dispose();
+                    idleDoneTokenSource = null;
+                }
+
+                if (idleClient != null)
+                {
+                    // Killing the client is not necessary. We can re-use it later.
+                    _clientPool.Release(idleClient, destroyClient: false);
+
+                    idleClient = null;
+                }
+
+                if (reconnect == true)
+                {
+                    Log.Information("Idle client is reconnecting.");
+
+                    _ = StartIdleClientAsync();
+                }
+                else if (reconnect == false)
+                {
+                    Log.Information("Finalized idle client.");
+                }
+            }
+        }
+
+        private void RequestIdleChangeSynchronization()
+        {
+            // We don't really need to act on the count change in detail.
+            // Our synchronization should be enough to handle the changes with on-demand sync.
+            // We can just trigger a sync here IMAPIdle type.
+
+            var options = new MailSynchronizationOptions()
+            {
+                AccountId = Account.Id,
+                Type = MailSynchronizationType.IMAPIdle
+            };
+
+            _ = SynchronizeMailsAsync(options);
+        }
+
+        private void IdleNotificationTriggered(object sender, EventArgs e)
+            => RequestIdleChangeSynchronization();
+
+        public Task StopIdleClientAsync()
+        {
+            idleDoneTokenSource?.Cancel();
+            idleCancellationTokenSource?.Cancel();
+
+            return Task.CompletedTask;
         }
     }
 }

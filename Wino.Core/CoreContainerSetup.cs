@@ -4,6 +4,7 @@ using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
+using Wino.Core.Synchronizers.ImapSync;
 
 namespace Wino.Core
 {
@@ -28,6 +29,11 @@ namespace Wino.Core
             services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
             services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
             services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+
+            services.AddTransient<IImapSynchronizationStrategyProvider, ImapSynchronizationStrategyProvider>();
+            services.AddTransient<CondstoreSynchronizer>();
+            services.AddTransient<QResyncSynchronizer>();
+            services.AddTransient<UidBasedSynchronizer>();
         }
     }
 }

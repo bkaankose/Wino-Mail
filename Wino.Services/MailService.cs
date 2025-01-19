@@ -984,6 +984,17 @@ namespace Wino.Services
         public Task<bool> IsMailExistsAsync(string mailCopyId)
             => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
 
+        public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
+        {
+            var localMailIds = uniqueIds.Where(a => a != null).Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
+
+            var query = new Query(nameof(MailCopy))
+                            .WhereIn("Id", localMailIds)
+                            .GetRawQuery();
+
+            return await Connection.QueryAsync<MailCopy>(query);
+        }
+
         public Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
             => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ? AND FolderId = ?)", mailCopyId, folderId);
     }

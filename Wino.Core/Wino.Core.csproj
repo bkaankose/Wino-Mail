@@ -52,4 +52,8 @@
      <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
      <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
    </ItemGroup>
+
+   <ItemGroup>
+     <Folder Include="Mime\" />
+   </ItemGroup>
 </Project>

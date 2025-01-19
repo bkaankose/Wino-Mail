@@ -243,7 +243,9 @@ namespace Wino.Mail.ViewModels
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
+#if !DEBUG
             await ForceAllAccountSynchronizationsAsync();
+#endif
             await MakeSureEnableStartupLaunchAsync();
             await ConfigureBackgroundTasksAsync();
         }

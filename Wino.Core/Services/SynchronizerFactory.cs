@@ -13,6 +13,7 @@ namespace Wino.Core.Services
         private bool isInitialized = false;
 
         private readonly IAccountService _accountService;
+        private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
         private readonly IApplicationConfiguration _applicationConfiguration;
         private readonly IOutlookChangeProcessor _outlookChangeProcessor;
         private readonly IGmailChangeProcessor _gmailChangeProcessor;
@@ -28,6 +29,7 @@ namespace Wino.Core.Services
                                    IOutlookAuthenticator outlookAuthenticator,
                                    IGmailAuthenticator gmailAuthenticator,
                                    IAccountService accountService,
+                                   IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                                    IApplicationConfiguration applicationConfiguration)
         {
             _outlookChangeProcessor = outlookChangeProcessor;
@@ -36,6 +38,7 @@ namespace Wino.Core.Services
             _outlookAuthenticator = outlookAuthenticator;
             _gmailAuthenticator = gmailAuthenticator;
             _accountService = accountService;
+            _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
             _applicationConfiguration = applicationConfiguration;
         }
 
@@ -50,6 +53,7 @@ namespace Wino.Core.Services
                 if (account != null)
                 {
                     synchronizer = CreateNewSynchronizer(account);
+
 
                     return await GetAccountSynchronizerAsync(accountId);
                 }
@@ -70,7 +74,7 @@ namespace Wino.Core.Services
                 case Domain.Enums.MailProviderType.Gmail:
                     return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor);
                 case Domain.Enums.MailProviderType.IMAP4:
-                    return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration);
+                    return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration);
                 default:
                     break;
             }
@@ -81,6 +85,12 @@ namespace Wino.Core.Services
         public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)
         {
             var synchronizer = CreateIntegratorWithDefaultProcessor(account);
+
+            if (synchronizer is IImapSynchronizer imapSynchronizer)
+            {
+                // Start the idle client for IMAP synchronizer.
+                _ = imapSynchronizer.StartIdleClientAsync();
+            }
 
             synchronizerCache.Add(synchronizer);
 

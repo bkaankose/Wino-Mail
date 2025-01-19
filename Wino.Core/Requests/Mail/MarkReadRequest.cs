@@ -15,6 +15,8 @@ namespace Wino.Core.Requests.Mail
 
         public override MailSynchronizerOperation Operation => MailSynchronizerOperation.MarkRead;
 
+        public bool ExcludeMustHaveFolders => true;
+
         public override void ApplyUIChanges()
         {
             Item.IsRead = IsRead;

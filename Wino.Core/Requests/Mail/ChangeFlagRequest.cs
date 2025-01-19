@@ -14,6 +14,8 @@ namespace Wino.Core.Requests.Mail
     {
         public List<Guid> SynchronizationFolderIds => [Item.FolderId];
 
+        public bool ExcludeMustHaveFolders => true;
+
         public override MailSynchronizerOperation Operation => MailSynchronizerOperation.ChangeFlag;
 
         public override void ApplyUIChanges()

@@ -5,7 +5,6 @@ using MimeKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
-using Wino.Services.Extensions;
 
 namespace Wino.Services.Extensions
 {
@@ -21,6 +20,9 @@ namespace Wino.Services.Extensions
 
             throw new ArgumentOutOfRangeException(nameof(mailCopyId), mailCopyId, "Invalid mailCopyId format.");
         }
+
+        public static UniqueId ResolveUidStruct(string mailCopyId)
+            => new UniqueId(ResolveUid(mailCopyId));
 
         public static string CreateUid(Guid folderId, uint messageUid)
             => $"{folderId}{MailCopyUidSeparator}{messageUid}";

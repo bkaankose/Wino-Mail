@@ -472,11 +472,6 @@
                                         <Setter Property="Padding" Value="0" />
                                     </Style>
                                 </ListView.Resources>
-                                <!--<ListView.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <ItemsStackPanel Margin="12,0" />
-                                    </ItemsPanelTemplate>
-                                </ListView.ItemsPanel>-->
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="ICollectionViewGroup">
                                         <Grid Background="{ThemeResource MailListHeaderBackgroundColor}" CornerRadius="6">
