@@ -85,6 +85,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -103,20 +104,27 @@
                 Source="{x:Bind SelectedMailProvider.ProviderImage, Mode=OneWay}" />
 
             <TextBox
-                x:Name="SpecialImapAddress"
+                x:Name="DisplayNameTextBox"
                 Grid.Row="1"
-                TextChanged="InputChanged"
+                Header="Display Name"
+                PlaceholderText="eg. John Doe"
+                TextChanged="InputChanged" />
+
+            <TextBox
+                x:Name="SpecialImapAddress"
+                Grid.Row="2"
                 Header="E-mail Address"
-                PlaceholderText="eg. johndoe@testmail.com" />
+                PlaceholderText="eg. johndoe@testmail.com"
+                TextChanged="InputChanged" />
 
             <PasswordBox
                 x:Name="AppSpecificPassword"
-                PasswordChanged="ImapPasswordChanged"
-                Grid.Row="2"
-                Header="App-Specific Password" />
+                Grid.Row="3"
+                Header="App-Specific Password"
+                PasswordChanged="ImapPasswordChanged" />
 
             <HyperlinkButton
-                Grid.Row="3"
+                Grid.Row="4"
                 HorizontalAlignment="Right"
                 Click="AppSpecificHelpButtonClicked"
                 Content="How do I get app-specific password?" />

@@ -84,6 +84,9 @@
   <ItemGroup>
     <Compile Include="Activation\ActivationHandler.cs" />
     <Compile Include="BasePage.cs" />
+    <Compile Include="Controls\AccountCreationDialogControl.xaml.cs">
+      <DependentUpon>AccountCreationDialogControl.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controls\ControlConstants.cs" />
     <Compile Include="Controls\CustomWrapPanel.cs" />
     <Compile Include="Controls\EqualGridPanel.cs" />
@@ -115,7 +118,6 @@
     <Compile Include="Dialogs\AccountPickerDialog.xaml.cs">
       <DependentUpon>AccountPickerDialog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
     <Compile Include="Dialogs\CustomMessageDialogInformationContainer.cs" />
     <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
       <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
@@ -341,6 +343,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Controls\AccountCreationDialogControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controls\WinoAppTitleBar.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

@@ -21,6 +21,7 @@ namespace Wino.Core.UWP.Dialogs
         public static readonly DependencyProperty IsSpecialImapServerPartVisibleProperty = DependencyProperty.Register(nameof(IsSpecialImapServerPartVisible), typeof(bool), typeof(NewAccountDialog), new PropertyMetadata(false));
         public static readonly DependencyProperty SelectedMailProviderProperty = DependencyProperty.Register(nameof(SelectedMailProvider), typeof(ProviderDetail), typeof(NewAccountDialog), new PropertyMetadata(null, new PropertyChangedCallback(OnSelectedProviderChanged)));
 
+
         /// <summary>
         /// Gets or sets current selected mail provider in the dialog.
         /// </summary>
@@ -69,6 +70,17 @@ namespace Wino.Core.UWP.Dialogs
 
         private void CreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
+            if (IsSpecialImapServerPartVisible)
+            {
+                // Special imap detail input.
+
+                var details = new SpecialImapProviderDetails(SpecialImapAddress.Text.Trim(), AppSpecificPassword.Password.Trim(), DisplayNameTextBox.Text.Trim(), SelectedMailProvider.SpecialImapProvider);
+                Result = new AccountCreationDialogResult(SelectedMailProvider.Type, AccountNameTextbox.Text.Trim(), details);
+                Hide();
+
+                return;
+            }
+
             Validate();
 
             if (IsSecondaryButtonEnabled)
@@ -85,7 +97,7 @@ namespace Wino.Core.UWP.Dialogs
                 }
                 else
                 {
-                    Result = new AccountCreationDialogResult(SelectedMailProvider.Type, AccountNameTextbox.Text.Trim());
+                    Result = new AccountCreationDialogResult(SelectedMailProvider.Type, AccountNameTextbox.Text.Trim(), null);
                     Hide();
                 }
             }
@@ -106,7 +118,9 @@ namespace Wino.Core.UWP.Dialogs
             bool shouldEnable = SelectedMailProvider != null
                 && SelectedMailProvider.IsSupported
                 && !string.IsNullOrEmpty(AccountNameTextbox.Text)
-                && (IsSpecialImapServerPartVisible ? (!string.IsNullOrEmpty(AppSpecificPassword.Password) && EmailValidation.EmailValidator.Validate(SpecialImapAddress.Text)) : true);
+                && (IsSpecialImapServerPartVisible ? (!string.IsNullOrEmpty(AppSpecificPassword.Password)
+                && !string.IsNullOrEmpty(DisplayNameTextBox.Text)
+                && EmailValidation.EmailValidator.Validate(SpecialImapAddress.Text)) : true);
 
             IsPrimaryButtonEnabled = shouldEnable;
         }

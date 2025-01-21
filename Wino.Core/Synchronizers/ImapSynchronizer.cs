@@ -626,12 +626,20 @@ namespace Wino.Core.Synchronizers.Mail
 
             IImapClient availableClient = null;
 
+        retry:
             try
             {
+
                 availableClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
                 var strategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(availableClient);
                 return await strategy.HandleSynchronizationAsync(availableClient, folder, this, cancellationToken).ConfigureAwait(false);
+            }
+            catch (IOException)
+            {
+                _clientPool.Release(availableClient, false);
+
+                goto retry;
             }
             catch (Exception)
             {

@@ -7,6 +7,7 @@ using Windows.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.ImapSetup;
 
@@ -24,7 +25,7 @@ namespace Wino.Dialogs
         IRecipient<ImapSetupNavigationRequested>,
         IRecipient<ImapSetupBackNavigationRequested>,
         IRecipient<ImapSetupDismissRequested>,
-        ICustomServerAccountCreationDialog
+        IImapAccountCreationDialog
     {
         private TaskCompletionSource<CustomServerInformation> _getServerInfoTaskCompletionSource = new TaskCompletionSource<CustomServerInformation>();
 
@@ -86,7 +87,7 @@ namespace Wino.Dialogs
         }
 
         public void StartImapConnectionSetup(MailAccount account) => ImapFrame.Navigate(typeof(WelcomeImapSetupPage), account, new DrillInNavigationTransitionInfo());
-
+        public void StartImapConnectionSetup(AccountCreationDialogResult accountCreationDialogResult) => ImapFrame.Navigate(typeof(WelcomeImapSetupPage), accountCreationDialogResult, new DrillInNavigationTransitionInfo());
 
         private void ImapSetupDialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => WeakReferenceMessenger.Default.UnregisterAll(this);
 
