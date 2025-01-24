@@ -139,11 +139,14 @@ namespace Wino.Core.Synchronizers.ImapSync
             }
             finally
             {
-                if (remoteFolder != null)
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    if (remoteFolder.IsOpen)
+                    if (remoteFolder != null)
                     {
-                        await remoteFolder.CloseAsync().ConfigureAwait(false);
+                        if (remoteFolder.IsOpen)
+                        {
+                            await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                        }
                     }
                 }
             }

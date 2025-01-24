@@ -1193,5 +1193,15 @@ namespace Wino.Core.Synchronizers.Mail
         }
 
         #endregion
+
+        public override async Task KillSynchronizerAsync()
+        {
+            await base.KillSynchronizerAsync();
+
+            _gmailService.Dispose();
+            _peopleService.Dispose();
+            _calendarService.Dispose();
+            _googleHttpClient.Dispose();
+        }
     }
 }

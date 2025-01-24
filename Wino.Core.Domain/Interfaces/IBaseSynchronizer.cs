@@ -24,12 +24,6 @@ namespace Wino.Core.Domain.Interfaces
         void QueueRequest(IRequestBase request);
 
         /// <summary>
-        /// TODO
-        /// </summary>
-        /// <returns>Whether active synchronization is stopped or not.</returns>
-        bool CancelActiveSynchronization();
-
-        /// <summary>
         /// Synchronizes profile information with the server.
         /// Sender name and Profile picture are updated.
         /// </summary>

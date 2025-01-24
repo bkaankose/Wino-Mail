@@ -328,6 +328,9 @@ namespace Wino.Server
 
                     KillServer();
                     break;
+                case nameof(KillAccountSynchronizerRequested):
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<KillAccountSynchronizerRequested>(messageJson, _jsonSerializerOptions));
+                    break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");
                     break;

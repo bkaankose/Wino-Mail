@@ -57,7 +57,8 @@ namespace Wino.Core.Synchronizers.Mail
             _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
             _applicationConfiguration = applicationConfiguration;
 
-            var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, CreateAccountProtocolLogFileStream());
+            var protocolLogStream = CreateAccountProtocolLogFileStream();
+            var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
 
             _clientPool = new ImapClientPool(poolOptions);
         }
@@ -66,7 +67,7 @@ namespace Wino.Core.Synchronizers.Mail
         {
             if (Account == null) throw new ArgumentNullException(nameof(Account));
 
-            var logFile = Path.Combine(_applicationConfiguration.ApplicationDataFolderPath, $"Protocol_{Account.Address}.log");
+            var logFile = Path.Combine(_applicationConfiguration.ApplicationDataFolderPath, $"Protocol_{Account.Address}_{Account.Id}.log");
 
             // Each session should start a new log.
             if (File.Exists(logFile)) File.Delete(logFile);
@@ -313,6 +314,8 @@ namespace Wino.Core.Synchronizers.Mail
 
                     var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
 
+                    if (cancellationToken.IsCancellationRequested) return MailSynchronizationResult.Canceled;
+
                     downloadedMessageIds.AddRange(folderDownloadedMessageIds);
                 }
             }
@@ -524,6 +527,11 @@ namespace Wino.Core.Synchronizers.Mail
                     if (remoteFolder.IsNamespace && !remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox) || !remoteFolder.Exists)
                         continue;
 
+                    // Check for NoSelect folders. These are not selectable folders.
+                    // TODO: With new MailKit version 'CanOpen' will be implemented for ease of use. Use that one.
+                    if (remoteFolder.Attributes.HasFlag(FolderAttributes.NoSelect))
+                        continue;
+
                     var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.FullName);
 
                     if (existingLocalFolder == null)
@@ -641,6 +649,10 @@ namespace Wino.Core.Synchronizers.Mail
 
                 goto retry;
             }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellations.
+            }
             catch (Exception)
             {
 
@@ -716,6 +728,10 @@ namespace Wino.Core.Synchronizers.Mail
                 Log.Warning(ioException, "Idle client received IO exception.");
                 reconnect = true;
             }
+            catch (OperationCanceledException)
+            {
+                reconnect = !IsDisposing;
+            }
             catch (Exception ex)
             {
                 Log.Warning(ex, "Idle client failed to start.");
@@ -781,6 +797,15 @@ namespace Wino.Core.Synchronizers.Mail
             idleCancellationTokenSource?.Cancel();
 
             return Task.CompletedTask;
+        }
+
+        public override async Task KillSynchronizerAsync()
+        {
+            await base.KillSynchronizerAsync();
+            await StopIdleClientAsync();
+
+            // Make sure the client pool safely disconnects all ImapClients.
+            _clientPool.Dispose();
         }
     }
 }

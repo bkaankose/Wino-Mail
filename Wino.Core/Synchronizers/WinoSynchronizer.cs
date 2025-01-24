@@ -25,13 +25,13 @@ namespace Wino.Core.Synchronizers
 {
     public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
     {
-        protected Dictionary<MailSynchronizationOptions, CancellationToken> PendingSynchronizationRequest = new();
+        protected bool IsDisposing { get; private set; }
+
+        protected Dictionary<MailSynchronizationOptions, CancellationTokenSource> PendingSynchronizationRequest = new();
 
         protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType>>();
 
-        protected WinoSynchronizer(MailAccount account) : base(account)
-        {
-        }
+        protected WinoSynchronizer(MailAccount account) : base(account) { }
 
         /// <summary>
         /// How many items per single HTTP call can be modified.
@@ -91,9 +91,10 @@ namespace Wino.Core.Synchronizers
                     return MailSynchronizationResult.Canceled;
                 }
 
-                PendingSynchronizationRequest.Add(options, cancellationToken);
+                var newCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-                activeSynchronizationCancellationToken = cancellationToken;
+                PendingSynchronizationRequest.Add(options, newCancellationTokenSource);
+                activeSynchronizationCancellationToken = newCancellationTokenSource.Token;
 
                 await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
@@ -413,6 +414,20 @@ namespace Wino.Core.Synchronizers
             return ret;
         }
 
+        public virtual Task KillSynchronizerAsync()
+        {
+            IsDisposing = true;
+            CancelAllSynchronizations();
 
+            return Task.CompletedTask;
+        }
+
+        protected void CancelAllSynchronizations()
+        {
+            foreach (var request in PendingSynchronizationRequest)
+            {
+                request.Value.Cancel();
+            }
+        }
     }
 }

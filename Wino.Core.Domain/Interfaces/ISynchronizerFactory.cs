@@ -7,5 +7,6 @@ namespace Wino.Core.Domain.Interfaces
     {
         Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId);
         Task InitializeAsync();
+        Task DeleteSynchronizerAsync(Guid accountId);
     }
 }

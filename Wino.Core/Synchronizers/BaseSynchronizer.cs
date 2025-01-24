@@ -51,9 +51,6 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token</param>
         public abstract Task ExecuteNativeRequestsAsync(List<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
 
-        // TODO: What if account is deleted during synchronization?
-        public bool CancelActiveSynchronization() => true;
-
         /// <summary>
         /// Refreshes remote mail account profile if possible.
         /// Profile picture, sender name and mailbox settings (todo) will be handled in this step.

@@ -25,8 +25,6 @@ namespace Wino.Core.Integration
     /// Provides a pooling mechanism for ImapClient.
     /// Makes sure that we don't have too many connections to the server.
     /// Rents a connected & authenticated client from the pool all the time.
-    /// TODO: Keeps the clients alive by sending NOOP command periodically.
-    /// TODO: Listens to the Inbox folder for new messages.
     /// </summary>
     /// <param name="customServerInformation">Connection/Authentication info to be used to configure ImapClient.</param>
     public class ImapClientPool : IDisposable
@@ -57,6 +55,7 @@ namespace Wino.Core.Integration
         private readonly CustomServerInformation _customServerInformation;
         private readonly Stream _protocolLogStream;
         private readonly ILogger _logger = Log.ForContext<ImapClientPool>();
+        private bool _disposedValue;
 
         public ImapClientPool(ImapClientPoolOptions imapClientPoolOptions)
         {
@@ -185,7 +184,7 @@ namespace Wino.Core.Integration
                     _clients.TryPop(out _);
                     item.Dispose();
                 }
-                else
+                else if (!_disposedValue)
                 {
                     _clients.Push(item);
                 }
@@ -332,24 +331,38 @@ namespace Wino.Core.Integration
             };
         }
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
+            {
+                if (disposing)
+                {
+                    _clients.ForEach(client =>
+                    {
+                        lock (client.SyncRoot)
+                        {
+                            client.Disconnect(true);
+                        }
+                    });
+
+                    _clients.ForEach(client =>
+                    {
+                        client.Dispose();
+                    });
+
+                    _clients.Clear();
+
+                    _protocolLogStream?.Dispose();
+                }
+
+                _disposedValue = true;
+            }
+        }
+
         public void Dispose()
         {
-            _clients.ForEach(client =>
-            {
-                lock (client.SyncRoot)
-                {
-                    client.Disconnect(true);
-                }
-            });
-
-            _clients.ForEach(client =>
-            {
-                client.Dispose();
-            });
-
-            _clients.Clear();
-
-            _protocolLogStream?.Dispose();
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

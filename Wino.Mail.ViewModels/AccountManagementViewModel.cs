@@ -113,9 +113,6 @@ namespace Wino.Mail.ViewModels
                     };
 
                     creationDialog.ShowDialog(accountCreationCancellationTokenSource);
-
-                    await Task.Delay(1000);
-
                     creationDialog.State = AccountCreationDialogState.SigningIn;
 
                     string tokenInformation = string.Empty;
@@ -140,15 +137,16 @@ namespace Wino.Mail.ViewModels
                     }
                     else
                     {
+                        // Hanle special imap providers like iCloud and Yahoo.
                         if (accountCreationDialogResult.SpecialImapProviderDetails != null)
                         {
-                            createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
-                            createdAccount.Address = customServerInformation.Address;
-
                             // Special imap provider testing dialog. This is only available for iCloud and Yahoo.
                             customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult);
                             customServerInformation.Id = Guid.NewGuid();
                             customServerInformation.AccountId = createdAccount.Id;
+
+                            createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
+                            createdAccount.Address = customServerInformation.Address;
 
                             await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
                         }

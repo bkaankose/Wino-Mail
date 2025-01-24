@@ -319,6 +319,8 @@ namespace Wino.Services
                 }
             }
 
+
+
             ReportUIChange(new AccountRemovedMessage(account));
         }
 

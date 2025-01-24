@@ -109,5 +109,18 @@ namespace Wino.Core.Services
 
             isInitialized = true;
         }
+
+        public async Task DeleteSynchronizerAsync(Guid accountId)
+        {
+            var synchronizer = synchronizerCache.Find(a => a.Account.Id == accountId);
+
+            if (synchronizer != null)
+            {
+                // Stop the current synchronization.
+                await synchronizer.KillSynchronizerAsync();
+
+                synchronizerCache.Remove(synchronizer);
+            }
+        }
     }
 }
