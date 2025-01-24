@@ -19,7 +19,7 @@ namespace Wino.Core.ViewModels
         public string VersionName => _nativeAppService.GetFullAppVersion();
         public string DiscordChannelUrl => "https://discord.gg/windows-apps-hub-714581497222398064";
         public string GitHubUrl => "https://github.com/bkaankose/Wino-Mail/";
-        public string PrivacyPolicyUrl => "https://www.winomail.app/privacy_policy.html";
+        public string PrivacyPolicyUrl => "https://www.winomail.app/support/privacy";
         public string PaypalUrl => "https://paypal.me/bkaankose?country.x=PL&locale.x=en_US";
 
         public IPreferencesService PreferencesService { get; }
