@@ -257,15 +257,16 @@ namespace Wino.Core.Synchronizers.Mail
             var mailCopy = message.MessageSummary.GetMailDetails(assignedFolder, message.MimeMessage);
 
             // Draft folder message updates must be updated as IsDraft.
-            // I couldn't find it in MimeMessage...
+            // I couldn't find it in MimeMesssage...
 
             mailCopy.IsDraft = assignedFolder.SpecialFolderType == SpecialFolderType.Draft;
 
             // Check draft mapping.
             // This is the same implementation as in the OutlookSynchronizer.
 
-            if (message.MimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
-                && Guid.TryParse(message.MimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
+            if (message.MimeMessage != null &&
+                message.MimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader) &&
+                Guid.TryParse(message.MimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
             {
                 // This message belongs to existing local draft copy.
                 // We don't need to create a new mail copy for this message, just update the existing one.

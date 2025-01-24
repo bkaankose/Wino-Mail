@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
+using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Exceptions;
@@ -49,16 +50,35 @@ namespace Wino.Core.Synchronizers.ImapSync
                 var localHighestModSeq = (ulong)folder.HighestModeSeq;
                 var remoteHighestModSeq = remoteFolder.HighestModSeq;
 
+                bool isInitialSynchronization = localHighestModSeq == 0;
+
                 // There are some changes on new messages or flag changes.
                 // Deletions are tracked separately because some servers do not increase
                 // the MODSEQ value for deleted messages.
                 if (remoteHighestModSeq > localHighestModSeq)
                 {
-                    // Search for emails with a MODSEQ greater than the last known value
-                    var changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq)).ConfigureAwait(false);
+                    // Search for emails with a MODSEQ greater than the last known value.
+                    // Use SORT extension if server supports.
+
+                    IList<UniqueId> changedUids = null;
+
+                    if (winoClient.Capabilities.HasFlag(ImapCapabilities.Sort))
+                    {
+                        changedUids = await remoteFolder.SortAsync(SearchQuery.ChangedSince(localHighestModSeq), [OrderBy.ReverseDate], cancellationToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
+                    }
+
+                    // For initial synchronizations, take the first allowed number of items.
+                    // For consequtive synchronizations, take all the items. We don't want to miss any changes.
+
+                    if (isInitialSynchronization)
+                        changedUids = changedUids.Take((int)synchronizer.InitialMessageDownloadCountPerFolder).ToList();
 
                     // Get locally exists mails for the returned UIDs.
-                    var existingMails = await MailService.GetExistingMailsAsync(folder.Id, changedUids);
+                    var existingMails = await MailService.GetExistingMailsAsync(folder.Id, changedUids).ConfigureAwait(false);
                     var existingMailUids = existingMails.Select(m => MailkitClientExtensions.ResolveUidStruct(m.Id)).ToArray();
 
                     // These are the non-existing mails. They will be downloaded + processed.
@@ -92,28 +112,34 @@ namespace Wino.Core.Synchronizers.ImapSync
                         await HandleMessageFlagsChangeAsync(existingMail, update.Flags.Value).ConfigureAwait(false);
                     }
 
-                    // Fetch the new mails.
-                    var summaries = await remoteFolder.FetchAsync(newMessageIds, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
+                    // Fetch the new mails in batch.
 
-                    foreach (var summary in summaries)
+                    var batchedMessageIds = newMessageIds.Batch(50);
+
+                    foreach (var group in batchedMessageIds)
                     {
-                        var mimeMessage = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
+                        var summaries = await remoteFolder.FetchAsync(group, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
 
-                        var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
-
-                        var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, folder, cancellationToken).ConfigureAwait(false);
-
-                        if (mailPackages != null)
+                        foreach (var summary in summaries)
                         {
-                            foreach (var package in mailPackages)
+                            var mimeMessage = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
+
+                            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
+
+                            var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, folder, cancellationToken).ConfigureAwait(false);
+
+                            if (mailPackages != null)
                             {
-                                // Local draft is mapped. We don't need to create a new mail copy.
-                                if (package == null) continue;
+                                foreach (var package in mailPackages)
+                                {
+                                    // Local draft is mapped. We don't need to create a new mail copy.
+                                    if (package == null) continue;
 
-                                bool isCreatedNew = await MailService.CreateMailAsync(folder.MailAccountId, package).ConfigureAwait(false);
+                                    bool isCreatedNew = await MailService.CreateMailAsync(folder.MailAccountId, package).ConfigureAwait(false);
 
-                                // This is upsert. We are not interested in updated mails.
-                                if (isCreatedNew) downloadedMessageIds.Add(package.Copy.Id);
+                                    // This is upsert. We are not interested in updated mails.
+                                    if (isCreatedNew) downloadedMessageIds.Add(package.Copy.Id);
+                                }
                             }
                         }
                     }
