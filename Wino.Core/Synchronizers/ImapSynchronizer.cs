@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -31,8 +32,9 @@ namespace Wino.Core.Synchronizers.Mail
 {
     public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer
     {
+        [Obsolete("N/A")]
         public override uint BatchModificationSize => 1000;
-        public override uint InitialMessageDownloadCountPerFolder => 250;
+        public override uint InitialMessageDownloadCountPerFolder => 500;
 
         #region Idle Implementation
 
@@ -631,8 +633,6 @@ namespace Wino.Core.Synchronizers.Mail
         {
             if (!folder.IsSynchronizationEnabled) return default;
 
-            var downloadedMessageIds = new List<string>();
-
             IImapClient availableClient = null;
 
         retry:
@@ -665,7 +665,6 @@ namespace Wino.Core.Synchronizers.Mail
 
             return new List<string>();
         }
-
 
         /// <summary>
         /// Whether the local folder should be updated with the remote folder.
@@ -705,7 +704,6 @@ namespace Wino.Core.Synchronizers.Mail
                 // Setup idle client.
                 idleClient = client;
 
-
                 idleDoneTokenSource ??= new CancellationTokenSource();
                 idleCancellationTokenSource ??= new CancellationTokenSource();
 
@@ -716,6 +714,7 @@ namespace Wino.Core.Synchronizers.Mail
                 inboxFolder.CountChanged += IdleNotificationTriggered;
                 inboxFolder.MessageFlagsChanged += IdleNotificationTriggered;
                 inboxFolder.MessageExpunged += IdleNotificationTriggered;
+                inboxFolder.MessagesVanished += IdleNotificationTriggered;
 
                 await client.IdleAsync(idleDoneTokenSource.Token, idleCancellationTokenSource.Token);
             }
@@ -745,6 +744,7 @@ namespace Wino.Core.Synchronizers.Mail
                     inboxFolder.CountChanged -= IdleNotificationTriggered;
                     inboxFolder.MessageFlagsChanged -= IdleNotificationTriggered;
                     inboxFolder.MessageExpunged -= IdleNotificationTriggered;
+                    inboxFolder.MessagesVanished -= IdleNotificationTriggered;
                 }
 
                 if (idleDoneTokenSource != null)
@@ -776,6 +776,8 @@ namespace Wino.Core.Synchronizers.Mail
 
         private void RequestIdleChangeSynchronization()
         {
+            Debug.WriteLine("Detected idle change.");
+
             // We don't really need to act on the count change in detail.
             // Our synchronization should be enough to handle the changes with on-demand sync.
             // We can just trigger a sync here IMAPIdle type.

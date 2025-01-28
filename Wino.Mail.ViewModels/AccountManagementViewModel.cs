@@ -112,7 +112,7 @@ namespace Wino.Mail.ViewModels
                         Id = Guid.NewGuid()
                     };
 
-                    creationDialog.ShowDialog(accountCreationCancellationTokenSource);
+                    await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
                     creationDialog.State = AccountCreationDialogState.SigningIn;
 
                     string tokenInformation = string.Empty;

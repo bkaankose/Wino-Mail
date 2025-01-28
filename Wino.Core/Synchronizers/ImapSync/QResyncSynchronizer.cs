@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +28,8 @@ namespace Wino.Core.Synchronizers.ImapSync
                                                                                                 IImapSynchronizer synchronizer,
                                                                                                 CancellationToken cancellationToken = default)
         {
+            var downloadedMessageIds = new List<string>();
+
             if (client is not WinoImapClient winoClient)
                 throw new ImapSynchronizerStrategyException("Client must be of type WinoImapClient.");
 
@@ -54,7 +55,6 @@ namespace Wino.Core.Synchronizers.ImapSync
                 if (!isCacheValid)
                 {
                     // TODO: Remove all local data.
-
                 }
 
                 // Perform QRESYNC synchronization.
@@ -70,42 +70,52 @@ namespace Wino.Core.Synchronizers.ImapSync
 
                 await remoteFolder.OpenAsync(FolderAccess.ReadOnly, folder.UidValidity, localHighestModSeq, allUniqueIds).ConfigureAwait(false);
 
-                var changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
+                var changedUids = await GetChangedUidsAsync(client, folder, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
 
-                foreach (var uid in changedUids)
-                {
-                    Debug.WriteLine($"Processing message with UID: {uid}");
-
-                    // var message = await remoteFolder.GetMessageAsync(uid, cancellationToken).ConfigureAwait(false);
-
-                    // TODO: Process the message.
-                }
+                downloadedMessageIds = await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
 
                 // Update the local folder with the new highest mod-seq and validity.
                 folder.HighestModeSeq = (long)remoteHighestModSeq;
                 folder.UidValidity = remoteFolder.UidValidity;
 
+                await ManageUUIdBasedDeletedMessagesAsync(folder, remoteFolder, cancellationToken).ConfigureAwait(false);
+
                 await FolderService.UpdateFolderAsync(folder).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (FolderNotFoundException)
+            {
+                await FolderService.DeleteFolderAsync(folder.MailAccountId, folder.RemoteFolderId).ConfigureAwait(false);
+
+                return default;
+            }
+            catch (Exception)
             {
                 throw;
             }
             finally
             {
-                if (remoteFolder != null)
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    remoteFolder.MessagesVanished -= async (c, r) => await HandleMessageDeletedAsync(folder, r.UniqueIds).ConfigureAwait(false);
-                    remoteFolder.MessageFlagsChanged -= async (c, r) => await HandleMessageFlagsChangeAsync(folder, r.UniqueId, r.Flags).ConfigureAwait(false);
-
-                    if (remoteFolder.IsOpen)
+                    if (remoteFolder != null)
                     {
-                        await remoteFolder.CloseAsync();
+                        remoteFolder.MessagesVanished -= async (c, r) => await HandleMessageDeletedAsync(folder, r.UniqueIds).ConfigureAwait(false);
+                        remoteFolder.MessageFlagsChanged -= async (c, r) => await HandleMessageFlagsChangeAsync(folder, r.UniqueId, r.Flags).ConfigureAwait(false);
+
+                        if (remoteFolder.IsOpen)
+                        {
+                            await remoteFolder.CloseAsync();
+                        }
                     }
                 }
             }
 
-            return default;
+            return downloadedMessageIds;
+        }
+
+        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        {
+            var localHighestModSeq = (ulong)localFolder.HighestModeSeq;
+            return await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
         }
     }
 }

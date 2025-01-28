@@ -78,8 +78,17 @@ namespace Wino.Dialogs
 
         public void Receive(ImapSetupDismissRequested message) => _getServerInfoTaskCompletionSource.TrySetResult(message.CompletedServerInformation);
 
-        public void ShowDialog(CancellationTokenSource cancellationTokenSource)
-            => _ = ShowAsync();
+        public async Task ShowDialogAsync(CancellationTokenSource cancellationTokenSource)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            _ = ShowAsync().AsTask().ContinueWith((t) =>
+            {
+                tcs.TrySetResult(true);
+            });
+
+            await tcs.Task;
+        }
 
         public void ShowPreparingFolders()
         {

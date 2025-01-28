@@ -6,14 +6,10 @@ using System.Threading.Tasks;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
-using MoreLinq;
-using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Integration;
-using Wino.Services.Extensions;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
 namespace Wino.Core.Synchronizers.ImapSync
@@ -41,6 +37,7 @@ namespace Wino.Core.Synchronizers.ImapSync
             IMailFolder remoteFolder = null;
 
             var downloadedMessageIds = new List<string>();
+
             try
             {
                 remoteFolder = await winoClient.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
@@ -57,92 +54,10 @@ namespace Wino.Core.Synchronizers.ImapSync
                 // the MODSEQ value for deleted messages.
                 if (remoteHighestModSeq > localHighestModSeq)
                 {
-                    // Search for emails with a MODSEQ greater than the last known value.
-                    // Use SORT extension if server supports.
-
-                    IList<UniqueId> changedUids = null;
-
-                    if (winoClient.Capabilities.HasFlag(ImapCapabilities.Sort))
-                    {
-                        changedUids = await remoteFolder.SortAsync(SearchQuery.ChangedSince(localHighestModSeq), [OrderBy.ReverseDate], cancellationToken).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
-                    }
-
-                    // For initial synchronizations, take the first allowed number of items.
-                    // For consequtive synchronizations, take all the items. We don't want to miss any changes.
-
-                    if (isInitialSynchronization)
-                        changedUids = changedUids.Take((int)synchronizer.InitialMessageDownloadCountPerFolder).ToList();
+                    var changedUids = await GetChangedUidsAsync(client, folder, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
 
                     // Get locally exists mails for the returned UIDs.
-                    var existingMails = await MailService.GetExistingMailsAsync(folder.Id, changedUids).ConfigureAwait(false);
-                    var existingMailUids = existingMails.Select(m => MailkitClientExtensions.ResolveUidStruct(m.Id)).ToArray();
-
-                    // These are the non-existing mails. They will be downloaded + processed.
-                    var newMessageIds = changedUids.Except(existingMailUids).ToList();
-
-                    // Fetch minimum data for the existing mails in one query.
-                    var existingFlagData = await remoteFolder.FetchAsync(existingMailUids, MessageSummaryItems.Flags | MessageSummaryItems.UniqueId).ConfigureAwait(false);
-
-                    foreach (var update in existingFlagData)
-                    {
-                        if (update.UniqueId == null)
-                        {
-                            Log.Warning($"Couldn't fetch UniqueId for the mail. FetchAsync failed.");
-                            continue;
-                        }
-
-                        if (update.Flags == null)
-                        {
-                            Log.Warning($"Couldn't fetch flags for the mail with UID {update.UniqueId.Id}. FetchAsync failed.");
-                            continue;
-                        }
-
-                        var existingMail = existingMails.FirstOrDefault(m => MailkitClientExtensions.ResolveUidStruct(m.Id).Id == update.UniqueId.Id);
-
-                        if (existingMail == null)
-                        {
-                            Log.Warning($"Couldn't find the mail with UID {update.UniqueId.Id} in the local database. Flag update is ignored.");
-                            continue;
-                        }
-
-                        await HandleMessageFlagsChangeAsync(existingMail, update.Flags.Value).ConfigureAwait(false);
-                    }
-
-                    // Fetch the new mails in batch.
-
-                    var batchedMessageIds = newMessageIds.Batch(50);
-
-                    foreach (var group in batchedMessageIds)
-                    {
-                        var summaries = await remoteFolder.FetchAsync(group, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
-
-                        foreach (var summary in summaries)
-                        {
-                            var mimeMessage = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
-
-                            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
-
-                            var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, folder, cancellationToken).ConfigureAwait(false);
-
-                            if (mailPackages != null)
-                            {
-                                foreach (var package in mailPackages)
-                                {
-                                    // Local draft is mapped. We don't need to create a new mail copy.
-                                    if (package == null) continue;
-
-                                    bool isCreatedNew = await MailService.CreateMailAsync(folder.MailAccountId, package).ConfigureAwait(false);
-
-                                    // This is upsert. We are not interested in updated mails.
-                                    if (isCreatedNew) downloadedMessageIds.Add(package.Copy.Id);
-                                }
-                            }
-                        }
-                    }
+                    downloadedMessageIds = await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
 
                     folder.HighestModeSeq = (long)remoteHighestModSeq;
 
@@ -176,6 +91,42 @@ namespace Wino.Core.Synchronizers.ImapSync
                     }
                 }
             }
+        }
+
+        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient winoClient, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        {
+            var localHighestModSeq = (ulong)localFolder.HighestModeSeq;
+            var remoteHighestModSeq = remoteFolder.HighestModSeq;
+
+            // Search for emails with a MODSEQ greater than the last known value.
+            // Use SORT extension if server supports.
+
+            IList<UniqueId> changedUids = null;
+
+            // TODO: Temporarily disabled.
+            //if (winoClient.Capabilities.HasFlag(ImapCapabilities.Sort))
+            //{
+            //    changedUids = await remoteFolder.SortAsync(SearchQuery.ChangedSince(localHighestModSeq), [OrderBy.ReverseDate], cancellationToken).ConfigureAwait(false);
+            //}
+            //else
+            //{
+            //    changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
+            //}
+
+            changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
+
+            // For initial synchronizations, take the first allowed number of items.
+            // For consequtive synchronizations, take all the items. We don't want to miss any changes.
+            // Smaller uid means newer message. For initial sync, we need start taking items from the top.
+
+            bool isInitialSynchronization = localHighestModSeq == 0;
+
+            if (isInitialSynchronization)
+            {
+                changedUids = changedUids.OrderByDescending(a => a.Id).Take((int)synchronizer.InitialMessageDownloadCountPerFolder).ToList();
+            }
+
+            return changedUids;
         }
     }
 }

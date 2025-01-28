@@ -1,4 +1,5 @@
 ﻿using System.Threading;
+using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
@@ -8,6 +9,7 @@ namespace Wino.Dialogs
 {
     public sealed partial class AccountCreationDialog : ContentDialog, IAccountCreationDialog
     {
+        private TaskCompletionSource<bool> dialogOpened = new TaskCompletionSource<bool>();
         public CancellationTokenSource CancellationTokenSource { get; private set; }
 
         public AccountCreationDialogState State
@@ -32,13 +34,6 @@ namespace Wino.Dialogs
             }
         }
 
-        public void ShowDialog(CancellationTokenSource cancellationTokenSource)
-        {
-            CancellationTokenSource = cancellationTokenSource;
-
-            _ = ShowAsync();
-        }
-
         public void Complete(bool cancel)
         {
             State = cancel ? AccountCreationDialogState.Canceled : AccountCreationDialogState.Completed;
@@ -53,6 +48,26 @@ namespace Wino.Dialogs
 
             Hide();
         }
+
         private void CancelClicked(object sender, System.EventArgs e) => Complete(true);
+
+        public async Task ShowDialogAsync(CancellationTokenSource cancellationTokenSource)
+        {
+            var tcs =
+
+            CancellationTokenSource = cancellationTokenSource;
+
+            Opened += DialogOpened;
+            _ = ShowAsync();
+
+            await dialogOpened.Task;
+        }
+
+        private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+        {
+            Opened -= DialogOpened;
+
+            dialogOpened?.SetResult(true);
+        }
     }
 }
