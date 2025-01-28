@@ -71,7 +71,7 @@ namespace Wino.Core.Synchronizers.ImapSync
             return downloadedMessageIds;
         }
 
-        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        internal override Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

@@ -8,7 +8,7 @@ namespace Wino.Messaging.Server
     /// Triggers a new mail synchronization if possible.
     /// </summary>
     /// <param name="Options">Options for synchronization.</param>
-    public record NewMailSynchronizationRequested(MailSynchronizationOptions Options, SynchronizationSource Source) : IClientMessage;
+    public record NewMailSynchronizationRequested(MailSynchronizationOptions Options, SynchronizationSource Source) : IClientMessage, IUIMessage;
 
     /// <summary>
     /// Triggers a new calendar synchronization if possible.

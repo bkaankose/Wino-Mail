@@ -25,6 +25,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
 
@@ -716,6 +717,8 @@ namespace Wino.Core.Synchronizers.Mail
                 inboxFolder.MessageExpunged += IdleNotificationTriggered;
                 inboxFolder.MessagesVanished += IdleNotificationTriggered;
 
+                Log.Debug("Starting an idle client for {Name}", Account.Name);
+
                 await client.IdleAsync(idleDoneTokenSource.Token, idleCancellationTokenSource.Token);
             }
             catch (ImapProtocolException protocolException)
@@ -788,7 +791,7 @@ namespace Wino.Core.Synchronizers.Mail
                 Type = MailSynchronizationType.IMAPIdle
             };
 
-            _ = SynchronizeMailsAsync(options);
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
         }
 
         private void IdleNotificationTriggered(object sender, EventArgs e)
