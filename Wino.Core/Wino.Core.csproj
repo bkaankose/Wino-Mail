@@ -27,13 +27,13 @@
        <PrivateAssets>all</PrivateAssets>
        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
      </PackageReference>
-     <PackageReference Include="MailKit" Version="4.9.0" />
+     <PackageReference Include="MailKit" Version="4.10.0" />
      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.1" />
      <PackageReference Include="Microsoft.Graph" Version="5.69.0" />
      <PackageReference Include="Microsoft.Identity.Client" Version="4.67.2" />
      <PackageReference Include="Microsoft.Identity.Client.Broker" Version="4.67.2" />
      <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.67.2" />
-     <PackageReference Include="MimeKit" Version="4.9.0" />
+     <PackageReference Include="MimeKit" Version="4.10.0" />
      <PackageReference Include="morelinq" Version="4.4.0" />
      <PackageReference Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
      <PackageReference Include="NodaTime" Version="3.2.1" />
