@@ -22,7 +22,7 @@ namespace Wino.Core.Synchronizers.ImapSync
             if (client is not WinoImapClient winoImapClient)
                 throw new System.ArgumentException("Client must be of type WinoImapClient.", nameof(client));
 
-            // if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync) && winoImapClient.IsQResyncEnabled) return _qResyncSynchronizer;
+            if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync) && winoImapClient.IsQResyncEnabled) return _qResyncSynchronizer;
             if (client.Capabilities.HasFlag(ImapCapabilities.CondStore)) return _condstoreSynchronizer;
 
             return _uidBasedSynchronizer;

@@ -58,8 +58,6 @@ namespace Wino.Core.Synchronizers.ImapSync
                 }
 
                 // Perform QRESYNC synchronization.
-
-                var remoteHighestModSeq = remoteFolder.HighestModSeq;
                 var localHighestModSeq = (ulong)folder.HighestModeSeq;
 
                 remoteFolder.MessagesVanished += async (c, r) => await HandleMessageDeletedAsync(folder, r.UniqueIds).ConfigureAwait(false);
@@ -75,7 +73,7 @@ namespace Wino.Core.Synchronizers.ImapSync
                 downloadedMessageIds = await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
 
                 // Update the local folder with the new highest mod-seq and validity.
-                folder.HighestModeSeq = (long)remoteHighestModSeq;
+                folder.HighestModeSeq = unchecked((long)remoteFolder.HighestModSeq);
                 folder.UidValidity = remoteFolder.UidValidity;
 
                 await ManageUUIdBasedDeletedMessagesAsync(folder, remoteFolder, cancellationToken).ConfigureAwait(false);

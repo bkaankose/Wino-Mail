@@ -45,21 +45,20 @@ namespace Wino.Core.Synchronizers.ImapSync
                 await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
                 var localHighestModSeq = (ulong)folder.HighestModeSeq;
-                var remoteHighestModSeq = remoteFolder.HighestModSeq;
 
                 bool isInitialSynchronization = localHighestModSeq == 0;
 
                 // There are some changes on new messages or flag changes.
                 // Deletions are tracked separately because some servers do not increase
                 // the MODSEQ value for deleted messages.
-                if (remoteHighestModSeq > localHighestModSeq)
+                if (remoteFolder.HighestModSeq > localHighestModSeq)
                 {
                     var changedUids = await GetChangedUidsAsync(client, folder, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
 
                     // Get locally exists mails for the returned UIDs.
                     downloadedMessageIds = await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
 
-                    folder.HighestModeSeq = (long)remoteHighestModSeq;
+                    folder.HighestModeSeq = unchecked((long)remoteFolder.HighestModSeq);
 
                     await FolderService.UpdateFolderAsync(folder).ConfigureAwait(false);
                 }
@@ -103,15 +102,15 @@ namespace Wino.Core.Synchronizers.ImapSync
 
             IList<UniqueId> changedUids = null;
 
-            // TODO: Temporarily disabled.
-            //if (winoClient.Capabilities.HasFlag(ImapCapabilities.Sort))
-            //{
-            //    changedUids = await remoteFolder.SortAsync(SearchQuery.ChangedSince(localHighestModSeq), [OrderBy.ReverseDate], cancellationToken).ConfigureAwait(false);
-            //}
-            //else
-            //{
-            //    changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
-            //}
+            if (winoClient.Capabilities.HasFlag(ImapCapabilities.Sort))
+            {
+                // Highest mod seq must be greater than 0 for SORT.
+                changedUids = await remoteFolder.SortAsync(SearchQuery.ChangedSince(Math.Max(localHighestModSeq, 1)), [OrderBy.ReverseDate], cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
+            }
 
             changedUids = await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
 
