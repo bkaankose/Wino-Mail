@@ -15,6 +15,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Services;
 using Wino.Dialogs;
+using Wino.Mail.Dialogs;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
@@ -167,6 +168,20 @@ namespace Wino.Services
             var result = await HandleDialogPresentationAsync(signatureEditorDialog);
 
             return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
+        }
+
+        public async Task ShowMessageSourceDialogAsync(string messageSource)
+        {
+            var dialog = new MessageSourceDialog()
+            {
+                MessageSource = messageSource,
+                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            };
+
+            await HandleDialogPresentationAsync(dialog);
+
+            if(dialog.Copied)
+                InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, Translator.MessageSourceDialog_Title), InfoBarMessageType.Information);
         }
 
         public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)

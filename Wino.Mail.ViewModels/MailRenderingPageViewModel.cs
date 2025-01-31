@@ -261,6 +261,10 @@ namespace Wino.Mail.ViewModels
             {
                 await PrintAsync();
             }
+            else if (operation == MailOperation.ViewMessageSource)
+            {
+                await _dialogService.ShowMessageSourceDialogAsync(initializedMimeMessageInformation.MimeMessage.ToString());
+            }
             else if (operation == MailOperation.Reply || operation == MailOperation.ReplyAll || operation == MailOperation.Forward)
             {
                 if (initializedMailItemViewModel == null) return;
@@ -547,6 +551,8 @@ namespace Wino.Mail.ViewModels
 
                 // Forward
                 MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+
+                MenuItems.Add(MailOperationMenuItem.Create(MailOperation.ViewMessageSource, true, true));
             }
 
             // Archive - Unarchive

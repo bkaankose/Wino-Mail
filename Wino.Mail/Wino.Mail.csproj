@@ -223,6 +223,9 @@
     <Compile Include="Dialogs\AccountReorderDialog.xaml.cs">
       <DependentUpon>AccountReorderDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Dialogs\MessageSourceDialog.xaml.cs">
+      <DependentUpon>MessageSourceDialog.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Dialogs\MoveMailDialog.xaml.cs">
       <DependentUpon>MoveMailDialog.xaml</DependentUpon>
     </Compile>
@@ -361,6 +364,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Dialogs\AccountReorderDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Dialogs\MessageSourceDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

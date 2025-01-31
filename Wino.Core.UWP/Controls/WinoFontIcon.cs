@@ -99,6 +99,7 @@ namespace Wino.Core.UWP.Controls
         EventReminder,
         EventEditSeries,
         EventJoinOnline,
+        ViewMessageSource,
     }
 
     public class WinoFontIcon : FontIcon
