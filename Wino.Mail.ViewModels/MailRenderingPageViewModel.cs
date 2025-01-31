@@ -551,7 +551,10 @@ namespace Wino.Mail.ViewModels
 
                 // Forward
                 MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+            }
 
+            if (initializedMimeMessageInformation?.MimeMessage != null)
+            {
                 MenuItems.Add(MailOperationMenuItem.Create(MailOperation.ViewMessageSource, true, true));
             }
 
