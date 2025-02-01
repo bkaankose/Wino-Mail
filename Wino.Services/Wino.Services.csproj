@@ -7,16 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" Version="1.11.72" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.11.70" />
     <PackageReference Include="Ical.Net" Version="4.3.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.1" />
-    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog" Version="4.1.0" />
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
 	<PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
 	<PackageReference Include="SqlKata" Version="2.4.0" />
   </ItemGroup>
-
+ 
   <ItemGroup>
     <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
     <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />

@@ -60,8 +60,8 @@
     <EmbeddedResource Include="Translations\zh_CN\resources.json" />
   </ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.0" />
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="CommunityToolkit.Diagnostics" Version="8.3.2" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
 		<PackageReference Include="IsExternalInit" Version="1.0.3">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
