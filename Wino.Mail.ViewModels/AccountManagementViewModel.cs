@@ -163,6 +163,9 @@ namespace Wino.Mail.ViewModels
                             if (creationDialog.State == AccountCreationDialogState.Canceled)
                                 throw new AccountSetupCanceledException();
 
+                            if (!tokenInformationResponse.IsSuccess)
+                                throw new Exception(tokenInformationResponse.Message);
+
                             createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
 
                             tokenInformationResponse.ThrowIfFailed();
