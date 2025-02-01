@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using Windows.Storage;
 using Wino.Calendar.Services;
 using Wino.Core;
@@ -188,6 +189,9 @@ namespace Wino.Server
 
             if (isCreatedNew)
             {
+                AppDomain.CurrentDomain.UnhandledException += ServerCrashed;
+                Application.Current.DispatcherUnhandledException += UIThreadCrash;
+                TaskScheduler.UnobservedTaskException += TaskCrashed;
                 // Ensure proper encodings are available for MimeKit
                 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -236,6 +240,12 @@ namespace Wino.Server
                 Shutdown();
             }
         }
+
+        private void TaskCrashed(object sender, UnobservedTaskExceptionEventArgs e) => Log.Error(e.Exception, "Task crashed.");
+
+        private void UIThreadCrash(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e) => Log.Error(e.Exception, "UI thread crashed.");
+
+        private void ServerCrashed(object sender, UnhandledExceptionEventArgs e) => Log.Error((Exception)e.ExceptionObject, "Server crashed.");
 
         protected override void OnExit(ExitEventArgs e)
         {
