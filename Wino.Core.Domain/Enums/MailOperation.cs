@@ -51,6 +51,7 @@
         DarkEditor,
         LightEditor,
         Print,
+        ViewMessageSource,
         DiscardLocalDraft,
         Navigate // For toast activation
     }

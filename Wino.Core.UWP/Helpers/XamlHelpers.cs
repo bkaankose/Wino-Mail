@@ -213,6 +213,7 @@ namespace Wino.Helpers
                 MailOperation.Forward => WinoIconGlyph.Forward,
                 MailOperation.DarkEditor => WinoIconGlyph.DarkEditor,
                 MailOperation.LightEditor => WinoIconGlyph.LightEditor,
+                MailOperation.ViewMessageSource => WinoIconGlyph.ViewMessageSource,
                 _ => WinoIconGlyph.None,
             };
         }
@@ -336,6 +337,7 @@ namespace Wino.Helpers
                 MailOperation.DarkEditor => string.Empty,
                 MailOperation.LightEditor => string.Empty,
                 MailOperation.Print => Translator.MailOperation_Print,
+                MailOperation.ViewMessageSource => Translator.MailOperation_ViewMessageSource,
                 MailOperation.Navigate => Translator.MailOperation_Navigate,
                 _ => "unknown",
             };

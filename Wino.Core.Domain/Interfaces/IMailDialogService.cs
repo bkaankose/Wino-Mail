@@ -45,5 +45,9 @@ namespace Wino.Core.Domain.Interfaces
         /// <returns>Created alias model if not canceled.</returns>
         Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync();
 
+        /// <summary>
+        /// Presents a dialog to the user to show email source.
+        /// </summary>
+        Task ShowMessageSourceDialogAsync(string messageSource);
     }
 }

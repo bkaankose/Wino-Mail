@@ -1,0 +1,28 @@
+﻿<ContentDialog
+    x:Class="Wino.Mail.Dialogs.MessageSourceDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:local="using:Wino.Mail.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.MessageSourceDialog_Title}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Copy}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Close}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">1200</x:Double>
+    </ContentDialog.Resources>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled">
+        <TextBlock
+            MaxWidth="1000"
+            IsTextSelectionEnabled="True"
+            Text="{x:Bind MessageSource, Mode=OneWay}"
+            TextWrapping="Wrap" />
+    </ScrollViewer>
+</ContentDialog>
