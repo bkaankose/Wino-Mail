@@ -320,7 +320,10 @@ namespace Wino.Core.Synchronizers.Mail
 
                     if (cancellationToken.IsCancellationRequested) return MailSynchronizationResult.Canceled;
 
-                    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                    if (folderDownloadedMessageIds != null)
+                    {
+                        downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                    }
                 }
             }
 
