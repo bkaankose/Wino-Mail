@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
-using MimeKit;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
@@ -176,8 +175,6 @@ namespace Wino.Core.Synchronizers.Mail
 
                 var singleRequest = request.Request;
 
-                singleRequest.Mime.Prepare(EncodingConstraint.None);
-
                 using var smtpClient = new MailKit.Net.Smtp.SmtpClient();
 
                 if (smtpClient.IsConnected && client.IsAuthenticated) return;
@@ -188,6 +185,7 @@ namespace Wino.Core.Synchronizers.Mail
                 if (!smtpClient.IsAuthenticated)
                     await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
+                // smtpClient.Capabilities.HasFlag(MailKit.Net.Smtp.SmtpCapabilities.mime)
                 // TODO: Transfer progress implementation as popup in the UI.
                 await smtpClient.SendAsync(singleRequest.Mime, default);
                 await smtpClient.DisconnectAsync(true);
