@@ -185,7 +185,6 @@ namespace Wino.Core.Synchronizers.Mail
                 if (!smtpClient.IsAuthenticated)
                     await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
-                // smtpClient.Capabilities.HasFlag(MailKit.Net.Smtp.SmtpCapabilities.mime)
                 // TODO: Transfer progress implementation as popup in the UI.
                 await smtpClient.SendAsync(singleRequest.Mime, default);
                 await smtpClient.DisconnectAsync(true);
