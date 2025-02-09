@@ -90,6 +90,7 @@
   </Applications>
 
   <Capabilities>
+	<rescap:Capability Name="confirmAppClose" />
     <Capability Name="internetClient" />
     <Capability Name="privateNetworkClientServer"/>
     <Capability Name="internetClientServer"/>

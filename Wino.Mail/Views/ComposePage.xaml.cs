@@ -17,6 +17,7 @@ using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
+using Windows.UI.Core.Preview;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -48,13 +49,15 @@ namespace Wino.Views
         public static readonly DependencyProperty IsComposerDarkModeProperty = DependencyProperty.Register(nameof(IsComposerDarkMode), typeof(bool), typeof(ComposePage), new PropertyMetadata(false, OnIsComposerDarkModeChanged));
         public WebView2 GetWebView() => Chromium;
 
-        private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
 
-        private List<IDisposable> Disposables = new List<IDisposable>();
+        private readonly List<IDisposable> _disposables = new List<IDisposable>();
+        private readonly SystemNavigationManagerPreview _navManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
 
         public ComposePage()
         {
             InitializeComponent();
+            _navManagerPreview.CloseRequested += OnClose;
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
@@ -378,7 +381,7 @@ namespace Wino.Views
 
         public async Task UpdateEditorThemeAsync()
         {
-            await DOMLoadedTask.Task;
+            await _domLoadedTask.Task;
 
             if (IsComposerDarkMode)
             {
@@ -394,7 +397,7 @@ namespace Wino.Views
 
         private async Task RenderInternalAsync(string htmlBody)
         {
-            await DOMLoadedTask.Task;
+            await _domLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
             await InitializeEditorAsync();
@@ -437,8 +440,8 @@ namespace Wino.Views
 
         private void DisposeDisposables()
         {
-            if (Disposables.Any())
-                Disposables.ForEach(a => a.Dispose());
+            if (_disposables.Any())
+                _disposables.ForEach(a => a.Dispose());
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -452,9 +455,9 @@ namespace Wino.Views
 
             DisposeDisposables();
 
-            Disposables.Add(GetSuggestionBoxDisposable(ToBox));
-            Disposables.Add(GetSuggestionBoxDisposable(CCBox));
-            Disposables.Add(GetSuggestionBoxDisposable(BccBox));
+            _disposables.Add(GetSuggestionBoxDisposable(ToBox));
+            _disposables.Add(GetSuggestionBoxDisposable(CCBox));
+            _disposables.Add(GetSuggestionBoxDisposable(BccBox));
 
             Chromium.CoreWebView2Initialized -= ChromiumInitialized;
             Chromium.CoreWebView2Initialized += ChromiumInitialized;
@@ -539,7 +542,7 @@ namespace Wino.Views
             }
         }
 
-        private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => DOMLoadedTask.TrySetResult(true);
+        private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => _domLoadedTask.TrySetResult(true);
 
         async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
         {
@@ -678,10 +681,21 @@ namespace Wino.Views
             base.OnNavigatingFrom(e);
 
             FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
+            _navManagerPreview.CloseRequested -= OnClose;
             await ViewModel.UpdateMimeChangesAsync();
 
             DisposeDisposables();
             DisposeWebView2();
+        }
+        private async void OnClose(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
+        {
+            var deferral = e.GetDeferral();
+
+            try
+            {
+                await ViewModel.UpdateMimeChangesAsync();
+            }
+            finally { deferral.Complete(); }
         }
     }
 }
