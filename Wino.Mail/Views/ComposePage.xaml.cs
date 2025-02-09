@@ -10,7 +10,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
@@ -227,7 +226,7 @@ namespace Wino.Views
 
             static async Task<string> GetDataURL(StorageFile file)
             {
-                return $"data:image/{file.FileType.Replace(".", "")};base64,{Convert.ToBase64String(await file.ReadBytesAsync())}";
+                return $"data:image/{file.FileType.Replace(".", "")};base64,{Convert.ToBase64String(await file.ToByteArrayAsync())}";
             }
         }
 

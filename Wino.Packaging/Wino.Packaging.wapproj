@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '15.0'">
+	  
     <VisualStudioVersion>15.0</VisualStudioVersion>
   </PropertyGroup>
   <ItemGroup Label="ProjectConfigurations">
@@ -30,13 +31,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup>
+	  <DebuggerFlavor>AppHostLocalDebugger</DebuggerFlavor>
+	  <RemoteDebugEnabled>False</RemoteDebugEnabled>
+	  <DebuggerType>CoreClr</DebuggerType>
+	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <WapProjPath Condition="'$(WapProjPath)'==''">$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\</WapProjPath>
   </PropertyGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.props" />
   <PropertyGroup>
     <ProjectGuid>760f5f31-8ee3-4b83-80f3-0e4ffbcc737c</ProjectGuid>
     <TargetPlatformVersion>10.0.22621.0</TargetPlatformVersion>
-    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <TargetPlatformMinVersion>10.0.18362.0</TargetPlatformMinVersion>
     <DefaultLanguage>en-US</DefaultLanguage>
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
@@ -129,10 +134,13 @@
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Mail\Wino.Mail.csproj" />
+	  <ProjectReference Include="..\Wino.Mail\Wino.Mail.csproj">
+		  <UseLowTrustEntryPoint>True</UseLowTrustEntryPoint>
+		  <SkipGetTargetFrameworkProperties>True</SkipGetTargetFrameworkProperties>
+	  </ProjectReference>
     <ProjectReference Include="..\Wino.Server\Wino.Server.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
+    <PackageReference Include="Microsoft.Identity.Client"  />
   </ItemGroup>
 </Project>

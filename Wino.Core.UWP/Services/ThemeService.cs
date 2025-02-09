@@ -7,7 +7,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Toolkit.Uwp.Helpers;
+using CommunityToolkit.WinUI.Helpers;
 using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -235,7 +235,7 @@ namespace Wino.Services
             // Change accent color if specified.
             if (!string.IsNullOrEmpty(hex))
             {
-                var color = Microsoft.Toolkit.Uwp.Helpers.ColorHelper.ToColor(hex);
+                var color = CommunityToolkit.WinUI.Helpers.ColorHelper.ToColor(hex);
                 var brush = new SolidColorBrush(color);
 
                 if (_applicationResourceManager.ContainsResourceKey("SystemAccentColor"))

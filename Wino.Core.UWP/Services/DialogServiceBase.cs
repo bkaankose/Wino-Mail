@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Toolkit.Uwp.Helpers;
 using Serilog;
 using Windows.Storage;
 using Windows.Storage.AccessCache;
@@ -146,7 +145,7 @@ namespace Wino.Core.UWP.Services
 
             if (file == null) return [];
 
-            return await file.ReadBytesAsync();
+            return await file.ToByteArrayAsync();
         }
 
         public Task ShowMessageAsync(string message, string title, WinoCustomMessageDialogIcon icon = WinoCustomMessageDialogIcon.Information)

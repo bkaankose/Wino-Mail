@@ -2,7 +2,6 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Toolkit.Uwp.Helpers;
 using Windows.ApplicationModel.Activation;
 using Windows.Storage;
 using Windows.UI.Xaml;
@@ -10,6 +9,7 @@ using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.UWP.Extensions;
 using Wino.Views;
 
 namespace Wino.Activation
@@ -44,7 +44,7 @@ namespace Wino.Activation
 
             if (string.Equals(fileExtension, ".eml", StringComparison.OrdinalIgnoreCase))
             {
-                var fileBytes = await file.ReadBytesAsync();
+                var fileBytes = await file.ToByteArrayAsync();
                 var directoryName = Path.GetDirectoryName(file.Path);
 
                 var messageInformation = await _mimeFileService.GetMimeMessageInformationAsync(fileBytes, directoryName).ConfigureAwait(false);

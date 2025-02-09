@@ -5,18 +5,17 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:toolkitmd="using:CommunityToolkit.Labs.WinUI.MarkdownTextBlock"
     mc:Ignorable="d">
 
     <Border Style="{StaticResource PageRootBorderStyle}">
         <Grid Padding="15">
             <ScrollViewer>
-                <toolkitmd:MarkdownTextBlock
+                <!--<toolkitmd:MarkdownTextBlock
                     Margin="0,0,16,0"
                     CharacterSpacing="12"
                     Config="{x:Bind _config, Mode=OneTime}"
                     FontSize="16"
-                    Text="{x:Bind ViewModel.CurrentVersionNotes, Mode=OneWay}" />
+                    Text="{x:Bind ViewModel.CurrentVersionNotes, Mode=OneWay}" />-->
             </ScrollViewer>
         </Grid>
     </Border>

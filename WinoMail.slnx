@@ -1,0 +1,42 @@
+<Solution>
+  <Configurations>
+    <Platform Name="arm64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/lib/">
+    <Project Path="Wino.Authentication/Wino.Authentication.csproj" />
+    <Project Path="Wino.BackgroundTasks/Wino.BackgroundTasks.csproj" Id="d9ef0f59-f5f2-4d6c-a5ba-84043d8f3e08">
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Core.Domain/Wino.Core.Domain.csproj">
+      <BuildDependency Project="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+    </Project>
+    <Project Path="Wino.Core.UWP/Wino.Core.UWP.csproj">
+      <Platform Solution="Release|x64" Project="x64" />
+      <Platform Solution="Release|x86" Project="x86" />
+      <Platform Solution="*|ARM64" Project="ARM64" />
+    </Project>
+    <Project Path="Wino.Core.ViewModels/Wino.Core.ViewModels.csproj" />
+    <Project Path="Wino.Core/Wino.Core.csproj"/>
+    <Project Path="Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj"/>
+    <Project Path="Wino.Messages/Wino.Messaging.csproj"/>
+    <Project Path="Wino.Services/Wino.Services.csproj" />
+    <Project Path="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+  </Folder>
+  <Project Path="Wino.Mail/Wino.Mail.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+    <Platform Solution="*|ARM64" Project="ARM64" />
+    <Deploy />
+  </Project>
+  <Project Path="Wino.Packaging/Wino.Packaging.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5">
+    <Deploy />
+  </Project>
+  <Project Path="Wino.Server/Wino.Server.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+    <Platform Solution="*|ARM64" Project="ARM64" />
+  </Project>
+</Solution>
