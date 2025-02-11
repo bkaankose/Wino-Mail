@@ -34,30 +34,30 @@
 	  <PRIResource Remove="BundleArtifacts\**" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="ColorHashSharp"/>
-		<PackageReference Include="CommunityToolkit.Common"/>
-		<PackageReference Include="CommunityToolkit.Diagnostics"/>
-		<PackageReference Include="CommunityToolkit.Mvvm"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Animations"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Behaviors"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox"/>
-		<PackageReference Include="CommunityToolkit.Uwp.Extensions"/>
-		<PackageReference Include="EmailValidation"/>
-		<PackageReference Include="Microsoft.AppCenter.Analytics"/>
-		<PackageReference Include="Microsoft.AppCenter.Crashes"/>
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
-		<PackageReference Include="Microsoft.Identity.Client"/>
-		<PackageReference Include="Microsoft.UI.Xaml"/>
-		<PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed"/>
-		<PackageReference Include="Nito.AsyncEx"/>
-		<PackageReference Include="Serilog"/>
-		<PackageReference Include="Serilog.Exceptions"/>
-		<PackageReference Include="sqlite-net-pcl"/>
-		<PackageReference Include="Win2D.uwp"/>
+		<PackageReference Include="ColorHashSharp" />
+		<PackageReference Include="CommunityToolkit.Common" />
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="CommunityToolkit.Uwp.Animations" />
+		<PackageReference Include="CommunityToolkit.Uwp.Behaviors" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" />
+		<PackageReference Include="CommunityToolkit.Uwp.Extensions" />
+		<PackageReference Include="EmailValidation" />
+		<PackageReference Include="Microsoft.AppCenter.Analytics" />
+		<PackageReference Include="Microsoft.AppCenter.Crashes" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Identity.Client" />
+		<PackageReference Include="Microsoft.UI.Xaml" />
+		<PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed" />
+		<PackageReference Include="Nito.AsyncEx" />
+		<PackageReference Include="Serilog" />
+		<PackageReference Include="Serilog.Exceptions" />
+		<PackageReference Include="sqlite-net-pcl" />
+		<PackageReference Include="Win2D.uwp" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
