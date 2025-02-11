@@ -3,7 +3,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     <LangVersion>12.0</LangVersion>
-    <Platforms>AnyCPU;x64;x86</Platforms>
+    <Platforms>x86;x64;arm64</Platforms>
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
