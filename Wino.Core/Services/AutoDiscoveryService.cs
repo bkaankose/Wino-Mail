@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.AutoDiscovery;
 
 namespace Wino.Core.Services
@@ -22,7 +23,7 @@ namespace Wino.Core.Services
         public Task<AutoDiscoverySettings> GetAutoDiscoverySettings(AutoDiscoveryMinimalSettings autoDiscoveryMinimalSettings)
             => GetSettingsFromFiretrustAsync(autoDiscoveryMinimalSettings.Email);
 
-        private async Task<AutoDiscoverySettings> GetSettingsFromFiretrustAsync(string mailAddress)
+        private static async Task<AutoDiscoverySettings> GetSettingsFromFiretrustAsync(string mailAddress)
         {
             using var client = new HttpClient();
             var response = await client.GetAsync($"{FiretrustURL}{mailAddress}");
@@ -37,13 +38,13 @@ namespace Wino.Core.Services
             }
         }
 
-        private async Task<AutoDiscoverySettings> DeserializeFiretrustResponse(HttpResponseMessage response)
+        private static async Task<AutoDiscoverySettings> DeserializeFiretrustResponse(HttpResponseMessage response)
         {
             try
             {
                 var content = await response.Content.ReadAsStringAsync();
 
-                return JsonSerializer.Deserialize<AutoDiscoverySettings>(content);
+                return JsonSerializer.Deserialize(content, DomainModelsJsonContext.Default.AutoDiscoverySettings);
             }
             catch (Exception ex)
             {

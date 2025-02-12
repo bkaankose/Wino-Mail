@@ -10,6 +10,7 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Views.Settings;
 
@@ -78,7 +79,7 @@ namespace Wino.Dialogs
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonSerializer.Deserialize<string>(editorContent);
+                return JsonSerializer.Deserialize(editorContent, BasicTypesJsonContext.Default.String);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -327,7 +328,7 @@ namespace Wino.Dialogs
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize(args.WebMessageAsJson, DomainModelsJsonContext.Default.WebViewMessage);
 
             if (change.Type == "bold")
             {

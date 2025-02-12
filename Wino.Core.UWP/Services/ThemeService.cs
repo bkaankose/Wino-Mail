@@ -19,6 +19,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Models.Personalization;
@@ -422,7 +423,7 @@ namespace Wino.Services
             // Save metadata.
             var metadataFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.json", CreationCollisionOption.ReplaceExisting);
 
-            var serialized = JsonSerializer.Serialize(newTheme);
+            var serialized = JsonSerializer.Serialize(newTheme, DomainModelsJsonContext.Default.CustomThemeMetadata);
             await FileIO.WriteTextAsync(metadataFile, serialized);
 
             return newTheme;
@@ -454,7 +455,7 @@ namespace Wino.Services
         {
             var fileContent = await FileIO.ReadTextAsync(file);
 
-            return JsonSerializer.Deserialize<CustomThemeMetadata>(fileContent);
+            return JsonSerializer.Deserialize(fileContent, DomainModelsJsonContext.Default.CustomThemeMetadata);
         }
 
         public string GetSystemAccentColorHex()
