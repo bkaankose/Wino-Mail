@@ -98,9 +98,6 @@ namespace Wino.Core.Synchronizers.Mail
             _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
 
             _outlookChangeProcessor = outlookChangeProcessor;
-
-            // Specify to use TLS 1.2 as default connection
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
 
         #region MS Graph Handlers
@@ -1056,7 +1053,7 @@ namespace Wino.Core.Synchronizers.Mail
                         await _handleItemRetrievalSemaphore.WaitAsync();
                         await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
                     }

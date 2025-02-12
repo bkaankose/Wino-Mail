@@ -10,7 +10,7 @@ using Wino.Messaging.Client.Shell;
 
 namespace Wino.Core.UWP
 {
-    public class BasePage : Page, IRecipient<LanguageChanged>
+    public partial class BasePage : Page, IRecipient<LanguageChanged>
     {
         public UIElement ShellContent
         {

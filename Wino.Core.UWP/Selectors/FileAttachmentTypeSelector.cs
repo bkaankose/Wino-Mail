@@ -4,7 +4,7 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.UWP.Selectors
 {
-    public class FileAttachmentTypeSelector : DataTemplateSelector
+    public partial class FileAttachmentTypeSelector : DataTemplateSelector
     {
         public DataTemplate None { get; set; }
         public DataTemplate Executable { get; set; }

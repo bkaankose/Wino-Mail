@@ -4,7 +4,7 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Selectors
 {
-    public class MailItemContainerStyleSelector : StyleSelector
+    public partial class MailItemContainerStyleSelector : StyleSelector
     {
         public Style Thread { get; set; }
 

@@ -103,6 +103,6 @@ namespace Wino.Extensions
         }
 
 
-        public static IEnumerable<T> GetValues<T>() => Enum.GetValues(typeof(T)).Cast<T>();
+        public static T[] GetValues<T>() where T : struct, Enum => Enum.GetValues<T>();
     }
 }

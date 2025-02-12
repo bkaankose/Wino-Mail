@@ -9,6 +9,7 @@
 		<IsAotCompatible>true</IsAotCompatible>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<SupportedOSPlatformVersion>10.0.18362.0</SupportedOSPlatformVersion>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>
 	  <None Remove="Assets\FileTypes\type_archive.png" />

@@ -412,7 +412,7 @@ namespace Wino.Services
             {
                 byte[] bytes = new byte[readerStream.Length];
 
-                await readerStream.ReadAsync(bytes, 0, bytes.Length);
+                await readerStream.ReadExactlyAsync(bytes);
 
                 var buffer = bytes.AsBuffer();
 

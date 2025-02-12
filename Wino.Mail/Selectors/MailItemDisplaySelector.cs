@@ -4,7 +4,7 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Selectors
 {
-    public class MailItemDisplaySelector : DataTemplateSelector
+    public partial class MailItemDisplaySelector : DataTemplateSelector
     {
         public DataTemplate SingleMailItemTemplate { get; set; }
         public DataTemplate ThreadMailItemTemplate { get; set; }

@@ -7,7 +7,7 @@ namespace Wino.Selectors
     /// <summary>
     /// Template selector for previewing mail item display modes in Settings->Personalization page.
     /// </summary>
-    public class MailItemDisplayModePreviewTemplateSelector : DataTemplateSelector
+    public partial class MailItemDisplayModePreviewTemplateSelector : DataTemplateSelector
     {
         public DataTemplate CompactTemplate { get; set; }
         public DataTemplate MediumTemplate { get; set; }

@@ -57,6 +57,9 @@
 	  <None Remove="JS\reader.html" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Compile Include="Properties\PublishProfiles\win-x64.pubxml" />
+	</ItemGroup>
+	<ItemGroup>
 	  <Content Include="Assets\EML\eml.png" />
 	  <Content Include="Assets\NotificationIcons\delete.png" />
 	  <Content Include="Assets\NotificationIcons\dismiss.png" />

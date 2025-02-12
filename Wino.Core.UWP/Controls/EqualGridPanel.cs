@@ -4,7 +4,7 @@ using Windows.UI.Xaml.Controls;
 
 namespace Wino.Core.UWP.Controls
 {
-    public class EqualGridPanel : Panel
+    public partial class EqualGridPanel : Panel
     {
         public int Rows
         {

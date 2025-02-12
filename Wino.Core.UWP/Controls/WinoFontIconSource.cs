@@ -3,7 +3,7 @@ using Wino.Core.UWP.Controls;
 
 namespace Wino.Controls
 {
-    public class WinoFontIconSource : Microsoft.UI.Xaml.Controls.FontIconSource
+    public partial class WinoFontIconSource : Microsoft.UI.Xaml.Controls.FontIconSource
     {
         public WinoIconGlyph Icon
         {

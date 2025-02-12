@@ -102,7 +102,7 @@ namespace Wino.Core.UWP.Controls
         ViewMessageSource,
     }
 
-    public class WinoFontIcon : FontIcon
+    public partial class WinoFontIcon : FontIcon
     {
         public WinoIconGlyph Icon
         {

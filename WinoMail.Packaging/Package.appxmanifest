@@ -12,7 +12,7 @@
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="0.0.1.0" />
+    Version="1.9.60.0" />
 
 	<Extensions>
 		<!-- Publisher Cache Folders -->

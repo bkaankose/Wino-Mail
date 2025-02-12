@@ -54,6 +54,36 @@
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
     <EntryPointProjectUniqueName>..\Wino.Mail\Wino.Mail.csproj</EntryPointProjectUniqueName>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <AppxBundle>Always</AppxBundle>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <AppxBundle>Always</AppxBundle>
   </PropertyGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -61,63 +91,64 @@
       <SubType>Designer</SubType>
     </AppxManifest>
   </ItemGroup>
-	<ItemGroup>
-		<Content Include="Images\LargeTile.scale-100.png" />
-		<Content Include="Images\LargeTile.scale-125.png" />
-		<Content Include="Images\LargeTile.scale-150.png" />
-		<Content Include="Images\LargeTile.scale-200.png" />
-		<Content Include="Images\LargeTile.scale-400.png" />
-		<Content Include="Images\SmallTile.scale-100.png" />
-		<Content Include="Images\SmallTile.scale-125.png" />
-		<Content Include="Images\SmallTile.scale-150.png" />
-		<Content Include="Images\SmallTile.scale-200.png" />
-		<Content Include="Images\SmallTile.scale-400.png" />
-		<Content Include="Images\SplashScreen.scale-100.png" />
-		<Content Include="Images\SplashScreen.scale-125.png" />
-		<Content Include="Images\SplashScreen.scale-150.png" />
-		<Content Include="Images\SplashScreen.scale-200.png" />
-		<Content Include="Images\LockScreenLogo.scale-200.png" />
-		<Content Include="Images\SplashScreen.scale-400.png" />
-		<Content Include="Images\Square150x150Logo.scale-100.png" />
-		<Content Include="Images\Square150x150Logo.scale-125.png" />
-		<Content Include="Images\Square150x150Logo.scale-150.png" />
-		<Content Include="Images\Square150x150Logo.scale-200.png" />
-		<Content Include="Images\Square150x150Logo.scale-400.png" />
-		<Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
-		<Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-24.png" />
-		<Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
-		<Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-32.png" />
-		<Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
-		<Content Include="Images\Square44x44Logo.altform-unplated_targetsize-16.png" />
-		<Content Include="Images\Square44x44Logo.altform-unplated_targetsize-256.png" />
-		<Content Include="Images\Square44x44Logo.altform-unplated_targetsize-32.png" />
-		<Content Include="Images\Square44x44Logo.altform-unplated_targetsize-48.png" />
-		<Content Include="Images\Square44x44Logo.scale-100.png" />
-		<Content Include="Images\Square44x44Logo.scale-125.png" />
-		<Content Include="Images\Square44x44Logo.scale-150.png" />
-		<Content Include="Images\Square44x44Logo.scale-200.png" />
-		<Content Include="Images\Square44x44Logo.scale-400.png" />
-		<Content Include="Images\Square44x44Logo.targetsize-16.png" />
-		<Content Include="Images\Square44x44Logo.targetsize-24.png" />
-		<Content Include="Images\Square44x44Logo.targetsize-24_altform-unplated.png" />
-		<Content Include="Images\Square44x44Logo.targetsize-256.png" />
-		<Content Include="Images\Square44x44Logo.targetsize-32.png" />
-		<Content Include="Images\Square44x44Logo.targetsize-48.png" />
-		<Content Include="Images\StoreLogo.scale-100.png" />
-		<Content Include="Images\StoreLogo.scale-125.png" />
-		<Content Include="Images\StoreLogo.scale-150.png" />
-		<Content Include="Images\StoreLogo.scale-200.png" />
-		<Content Include="Images\StoreLogo.scale-400.png" />
-		<Content Include="Images\Wide310x150Logo.scale-100.png" />
-		<Content Include="Images\Wide310x150Logo.scale-125.png" />
-		<Content Include="Images\Wide310x150Logo.scale-150.png" />
-		<Content Include="Images\Wide310x150Logo.scale-200.png" />
-		<Content Include="Images\Wide310x150Logo.scale-400.png" />
-		<None Include="Package.StoreAssociation.xml" />
-	</ItemGroup>
+  <ItemGroup>
+    <Content Include="Images\LargeTile.scale-100.png" />
+    <Content Include="Images\LargeTile.scale-125.png" />
+    <Content Include="Images\LargeTile.scale-150.png" />
+    <Content Include="Images\LargeTile.scale-200.png" />
+    <Content Include="Images\LargeTile.scale-400.png" />
+    <Content Include="Images\SmallTile.scale-100.png" />
+    <Content Include="Images\SmallTile.scale-125.png" />
+    <Content Include="Images\SmallTile.scale-150.png" />
+    <Content Include="Images\SmallTile.scale-200.png" />
+    <Content Include="Images\SmallTile.scale-400.png" />
+    <Content Include="Images\SplashScreen.scale-100.png" />
+    <Content Include="Images\SplashScreen.scale-125.png" />
+    <Content Include="Images\SplashScreen.scale-150.png" />
+    <Content Include="Images\SplashScreen.scale-200.png" />
+    <Content Include="Images\LockScreenLogo.scale-200.png" />
+    <Content Include="Images\SplashScreen.scale-400.png" />
+    <Content Include="Images\Square150x150Logo.scale-100.png" />
+    <Content Include="Images\Square150x150Logo.scale-125.png" />
+    <Content Include="Images\Square150x150Logo.scale-150.png" />
+    <Content Include="Images\Square150x150Logo.scale-200.png" />
+    <Content Include="Images\Square150x150Logo.scale-400.png" />
+    <Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
+    <Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-24.png" />
+    <Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
+    <Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-32.png" />
+    <Content Include="Images\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-16.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-256.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-32.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-48.png" />
+    <Content Include="Images\Square44x44Logo.scale-100.png" />
+    <Content Include="Images\Square44x44Logo.scale-125.png" />
+    <Content Include="Images\Square44x44Logo.scale-150.png" />
+    <Content Include="Images\Square44x44Logo.scale-200.png" />
+    <Content Include="Images\Square44x44Logo.scale-400.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-16.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-24.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-256.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-32.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-48.png" />
+    <Content Include="Images\StoreLogo.scale-100.png" />
+    <Content Include="Images\StoreLogo.scale-125.png" />
+    <Content Include="Images\StoreLogo.scale-150.png" />
+    <Content Include="Images\StoreLogo.scale-200.png" />
+    <Content Include="Images\StoreLogo.scale-400.png" />
+    <Content Include="Images\Wide310x150Logo.scale-100.png" />
+    <Content Include="Images\Wide310x150Logo.scale-125.png" />
+    <Content Include="Images\Wide310x150Logo.scale-150.png" />
+    <Content Include="Images\Wide310x150Logo.scale-200.png" />
+    <Content Include="Images\Wide310x150Logo.scale-400.png" />
+    <None Include="Package.StoreAssociation.xml" />
+  </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" VersionOverride="10.0.22621.3233" PrivateAssets="all" />
+    <PackageReference Include="System.Private.Uri" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.Mail\Wino.Mail.csproj">
@@ -125,6 +156,6 @@
       <SkipGetTargetFrameworkProperties>True</SkipGetTargetFrameworkProperties>
       <PublishProfile>Properties\PublishProfiles\win-$(Platform).pubxml</PublishProfile>
     </ProjectReference>
-	<ProjectReference Include="..\Wino.Server\Wino.Server.csproj" />
+    <ProjectReference Include="..\Wino.Server\Wino.Server.csproj" />
   </ItemGroup>
 </Project>
