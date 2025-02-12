@@ -10,9 +10,9 @@
   IgnorableNamespaces="uap mp">
 
   <Identity
-    Name="bd1fe9a8-9ba1-4e34-871a-d3cdee9a3547"
-    Publisher="CN=alehk"
-    Version="1.0.0.0" />
+    Name="58272BurakKSE.WinoMailPreview"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Version="0.0.1.0" />
 
 	<Extensions>
 		<!-- Publisher Cache Folders -->
@@ -26,9 +26,9 @@
   <mp:PhoneIdentity PhoneProductId="bd1fe9a8-9ba1-4e34-871a-d3cdee9a3547" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>App1.Package</DisplayName>
-    <PublisherDisplayName>alehk</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
+    <DisplayName>Wino Mail (Preview)</DisplayName>
+    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
   </Properties>
 
   <Dependencies>
@@ -46,25 +46,58 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="WIno Mail"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png"
         Description="App1.Package"
         BackgroundColor="transparent">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"/>
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"/>
+        <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
-        <uap:Extension Category="windows.appService">
-          <uap:AppService Name="WinoInteropService"/>
-        </uap:Extension>
+		  <!-- Protocol activation: mailto -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="mailto" />
+		  </uap:Extension>
+
+		  <!-- Protocol activation: Google OAuth -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="google.pw.oauth2">
+				  <uap:DisplayName>Wino Google Authentication Protocol</uap:DisplayName>
+			  </uap:Protocol>
+
+		  </uap:Extension>
+
+		  <!-- Protocol activation: Launch UWP app from Full Trust Process  -->
+		  <uap:Extension Category="windows.protocol">
+			  <uap:Protocol Name="wino.mail.launch">
+				  <uap:DisplayName>Wino Mail Launcher Protocol</uap:DisplayName>
+			  </uap:Protocol>
+		  </uap:Extension>
+
+		  <!-- File Assosication: EML -->
+		  <uap:Extension Category="windows.fileTypeAssociation">
+			  <uap:FileTypeAssociation Name="eml">
+				  <uap:Logo>EML\eml.png</uap:Logo>
+				  <uap:SupportedFileTypes>
+					  <uap:FileType>.eml</uap:FileType>
+				  </uap:SupportedFileTypes>
+			  </uap:FileTypeAssociation>
+		  </uap:Extension>
+
+		  <!-- App Service-->
+		  <uap:Extension Category="windows.appService">
+			  <uap:AppService Name="WinoInteropService"/>
+		  </uap:Extension>
+
+		  <!-- Full trust process -->
 		  <desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe">
-			  <desktop:FullTrustProcess>
-				  <desktop:ParameterGroup GroupId="WinoServer" Parameters="Mail" />
-			  </desktop:FullTrustProcess>
+			<desktop:FullTrustProcess>
+				<desktop:ParameterGroup GroupId="WinoServer" Parameters="Mail" />
+			</desktop:FullTrustProcess>
 		  </desktop:Extension>
 
-		   <!--Startup Task--> 
-		  <!--<uap5:Extension
+		<!--Startup Task--> 
+		<uap5:Extension
 			  Category="windows.startupTask"
 			  Executable="Wino.Server\Wino.Server.exe"
 			  EntryPoint="Windows.FullTrustApplication">
@@ -72,7 +105,7 @@
 					TaskId="WinoServer"
 					Enabled="false"
 					DisplayName="Wino Mail" />
-		  </uap5:Extension>-->
+		  </uap5:Extension>
       </Extensions>
     </Application>
   </Applications>

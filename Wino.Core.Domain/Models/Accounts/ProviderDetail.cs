@@ -11,7 +11,7 @@ namespace Wino.Core.Domain.Models.Accounts
 
         public string Description { get; }
 
-        public string ProviderImage => $"ms-appx:///Wino.Core.UWP/Assets/Providers/{Type}.png";
+        public string ProviderImage => $"/Wino.Core.UWP/Assets/Providers/{Type}.png";
 
         public bool IsSupported => Type == MailProviderType.Outlook || Type == MailProviderType.Gmail || Type == MailProviderType.IMAP4;
 

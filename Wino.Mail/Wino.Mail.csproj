@@ -33,6 +33,56 @@
 	  <PRIResource Remove="BundleArtifacts\**" />
 	</ItemGroup>
 	<ItemGroup>
+	  <None Remove="Assets\EML\eml.png" />
+	  <None Remove="Assets\NotificationIcons\delete.png" />
+	  <None Remove="Assets\NotificationIcons\dismiss.png" />
+	  <None Remove="Assets\NotificationIcons\markread.png" />
+	  <None Remove="Assets\NotificationIcons\profile-dark.png" />
+	  <None Remove="Assets\NotificationIcons\profile-light.png" />
+	  <None Remove="Assets\ReleaseNotes\190.md" />
+	  <None Remove="Assets\Thumbnails\airbnb.com.png" />
+	  <None Remove="Assets\Thumbnails\apple.com.png" />
+	  <None Remove="Assets\Thumbnails\google.com.png" />
+	  <None Remove="Assets\Thumbnails\microsoft.com.png" />
+	  <None Remove="Assets\Thumbnails\steampowered.com.png" />
+	  <None Remove="Assets\Thumbnails\uber.com.png" />
+	  <None Remove="Assets\Thumbnails\youtube.com.png" />
+	  <None Remove="JS\editor.html" />
+	  <None Remove="JS\editor.js" />
+	  <None Remove="JS\global.css" />
+	  <None Remove="JS\libs\darkreader.js" />
+	  <None Remove="JS\libs\jodit.min.css" />
+	  <None Remove="JS\libs\jodit.min.js" />
+	  <None Remove="JS\libs\linkify-element.min.js" />
+	  <None Remove="JS\libs\linkify.min.js" />
+	  <None Remove="JS\reader.html" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="Assets\EML\eml.png" />
+	  <Content Include="Assets\NotificationIcons\delete.png" />
+	  <Content Include="Assets\NotificationIcons\dismiss.png" />
+	  <Content Include="Assets\NotificationIcons\markread.png" />
+	  <Content Include="Assets\NotificationIcons\profile-dark.png" />
+	  <Content Include="Assets\NotificationIcons\profile-light.png" />
+	  <Content Include="Assets\ReleaseNotes\190.md" />
+	  <Content Include="Assets\Thumbnails\airbnb.com.png" />
+	  <Content Include="Assets\Thumbnails\apple.com.png" />
+	  <Content Include="Assets\Thumbnails\google.com.png" />
+	  <Content Include="Assets\Thumbnails\microsoft.com.png" />
+	  <Content Include="Assets\Thumbnails\steampowered.com.png" />
+	  <Content Include="Assets\Thumbnails\uber.com.png" />
+	  <Content Include="Assets\Thumbnails\youtube.com.png" />
+	  <Content Include="JS\editor.html" />
+	  <Content Include="JS\editor.js" />
+	  <Content Include="JS\global.css" />
+	  <Content Include="JS\libs\darkreader.js" />
+	  <Content Include="JS\libs\jodit.min.css" />
+	  <Content Include="JS\libs\jodit.min.js" />
+	  <Content Include="JS\libs\linkify-element.min.js" />
+	  <Content Include="JS\libs\linkify.min.js" />
+	  <Content Include="JS\reader.html" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="ColorHashSharp" />
 		<PackageReference Include="CommunityToolkit.Common" />
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
