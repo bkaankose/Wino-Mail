@@ -1,22 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <LangVersion>12.0</LangVersion>
-	  <Platforms>x86;x64;arm64</Platforms>
-    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="HtmlAgilityPack" />
-    <PackageReference Include="Ical.Net"  />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"  />
-    <PackageReference Include="Serilog"  />
-    <PackageReference Include="Serilog.Sinks.Debug"  />
-    <PackageReference Include="Serilog.Sinks.File"  />
-    <PackageReference Include="Serilog.Exceptions"  />
-    <PackageReference Include="SqlKata" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="HtmlAgilityPack" />
+		<PackageReference Include="Ical.Net"  />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"  />
+		<PackageReference Include="Serilog"  />
+		<PackageReference Include="Serilog.Sinks.Debug"  />
+		<PackageReference Include="Serilog.Sinks.File"  />
+		<PackageReference Include="Serilog.Exceptions"  />
+		<PackageReference Include="SqlKata" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	</ItemGroup>
 </Project>

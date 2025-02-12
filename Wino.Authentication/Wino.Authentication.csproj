@@ -1,23 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <RootNamespace>Wino.Authentication</RootNamespace>
-    <Configurations>Debug;Release</Configurations>
-    <LangVersion>12</LangVersion>
-    <Platforms>x86;x64;arm64</Platforms>
-    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
-    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Diagnostics" />
-    <PackageReference Include="CommunityToolkit.Mvvm"  />
-    <PackageReference Include="Google.Apis.Auth"  />
-    <PackageReference Include="Microsoft.Identity.Client" />
-    <PackageReference Include="Microsoft.Identity.Client.Broker"  />
-    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal"  />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<RootNamespace>Wino.Authentication</RootNamespace>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm"  />
+		<PackageReference Include="Google.Apis.Auth"  />
+		<PackageReference Include="Microsoft.Identity.Client" />
+		<PackageReference Include="Microsoft.Identity.Client.Broker"  />
+		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal"  />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	</ItemGroup>
 </Project>

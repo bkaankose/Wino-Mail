@@ -1,15 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <LangVersion>12</LangVersion>
-    <Platforms>x86;x64;arm64</Platforms>
-    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
-    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Text.Json" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json" />
+	</ItemGroup>
 </Project>
