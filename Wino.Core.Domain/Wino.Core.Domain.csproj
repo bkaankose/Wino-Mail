@@ -6,7 +6,6 @@
     <Platforms>x86;x64;arm64</Platforms>
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Models\Communication\**" />
