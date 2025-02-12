@@ -6,7 +6,7 @@ using Wino.Core.UWP.Controls;
 
 namespace Wino.Controls
 {
-    public class AccountNavigationItem : WinoNavigationViewItem
+    public partial class AccountNavigationItem : WinoNavigationViewItem
     {
 
         public static readonly DependencyProperty IsActiveAccountProperty = DependencyProperty.Register(nameof(IsActiveAccount), typeof(bool), typeof(AccountNavigationItem), new PropertyMetadata(false, new PropertyChangedCallback(OnIsActiveAccountChanged)));

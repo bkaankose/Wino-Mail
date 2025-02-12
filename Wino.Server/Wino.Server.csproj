@@ -9,6 +9,7 @@
     <CsWinRTComponent>true</CsWinRTComponent>
     <CsWinRTWindowsMetadata>10.0.22621.0</CsWinRTWindowsMetadata>
     <Platforms>x64;x86;ARM64</Platforms>
+	<IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>Wino.Server.App</StartupObject>

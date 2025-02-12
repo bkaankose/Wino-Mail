@@ -6,6 +6,7 @@
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 		<PlatformTarget>AnyCPU</PlatformTarget>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<IsAotCompatible>false</IsAotCompatible>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">

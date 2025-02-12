@@ -5,7 +5,7 @@ using Windows.UI.Xaml.Controls;
 
 namespace Wino.MenuFlyouts
 {
-    public class WinoOperationFlyout<TActionType> : MenuFlyout, IDisposable where TActionType : class
+    public partial class WinoOperationFlyout<TActionType> : MenuFlyout, IDisposable where TActionType : class
     {
         public TActionType ClickedOperation { get; set; }
 

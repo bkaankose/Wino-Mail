@@ -15,7 +15,7 @@ using Wino.Core.UWP.Services;
 
 namespace Wino.Controls
 {
-    public class ImagePreviewControl : Control
+    public partial class ImagePreviewControl : Control
     {
         private const string PART_EllipseInitialsGrid = "EllipseInitialsGrid";
         private const string PART_InitialsTextBlock = "InitialsTextBlock";

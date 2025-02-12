@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.MenuFlyouts.Context
 {
-    public class FolderOperationFlyout : WinoOperationFlyout<FolderOperationMenuItem>
+    public partial class FolderOperationFlyout : WinoOperationFlyout<FolderOperationMenuItem>
     {
         public FolderOperationFlyout(IEnumerable<FolderOperationMenuItem> availableActions, TaskCompletionSource<FolderOperationMenuItem> completionSource) : base(availableActions, completionSource)
         {

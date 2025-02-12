@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Menus;
 
 namespace Wino.MenuFlyouts.Context
 {
-    public class MailOperationFlyout : WinoOperationFlyout<MailOperationMenuItem>
+    public partial class MailOperationFlyout : WinoOperationFlyout<MailOperationMenuItem>
     {
         public MailOperationFlyout(IEnumerable<MailOperationMenuItem> availableActions, TaskCompletionSource<MailOperationMenuItem> completionSource) : base(availableActions, completionSource)
         {

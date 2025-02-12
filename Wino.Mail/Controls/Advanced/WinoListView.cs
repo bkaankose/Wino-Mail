@@ -19,7 +19,7 @@ namespace Wino.Controls.Advanced
     /// Custom ListView control that handles multiple selection with Extended/Multiple selection mode
     /// and supports threads.
     /// </summary>
-    public class WinoListView : ListView, IDisposable
+    public partial class WinoListView : ListView, IDisposable
     {
         private ILogger logger = Log.ForContext<WinoListView>();
 
