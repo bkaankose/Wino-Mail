@@ -11,4 +11,7 @@
 	<ItemGroup>
 		<PackageReference Include="System.Text.Json" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Client\Authorization\" />
+	</ItemGroup>
 </Project>

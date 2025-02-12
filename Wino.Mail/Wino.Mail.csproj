@@ -55,9 +55,7 @@
 	  <None Remove="JS\libs\linkify-element.min.js" />
 	  <None Remove="JS\libs\linkify.min.js" />
 	  <None Remove="JS\reader.html" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Compile Include="Properties\PublishProfiles\win-x64.pubxml" />
+	  <None Remove="Properties\PublishProfiles\win-x64.pubxml" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="Assets\EML\eml.png" />
@@ -117,5 +115,8 @@
 	  <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Properties\PublishProfiles\" />
 	</ItemGroup>
 </Project>

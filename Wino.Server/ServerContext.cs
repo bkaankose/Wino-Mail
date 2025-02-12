@@ -14,7 +14,6 @@ using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Json;
 using Wino.Messaging;
-using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Enums;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -306,12 +305,6 @@ namespace Wino.Server
 
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<AuthorizationRequested>(messageJson, _jsonSerializerOptions));
                     break;
-                case nameof(ProtocolAuthorizationCallbackReceived):
-                    Debug.WriteLine($"Continuing authorization from protocol activation.");
-
-                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<ProtocolAuthorizationCallbackReceived>(messageJson, _jsonSerializerOptions));
-                    break;
-
                 case nameof(SynchronizationExistenceCheckRequest):
 
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<SynchronizationExistenceCheckRequest>(messageJson, _jsonSerializerOptions));
