@@ -57,7 +57,7 @@
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="System.Text.Json" />
-		<PackageReference Include="TimePeriodLibrary.NET"  />
+		<PackageReference Include="TimePeriodLibrary.NET" />
 	</ItemGroup>
 	<ItemGroup>
 		<Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
