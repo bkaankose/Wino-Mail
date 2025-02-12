@@ -117,7 +117,7 @@
 	</ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" VersionOverride="10.0.22621.3233" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.Mail\Wino.Mail.csproj">
