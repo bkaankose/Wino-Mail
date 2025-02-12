@@ -4,14 +4,12 @@ using CommunityToolkit.Mvvm.Messaging;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Launch;
-using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Client.Shell;
 
 namespace Wino.Activation
 {
     internal class ProtocolActivationHandler : ActivationHandler<ProtocolActivatedEventArgs>
     {
-        private const string GoogleAuthorizationProtocolTag = "google.pw.oauth2";
         private const string MailtoProtocolTag = "mailto:";
 
         private readonly INativeAppService _nativeAppService;
@@ -28,13 +26,7 @@ namespace Wino.Activation
             // Check URI prefix.
             var protocolString = args.Uri.AbsoluteUri;
 
-            // Google OAuth Response
-            if (protocolString.StartsWith(GoogleAuthorizationProtocolTag))
-            {
-                // App must be working already. No need to check for running state.
-                WeakReferenceMessenger.Default.Send(new ProtocolAuthorizationCallbackReceived(args.Uri));
-            }
-            else if (protocolString.StartsWith(MailtoProtocolTag))
+            if (protocolString.StartsWith(MailtoProtocolTag))
             {
                 // mailto activation. Try to parse params.
                 _launchProtocolService.MailToUri = new MailToUri(protocolString);

@@ -11,12 +11,11 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Store;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Authorization;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Core.ViewModels
 {
-    public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewModel, IRecipient<ProtocolAuthorizationCallbackReceived>
+    public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewModel
     {
         public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = [];
 
@@ -92,12 +91,6 @@ namespace Wino.Core.ViewModels
             {
                 await ManageStorePurchasesAsync();
             }
-        }
-
-        public async void Receive(ProtocolAuthorizationCallbackReceived message)
-        {
-            // Authorization must be completed in the server.
-            await WinoServerConnectionManager.GetResponseAsync<bool, ProtocolAuthorizationCallbackReceived>(message);
         }
 
         public async Task ManageStorePurchasesAsync()
