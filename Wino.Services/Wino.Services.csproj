@@ -4,7 +4,6 @@
     <LangVersion>12.0</LangVersion>
 	  <Platforms>x86;x64;arm64</Platforms>
     <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="HtmlAgilityPack" />

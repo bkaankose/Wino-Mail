@@ -8,7 +8,6 @@
 		<DefaultLanguage>en-US</DefaultLanguage>
 		<IsAotCompatible>true</IsAotCompatible>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
-		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
 		<SupportedOSPlatformVersion>10.0.18362.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 	<ItemGroup>
