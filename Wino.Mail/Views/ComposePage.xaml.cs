@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -215,7 +216,7 @@ namespace Wino.Views
                         }
                     }
 
-                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation)});");
+                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation, ComposerPageJsonContext.Default.ListImageInfo)});");
                 }
             }
             // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -688,4 +689,7 @@ namespace Wino.Views
             finally { deferral.Complete(); }
         }
     }
+
+    [JsonSerializable(typeof(List<ImageInfo>))]
+    public partial class ComposerPageJsonContext: JsonSerializerContext;
 }
