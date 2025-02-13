@@ -30,7 +30,7 @@ namespace Wino.Core.UWP.Services
                 if (typeof(T).IsEnum)
                     return (T)Enum.Parse(typeof(T), stringValue);
 
-                if (typeof(T) == typeof(Guid?) && Guid.TryParse(stringValue, out Guid guidResult))
+                if ((typeof(T) == typeof(Guid?) || typeof(T) == typeof(Guid)) && Guid.TryParse(stringValue, out Guid guidResult))
                 {
                     return (T)(object)guidResult;
                 }
