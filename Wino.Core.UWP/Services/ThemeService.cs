@@ -169,9 +169,7 @@ namespace Wino.Services
             AccentColor = _configurationService.Get(AccentColorKey, string.Empty);
 
             // Set the current theme id. Default to Mica.
-            var applicationThemeGuid = _configurationService.Get(CurrentApplicationThemeKey, _micaThemeId);
-
-            currentApplicationThemeId = Guid.Parse(applicationThemeGuid);
+            currentApplicationThemeId = _configurationService.Get(CurrentApplicationThemeKey, Guid.Parse(_micaThemeId));
 
             await ApplyCustomThemeAsync(true);
 

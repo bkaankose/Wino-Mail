@@ -40,7 +40,7 @@ namespace Wino.Services
             if (ignoreCurrentLanguageCheck && isInitialized) return;
 
             var currentDictionary = Translator.Resources;
-            await using var resourceStream = currentDictionary.GetLanguageStream(language);
+            await using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language);
 
             var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
 
