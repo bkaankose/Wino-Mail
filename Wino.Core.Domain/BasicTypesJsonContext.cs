@@ -7,4 +7,5 @@ namespace Wino.Core.Domain;
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(bool))]
 public partial class BasicTypesJsonContext : JsonSerializerContext;

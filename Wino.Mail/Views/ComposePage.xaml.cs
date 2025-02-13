@@ -320,22 +320,6 @@ namespace Wino.Views
             await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
         }
 
-        public async Task<string> ExecuteScriptFunctionAsync(string functionName, params object[] parameters)
-        {
-            string script = functionName + "(";
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                script += JsonSerializer.Serialize(parameters[i]);
-                if (i < parameters.Length - 1)
-                {
-                    script += ", ";
-                }
-            }
-            script += ");";
-
-            return await Chromium.ExecuteScriptAsync(script);
-        }
-
         private async Task<string> InvokeScriptSafeAsync(string function)
         {
             if (Chromium == null) return string.Empty;
@@ -404,11 +388,11 @@ namespace Wino.Views
 
             if (string.IsNullOrEmpty(htmlBody))
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", " ");
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
             }
             else
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody);
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String));
             }
         }
 
@@ -419,7 +403,13 @@ namespace Wino.Views
             int composerFontSize = ViewModel.PreferencesService.ComposerFontSize;
             var readerFont = ViewModel.PreferencesService.ReaderFont;
             int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
-            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
+            return await Chromium.ExecuteScriptFunctionAsync("initializeJodit",
+                false,
+                JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
+                JsonSerializer.Serialize(composerFont, BasicTypesJsonContext.Default.String),
+                JsonSerializer.Serialize(composerFontSize, BasicTypesJsonContext.Default.Int32),
+                JsonSerializer.Serialize(readerFont, BasicTypesJsonContext.Default.String),
+                JsonSerializer.Serialize(readerFontSize, BasicTypesJsonContext.Default.Int32));
         }
 
         private void DisposeWebView2()

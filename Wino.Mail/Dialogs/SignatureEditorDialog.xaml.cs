@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.UWP.Extensions;
 using Wino.Views.Settings;
 
 namespace Wino.Dialogs
@@ -77,7 +78,7 @@ namespace Wino.Dialogs
 
             _getHTMLBodyFunction = new Func<Task<string>>(async () =>
             {
-                var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
+                var editorContent = await Chromium.ExecuteScriptFunctionSafeAsync("GetHTMLContent");
 
                 return JsonSerializer.Deserialize(editorContent, BasicTypesJsonContext.Default.String);
             });
@@ -189,26 +190,6 @@ namespace Wino.Dialogs
             }
         }
 
-        /// <summary>
-        /// Executes a script function in the WebView2 control.
-        /// </summary>
-        /// <param name="parameters">Parameters should be serialized to json</param>
-        public async Task<string> ExecuteScriptFunctionAsync(string functionName, params string[] parameters)
-        {
-            string script = functionName + "(";
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                script += parameters[i];
-                if (i < parameters.Length - 1)
-                {
-                    script += ", ";
-                }
-            }
-            script += ");";
-
-            return await Chromium.ExecuteScriptAsync(script);
-        }
-
         private async Task<string> InvokeScriptSafeAsync(string function)
         {
             if (Chromium == null) return string.Empty;
@@ -288,11 +269,11 @@ namespace Wino.Dialogs
 
             if (string.IsNullOrEmpty(htmlBody))
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
             }
             else
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String));
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String));
 
                 await FocusEditorAsync();
             }
@@ -305,7 +286,7 @@ namespace Wino.Dialogs
             int composerFontSize = _preferencesService.ComposerFontSize;
             var readerFont = _preferencesService.ReaderFont;
             int readerFontSize = _preferencesService.ReaderFontSize;
-            return await ExecuteScriptFunctionAsync("initializeJodit",
+            return await Chromium.ExecuteScriptFunctionAsync("initializeJodit", false,
                 JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
                 JsonSerializer.Serialize(composerFont, BasicTypesJsonContext.Default.String),
                 JsonSerializer.Serialize(composerFontSize, BasicTypesJsonContext.Default.Int32),
