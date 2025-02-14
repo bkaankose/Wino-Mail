@@ -8,7 +8,7 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Controls
 {
-    public class WinoSwipeControlItems : SwipeItems
+    public partial class WinoSwipeControlItems : SwipeItems
     {
         public static readonly DependencyProperty SwipeOperationProperty = DependencyProperty.Register(nameof(SwipeOperation), typeof(MailOperation), typeof(WinoSwipeControlItems), new PropertyMetadata(default(MailOperation), new PropertyChangedCallback(OnItemsChanged)));
         public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailItem), typeof(WinoSwipeControlItems), new PropertyMetadata(null));

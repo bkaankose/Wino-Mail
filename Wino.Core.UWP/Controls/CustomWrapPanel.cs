@@ -8,7 +8,7 @@ namespace Wino.Core.UWP.Controls
 
     namespace CustomControls
     {
-        public class CustomWrapPanel : Panel
+        public partial class CustomWrapPanel : Panel
         {
             protected override Size MeasureOverride(Size availableSize)
             {

@@ -12,7 +12,6 @@
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:i="using:Microsoft.Xaml.Interactivity"
-    xmlns:ic="using:Microsoft.Xaml.Interactions.Core"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:listview="using:Wino.Controls.Advanced"
     xmlns:local="using:Wino.Behaviors"
@@ -219,9 +218,9 @@
                 Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}"
                 TextChanged="SearchBar_TextChanged">
                 <i:Interaction.Behaviors>
-                    <ic:EventTriggerBehavior EventName="QuerySubmitted">
-                        <ic:InvokeCommandAction Command="{x:Bind ViewModel.PerformSearchCommand}" />
-                    </ic:EventTriggerBehavior>
+                    <i:EventTriggerBehavior EventName="QuerySubmitted">
+                        <i:InvokeCommandAction Command="{x:Bind ViewModel.PerformSearchCommand}" />
+                    </i:EventTriggerBehavior>
                 </i:Interaction.Behaviors>
             </AutoSuggestBox>
         </Grid>

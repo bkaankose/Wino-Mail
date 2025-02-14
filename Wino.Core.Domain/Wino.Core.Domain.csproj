@@ -1,88 +1,73 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-	<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-	<LangVersion>12.0</LangVersion>
-	<Platforms>AnyCPU;x64;x86</Platforms>
-	  <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
-	  <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Models\Communication\**" />
-    <EmbeddedResource Remove="Models\Communication\**" />
-    <None Remove="Models\Communication\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="Interfaces\IWinoSynchronizerFactory.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="Translations\ca_ES\resources.json" />
-    <None Remove="Translations\cs_CZ\resources.json" />
-    <None Remove="Translations\da_DK\resources.json" />
-    <None Remove="Translations\el_GR\resources.json" />
-    <None Remove="Translations\es_ES\resources.json" />
-    <None Remove="Translations\fr_FR\resources.json" />
-    <None Remove="Translations\id_ID\resources.json" />
-    <None Remove="Translations\it_IT\resources.json" />
-    <None Remove="Translations\ja_JP\resources.json" />
-    <None Remove="Translations\nl_NL\resources.json" />
-    <None Remove="Translations\pl_PL\resources.json" />
-    <None Remove="Translations\pt_BR\resources.json" />
-    <None Remove="Translations\ro_RO\resources.json" />
-    <None Remove="Translations\ru_RU\resources.json" />
-    <None Remove="Translations\uk_UA\resources.json" />
-    <None Remove="Translations\zh_CN\resources.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-	<EmbeddedResource Include="Translations\ca_ES\resources.json" />
-	<EmbeddedResource Include="Translations\cs_CZ\resources.json" />
-	<EmbeddedResource Include="Translations\da_DK\resources.json" />
-	<EmbeddedResource Include="Translations\el_GR\resources.json" />
-	<EmbeddedResource Include="Translations\en_US\resources.json" />
-    <EmbeddedResource Include="Translations\de_DE\resources.json" />
-    <EmbeddedResource Include="Translations\es_ES\resources.json" />
-    <EmbeddedResource Include="Translations\fr_FR\resources.json" />
-    <EmbeddedResource Include="Translations\id_ID\resources.json" />
-    <EmbeddedResource Include="Translations\it_IT\resources.json" />
-    <EmbeddedResource Include="Translations\ja_JP\resources.json" />
-    <EmbeddedResource Include="Translations\nl_NL\resources.json" />
-    <EmbeddedResource Include="Translations\pl_PL\resources.json" />
-    <EmbeddedResource Include="Translations\pt_BR\resources.json" />
-    <EmbeddedResource Include="Translations\ro_RO\resources.json" />
-    <EmbeddedResource Include="Translations\ru_RU\resources.json" />
-    <EmbeddedResource Include="Translations\tr_TR\resources.json" />
-    <EmbeddedResource Include="Translations\uk_UA\resources.json" />
-    <EmbeddedResource Include="Translations\zh_CN\resources.json" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<Platforms>x86;x64;arm64</Platforms>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Diagnostics" Version="8.3.2" />
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-		<PackageReference Include="IsExternalInit" Version="1.0.3">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="MimeKit" Version="4.9.0" />
-		<PackageReference Include="MailKit" Version="4.9.0" />
-		<PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
-		<PackageReference Include="System.Text.Json" Version="8.0.5" />
-		<PackageReference Include="TimePeriodLibrary.NET" Version="2.1.5" />
+		<Compile Remove="Models\Communication\**" />
+		<EmbeddedResource Remove="Models\Communication\**" />
+		<None Remove="Models\Communication\**" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+		<None Remove="Translations\ca_ES\resources.json" />
+		<None Remove="Translations\cs_CZ\resources.json" />
+		<None Remove="Translations\da_DK\resources.json" />
+		<None Remove="Translations\el_GR\resources.json" />
+		<None Remove="Translations\es_ES\resources.json" />
+		<None Remove="Translations\fr_FR\resources.json" />
+		<None Remove="Translations\id_ID\resources.json" />
+		<None Remove="Translations\it_IT\resources.json" />
+		<None Remove="Translations\ja_JP\resources.json" />
+		<None Remove="Translations\nl_NL\resources.json" />
+		<None Remove="Translations\pl_PL\resources.json" />
+		<None Remove="Translations\pt_BR\resources.json" />
+		<None Remove="Translations\ro_RO\resources.json" />
+		<None Remove="Translations\ru_RU\resources.json" />
+		<None Remove="Translations\uk_UA\resources.json" />
+		<None Remove="Translations\zh_CN\resources.json" />
 	</ItemGroup>
-
+	<ItemGroup>
+		<EmbeddedResource Include="Translations\ca_ES\resources.json" />
+		<EmbeddedResource Include="Translations\cs_CZ\resources.json" />
+		<EmbeddedResource Include="Translations\da_DK\resources.json" />
+		<EmbeddedResource Include="Translations\el_GR\resources.json" />
+		<EmbeddedResource Include="Translations\en_US\resources.json" />
+		<EmbeddedResource Include="Translations\de_DE\resources.json" />
+		<EmbeddedResource Include="Translations\es_ES\resources.json" />
+		<EmbeddedResource Include="Translations\fr_FR\resources.json" />
+		<EmbeddedResource Include="Translations\id_ID\resources.json" />
+		<EmbeddedResource Include="Translations\it_IT\resources.json" />
+		<EmbeddedResource Include="Translations\ja_JP\resources.json" />
+		<EmbeddedResource Include="Translations\nl_NL\resources.json" />
+		<EmbeddedResource Include="Translations\pl_PL\resources.json" />
+		<EmbeddedResource Include="Translations\pt_BR\resources.json" />
+		<EmbeddedResource Include="Translations\ro_RO\resources.json" />
+		<EmbeddedResource Include="Translations\ru_RU\resources.json" />
+		<EmbeddedResource Include="Translations\tr_TR\resources.json" />
+		<EmbeddedResource Include="Translations\uk_UA\resources.json" />
+		<EmbeddedResource Include="Translations\zh_CN\resources.json" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="MimeKit" />
+		<PackageReference Include="MailKit" />
+		<PackageReference Include="sqlite-net-pcl" />
+		<PackageReference Include="System.Text.Json" />
+		<PackageReference Include="TimePeriodLibrary.NET" />
+	</ItemGroup>
+	<ItemGroup>
+		<Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+	</ItemGroup>
 	<ItemGroup>
 		<AdditionalFiles Include="Translations\en_US\resources.json" />
 	</ItemGroup>
-
 	<ItemGroup>
 		<!-- Source Generators -->
 		<ProjectReference Include="..\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
-
 </Project>

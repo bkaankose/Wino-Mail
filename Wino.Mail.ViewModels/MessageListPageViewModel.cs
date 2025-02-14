@@ -21,7 +21,7 @@ namespace Wino.Mail.ViewModels
                 {
                     if (value >= 0)
                     {
-                        PreferencesService.MarkAsPreference = (MailMarkAsOption)Enum.GetValues(typeof(MailMarkAsOption)).GetValue(value);
+                        PreferencesService.MarkAsPreference = (MailMarkAsOption)Enum.GetValues<MailMarkAsOption>().GetValue(value);
                     }
                 }
             }
@@ -101,7 +101,7 @@ namespace Wino.Mail.ViewModels
             centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
             rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
 
-            SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues(typeof(MailMarkAsOption)), PreferencesService.MarkAsPreference);
+            SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
         }
     }
 }

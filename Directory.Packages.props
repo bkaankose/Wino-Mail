@@ -1,0 +1,63 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="ColorHashSharp" Version="1.0.0" />
+    <PackageVersion Include="CommunityToolkit.Common" Version="8.4.0" />
+    <PackageVersion Include="CommunityToolkit.Diagnostics" Version="8.4.0" />
+    <PackageVersion Include="CommunityToolkit.Labs.Uwp.Controls.MarkdownTextBlock" Version="0.1.250206-build.2040" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Animations" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Behaviors" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.Segmented" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.SettingsControls" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.Sizers" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Extensions" Version="8.2.250129-preview2" />
+    <PackageVersion Include="EmailValidation" Version="1.2.0" />
+    <PackageVersion Include="HtmlAgilityPack" Version="1.11.72" />
+    <PackageVersion Include="Ical.Net" Version="4.3.1" />
+    <PackageVersion Include="IsExternalInit" Version="1.0.3" />
+    <PackageVersion Include="Microsoft.AppCenter.Analytics" Version="5.0.6" />
+    <PackageVersion Include="Microsoft.AppCenter.Crashes" Version="5.0.6" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.2" />
+    <PackageVersion Include="Microsoft.Graph" Version="5.69.0" />
+    <PackageVersion Include="Microsoft.Identity.Client" Version="4.68.0" />
+    <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.68.0" />
+    <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.68.0" />
+    <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
+    <PackageVersion Include="Microsoft.UI.Xaml" Version="2.8.7" />
+    <PackageVersion Include="Microsoft.Xaml.Behaviors.Uwp.Managed" Version="3.0.0" />
+    <PackageVersion Include="MimeKit" Version="4.10.0" />
+    <PackageVersion Include="morelinq" Version="4.4.0" />
+    <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
+    <PackageVersion Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
+    <PackageVersion Include="NodaTime" Version="3.2.1" />
+    <PackageVersion Include="Serilog" Version="4.2.0" />
+    <PackageVersion Include="Serilog.Exceptions" Version="8.4.0" />
+    <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageVersion Include="SkiaSharp" Version="3.116.1" />
+    <PackageVersion Include="sqlite-net-pcl" Version="1.9.172" />
+    <PackageVersion Include="SqlKata" Version="4.0.1" />
+    <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
+    <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.2" />
+    <PackageVersion Include="System.Text.Json" Version="9.0.2" />
+    <PackageVersion Include="Win2D.uwp" Version="1.28.2" />
+    <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.2.0" />
+    <PackageVersion Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
+    <PackageVersion Include="Google.Apis.Auth" Version="1.69.0" />
+    <PackageVersion Include="Google.Apis.Calendar.v3" Version="1.69.0.3667" />
+    <PackageVersion Include="Google.Apis.Gmail.v1" Version="1.68.0.3427" />
+    <PackageVersion Include="Google.Apis.PeopleService.v1" Version="1.68.0.3359" />
+    <PackageVersion Include="HtmlKit" Version="1.2.0" />
+    <PackageVersion Include="MailKit" Version="4.10.0" />
+    <PackageVersion Include="TimePeriodLibrary.NET" Version="2.1.5" />
+    <PackageVersion Include="System.Reactive" Version="6.0.1" />
+  </ItemGroup>
+</Project>

@@ -1,49 +1,49 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	<PropertyGroup>
-		<TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
-		<TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
-		<OutputType>WinExe</OutputType>
-		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-		<UseWPF>true</UseWPF>
-		<ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
-
-		<CsWinRTComponent>true</CsWinRTComponent>
-		<CsWinRTWindowsMetadata>10.0.22621.0</CsWinRTWindowsMetadata>
-		<Platforms>x64;x86;ARM32;ARM64</Platforms>
-	</PropertyGroup>
-	<PropertyGroup>
-		<StartupObject>Wino.Server.App</StartupObject>
-	</PropertyGroup>
-	<ItemGroup>
-	  <None Remove="Images\Wino_Icon.ico" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Compile Include="..\Wino.Mail\Services\MailAuthenticatorConfiguration.cs" Link="Services\MailAuthenticatorConfiguration.cs" />
-	  <Compile Include="..\Wino.Calendar\Services\CalendarAuthenticatorConfig.cs" Link="Services\CalendarAuthenticatorConfig.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\ConfigurationService.cs" Link="Services\ConfigurationService.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\NativeAppService.cs" Link="Services\NativeAppService.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\NotificationBuilder.cs" Link="Services\NotificationBuilder.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\UnderlyingThemeService.cs" Link="Services\UnderlyingThemeService.cs" />
-	  <Compile Include="..\Wino.Core.UWP\Services\ThumbnailService.cs" Link="Services\ThumbnailService.cs" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Resource Include="Images\Wino_Icon.ico">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </Resource>
-	</ItemGroup>
-	<ItemGroup>
-	  <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-	  <PackageReference Include="H.NotifyIcon.Wpf" Version="2.1.4" />
-	  <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
-	  <PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
-	  <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
-	</ItemGroup>
-	<ItemGroup>
-	  <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
-	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-	  <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
-	  <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
-	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
-	</ItemGroup>
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <OutputType>WinExe</OutputType>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <UseWPF>true</UseWPF>
+    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
+    <CsWinRTComponent>true</CsWinRTComponent>
+    <CsWinRTWindowsMetadata>10.0.22621.0</CsWinRTWindowsMetadata>
+    <Platforms>x64;x86;ARM64</Platforms>
+	<IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>Wino.Server.App</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Images\Wino_Icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Wino.Mail\Services\MailAuthenticatorConfiguration.cs" Link="Services\MailAuthenticatorConfiguration.cs" />
+    <Compile Include="..\Wino.Calendar\Services\CalendarAuthenticatorConfig.cs" Link="Services\CalendarAuthenticatorConfig.cs" />
+    <Compile Include="..\Wino.Core.UWP\Services\ConfigurationService.cs" Link="Services\ConfigurationService.cs" />
+    <Compile Include="..\Wino.Core.UWP\Services\NativeAppService.cs" Link="Services\NativeAppService.cs" />
+    <Compile Include="..\Wino.Core.UWP\Services\PreferencesService.cs" Link="Services\PreferencesService.cs" />
+    <Compile Include="..\Wino.Core.UWP\Services\NotificationBuilder.cs" Link="Services\NotificationBuilder.cs" />
+    <Compile Include="..\Wino.Core.UWP\Services\UnderlyingThemeService.cs" Link="Services\UnderlyingThemeService.cs" />
+    <Compile Include="..\Wino.Core.UWP\Services\ThumbnailService.cs" Link="Services\ThumbnailService.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\Wino_Icon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm"  />
+    <PackageReference Include="H.NotifyIcon.Wpf"  />
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications"  />
+    <PackageReference Include="Microsoft.Identity.Client"  />
+    <PackageReference Include="System.Text.Encoding.CodePages"  />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
 </Project>

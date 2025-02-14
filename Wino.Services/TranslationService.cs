@@ -40,11 +40,11 @@ namespace Wino.Services
             if (ignoreCurrentLanguageCheck && isInitialized) return;
 
             var currentDictionary = Translator.Resources;
-            using var resourceStream = currentDictionary.GetLanguageStream(language);
+            await using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language);
 
-            var stremValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
+            var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
 
-            var translationLookups = JsonSerializer.Deserialize<Dictionary<string, string>>(stremValue);
+            var translationLookups = JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString);
 
             // Insert new translation key-value pairs.
             // Overwrite existing values for the same keys.
@@ -52,14 +52,7 @@ namespace Wino.Services
             foreach (var pair in translationLookups)
             {
                 // Replace existing value.
-                if (currentDictionary.ContainsKey(pair.Key))
-                {
-                    currentDictionary[pair.Key] = pair.Value;
-                }
-                else
-                {
-                    currentDictionary.Add(pair.Key, pair.Value);
-                }
+                currentDictionary[pair.Key] = pair.Value;
             }
 
             _preferencesService.CurrentLanguage = language;

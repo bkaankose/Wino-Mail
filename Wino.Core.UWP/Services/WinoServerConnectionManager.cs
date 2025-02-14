@@ -200,61 +200,61 @@ namespace Wino.Core.UWP.Services
             switch (typeName)
             {
                 case nameof(MailAddedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<MailAddedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.MailAddedMessage));
                     break;
                 case nameof(MailDownloadedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<MailDownloadedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.MailDownloadedMessage));
                     break;
                 case nameof(MailRemovedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<MailRemovedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.MailRemovedMessage));
                     break;
                 case nameof(MailUpdatedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<MailUpdatedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.MailUpdatedMessage));
                     break;
                 case nameof(AccountCreatedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountCreatedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountCreatedMessage));
                     break;
                 case nameof(AccountRemovedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountRemovedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountRemovedMessage));
                     break;
                 case nameof(AccountUpdatedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountUpdatedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountUpdatedMessage));
                     break;
                 case nameof(DraftCreated):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<DraftCreated>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.DraftCreated));
                     break;
                 case nameof(DraftFailed):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<DraftFailed>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.DraftFailed));
                     break;
                 case nameof(DraftMapped):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<DraftMapped>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.DraftMapped));
                     break;
                 case nameof(FolderRenamed):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<FolderRenamed>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.FolderRenamed));
                     break;
                 case nameof(FolderSynchronizationEnabled):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<FolderSynchronizationEnabled>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.FolderSynchronizationEnabled));
                     break;
                 case nameof(MergedInboxRenamed):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<MergedInboxRenamed>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.MergedInboxRenamed));
                     break;
                 case nameof(AccountSynchronizationCompleted):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountSynchronizationCompleted>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountSynchronizationCompleted));
                     break;
                 case nameof(RefreshUnreadCountsMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<RefreshUnreadCountsMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.RefreshUnreadCountsMessage));
                     break;
                 case nameof(AccountSynchronizerStateChanged):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountSynchronizerStateChanged>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountSynchronizerStateChanged));
                     break;
                 case nameof(AccountSynchronizationProgressUpdatedMessage):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountSynchronizationProgressUpdatedMessage>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountSynchronizationProgressUpdatedMessage));
                     break;
                 case nameof(AccountFolderConfigurationUpdated):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<AccountFolderConfigurationUpdated>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountFolderConfigurationUpdated));
                     break;
                 case nameof(CopyAuthURLRequested):
-                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<CopyAuthURLRequested>(messageJson));
+                    WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.CopyAuthURLRequested));
                     break;
                 default:
                     throw new Exception("Invalid data type name passed to client.");

@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.Foundation.Metadata;
-using Windows.Security.Authentication.Web;
 using Windows.Storage;
 using Windows.System;
 using Windows.UI.Shell;
@@ -21,7 +20,6 @@ namespace Wino.Services
     {
         private string _mimeMessagesFolder;
         private string _editorBundlePath;
-        private TaskCompletionSource<Uri> authorizationCompletedTaskSource;
 
         public Func<IntPtr> GetCoreWindowHwnd { get; set; }
 
@@ -106,14 +104,6 @@ namespace Wino.Services
             if (await taskbarManager.IsCurrentAppPinnedAsync()) return;
 
             await taskbarManager.RequestPinCurrentAppAsync();
-        }
-
-        public void ContinueAuthorization(Uri authorizationResponseUri)
-        {
-            if (authorizationCompletedTaskSource != null)
-            {
-                authorizationCompletedTaskSource.TrySetResult(authorizationResponseUri);
-            }
         }
     }
 }

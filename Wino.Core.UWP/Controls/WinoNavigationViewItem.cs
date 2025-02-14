@@ -5,7 +5,7 @@ using Windows.UI.Xaml.Hosting;
 
 namespace Wino.Core.UWP.Controls
 {
-    public class WinoNavigationViewItem : NavigationViewItem
+    public partial class WinoNavigationViewItem : NavigationViewItem
     {
         public bool IsDraggingItemOver
         {

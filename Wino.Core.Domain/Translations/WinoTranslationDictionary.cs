@@ -10,12 +10,14 @@ namespace Wino.Core.Domain.Translations
         // Return the key itself in case of translation is not found.
         public string GetTranslatedString(string key) => TryGetValue(key, out string keyValue) ? keyValue : key;
 
-        public Stream GetLanguageStream(AppLanguage language)
+        public static Stream GetLanguageStream(AppLanguage language)
         {
             var path = GetLanguageFileNameRelativePath(language);
             var executingAssembly = Assembly.GetExecutingAssembly();
 
-            string languageResourcePath = $"{executingAssembly.ManifestModule.Name.Replace(".dll", ".")}Translations.{path}.resources.json";
+            // Use the assembly's name instead of the module name to construct the resource path
+            string assemblyName = executingAssembly.GetName().Name;
+            string languageResourcePath = $"{assemblyName}.Translations.{path}.resources.json";
             return executingAssembly.GetManifestResourceStream(languageResourcePath);
         }
 

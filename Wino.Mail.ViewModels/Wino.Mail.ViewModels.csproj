@@ -1,31 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-	<LangVersion>12</LangVersion>
-	<Platforms>AnyCPU;x64;x86</Platforms>
-
-	<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
-	<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="EmailValidation" Version="1.2.0" />
-    <PackageReference Include="IsExternalInit" Version="1.0.3">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.AppCenter.Crashes" Version="5.0.6" />
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
-    <PackageReference Include="System.Reactive" Version="6.0.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
-    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
-    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
-    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
-  </ItemGroup>
-
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="EmailValidation"  />
+		<PackageReference Include="Microsoft.AppCenter.Crashes"  />
+		<PackageReference Include="Microsoft.Identity.Client"  />
+		<PackageReference Include="System.Reactive"  />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+		<ProjectReference Include="..\Wino.Core\Wino.Core.csproj" />
+		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+	</ItemGroup>
 </Project>

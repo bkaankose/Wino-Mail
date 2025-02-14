@@ -1,10 +1,10 @@
 using System;
-using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml;
+using Windows.UI.Xaml.Data;
 
 namespace Wino.Converters
 {
-    public class GridLengthConverter : IValueConverter
+    public partial class GridLengthConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
         {

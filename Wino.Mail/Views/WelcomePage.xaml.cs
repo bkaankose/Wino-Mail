@@ -1,17 +1,16 @@
 ﻿using CommunityToolkit.Labs.WinUI.MarkdownTextBlock;
 using Wino.Views.Abstract;
 
-namespace Wino.Views
+namespace Wino.Views;
+
+public sealed partial class WelcomePage : WelcomePageAbstract
 {
-    public sealed partial class WelcomePage : WelcomePageAbstract
+    private readonly MarkdownConfig _config;
+
+    public WelcomePage()
     {
-        private readonly MarkdownConfig _config;
+        InitializeComponent();
 
-        public WelcomePage()
-        {
-            InitializeComponent();
-
-            _config = new MarkdownConfig();
-        }
+        _config = new MarkdownConfig();
     }
 }

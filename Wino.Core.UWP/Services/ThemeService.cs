@@ -7,7 +7,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Toolkit.Uwp.Helpers;
+using CommunityToolkit.WinUI.Helpers;
 using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -19,6 +19,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.UWP.Extensions;
 using Wino.Core.UWP.Models.Personalization;
@@ -168,9 +169,7 @@ namespace Wino.Services
             AccentColor = _configurationService.Get(AccentColorKey, string.Empty);
 
             // Set the current theme id. Default to Mica.
-            var applicationThemeGuid = _configurationService.Get(CurrentApplicationThemeKey, _micaThemeId);
-
-            currentApplicationThemeId = Guid.Parse(applicationThemeGuid);
+            currentApplicationThemeId = _configurationService.Get(CurrentApplicationThemeKey, Guid.Parse(_micaThemeId));
 
             await ApplyCustomThemeAsync(true);
 
@@ -235,7 +234,7 @@ namespace Wino.Services
             // Change accent color if specified.
             if (!string.IsNullOrEmpty(hex))
             {
-                var color = Microsoft.Toolkit.Uwp.Helpers.ColorHelper.ToColor(hex);
+                var color = CommunityToolkit.WinUI.Helpers.ColorHelper.ToColor(hex);
                 var brush = new SolidColorBrush(color);
 
                 if (_applicationResourceManager.ContainsResourceKey("SystemAccentColor"))
@@ -412,7 +411,7 @@ namespace Wino.Services
             {
                 byte[] bytes = new byte[readerStream.Length];
 
-                await readerStream.ReadAsync(bytes, 0, bytes.Length);
+                await readerStream.ReadExactlyAsync(bytes);
 
                 var buffer = bytes.AsBuffer();
 
@@ -422,7 +421,7 @@ namespace Wino.Services
             // Save metadata.
             var metadataFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.json", CreationCollisionOption.ReplaceExisting);
 
-            var serialized = JsonSerializer.Serialize(newTheme);
+            var serialized = JsonSerializer.Serialize(newTheme, DomainModelsJsonContext.Default.CustomThemeMetadata);
             await FileIO.WriteTextAsync(metadataFile, serialized);
 
             return newTheme;
@@ -454,7 +453,7 @@ namespace Wino.Services
         {
             var fileContent = await FileIO.ReadTextAsync(file);
 
-            return JsonSerializer.Deserialize<CustomThemeMetadata>(fileContent);
+            return JsonSerializer.Deserialize(fileContent, DomainModelsJsonContext.Default.CustomThemeMetadata);
         }
 
         public string GetSystemAccentColorHex()

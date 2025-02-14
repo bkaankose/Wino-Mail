@@ -9,7 +9,7 @@ using Wino.Helpers;
 
 namespace Wino.MenuFlyouts
 {
-    public class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutItem, IDisposable where TOperationMenuItem : IMenuOperation
+    public partial class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutItem, IDisposable where TOperationMenuItem : IMenuOperation
     {
         private const double CustomHeight = 35;
 

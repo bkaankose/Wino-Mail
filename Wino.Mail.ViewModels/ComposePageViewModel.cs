@@ -142,7 +142,7 @@ namespace Wino.Mail.ViewModels
             {
                 await NativeAppService.LaunchFileAsync(attachmentViewModel.FilePath);
             }
-            catch (Exception ex)
+            catch
             {
                 _dialogService.InfoBarMessage(Translator.Info_FailedToOpenFileTitle, Translator.Info_FailedToOpenFileMessage, InfoBarMessageType.Error);
             }
@@ -159,7 +159,7 @@ namespace Wino.Mail.ViewModels
             {
                 await _fileService.CopyFileAsync(attachmentViewModel.FilePath, pickedFilePath);
             }
-            catch (Exception ex)
+            catch
             {
                 _dialogService.InfoBarMessage(Translator.Info_FailedToOpenFileTitle, Translator.Info_FailedToOpenFileMessage, InfoBarMessageType.Error);
             }

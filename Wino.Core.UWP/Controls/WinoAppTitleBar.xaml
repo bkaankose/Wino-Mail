@@ -120,14 +120,14 @@
                     Grid.Column="1"
                     Margin="4,0,0,0"
                     HorizontalAlignment="Left"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Description, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Description}"
                     Visibility="Collapsed">
                     <Button.Flyout>
                         <Flyout x:Name="ReconnectFlyout" Placement="Bottom">
                             <StackPanel Spacing="12">
                                 <TextBlock
                                     Width="250"
-                                    Text="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Description, Mode=OneWay}"
+                                    Text="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Description}"
                                     TextWrapping="Wrap" />
                                 <Button
                                     HorizontalAlignment="Right"
@@ -156,7 +156,7 @@
                         <TextBlock
                             x:Name="ConnectionStatusTextBlock"
                             VerticalAlignment="Center"
-                            Text="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Title, Mode=OneWay}" />
+                            Text="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Title}" />
                     </StackPanel>
                 </Button>
             </Grid>
@@ -170,7 +170,7 @@
                         <Setter Target="ReconnectingProgressRing.Visibility" Value="Visible" />
                         <Setter Target="ConnectionStatusButton.Visibility" Value="Visible" />
                         <Setter Target="DisconnectedPathIcon.Visibility" Value="Collapsed" />
-                        <Setter Target="ConnectionStatusTextBlock.Text" Value="{x:Bind domain:Translator.TitleBarServerReconnectingButton_Title, Mode=OneWay}" />
+                        <Setter Target="ConnectionStatusTextBlock.Text" Value="{x:Bind domain:Translator.TitleBarServerReconnectingButton_Title}" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
                         <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ConnectionStatusEquals(ConnectionStatus, enums:WinoServerConnectionStatus.Connecting), Mode=OneWay}" />
@@ -181,7 +181,7 @@
                         <Setter Target="ConnectionStatusButton.Visibility" Value="Visible" />
                         <Setter Target="DisconnectedPathIcon.Visibility" Value="Visible" />
                         <Setter Target="ReconnectingProgressRing.Visibility" Value="Collapsed" />
-                        <Setter Target="ConnectionStatusTextBlock.Text" Value="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Title, Mode=OneWay}" />
+                        <Setter Target="ConnectionStatusTextBlock.Text" Value="{x:Bind domain:Translator.TitleBarServerDisconnectedButton_Title}" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
                         <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ConnectionStatusEquals(ConnectionStatus, enums:WinoServerConnectionStatus.Disconnected), Mode=OneWay}" />

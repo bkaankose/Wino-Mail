@@ -1,432 +1,107 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{395F19BA-1E42-495C-9DB5-1A6F537FCCB8}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Wino.Core.UWP</RootNamespace>
-    <AssemblyName>Wino.Core.UWP</AssemblyName>
-    <DefaultLanguage>en-US</DefaultLanguage>
-    <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
-    <TargetPlatformVersion Condition=" '$(TargetPlatformVersion)' == '' ">10.0.22621.0</TargetPlatformVersion>
-    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <MinimumVisualStudioVersion>14</MinimumVisualStudioVersion>
-    <FileAlignment>512</FileAlignment>
-    <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <PlatformTarget>x86</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>full</DebugType>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
-    <PlatformTarget>x86</PlatformTarget>
-    <OutputPath>bin\x86\Release\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>pdbonly</DebugType>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
-    <PlatformTarget>ARM64</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\ARM64\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>full</DebugType>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
-    <PlatformTarget>ARM64</PlatformTarget>
-    <OutputPath>bin\ARM64\Release\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>pdbonly</DebugType>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <PlatformTarget>x64</PlatformTarget>
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x64\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>full</DebugType>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <PlatformTarget>x64</PlatformTarget>
-    <OutputPath>bin\x64\Release\</OutputPath>
-    <DefineConstants>TRACE;NETFX_CORE;WINDOWS_UWP</DefineConstants>
-    <Optimize>true</Optimize>
-    <NoWarn>;2008</NoWarn>
-    <DebugType>pdbonly</DebugType>
-    <UseVSHostingProcess>false</UseVSHostingProcess>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup>
-    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-    <LangVersion>12.0</LangVersion>
-  </PropertyGroup>
-  <ItemGroup>
-    <Compile Include="Activation\ActivationHandler.cs" />
-    <Compile Include="BasePage.cs" />
-    <Compile Include="Controls\ControlConstants.cs" />
-    <Compile Include="Controls\CustomWrapPanel.cs" />
-    <Compile Include="Controls\EqualGridPanel.cs" />
-    <Compile Include="Controls\WinoAppTitleBar.xaml.cs">
-      <DependentUpon>WinoAppTitleBar.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Controls\WinoFontIcon.cs" />
-    <Compile Include="Controls\WinoFontIconSource.cs" />
-    <Compile Include="Controls\WinoInfoBar.cs" />
-    <Compile Include="Controls\WinoNavigationViewItem.cs" />
-    <Compile Include="Converters\GridLengthConverter.cs" />
-    <Compile Include="Converters\ReverseBooleanConverter.cs" />
-    <Compile Include="Converters\ReverseBooleanToVisibilityConverter.cs" />
-    <Compile Include="CoreUWPContainerSetup.cs" />
-    <Compile Include="Dialogs\NewAccountDialog.xaml.cs">
-      <DependentUpon>NewAccountDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Extensions\StorageFileExtensions.cs" />
-    <Compile Include="Selectors\NavigationMenuTemplateSelector.cs" />
-    <Compile Include="Services\ApplicationResourceManager.cs" />
-    <Compile Include="Services\DialogServiceBase.cs" />
-    <Compile Include="Services\NavigationServiceBase.cs" />
-    <Compile Include="Dialogs\AccountCreationDialog.xaml.cs">
-      <DependentUpon>AccountCreationDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\AccountEditDialog.xaml.cs">
-      <DependentUpon>AccountEditDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\AccountPickerDialog.xaml.cs">
-      <DependentUpon>AccountPickerDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\BaseAccountCreationDialog.cs" />
-    <Compile Include="Dialogs\CustomMessageDialogInformationContainer.cs" />
-    <Compile Include="Dialogs\CustomThemeBuilderDialog.xaml.cs">
-      <DependentUpon>CustomThemeBuilderDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dialogs\TextInputDialog.xaml.cs">
-      <DependentUpon>TextInputDialog.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Dispatcher.cs" />
-    <Compile Include="Extensions\AnimationExtensions.cs" />
-    <Compile Include="Extensions\CompositionEnums.cs" />
-    <Compile Include="Extensions\CompositionExtensions.Implicit.cs" />
-    <Compile Include="Extensions\CompositionExtensions.Size.cs" />
-    <Compile Include="Extensions\ElementThemeExtensions.cs" />
-    <Compile Include="Extensions\StartupTaskStateExtensions.cs" />
-    <Compile Include="Extensions\UIExtensions.cs" />
-    <Compile Include="Extensions\UtilExtensions.cs" />
-    <Compile Include="Helpers\WinoVisualTreeHelper.cs" />
-    <Compile Include="Helpers\XamlHelpers.cs" />
-    <Compile Include="Models\Personalization\CustomAppTheme.cs" />
-    <Compile Include="Models\Personalization\PreDefinedAppTheme.cs" />
-    <Compile Include="Models\Personalization\SystemAppTheme.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Selectors\AppThemePreviewTemplateSelector.cs" />
-    <Compile Include="Selectors\CustomWinoMessageDialogIconSelector.cs" />
-    <Compile Include="Selectors\FileAttachmentTypeSelector.cs" />
-    <Compile Include="Services\PreferencesService.cs" />
-    <Compile Include="Services\PrintService.cs" />
-    <Compile Include="Services\StartupBehaviorService.cs" />
-    <Compile Include="Services\StatePersistenceService.cs" />
-    <Compile Include="Services\ThumbnailService.cs" />
-    <Compile Include="Services\WinoServerConnectionManager.cs" />
-    <Compile Include="Services\BackgroundTaskService.cs" />
-    <Compile Include="Services\ClipboardService.cs" />
-    <Compile Include="Services\ConfigurationService.cs" />
-    <Compile Include="Services\FileService.cs" />
-    <Compile Include="Services\KeyPressService.cs" />
-    <Compile Include="Services\NativeAppService.cs" />
-    <Compile Include="Services\NotificationBuilder.cs" />
-    <Compile Include="Services\StoreManagementService.cs" />
-    <Compile Include="Services\StoreRatingService.cs" />
-    <Compile Include="Services\ThemeService.cs" />
-    <Compile Include="Services\UnderlyingThemeService.cs" />
-    <Compile Include="CoreGeneric.xaml.cs">
-      <DependentUpon>CoreGeneric.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Styles\CustomMessageDialogStyles.xaml.cs">
-      <DependentUpon>CustomMessageDialogStyles.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Styles\DataTemplates.xaml.cs">
-      <DependentUpon>DataTemplates.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\Abstract\ManageAccountsPageAbstract.cs" />
-    <Compile Include="Views\Abstract\SettingOptionsPageAbstract.cs" />
-    <Compile Include="Views\Abstract\SettingsPageAbstract.cs" />
-    <Compile Include="Views\Abstract\SettingsPageBase.cs" />
-    <Compile Include="Views\ManageAccountsPage.xaml.cs">
-      <DependentUpon>ManageAccountsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\SettingOptionsPage.xaml.cs">
-      <DependentUpon>SettingOptionsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Views\SettingsPage.xaml.cs">
-      <DependentUpon>SettingsPage.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="WinoApplication.cs" />
-    <EmbeddedResource Include="Properties\Wino.Core.UWP.rd.xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Common">
-      <Version>8.3.2</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Diagnostics">
-      <Version>8.3.2</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Mvvm">
-      <Version>8.3.2</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Uwp.Animations">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Uwp.Behaviors">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Uwp.Extensions">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
-    <PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar">
-      <Version>8.1.240916</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.AppCenter.Analytics">
-      <Version>5.0.6</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Identity.Client">
-      <Version>4.66.2</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
-      <Version>6.2.14</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Toolkit.Uwp">
-      <Version>7.1.3</Version>
-    </PackageReference>
-    <PackageReference Include="Microsoft.UI.Xaml">
-      <Version>2.8.6</Version>
-    </PackageReference>
-    <PackageReference Include="Win2D.uwp">
-      <Version>1.28.0</Version>
-    </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj">
-      <Project>{cf3312e5-5da0-4867-9945-49ea7598af1f}</Project>
-      <Name>Wino.Core.Domain</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj">
-      <Project>{53723ae8-7e7e-4d54-adab-0a6033255cc8}</Project>
-      <Name>Wino.Core.ViewModels</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Wino.Core\Wino.Core.csproj">
-      <Project>{e6b1632a-8901-41e8-9ddf-6793c7698b0b}</Project>
-      <Name>Wino.Core</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj">
-      <Project>{0c307d7e-256f-448c-8265-5622a812fbcc}</Project>
-      <Name>Wino.Messaging</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Wino.Services\Wino.Services.csproj">
-      <Project>{4000a374-59fe-4400-acf6-d40473becd73}</Project>
-      <Name>Wino.Services</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <SDKReference Include="WindowsDesktop, Version=10.0.22621.0">
-      <Name>Windows Desktop Extensions for the UWP</Name>
-    </SDKReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Assets\WinoIcons.ttf" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Assets\FileTypes\type_archive.png" />
-    <Content Include="Assets\FileTypes\type_audio.png" />
-    <Content Include="Assets\FileTypes\type_executable.png" />
-    <Content Include="Assets\FileTypes\type_html.png" />
-    <Content Include="Assets\FileTypes\type_image.png" />
-    <Content Include="Assets\FileTypes\type_none.png" />
-    <Content Include="Assets\FileTypes\type_other.png" />
-    <Content Include="Assets\FileTypes\type_pdf.png" />
-    <Content Include="Assets\FileTypes\type_rar.png" />
-    <Content Include="Assets\FileTypes\type_video.png" />
-    <Content Include="Assets\Providers\Gmail.png" />
-    <Content Include="Assets\Providers\IMAP4.png" />
-    <Content Include="Assets\Providers\Office 365.png" />
-    <Content Include="Assets\Providers\Outlook.png" />
-    <Content Include="Assets\Providers\Yahoo.png" />
-    <Content Include="BackgroundImages\Acrylic.jpg" />
-    <Content Include="BackgroundImages\Clouds.jpg" />
-    <Content Include="BackgroundImages\Forest.jpg" />
-    <Content Include="BackgroundImages\Garden.jpg" />
-    <Content Include="BackgroundImages\Mica.jpg" />
-    <Content Include="BackgroundImages\Nighty.jpg" />
-    <Content Include="BackgroundImages\Snowflake.jpg" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Acrylic.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Clouds.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Custom.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Forest.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Garden.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Mica.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Nighty.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppThemes\Snowflake.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Page Include="Controls\WinoAppTitleBar.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\AccountCreationDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\AccountEditDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\AccountPickerDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\CustomThemeBuilderDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\NewAccountDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Dialogs\TextInputDialog.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="CoreGeneric.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\Colors.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\ContentPresenters.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\Converters.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\CustomMessageDialogStyles.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\FontIcons.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Styles\IconTemplates.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\DataTemplates.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\SharedStyles.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Styles\WinoInfoBar.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Views\ManageAccountsPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Views\SettingOptionsPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Views\SettingsPage.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-  </ItemGroup>
-  <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
-    <VisualStudioVersion>14.0</VisualStudioVersion>
-  </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net9.0-windows10.0.26100.0</TargetFramework>
+		<TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<Nullable>disable</Nullable>
+		<UseUwp>true</UseUwp>
+		<DefaultLanguage>en-US</DefaultLanguage>
+		<IsAotCompatible>true</IsAotCompatible>
+		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
+		<SupportedOSPlatformVersion>10.0.18362.0</SupportedOSPlatformVersion>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="Assets\FileTypes\type_archive.png" />
+	  <None Remove="Assets\FileTypes\type_audio.png" />
+	  <None Remove="Assets\FileTypes\type_executable.png" />
+	  <None Remove="Assets\FileTypes\type_html.png" />
+	  <None Remove="Assets\FileTypes\type_image.png" />
+	  <None Remove="Assets\FileTypes\type_none.png" />
+	  <None Remove="Assets\FileTypes\type_other.png" />
+	  <None Remove="Assets\FileTypes\type_pdf.png" />
+	  <None Remove="Assets\FileTypes\type_rar.png" />
+	  <None Remove="Assets\FileTypes\type_video.png" />
+	  <None Remove="Assets\Providers\Gmail.png" />
+	  <None Remove="Assets\Providers\IMAP4.png" />
+	  <None Remove="Assets\Providers\Office 365.png" />
+	  <None Remove="Assets\Providers\Outlook.png" />
+	  <None Remove="Assets\Providers\Yahoo.png" />
+	  <None Remove="Assets\WinoIcons.ttf" />
+	  <None Remove="BackgroundImages\Acrylic.jpg" />
+	  <None Remove="BackgroundImages\Clouds.jpg" />
+	  <None Remove="BackgroundImages\Forest.jpg" />
+	  <None Remove="BackgroundImages\Garden.jpg" />
+	  <None Remove="BackgroundImages\Mica.jpg" />
+	  <None Remove="BackgroundImages\Nighty.jpg" />
+	  <None Remove="BackgroundImages\Snowflake.jpg" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Page Remove="AppThemes\Acrylic.xaml" />
+	  <Page Remove="AppThemes\Clouds.xaml" />
+	  <Page Remove="AppThemes\Custom.xaml" />
+	  <Page Remove="AppThemes\Forest.xaml" />
+	  <Page Remove="AppThemes\Garden.xaml" />
+	  <Page Remove="AppThemes\Mica.xaml" />
+	  <Page Remove="AppThemes\Nighty.xaml" />
+	  <Page Remove="AppThemes\Snowflake.xaml" />
+	  <Page Remove="AppThemes\TestTheme.xaml" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="AppThemes\Acrylic.xaml" />
+	  <Content Include="AppThemes\Clouds.xaml" />
+	  <Content Include="AppThemes\Custom.xaml" />
+	  <Content Include="AppThemes\Forest.xaml" />
+	  <Content Include="AppThemes\Garden.xaml" />
+	  <Content Include="AppThemes\Mica.xaml" />
+	  <Content Include="AppThemes\Nighty.xaml" />
+	  <Content Include="AppThemes\Snowflake.xaml" />
+	  <Content Include="AppThemes\TestTheme.xaml" />
+	  <Content Include="Assets\FileTypes\type_archive.png" />
+	  <Content Include="Assets\FileTypes\type_audio.png" />
+	  <Content Include="Assets\FileTypes\type_executable.png" />
+	  <Content Include="Assets\FileTypes\type_html.png" />
+	  <Content Include="Assets\FileTypes\type_image.png" />
+	  <Content Include="Assets\FileTypes\type_none.png" />
+	  <Content Include="Assets\FileTypes\type_other.png" />
+	  <Content Include="Assets\FileTypes\type_pdf.png" />
+	  <Content Include="Assets\FileTypes\type_rar.png" />
+	  <Content Include="Assets\FileTypes\type_video.png" />
+	  <Content Include="Assets\Providers\Gmail.png" />
+	  <Content Include="Assets\Providers\IMAP4.png" />
+	  <Content Include="Assets\Providers\Office 365.png" />
+	  <Content Include="Assets\Providers\Outlook.png" />
+	  <Content Include="Assets\Providers\Yahoo.png" />
+	  <Content Include="Assets\WinoIcons.ttf" />
+	  <Content Include="BackgroundImages\Acrylic.jpg" />
+	  <Content Include="BackgroundImages\Clouds.jpg" />
+	  <Content Include="BackgroundImages\Forest.jpg" />
+	  <Content Include="BackgroundImages\Garden.jpg" />
+	  <Content Include="BackgroundImages\Mica.jpg" />
+	  <Content Include="BackgroundImages\Nighty.jpg" />
+	  <Content Include="BackgroundImages\Snowflake.jpg" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Identity.Client" />
+		<PackageReference Include="Microsoft.UI.Xaml" />
+		<PackageReference Include="CommunityToolkit.Common" />
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="CommunityToolkit.Uwp.Animations" />
+		<PackageReference Include="CommunityToolkit.Uwp.Behaviors" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.Segmented" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.SettingsControls" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.Sizers" />
+		<PackageReference Include="CommunityToolkit.Uwp.Extensions" />
+		<PackageReference Include="CommunityToolkit.WinUI.Notifications" />
+		<PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" />
+		<PackageReference Include="Microsoft.AppCenter.Analytics" />
+		<PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" />
+		<PackageReference Include="Win2D.uwp" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+	  <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+	</ItemGroup>
 </Project>

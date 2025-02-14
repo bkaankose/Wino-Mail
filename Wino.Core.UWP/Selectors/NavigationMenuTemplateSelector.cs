@@ -4,7 +4,7 @@ using Wino.Core.Domain.MenuItems;
 
 namespace Wino.Core.UWP.Selectors
 {
-    public class NavigationMenuTemplateSelector : DataTemplateSelector
+    public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     {
         public DataTemplate MenuItemTemplate { get; set; }
         public DataTemplate AccountManagementTemplate { get; set; }

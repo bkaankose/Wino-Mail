@@ -11,7 +11,7 @@
     xmlns:settings="using:Wino.Core.Domain.Models.Settings"
     xmlns:translations="using:Wino.Core.Domain.Models.Translations"
     x:Name="root"
-    Title="{x:Bind domain:Translator.SettingsOptions_Title, Mode=OneWay}"
+    Title="{x:Bind domain:Translator.SettingsOptions_Title}"
     mc:Ignorable="d">
 
     <ScrollViewer VerticalScrollBarVisibility="Hidden">

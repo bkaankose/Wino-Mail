@@ -1,0 +1,6 @@
+<Project>
+	<PropertyGroup>
+		<LangVersion>preview</LangVersion>
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+</Project>
