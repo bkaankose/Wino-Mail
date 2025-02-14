@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "App1": {
+    "Wino.Mail": {
       "commandName": "MsixPackage"
     }
   }

@@ -2,5 +2,6 @@
 	<PropertyGroup>
 		<LangVersion>preview</LangVersion>
 		<IsAotCompatible>true</IsAotCompatible>
+		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
 </Project>
