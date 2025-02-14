@@ -31,6 +31,7 @@ namespace Wino.Core.Synchronizers.ImapSync
 
         protected IFolderService FolderService { get; }
         protected IMailService MailService { get; }
+        protected MailItemFolder Folder { get; set; }
 
         protected ImapSynchronizationStrategyBase(IFolderService folderService, IMailService mailService)
         {
@@ -39,13 +40,13 @@ namespace Wino.Core.Synchronizers.ImapSync
         }
 
         public abstract Task<List<string>> HandleSynchronizationAsync(IImapClient client, MailItemFolder folder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default);
-        internal abstract Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default);
+        internal abstract Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default);
 
-        protected async Task<List<string>> HandleChangedUIdsAsync(MailItemFolder folder, IImapSynchronizer synchronizer, IMailFolder remoteFolder, IList<UniqueId> changedUids, CancellationToken cancellationToken)
+        protected async Task<List<string>> HandleChangedUIdsAsync(IImapSynchronizer synchronizer, IMailFolder remoteFolder, IList<UniqueId> changedUids, CancellationToken cancellationToken)
         {
             List<string> downloadedMessageIds = new();
 
-            var existingMails = await MailService.GetExistingMailsAsync(folder.Id, changedUids).ConfigureAwait(false);
+            var existingMails = await MailService.GetExistingMailsAsync(Folder.Id, changedUids).ConfigureAwait(false);
             var existingMailUids = existingMails.Select(m => MailkitClientExtensions.ResolveUidStruct(m.Id)).ToArray();
 
             // These are the non-existing mails. They will be downloaded + processed.
@@ -94,7 +95,7 @@ namespace Wino.Core.Synchronizers.ImapSync
 
                     var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
 
-                    var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, folder, cancellationToken).ConfigureAwait(false);
+                    var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, Folder, cancellationToken).ConfigureAwait(false);
 
                     if (mailPackages != null)
                     {
@@ -103,7 +104,7 @@ namespace Wino.Core.Synchronizers.ImapSync
                             // Local draft is mapped. We don't need to create a new mail copy.
                             if (package == null) continue;
 
-                            bool isCreatedNew = await MailService.CreateMailAsync(folder.MailAccountId, package).ConfigureAwait(false);
+                            bool isCreatedNew = await MailService.CreateMailAsync(Folder.MailAccountId, package).ConfigureAwait(false);
 
                             // This is upsert. We are not interested in updated mails.
                             if (isCreatedNew) downloadedMessageIds.Add(package.Copy.Id);
@@ -116,12 +117,12 @@ namespace Wino.Core.Synchronizers.ImapSync
             return downloadedMessageIds;
         }
 
-        protected async Task HandleMessageFlagsChangeAsync(MailItemFolder folder, UniqueId? uniqueId, MessageFlags flags)
+        protected async Task HandleMessageFlagsChangeAsync(UniqueId? uniqueId, MessageFlags flags)
         {
-            if (folder == null) return;
+            if (Folder == null) return;
             if (uniqueId == null) return;
 
-            var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, uniqueId.Value.Id);
+            var localMailCopyId = MailkitClientExtensions.CreateUid(Folder.Id, uniqueId.Value.Id);
 
             var isFlagged = MailkitClientExtensions.GetIsFlagged(flags);
             var isRead = MailkitClientExtensions.GetIsRead(flags);
@@ -148,19 +149,25 @@ namespace Wino.Core.Synchronizers.ImapSync
             }
         }
 
-        protected async Task HandleMessageDeletedAsync(MailItemFolder folder, IList<UniqueId> uniqueIds)
+        protected async Task HandleMessageDeletedAsync(IList<UniqueId> uniqueIds)
         {
-            if (folder == null) return;
+            if (Folder == null) return;
             if (uniqueIds == null || uniqueIds.Count == 0) return;
 
             foreach (var uniqueId in uniqueIds)
             {
                 if (uniqueId == null) continue;
-                var localMailCopyId = MailkitClientExtensions.CreateUid(folder.Id, uniqueId.Id);
+                var localMailCopyId = MailkitClientExtensions.CreateUid(Folder.Id, uniqueId.Id);
 
-                await MailService.DeleteMailAsync(folder.MailAccountId, localMailCopyId).ConfigureAwait(false);
+                await MailService.DeleteMailAsync(Folder.MailAccountId, localMailCopyId).ConfigureAwait(false);
             }
         }
+
+        protected void OnMessagesVanished(object sender, MessagesVanishedEventArgs args)
+            => HandleMessageDeletedAsync(args.UniqueIds).ConfigureAwait(false);
+
+        protected void OnMessageFlagsChanged(object sender, MessageFlagsChangedEventArgs args)
+            => HandleMessageFlagsChangeAsync(args.UniqueId, args.Flags).ConfigureAwait(false);
 
         protected async Task ManageUUIdBasedDeletedMessagesAsync(MailItemFolder localFolder, IMailFolder remoteFolder, CancellationToken cancellationToken = default)
         {
@@ -171,7 +178,7 @@ namespace Wino.Core.Synchronizers.ImapSync
                 var remoteAllUids = await remoteFolder.SearchAsync(SearchQuery.All, cancellationToken);
                 var deletedUids = allUids.Except(remoteAllUids).ToList();
 
-                await HandleMessageDeletedAsync(localFolder, deletedUids).ConfigureAwait(false);
+                await HandleMessageDeletedAsync(deletedUids).ConfigureAwait(false);
             }
         }
     }

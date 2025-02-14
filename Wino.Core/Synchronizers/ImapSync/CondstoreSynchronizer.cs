@@ -53,10 +53,10 @@ namespace Wino.Core.Synchronizers.ImapSync
                 // the MODSEQ value for deleted messages.
                 if (remoteFolder.HighestModSeq > localHighestModSeq)
                 {
-                    var changedUids = await GetChangedUidsAsync(client, folder, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
+                    var changedUids = await GetChangedUidsAsync(client, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
 
                     // Get locally exists mails for the returned UIDs.
-                    downloadedMessageIds = await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
+                    downloadedMessageIds = await HandleChangedUIdsAsync(synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
 
                     folder.HighestModeSeq = unchecked((long)remoteFolder.HighestModSeq);
 
@@ -92,9 +92,9 @@ namespace Wino.Core.Synchronizers.ImapSync
             }
         }
 
-        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient winoClient, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient winoClient, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
         {
-            var localHighestModSeq = (ulong)localFolder.HighestModeSeq;
+            var localHighestModSeq = (ulong)Folder.HighestModeSeq;
             var remoteHighestModSeq = remoteFolder.HighestModSeq;
 
             // Search for emails with a MODSEQ greater than the last known value.

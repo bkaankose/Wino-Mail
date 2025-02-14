@@ -24,9 +24,9 @@ namespace Wino.Core.Synchronizers.ImapSync
         }
 
         public override async Task<List<string>> HandleSynchronizationAsync(IImapClient client,
-                                                                                                MailItemFolder folder,
-                                                                                                IImapSynchronizer synchronizer,
-                                                                                                CancellationToken cancellationToken = default)
+                                                                            MailItemFolder folder,
+                                                                            IImapSynchronizer synchronizer,
+                                                                            CancellationToken cancellationToken = default)
         {
             var downloadedMessageIds = new List<string>();
 
@@ -42,6 +42,8 @@ namespace Wino.Core.Synchronizers.ImapSync
             // Ready to implement QRESYNC synchronization.
 
             IMailFolder remoteFolder = null;
+
+            Folder = folder;
 
             try
             {
@@ -60,17 +62,17 @@ namespace Wino.Core.Synchronizers.ImapSync
                 // Perform QRESYNC synchronization.
                 var localHighestModSeq = (ulong)folder.HighestModeSeq;
 
-                remoteFolder.MessagesVanished += async (c, r) => await HandleMessageDeletedAsync(folder, r.UniqueIds).ConfigureAwait(false);
-                remoteFolder.MessageFlagsChanged += async (c, r) => await HandleMessageFlagsChangeAsync(folder, r.UniqueId, r.Flags).ConfigureAwait(false);
+                remoteFolder.MessagesVanished += OnMessagesVanished;
+                remoteFolder.MessageFlagsChanged += OnMessageFlagsChanged;
 
                 var allUids = await FolderService.GetKnownUidsForFolderAsync(folder.Id);
                 var allUniqueIds = allUids.Select(a => new UniqueId(a)).ToList();
 
                 await remoteFolder.OpenAsync(FolderAccess.ReadOnly, folder.UidValidity, localHighestModSeq, allUniqueIds).ConfigureAwait(false);
 
-                var changedUids = await GetChangedUidsAsync(client, folder, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
+                var changedUids = await GetChangedUidsAsync(client, remoteFolder, synchronizer, cancellationToken).ConfigureAwait(false);
 
-                downloadedMessageIds = await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
+                downloadedMessageIds = await HandleChangedUIdsAsync(synchronizer, remoteFolder, changedUids, cancellationToken).ConfigureAwait(false);
 
                 // Update the local folder with the new highest mod-seq and validity.
                 folder.HighestModeSeq = unchecked((long)remoteFolder.HighestModSeq);
@@ -96,8 +98,8 @@ namespace Wino.Core.Synchronizers.ImapSync
                 {
                     if (remoteFolder != null)
                     {
-                        remoteFolder.MessagesVanished -= async (c, r) => await HandleMessageDeletedAsync(folder, r.UniqueIds).ConfigureAwait(false);
-                        remoteFolder.MessageFlagsChanged -= async (c, r) => await HandleMessageFlagsChangeAsync(folder, r.UniqueId, r.Flags).ConfigureAwait(false);
+                        remoteFolder.MessagesVanished -= OnMessagesVanished;
+                        remoteFolder.MessageFlagsChanged -= OnMessageFlagsChanged;
 
                         if (remoteFolder.IsOpen)
                         {
@@ -110,9 +112,9 @@ namespace Wino.Core.Synchronizers.ImapSync
             return downloadedMessageIds;
         }
 
-        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
         {
-            var localHighestModSeq = (ulong)localFolder.HighestModeSeq;
+            var localHighestModSeq = (ulong)Folder.HighestModeSeq;
             return await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
         }
     }

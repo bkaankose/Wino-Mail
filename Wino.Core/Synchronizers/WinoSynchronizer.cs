@@ -187,7 +187,7 @@ namespace Wino.Core.Synchronizers
                     // This is the part we decide which individual folders must be synchronized
                     // after the batch request execution.
                     if (options.Type == MailSynchronizationType.ExecuteRequests)
-                        options = GetSynchronizationOptionsAfterRequestExecution(requestCopies);
+                        options = GetSynchronizationOptionsAfterRequestExecution(requestCopies, options.Id);
 
                     // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
                     // Bug: if Outlook can't create the message in Sent Items folder before this delay,
@@ -276,7 +276,14 @@ namespace Wino.Core.Synchronizers
             }
             finally
             {
-                PendingSynchronizationRequest.Remove(options);
+                // Find the request and remove it from the pending list.
+
+                var pendingRequest = PendingSynchronizationRequest.FirstOrDefault(a => a.Key.Id == options.Id);
+
+                if (pendingRequest.Key != null)
+                {
+                    PendingSynchronizationRequest.Remove(pendingRequest.Key);
+                }
 
                 // Reset account progress to hide the progress.
                 PublishSynchronizationProgress(0);
@@ -317,7 +324,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
-        private MailSynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests)
+        private MailSynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests, Guid existingSynchronizationId)
         {
             List<Guid> synchronizationFolderIds = requests
                     .Where(a => a is ICustomFolderSynchronizationRequest)
@@ -329,6 +336,8 @@ namespace Wino.Core.Synchronizers
             {
                 AccountId = Account.Id,
             };
+
+            options.Id = existingSynchronizationId;
 
             if (synchronizationFolderIds.Count > 0)
             {
@@ -356,6 +365,18 @@ namespace Wino.Core.Synchronizers
             // Multiple IMAPIdle requests are ignored.
             if (options.Type == MailSynchronizationType.IMAPIdle &&
                 PendingSynchronizationRequest.Any(a => a.Key.Type == MailSynchronizationType.IMAPIdle))
+            {
+                return false;
+            }
+
+            // Executing requests may trigger idle sync.
+            // If there are pending execute requests cancel idle change.
+
+            // TODO: Ideally this check should only work for Inbox execute requests.
+            // Check if request folders contains Inbox.
+
+            if (options.Type == MailSynchronizationType.IMAPIdle &&
+                PendingSynchronizationRequest.Any(a => a.Key.Type == MailSynchronizationType.ExecuteRequests))
             {
                 return false;
             }
@@ -427,6 +448,7 @@ namespace Wino.Core.Synchronizers
             foreach (var request in PendingSynchronizationRequest)
             {
                 request.Value.Cancel();
+                request.Value.Dispose();
             }
         }
     }

@@ -26,6 +26,8 @@ namespace Wino.Core.Synchronizers.ImapSync
             if (client is not WinoImapClient winoClient)
                 throw new ArgumentException("Client must be of type WinoImapClient.", nameof(client));
 
+            Folder = folder;
+
             var downloadedMessageIds = new List<string>();
             IMailFolder remoteFolder = null;
 
@@ -40,7 +42,7 @@ namespace Wino.Core.Synchronizers.ImapSync
 
                 remoteUids = remoteUids.OrderByDescending(a => a.Id).Take((int)synchronizer.InitialMessageDownloadCountPerFolder).ToList();
 
-                await HandleChangedUIdsAsync(folder, synchronizer, remoteFolder, remoteUids, cancellationToken).ConfigureAwait(false);
+                await HandleChangedUIdsAsync(synchronizer, remoteFolder, remoteUids, cancellationToken).ConfigureAwait(false);
                 await ManageUUIdBasedDeletedMessagesAsync(folder, remoteFolder, cancellationToken).ConfigureAwait(false);
             }
             catch (FolderNotFoundException)
@@ -71,7 +73,7 @@ namespace Wino.Core.Synchronizers.ImapSync
             return downloadedMessageIds;
         }
 
-        internal override Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, MailItemFolder localFolder, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        internal override Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
