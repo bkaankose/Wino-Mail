@@ -2,5 +2,7 @@
 	<PropertyGroup>
 		<LangVersion>preview</LangVersion>
 		<IsAotCompatible>true</IsAotCompatible>
+		<Configurations>Debug;Release</Configurations>
+		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 	</PropertyGroup>
 </Project>
