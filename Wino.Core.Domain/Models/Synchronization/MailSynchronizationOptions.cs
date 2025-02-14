@@ -9,7 +9,7 @@ namespace Wino.Core.Domain.Models.Synchronization
         /// <summary>
         /// Unique id of synchronization.
         /// </summary>
-        public Guid Id { get; } = Guid.NewGuid();
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         /// <summary>
         /// Account to execute synchronization for.

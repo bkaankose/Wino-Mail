@@ -46,6 +46,7 @@ namespace Wino.Server.MessageHandlers
 
             bool shouldReportSynchronizationResult =
                 message.Options.Type != MailSynchronizationType.ExecuteRequests &&
+                message.Options.Type != MailSynchronizationType.IMAPIdle &&
                 message.Source == SynchronizationSource.Client;
 
             try
@@ -63,6 +64,12 @@ namespace Wino.Server.MessageHandlers
                 }
 
                 var isSynchronizationSucceeded = synchronizationResult.CompletedState == SynchronizationCompletedState.Success;
+
+                // IDLE requests might be canceled successfully.
+                if (message.Options.Type == MailSynchronizationType.IMAPIdle && synchronizationResult.CompletedState == SynchronizationCompletedState.Canceled)
+                {
+                    isSynchronizationSucceeded = true;
+                }
 
                 // Update badge count of the notification task.
                 if (isSynchronizationSucceeded)
