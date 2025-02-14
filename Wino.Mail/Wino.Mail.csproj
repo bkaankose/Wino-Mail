@@ -3,7 +3,6 @@
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net9.0-windows10.0.26100.0</TargetFramework>
 		<TargetPlatformMinVersion>10.0.18362.0</TargetPlatformMinVersion>
-		<!--<Nullable>enable</Nullable>-->
 		<UseUwp>true</UseUwp>
 		<Platforms>x86;x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -12,16 +11,10 @@
 		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<!--<EnableMsixTooling>true</EnableMsixTooling>
-		<GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-		<AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+
+		<GenerateAppInstallerFile>True</GenerateAppInstallerFile>
+		<AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
 		<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
-		<AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
-		<GenerateTestArtifacts>False</GenerateTestArtifacts>
-		<AppxBundle>Never</AppxBundle>
-		<GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
-		<HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
-		<AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>-->
 	</PropertyGroup>
 	<ItemGroup>
 	  <Compile Remove="BundleArtifacts\**" />
@@ -56,7 +49,6 @@
 	  <None Remove="JS\libs\linkify-element.min.js" />
 	  <None Remove="JS\libs\linkify.min.js" />
 	  <None Remove="JS\reader.html" />
-	  <None Remove="Properties\PublishProfiles\win-x64.pubxml" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="Assets\EML\eml.png" />
@@ -116,8 +108,5 @@
 	  <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Properties\PublishProfiles\" />
 	</ItemGroup>
 </Project>

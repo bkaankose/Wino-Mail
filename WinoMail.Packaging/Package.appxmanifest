@@ -12,7 +12,7 @@
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="1.9.60.0" />
+    Version="1.10.0.0" />
 
 	<Extensions>
 		<!-- Publisher Cache Folders -->
@@ -26,7 +26,7 @@
   <mp:PhoneIdentity PhoneProductId="bd1fe9a8-9ba1-4e34-871a-d3cdee9a3547" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Wino Mail (Preview)</DisplayName>
+    <DisplayName>Wino Mail</DisplayName>
     <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>

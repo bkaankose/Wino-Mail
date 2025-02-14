@@ -17,11 +17,6 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="Wino.BackgroundTasks/Wino.BackgroundTasks.csproj" Id="d9ef0f59-f5f2-4d6c-a5ba-84043d8f3e08">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
     <Project Path="Wino.Core.Domain/Wino.Core.Domain.csproj">
       <BuildDependency Project="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
       <Platform Solution="*|arm64" Project="arm64" />
@@ -73,6 +68,8 @@
   </Project>
   <Project Path="WinoMail.Packaging/WinoMail.Packaging.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="ee28910b-6418-4ec2-8f4b-8e85a2e75af7">
     <Platform Solution="*|arm64" Project="ARM64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
     <Deploy />
   </Project>
 </Solution>
