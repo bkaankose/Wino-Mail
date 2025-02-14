@@ -45,10 +45,10 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="WIno Mail"
+        DisplayName="Wino Mail"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png"
-        Description="App1.Package"
+        Description="Native mail client for Windows."
         BackgroundColor="transparent">
         <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"/>
         <uap:SplashScreen Image="Images\SplashScreen.png" />
