@@ -17,11 +17,11 @@ namespace Wino.Core.Domain.Models.Accounts
             {
                 if (SpecialImapProvider == SpecialImapProvider.None)
                 {
-                    return $"ms-appx:///Wino.Core.UWP/Assets/Providers/{Type}.png";
+                    return $"/Wino.Core.UWP/Assets/Providers/{Type}.png";
                 }
                 else
                 {
-                    return $"ms-appx:///Wino.Core.UWP/Assets/Providers/{SpecialImapProvider}.png";
+                    return $"/Wino.Core.UWP/Assets/Providers/{SpecialImapProvider}.png";
                 }
             }
         }

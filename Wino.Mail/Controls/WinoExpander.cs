@@ -7,7 +7,7 @@ using Windows.UI.Xaml.Markup;
 namespace Wino.Controls
 {
     [ContentProperty(Name = nameof(Content))]
-    public class WinoExpander : Control
+    public partial class WinoExpander : Control
     {
         private const string PART_HeaderGrid = "HeaderGrid";
         private const string PART_ContentAreaWrapper = "ContentAreaWrapper";

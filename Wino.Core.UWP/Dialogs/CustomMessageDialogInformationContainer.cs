@@ -6,7 +6,7 @@ namespace Wino.Dialogs
     public partial class CustomMessageDialogInformationContainer : ObservableObject
     {
         [ObservableProperty]
-        private bool isDontAskChecked;
+        public partial bool IsDontAskChecked { get; set; }
 
         public CustomMessageDialogInformationContainer(string title, string description, WinoCustomMessageDialogIcon icon, bool isDontAskAgainEnabled)
         {

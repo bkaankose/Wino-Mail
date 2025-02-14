@@ -4,7 +4,7 @@ using Wino.Core.ViewModels.Data;
 
 namespace Wino.Selectors
 {
-    public class AccountReorderTemplateSelector : DataTemplateSelector
+    public partial class AccountReorderTemplateSelector : DataTemplateSelector
     {
         public DataTemplate MergedAccountReorderTemplate { get; set; }
         public DataTemplate RootAccountReorderTemplate { get; set; }

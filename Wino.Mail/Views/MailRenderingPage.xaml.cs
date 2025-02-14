@@ -11,7 +11,9 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.UWP.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -65,22 +67,6 @@ namespace Wino.Views
             return string.Empty;
         }
 
-        public async Task<string> ExecuteScriptFunctionAsync(string functionName, params object[] parameters)
-        {
-            string script = functionName + "(";
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                script += JsonSerializer.Serialize(parameters[i]);
-                if (i < parameters.Length - 1)
-                {
-                    script += ", ";
-                }
-            }
-            script += ");";
-
-            return isChromiumDisposed ? string.Empty : await Chromium.ExecuteScriptAsync(script);
-        }
-
         private async Task RenderInternalAsync(string htmlBody)
         {
             isRenderingInProgress = true;
@@ -92,12 +78,14 @@ namespace Wino.Views
 
             if (string.IsNullOrEmpty(htmlBody))
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", " ");
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", isChromiumDisposed, JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
             }
             else
             {
                 var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
-                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody, shouldLinkifyText);
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", isChromiumDisposed,
+                    JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String),
+                    JsonSerializer.Serialize(shouldLinkifyText, BasicTypesJsonContext.Default.Boolean));
             }
 
             isRenderingInProgress = false;
@@ -132,8 +120,6 @@ namespace Wino.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
-
-            WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
 
             // Disposing the page.
             // Make sure the WebView2 is disposed properly.
@@ -263,7 +249,7 @@ namespace Wino.Views
 
         private async Task UpdateReaderFontPropertiesAsync()
         {
-            await ExecuteScriptFunctionAsync("ChangeFontSize", _preferencesService.ReaderFontSize);
+            await Chromium.ExecuteScriptFunctionAsync("ChangeFontSize", isChromiumDisposed, JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
 
             // Prepare font family name with fallback to sans-serif by default.
             var fontName = _preferencesService.ReaderFont;
@@ -271,7 +257,7 @@ namespace Wino.Views
             // If font family name is not supported by the browser, fallback to sans-serif.
             fontName += ", sans-serif";
 
-            await ExecuteScriptFunctionAsync("ChangeFontFamily", fontName);
+            await Chromium.ExecuteScriptFunctionAsync("ChangeFontFamily", isChromiumDisposed, JsonSerializer.Serialize(fontName, BasicTypesJsonContext.Default.String));
         }
 
         void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)

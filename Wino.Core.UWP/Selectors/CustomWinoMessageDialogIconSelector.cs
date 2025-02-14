@@ -5,7 +5,7 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.UWP.Selectors
 {
-    public class CustomWinoMessageDialogIconSelector : DataTemplateSelector
+    public partial class CustomWinoMessageDialogIconSelector : DataTemplateSelector
     {
         public DataTemplate InfoIconTemplate { get; set; }
         public DataTemplate WarningIconTemplate { get; set; }

@@ -35,7 +35,12 @@
 
             // Called when rendering a new email for the first time
             function RenderHTML(htmlString, shouldLinkifyText = true) {
+
+                // Reset scroll to top
                 window.scroll(0, 0);
+
+                // Clear any existing selection
+                window.getSelection().removeAllRanges();
 
                 _htmlString = htmlString;
                 _shouldLinkifyText = shouldLinkifyText;

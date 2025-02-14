@@ -303,7 +303,7 @@ namespace Wino.Services
 
         private HashSet<SpecialFolderType> FindCommonFolders(List<List<MailItemFolder>> lists)
         {
-            var allSpecialTypesExceptOther = Enum.GetValues(typeof(SpecialFolderType)).Cast<SpecialFolderType>().Where(a => a != SpecialFolderType.Other).ToList();
+            var allSpecialTypesExceptOther = Enum.GetValues<SpecialFolderType>().Cast<SpecialFolderType>().Where(a => a != SpecialFolderType.Other).ToList();
 
             // Start with all special folder types from the first list
             var commonSpecialFolderTypes = new HashSet<SpecialFolderType>(allSpecialTypesExceptOther);

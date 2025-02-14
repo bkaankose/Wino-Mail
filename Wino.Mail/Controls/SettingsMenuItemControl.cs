@@ -8,7 +8,7 @@ namespace Wino.Controls
     /// <summary>
     /// Templated button for each setting in Settings Dialog.
     /// </summary>
-    public class SettingsMenuItemControl : Control
+    public partial class SettingsMenuItemControl : Control
     {
         public string Title
         {

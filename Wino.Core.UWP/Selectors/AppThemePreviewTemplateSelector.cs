@@ -4,7 +4,7 @@ using Wino.Core.UWP.Models.Personalization;
 
 namespace Wino.Core.UWP.Selectors
 {
-    public class AppThemePreviewTemplateSelector : DataTemplateSelector
+    public partial class AppThemePreviewTemplateSelector : DataTemplateSelector
     {
         public DataTemplate SystemThemeTemplate { get; set; }
         public DataTemplate PreDefinedThemeTemplate { get; set; }

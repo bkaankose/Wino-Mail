@@ -4,19 +4,20 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Toolkit.Uwp.Helpers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
+using Windows.UI.Core.Preview;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -26,6 +27,7 @@ using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.UWP.Extensions;
 using Wino.Mail.ViewModels.Data;
@@ -48,13 +50,15 @@ namespace Wino.Views
         public static readonly DependencyProperty IsComposerDarkModeProperty = DependencyProperty.Register(nameof(IsComposerDarkMode), typeof(bool), typeof(ComposePage), new PropertyMetadata(false, OnIsComposerDarkModeChanged));
         public WebView2 GetWebView() => Chromium;
 
-        private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
 
-        private List<IDisposable> Disposables = new List<IDisposable>();
+        private readonly List<IDisposable> _disposables = new List<IDisposable>();
+        private readonly SystemNavigationManagerPreview _navManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
 
         public ComposePage()
         {
             InitializeComponent();
+            _navManagerPreview.CloseRequested += OnClose;
 
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
@@ -212,7 +216,7 @@ namespace Wino.Views
                         }
                     }
 
-                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation)});");
+                    await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation, ComposerPageJsonContext.Default.ListImageInfo)});");
                 }
             }
             // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -224,7 +228,7 @@ namespace Wino.Views
 
             static async Task<string> GetDataURL(StorageFile file)
             {
-                return $"data:image/{file.FileType.Replace(".", "")};base64,{Convert.ToBase64String(await file.ReadBytesAsync())}";
+                return $"data:image/{file.FileType.Replace(".", "")};base64,{Convert.ToBase64String(await file.ToByteArrayAsync())}";
             }
         }
 
@@ -317,22 +321,6 @@ namespace Wino.Views
             await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
         }
 
-        public async Task<string> ExecuteScriptFunctionAsync(string functionName, params object[] parameters)
-        {
-            string script = functionName + "(";
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                script += JsonSerializer.Serialize(parameters[i]);
-                if (i < parameters.Length - 1)
-                {
-                    script += ", ";
-                }
-            }
-            script += ");";
-
-            return await Chromium.ExecuteScriptAsync(script);
-        }
-
         private async Task<string> InvokeScriptSafeAsync(string function)
         {
             if (Chromium == null) return string.Empty;
@@ -378,7 +366,7 @@ namespace Wino.Views
 
         public async Task UpdateEditorThemeAsync()
         {
-            await DOMLoadedTask.Task;
+            await _domLoadedTask.Task;
 
             if (IsComposerDarkMode)
             {
@@ -394,18 +382,18 @@ namespace Wino.Views
 
         private async Task RenderInternalAsync(string htmlBody)
         {
-            await DOMLoadedTask.Task;
+            await _domLoadedTask.Task;
 
             await UpdateEditorThemeAsync();
             await InitializeEditorAsync();
 
             if (string.IsNullOrEmpty(htmlBody))
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", " ");
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
             }
             else
             {
-                await ExecuteScriptFunctionAsync("RenderHTML", htmlBody);
+                await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String));
             }
         }
 
@@ -416,7 +404,13 @@ namespace Wino.Views
             int composerFontSize = ViewModel.PreferencesService.ComposerFontSize;
             var readerFont = ViewModel.PreferencesService.ReaderFont;
             int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
-            return await ExecuteScriptFunctionAsync("initializeJodit", fonts, composerFont, composerFontSize, readerFont, readerFontSize);
+            return await Chromium.ExecuteScriptFunctionAsync("initializeJodit",
+                false,
+                JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
+                JsonSerializer.Serialize(composerFont, BasicTypesJsonContext.Default.String),
+                JsonSerializer.Serialize(composerFontSize, BasicTypesJsonContext.Default.Int32),
+                JsonSerializer.Serialize(readerFont, BasicTypesJsonContext.Default.String),
+                JsonSerializer.Serialize(readerFontSize, BasicTypesJsonContext.Default.Int32));
         }
 
         private void DisposeWebView2()
@@ -437,8 +431,8 @@ namespace Wino.Views
 
         private void DisposeDisposables()
         {
-            if (Disposables.Any())
-                Disposables.ForEach(a => a.Dispose());
+            if (_disposables.Any())
+                _disposables.ForEach(a => a.Dispose());
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -452,9 +446,9 @@ namespace Wino.Views
 
             DisposeDisposables();
 
-            Disposables.Add(GetSuggestionBoxDisposable(ToBox));
-            Disposables.Add(GetSuggestionBoxDisposable(CCBox));
-            Disposables.Add(GetSuggestionBoxDisposable(BccBox));
+            _disposables.Add(GetSuggestionBoxDisposable(ToBox));
+            _disposables.Add(GetSuggestionBoxDisposable(CCBox));
+            _disposables.Add(GetSuggestionBoxDisposable(BccBox));
 
             Chromium.CoreWebView2Initialized -= ChromiumInitialized;
             Chromium.CoreWebView2Initialized += ChromiumInitialized;
@@ -465,7 +459,7 @@ namespace Wino.Views
             {
                 var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
 
-                return JsonSerializer.Deserialize<string>(editorContent);
+                return JsonSerializer.Deserialize(editorContent, BasicTypesJsonContext.Default.String);
             });
 
             var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
@@ -489,7 +483,7 @@ namespace Wino.Views
 
         private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
         {
-            var change = JsonSerializer.Deserialize<WebViewMessage>(args.WebMessageAsJson);
+            var change = JsonSerializer.Deserialize(args.WebMessageAsJson, DomainModelsJsonContext.Default.WebViewMessage);
 
             if (change.Type == "bold")
             {
@@ -539,7 +533,7 @@ namespace Wino.Views
             }
         }
 
-        private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => DOMLoadedTask.TrySetResult(true);
+        private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => _domLoadedTask.TrySetResult(true);
 
         async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
         {
@@ -678,10 +672,24 @@ namespace Wino.Views
             base.OnNavigatingFrom(e);
 
             FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
+            _navManagerPreview.CloseRequested -= OnClose;
             await ViewModel.UpdateMimeChangesAsync();
 
             DisposeDisposables();
             DisposeWebView2();
         }
+        private async void OnClose(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
+        {
+            var deferral = e.GetDeferral();
+
+            try
+            {
+                await ViewModel.UpdateMimeChangesAsync();
+            }
+            finally { deferral.Complete(); }
+        }
     }
+
+    [JsonSerializable(typeof(List<ImageInfo>))]
+    public partial class ComposerPageJsonContext: JsonSerializerContext;
 }

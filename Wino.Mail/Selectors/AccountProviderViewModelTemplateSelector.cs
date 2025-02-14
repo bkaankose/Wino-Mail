@@ -4,7 +4,7 @@ using Wino.Core.ViewModels.Data;
 
 namespace Wino.Selectors
 {
-    public class AccountProviderViewModelTemplateSelector : DataTemplateSelector
+    public partial class AccountProviderViewModelTemplateSelector : DataTemplateSelector
     {
         public DataTemplate RootAccountTemplate { get; set; }
         public DataTemplate MergedAccountTemplate { get; set; }

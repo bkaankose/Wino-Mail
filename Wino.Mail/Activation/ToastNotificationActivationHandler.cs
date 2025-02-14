@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI.Notifications;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Wino.Core.Domain;

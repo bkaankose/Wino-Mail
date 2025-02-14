@@ -104,7 +104,7 @@ namespace Wino.Core.UWP.Controls
         Yahoo
     }
 
-    public class WinoFontIcon : FontIcon
+    public partial class WinoFontIcon : FontIcon
     {
         public WinoIconGlyph Icon
         {

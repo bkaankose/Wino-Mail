@@ -13,7 +13,7 @@ namespace Wino.MenuFlyouts
         public Guid ClickedFolderId { get; set; }
     }
 
-    public class MoveButtonFlyout : MenuFlyout
+    public partial class MoveButtonFlyout : MenuFlyout
     {
         public event TypedEventHandler<MoveButtonFlyout, MoveButtonMenuItemClickedEventArgs> MenuItemClick;
         public static readonly DependencyProperty FoldersProperty = DependencyProperty.Register(nameof(Folders), typeof(List<MailItemFolder>), typeof(MoveButtonFlyout), new PropertyMetadata(null, new PropertyChangedCallback(OnFoldersChanged)));

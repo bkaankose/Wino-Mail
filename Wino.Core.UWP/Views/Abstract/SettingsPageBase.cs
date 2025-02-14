@@ -4,7 +4,7 @@ using Wino.Core.ViewModels;
 
 namespace Wino.Views.Abstract
 {
-    public class SettingsPageBase<T> : BasePage<T> where T : CoreBaseViewModel
+    public partial class SettingsPageBase<T> : BasePage<T> where T : CoreBaseViewModel
     {
         public string Title
         {

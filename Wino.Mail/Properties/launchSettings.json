@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "Wino.Mail": {
+      "commandName": "MsixPackage"
+    }
+  }
+}

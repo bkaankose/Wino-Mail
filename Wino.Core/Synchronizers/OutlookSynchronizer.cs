@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,6 +40,10 @@ using Wino.Core.Requests.Mail;
 
 namespace Wino.Core.Synchronizers.Mail
 {
+    [JsonSerializable(typeof(Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody))]
+    [JsonSerializable(typeof(OutlookFileAttachment))]
+    public partial class OutlookSynchronizerJsonContext: JsonSerializerContext;
+
     public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>
     {
         public override uint BatchModificationSize => 20;
@@ -98,9 +103,6 @@ namespace Wino.Core.Synchronizers.Mail
             _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
 
             _outlookChangeProcessor = outlookChangeProcessor;
-
-            // Specify to use TLS 1.2 as default connection
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
 
         #region MS Graph Handlers
@@ -558,11 +560,11 @@ namespace Wino.Core.Synchronizers.Mail
         /// <param name="requestInformation">Post request information.</param>
         /// <param name="content">Content object to serialize.</param>
         /// <returns>Updated post request information.</returns>
-        private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, object content = null)
+        private RequestInformation PreparePostRequestInformation(RequestInformation requestInformation, Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody content = null)
         {
             requestInformation.Headers.Clear();
 
-            string contentJson = content == null ? "{}" : JsonSerializer.Serialize(content);
+            string contentJson = content == null ? "{}" : JsonSerializer.Serialize(content, OutlookSynchronizerJsonContext.Default.MovePostRequestBody);
 
             requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
             requestInformation.HttpMethod = Method.POST;
@@ -584,7 +586,7 @@ namespace Wino.Core.Synchronizers.Mail
                     DestinationId = item.ToFolder.RemoteFolderId
                 };
 
-                return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id.ToString()].Move.ToPostRequestInformation(requestBody),
+                return PreparePostRequestInformation(_graphClient.Me.Messages[item.Item.Id].Move.ToPostRequestInformation(requestBody),
                                                                      requestBody);
             });
         }
@@ -598,7 +600,7 @@ namespace Wino.Core.Synchronizers.Mail
                     Flag = new FollowupFlag() { FlagStatus = item.IsFlagged ? FollowupFlagStatus.Flagged : FollowupFlagStatus.NotFlagged }
                 };
 
-                return _graphClient.Me.Messages[item.Item.Id.ToString()].ToPatchRequestInformation(message);
+                return _graphClient.Me.Messages[item.Item.Id].ToPatchRequestInformation(message);
             });
         }
 
@@ -759,11 +761,11 @@ namespace Wino.Core.Synchronizers.Mail
                 allAttachments.Add(attachment);
             }
 
-            RequestInformation PrepareUploadAttachmentRequest(RequestInformation requestInformation, OutlookFileAttachment outlookFileAttachment)
+            static RequestInformation PrepareUploadAttachmentRequest(RequestInformation requestInformation, OutlookFileAttachment outlookFileAttachment)
             {
                 requestInformation.Headers.Clear();
 
-                string contentJson = JsonSerializer.Serialize(outlookFileAttachment);
+                string contentJson = JsonSerializer.Serialize(outlookFileAttachment, OutlookSynchronizerJsonContext.Default.OutlookFileAttachment);
 
                 requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
                 requestInformation.HttpMethod = Method.POST;
@@ -1056,7 +1058,7 @@ namespace Wino.Core.Synchronizers.Mail
                         await _handleItemRetrievalSemaphore.WaitAsync();
                         await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
                     }

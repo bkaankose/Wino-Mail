@@ -7,7 +7,7 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.UWP.Controls
 {
-    public class WinoInfoBar : InfoBar
+    public partial class WinoInfoBar : InfoBar
     {
         public static readonly DependencyProperty AnimationTypeProperty = DependencyProperty.Register(nameof(AnimationType), typeof(InfoBarAnimationType), typeof(WinoInfoBar), new PropertyMetadata(InfoBarAnimationType.SlideFromRightToLeft));
         public static readonly DependencyProperty DismissIntervalProperty = DependencyProperty.Register(nameof(DismissInterval), typeof(int), typeof(WinoInfoBar), new PropertyMetadata(5, new PropertyChangedCallback(OnDismissIntervalChanged)));
