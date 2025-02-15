@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,6 +14,7 @@ namespace Wino.Core.ViewModels
         private readonly IMailDialogService _dialogService;
         private readonly INativeAppService _nativeAppService;
         private readonly IApplicationConfiguration _appInitializerService;
+        private readonly IClipboardService _clipboardService;
         private readonly IFileService _fileService;
         private readonly ILogInitializer _logInitializer;
 
@@ -29,6 +31,7 @@ namespace Wino.Core.ViewModels
                                   INativeAppService nativeAppService,
                                   IPreferencesService preferencesService,
                                   IApplicationConfiguration appInitializerService,
+                                  IClipboardService clipboardService,
                                   IFileService fileService,
                                   ILogInitializer logInitializer)
         {
@@ -37,6 +40,7 @@ namespace Wino.Core.ViewModels
             _nativeAppService = nativeAppService;
             _logInitializer = logInitializer;
             _appInitializerService = appInitializerService;
+            _clipboardService = clipboardService;
             _fileService = fileService;
 
             PreferencesService = preferencesService;
@@ -62,6 +66,21 @@ namespace Wino.Core.ViewModels
             if (e == nameof(PreferencesService.IsLoggingEnabled))
             {
                 _logInitializer.RefreshLoggingLevel();
+            }
+        }
+
+        [RelayCommand]
+        private async Task CopyDiagnosticId()
+        {
+            try
+            {
+                await _clipboardService.CopyClipboardAsync(PreferencesService.DiagnosticId);
+                _dialogService.InfoBarMessage(Translator.Buttons_Copy, string.Format(Translator.ClipboardTextCopied_Message, "Id"), InfoBarMessageType.Success);
+            }
+            catch (Exception ex)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, string.Format(Translator.ClipboardTextCopyFailed_Message, "Id"), InfoBarMessageType.Error);
+                Log.Error(ex, "Failed to copy diagnostic id to clipboard.");
             }
         }
 
