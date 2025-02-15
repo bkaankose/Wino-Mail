@@ -23,6 +23,7 @@ namespace Wino.Services
             services.AddTransient<IContactService, ContactService>();
             services.AddTransient<ISignatureService, SignatureService>();
             services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
+            services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
 
             services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
             services.AddTransient<IOutlookThreadingStrategy, OutlookThreadingStrategy>();

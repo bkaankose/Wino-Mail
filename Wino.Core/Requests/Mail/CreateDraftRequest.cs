@@ -13,6 +13,8 @@ namespace Wino.Core.Requests.Mail
         : MailRequestBase(DraftPreperationRequest.CreatedLocalDraftCopy),
         ICustomFolderSynchronizationRequest
     {
+        public bool ExcludeMustHaveFolders => false;
+
         public List<Guid> SynchronizationFolderIds =>
         [
             DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.Id

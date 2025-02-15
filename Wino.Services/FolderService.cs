@@ -143,7 +143,7 @@ namespace Wino.Services
                             if (!string.IsNullOrEmpty(unstickyItem.ParentRemoteFolderId))
                                 continue;
                         }
-                        else if (account.ProviderType == MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365)
+                        else if (account.ProviderType == MailProviderType.Outlook)
                         {
                             bool belongsToExistingParent = await Connection
                                 .Table<MailItemFolder>()
@@ -367,16 +367,14 @@ namespace Wino.Services
 
         public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
         {
-            var folder = await GetFolderAsync(folderId);
-
-            if (folder == null) return default;
-
             var mailCopyIds = await GetMailCopyIdsByFolderIdAsync(folderId);
 
             // Make sure we don't include Ids that doesn't have uid separator.
             // Local drafts might not have it for example.
 
-            return new List<uint>(mailCopyIds.Where(a => a.Contains(MailkitClientExtensions.MailCopyUidSeparator)).Select(a => MailkitClientExtensions.ResolveUid(a)));
+            return new List<uint>(mailCopyIds
+                .Where(a => a.Contains(MailkitClientExtensions.MailCopyUidSeparator))
+                .Select(a => MailkitClientExtensions.ResolveUid(a)));
         }
 
         public async Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration)
@@ -546,7 +544,19 @@ namespace Wino.Services
         {
             var folders = new List<MailItemFolder>();
 
-            if (options.Type == MailSynchronizationType.FullFolders)
+            if (options.Type == MailSynchronizationType.IMAPIdle)
+            {
+                // Type Inbox will include Sent, Drafts and Deleted folders as well.
+                // For IMAP idle sync, we must include only Inbox folder.
+
+                var inboxFolder = await GetSpecialFolderByAccountIdAsync(options.AccountId, SpecialFolderType.Inbox);
+
+                if (inboxFolder != null)
+                {
+                    folders.Add(inboxFolder);
+                }
+            }
+            else if (options.Type == MailSynchronizationType.FullFolders)
             {
                 // Only get sync enabled folders.
 
@@ -570,11 +580,18 @@ namespace Wino.Services
                 }
                 else if (options.Type == MailSynchronizationType.CustomFolders)
                 {
-                    // Only get the specified and enabled folders.
+                    // Only get the specified folders.
 
                     var synchronizationFolders = await Connection.Table<MailItemFolder>()
-                        .Where(a => a.MailAccountId == options.AccountId && options.SynchronizationFolderIds.Contains(a.Id))
+                        .Where(a =>
+                        a.MailAccountId == options.AccountId &&
+                        options.SynchronizationFolderIds.Contains(a.Id))
                         .ToListAsync();
+
+                    if (options.ExcludeMustHaveFolders)
+                    {
+                        return synchronizationFolders;
+                    }
 
                     // Order is important for moving.
                     // By implementation, removing mail folders must be synchronized first. Requests are made in that order for custom sync.

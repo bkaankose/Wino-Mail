@@ -319,6 +319,8 @@ namespace Wino.Services
                 }
             }
 
+
+
             ReportUIChange(new AccountRemovedMessage(account));
         }
 
@@ -502,7 +504,7 @@ namespace Wino.Services
             account.Preferences = preferences;
 
             // Outlook & Office 365 supports Focused inbox. Enabled by default.
-            bool isMicrosoftProvider = account.ProviderType == MailProviderType.Outlook || account.ProviderType == MailProviderType.Office365;
+            bool isMicrosoftProvider = account.ProviderType == MailProviderType.Outlook;
 
             // TODO: This should come from account settings API.
             // Wino doesn't have MailboxSettings yet.

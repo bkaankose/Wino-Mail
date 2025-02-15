@@ -12,6 +12,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels
@@ -20,6 +21,7 @@ namespace Wino.Mail.ViewModels
     {
         private readonly IMailDialogService _dialogService;
         private readonly IAccountService _accountService;
+        private readonly IWinoServerConnectionManager _serverConnectionManager;
         private readonly IFolderService _folderService;
 
         public MailAccount Account { get; set; }
@@ -48,10 +50,12 @@ namespace Wino.Mail.ViewModels
 
         public AccountDetailsPageViewModel(IMailDialogService dialogService,
             IAccountService accountService,
+            IWinoServerConnectionManager serverConnectionManager,
             IFolderService folderService)
         {
             _dialogService = dialogService;
             _accountService = accountService;
+            _serverConnectionManager = serverConnectionManager;
             _folderService = folderService;
         }
 
@@ -102,13 +106,17 @@ namespace Wino.Mail.ViewModels
             if (!confirmation)
                 return;
 
-            await _accountService.DeleteAccountAsync(Account);
 
-            // TODO: Server: Cancel ongoing calls from server for this account.
+            var isSynchronizerKilledResponse = await _serverConnectionManager.GetResponseAsync<bool, KillAccountSynchronizerRequested>(new KillAccountSynchronizerRequested(Account.Id));
 
-            _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+            if (isSynchronizerKilledResponse.IsSuccess)
+            {
+                await _accountService.DeleteAccountAsync(Account);
 
-            Messenger.Send(new BackBreadcrumNavigationRequested());
+                _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+
+                Messenger.Send(new BackBreadcrumNavigationRequested());
+            }
         }
 
         public override async void OnNavigatedTo(NavigationMode mode, object parameters)

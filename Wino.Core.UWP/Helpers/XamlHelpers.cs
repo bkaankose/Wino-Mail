@@ -11,6 +11,7 @@ using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Markup;
 using Windows.UI.Xaml.Media;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.UWP.Controls;
@@ -262,17 +263,31 @@ namespace Wino.Helpers
             };
         }
 
-        public static WinoIconGlyph GetProviderIcon(MailProviderType providerType)
+
+        public static WinoIconGlyph GetProviderIcon(MailProviderType providerType, SpecialImapProvider specialImapProvider)
         {
-            return providerType switch
+            if (specialImapProvider == SpecialImapProvider.None)
             {
-                MailProviderType.Outlook => WinoIconGlyph.Microsoft,
-                MailProviderType.Gmail => WinoIconGlyph.Google,
-                MailProviderType.Office365 => WinoIconGlyph.Microsoft,
-                MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
-                _ => WinoIconGlyph.None,
-            };
+                return providerType switch
+                {
+                    MailProviderType.Outlook => WinoIconGlyph.Microsoft,
+                    MailProviderType.Gmail => WinoIconGlyph.Google,
+                    MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
+                    _ => WinoIconGlyph.None,
+                };
+            }
+            else
+            {
+                return specialImapProvider switch
+                {
+                    SpecialImapProvider.iCloud => WinoIconGlyph.Apple,
+                    SpecialImapProvider.Yahoo => WinoIconGlyph.Yahoo,
+                    _ => WinoIconGlyph.None,
+                };
+            }
         }
+        public static WinoIconGlyph GetProviderIcon(MailAccount account)
+            => GetProviderIcon(account.ProviderType, account.SpecialImapProvider);
 
         public static Geometry GetPathGeometry(string pathMarkup)
         {

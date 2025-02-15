@@ -9,6 +9,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Messaging.Client.Mails;
 
@@ -34,6 +35,10 @@ namespace Wino.Views.ImapSetup
             if (e.Parameter is MailAccount accountProperties)
             {
                 DisplayNameBox.Text = accountProperties.Name;
+            }
+            else if (e.Parameter is AccountCreationDialogResult creationDialogResult)
+            {
+                WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(TestingImapConnectionPage), creationDialogResult));
             }
         }
 

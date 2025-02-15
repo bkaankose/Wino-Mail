@@ -422,6 +422,7 @@
                 <!--  Mail Items  -->
                 <muxc:RefreshContainer
                     Grid.Row="2"
+                    Margin="-4,0"
                     RefreshRequested="PullToRefreshRequested"
                     Visibility="{x:Bind ViewModel.IsEmpty, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}">
                     <SemanticZoom x:Name="SemanticZoomContainer" CanChangeViews="{x:Bind ViewModel.PreferencesService.IsSemanticZoomEnabled, Mode=OneWay}">
@@ -444,7 +445,7 @@
                                 </ListView.ItemContainerTransitions>
                                 <ListView.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <ItemsStackPanel AreStickyGroupHeadersEnabled="True" />
+                                        <ItemsStackPanel Margin="8,0,12,0" AreStickyGroupHeadersEnabled="True" />
                                     </ItemsPanelTemplate>
                                 </ListView.ItemsPanel>
                                 <ListView.Resources>
@@ -466,13 +467,13 @@
                                     <Style TargetType="ListViewItem">
                                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                         <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                                        <Setter Property="Margin" Value="0,12" />
+                                        <Setter Property="Margin" Value="12" />
                                         <Setter Property="Padding" Value="0" />
                                     </Style>
                                 </ListView.Resources>
                                 <ListView.ItemTemplate>
                                     <DataTemplate x:DataType="ICollectionViewGroup">
-                                        <Grid Background="{ThemeResource MailListHeaderBackgroundColor}" CornerRadius="4">
+                                        <Grid Background="{ThemeResource MailListHeaderBackgroundColor}" CornerRadius="6">
                                             <TextBlock
                                                 Margin="12,0"
                                                 HorizontalAlignment="Center"

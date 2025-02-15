@@ -20,19 +20,14 @@ namespace Wino.Mail.Services
 
         public List<IProviderDetail> GetAvailableProviders()
         {
-            var providerList = new List<IProviderDetail>();
-
-            var providers = new MailProviderType[]
+            var providerList = new List<IProviderDetail>
             {
-                MailProviderType.Outlook,
-                MailProviderType.Gmail,
-                MailProviderType.IMAP4
+                new ProviderDetail(MailProviderType.Outlook, SpecialImapProvider.None),
+                new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None),
+                new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.iCloud),
+                new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.Yahoo),
+                new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None)
             };
-
-            foreach (var type in providers)
-            {
-                providerList.Add(new ProviderDetail(type));
-            }
 
             return providerList;
         }

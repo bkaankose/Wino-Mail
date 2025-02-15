@@ -4,8 +4,6 @@
     {
         Outlook,
         Gmail,
-        Office365,
-        Yahoo,
-        IMAP4
+        IMAP4 = 4 // 2-3 were removed after release. Don't change for backward compatibility.
     }
 }

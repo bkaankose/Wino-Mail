@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Windows.UI.Xaml.Controls;
-using Wino.Controls;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.UWP.Controls;
 using Wino.Helpers;
@@ -22,7 +21,7 @@ namespace Wino.MenuFlyouts
 
             foreach (var account in _accounts)
             {
-                var pathData = new WinoFontIcon() { Icon = XamlHelpers.GetProviderIcon(account.ProviderType) };
+                var pathData = new WinoFontIcon() { Icon = XamlHelpers.GetProviderIcon(account) };
                 var menuItem = new MenuFlyoutItem() { Tag = account.Address, Icon = pathData, Text = $"{account.Name} ({account.Address})", MinHeight = 55 };
 
                 menuItem.Click += AccountClicked;

@@ -13,7 +13,7 @@ namespace Wino.Core.Requests.Mail
         : MailRequestBase(Item), ICustomFolderSynchronizationRequest
     {
         public List<Guid> SynchronizationFolderIds => new() { FromFolder.Id, ToFolder.Id };
-
+        public bool ExcludeMustHaveFolders => false;
         public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Move;
 
         public override void ApplyUIChanges()

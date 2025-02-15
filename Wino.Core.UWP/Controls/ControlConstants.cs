@@ -98,7 +98,9 @@ namespace Wino.Core.UWP.Controls
             { WinoIconGlyph.EventRespond, "\uE924" },
             { WinoIconGlyph.EventReminder, "\uE923" },
             { WinoIconGlyph.EventJoinOnline, "\uE926" },
-            { WinoIconGlyph.ViewMessageSource, "\uE943" }
+            { WinoIconGlyph.ViewMessageSource, "\uE943" },
+            { WinoIconGlyph.Apple, "\uE92B" },
+            { WinoIconGlyph.Yahoo, "\uE92C" }
         };
     }
 }

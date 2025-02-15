@@ -28,18 +28,25 @@ namespace Wino.Mail.ViewModels
 {
     public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
     {
+        private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
+        private readonly IImapTestService _imapTestService;
+
         public IMailDialogService MailDialogService { get; }
 
         public AccountManagementViewModel(IMailDialogService dialogService,
                                           IWinoServerConnectionManager winoServerConnectionManager,
                                           INavigationService navigationService,
                                           IAccountService accountService,
+                                          ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                           IProviderService providerService,
+                                          IImapTestService imapTestService,
                                           IStoreManagementService storeManagementService,
                                           IAuthenticationProvider authenticationProvider,
                                           IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
         {
             MailDialogService = dialogService;
+            _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
+            _imapTestService = imapTestService;
         }
 
         [RelayCommand]
@@ -93,7 +100,7 @@ namespace Wino.Mail.ViewModels
 
                 if (accountCreationDialogResult != null)
                 {
-                    creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
+                    creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
 
                     CustomServerInformation customServerInformation = null;
 
@@ -101,17 +108,17 @@ namespace Wino.Mail.ViewModels
                     {
                         ProviderType = accountCreationDialogResult.ProviderType,
                         Name = accountCreationDialogResult.AccountName,
-                        AccountColorHex = accountCreationDialogResult.AccountColorHex,
+                        SpecialImapProvider = accountCreationDialogResult.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None,
                         Id = Guid.NewGuid()
                     };
 
-                    creationDialog.ShowDialog(accountCreationCancellationTokenSource);
+                    await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
                     creationDialog.State = AccountCreationDialogState.SigningIn;
 
                     string tokenInformation = string.Empty;
 
                     // Custom server implementation requires more async waiting.
-                    if (creationDialog is ICustomServerAccountCreationDialog customServerDialog)
+                    if (creationDialog is IImapAccountCreationDialog customServerDialog)
                     {
                         // Pass along the account properties and perform initial navigation on the imap frame.
                         customServerDialog.StartImapConnectionSetup(createdAccount);
@@ -130,20 +137,39 @@ namespace Wino.Mail.ViewModels
                     }
                     else
                     {
-                        // OAuth authentication is handled here.
-                        // Server authenticates, returns the token info here.
+                        // Hanle special imap providers like iCloud and Yahoo.
+                        if (accountCreationDialogResult.SpecialImapProviderDetails != null)
+                        {
+                            // Special imap provider testing dialog. This is only available for iCloud and Yahoo.
+                            customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult);
+                            customServerInformation.Id = Guid.NewGuid();
+                            customServerInformation.AccountId = createdAccount.Id;
 
-                        var tokenInformationResponse = await WinoServerConnectionManager
-                            .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
-                                                                                                                   createdAccount,
-                                                                                                                   createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
+                            createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
+                            createdAccount.Address = customServerInformation.Address;
 
-                        if (creationDialog.State == AccountCreationDialogState.Canceled)
-                            throw new AccountSetupCanceledException();
+                            await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
+                        }
+                        else
+                        {
+                            // OAuth authentication is handled here.
+                            // Server authenticates, returns the token info here.
 
-                        createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
+                            var tokenInformationResponse = await WinoServerConnectionManager
+                                .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
+                                                                                                                       createdAccount,
+                                                                                                                       createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
 
-                        tokenInformationResponse.ThrowIfFailed();
+                            if (creationDialog.State == AccountCreationDialogState.Canceled)
+                                throw new AccountSetupCanceledException();
+
+                            if (!tokenInformationResponse.IsSuccess)
+                                throw new Exception(tokenInformationResponse.Message);
+
+                            createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
+
+                            tokenInformationResponse.ThrowIfFailed();
+                        }
                     }
 
                     // Address is still doesn't have a value for API synchronizers.
@@ -183,7 +209,7 @@ namespace Wino.Mail.ViewModels
                         await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
                     }
 
-                    if (creationDialog is ICustomServerAccountCreationDialog customServerAccountCreationDialog)
+                    if (creationDialog is IImapAccountCreationDialog customServerAccountCreationDialog)
                         customServerAccountCreationDialog.ShowPreparingFolders();
                     else
                         creationDialog.State = AccountCreationDialogState.PreparingFolders;
@@ -227,14 +253,6 @@ namespace Wino.Mail.ViewModels
                         await AccountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
                     }
 
-                    // TODO: Temporary disabled. Is this even needed? Users can configure special folders manually later on if discovery fails.
-                    // Check if Inbox folder is available for the account after synchronization.
-
-                    //var isInboxAvailable = await _folderService.IsInboxAvailableForAccountAsync(createdAccount.Id);
-
-                    //if (!isInboxAvailable)
-                    //    throw new Exception(Translator.Exception_InboxNotAvailable);
-
                     // Send changes to listeners.
                     ReportUIChange(new AccountCreatedMessage(createdAccount));
 
@@ -249,6 +267,10 @@ namespace Wino.Mail.ViewModels
             catch (Exception ex) when (ex.Message.Contains(nameof(AccountSetupCanceledException)))
             {
                 // Ignore
+            }
+            catch (ImapClientPoolException clientPoolException)
+            {
+                DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error);
             }
             catch (Exception ex)
             {

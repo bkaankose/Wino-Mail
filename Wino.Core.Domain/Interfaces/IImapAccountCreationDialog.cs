@@ -3,7 +3,7 @@ using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Interfaces
 {
-    public interface ICustomServerAccountCreationDialog : IAccountCreationDialog
+    public interface IImapAccountCreationDialog : IAccountCreationDialog
     {
         /// <summary>
         /// Returns the custom server information from the dialog..

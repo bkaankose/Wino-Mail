@@ -131,7 +131,7 @@ namespace Wino.Core.UWP.Services
             return file;
         }
 
-        public virtual IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)
+        public virtual IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
         {
             return new AccountCreationDialog
             {

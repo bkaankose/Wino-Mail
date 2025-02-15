@@ -25,11 +25,13 @@ namespace Wino.Core.Synchronizers
 {
     public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
     {
+        protected bool IsDisposing { get; private set; }
+
+        protected Dictionary<MailSynchronizationOptions, CancellationTokenSource> PendingSynchronizationRequest = new();
+
         protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType>>();
 
-        protected WinoSynchronizer(MailAccount account) : base(account)
-        {
-        }
+        protected WinoSynchronizer(MailAccount account) : base(account) { }
 
         /// <summary>
         /// How many items per single HTTP call can be modified.
@@ -83,93 +85,128 @@ namespace Wino.Core.Synchronizers
         {
             try
             {
-                activeSynchronizationCancellationToken = cancellationToken;
-
-                State = AccountSynchronizerState.ExecutingRequests;
-
-                List<IRequestBundle<TBaseRequest>> nativeRequests = new();
-
-                List<IRequestBase> requestCopies = new(changeRequestQueue);
-
-                var keys = changeRequestQueue.GroupBy(a => a.GroupingKey());
-
-                foreach (var group in keys)
+                if (!ShouldQueueMailSynchronization(options))
                 {
-                    var key = group.Key;
-
-                    if (key is MailSynchronizerOperation mailSynchronizerOperation)
-                    {
-                        switch (mailSynchronizerOperation)
-                        {
-                            case MailSynchronizerOperation.MarkRead:
-                                nativeRequests.AddRange(MarkRead(new BatchMarkReadRequest(group.Cast<MarkReadRequest>())));
-                                break;
-                            case MailSynchronizerOperation.Move:
-                                nativeRequests.AddRange(Move(new BatchMoveRequest(group.Cast<MoveRequest>())));
-                                break;
-                            case MailSynchronizerOperation.Delete:
-                                nativeRequests.AddRange(Delete(new BatchDeleteRequest(group.Cast<DeleteRequest>())));
-                                break;
-                            case MailSynchronizerOperation.CreateDraft:
-                                nativeRequests.AddRange(CreateDraft(group.ElementAt(0) as CreateDraftRequest));
-                                break;
-                            case MailSynchronizerOperation.Send:
-                                nativeRequests.AddRange(SendDraft(group.ElementAt(0) as SendDraftRequest));
-                                break;
-                            case MailSynchronizerOperation.ChangeFlag:
-                                nativeRequests.AddRange(ChangeFlag(new BatchChangeFlagRequest(group.Cast<ChangeFlagRequest>())));
-                                break;
-                            case MailSynchronizerOperation.AlwaysMoveTo:
-                                nativeRequests.AddRange(AlwaysMoveTo(new BatchAlwaysMoveToRequest(group.Cast<AlwaysMoveToRequest>())));
-                                break;
-                            case MailSynchronizerOperation.MoveToFocused:
-                                nativeRequests.AddRange(MoveToFocused(new BatchMoveToFocusedRequest(group.Cast<MoveToFocusedRequest>())));
-                                break;
-                            case MailSynchronizerOperation.Archive:
-                                nativeRequests.AddRange(Archive(new BatchArchiveRequest(group.Cast<ArchiveRequest>())));
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                    else if (key is FolderSynchronizerOperation folderSynchronizerOperation)
-                    {
-                        switch (folderSynchronizerOperation)
-                        {
-                            case FolderSynchronizerOperation.RenameFolder:
-                                nativeRequests.AddRange(RenameFolder(group.ElementAt(0) as RenameFolderRequest));
-                                break;
-                            case FolderSynchronizerOperation.EmptyFolder:
-                                nativeRequests.AddRange(EmptyFolder(group.ElementAt(0) as EmptyFolderRequest));
-                                break;
-                            case FolderSynchronizerOperation.MarkFolderRead:
-                                nativeRequests.AddRange(MarkFolderAsRead(group.ElementAt(0) as MarkFolderAsReadRequest));
-                                break;
-                            default:
-                                break;
-                        }
-                    }
+                    Log.Debug($"{options.Type} synchronization is ignored.");
+                    return MailSynchronizationResult.Canceled;
                 }
 
-                changeRequestQueue.Clear();
+                var newCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-                Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
+                PendingSynchronizationRequest.Add(options, newCancellationTokenSource);
+                activeSynchronizationCancellationToken = newCancellationTokenSource.Token;
+
+                await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
                 PublishSynchronizationProgress(1);
 
-                await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken);
+                // ImapSynchronizer will send this type when an Idle client receives a notification of changes.
+                // We should not execute requests in this case.
+                bool shouldExecuteRequests = options.Type != MailSynchronizationType.IMAPIdle;
 
-                PublishUnreadItemChanges();
+                bool shouldDelayExecution = false;
+                int maxExecutionDelay = 0;
 
-                // Execute request sync options should be re-calculated after execution.
-                // This is the part we decide which individual folders must be synchronized
-                // after the batch request execution.
-                if (options.Type == MailSynchronizationType.ExecuteRequests)
-                    options = GetSynchronizationOptionsAfterRequestExecution(requestCopies);
+                if (shouldExecuteRequests && changeRequestQueue.Any())
+                {
+                    State = AccountSynchronizerState.ExecutingRequests;
+
+                    List<IRequestBundle<TBaseRequest>> nativeRequests = new();
+
+                    List<IRequestBase> requestCopies = new(changeRequestQueue);
+
+                    var keys = changeRequestQueue.GroupBy(a => a.GroupingKey());
+
+                    foreach (var group in keys)
+                    {
+                        var key = group.Key;
+
+                        if (key is MailSynchronizerOperation mailSynchronizerOperation)
+                        {
+                            switch (mailSynchronizerOperation)
+                            {
+                                case MailSynchronizerOperation.MarkRead:
+                                    nativeRequests.AddRange(MarkRead(new BatchMarkReadRequest(group.Cast<MarkReadRequest>())));
+                                    break;
+                                case MailSynchronizerOperation.Move:
+                                    nativeRequests.AddRange(Move(new BatchMoveRequest(group.Cast<MoveRequest>())));
+                                    break;
+                                case MailSynchronizerOperation.Delete:
+                                    nativeRequests.AddRange(Delete(new BatchDeleteRequest(group.Cast<DeleteRequest>())));
+                                    break;
+                                case MailSynchronizerOperation.CreateDraft:
+                                    nativeRequests.AddRange(CreateDraft(group.ElementAt(0) as CreateDraftRequest));
+                                    break;
+                                case MailSynchronizerOperation.Send:
+                                    nativeRequests.AddRange(SendDraft(group.ElementAt(0) as SendDraftRequest));
+                                    break;
+                                case MailSynchronizerOperation.ChangeFlag:
+                                    nativeRequests.AddRange(ChangeFlag(new BatchChangeFlagRequest(group.Cast<ChangeFlagRequest>())));
+                                    break;
+                                case MailSynchronizerOperation.AlwaysMoveTo:
+                                    nativeRequests.AddRange(AlwaysMoveTo(new BatchAlwaysMoveToRequest(group.Cast<AlwaysMoveToRequest>())));
+                                    break;
+                                case MailSynchronizerOperation.MoveToFocused:
+                                    nativeRequests.AddRange(MoveToFocused(new BatchMoveToFocusedRequest(group.Cast<MoveToFocusedRequest>())));
+                                    break;
+                                case MailSynchronizerOperation.Archive:
+                                    nativeRequests.AddRange(Archive(new BatchArchiveRequest(group.Cast<ArchiveRequest>())));
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                        else if (key is FolderSynchronizerOperation folderSynchronizerOperation)
+                        {
+                            switch (folderSynchronizerOperation)
+                            {
+                                case FolderSynchronizerOperation.RenameFolder:
+                                    nativeRequests.AddRange(RenameFolder(group.ElementAt(0) as RenameFolderRequest));
+                                    break;
+                                case FolderSynchronizerOperation.EmptyFolder:
+                                    nativeRequests.AddRange(EmptyFolder(group.ElementAt(0) as EmptyFolderRequest));
+                                    break;
+                                case FolderSynchronizerOperation.MarkFolderRead:
+                                    nativeRequests.AddRange(MarkFolderAsRead(group.ElementAt(0) as MarkFolderAsReadRequest));
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+
+                    changeRequestQueue.Clear();
+
+                    Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
+
+                    await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
+
+                    PublishUnreadItemChanges();
+
+                    // Execute request sync options should be re-calculated after execution.
+                    // This is the part we decide which individual folders must be synchronized
+                    // after the batch request execution.
+                    if (options.Type == MailSynchronizationType.ExecuteRequests)
+                        options = GetSynchronizationOptionsAfterRequestExecution(requestCopies, options.Id);
+
+                    // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
+                    // Bug: if Outlook can't create the message in Sent Items folder before this delay,
+                    // message will not appear in user's inbox since it's not in the Sent Items folder.
+
+                    shouldDelayExecution =
+                        (Account.ProviderType == MailProviderType.Outlook)
+                        && requestCopies.Any(a => a.ResynchronizationDelay > 0);
+
+                    if (shouldDelayExecution)
+                    {
+                        maxExecutionDelay = requestCopies.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
+                    }
+
+                    // In terms of flag/read changes, there is no point of synchronizing must have folders.
+                    options.ExcludeMustHaveFolders = requestCopies.All(a => a is ICustomFolderSynchronizationRequest request && request.ExcludeMustHaveFolders);
+                }
 
                 State = AccountSynchronizerState.Synchronizing;
-
-                await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
                 // Handle special synchronization types.
 
@@ -213,19 +250,9 @@ namespace Wino.Core.Synchronizers
                     }
                 }
 
-                // Let servers to finish their job. Sometimes the servers doesn't respond immediately.
-                // Bug: if Outlook can't create the message in Sent Items folder before this delay,
-                // message will not appear in user's inbox since it's not in the Sent Items folder.
-
-                bool shouldDelayExecution =
-                    (Account.ProviderType == MailProviderType.Outlook || Account.ProviderType == MailProviderType.Office365)
-                    && requestCopies.Any(a => a.ResynchronizationDelay > 0);
-
                 if (shouldDelayExecution)
                 {
-                    var maxDelay = requestCopies.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
-
-                    await Task.Delay(maxDelay);
+                    await Task.Delay(maxExecutionDelay);
                 }
 
                 // Start the internal synchronization.
@@ -249,6 +276,15 @@ namespace Wino.Core.Synchronizers
             }
             finally
             {
+                // Find the request and remove it from the pending list.
+
+                var pendingRequest = PendingSynchronizationRequest.FirstOrDefault(a => a.Key.Id == options.Id);
+
+                if (pendingRequest.Key != null)
+                {
+                    PendingSynchronizationRequest.Remove(pendingRequest.Key);
+                }
+
                 // Reset account progress to hide the progress.
                 PublishSynchronizationProgress(0);
 
@@ -288,7 +324,7 @@ namespace Wino.Core.Synchronizers
         /// </summary>
         /// <param name="batches">Batch requests to run in synchronization.</param>
         /// <returns>New synchronization options with minimal HTTP effort.</returns>
-        private MailSynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests)
+        private MailSynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests, Guid existingSynchronizationId)
         {
             List<Guid> synchronizationFolderIds = requests
                     .Where(a => a is ICustomFolderSynchronizationRequest)
@@ -300,6 +336,8 @@ namespace Wino.Core.Synchronizers
             {
                 AccountId = Account.Id,
             };
+
+            options.Id = existingSynchronizationId;
 
             if (synchronizationFolderIds.Count > 0)
             {
@@ -315,6 +353,35 @@ namespace Wino.Core.Synchronizers
             }
 
             return options;
+        }
+
+        /// <summary>
+        /// Checks if the mail synchronization should be queued or not.
+        /// </summary>
+        /// <param name="options">New mail sync request.</param>
+        /// <returns>Whether sync should be queued or not.</returns>
+        private bool ShouldQueueMailSynchronization(MailSynchronizationOptions options)
+        {
+            // Multiple IMAPIdle requests are ignored.
+            if (options.Type == MailSynchronizationType.IMAPIdle &&
+                PendingSynchronizationRequest.Any(a => a.Key.Type == MailSynchronizationType.IMAPIdle))
+            {
+                return false;
+            }
+
+            // Executing requests may trigger idle sync.
+            // If there are pending execute requests cancel idle change.
+
+            // TODO: Ideally this check should only work for Inbox execute requests.
+            // Check if request folders contains Inbox.
+
+            if (options.Type == MailSynchronizationType.IMAPIdle &&
+                PendingSynchronizationRequest.Any(a => a.Key.Type == MailSynchronizationType.ExecuteRequests))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         #region Mail/Folder Operations
@@ -349,12 +416,12 @@ namespace Wino.Core.Synchronizers
         /// <param name="cancellationToken">Cancellation token.</param>
         public virtual Task DownloadMissingMimeMessageAsync(IMailItem mailItem, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
-        public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<ImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
+        public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
         {
             return [new ImapRequestBundle(new ImapRequest(action, request), request, uIChangeRequest)];
         }
 
-        public List<IRequestBundle<ImapRequest>> CreateTaskBundle<TSingeRequestType>(Func<ImapClient, TSingeRequestType, Task> value,
+        public List<IRequestBundle<ImapRequest>> CreateTaskBundle<TSingeRequestType>(Func<IImapClient, TSingeRequestType, Task> value,
             List<TSingeRequestType> requests)
             where TSingeRequestType : IRequestBase, IUIChangeRequest
         {
@@ -368,6 +435,21 @@ namespace Wino.Core.Synchronizers
             return ret;
         }
 
+        public virtual Task KillSynchronizerAsync()
+        {
+            IsDisposing = true;
+            CancelAllSynchronizations();
 
+            return Task.CompletedTask;
+        }
+
+        protected void CancelAllSynchronizations()
+        {
+            foreach (var request in PendingSynchronizationRequest)
+            {
+                request.Value.Cancel();
+                request.Value.Dispose();
+            }
+        }
     }
 }

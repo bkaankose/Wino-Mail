@@ -29,7 +29,7 @@
             Header="{x:Bind Account.Name}"
             IsClickEnabled="True">
             <winuiControls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
+                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
             </winuiControls:SettingsCard.HeaderIcon>
         </winuiControls:SettingsCard>
     </DataTemplate>

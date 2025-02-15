@@ -73,6 +73,12 @@ namespace Wino.Core.Domain.Entities.Shared
         public Guid? MergedInboxId { get; set; }
 
         /// <summary>
+        /// Gets or sets the additional IMAP provider assignment for the account.
+        /// Providers that use IMAP as a synchronizer but have special requirements.
+        /// </summary>
+        public SpecialImapProvider SpecialImapProvider { get; set; }
+
+        /// <summary>
         /// Contains the merged inbox this account belongs to.
         /// Ignored for all SQLite operations.
         /// </summary>
@@ -95,7 +101,7 @@ namespace Wino.Core.Domain.Entities.Shared
         /// <summary>
         /// Gets whether the account can perform ProfileInformation sync type.
         /// </summary>
-        public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Office365 || ProviderType == MailProviderType.Gmail;
+        public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Gmail;
 
         /// <summary>
         /// Gets whether the account can perform AliasInformation sync type.

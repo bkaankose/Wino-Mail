@@ -1165,5 +1165,12 @@ namespace Wino.Core.Synchronizers.Mail
 
             return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
         }
+
+        public override async Task KillSynchronizerAsync()
+        {
+            await base.KillSynchronizerAsync();
+
+            _graphClient.Dispose();
+        }
     }
 }

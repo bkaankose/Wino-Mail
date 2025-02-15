@@ -13,5 +13,10 @@ namespace Wino.Core.Domain.Interfaces
         /// Which folders to sync after this operation?
         /// </summary>
         List<Guid> SynchronizationFolderIds { get; }
+
+        /// <summary>
+        /// If true, additional folders like Sent, Drafts and Deleted will not be synchronized
+        /// </summary>
+        bool ExcludeMustHaveFolders { get; }
     }
 }

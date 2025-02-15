@@ -24,6 +24,7 @@
 	  <None Remove="Assets\FileTypes\type_rar.png" />
 	  <None Remove="Assets\FileTypes\type_video.png" />
 	  <None Remove="Assets\Providers\Gmail.png" />
+	  <None Remove="Assets\Providers\iCloud.png" />
 	  <None Remove="Assets\Providers\IMAP4.png" />
 	  <None Remove="Assets\Providers\Office 365.png" />
 	  <None Remove="Assets\Providers\Outlook.png" />
@@ -69,6 +70,7 @@
 	  <Content Include="Assets\FileTypes\type_rar.png" />
 	  <Content Include="Assets\FileTypes\type_video.png" />
 	  <Content Include="Assets\Providers\Gmail.png" />
+	  <Content Include="Assets\Providers\iCloud.png" />
 	  <Content Include="Assets\Providers\IMAP4.png" />
 	  <Content Include="Assets\Providers\Office 365.png" />
 	  <Content Include="Assets\Providers\Outlook.png" />
@@ -99,6 +101,7 @@
 		<PackageReference Include="Microsoft.AppCenter.Analytics" />
 		<PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" />
 		<PackageReference Include="Win2D.uwp" />
+		<PackageReference Include="EmailValidation" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

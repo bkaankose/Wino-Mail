@@ -34,7 +34,7 @@
                     Grid.RowSpan="2"
                     VerticalAlignment="Center"
                     FontSize="24"
-                    Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type)}" />
+                    Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type, ProviderDetail.SpecialImapProvider)}" />
                 <TextBlock
                     Grid.Column="1"
                     FontWeight="SemiBold"

@@ -23,7 +23,7 @@ namespace Wino.Core.Services
         {
             return mailProviderType switch
             {
-                MailProviderType.Outlook or MailProviderType.Office365 => _outlookThreadingStrategy,
+                MailProviderType.Outlook => _outlookThreadingStrategy,
                 MailProviderType.Gmail => _gmailThreadingStrategy,
                 _ => _imapThreadStrategy,
             };

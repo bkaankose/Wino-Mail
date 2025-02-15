@@ -28,5 +28,12 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="transferProgress">Optional progress reporting for download operation.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         Task DownloadMissingMimeMessageAsync(IMailItem mailItem, ITransferProgress transferProgress, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 1. Cancel active synchronization.
+        /// 2. Stop all running tasks.
+        /// 3. Dispose all resources.
+        /// </summary>
+        Task KillSynchronizerAsync();
     }
 }

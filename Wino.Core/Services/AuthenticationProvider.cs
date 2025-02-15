@@ -28,7 +28,6 @@ namespace Wino.Core.Services
             return providerType switch
             {
                 MailProviderType.Outlook => new OutlookAuthenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
-                MailProviderType.Office365 => new Office365Authenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
                 MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig),
                 _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
             };

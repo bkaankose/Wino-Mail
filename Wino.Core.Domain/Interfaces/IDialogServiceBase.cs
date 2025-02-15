@@ -27,7 +27,7 @@ namespace Wino.Core.Domain.Interfaces
                                             string dontAskAgainConfigurationKey = "");
         Task<bool> ShowCustomThemeBuilderDialogAsync();
         Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders);
-        IAccountCreationDialog GetAccountCreationDialog(MailProviderType type);
+        IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult);
         Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters);
         Task<string> PickFilePathAsync(string saveFileName);
     }

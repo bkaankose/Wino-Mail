@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.UWP.Extensions;
@@ -30,18 +31,27 @@ namespace Wino.Services
 
         }
 
-        public override IAccountCreationDialog GetAccountCreationDialog(MailProviderType type)
+        public override IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
         {
-            if (type == MailProviderType.IMAP4)
+            if (accountCreationDialogResult.SpecialImapProviderDetails == null)
             {
-                return new NewImapSetupDialog
+                if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
                 {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-                };
+                    return new NewImapSetupDialog
+                    {
+                        RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+                    };
+                }
+                else
+                {
+                    return base.GetAccountCreationDialog(accountCreationDialogResult);
+                }
             }
             else
             {
-                return base.GetAccountCreationDialog(type);
+                // Special IMAP provider like iCloud or Yahoo.
+
+                return base.GetAccountCreationDialog(accountCreationDialogResult);
             }
         }
 

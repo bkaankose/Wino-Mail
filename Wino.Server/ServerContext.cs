@@ -42,7 +42,8 @@ namespace Wino.Server
         IRecipient<ServerTerminationModeChanged>,
         IRecipient<AccountSynchronizationProgressUpdatedMessage>,
         IRecipient<AccountFolderConfigurationUpdated>,
-        IRecipient<CopyAuthURLRequested>
+        IRecipient<CopyAuthURLRequested>,
+        IRecipient<NewMailSynchronizationRequested>
     {
         private readonly System.Timers.Timer _timer;
         private static object connectionLock = new object();
@@ -140,6 +141,7 @@ namespace Wino.Server
         public async void Receive(AccountFolderConfigurationUpdated message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         public async void Receive(CopyAuthURLRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
+        public async void Receive(NewMailSynchronizationRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
 
         #endregion
 
@@ -320,6 +322,9 @@ namespace Wino.Server
                     await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<TerminateServerRequested>(messageJson, _jsonSerializerOptions));
 
                     KillServer();
+                    break;
+                case nameof(KillAccountSynchronizerRequested):
+                    await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<KillAccountSynchronizerRequested>(messageJson, _jsonSerializerOptions));
                     break;
                 default:
                     Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");

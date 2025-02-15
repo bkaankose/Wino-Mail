@@ -100,6 +100,8 @@ namespace Wino.Core.UWP.Controls
         EventEditSeries,
         EventJoinOnline,
         ViewMessageSource,
+        Apple,
+        Yahoo
     }
 
     public partial class WinoFontIcon : FontIcon

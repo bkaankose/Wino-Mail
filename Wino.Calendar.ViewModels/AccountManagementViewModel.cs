@@ -81,7 +81,7 @@ namespace Wino.Calendar.ViewModels
             if (accountCreationDialogResult == null) return;
 
             var accountCreationCancellationTokenSource = new CancellationTokenSource();
-            var accountCreationDialog = CalendarDialogService.GetAccountCreationDialog(accountCreationDialogResult.ProviderType);
+            var accountCreationDialog = CalendarDialogService.GetAccountCreationDialog(accountCreationDialogResult);
 
             accountCreationDialog.ShowDialog(accountCreationCancellationTokenSource);
             accountCreationDialog.State = AccountCreationDialogState.SigningIn;
@@ -92,7 +92,6 @@ namespace Wino.Calendar.ViewModels
             {
                 ProviderType = accountCreationDialogResult.ProviderType,
                 Name = accountCreationDialogResult.AccountName,
-                AccountColorHex = accountCreationDialogResult.AccountColorHex,
                 Id = Guid.NewGuid()
             };
 
@@ -104,12 +103,7 @@ namespace Wino.Calendar.ViewModels
             if (accountCreationDialog.State == AccountCreationDialogState.Canceled)
                 throw new AccountSetupCanceledException();
 
-
             tokenInformationResponse.ThrowIfFailed();
-
-            //var tokenInformation = tokenInformationResponse.Data;
-            //createdAccount.Address = tokenInformation.Address;
-            //tokenInformation.AccountId = createdAccount.Id;
 
             await AccountService.CreateAccountAsync(createdAccount, null);
 

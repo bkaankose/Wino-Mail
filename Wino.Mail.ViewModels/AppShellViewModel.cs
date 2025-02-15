@@ -243,7 +243,9 @@ namespace Wino.Mail.ViewModels
             await RecreateMenuItemsAsync();
             await ProcessLaunchOptionsAsync();
 
+#if !DEBUG
             await ForceAllAccountSynchronizationsAsync();
+#endif
             await MakeSureEnableStartupLaunchAsync();
             await ConfigureBackgroundTasksAsync();
         }
@@ -878,6 +880,8 @@ namespace Wino.Mail.ViewModels
 
         protected override async void OnAccountCreated(MailAccount createdAccount)
         {
+            latestSelectedAccountMenuItem = null;
+
             await RecreateMenuItemsAsync();
 
             if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;

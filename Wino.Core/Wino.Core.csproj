@@ -7,32 +7,34 @@
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
+	
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Diagnostics"  />
-		<PackageReference Include="CommunityToolkit.Mvvm"  />
-		<PackageReference Include="Google.Apis.Calendar.v3"  />
-		<PackageReference Include="Google.Apis.Gmail.v1"  />
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Google.Apis.Calendar.v3" />
+		<PackageReference Include="Google.Apis.Gmail.v1" />
 		<PackageReference Include="Google.Apis.PeopleService.v1" />
-		<PackageReference Include="HtmlAgilityPack"  />
-		<PackageReference Include="HtmlKit"  />
-		<PackageReference Include="MailKit"  />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection"  />
+		<PackageReference Include="HtmlAgilityPack" />
+		<PackageReference Include="HtmlKit" />
+		<PackageReference Include="MailKit" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Graph" />
-		<PackageReference Include="Microsoft.Identity.Client"  />
+		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Microsoft.Identity.Client.Broker" />
-		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal"  />
-		<PackageReference Include="MimeKit"  />
-		<PackageReference Include="morelinq"  />
+		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
+		<PackageReference Include="MimeKit" />
+		<PackageReference Include="morelinq" />
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
-		<PackageReference Include="NodaTime"  />
-		<PackageReference Include="Serilog"  />
-		<PackageReference Include="Serilog.Exceptions"  />
-		<PackageReference Include="Serilog.Sinks.Debug"  />
-		<PackageReference Include="Serilog.Sinks.File"  />
+		<PackageReference Include="NodaTime" />
+		<PackageReference Include="Serilog" />
+		<PackageReference Include="Serilog.Exceptions" />
+		<PackageReference Include="Serilog.Sinks.Debug" />
+		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="SkiaSharp" />
-		<PackageReference Include="SqlKata"  />
-		<PackageReference Include="System.Text.Encoding.CodePages"  />
+		<PackageReference Include="SqlKata" />
+		<PackageReference Include="System.Text.Encoding.CodePages" />
 	</ItemGroup>
+	
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

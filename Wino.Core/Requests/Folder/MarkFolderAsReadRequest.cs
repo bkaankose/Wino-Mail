@@ -32,5 +32,7 @@ namespace Wino.Core.Requests.Folder
         }
 
         public List<Guid> SynchronizationFolderIds => [Folder.Id];
+
+        public bool ExcludeMustHaveFolders => true;
     }
 }

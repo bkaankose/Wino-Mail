@@ -21,6 +21,7 @@ namespace Wino.Core.Requests.Mail
     public record ArchiveRequest(bool IsArchiving, MailCopy Item, MailItemFolder FromFolder, MailItemFolder ToFolder = null)
         : MailRequestBase(Item), ICustomFolderSynchronizationRequest
     {
+        public bool ExcludeMustHaveFolders => false;
         public List<Guid> SynchronizationFolderIds
         {
             get

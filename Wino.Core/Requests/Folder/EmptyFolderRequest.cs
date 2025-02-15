@@ -11,6 +11,7 @@ namespace Wino.Core.Requests.Folder
 {
     public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, FolderSynchronizerOperation.EmptyFolder), ICustomFolderSynchronizationRequest
     {
+        public bool ExcludeMustHaveFolders => false;
         public override void ApplyUIChanges()
         {
             foreach (var item in MailsToDelete)

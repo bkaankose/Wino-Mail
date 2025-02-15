@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.MailItem;
@@ -108,5 +109,13 @@ namespace Wino.Core.Domain.Interfaces
         /// <param name="draftCreationOptions">Options like new email/forward/draft.</param>
         /// <returns>Draft MailCopy and Draft MimeMessage as base64.</returns>
         Task<(MailCopy draftMailCopy, string draftBase64MimeMessage)> CreateDraftAsync(Guid accountId, DraftCreationOptions draftCreationOptions);
+
+        /// <summary>
+        /// Returns ids 
+        /// </summary>
+        /// <param name="folderId"></param>
+        /// <param name="uniqueIds"></param>
+        /// <returns></returns>
+        Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
     }
 }

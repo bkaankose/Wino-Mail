@@ -163,8 +163,7 @@ namespace Wino.Core.Services
                 MailItemFolder archiveFolder = null;
 
                 bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType == MailProviderType.Outlook
-                                                  || mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4
-                                                  || mailItem.AssignedAccount.ProviderType == MailProviderType.Office365;
+                                                  || mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4;
 
                 if (shouldRequireArchiveFolder)
                 {
