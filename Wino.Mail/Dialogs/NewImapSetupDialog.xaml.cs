@@ -28,7 +28,7 @@ namespace Wino.Dialogs
         IImapAccountCreationDialog
     {
         private TaskCompletionSource<CustomServerInformation> _getServerInfoTaskCompletionSource = new TaskCompletionSource<CustomServerInformation>();
-
+        private TaskCompletionSource<bool> dialogOpened = new TaskCompletionSource<bool>();
         private bool isDismissRequested = false;
 
         public NewImapSetupDialog()
@@ -80,14 +80,18 @@ namespace Wino.Dialogs
 
         public async Task ShowDialogAsync(CancellationTokenSource cancellationTokenSource)
         {
-            var tcs = new TaskCompletionSource<bool>();
+            Opened += DialogOpened;
 
-            _ = ShowAsync().AsTask().ContinueWith((t) =>
-            {
-                tcs.TrySetResult(true);
-            });
+            _ = ShowAsync();
 
-            await tcs.Task;
+            await dialogOpened.Task;
+        }
+
+        private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+        {
+            Opened -= DialogOpened;
+
+            dialogOpened?.SetResult(true);
         }
 
         public void ShowPreparingFolders()

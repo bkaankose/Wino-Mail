@@ -53,8 +53,6 @@ namespace Wino.Dialogs
 
         public async Task ShowDialogAsync(CancellationTokenSource cancellationTokenSource)
         {
-            var tcs =
-
             CancellationTokenSource = cancellationTokenSource;
 
             Opened += DialogOpened;
