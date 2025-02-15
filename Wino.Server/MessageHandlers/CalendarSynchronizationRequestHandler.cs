@@ -7,34 +7,33 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Messaging.Server;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers
+namespace Wino.Server.MessageHandlers;
+
+public class CalendarSynchronizationRequestHandler : ServerMessageHandler<NewCalendarSynchronizationRequested, CalendarSynchronizationResult>
 {
-    public class CalendarSynchronizationRequestHandler : ServerMessageHandler<NewCalendarSynchronizationRequested, CalendarSynchronizationResult>
+    public override WinoServerResponse<CalendarSynchronizationResult> FailureDefaultResponse(Exception ex)
+       => WinoServerResponse<CalendarSynchronizationResult>.CreateErrorResponse(ex.Message);
+
+    private readonly ISynchronizerFactory _synchronizerFactory;
+
+    public CalendarSynchronizationRequestHandler(ISynchronizerFactory synchronizerFactory)
     {
-        public override WinoServerResponse<CalendarSynchronizationResult> FailureDefaultResponse(Exception ex)
-           => WinoServerResponse<CalendarSynchronizationResult>.CreateErrorResponse(ex.Message);
+        _synchronizerFactory = synchronizerFactory;
+    }
 
-        private readonly ISynchronizerFactory _synchronizerFactory;
+    protected override async Task<WinoServerResponse<CalendarSynchronizationResult>> HandleAsync(NewCalendarSynchronizationRequested message, CancellationToken cancellationToken = default)
+    {
+        var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.Options.AccountId);
 
-        public CalendarSynchronizationRequestHandler(ISynchronizerFactory synchronizerFactory)
+        try
         {
-            _synchronizerFactory = synchronizerFactory;
+            var synchronizationResult = await synchronizer.SynchronizeCalendarEventsAsync(message.Options, cancellationToken);
+
+            return WinoServerResponse<CalendarSynchronizationResult>.CreateSuccessResponse(synchronizationResult);
         }
-
-        protected override async Task<WinoServerResponse<CalendarSynchronizationResult>> HandleAsync(NewCalendarSynchronizationRequested message, CancellationToken cancellationToken = default)
+        catch (Exception ex)
         {
-            var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.Options.AccountId);
-
-            try
-            {
-                var synchronizationResult = await synchronizer.SynchronizeCalendarEventsAsync(message.Options, cancellationToken);
-
-                return WinoServerResponse<CalendarSynchronizationResult>.CreateSuccessResponse(synchronizationResult);
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
+            throw;
         }
     }
 }

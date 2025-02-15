@@ -1,9 +1,8 @@
-﻿namespace Wino.Core.Domain.Interfaces
-{
-    public interface ILogInitializer
-    {
-        void SetupLogger(string fullLogFilePath);
+﻿namespace Wino.Core.Domain.Interfaces;
 
-        void RefreshLoggingLevel();
-    }
+public interface ILogInitializer
+{
+    void SetupLogger(string fullLogFilePath);
+
+    void RefreshLoggingLevel();
 }

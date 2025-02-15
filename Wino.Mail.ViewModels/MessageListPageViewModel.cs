@@ -4,104 +4,103 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Mail.ViewModels;
+
+public class MessageListPageViewModel : MailBaseViewModel
 {
-    public class MessageListPageViewModel : MailBaseViewModel
+    public IPreferencesService PreferencesService { get; }
+
+    private int selectedMarkAsOptionIndex;
+
+    public int SelectedMarkAsOptionIndex
     {
-        public IPreferencesService PreferencesService { get; }
-
-        private int selectedMarkAsOptionIndex;
-
-        public int SelectedMarkAsOptionIndex
+        get => selectedMarkAsOptionIndex;
+        set
         {
-            get => selectedMarkAsOptionIndex;
-            set
+            if (SetProperty(ref selectedMarkAsOptionIndex, value))
             {
-                if (SetProperty(ref selectedMarkAsOptionIndex, value))
+                if (value >= 0)
                 {
-                    if (value >= 0)
-                    {
-                        PreferencesService.MarkAsPreference = (MailMarkAsOption)Enum.GetValues<MailMarkAsOption>().GetValue(value);
-                    }
+                    PreferencesService.MarkAsPreference = (MailMarkAsOption)Enum.GetValues<MailMarkAsOption>().GetValue(value);
                 }
             }
         }
+    }
 
-        private readonly List<MailOperation> availableHoverActions =
-        [
-            MailOperation.Archive,
-            MailOperation.SoftDelete,
-            MailOperation.SetFlag,
-            MailOperation.MarkAsRead,
-            MailOperation.MoveToJunk
-        ];
+    private readonly List<MailOperation> availableHoverActions =
+    [
+        MailOperation.Archive,
+        MailOperation.SoftDelete,
+        MailOperation.SetFlag,
+        MailOperation.MarkAsRead,
+        MailOperation.MoveToJunk
+    ];
 
-        public List<string> AvailableHoverActionsTranslations { get; set; } =
-        [
-            Translator.HoverActionOption_Archive,
-            Translator.HoverActionOption_Delete,
-            Translator.HoverActionOption_ToggleFlag,
-            Translator.HoverActionOption_ToggleRead,
-            Translator.HoverActionOption_MoveJunk
-        ];
+    public List<string> AvailableHoverActionsTranslations { get; set; } =
+    [
+        Translator.HoverActionOption_Archive,
+        Translator.HoverActionOption_Delete,
+        Translator.HoverActionOption_ToggleFlag,
+        Translator.HoverActionOption_ToggleRead,
+        Translator.HoverActionOption_MoveJunk
+    ];
 
-        #region Properties
+    #region Properties
 
-        private int leftHoverActionIndex;
+    private int leftHoverActionIndex;
 
-        public int LeftHoverActionIndex
+    public int LeftHoverActionIndex
+    {
+        get => leftHoverActionIndex;
+        set
         {
-            get => leftHoverActionIndex;
-            set
+            if (SetProperty(ref leftHoverActionIndex, value))
             {
-                if (SetProperty(ref leftHoverActionIndex, value))
-                {
-                    PreferencesService.LeftHoverAction = availableHoverActions[value];
-                }
+                PreferencesService.LeftHoverAction = availableHoverActions[value];
             }
         }
+    }
 
 
-        private int centerHoverActionIndex;
+    private int centerHoverActionIndex;
 
-        public int CenterHoverActionIndex
+    public int CenterHoverActionIndex
+    {
+        get => centerHoverActionIndex;
+        set
         {
-            get => centerHoverActionIndex;
-            set
+            if (SetProperty(ref centerHoverActionIndex, value))
             {
-                if (SetProperty(ref centerHoverActionIndex, value))
-                {
-                    PreferencesService.CenterHoverAction = availableHoverActions[value];
-                }
+                PreferencesService.CenterHoverAction = availableHoverActions[value];
             }
         }
+    }
 
-        private int rightHoverActionIndex;
+    private int rightHoverActionIndex;
 
-        public int RightHoverActionIndex
+    public int RightHoverActionIndex
+    {
+        get => rightHoverActionIndex;
+        set
         {
-            get => rightHoverActionIndex;
-            set
+            if (SetProperty(ref rightHoverActionIndex, value))
             {
-                if (SetProperty(ref rightHoverActionIndex, value))
-                {
-                    PreferencesService.RightHoverAction = availableHoverActions[value];
-                }
+                PreferencesService.RightHoverAction = availableHoverActions[value];
             }
         }
+    }
 
-        #endregion
+    #endregion
 
-        public MessageListPageViewModel(IMailDialogService dialogService,
-                                        IPreferencesService preferencesService) 
-        {
-            PreferencesService = preferencesService;
+    public MessageListPageViewModel(IMailDialogService dialogService,
+                                    IPreferencesService preferencesService) 
+    {
+        PreferencesService = preferencesService;
 
-            leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
-            centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
-            rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
+        leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
+        centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
+        rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
 
-            SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
-        }
+        SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
     }
 }

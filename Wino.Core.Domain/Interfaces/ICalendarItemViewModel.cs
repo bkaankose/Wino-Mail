@@ -1,10 +1,9 @@
-﻿namespace Wino.Core.Domain.Interfaces
+﻿namespace Wino.Core.Domain.Interfaces;
+
+/// <summary>
+/// Temporarily to enforce CalendarItemViewModel. Used in CalendarEventCollection.
+/// </summary>
+public interface ICalendarItemViewModel
 {
-    /// <summary>
-    /// Temporarily to enforce CalendarItemViewModel. Used in CalendarEventCollection.
-    /// </summary>
-    public interface ICalendarItemViewModel
-    {
-        bool IsSelected { get; set; }
-    }
+    bool IsSelected { get; set; }
 }

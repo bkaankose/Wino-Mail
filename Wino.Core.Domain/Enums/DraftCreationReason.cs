@@ -1,10 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum DraftCreationReason
 {
-    public enum DraftCreationReason
-    {
-        Empty,
-        Reply,
-        ReplyAll,
-        Forward
-    }
+    Empty,
+    Reply,
+    ReplyAll,
+    Forward
 }

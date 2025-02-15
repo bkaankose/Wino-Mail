@@ -1,16 +1,15 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IAccountCalendar
 {
-    public interface IAccountCalendar
-    {
-        string Name { get; set; }
-        string TextColorHex { get; set; }
-        string BackgroundColorHex { get; set; }
-        bool IsPrimary { get; set; }
-        Guid AccountId { get; set; }
-        string RemoteCalendarId { get; set; }
-        bool IsExtended { get; set; }
-        Guid Id { get; set; }
-    }
+    string Name { get; set; }
+    string TextColorHex { get; set; }
+    string BackgroundColorHex { get; set; }
+    bool IsPrimary { get; set; }
+    Guid AccountId { get; set; }
+    string RemoteCalendarId { get; set; }
+    bool IsExtended { get; set; }
+    Guid Id { get; set; }
 }

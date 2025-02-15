@@ -1,11 +1,10 @@
 ﻿using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.ViewModels
+namespace Wino.Core.ViewModels;
+
+public class SettingsDialogViewModel : CoreBaseViewModel
 {
-    public class SettingsDialogViewModel : CoreBaseViewModel
+    public SettingsDialogViewModel(IMailDialogService dialogService) 
     {
-        public SettingsDialogViewModel(IMailDialogService dialogService) 
-        {
-        }
     }
 }

@@ -1,13 +1,12 @@
 ﻿using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Mail;
 
-namespace Wino.Core.Domain.Models.Comparers
+namespace Wino.Core.Domain.Models.Comparers;
+
+public class FolderNameComparer : IComparer<MailItemFolder>
 {
-    public class FolderNameComparer : IComparer<MailItemFolder>
+    public int Compare(MailItemFolder x, MailItemFolder y)
     {
-        public int Compare(MailItemFolder x, MailItemFolder y)
-        {
-            return x.FolderName.CompareTo(y.FolderName);
-        }
+        return x.FolderName.CompareTo(y.FolderName);
     }
 }

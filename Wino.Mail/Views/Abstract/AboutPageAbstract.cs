@@ -1,9 +1,8 @@
 ﻿using Wino.Core.UWP;
 using Wino.Core.ViewModels;
 
-namespace Wino.Views.Abstract
+namespace Wino.Views.Abstract;
+
+public abstract class AboutPageAbstract : BasePage<AboutPageViewModel>
 {
-    public abstract class AboutPageAbstract : BasePage<AboutPageViewModel>
-    {
-    }
 }

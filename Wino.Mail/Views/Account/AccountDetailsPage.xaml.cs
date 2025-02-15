@@ -2,29 +2,28 @@
 using Wino.Core.Domain.Models.Folders;
 using Wino.Views.Abstract;
 
-namespace Wino.Views
+namespace Wino.Views;
+
+public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
 {
-    public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
+    public AccountDetailsPage()
     {
-        public AccountDetailsPage()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+    }
 
-        private async void SyncFolderToggled(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+    private async void SyncFolderToggled(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
         {
-            if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
-            {
-                await ViewModel.FolderSyncToggledAsync(folder, checkBox.IsChecked.GetValueOrDefault());
-            }
+            await ViewModel.FolderSyncToggledAsync(folder, checkBox.IsChecked.GetValueOrDefault());
         }
+    }
 
-        private async void UnreadBadgeCheckboxToggled(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+    private async void UnreadBadgeCheckboxToggled(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
         {
-            if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
-            {
-                await ViewModel.FolderShowUnreadToggled(folder, checkBox.IsChecked.GetValueOrDefault());
-            }
+            await ViewModel.FolderShowUnreadToggled(folder, checkBox.IsChecked.GetValueOrDefault());
         }
     }
 }

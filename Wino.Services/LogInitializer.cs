@@ -3,38 +3,37 @@ using Serilog.Core;
 using Serilog.Exceptions;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Services
+namespace Wino.Services;
+
+public class LogInitializer : ILogInitializer
 {
-    public class LogInitializer : ILogInitializer
+    private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
+    private readonly IPreferencesService _preferencesService;
+
+    public LogInitializer(IPreferencesService preferencesService)
     {
-        private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
-        private readonly IPreferencesService _preferencesService;
+        _preferencesService = preferencesService;
 
-        public LogInitializer(IPreferencesService preferencesService)
-        {
-            _preferencesService = preferencesService;
+        RefreshLoggingLevel();
+    }
 
-            RefreshLoggingLevel();
-        }
-
-        public void RefreshLoggingLevel()
-        {
+    public void RefreshLoggingLevel()
+    {
 #if DEBUG
-            _levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
+        _levelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
 #else
-            _levelSwitch.MinimumLevel = _preferencesService.IsLoggingEnabled ? Serilog.Events.LogEventLevel.Information : Serilog.Events.LogEventLevel.Fatal;
+        _levelSwitch.MinimumLevel = _preferencesService.IsLoggingEnabled ? Serilog.Events.LogEventLevel.Information : Serilog.Events.LogEventLevel.Fatal;
 #endif
-        }
+    }
 
-        public void SetupLogger(string fullLogFilePath)
-        {
-            Log.Logger = new LoggerConfiguration()
-                        .MinimumLevel.ControlledBy(_levelSwitch)
-                        .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
-                        .WriteTo.Debug()
-                        .Enrich.FromLogContext()
-                        .Enrich.WithExceptionDetails()
-                        .CreateLogger();
-        }
+    public void SetupLogger(string fullLogFilePath)
+    {
+        Log.Logger = new LoggerConfiguration()
+                    .MinimumLevel.ControlledBy(_levelSwitch)
+                    .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
+                    .WriteTo.Debug()
+                    .Enrich.FromLogContext()
+                    .Enrich.WithExceptionDetails()
+                    .CreateLogger();
     }
 }

@@ -7,34 +7,33 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Mail
+namespace Wino.Core.Requests.Mail;
+
+/// <summary>
+/// Hard delete request. This request will delete the mail item from the server without moving it to the trash folder.
+/// </summary>
+/// <param name="MailItem">Item to delete permanently.</param>
+public record DeleteRequest(MailCopy MailItem) : MailRequestBase(MailItem),
+    ICustomFolderSynchronizationRequest
 {
-    /// <summary>
-    /// Hard delete request. This request will delete the mail item from the server without moving it to the trash folder.
-    /// </summary>
-    /// <param name="MailItem">Item to delete permanently.</param>
-    public record DeleteRequest(MailCopy MailItem) : MailRequestBase(MailItem),
-        ICustomFolderSynchronizationRequest
+    public List<Guid> SynchronizationFolderIds => [Item.FolderId];
+    public bool ExcludeMustHaveFolders => false;
+    public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Delete;
+
+    public override void ApplyUIChanges()
     {
-        public List<Guid> SynchronizationFolderIds => [Item.FolderId];
-        public bool ExcludeMustHaveFolders => false;
-        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Delete;
-
-        public override void ApplyUIChanges()
-        {
-            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
-        }
-
-        public override void RevertUIChanges()
-        {
-            WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item));
-        }
+        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
     }
 
-    public class BatchDeleteRequest : BatchCollection<DeleteRequest>
+    public override void RevertUIChanges()
     {
-        public BatchDeleteRequest(IEnumerable<DeleteRequest> collection) : base(collection)
-        {
-        }
+        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item));
+    }
+}
+
+public class BatchDeleteRequest : BatchCollection<DeleteRequest>
+{
+    public BatchDeleteRequest(IEnumerable<DeleteRequest> collection) : base(collection)
+    {
     }
 }

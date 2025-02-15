@@ -1,13 +1,12 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum ImapAuthenticationMethod
 {
-    public enum ImapAuthenticationMethod
-    {
-        Auto,
-        None,
-        NormalPassword,
-        EncryptedPassword,
-        Ntlm,
-        CramMd5,
-        DigestMd5
-    }
+    Auto,
+    None,
+    NormalPassword,
+    EncryptedPassword,
+    Ntlm,
+    CramMd5,
+    DigestMd5
 }
