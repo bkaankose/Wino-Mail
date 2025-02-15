@@ -880,6 +880,8 @@ namespace Wino.Mail.ViewModels
 
         protected override async void OnAccountCreated(MailAccount createdAccount)
         {
+            latestSelectedAccountMenuItem = null;
+
             await RecreateMenuItemsAsync();
 
             if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
