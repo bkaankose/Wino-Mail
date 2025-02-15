@@ -90,8 +90,6 @@
 		<PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" />
 		<PackageReference Include="CommunityToolkit.Uwp.Extensions" />
 		<PackageReference Include="EmailValidation" />
-		<PackageReference Include="Microsoft.AppCenter.Analytics" />
-		<PackageReference Include="Microsoft.AppCenter.Crashes" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Microsoft.UI.Xaml" />

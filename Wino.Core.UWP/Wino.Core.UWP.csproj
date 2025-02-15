@@ -98,7 +98,6 @@
 		<PackageReference Include="CommunityToolkit.Uwp.Extensions" />
 		<PackageReference Include="CommunityToolkit.WinUI.Notifications" />
 		<PackageReference Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" />
-		<PackageReference Include="Microsoft.AppCenter.Analytics" />
 		<PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" />
 		<PackageReference Include="Win2D.uwp" />
 		<PackageReference Include="EmailValidation" />
