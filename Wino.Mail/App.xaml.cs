@@ -242,6 +242,8 @@ namespace Wino
 
         protected override async void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
         {
+            Log.Information("App close requested.");
+
             var deferral = e.GetDeferral();
 
             // Wino should notify user on app close if:
