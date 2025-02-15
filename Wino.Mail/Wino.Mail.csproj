@@ -95,8 +95,7 @@
 		<PackageReference Include="Microsoft.UI.Xaml" />
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed" />
 		<PackageReference Include="Nito.AsyncEx" />
-		<PackageReference Include="Serilog" />
-		<PackageReference Include="Serilog.Exceptions" />
+
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="Win2D.uwp" />
 	</ItemGroup>

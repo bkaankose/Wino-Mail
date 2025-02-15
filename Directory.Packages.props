@@ -40,6 +40,7 @@
 		<PackageVersion Include="Serilog.Exceptions" Version="8.4.0" />
 		<PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
 		<PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+		<PackageVersion Include="Serilog.Sinks.ApplicationInsights" Version="4.0.0" />
 		<PackageVersion Include="SkiaSharp" Version="3.116.1" />
 		<PackageVersion Include="sqlite-net-pcl" Version="1.9.172" />
 		<PackageVersion Include="SqlKata" Version="4.0.1" />
