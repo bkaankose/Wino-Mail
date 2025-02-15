@@ -11,7 +11,6 @@
 		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-
 		<GenerateAppInstallerFile>True</GenerateAppInstallerFile>
 		<AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
 		<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
@@ -91,7 +90,7 @@
 		<PackageReference Include="CommunityToolkit.Uwp.Extensions" />
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-		<PackageReference Include="Microsoft.Identity.Client" />
+
 		<PackageReference Include="Microsoft.UI.Xaml" />
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed" />
 		<PackageReference Include="Nito.AsyncEx" />
