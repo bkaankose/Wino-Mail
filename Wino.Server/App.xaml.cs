@@ -192,6 +192,7 @@ namespace Wino.Server
                 AppDomain.CurrentDomain.UnhandledException += ServerCrashed;
                 Application.Current.DispatcherUnhandledException += UIThreadCrash;
                 TaskScheduler.UnobservedTaskException += TaskCrashed;
+
                 // Ensure proper encodings are available for MimeKit
                 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
@@ -241,9 +242,9 @@ namespace Wino.Server
             }
         }
 
-        private void TaskCrashed(object sender, UnobservedTaskExceptionEventArgs e) => Log.Error(e.Exception, "Task crashed.");
+        private void TaskCrashed(object sender, UnobservedTaskExceptionEventArgs e) => Log.Error(e.Exception, "Server task crashed.");
 
-        private void UIThreadCrash(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e) => Log.Error(e.Exception, "UI thread crashed.");
+        private void UIThreadCrash(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e) => Log.Error(e.Exception, "Server UI thread crashed.");
 
         private void ServerCrashed(object sender, UnhandledExceptionEventArgs e) => Log.Error((Exception)e.ExceptionObject, "Server crashed.");
 
