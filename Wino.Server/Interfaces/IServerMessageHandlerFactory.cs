@@ -1,12 +1,11 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers
-{
-    public interface IServerMessageHandlerFactory
-    {
-        void Setup(IServiceCollection serviceCollection);
+namespace Wino.Server.MessageHandlers;
 
-        ServerMessageHandlerBase GetHandler(string typeName);
-    }
+public interface IServerMessageHandlerFactory
+{
+    void Setup(IServiceCollection serviceCollection);
+
+    ServerMessageHandlerBase GetHandler(string typeName);
 }

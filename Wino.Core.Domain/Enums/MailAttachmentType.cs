@@ -1,16 +1,15 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum MailAttachmentType
 {
-    public enum MailAttachmentType
-    {
-        None,
-        Executable,
-        Image,
-        Audio,
-        Video,
-        PDF,
-        HTML,
-        RarArchive,
-        Archive,
-        Other
-    }
+    None,
+    Executable,
+    Image,
+    Audio,
+    Video,
+    PDF,
+    HTML,
+    RarArchive,
+    Archive,
+    Other
 }

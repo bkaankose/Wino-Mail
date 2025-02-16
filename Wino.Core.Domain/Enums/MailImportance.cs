@@ -1,9 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum MailImportance
 {
-    public enum MailImportance
-    {
-        Low,
-        Normal,
-        High
-    }
+    Low,
+    Normal,
+    High
 }

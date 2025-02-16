@@ -1,11 +1,10 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Exceptions
+namespace Wino.Core.Domain.Exceptions;
+
+public class CustomThemeCreationFailedException : Exception
 {
-    public class CustomThemeCreationFailedException : Exception
+    public CustomThemeCreationFailedException(string message) : base(message)
     {
-        public CustomThemeCreationFailedException(string message) : base(message)
-        {
-        }
     }
 }

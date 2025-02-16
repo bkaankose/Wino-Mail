@@ -1,9 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum SpecialImapProvider
 {
-    public enum SpecialImapProvider
-    {
-        None,
-        iCloud,
-        Yahoo
-    }
+    None,
+    iCloud,
+    Yahoo
 }

@@ -1,14 +1,13 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Mail.ViewModels;
+
+public static class MailViewModelsContainerSetup
 {
-    public static class MailViewModelsContainerSetup
+    public static void RegisterViewModelService(this IServiceCollection services)
     {
-        public static void RegisterViewModelService(this IServiceCollection services)
-        {
-            // View models use core services.
-            services.RegisterCoreServices();
-        }
+        // View models use core services.
+        services.RegisterCoreServices();
     }
 }

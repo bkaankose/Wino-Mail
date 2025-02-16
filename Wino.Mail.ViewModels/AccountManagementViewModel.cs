@@ -5,7 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.AppCenter.Crashes;
 using Serilog;
+using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -22,368 +24,368 @@ using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Mail.ViewModels;
+
+public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
-    public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
+    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
+    private readonly IImapTestService _imapTestService;
+
+    public IMailDialogService MailDialogService { get; }
+
+    public AccountManagementViewModel(IMailDialogService dialogService,
+                                      IWinoServerConnectionManager winoServerConnectionManager,
+                                      INavigationService navigationService,
+                                      IAccountService accountService,
+                                      ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
+                                      IProviderService providerService,
+                                      IImapTestService imapTestService,
+                                      IStoreManagementService storeManagementService,
+                                      IAuthenticationProvider authenticationProvider,
+                                      IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
     {
-        private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
-        private readonly IImapTestService _imapTestService;
+        MailDialogService = dialogService;
+        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
+        _imapTestService = imapTestService;
+    }
 
-        public IMailDialogService MailDialogService { get; }
+    [RelayCommand]
+    private async Task CreateMergedAccountAsync()
+    {
+        var linkName = await DialogService.ShowTextInputDialogAsync(string.Empty, Translator.DialogMessage_CreateLinkedAccountTitle, Translator.DialogMessage_CreateLinkedAccountMessage, Translator.Buttons_Create);
 
-        public AccountManagementViewModel(IMailDialogService dialogService,
-                                          IWinoServerConnectionManager winoServerConnectionManager,
-                                          INavigationService navigationService,
-                                          IAccountService accountService,
-                                          ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
-                                          IProviderService providerService,
-                                          IImapTestService imapTestService,
-                                          IStoreManagementService storeManagementService,
-                                          IAuthenticationProvider authenticationProvider,
-                                          IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
+        if (string.IsNullOrEmpty(linkName)) return;
+
+        // Create arbitary empty merged inbox with an empty Guid and go to edit page.
+        var mergedInbox = new MergedInbox()
         {
-            MailDialogService = dialogService;
-            _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
-            _imapTestService = imapTestService;
+            Id = Guid.Empty,
+            Name = linkName
+        };
+
+        var mergedAccountProviderDetailViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, new List<AccountProviderDetailViewModel>());
+
+        Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
+                                 WinoPage.MergedAccountDetailsPage,
+                                 mergedAccountProviderDetailViewModel));
+    }
+
+
+
+    [RelayCommand]
+    private async Task AddNewAccountAsync()
+    {
+        if (IsAccountCreationBlocked)
+        {
+            var isPurchaseClicked = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_AccountLimitMessage, Translator.DialogMessage_AccountLimitTitle, Translator.Buttons_Purchase);
+
+            if (!isPurchaseClicked) return;
+
+            await PurchaseUnlimitedAccountAsync();
+
+            return;
         }
 
-        [RelayCommand]
-        private async Task CreateMergedAccountAsync()
+        MailAccount createdAccount = null;
+        IAccountCreationDialog creationDialog = null;
+
+        try
         {
-            var linkName = await DialogService.ShowTextInputDialogAsync(string.Empty, Translator.DialogMessage_CreateLinkedAccountTitle, Translator.DialogMessage_CreateLinkedAccountMessage, Translator.Buttons_Create);
+            var providers = ProviderService.GetAvailableProviders();
 
-            if (string.IsNullOrEmpty(linkName)) return;
+            // Select provider.
+            var accountCreationDialogResult = await MailDialogService.ShowAccountProviderSelectionDialogAsync(providers);
 
-            // Create arbitary empty merged inbox with an empty Guid and go to edit page.
-            var mergedInbox = new MergedInbox()
+            var accountCreationCancellationTokenSource = new CancellationTokenSource();
+
+            if (accountCreationDialogResult != null)
             {
-                Id = Guid.Empty,
-                Name = linkName
-            };
+                creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
 
-            var mergedAccountProviderDetailViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, new List<AccountProviderDetailViewModel>());
+                CustomServerInformation customServerInformation = null;
 
-            Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
-                                     WinoPage.MergedAccountDetailsPage,
-                                     mergedAccountProviderDetailViewModel));
-        }
-
-
-
-        [RelayCommand]
-        private async Task AddNewAccountAsync()
-        {
-            if (IsAccountCreationBlocked)
-            {
-                var isPurchaseClicked = await DialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_AccountLimitMessage, Translator.DialogMessage_AccountLimitTitle, Translator.Buttons_Purchase);
-
-                if (!isPurchaseClicked) return;
-
-                await PurchaseUnlimitedAccountAsync();
-
-                return;
-            }
-
-            MailAccount createdAccount = null;
-            IAccountCreationDialog creationDialog = null;
-
-            try
-            {
-                var providers = ProviderService.GetAvailableProviders();
-
-                // Select provider.
-                var accountCreationDialogResult = await MailDialogService.ShowAccountProviderSelectionDialogAsync(providers);
-
-                var accountCreationCancellationTokenSource = new CancellationTokenSource();
-
-                if (accountCreationDialogResult != null)
+                createdAccount = new MailAccount()
                 {
-                    creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
+                    ProviderType = accountCreationDialogResult.ProviderType,
+                    Name = accountCreationDialogResult.AccountName,
+                    SpecialImapProvider = accountCreationDialogResult.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None,
+                    Id = Guid.NewGuid()
+                };
 
-                    CustomServerInformation customServerInformation = null;
+                await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
+                creationDialog.State = AccountCreationDialogState.SigningIn;
 
-                    createdAccount = new MailAccount()
+                string tokenInformation = string.Empty;
+
+                // Custom server implementation requires more async waiting.
+                if (creationDialog is IImapAccountCreationDialog customServerDialog)
+                {
+                    // Pass along the account properties and perform initial navigation on the imap frame.
+                    customServerDialog.StartImapConnectionSetup(createdAccount);
+
+                    customServerInformation = await customServerDialog.GetCustomServerInformationAsync()
+                        ?? throw new AccountSetupCanceledException();
+
+                    // At this point connection is successful.
+                    // Save the server setup information and later on we'll fetch folders.
+
+                    customServerInformation.AccountId = createdAccount.Id;
+
+                    createdAccount.Address = customServerInformation.Address;
+                    createdAccount.ServerInformation = customServerInformation;
+                    createdAccount.SenderName = customServerInformation.DisplayName;
+                }
+                else
+                {
+                    // Hanle special imap providers like iCloud and Yahoo.
+                    if (accountCreationDialogResult.SpecialImapProviderDetails != null)
                     {
-                        ProviderType = accountCreationDialogResult.ProviderType,
-                        Name = accountCreationDialogResult.AccountName,
-                        SpecialImapProvider = accountCreationDialogResult.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None,
-                        Id = Guid.NewGuid()
-                    };
-
-                    await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
-                    creationDialog.State = AccountCreationDialogState.SigningIn;
-
-                    string tokenInformation = string.Empty;
-
-                    // Custom server implementation requires more async waiting.
-                    if (creationDialog is IImapAccountCreationDialog customServerDialog)
-                    {
-                        // Pass along the account properties and perform initial navigation on the imap frame.
-                        customServerDialog.StartImapConnectionSetup(createdAccount);
-
-                        customServerInformation = await customServerDialog.GetCustomServerInformationAsync()
-                            ?? throw new AccountSetupCanceledException();
-
-                        // At this point connection is successful.
-                        // Save the server setup information and later on we'll fetch folders.
-
+                        // Special imap provider testing dialog. This is only available for iCloud and Yahoo.
+                        customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult);
+                        customServerInformation.Id = Guid.NewGuid();
                         customServerInformation.AccountId = createdAccount.Id;
 
+                        createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
                         createdAccount.Address = customServerInformation.Address;
-                        createdAccount.ServerInformation = customServerInformation;
-                        createdAccount.SenderName = customServerInformation.DisplayName;
+
+                        await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
                     }
                     else
                     {
-                        // Hanle special imap providers like iCloud and Yahoo.
-                        if (accountCreationDialogResult.SpecialImapProviderDetails != null)
-                        {
-                            // Special imap provider testing dialog. This is only available for iCloud and Yahoo.
-                            customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult);
-                            customServerInformation.Id = Guid.NewGuid();
-                            customServerInformation.AccountId = createdAccount.Id;
+                        // OAuth authentication is handled here.
+                        // Server authenticates, returns the token info here.
 
-                            createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
-                            createdAccount.Address = customServerInformation.Address;
+                        var tokenInformationResponse = await WinoServerConnectionManager
+                            .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
+                                                                                                                   createdAccount,
+                                                                                                                   createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
 
-                            await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
-                        }
-                        else
-                        {
-                            // OAuth authentication is handled here.
-                            // Server authenticates, returns the token info here.
+                        if (creationDialog.State == AccountCreationDialogState.Canceled)
+                            throw new AccountSetupCanceledException();
 
-                            var tokenInformationResponse = await WinoServerConnectionManager
-                                .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
-                                                                                                                       createdAccount,
-                                                                                                                       createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
+                        if (!tokenInformationResponse.IsSuccess)
+                            throw new Exception(tokenInformationResponse.Message);
 
-                            if (creationDialog.State == AccountCreationDialogState.Canceled)
-                                throw new AccountSetupCanceledException();
+                        createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
 
-                            if (!tokenInformationResponse.IsSuccess)
-                                throw new Exception(tokenInformationResponse.Message);
-
-                            createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
-
-                            tokenInformationResponse.ThrowIfFailed();
-                        }
+                        tokenInformationResponse.ThrowIfFailed();
                     }
+                }
 
-                    // Address is still doesn't have a value for API synchronizers.
-                    // It'll be synchronized with profile information.
+                // Address is still doesn't have a value for API synchronizers.
+                // It'll be synchronized with profile information.
 
-                    await AccountService.CreateAccountAsync(createdAccount, customServerInformation);
+                await AccountService.CreateAccountAsync(createdAccount, customServerInformation);
 
-                    // Local account has been created.
+                // Local account has been created.
 
-                    // Sync profile information if supported.
-                    if (createdAccount.IsProfileInfoSyncSupported)
-                    {
-                        // Start profile information synchronization.
-                        // It's only available for Outlook and Gmail synchronizers.
+                // Sync profile information if supported.
+                if (createdAccount.IsProfileInfoSyncSupported)
+                {
+                    // Start profile information synchronization.
+                    // It's only available for Outlook and Gmail synchronizers.
 
-                        var profileSyncOptions = new MailSynchronizationOptions()
-                        {
-                            AccountId = createdAccount.Id,
-                            Type = MailSynchronizationType.UpdateProfile
-                        };
-
-                        var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
-
-                        var profileSynchronizationResult = profileSynchronizationResponse.Data;
-
-                        if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                            throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
-
-                        createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
-                        createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
-
-                        if (!string.IsNullOrEmpty(profileSynchronizationResult.ProfileInformation.AccountAddress))
-                        {
-                            createdAccount.Address = profileSynchronizationResult.ProfileInformation.AccountAddress;
-                        }
-
-                        await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
-                    }
-
-                    if (creationDialog is IImapAccountCreationDialog customServerAccountCreationDialog)
-                        customServerAccountCreationDialog.ShowPreparingFolders();
-                    else
-                        creationDialog.State = AccountCreationDialogState.PreparingFolders;
-
-                    // Start synchronizing folders.
-                    var folderSyncOptions = new MailSynchronizationOptions()
+                    var profileSyncOptions = new MailSynchronizationOptions()
                     {
                         AccountId = createdAccount.Id,
-                        Type = MailSynchronizationType.FoldersOnly
+                        Type = MailSynchronizationType.UpdateProfile
                     };
 
-                    var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
+                    var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
 
-                    var folderSynchronizationResult = folderSynchronizationResponse.Data;
+                    var profileSynchronizationResult = profileSynchronizationResponse.Data;
 
-                    if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
+                    if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
 
-                    // Sync aliases if supported.
-                    if (createdAccount.IsAliasSyncSupported)
+                    createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
+                    createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
+
+                    if (!string.IsNullOrEmpty(profileSynchronizationResult.ProfileInformation.AccountAddress))
                     {
-                        // Try to synchronize aliases for the account.
-
-                        var aliasSyncOptions = new MailSynchronizationOptions()
-                        {
-                            AccountId = createdAccount.Id,
-                            Type = MailSynchronizationType.Alias
-                        };
-
-                        var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
-                        var aliasSynchronizationResult = folderSynchronizationResponse.Data;
-
-                        if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                            throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
-                    }
-                    else
-                    {
-                        // Create root primary alias for the account.
-                        // This is only available for accounts that do not support alias synchronization.
-
-                        await AccountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
+                        createdAccount.Address = profileSynchronizationResult.ProfileInformation.AccountAddress;
                     }
 
-                    // Send changes to listeners.
-                    ReportUIChange(new AccountCreatedMessage(createdAccount));
-
-                    // Notify success.
-                    DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success);
+                    await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
                 }
-            }
-            catch (AccountSetupCanceledException)
-            {
-                // Ignore
-            }
-            catch (Exception ex) when (ex.Message.Contains(nameof(AccountSetupCanceledException)))
-            {
-                // Ignore
-            }
-            catch (ImapClientPoolException clientPoolException)
-            {
-                DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to create account.");
 
-                DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+                if (creationDialog is IImapAccountCreationDialog customServerAccountCreationDialog)
+                    customServerAccountCreationDialog.ShowPreparingFolders();
+                else
+                    creationDialog.State = AccountCreationDialogState.PreparingFolders;
 
-                // Delete account in case of failure.
-                if (createdAccount != null)
+                // Start synchronizing folders.
+                var folderSyncOptions = new MailSynchronizationOptions()
                 {
-                    await AccountService.DeleteAccountAsync(createdAccount);
-                }
-            }
-            finally
-            {
-                creationDialog?.Complete(false);
-            }
-        }
+                    AccountId = createdAccount.Id,
+                    Type = MailSynchronizationType.FoldersOnly
+                };
 
-        [RelayCommand]
-        private void EditMergedAccounts(MergedAccountProviderDetailViewModel mergedAccountProviderDetailViewModel)
-        {
-            Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
-                                                 WinoPage.MergedAccountDetailsPage,
-                                                 mergedAccountProviderDetailViewModel));
-        }
+                var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
 
-        [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
-        private Task ReorderAccountsAsync() => MailDialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
+                var folderSynchronizationResult = folderSynchronizationResponse.Data;
 
-        public override void OnNavigatedFrom(NavigationMode mode, object parameters)
-        {
-            base.OnNavigatedFrom(mode, parameters);
+                if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                    throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
-            Accounts.CollectionChanged -= AccountCollectionChanged;
-
-            PropertyChanged -= PagePropertyChanged;
-        }
-
-        private void AccountCollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            OnPropertyChanged(nameof(HasAccountsDefined));
-            OnPropertyChanged(nameof(UsedAccountsString));
-            OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
-
-            ReorderAccountsCommand.NotifyCanExecuteChanged();
-        }
-
-        private void PagePropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(StartupAccount) && StartupAccount != null)
-            {
-                PreferencesService.StartupEntityId = StartupAccount.StartupEntityId;
-            }
-        }
-
-        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
-        {
-            base.OnNavigatedTo(mode, parameters);
-
-            Accounts.CollectionChanged -= AccountCollectionChanged;
-            Accounts.CollectionChanged += AccountCollectionChanged;
-
-            await InitializeAccountsAsync();
-
-            PropertyChanged -= PagePropertyChanged;
-            PropertyChanged += PagePropertyChanged;
-        }
-
-        public override async Task InitializeAccountsAsync()
-        {
-            StartupAccount = null;
-
-            Accounts.Clear();
-
-            var accounts = await AccountService.GetAccountsAsync().ConfigureAwait(false);
-
-            // Group accounts and display merged ones at the top.
-            var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId);
-
-            await ExecuteUIThread(() =>
-            {
-                foreach (var accountGroup in groupedAccounts)
+                // Sync aliases if supported.
+                if (createdAccount.IsAliasSyncSupported)
                 {
-                    var mergedInboxId = accountGroup.Key;
+                    // Try to synchronize aliases for the account.
 
-                    if (mergedInboxId == null)
+                    var aliasSyncOptions = new MailSynchronizationOptions()
                     {
-                        foreach (var account in accountGroup)
-                        {
-                            var accountDetails = GetAccountProviderDetails(account);
+                        AccountId = createdAccount.Id,
+                        Type = MailSynchronizationType.Alias
+                    };
 
-                            Accounts.Add(accountDetails);
-                        }
-                    }
-                    else
-                    {
-                        var mergedInbox = accountGroup.First(a => a.MergedInboxId == mergedInboxId).MergedInbox;
+                    var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+                    var aliasSynchronizationResult = folderSynchronizationResponse.Data;
 
-                        var holdingAccountProviderDetails = accountGroup.Select(a => GetAccountProviderDetails(a)).ToList();
-                        var mergedAccountViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, holdingAccountProviderDetails);
-
-                        Accounts.Add(mergedAccountViewModel);
-                    }
+                    if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
                 }
-
-                // Handle startup entity.
-                if (PreferencesService.StartupEntityId != null)
+                else
                 {
-                    StartupAccount = Accounts.FirstOrDefault(a => a.StartupEntityId == PreferencesService.StartupEntityId);
+                    // Create root primary alias for the account.
+                    // This is only available for accounts that do not support alias synchronization.
+
+                    await AccountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
                 }
-            });
 
+                // Send changes to listeners.
+                ReportUIChange(new AccountCreatedMessage(createdAccount));
 
-            await ManageStorePurchasesAsync().ConfigureAwait(false);
+                // Notify success.
+                DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success);
+            }
         }
+        catch (AccountSetupCanceledException)
+        {
+            // Ignore
+        }
+        catch (Exception ex) when (ex.Message.Contains(nameof(AccountSetupCanceledException)))
+        {
+            // Ignore
+        }
+        catch (ImapClientPoolException clientPoolException)
+        {
+            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, WinoErrors.AccountCreation);
+            Crashes.TrackError(ex);
+
+            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+
+            // Delete account in case of failure.
+            if (createdAccount != null)
+            {
+                await AccountService.DeleteAccountAsync(createdAccount);
+            }
+        }
+        finally
+        {
+            creationDialog?.Complete(false);
+        }
+    }
+
+    [RelayCommand]
+    private void EditMergedAccounts(MergedAccountProviderDetailViewModel mergedAccountProviderDetailViewModel)
+    {
+        Messenger.Send(new BreadcrumbNavigationRequested(mergedAccountProviderDetailViewModel.MergedInbox.Name,
+                                             WinoPage.MergedAccountDetailsPage,
+                                             mergedAccountProviderDetailViewModel));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanReorderAccounts))]
+    private Task ReorderAccountsAsync() => MailDialogService.ShowAccountReorderDialogAsync(availableAccounts: Accounts);
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        Accounts.CollectionChanged -= AccountCollectionChanged;
+
+        PropertyChanged -= PagePropertyChanged;
+    }
+
+    private void AccountCollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(HasAccountsDefined));
+        OnPropertyChanged(nameof(UsedAccountsString));
+        OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
+
+        ReorderAccountsCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PagePropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StartupAccount) && StartupAccount != null)
+        {
+            PreferencesService.StartupEntityId = StartupAccount.StartupEntityId;
+        }
+    }
+
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        Accounts.CollectionChanged -= AccountCollectionChanged;
+        Accounts.CollectionChanged += AccountCollectionChanged;
+
+        await InitializeAccountsAsync();
+
+        PropertyChanged -= PagePropertyChanged;
+        PropertyChanged += PagePropertyChanged;
+    }
+
+    public override async Task InitializeAccountsAsync()
+    {
+        StartupAccount = null;
+
+        Accounts.Clear();
+
+        var accounts = await AccountService.GetAccountsAsync().ConfigureAwait(false);
+
+        // Group accounts and display merged ones at the top.
+        var groupedAccounts = accounts.GroupBy(a => a.MergedInboxId);
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var accountGroup in groupedAccounts)
+            {
+                var mergedInboxId = accountGroup.Key;
+
+                if (mergedInboxId == null)
+                {
+                    foreach (var account in accountGroup)
+                    {
+                        var accountDetails = GetAccountProviderDetails(account);
+
+                        Accounts.Add(accountDetails);
+                    }
+                }
+                else
+                {
+                    var mergedInbox = accountGroup.First(a => a.MergedInboxId == mergedInboxId).MergedInbox;
+
+                    var holdingAccountProviderDetails = accountGroup.Select(a => GetAccountProviderDetails(a)).ToList();
+                    var mergedAccountViewModel = new MergedAccountProviderDetailViewModel(mergedInbox, holdingAccountProviderDetails);
+
+                    Accounts.Add(mergedAccountViewModel);
+                }
+            }
+
+            // Handle startup entity.
+            if (PreferencesService.StartupEntityId != null)
+            {
+                StartupAccount = Accounts.FirstOrDefault(a => a.StartupEntityId == PreferencesService.StartupEntityId);
+            }
+        });
+
+
+        await ManageStorePurchasesAsync().ConfigureAwait(false);
     }
 }

@@ -2,59 +2,58 @@
 using MailKit.Net.Imap;
 using Serilog;
 
-namespace Wino.Core.Integration
+namespace Wino.Core.Integration;
+
+/// <summary>
+/// Extended class for ImapClient that is used in Wino.
+/// </summary>
+internal class WinoImapClient : ImapClient
 {
     /// <summary>
-    /// Extended class for ImapClient that is used in Wino.
+    /// Gets or internally sets whether the QRESYNC extension is enabled.
+    /// It is set by ImapClientPool immidiately after the authentication.
     /// </summary>
-    internal class WinoImapClient : ImapClient
+    public bool IsQResyncEnabled { get; internal set; }
+
+    public WinoImapClient()
     {
-        /// <summary>
-        /// Gets or internally sets whether the QRESYNC extension is enabled.
-        /// It is set by ImapClientPool immidiately after the authentication.
-        /// </summary>
-        public bool IsQResyncEnabled { get; internal set; }
+        HookEvents();
+    }
 
-        public WinoImapClient()
+    public WinoImapClient(IProtocolLogger protocolLogger) : base(protocolLogger)
+    {
+        HookEvents();
+    }
+
+    private void HookEvents()
+    {
+        Disconnected += ClientDisconnected;
+    }
+
+    private void UnhookEvents()
+    {
+        Disconnected -= ClientDisconnected;
+    }
+
+    private void ClientDisconnected(object sender, DisconnectedEventArgs e)
+    {
+        if (e.IsRequested)
         {
-            HookEvents();
+            Log.Debug("Imap client is disconnected on request.");
         }
-
-        public WinoImapClient(IProtocolLogger protocolLogger) : base(protocolLogger)
+        else
         {
-            HookEvents();
+            Log.Debug("Imap client connection is dropped by server.");
         }
+    }
 
-        private void HookEvents()
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (disposing)
         {
-            Disconnected += ClientDisconnected;
-        }
-
-        private void UnhookEvents()
-        {
-            Disconnected -= ClientDisconnected;
-        }
-
-        private void ClientDisconnected(object sender, DisconnectedEventArgs e)
-        {
-            if (e.IsRequested)
-            {
-                Log.Debug("Imap client is disconnected on request.");
-            }
-            else
-            {
-                Log.Debug("Imap client connection is dropped by server.");
-            }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-
-            if (disposing)
-            {
-                UnhookEvents();
-            }
+            UnhookEvents();
         }
     }
 }

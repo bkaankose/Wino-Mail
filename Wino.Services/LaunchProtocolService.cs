@@ -1,11 +1,10 @@
 ﻿using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Launch;
 
-namespace Wino.Services
+namespace Wino.Services;
+
+public class LaunchProtocolService : ILaunchProtocolService
 {
-    public class LaunchProtocolService : ILaunchProtocolService
-    {
-        public object LaunchParameter { get; set; }
-        public MailToUri MailToUri { get; set; }
-    }
+    public object LaunchParameter { get; set; }
+    public MailToUri MailToUri { get; set; }
 }

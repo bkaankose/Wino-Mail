@@ -1,9 +1,8 @@
 ﻿using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IClipboardService
 {
-    public interface IClipboardService
-    {
-        Task CopyClipboardAsync(string text);
-    }
+    Task CopyClipboardAsync(string text);
 }

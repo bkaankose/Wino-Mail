@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AppCenter;
+using Microsoft.AppCenter.Analytics;
+using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx;
 using Serilog;
@@ -22,228 +25,242 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services;
 
-namespace Wino.Core.UWP
+namespace Wino.Core.UWP;
+
+public abstract class WinoApplication : Application
 {
-    public abstract class WinoApplication : Application
+    public new static WinoApplication Current => (WinoApplication)Application.Current;
+    public const string WinoLaunchLogPrefix = "[Wino Launch] ";
+
+    public IServiceProvider Services { get; }
+    protected ILogInitializer LogInitializer { get; }
+    protected IApplicationConfiguration AppConfiguration { get; }
+    protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
+    protected IThemeService ThemeService { get; }
+    protected IDatabaseService DatabaseService { get; }
+    protected ITranslationService TranslationService { get; }
+
+    // Order matters.
+    private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
     {
-        public new static WinoApplication Current => (WinoApplication)Application.Current;
-        public const string WinoLaunchLogPrefix = "[Wino Launch] ";
+        DatabaseService,
+        TranslationService,
+        ThemeService,
+    };
 
-        public IServiceProvider Services { get; }
-        protected ILogInitializer LogInitializer { get; }
-        protected IApplicationConfiguration AppConfiguration { get; }
-        protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
-        protected IThemeService ThemeService { get; }
-        protected IDatabaseService DatabaseService { get; }
-        protected ITranslationService TranslationService { get; }
+    public abstract string AppCenterKey { get; }
 
-        protected WinoApplication()
+    protected WinoApplication()
+    {
+        ConfigureAppCenter();
+        ConfigurePrelaunch();
+
+        Services = ConfigureServices();
+
+        UnhandledException += OnAppUnhandledException;
+        Resuming += OnResuming;
+        Suspending += OnSuspending;
+
+        LogInitializer = Services.GetService<ILogInitializer>();
+        AppConfiguration = Services.GetService<IApplicationConfiguration>();
+
+        AppServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
+        ThemeService = Services.GetService<IThemeService>();
+        DatabaseService = Services.GetService<IDatabaseService>();
+        TranslationService = Services.GetService<ITranslationService>();
+
+        // Make sure the paths are setup on app start.
+        AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
+        AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+        AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
+
+        ConfigureLogging();
+    }
+
+    protected abstract void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e);
+    protected abstract IEnumerable<ActivationHandler> GetActivationHandlers();
+    protected abstract ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler();
+    protected override void OnWindowCreated(WindowCreatedEventArgs args)
+    {
+        base.OnWindowCreated(args);
+
+        ConfigureTitleBar();
+
+        LogActivation($"OnWindowCreated -> IsWindowNull: {args.Window == null}");
+
+        TryRegisterAppCloseChange();
+    }
+
+    public IEnumerable<IInitializeAsync> GetActivationServices()
+    {
+        yield return DatabaseService;
+        yield return TranslationService;
+        yield return ThemeService;
+    }
+
+    public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();
+
+    public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
+
+    public void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
+
+    private void ConfigureTitleBar()
+    {
+        var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
+        var applicationViewTitleBar = ApplicationView.GetForCurrentView().TitleBar;
+
+        // Extend shell content into core window to meet design requirements.
+        coreTitleBar.ExtendViewIntoTitleBar = true;
+
+        // Change system buttons and background colors to meet design requirements.
+        applicationViewTitleBar.ButtonBackgroundColor = Colors.Transparent;
+        applicationViewTitleBar.BackgroundColor = Colors.Transparent;
+        applicationViewTitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        applicationViewTitleBar.ButtonForegroundColor = Colors.White;
+    }
+
+    public async Task ActivateWinoAsync(object args)
+    {
+        await InitializeServicesAsync();
+
+        if (IsInteractiveLaunchArgs(args))
         {
-            ConfigurePrelaunch();
-
-            Services = ConfigureServices();
-
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
-            UnhandledException += OnAppUnhandledException;
-
-            Resuming += OnResuming;
-            Suspending += OnSuspending;
-
-            LogInitializer = Services.GetService<ILogInitializer>();
-            AppConfiguration = Services.GetService<IApplicationConfiguration>();
-
-            AppServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
-            ThemeService = Services.GetService<IThemeService>();
-            DatabaseService = Services.GetService<IDatabaseService>();
-            TranslationService = Services.GetService<ITranslationService>();
-
-            // Make sure the paths are setup on app start.
-            AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
-            AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
-            AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
-
-            ConfigureLogging();
-        }
-
-        private void CurrentDomain_UnhandledException(object sender, System.UnhandledExceptionEventArgs e)
-            => Log.Fatal(e.ExceptionObject as Exception, "AppDomain Unhandled Exception");
-
-        private void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
-            => Log.Error(e.Exception, "Unobserved Task Exception");
-
-        private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
-        {
-            Log.Fatal(e.Exception, "Unhandled Exception");
-            e.Handled = true;
-        }
-
-        protected abstract void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e);
-        protected abstract IEnumerable<ActivationHandler> GetActivationHandlers();
-        protected abstract ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler();
-        protected override void OnWindowCreated(WindowCreatedEventArgs args)
-        {
-            base.OnWindowCreated(args);
-
-            ConfigureTitleBar();
-
-            LogActivation($"OnWindowCreated -> IsWindowNull: {args.Window == null}");
-
-            TryRegisterAppCloseChange();
-        }
-
-        public IEnumerable<IInitializeAsync> GetActivationServices()
-        {
-            yield return DatabaseService;
-            yield return TranslationService;
-            yield return ThemeService;
-        }
-
-        public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();
-
-        public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
-
-        public void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
-
-        private void ConfigureTitleBar()
-        {
-            var coreTitleBar = CoreApplication.GetCurrentView().TitleBar;
-            var applicationViewTitleBar = ApplicationView.GetForCurrentView().TitleBar;
-
-            // Extend shell content into core window to meet design requirements.
-            coreTitleBar.ExtendViewIntoTitleBar = true;
-
-            // Change system buttons and background colors to meet design requirements.
-            applicationViewTitleBar.ButtonBackgroundColor = Colors.Transparent;
-            applicationViewTitleBar.BackgroundColor = Colors.Transparent;
-            applicationViewTitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-            applicationViewTitleBar.ButtonForegroundColor = Colors.White;
-        }
-
-        public async Task ActivateWinoAsync(object args)
-        {
-            await InitializeServicesAsync();
-
-            if (IsInteractiveLaunchArgs(args))
+            if (Window.Current.Content == null)
             {
-                if (Window.Current.Content == null)
-                {
-                    var mainFrame = new Frame();
+                var mainFrame = new Frame();
 
-                    Window.Current.Content = mainFrame;
+                Window.Current.Content = mainFrame;
 
-                    await ThemeService.InitializeAsync();
-                }
-            }
-
-            await HandleActivationAsync(args);
-
-            if (IsInteractiveLaunchArgs(args))
-            {
-                Window.Current.Activate();
-
-                LogActivation("Window activated");
+                await ThemeService.InitializeAsync();
             }
         }
 
-        public async Task HandleActivationAsync(object activationArgs)
+        await HandleActivationAsync(args);
+
+        if (IsInteractiveLaunchArgs(args))
         {
-            if (GetActivationHandlers() != null)
+            Window.Current.Activate();
+
+            LogActivation("Window activated");
+        }
+    }
+
+    public async Task HandleActivationAsync(object activationArgs)
+    {
+        if (GetActivationHandlers() != null)
+        {
+            var activationHandler = GetActivationHandlers().FirstOrDefault(h => h.CanHandle(activationArgs)) ?? null;
+
+            if (activationHandler != null)
             {
-                var activationHandler = GetActivationHandlers().FirstOrDefault(h => h.CanHandle(activationArgs)) ?? null;
-
-                if (activationHandler != null)
-                {
-                    await activationHandler.HandleAsync(activationArgs);
-                }
-            }
-
-            if (IsInteractiveLaunchArgs(activationArgs))
-            {
-                var defaultHandler = GetDefaultActivationHandler();
-
-                if (defaultHandler.CanHandle(activationArgs))
-                {
-                    await defaultHandler.HandleAsync(activationArgs);
-                }
+                await activationHandler.HandleAsync(activationArgs);
             }
         }
 
-        protected override async void OnLaunched(LaunchActivatedEventArgs args)
+        if (IsInteractiveLaunchArgs(activationArgs))
         {
-            LogActivation($"OnLaunched -> {args.GetType().Name}, Kind -> {args.Kind}, PreviousExecutionState -> {args.PreviousExecutionState}, IsPrelaunch -> {args.PrelaunchActivated}");
+            var defaultHandler = GetDefaultActivationHandler();
 
-            if (!args.PrelaunchActivated)
+            if (defaultHandler.CanHandle(activationArgs))
             {
-                await ActivateWinoAsync(args);
+                await defaultHandler.HandleAsync(activationArgs);
             }
         }
+    }
 
-        protected override async void OnFileActivated(FileActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        LogActivation($"OnLaunched -> {args.GetType().Name}, Kind -> {args.Kind}, PreviousExecutionState -> {args.PreviousExecutionState}, IsPrelaunch -> {args.PrelaunchActivated}");
+
+        if (!args.PrelaunchActivated)
         {
-            base.OnFileActivated(args);
-
-            LogActivation($"OnFileActivated -> ItemCount: {args.Files.Count}, Kind: {args.Kind}, PreviousExecutionState: {args.PreviousExecutionState}");
-
             await ActivateWinoAsync(args);
         }
+    }
 
-        protected override async void OnActivated(IActivatedEventArgs args)
+    protected override async void OnFileActivated(FileActivatedEventArgs args)
+    {
+        base.OnFileActivated(args);
+
+        LogActivation($"OnFileActivated -> ItemCount: {args.Files.Count}, Kind: {args.Kind}, PreviousExecutionState: {args.PreviousExecutionState}");
+
+        await ActivateWinoAsync(args);
+    }
+
+    protected override async void OnActivated(IActivatedEventArgs args)
+    {
+        base.OnActivated(args);
+
+        Log.Information($"OnActivated -> {args.GetType().Name}, Kind -> {args.Kind}, Prev Execution State -> {args.PreviousExecutionState}");
+
+        await ActivateWinoAsync(args);
+    }
+
+    private void TryRegisterAppCloseChange()
+    {
+        try
         {
-            base.OnActivated(args);
+            var systemNavigationManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
 
-            Log.Information($"OnActivated -> {args.GetType().Name}, Kind -> {args.Kind}, Prev Execution State -> {args.PreviousExecutionState}");
-
-            await ActivateWinoAsync(args);
+            systemNavigationManagerPreview.CloseRequested -= OnApplicationCloseRequested;
+            systemNavigationManagerPreview.CloseRequested += OnApplicationCloseRequested;
         }
+        catch { }
+    }
 
-        private void TryRegisterAppCloseChange()
+
+
+    private void ConfigurePrelaunch()
+    {
+        if (ApiInformation.IsMethodPresent("Windows.ApplicationModel.Core.CoreApplication", "EnablePrelaunch"))
+            CoreApplication.EnablePrelaunch(true);
+    }
+
+    private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        var parameters = new Dictionary<string, string>()
         {
-            try
-            {
-                var systemNavigationManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
+            { "BaseMessage", e.Exception.GetBaseException().Message },
+            { "BaseStackTrace", e.Exception.GetBaseException().StackTrace },
+            { "StackTrace", e.Exception.StackTrace },
+            { "Message", e.Exception.Message },
+        };
 
-                systemNavigationManagerPreview.CloseRequested -= OnApplicationCloseRequested;
-                systemNavigationManagerPreview.CloseRequested += OnApplicationCloseRequested;
-            }
-            catch { }
-        }
+        Log.Error(e.Exception, "[Wino Crash]");
 
-        private void ConfigurePrelaunch()
+        Crashes.TrackError(e.Exception, parameters);
+        Analytics.TrackEvent("Wino Crashed", parameters);
+    }
+
+
+    public virtual async void OnResuming(object sender, object e)
+    {
+        // App Service connection was lost on suspension.
+        // We must restore it.
+        // Server might be running already, but re-launching it will trigger a new connection attempt.
+
+        try
         {
-            if (ApiInformation.IsMethodPresent("Windows.ApplicationModel.Core.CoreApplication", "EnablePrelaunch"))
-                CoreApplication.EnablePrelaunch(true);
+            await AppServiceConnectionManager.ConnectAsync();
         }
-
-
-
-        public virtual async void OnResuming(object sender, object e)
+        catch (OperationCanceledException)
         {
-            // App Service connection was lost on suspension.
-            // We must restore it.
-            // Server might be running already, but re-launching it will trigger a new connection attempt.
-
-            try
-            {
-                await AppServiceConnectionManager.ConnectAsync();
-            }
-            catch (OperationCanceledException)
-            {
-                // Ignore
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to connect to server after resuming the app.");
-            }
+            // Ignore
         }
-        public virtual void OnSuspending(object sender, SuspendingEventArgs e) { }
-
-        public abstract IServiceProvider ConfigureServices();
-
-        public void ConfigureLogging()
+        catch (Exception ex)
         {
-            string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
-            LogInitializer.SetupLogger(logFilePath);
+            Log.Error(ex, "Failed to connect to server after resuming the app.");
         }
+    }
+    public virtual void OnSuspending(object sender, SuspendingEventArgs e) { }
+
+    public abstract IServiceProvider ConfigureServices();
+    public void ConfigureAppCenter()
+        => AppCenter.Start(AppCenterKey, typeof(Analytics), typeof(Crashes));
+
+    public void ConfigureLogging()
+    {
+        string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
+        LogInitializer.SetupLogger(logFilePath);
     }
 }

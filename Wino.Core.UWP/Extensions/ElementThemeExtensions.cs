@@ -1,34 +1,33 @@
 ﻿using Windows.UI.Xaml;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.UWP.Extensions
+namespace Wino.Core.UWP.Extensions;
+
+public static class ElementThemeExtensions
 {
-    public static class ElementThemeExtensions
+    public static ApplicationElementTheme ToWinoElementTheme(this ElementTheme elementTheme)
     {
-        public static ApplicationElementTheme ToWinoElementTheme(this ElementTheme elementTheme)
+        switch (elementTheme)
         {
-            switch (elementTheme)
-            {
-                case ElementTheme.Light:
-                    return ApplicationElementTheme.Light;
-                case ElementTheme.Dark:
-                    return ApplicationElementTheme.Dark;
-            }
-
-            return ApplicationElementTheme.Default;
+            case ElementTheme.Light:
+                return ApplicationElementTheme.Light;
+            case ElementTheme.Dark:
+                return ApplicationElementTheme.Dark;
         }
 
-        public static ElementTheme ToWindowsElementTheme(this ApplicationElementTheme elementTheme)
-        {
-            switch (elementTheme)
-            {
-                case ApplicationElementTheme.Light:
-                    return ElementTheme.Light;
-                case ApplicationElementTheme.Dark:
-                    return ElementTheme.Dark;
-            }
+        return ApplicationElementTheme.Default;
+    }
 
-            return ElementTheme.Default;
+    public static ElementTheme ToWindowsElementTheme(this ApplicationElementTheme elementTheme)
+    {
+        switch (elementTheme)
+        {
+            case ApplicationElementTheme.Light:
+                return ElementTheme.Light;
+            case ApplicationElementTheme.Dark:
+                return ElementTheme.Dark;
         }
+
+        return ElementTheme.Default;
     }
 }

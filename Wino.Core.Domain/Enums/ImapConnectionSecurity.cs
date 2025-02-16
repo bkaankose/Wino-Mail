@@ -1,10 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum ImapConnectionSecurity
 {
-    public enum ImapConnectionSecurity
-    {
-        Auto,
-        None,
-        StartTls,
-        SslTls
-    }
+    Auto,
+    None,
+    StartTls,
+    SslTls
 }
