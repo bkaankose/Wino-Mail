@@ -21,12 +21,12 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="InternetAddressTemplate" x:DataType="entities:AccountContact">
+        <DataTemplate x:Key="InternetAddressTemplate" x:DataType="viewModelData:AccountContactViewModel">
             <HyperlinkButton
                 Margin="-2,-2"
                 Padding="4,2"
                 Click="InternetAddressClicked"
-                Content="{x:Bind ShortDisplayName}"
+                Content="{x:Bind ShortNameOrYou}"
                 ToolTipService.ToolTip="{x:Bind DisplayName}">
                 <HyperlinkButton.ContextFlyout>
                     <Flyout Placement="Bottom">
