@@ -9,4 +9,5 @@ public interface ITranslationService : IInitializeAsync
 {
     Task InitializeLanguageAsync(AppLanguage language, bool ignoreCurrentLanguageCheck = false);
     List<AppLanguageModel> GetAvailableLanguages();
+    AppLanguageModel CurrentLanguageModel { get; }
 }

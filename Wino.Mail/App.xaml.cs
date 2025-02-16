@@ -24,12 +24,14 @@ using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.Client.Shell;
 using Wino.Messaging.Server;
 using Wino.Services;
 
 namespace Wino;
 
-public sealed partial class App : WinoApplication, IRecipient<NewMailSynchronizationRequested>
+public sealed partial class App : WinoApplication,
+    IRecipient<NewMailSynchronizationRequested>
 {
     private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
     private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
@@ -40,7 +42,8 @@ public sealed partial class App : WinoApplication, IRecipient<NewMailSynchroniza
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-        WeakReferenceMessenger.Default.Register(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+        WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
     }
 
     public override async void OnResuming(object sender, object e)
