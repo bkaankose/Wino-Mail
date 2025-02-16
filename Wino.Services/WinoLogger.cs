@@ -38,6 +38,10 @@ public class WinoLogger : IWinoLogger
 
     public void SetupLogger(string fullLogFilePath)
     {
+        // Make sure to set the diagnostic id for the telemetry converter.
+        // This call seems weird, but it is necessary to make sure the diagnostic id is set.
+        _preferencesService.DiagnosticId = _preferencesService.DiagnosticId;
+
         var insightsTelemetryConverter = new WinoTelemetryConverter(_preferencesService.DiagnosticId);
 
         Log.Logger = new LoggerConfiguration()
