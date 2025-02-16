@@ -531,10 +531,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 if (remoteFolder.IsNamespace && !remoteFolder.Attributes.HasFlag(FolderAttributes.Inbox) || !remoteFolder.Exists)
                     continue;
 
-                // Check for NoSelect folders. These are not selectable folders.
-                // TODO: With new MailKit version 'CanOpen' will be implemented for ease of use. Use that one.
-                if (remoteFolder.Attributes.HasFlag(FolderAttributes.NoSelect))
-                    continue;
+                // Ignore folders that can't be opened.
+                if (!remoteFolder.CanOpen) continue;
 
                 var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.FullName);
 
