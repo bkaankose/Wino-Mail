@@ -3,7 +3,7 @@ using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Mail.ViewModels.Data;
 
-public class AccountContactViewModel: AccountContact
+public class AccountContactViewModel : AccountContact
 {
     public AccountContactViewModel(AccountContact contact)
     {
@@ -22,7 +22,7 @@ public class AccountContactViewModel: AccountContact
     /// Provides a short name of the contact.
     /// <see cref="ShortDisplayName"/> or "You"
     /// </summary>
-    public string ShortNameOrYou => IsMe ? Translator.AccountContactNameYou : ShortDisplayName;
+    public string ShortNameOrYou => IsMe ? $"{Translator.AccountContactNameYou};" : ShortDisplayName;
 
     /// <summary>
     /// Short display name of the contact.
