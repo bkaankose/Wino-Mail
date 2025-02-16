@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
@@ -28,6 +29,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 {
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly IImapTestService _imapTestService;
+    private readonly IWinoLogger _winoLogger;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -39,12 +41,14 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IProviderService providerService,
                                       IImapTestService imapTestService,
                                       IStoreManagementService storeManagementService,
+                                      IWinoLogger winoLogger,
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _imapTestService = imapTestService;
+        _winoLogger = winoLogger;
     }
 
     [RelayCommand]
@@ -111,6 +115,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 };
 
                 await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
+
                 creationDialog.State = AccountCreationDialogState.SigningIn;
 
                 string tokenInformation = string.Empty;
@@ -146,7 +151,18 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                         createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
                         createdAccount.Address = customServerInformation.Address;
 
-                        await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
+                        // Let server validate the imap/smtp connection.
+                        var testResultResponse = await WinoServerConnectionManager.GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(customServerInformation, true));
+
+                        if (!testResultResponse.IsSuccess)
+                        {
+                            throw new Exception($"{Translator.IMAPSetupDialog_ConnectionFailedTitle}\n{testResultResponse.Message}");
+                        }
+                        else if (!testResultResponse.Data.IsSuccess)
+                        {
+                            // Server connectivity might succeed, but result might be failed.
+                            throw new ImapClientPoolException(testResultResponse.Data.FailedReason, customServerInformation, testResultResponse.Data.FailureProtocolLog);
+                        }
                     }
                     else
                     {
@@ -266,7 +282,18 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         {
             // Ignore
         }
-        catch (ImapClientPoolException clientPoolException)
+        catch (ImapClientPoolException testClientPoolException) when (testClientPoolException.CustomServerInformation != null)
+        {
+            var properties = testClientPoolException.CustomServerInformation.GetConnectionProperties();
+
+            properties.Add("ProtocolLog", testClientPoolException.ProtocolLog);
+            properties.Add("DiagnosticId", PreferencesService.DiagnosticId);
+
+            _winoLogger.TrackEvent("IMAP Test Failed", properties);
+
+            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, testClientPoolException.Message, InfoBarMessageType.Error);
+        }
+        catch (ImapClientPoolException clientPoolException) when (clientPoolException.InnerException != null)
         {
             DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error);
         }

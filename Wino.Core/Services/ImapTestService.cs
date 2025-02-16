@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
+using MailKit.Net.Smtp;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
@@ -53,5 +54,14 @@ public class ImapTestService : IImapTestService
 
             clientPool.Release(client);
         }
+
+        // Test SMTP connectivity.
+        using var smtpClient = new SmtpClient();
+
+        if (!smtpClient.IsConnected)
+            await smtpClient.ConnectAsync(serverInformation.OutgoingServer, int.Parse(serverInformation.OutgoingServerPort), MailKit.Security.SecureSocketOptions.Auto);
+
+        if (!smtpClient.IsAuthenticated)
+            await smtpClient.AuthenticateAsync(serverInformation.OutgoingServerUsername, serverInformation.OutgoingServerPassword);
     }
 }
