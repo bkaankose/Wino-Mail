@@ -229,6 +229,12 @@ namespace Wino.Core.UWP.Services
             set => SaveProperty(propertyName: nameof(ServerTerminationBehavior), value);
         }
 
+        public string DiagnosticId
+        {
+            get => _configurationService.Get(nameof(DiagnosticId), Guid.NewGuid().ToString());
+            set => SaveProperty(propertyName: nameof(DiagnosticId), value);
+        }
+
         public DayOfWeek FirstDayOfWeek
         {
             get => _configurationService.Get(nameof(FirstDayOfWeek), DayOfWeek.Monday);

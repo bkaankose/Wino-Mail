@@ -11,7 +11,6 @@
 		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-
 		<GenerateAppInstallerFile>True</GenerateAppInstallerFile>
 		<AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
 		<AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
@@ -90,15 +89,12 @@
 		<PackageReference Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" />
 		<PackageReference Include="CommunityToolkit.Uwp.Extensions" />
 		<PackageReference Include="EmailValidation" />
-		<PackageReference Include="Microsoft.AppCenter.Analytics" />
-		<PackageReference Include="Microsoft.AppCenter.Crashes" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-		<PackageReference Include="Microsoft.Identity.Client" />
+
 		<PackageReference Include="Microsoft.UI.Xaml" />
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed" />
 		<PackageReference Include="Nito.AsyncEx" />
-		<PackageReference Include="Serilog" />
-		<PackageReference Include="Serilog.Exceptions" />
+
 		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="Win2D.uwp" />
 	</ItemGroup>

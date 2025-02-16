@@ -7,10 +7,9 @@
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="EmailValidation"  />
-		<PackageReference Include="Microsoft.AppCenter.Crashes"  />
-		<PackageReference Include="Microsoft.Identity.Client"  />
-		<PackageReference Include="System.Reactive"  />
+		<PackageReference Include="EmailValidation" />
+		<PackageReference Include="Microsoft.Identity.Client" />
+		<PackageReference Include="System.Reactive" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

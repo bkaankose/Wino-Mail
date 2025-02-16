@@ -10,11 +10,9 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Crashes;
 using MoreLinq;
 using Nito.AsyncEx;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -844,11 +842,9 @@ namespace Wino.Mail.ViewModels
                 Debugger.Break();
 
                 if (IsInSearchMode)
-                    Log.Error(ex, WinoErrors.SearchFailed);
+                    Log.Error(ex, "Failed to perform search.");
                 else
-                    Log.Error(ex, WinoErrors.MailListRefreshFolder);
-
-                Crashes.TrackError(ex);
+                    Log.Error(ex, "Failed to refresh listed mails.");
             }
             finally
             {

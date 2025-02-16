@@ -9,10 +9,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
-using Microsoft.AppCenter.Crashes;
+
 using MimeKit;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -345,8 +344,7 @@ namespace Wino.Mail.ViewModels
             {
                 _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
 
-                Crashes.TrackError(ex);
-                Log.Error(ex, "Render Failed");
+                Log.Error(ex, "Failed to render mail.");
             }
         }
 
@@ -616,8 +614,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, WinoErrors.OpenAttachment);
-                Crashes.TrackError(ex);
+                Log.Error(ex, "Failed to open attachment.");
 
                 _dialogService.InfoBarMessage(Translator.Info_AttachmentOpenFailedTitle, Translator.Info_AttachmentOpenFailedMessage, InfoBarMessageType.Error);
             }
@@ -643,8 +640,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, WinoErrors.SaveAttachment);
-                Crashes.TrackError(ex);
+                Log.Error(ex, "Failed to save attachment.");
 
                 _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
             }
@@ -673,8 +669,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, WinoErrors.SaveAttachment);
-                Crashes.TrackError(ex);
+                Log.Error(ex, "Failed to save attachment.");
 
                 _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
             }
@@ -709,8 +704,8 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Failed to print mail.");
                 _dialogService.InfoBarMessage(string.Empty, ex.Message, InfoBarMessageType.Error);
-                Crashes.TrackError(ex);
             }
         }
 
@@ -735,8 +730,8 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Failed to save as PDF.");
                 _dialogService.InfoBarMessage(Translator.Info_PDFSaveFailedTitle, ex.Message, InfoBarMessageType.Error);
-                Crashes.TrackError(ex);
             }
         }
 
@@ -786,8 +781,7 @@ namespace Wino.Mail.ViewModels
             {
                 _dialogService.InfoBarMessage(Translator.Info_MailRenderingFailedTitle, string.Format(Translator.Info_MailRenderingFailedMessage, ex.Message), InfoBarMessageType.Error);
 
-                Crashes.TrackError(ex);
-                Log.Error(ex, "Render Failed");
+                Log.Error(ex, "Failed to render mail.");
             }
         }
     }

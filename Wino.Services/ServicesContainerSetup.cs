@@ -29,6 +29,8 @@ namespace Wino.Services
             services.AddTransient<IOutlookThreadingStrategy, OutlookThreadingStrategy>();
             services.AddTransient<IGmailThreadingStrategy, GmailThreadingStrategy>();
             services.AddTransient<IImapThreadingStrategy, ImapThreadingStrategy>();
+
+
         }
     }
 }

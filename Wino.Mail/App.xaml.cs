@@ -31,8 +31,6 @@ namespace Wino
 {
     public sealed partial class App : WinoApplication, IRecipient<NewMailSynchronizationRequested>
     {
-        public override string AppCenterKey { get; } = "90deb1d0-a77f-47d0-8a6b-7eaf111c6b72";
-
         private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
         private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
 

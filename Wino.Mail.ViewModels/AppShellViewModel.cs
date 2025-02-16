@@ -6,11 +6,9 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Crashes;
 using MoreLinq;
 using MoreLinq.Extensions;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -301,7 +299,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Crashes.TrackError(ex);
+                Log.Error(ex, "Failed to configure background tasks.");
 
                 _dialogService.InfoBarMessage(Translator.Info_BackgroundExecutionUnknownErrorTitle, Translator.Info_BackgroundExecutionUnknownErrorMessage, InfoBarMessageType.Error);
             }
@@ -373,7 +371,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, WinoErrors.StartupAccountExtendFail);
+                Log.Error(ex, "Failed to process launch options.");
             }
         }
 
@@ -474,7 +472,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, WinoErrors.AccountNavigateInboxFail);
+                Log.Error(ex, "Failed to navigate to Inbox.");
             }
         }
 

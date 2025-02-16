@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AppCenter;
-using Microsoft.AppCenter.Analytics;
-using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx;
 using Serilog;
@@ -40,24 +37,16 @@ namespace Wino.Core.UWP
         protected IDatabaseService DatabaseService { get; }
         protected ITranslationService TranslationService { get; }
 
-        // Order matters.
-        private List<IInitializeAsync> initializeServices => new List<IInitializeAsync>()
-        {
-            DatabaseService,
-            TranslationService,
-            ThemeService,
-        };
-
-        public abstract string AppCenterKey { get; }
-
         protected WinoApplication()
         {
-            ConfigureAppCenter();
             ConfigurePrelaunch();
 
             Services = ConfigureServices();
 
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
             UnhandledException += OnAppUnhandledException;
+
             Resuming += OnResuming;
             Suspending += OnSuspending;
 
@@ -75,6 +64,18 @@ namespace Wino.Core.UWP
             AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
 
             ConfigureLogging();
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+            => Log.Fatal(e.ExceptionObject as Exception, "AppDomain Unhandled Exception");
+
+        private void OnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+            => Log.Error(e.Exception, "Unobserved Task Exception");
+
+        private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            Log.Fatal(e.Exception, "Unhandled Exception");
+            e.Handled = true;
         }
 
         protected abstract void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e);
@@ -208,29 +209,12 @@ namespace Wino.Core.UWP
             catch { }
         }
 
-
-
         private void ConfigurePrelaunch()
         {
             if (ApiInformation.IsMethodPresent("Windows.ApplicationModel.Core.CoreApplication", "EnablePrelaunch"))
                 CoreApplication.EnablePrelaunch(true);
         }
 
-        private void OnAppUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
-        {
-            var parameters = new Dictionary<string, string>()
-            {
-                { "BaseMessage", e.Exception.GetBaseException().Message },
-                { "BaseStackTrace", e.Exception.GetBaseException().StackTrace },
-                { "StackTrace", e.Exception.StackTrace },
-                { "Message", e.Exception.Message },
-            };
-
-            Log.Error(e.Exception, "[Wino Crash]");
-
-            Crashes.TrackError(e.Exception, parameters);
-            Analytics.TrackEvent("Wino Crashed", parameters);
-        }
 
 
         public virtual async void OnResuming(object sender, object e)
@@ -255,8 +239,6 @@ namespace Wino.Core.UWP
         public virtual void OnSuspending(object sender, SuspendingEventArgs e) { }
 
         public abstract IServiceProvider ConfigureServices();
-        public void ConfigureAppCenter()
-            => AppCenter.Start(AppCenterKey, typeof(Analytics), typeof(Crashes));
 
         public void ConfigureLogging()
         {

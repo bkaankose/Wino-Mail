@@ -451,6 +451,8 @@
     "SettingsDeleteProtection_Title": "Permanent Delete Protection",
     "SettingsDiagnostics_Description": "For developers",
     "SettingsDiagnostics_Title": "Diagnostics",
+    "SettingsDiagnostics_DiagnosticId_Title": "Diagnostic Id",
+    "SettingsDiagnostics_DiagnosticId_Description": "Share this Id with the developers when asked to get help for the issues you experience in Wino Mail.",
     "SettingsDiscord_Description": "Get regular development updates, join roadmap discussions and provide feedback.",
     "SettingsDiscord_Title": "Discord Channel",
     "SettingsElementThemeSelectionDisabled": "Element theme selection is disabled when application theme is selected other than Default.",

@@ -26,10 +26,6 @@
 		<PackageReference Include="morelinq" />
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
 		<PackageReference Include="NodaTime" />
-		<PackageReference Include="Serilog" />
-		<PackageReference Include="Serilog.Exceptions" />
-		<PackageReference Include="Serilog.Sinks.Debug" />
-		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="SkiaSharp" />
 		<PackageReference Include="SqlKata" />
 		<PackageReference Include="System.Text.Encoding.CodePages" />

@@ -5,9 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.AppCenter.Crashes;
 using Serilog;
-using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -274,8 +272,7 @@ namespace Wino.Mail.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error(ex, WinoErrors.AccountCreation);
-                Crashes.TrackError(ex);
+                Log.Error(ex, "Failed to create account.");
 
                 DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
 

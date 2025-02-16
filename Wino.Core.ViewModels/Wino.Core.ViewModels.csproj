@@ -7,7 +7,6 @@
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AppCenter.Crashes" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="System.Reactive" />
 	</ItemGroup>

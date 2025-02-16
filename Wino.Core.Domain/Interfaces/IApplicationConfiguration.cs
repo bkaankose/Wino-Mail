@@ -23,5 +23,10 @@
         /// Files here are short-lived and can be deleted by system.
         /// </summary>
         string ApplicationTempFolderPath { get; set; }
+
+        /// <summary>
+        /// Application insights instrumentation key.
+        /// </summary>
+        string ApplicationInsightsInstrumentationKey { get; }
     }
 }
