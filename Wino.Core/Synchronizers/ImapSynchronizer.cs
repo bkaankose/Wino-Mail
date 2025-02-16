@@ -653,9 +653,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             // Ignore cancellations.
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-
+            _logger.Error(ex, "Synchronization failed for folder {FolderName}", folder.FolderName);
         }
         finally
         {
