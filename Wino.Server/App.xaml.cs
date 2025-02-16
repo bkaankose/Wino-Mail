@@ -111,7 +111,7 @@ public partial class App : Application
         applicationFolderConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
 
         // Setup logger
-        var logInitializer = Services.GetService<ILogInitializer>();
+        var logInitializer = Services.GetService<IWinoLogger>();
         var logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ServerLogFile);
 
         logInitializer.SetupLogger(logFilePath);

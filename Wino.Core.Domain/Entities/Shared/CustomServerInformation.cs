@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Enums;
 
@@ -49,4 +50,25 @@ public class CustomServerInformation
     /// Default is 5.
     /// </summary>
     public int MaxConcurrentClients { get; set; }
+
+    public Dictionary<string, string> GetConnectionProperties()
+    {
+        // Printout the public connection properties.
+
+        var connectionProperties = new Dictionary<string, string>
+        {
+            { "IncomingServer", IncomingServer },
+            { "IncomingServerPort", IncomingServerPort },
+            { "IncomingServerSocketOption", IncomingServerSocketOption.ToString() },
+            { "IncomingAuthenticationMethod", IncomingAuthenticationMethod.ToString() },
+            { "OutgoingServer", OutgoingServer },
+            { "OutgoingServerPort", OutgoingServerPort },
+            { "OutgoingServerSocketOption", OutgoingServerSocketOption.ToString() },
+            { "OutgoingAuthenticationMethod", OutgoingAuthenticationMethod.ToString() },
+            { "ProxyServer", ProxyServer },
+            { "ProxyServerPort", ProxyServerPort }
+        };
+
+        return connectionProperties;
+    }
 }
