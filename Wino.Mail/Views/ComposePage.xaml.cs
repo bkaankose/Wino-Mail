@@ -96,7 +96,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 {
                     if (t.EventArgs.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
                     {
-                        if (t.Sender is AutoSuggestBox senderBox && senderBox.Text.Length >= 3)
+                        if (t.Sender is AutoSuggestBox senderBox && senderBox.Text.Length >= 2)
                         {
                             _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
                             {
@@ -691,4 +691,4 @@ public sealed partial class ComposePage : ComposePageAbstract,
 }
 
 [JsonSerializable(typeof(List<ImageInfo>))]
-public partial class ComposerPageJsonContext: JsonSerializerContext;
+public partial class ComposerPageJsonContext : JsonSerializerContext;
