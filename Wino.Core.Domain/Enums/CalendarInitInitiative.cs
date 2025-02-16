@@ -1,11 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+/// <summary>
+/// Trigger to load more data.
+/// </summary>
+public enum CalendarInitInitiative
 {
-    /// <summary>
-    /// Trigger to load more data.
-    /// </summary>
-    public enum CalendarInitInitiative
-    {
-        User,
-        App
-    }
+    User,
+    App
 }

@@ -1,7 +1,6 @@
-﻿namespace Wino.Core.Domain.Interfaces
+﻿namespace Wino.Core.Domain.Interfaces;
+
+public interface IUnderlyingThemeService
 {
-    public interface IUnderlyingThemeService
-    {
-        bool IsUnderlyingThemeDark();
-    }
+    bool IsUnderlyingThemeDark();
 }

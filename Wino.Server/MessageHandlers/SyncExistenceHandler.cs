@@ -6,25 +6,24 @@ using Wino.Core.Domain.Models.Server;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers
+namespace Wino.Server.MessageHandlers;
+
+public class SyncExistenceHandler : ServerMessageHandler<SynchronizationExistenceCheckRequest, bool>
 {
-    public class SyncExistenceHandler : ServerMessageHandler<SynchronizationExistenceCheckRequest, bool>
+    public override WinoServerResponse<bool> FailureDefaultResponse(Exception ex)
+        => WinoServerResponse<bool>.CreateErrorResponse(ex.Message);
+
+    private readonly ISynchronizerFactory _synchronizerFactory;
+
+    public SyncExistenceHandler(ISynchronizerFactory synchronizerFactory)
     {
-        public override WinoServerResponse<bool> FailureDefaultResponse(Exception ex)
-            => WinoServerResponse<bool>.CreateErrorResponse(ex.Message);
+        _synchronizerFactory = synchronizerFactory;
+    }
 
-        private readonly ISynchronizerFactory _synchronizerFactory;
+    protected override async Task<WinoServerResponse<bool>> HandleAsync(SynchronizationExistenceCheckRequest message, CancellationToken cancellationToken = default)
+    {
+        var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.AccountId);
 
-        public SyncExistenceHandler(ISynchronizerFactory synchronizerFactory)
-        {
-            _synchronizerFactory = synchronizerFactory;
-        }
-
-        protected override async Task<WinoServerResponse<bool>> HandleAsync(SynchronizationExistenceCheckRequest message, CancellationToken cancellationToken = default)
-        {
-            var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.AccountId);
-
-            return WinoServerResponse<bool>.CreateSuccessResponse(synchronizer.State != Wino.Core.Domain.Enums.AccountSynchronizerState.Idle);
-        }
+        return WinoServerResponse<bool>.CreateSuccessResponse(synchronizer.State != Wino.Core.Domain.Enums.AccountSynchronizerState.Idle);
     }
 }

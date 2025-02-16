@@ -1,8 +1,7 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum SortingOptionType
 {
-    public enum SortingOptionType
-    {
-        ReceiveDate,
-        Sender
-    }
+    ReceiveDate,
+    Sender
 }

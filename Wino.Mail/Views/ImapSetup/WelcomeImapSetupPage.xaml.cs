@@ -14,83 +14,82 @@ using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Messaging.Client.Mails;
 
 
-namespace Wino.Views.ImapSetup
+namespace Wino.Views.ImapSetup;
+
+public sealed partial class WelcomeImapSetupPage : Page
 {
-    public sealed partial class WelcomeImapSetupPage : Page
+    private readonly IAutoDiscoveryService _autoDiscoveryService = App.Current.Services.GetService<IAutoDiscoveryService>();
+
+    public WelcomeImapSetupPage()
     {
-        private readonly IAutoDiscoveryService _autoDiscoveryService = App.Current.Services.GetService<IAutoDiscoveryService>();
+        InitializeComponent();
+    }
 
-        public WelcomeImapSetupPage()
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        AutoDiscoveryPanel.Visibility = Visibility.Collapsed;
+        MainSetupPanel.Visibility = Visibility.Visible;
+
+        if (e.Parameter is MailAccount accountProperties)
         {
-            InitializeComponent();
+            DisplayNameBox.Text = accountProperties.Name;
         }
-
-        protected override void OnNavigatedTo(NavigationEventArgs e)
+        else if (e.Parameter is AccountCreationDialogResult creationDialogResult)
         {
-            base.OnNavigatedTo(e);
-
-            AutoDiscoveryPanel.Visibility = Visibility.Collapsed;
-            MainSetupPanel.Visibility = Visibility.Visible;
-
-            if (e.Parameter is MailAccount accountProperties)
-            {
-                DisplayNameBox.Text = accountProperties.Name;
-            }
-            else if (e.Parameter is AccountCreationDialogResult creationDialogResult)
-            {
-                WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(TestingImapConnectionPage), creationDialogResult));
-            }
+            WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(TestingImapConnectionPage), creationDialogResult));
         }
+    }
 
-        private async void SignInClicked(object sender, RoutedEventArgs e)
+    private async void SignInClicked(object sender, RoutedEventArgs e)
+    {
+        MainSetupPanel.Visibility = Visibility.Collapsed;
+        AutoDiscoveryPanel.Visibility = Visibility.Visible;
+
+        // Let users see the discovery message for a while...
+
+        await Task.Delay(1000);
+
+        var minimalSettings = new AutoDiscoveryMinimalSettings()
         {
-            MainSetupPanel.Visibility = Visibility.Collapsed;
-            AutoDiscoveryPanel.Visibility = Visibility.Visible;
+            Password = PasswordBox.Password,
+            DisplayName = DisplayNameBox.Text,
+            Email = AddressBox.Text,
+        };
 
-            // Let users see the discovery message for a while...
+        var discoverySettings = await _autoDiscoveryService.GetAutoDiscoverySettings(minimalSettings);
 
-            await Task.Delay(1000);
-
-            var minimalSettings = new AutoDiscoveryMinimalSettings()
-            {
-                Password = PasswordBox.Password,
-                DisplayName = DisplayNameBox.Text,
-                Email = AddressBox.Text,
-            };
-
-            var discoverySettings = await _autoDiscoveryService.GetAutoDiscoverySettings(minimalSettings);
-
-            if (discoverySettings == null)
-            {
-                // Couldn't find settings.
-
-                var failurePackage = new ImapConnectionFailedPackage(Translator.Exception_ImapAutoDiscoveryFailed, string.Empty, discoverySettings);
-
-                WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
-            }
-            else
-            {
-                // Settings are found. Test the connection with the given password.
-
-                discoverySettings.UserMinimalSettings = minimalSettings;
-
-                WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(TestingImapConnectionPage), discoverySettings));
-            }
-        }
-
-        private void CancelClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new ImapSetupDismissRequested());
-
-        private void AdvancedConfigurationClicked(object sender, RoutedEventArgs e)
+        if (discoverySettings == null)
         {
-            var latestMinimalSettings = new AutoDiscoveryMinimalSettings()
-            {
-                DisplayName = DisplayNameBox.Text,
-                Password = PasswordBox.Password,
-                Email = AddressBox.Text
-            };
+            // Couldn't find settings.
 
+            var failurePackage = new ImapConnectionFailedPackage(Translator.Exception_ImapAutoDiscoveryFailed, string.Empty, discoverySettings);
 
-            WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(AdvancedImapSetupPage), latestMinimalSettings));
+            WeakReferenceMessenger.Default.Send(new ImapSetupBackNavigationRequested(typeof(ImapConnectionFailedPage), failurePackage));
         }
+        else
+        {
+            // Settings are found. Test the connection with the given password.
+
+            discoverySettings.UserMinimalSettings = minimalSettings;
+
+            WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(TestingImapConnectionPage), discoverySettings));
+        }
+    }
+
+    private void CancelClicked(object sender, RoutedEventArgs e) => WeakReferenceMessenger.Default.Send(new ImapSetupDismissRequested());
+
+    private void AdvancedConfigurationClicked(object sender, RoutedEventArgs e)
+    {
+        var latestMinimalSettings = new AutoDiscoveryMinimalSettings()
+        {
+            DisplayName = DisplayNameBox.Text,
+            Password = PasswordBox.Password,
+            Email = AddressBox.Text
+        };
+
+
+        WeakReferenceMessenger.Default.Send(new ImapSetupNavigationRequested(typeof(AdvancedImapSetupPage), latestMinimalSettings));
     }
 }

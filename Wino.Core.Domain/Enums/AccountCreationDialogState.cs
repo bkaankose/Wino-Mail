@@ -1,17 +1,16 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum AccountCreationDialogState
 {
-    public enum AccountCreationDialogState
-    {
-        Idle,
-        SigningIn,
-        PreparingFolders,
-        Completed,
-        ManuelSetupWaiting,
-        TestingConnection,
-        AutoDiscoverySetup,
-        AutoDiscoveryInProgress,
-        FetchingProfileInformation,
-        Canceled,
-        FetchingEvents
-    }
+    Idle,
+    SigningIn,
+    PreparingFolders,
+    Completed,
+    ManuelSetupWaiting,
+    TestingConnection,
+    AutoDiscoverySetup,
+    AutoDiscoveryInProgress,
+    FetchingProfileInformation,
+    Canceled,
+    FetchingEvents
 }

@@ -1,8 +1,7 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum CustomIncomingServerType
 {
-    public enum CustomIncomingServerType
-    {
-        POP3,
-        IMAP4
-    }
+    POP3,
+    IMAP4
 }

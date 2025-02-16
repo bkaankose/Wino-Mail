@@ -1,12 +1,11 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings
+namespace Wino.Views.Settings;
+
+public sealed partial class SignatureManagementPage : SignatureManagementPageAbstract
 {
-    public sealed partial class SignatureManagementPage : SignatureManagementPageAbstract
+    public SignatureManagementPage()
     {
-        public SignatureManagementPage()
-        {
-            this.InitializeComponent();
-        }
+        this.InitializeComponent();
     }
 }

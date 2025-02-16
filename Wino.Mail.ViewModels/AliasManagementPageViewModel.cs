@@ -14,142 +14,141 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Messaging.Server;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Mail.ViewModels;
+
+public partial class AliasManagementPageViewModel : MailBaseViewModel
 {
-    public partial class AliasManagementPageViewModel : MailBaseViewModel
+    private readonly IMailDialogService _dialogService;
+    private readonly IAccountService _accountService;
+    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
+    private MailAccount account;
+
+    [ObservableProperty]
+    private List<MailAccountAlias> accountAliases = [];
+
+    public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
+
+    public AliasManagementPageViewModel(IMailDialogService dialogService,
+                                        IAccountService accountService,
+                                        IWinoServerConnectionManager winoServerConnectionManager)
     {
-        private readonly IMailDialogService _dialogService;
-        private readonly IAccountService _accountService;
-        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+        _dialogService = dialogService;
+        _accountService = accountService;
+        _winoServerConnectionManager = winoServerConnectionManager;
+    }
 
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
-        private MailAccount account;
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
 
-        [ObservableProperty]
-        private List<MailAccountAlias> accountAliases = [];
+        if (parameters is Guid accountId)
+            Account = await _accountService.GetAccountAsync(accountId);
 
-        public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
+        if (Account == null) return;
 
-        public AliasManagementPageViewModel(IMailDialogService dialogService,
-                                            IAccountService accountService,
-                                            IWinoServerConnectionManager winoServerConnectionManager)
+        await LoadAliasesAsync();
+    }
+
+    private async Task LoadAliasesAsync()
+    {
+        AccountAliases = await _accountService.GetAccountAliasesAsync(Account.Id);
+    }
+
+    [RelayCommand]
+    private async Task SetAliasPrimaryAsync(MailAccountAlias alias)
+    {
+        if (alias.IsPrimary) return;
+
+        AccountAliases.ForEach(a =>
         {
-            _dialogService = dialogService;
-            _accountService = accountService;
-            _winoServerConnectionManager = winoServerConnectionManager;
-        }
+            a.IsPrimary = a == alias;
+        });
 
-        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
+        await LoadAliasesAsync();
+    }
+
+    [RelayCommand]
+    private async Task SyncAliasesAsync()
+    {
+        if (!CanSynchronizeAliases) return;
+
+        var aliasSyncOptions = new MailSynchronizationOptions()
         {
-            base.OnNavigatedTo(mode, parameters);
+            AccountId = Account.Id,
+            Type = MailSynchronizationType.Alias
+        };
 
-            if (parameters is Guid accountId)
-                Account = await _accountService.GetAccountAsync(accountId);
+        var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
 
-            if (Account == null) return;
-
+        if (aliasSyncResponse.IsSuccess)
             await LoadAliasesAsync();
-        }
+        else
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
+    }
 
-        private async Task LoadAliasesAsync()
+    [RelayCommand]
+    private async Task AddNewAliasAsync()
+    {
+        var createdAliasDialog = await _dialogService.ShowCreateAccountAliasDialogAsync();
+
+        if (createdAliasDialog.CreatedAccountAlias == null) return;
+
+        var newAlias = createdAliasDialog.CreatedAccountAlias;
+
+        // Check existence.
+        if (AccountAliases.Any(a => a.AliasAddress == newAlias.AliasAddress))
         {
-            AccountAliases = await _accountService.GetAccountAliasesAsync(Account.Id);
+            await _dialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle,
+                                                 Translator.DialogMessage_AliasExistsMessage,
+                                                 WinoCustomMessageDialogIcon.Warning);
+            return;
         }
 
-        [RelayCommand]
-        private async Task SetAliasPrimaryAsync(MailAccountAlias alias)
+        // Validate all addresses.
+        if (!EmailValidator.Validate(newAlias.AliasAddress) || (!string.IsNullOrEmpty(newAlias.ReplyToAddress) && !EmailValidator.Validate(newAlias.ReplyToAddress)))
         {
-            if (alias.IsPrimary) return;
-
-            AccountAliases.ForEach(a =>
-            {
-                a.IsPrimary = a == alias;
-            });
-
-            await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-            await LoadAliasesAsync();
+            await _dialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage,
+                                                 Translator.DialogMessage_InvalidAliasTitle,
+                                                 WinoCustomMessageDialogIcon.Warning);
+            return;
         }
 
-        [RelayCommand]
-        private async Task SyncAliasesAsync()
+        newAlias.AccountId = Account.Id;
+
+        AccountAliases.Add(newAlias);
+
+        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
+        _dialogService.InfoBarMessage(Translator.DialogMessage_AliasCreatedTitle, Translator.DialogMessage_AliasCreatedMessage, InfoBarMessageType.Success);
+
+        await LoadAliasesAsync();
+    }
+
+    [RelayCommand]
+    private async Task DeleteAliasAsync(MailAccountAlias alias)
+    {
+        // Primary aliases can't be deleted.
+        if (alias.IsPrimary)
         {
-            if (!CanSynchronizeAliases) return;
-
-            var aliasSyncOptions = new MailSynchronizationOptions()
-            {
-                AccountId = Account.Id,
-                Type = MailSynchronizationType.Alias
-            };
-
-            var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
-
-            if (aliasSyncResponse.IsSuccess)
-                await LoadAliasesAsync();
-            else
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
+            await _dialogService.ShowMessageAsync(Translator.Info_CantDeletePrimaryAliasMessage,
+                                                 Translator.GeneralTitle_Warning,
+                                                 WinoCustomMessageDialogIcon.Warning);
+            return;
         }
 
-        [RelayCommand]
-        private async Task AddNewAliasAsync()
+        // Root aliases can't be deleted.
+        if (alias.IsRootAlias)
         {
-            var createdAliasDialog = await _dialogService.ShowCreateAccountAliasDialogAsync();
-
-            if (createdAliasDialog.CreatedAccountAlias == null) return;
-
-            var newAlias = createdAliasDialog.CreatedAccountAlias;
-
-            // Check existence.
-            if (AccountAliases.Any(a => a.AliasAddress == newAlias.AliasAddress))
-            {
-                await _dialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle,
-                                                     Translator.DialogMessage_AliasExistsMessage,
-                                                     WinoCustomMessageDialogIcon.Warning);
-                return;
-            }
-
-            // Validate all addresses.
-            if (!EmailValidator.Validate(newAlias.AliasAddress) || (!string.IsNullOrEmpty(newAlias.ReplyToAddress) && !EmailValidator.Validate(newAlias.ReplyToAddress)))
-            {
-                await _dialogService.ShowMessageAsync(Translator.DialogMessage_InvalidAliasMessage,
-                                                     Translator.DialogMessage_InvalidAliasTitle,
-                                                     WinoCustomMessageDialogIcon.Warning);
-                return;
-            }
-
-            newAlias.AccountId = Account.Id;
-
-            AccountAliases.Add(newAlias);
-
-            await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-            _dialogService.InfoBarMessage(Translator.DialogMessage_AliasCreatedTitle, Translator.DialogMessage_AliasCreatedMessage, InfoBarMessageType.Success);
-
-            await LoadAliasesAsync();
+            await _dialogService.ShowMessageAsync(Translator.DialogMessage_CantDeleteRootAliasTitle,
+                                                 Translator.DialogMessage_CantDeleteRootAliasMessage,
+                                                 WinoCustomMessageDialogIcon.Warning);
+            return;
         }
 
-        [RelayCommand]
-        private async Task DeleteAliasAsync(MailAccountAlias alias)
-        {
-            // Primary aliases can't be deleted.
-            if (alias.IsPrimary)
-            {
-                await _dialogService.ShowMessageAsync(Translator.Info_CantDeletePrimaryAliasMessage,
-                                                     Translator.GeneralTitle_Warning,
-                                                     WinoCustomMessageDialogIcon.Warning);
-                return;
-            }
-
-            // Root aliases can't be deleted.
-            if (alias.IsRootAlias)
-            {
-                await _dialogService.ShowMessageAsync(Translator.DialogMessage_CantDeleteRootAliasTitle,
-                                                     Translator.DialogMessage_CantDeleteRootAliasMessage,
-                                                     WinoCustomMessageDialogIcon.Warning);
-                return;
-            }
-
-            await _accountService.DeleteAccountAliasAsync(alias.Id);
-            await LoadAliasesAsync();
-        }
+        await _accountService.DeleteAccountAliasAsync(alias.Id);
+        await LoadAliasesAsync();
     }
 }

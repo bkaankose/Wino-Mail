@@ -1,9 +1,8 @@
-﻿namespace Wino.Core.Domain.Models.Navigation
+﻿namespace Wino.Core.Domain.Models.Navigation;
+
+public enum NavigationTransitionType
 {
-    public enum NavigationTransitionType
-    {
-        None, // Supress
-        DrillIn,
-        Entrance,
-    }
+    None, // Supress
+    DrillIn,
+    Entrance,
 }

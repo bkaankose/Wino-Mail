@@ -10,142 +10,141 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Extensions;
 using Wino.Services;
 
-namespace Wino.Core.Integration.Processors
+namespace Wino.Core.Integration.Processors;
+
+public class OutlookChangeProcessor(IDatabaseService databaseService,
+                                    IFolderService folderService,
+                                    ICalendarService calendarService,
+                                    IMailService mailService,
+                                    IAccountService accountService,
+                                    IMimeFileService mimeFileService) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+    , IOutlookChangeProcessor
 {
-    public class OutlookChangeProcessor(IDatabaseService databaseService,
-                                        IFolderService folderService,
-                                        ICalendarService calendarService,
-                                        IMailService mailService,
-                                        IAccountService accountService,
-                                        IMimeFileService mimeFileService) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
-        , IOutlookChangeProcessor
+    public Task<bool> IsMailExistsAsync(string messageId)
+        => MailService.IsMailExistsAsync(messageId);
+
+    public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
+        => MailService.IsMailExistsAsync(messageId, folderId);
+
+    public Task<string> ResetAccountDeltaTokenAsync(Guid accountId)
+        => AccountService.UpdateSynchronizationIdentifierAsync(accountId, null);
+
+    public async Task<string> ResetFolderDeltaTokenAsync(Guid folderId)
     {
-        public Task<bool> IsMailExistsAsync(string messageId)
-            => MailService.IsMailExistsAsync(messageId);
+        var folder = await FolderService.GetFolderAsync(folderId);
 
-        public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
-            => MailService.IsMailExistsAsync(messageId, folderId);
+        folder.DeltaToken = null;
 
-        public Task<string> ResetAccountDeltaTokenAsync(Guid accountId)
-            => AccountService.UpdateSynchronizationIdentifierAsync(accountId, null);
+        await FolderService.UpdateFolderAsync(folder);
 
-        public async Task<string> ResetFolderDeltaTokenAsync(Guid folderId)
+        return string.Empty;
+    }
+
+    public Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
+        => Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ? WHERE Id = ?", synchronizationIdentifier, folderId);
+
+    public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
+    {
+        // We parse the occurrences based on the parent event.
+        // There is literally no point to store them because
+        // type=Exception events are the exceptional childs of recurrency parent event.
+
+        if (calendarEvent.Type == EventType.Occurrence) return;
+
+        var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
+
+        Guid savingItemId = Guid.Empty;
+
+        if (savingItem != null)
+            savingItemId = savingItem.Id;
+        else
         {
-            var folder = await FolderService.GetFolderAsync(folderId);
-
-            folder.DeltaToken = null;
-
-            await FolderService.UpdateFolderAsync(folder);
-
-            return string.Empty;
+            savingItemId = Guid.NewGuid();
+            savingItem = new CalendarItem() { Id = savingItemId };
         }
 
-        public Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
-            => Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ? WHERE Id = ?", synchronizationIdentifier, folderId);
+        DateTimeOffset eventStartDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.Start);
+        DateTimeOffset eventEndDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.End);
 
-        public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
+        var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
+
+        savingItem.RemoteEventId = calendarEvent.Id;
+        savingItem.StartDate = eventStartDateTimeOffset.DateTime;
+        savingItem.StartDateOffset = eventStartDateTimeOffset.Offset;
+        savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
+        savingItem.DurationInSeconds = durationInSeconds;
+
+        savingItem.Title = calendarEvent.Subject;
+        savingItem.Description = calendarEvent.Body?.Content;
+        savingItem.Location = calendarEvent.Location?.DisplayName;
+
+        if (calendarEvent.Type == EventType.Exception && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
         {
-            // We parse the occurrences based on the parent event.
-            // There is literally no point to store them because
-            // type=Exception events are the exceptional childs of recurrency parent event.
+            // This is a recurring event exception.
+            // We need to find the parent event and set it as recurring event id.
 
-            if (calendarEvent.Type == EventType.Occurrence) return;
+            var parentEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterId);
 
-            var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
-
-            Guid savingItemId = Guid.Empty;
-
-            if (savingItem != null)
-                savingItemId = savingItem.Id;
-            else
+            if (parentEvent != null)
             {
-                savingItemId = Guid.NewGuid();
-                savingItem = new CalendarItem() { Id = savingItemId };
-            }
-
-            DateTimeOffset eventStartDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.Start);
-            DateTimeOffset eventEndDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.End);
-
-            var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
-
-            savingItem.RemoteEventId = calendarEvent.Id;
-            savingItem.StartDate = eventStartDateTimeOffset.DateTime;
-            savingItem.StartDateOffset = eventStartDateTimeOffset.Offset;
-            savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
-            savingItem.DurationInSeconds = durationInSeconds;
-
-            savingItem.Title = calendarEvent.Subject;
-            savingItem.Description = calendarEvent.Body?.Content;
-            savingItem.Location = calendarEvent.Location?.DisplayName;
-
-            if (calendarEvent.Type == EventType.Exception && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
-            {
-                // This is a recurring event exception.
-                // We need to find the parent event and set it as recurring event id.
-
-                var parentEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterId);
-
-                if (parentEvent != null)
-                {
-                    savingItem.RecurringCalendarItemId = parentEvent.Id;
-                }
-                else
-                {
-                    Log.Warning($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
-                    return;
-                }
-            }
-
-            // Convert the recurrence pattern to string for parent recurring events.
-            if (calendarEvent.Type == EventType.SeriesMaster && calendarEvent.Recurrence != null)
-            {
-                savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
-            }
-
-            savingItem.HtmlLink = calendarEvent.WebLink;
-            savingItem.CalendarId = assignedCalendar.Id;
-            savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
-            savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;
-            savingItem.IsHidden = false;
-
-            if (calendarEvent.ResponseStatus?.Response != null)
-            {
-                switch (calendarEvent.ResponseStatus.Response.Value)
-                {
-                    case ResponseType.None:
-                    case ResponseType.NotResponded:
-                        savingItem.Status = CalendarItemStatus.NotResponded;
-                        break;
-                    case ResponseType.TentativelyAccepted:
-                        savingItem.Status = CalendarItemStatus.Tentative;
-                        break;
-                    case ResponseType.Accepted:
-                    case ResponseType.Organizer:
-                        savingItem.Status = CalendarItemStatus.Confirmed;
-                        break;
-                    case ResponseType.Declined:
-                        savingItem.Status = CalendarItemStatus.Cancelled;
-                        savingItem.IsHidden = true;
-                        break;
-                    default:
-                        break;
-                }
+                savingItem.RecurringCalendarItemId = parentEvent.Id;
             }
             else
             {
-                savingItem.Status = CalendarItemStatus.Confirmed;
+                Log.Warning($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
+                return;
             }
+        }
 
-            // Upsert the event.
-            await Connection.InsertOrReplaceAsync(savingItem);
+        // Convert the recurrence pattern to string for parent recurring events.
+        if (calendarEvent.Type == EventType.SeriesMaster && calendarEvent.Recurrence != null)
+        {
+            savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
+        }
 
-            // Manage attendees.
-            if (calendarEvent.Attendees != null)
+        savingItem.HtmlLink = calendarEvent.WebLink;
+        savingItem.CalendarId = assignedCalendar.Id;
+        savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
+        savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;
+        savingItem.IsHidden = false;
+
+        if (calendarEvent.ResponseStatus?.Response != null)
+        {
+            switch (calendarEvent.ResponseStatus.Response.Value)
             {
-                // Clear all attendees for this event.
-                var attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
-                await CalendarService.ManageEventAttendeesAsync(savingItemId, attendees).ConfigureAwait(false);
+                case ResponseType.None:
+                case ResponseType.NotResponded:
+                    savingItem.Status = CalendarItemStatus.NotResponded;
+                    break;
+                case ResponseType.TentativelyAccepted:
+                    savingItem.Status = CalendarItemStatus.Tentative;
+                    break;
+                case ResponseType.Accepted:
+                case ResponseType.Organizer:
+                    savingItem.Status = CalendarItemStatus.Confirmed;
+                    break;
+                case ResponseType.Declined:
+                    savingItem.Status = CalendarItemStatus.Cancelled;
+                    savingItem.IsHidden = true;
+                    break;
+                default:
+                    break;
             }
+        }
+        else
+        {
+            savingItem.Status = CalendarItemStatus.Confirmed;
+        }
+
+        // Upsert the event.
+        await Connection.InsertOrReplaceAsync(savingItem);
+
+        // Manage attendees.
+        if (calendarEvent.Attendees != null)
+        {
+            // Clear all attendees for this event.
+            var attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
+            await CalendarService.ManageEventAttendeesAsync(savingItemId, attendees).ConfigureAwait(false);
         }
     }
 }

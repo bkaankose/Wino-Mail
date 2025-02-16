@@ -1,19 +1,18 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings
+namespace Wino.Views.Settings;
+
+public sealed partial class LanguageTimePage : LanguageTimePageAbstract
 {
-    public sealed partial class LanguageTimePage : LanguageTimePageAbstract
+    public LanguageTimePage()
     {
-        public LanguageTimePage()
-        {
-            this.InitializeComponent();
-        }
+        this.InitializeComponent();
+    }
 
-        public override void OnLanguageChanged()
-        {
-            base.OnLanguageChanged();
+    public override void OnLanguageChanged()
+    {
+        base.OnLanguageChanged();
 
-            Bindings.Update();
-        }
+        Bindings.Update();
     }
 }

@@ -1,9 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum WinoAppType
 {
-    public enum WinoAppType
-    {
-        Unknown,
-        Mail,
-        Calendar
-    }
+    Unknown,
+    Mail,
+    Calendar
 }
