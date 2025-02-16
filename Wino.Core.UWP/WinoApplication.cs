@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.AsyncEx;
 using Serilog;
@@ -11,6 +13,7 @@ using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
+using Windows.Globalization;
 using Windows.Storage;
 using Windows.UI;
 using Windows.UI.Core.Preview;
@@ -20,11 +23,13 @@ using Windows.UI.Xaml.Controls;
 using Wino.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Translations;
+using Wino.Messaging.Client.Shell;
 using Wino.Services;
 
 namespace Wino.Core.UWP;
 
-public abstract class WinoApplication : Application
+public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 {
     public new static WinoApplication Current => (WinoApplication)Application.Current;
     public const string WinoLaunchLogPrefix = "[Wino Launch] ";
@@ -215,8 +220,6 @@ public abstract class WinoApplication : Application
             CoreApplication.EnablePrelaunch(true);
     }
 
-
-
     public virtual async void OnResuming(object sender, object e)
     {
         // App Service connection was lost on suspension.
@@ -245,4 +248,16 @@ public abstract class WinoApplication : Application
         string logFilePath = Path.Combine(ApplicationData.Current.LocalFolder.Path, Constants.ClientLogFile);
         LogInitializer.SetupLogger(logFilePath);
     }
+
+    public virtual void OnLanguageChanged(AppLanguageModel languageModel)
+    {
+        var newCulture = new CultureInfo(languageModel.Code);
+
+        ApplicationLanguages.PrimaryLanguageOverride = languageModel.Code;
+
+        CultureInfo.DefaultThreadCurrentCulture = newCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = newCulture;
+    }
+
+    public void Receive(LanguageChanged message) => OnLanguageChanged(TranslationService.CurrentLanguageModel);
 }
