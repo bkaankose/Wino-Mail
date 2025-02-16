@@ -78,7 +78,7 @@ public class TranslationService : ITranslationService
             new AppLanguageModel(AppLanguage.Greek, "Greek", "el-GR"),
             new AppLanguageModel(AppLanguage.Indonesian, "Indonesian", "id-ID"),
             new AppLanguageModel(AppLanguage.Polish, "Polski", "pl-PL"),
-            new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil", "pt-BR"),
+            new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portuguese-Brazil", "pt-BR"),
             new AppLanguageModel(AppLanguage.Russian, "Russian", "ru-RU"),
             new AppLanguageModel(AppLanguage.Romanian, "Romanian", "ro-RO"),
             new AppLanguageModel(AppLanguage.Spanish, "Spanish", "es-ES"),
