@@ -36,1172 +36,1171 @@ using Wino.Messaging.UI;
 using Wino.Services;
 using CalendarService = Google.Apis.Calendar.v3.CalendarService;
 
-namespace Wino.Core.Synchronizers.Mail
+namespace Wino.Core.Synchronizers.Mail;
+
+public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message, Event>, IHttpClientFactory
 {
-    public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message, Event>, IHttpClientFactory
+    public override uint BatchModificationSize => 1000;
+    public override uint InitialMessageDownloadCountPerFolder => 1200;
+
+    // It's actually 100. But Gmail SDK has internal bug for Out of Memory exception.
+    // https://github.com/googleapis/google-api-dotnet-client/issues/2603
+    private const uint MaximumAllowedBatchRequestSize = 10;
+
+    private readonly ConfigurableHttpClient _googleHttpClient;
+    private readonly GmailService _gmailService;
+    private readonly CalendarService _calendarService;
+    private readonly PeopleServiceService _peopleService;
+
+    private readonly IGmailChangeProcessor _gmailChangeProcessor;
+    private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
+
+    public GmailSynchronizer(MailAccount account,
+                             IGmailAuthenticator authenticator,
+                             IGmailChangeProcessor gmailChangeProcessor) : base(account)
     {
-        public override uint BatchModificationSize => 1000;
-        public override uint InitialMessageDownloadCountPerFolder => 1200;
+        var messageHandler = new GmailClientMessageHandler(authenticator, account);
 
-        // It's actually 100. But Gmail SDK has internal bug for Out of Memory exception.
-        // https://github.com/googleapis/google-api-dotnet-client/issues/2603
-        private const uint MaximumAllowedBatchRequestSize = 10;
-
-        private readonly ConfigurableHttpClient _googleHttpClient;
-        private readonly GmailService _gmailService;
-        private readonly CalendarService _calendarService;
-        private readonly PeopleServiceService _peopleService;
-
-        private readonly IGmailChangeProcessor _gmailChangeProcessor;
-        private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
-
-        public GmailSynchronizer(MailAccount account,
-                                 IGmailAuthenticator authenticator,
-                                 IGmailChangeProcessor gmailChangeProcessor) : base(account)
+        var initializer = new BaseClientService.Initializer()
         {
-            var messageHandler = new GmailClientMessageHandler(authenticator, account);
+            HttpClientFactory = this
+        };
 
-            var initializer = new BaseClientService.Initializer()
-            {
-                HttpClientFactory = this
-            };
+        _googleHttpClient = new ConfigurableHttpClient(messageHandler);
+        _gmailService = new GmailService(initializer);
+        _peopleService = new PeopleServiceService(initializer);
+        _calendarService = new CalendarService(initializer);
 
-            _googleHttpClient = new ConfigurableHttpClient(messageHandler);
-            _gmailService = new GmailService(initializer);
-            _peopleService = new PeopleServiceService(initializer);
-            _calendarService = new CalendarService(initializer);
+        _gmailChangeProcessor = gmailChangeProcessor;
+    }
 
-            _gmailChangeProcessor = gmailChangeProcessor;
+    public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
+
+    public override async Task<ProfileInformation> GetProfileInformationAsync()
+    {
+        var profileRequest = _peopleService.People.Get("people/me");
+        profileRequest.PersonFields = "names,photos,emailAddresses";
+
+        string senderName = string.Empty, base64ProfilePicture = string.Empty, address = string.Empty;
+
+        var userProfile = await profileRequest.ExecuteAsync();
+
+        senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
+
+        var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
+
+        if (!string.IsNullOrEmpty(profilePicture))
+        {
+            base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
         }
 
-        public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
+        address = userProfile.EmailAddresses.FirstOrDefault(a => a.Metadata.Primary == true).Value;
 
-        public override async Task<ProfileInformation> GetProfileInformationAsync()
+        return new ProfileInformation(senderName, base64ProfilePicture, address);
+    }
+
+    protected override async Task SynchronizeAliasesAsync()
+    {
+        var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
+        var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
+        var remoteAliases = sendAsListResponse.GetRemoteAliases();
+
+        await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
+    }
+
+    protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        _logger.Information("Internal mail synchronization started for {Name}", Account.Name);
+
+        // Gmail must always synchronize folders before because it doesn't have a per-folder sync.
+        bool shouldSynchronizeFolders = true;
+
+        if (shouldSynchronizeFolders)
         {
-            var profileRequest = _peopleService.People.Get("people/me");
-            profileRequest.PersonFields = "names,photos,emailAddresses";
+            _logger.Information("Synchronizing folders for {Name}", Account.Name);
 
-            string senderName = string.Empty, base64ProfilePicture = string.Empty, address = string.Empty;
+            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
-            var userProfile = await profileRequest.ExecuteAsync();
-
-            senderName = userProfile.Names?.FirstOrDefault()?.DisplayName ?? Account.SenderName;
-
-            var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
-
-            if (!string.IsNullOrEmpty(profilePicture))
-            {
-                base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
-            }
-
-            address = userProfile.EmailAddresses.FirstOrDefault(a => a.Metadata.Primary == true).Value;
-
-            return new ProfileInformation(senderName, base64ProfilePicture, address);
+            _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
         }
 
-        protected override async Task SynchronizeAliasesAsync()
+        // There is no specific folder synchronization in Gmail.
+        // Therefore we need to stop the synchronization at this point
+        // if type is only folder metadata sync.
+
+        if (options.Type == MailSynchronizationType.FoldersOnly) return MailSynchronizationResult.Empty;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
+
+        _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
+
+        var missingMessageIds = new List<string>();
+
+        var deltaChanges = new List<ListHistoryResponse>(); // For tracking delta changes.
+        var listChanges = new List<ListMessagesResponse>(); // For tracking initial sync changes.
+
+        /* Processing flow order is important to preserve the validity of history.
+         * 1 - Process added mails. Because we need to create the mail first before assigning it to labels.
+         * 2 - Process label assignments.
+         * 3 - Process removed mails.
+         * This affects reporting progres if done individually for each history change.
+         * Therefore we need to process all changes in one go after the fetch.
+         */
+
+        if (isInitialSync)
         {
-            var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
-            var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
-            var remoteAliases = sendAsListResponse.GetRemoteAliases();
+            // Initial synchronization.
+            // Google sends message id and thread id in this query.
+            // We'll collect them and send a Batch request to get details of the messages.
 
-            await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
-        }
+            var messageRequest = _gmailService.Users.Messages.List("me");
 
-        protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
-        {
-            _logger.Information("Internal mail synchronization started for {Name}", Account.Name);
+            // Gmail doesn't do per-folder sync. So our per-folder count is the same as total message count.
+            messageRequest.MaxResults = InitialMessageDownloadCountPerFolder;
+            messageRequest.IncludeSpamTrash = true;
 
-            // Gmail must always synchronize folders before because it doesn't have a per-folder sync.
-            bool shouldSynchronizeFolders = true;
+            ListMessagesResponse result = null;
 
-            if (shouldSynchronizeFolders)
+            string nextPageToken = string.Empty;
+
+            while (true)
             {
-                _logger.Information("Synchronizing folders for {Name}", Account.Name);
-
-                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-
-                _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
-            }
-
-            // There is no specific folder synchronization in Gmail.
-            // Therefore we need to stop the synchronization at this point
-            // if type is only folder metadata sync.
-
-            if (options.Type == MailSynchronizationType.FoldersOnly) return MailSynchronizationResult.Empty;
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
-
-            _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
-
-            var missingMessageIds = new List<string>();
-
-            var deltaChanges = new List<ListHistoryResponse>(); // For tracking delta changes.
-            var listChanges = new List<ListMessagesResponse>(); // For tracking initial sync changes.
-
-            /* Processing flow order is important to preserve the validity of history.
-             * 1 - Process added mails. Because we need to create the mail first before assigning it to labels.
-             * 2 - Process label assignments.
-             * 3 - Process removed mails.
-             * This affects reporting progres if done individually for each history change.
-             * Therefore we need to process all changes in one go after the fetch.
-             */
-
-            if (isInitialSync)
-            {
-                // Initial synchronization.
-                // Google sends message id and thread id in this query.
-                // We'll collect them and send a Batch request to get details of the messages.
-
-                var messageRequest = _gmailService.Users.Messages.List("me");
-
-                // Gmail doesn't do per-folder sync. So our per-folder count is the same as total message count.
-                messageRequest.MaxResults = InitialMessageDownloadCountPerFolder;
-                messageRequest.IncludeSpamTrash = true;
-
-                ListMessagesResponse result = null;
-
-                string nextPageToken = string.Empty;
-
-                while (true)
+                if (!string.IsNullOrEmpty(nextPageToken))
                 {
-                    if (!string.IsNullOrEmpty(nextPageToken))
-                    {
-                        messageRequest.PageToken = nextPageToken;
-                    }
-
-                    result = await messageRequest.ExecuteAsync(cancellationToken);
-
-                    nextPageToken = result.NextPageToken;
-
-                    listChanges.Add(result);
-
-                    // Nothing to fetch anymore. Break the loop.
-                    if (nextPageToken == null)
-                        break;
-                }
-            }
-            else
-            {
-                var startHistoryId = ulong.Parse(Account.SynchronizationDeltaIdentifier);
-                var nextPageToken = ulong.Parse(Account.SynchronizationDeltaIdentifier).ToString();
-
-                var historyRequest = _gmailService.Users.History.List("me");
-                historyRequest.StartHistoryId = startHistoryId;
-
-                while (!string.IsNullOrEmpty(nextPageToken))
-                {
-                    // If this is the first delta check, start from the last history id.
-                    // Otherwise start from the next page token. We set them both to the same value for start.
-                    // For each different page we set the page token to the next page token.
-
-                    bool isFirstDeltaCheck = nextPageToken == startHistoryId.ToString();
-
-                    if (!isFirstDeltaCheck)
-                        historyRequest.PageToken = nextPageToken;
-
-                    var historyResponse = await historyRequest.ExecuteAsync(cancellationToken);
-
-                    nextPageToken = historyResponse.NextPageToken;
-
-                    if (historyResponse.History == null)
-                        continue;
-
-                    deltaChanges.Add(historyResponse);
-                }
-            }
-
-            // Add initial message ids from initial sync.
-            missingMessageIds.AddRange(listChanges.Where(a => a.Messages != null).SelectMany(a => a.Messages).Select(a => a.Id));
-
-            // Add missing message ids from delta changes.
-            foreach (var historyResponse in deltaChanges)
-            {
-                var addedMessageIds = historyResponse.History
-                    .Where(a => a.MessagesAdded != null)
-                    .SelectMany(a => a.MessagesAdded)
-                    .Where(a => a.Message != null)
-                    .Select(a => a.Message.Id);
-
-                missingMessageIds.AddRange(addedMessageIds);
-            }
-
-            // Consolidate added/deleted elements.
-            // For example: History change might report downloading a mail first, then deleting it in another history change.
-            // In that case, downloading mail will return entity not found error.
-            // Plus, it's a redundant download the mail.
-            // Purge missing message ids from potentially deleted mails to prevent this.
-
-            var messageDeletedHistoryChanges = deltaChanges
-                .Where(a => a.History != null)
-                .SelectMany(a => a.History)
-                .Where(a => a.MessagesDeleted != null)
-                .SelectMany(a => a.MessagesDeleted);
-
-            var deletedMailIdsInHistory = messageDeletedHistoryChanges.Select(a => a.Message.Id);
-
-            if (deletedMailIdsInHistory.Any())
-            {
-                var mailIdsToConsolidate = missingMessageIds.Where(a => deletedMailIdsInHistory.Contains(a)).ToList();
-
-                int consolidatedMessageCount = missingMessageIds.RemoveAll(a => deletedMailIdsInHistory.Contains(a));
-
-                if (consolidatedMessageCount > 0)
-                {
-                    // TODO: Also delete the history changes that are related to these mails.
-                    // This will prevent unwanted logs and additional queries to look for them in processing.
-
-                    _logger.Information($"Purged {consolidatedMessageCount} missing mail downloads. ({string.Join(",", mailIdsToConsolidate)})");
-                }
-            }
-
-            // Start downloading missing messages.
-            await BatchDownloadMessagesAsync(missingMessageIds, cancellationToken).ConfigureAwait(false);
-
-            // Map remote drafts to local drafts.
-            await MapDraftIdsAsync(cancellationToken).ConfigureAwait(false);
-
-            // Start processing delta changes.
-            foreach (var historyResponse in deltaChanges)
-            {
-                await ProcessHistoryChangesAsync(historyResponse).ConfigureAwait(false);
-            }
-
-            // Take the max history id from delta changes and update the account sync modifier.
-            var maxHistoryId = deltaChanges.Max(a => a.HistoryId);
-
-            if (maxHistoryId != null)
-            {
-                // TODO: This is not good. Centralize the identifier fetch and prevent direct access here.
-                Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, maxHistoryId.ToString()).ConfigureAwait(false);
-
-                _logger.Debug("Final sync identifier {SynchronizationDeltaIdentifier}", Account.SynchronizationDeltaIdentifier);
-            }
-
-            // Get all unred new downloaded items and return in the result.
-            // This is primarily used in notifications.
-
-            var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, missingMessageIds).ConfigureAwait(false);
-
-            return MailSynchronizationResult.Completed(unreadNewItems);
-        }
-
-        protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
-        {
-            _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
-
-            bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
-
-            _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
-
-            var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
-
-            // TODO: Better logging and exception handling.
-            foreach (var calendar in localCalendars)
-            {
-                var request = _calendarService.Events.List(calendar.RemoteCalendarId);
-
-                request.SingleEvents = false;
-                request.ShowDeleted = true;
-
-                if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
-                {
-                    // If a sync token is available, perform an incremental sync
-                    request.SyncToken = calendar.SynchronizationDeltaToken;
-                }
-                else
-                {
-                    // If no sync token, perform an initial sync
-                    // Fetch events from the past year
-
-                    request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
+                    messageRequest.PageToken = nextPageToken;
                 }
 
-                string nextPageToken;
-                string syncToken;
+                result = await messageRequest.ExecuteAsync(cancellationToken);
 
-                var allEvents = new List<Event>();
+                nextPageToken = result.NextPageToken;
 
-                do
-                {
-                    // Execute the request
-                    var events = await request.ExecuteAsync();
+                listChanges.Add(result);
 
-                    // Process the fetched events
-                    if (events.Items != null)
-                    {
-                        allEvents.AddRange(events.Items);
-                    }
-
-                    // Get the next page token and sync token
-                    nextPageToken = events.NextPageToken;
-                    syncToken = events.NextSyncToken;
-
-                    // Set the next page token for subsequent requests
-                    request.PageToken = nextPageToken;
-
-                } while (!string.IsNullOrEmpty(nextPageToken));
-
-                calendar.SynchronizationDeltaToken = syncToken;
-
-                // allEvents contains new or updated events.
-                // Process them and create/update local calendar items.
-
-                foreach (var @event in allEvents)
-                {
-                    // TODO: Exception handling for event processing.
-                    // TODO: Also update attendees and other properties.
-
-                    await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
-                }
-
-                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                // Nothing to fetch anymore. Break the loop.
+                if (nextPageToken == null)
+                    break;
             }
-
-            return default;
         }
-
-        private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
+        else
         {
-            var calendarListRequest = _calendarService.CalendarList.List();
-            var calendarListResponse = await calendarListRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var startHistoryId = ulong.Parse(Account.SynchronizationDeltaIdentifier);
+            var nextPageToken = ulong.Parse(Account.SynchronizationDeltaIdentifier).ToString();
 
-            if (calendarListResponse.Items == null)
+            var historyRequest = _gmailService.Users.History.List("me");
+            historyRequest.StartHistoryId = startHistoryId;
+
+            while (!string.IsNullOrEmpty(nextPageToken))
             {
-                _logger.Warning("No calendars found for {Name}", Account.Name);
-                return;
-            }
+                // If this is the first delta check, start from the last history id.
+                // Otherwise start from the next page token. We set them both to the same value for start.
+                // For each different page we set the page token to the next page token.
 
-            var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+                bool isFirstDeltaCheck = nextPageToken == startHistoryId.ToString();
 
-            List<AccountCalendar> insertedCalendars = new();
-            List<AccountCalendar> updatedCalendars = new();
-            List<AccountCalendar> deletedCalendars = new();
+                if (!isFirstDeltaCheck)
+                    historyRequest.PageToken = nextPageToken;
 
-            // 1. Handle deleted calendars.
+                var historyResponse = await historyRequest.ExecuteAsync(cancellationToken);
 
-            foreach (var calendar in localCalendars)
-            {
-                var remoteCalendar = calendarListResponse.Items.FirstOrDefault(a => a.Id == calendar.RemoteCalendarId);
-                if (remoteCalendar == null)
-                {
-                    // Local calendar doesn't exists remotely. Delete local copy.
+                nextPageToken = historyResponse.NextPageToken;
 
-                    await _gmailChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
-                    deletedCalendars.Add(calendar);
-                }
-            }
+                if (historyResponse.History == null)
+                    continue;
 
-            // Delete the deleted folders from local list.
-            deletedCalendars.ForEach(a => localCalendars.Remove(a));
-
-            // 2. Handle update/insert based on remote calendars.
-            foreach (var calendar in calendarListResponse.Items)
-            {
-                var existingLocalCalendar = localCalendars.FirstOrDefault(a => a.RemoteCalendarId == calendar.Id);
-                if (existingLocalCalendar == null)
-                {
-                    // Insert new calendar.
-                    var localCalendar = calendar.AsCalendar(Account.Id);
-                    insertedCalendars.Add(localCalendar);
-                }
-                else
-                {
-                    // Update existing calendar. Right now we only update the name.
-                    if (ShouldUpdateCalendar(calendar, existingLocalCalendar))
-                    {
-                        existingLocalCalendar.Name = calendar.Summary;
-
-                        updatedCalendars.Add(existingLocalCalendar);
-                    }
-                    else
-                    {
-                        // Remove it from the local folder list to skip additional calendar updates.
-                        localCalendars.Remove(existingLocalCalendar);
-                    }
-                }
-            }
-
-            // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
-            foreach (var calendar in insertedCalendars)
-            {
-                await _gmailChangeProcessor.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
-            }
-
-            foreach (var calendar in updatedCalendars)
-            {
-                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
-            }
-
-            if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
-            {
-                // TODO: Notify calendar updates.
-                // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                deltaChanges.Add(historyResponse);
             }
         }
 
-        private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
+        // Add initial message ids from initial sync.
+        missingMessageIds.AddRange(listChanges.Where(a => a.Messages != null).SelectMany(a => a.Messages).Select(a => a.Id));
+
+        // Add missing message ids from delta changes.
+        foreach (var historyResponse in deltaChanges)
         {
-            var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
-            var folderRequest = _gmailService.Users.Labels.List("me");
+            var addedMessageIds = historyResponse.History
+                .Where(a => a.MessagesAdded != null)
+                .SelectMany(a => a.MessagesAdded)
+                .Where(a => a.Message != null)
+                .Select(a => a.Message.Id);
 
-            var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            missingMessageIds.AddRange(addedMessageIds);
+        }
 
-            if (labelsResponse.Labels == null)
+        // Consolidate added/deleted elements.
+        // For example: History change might report downloading a mail first, then deleting it in another history change.
+        // In that case, downloading mail will return entity not found error.
+        // Plus, it's a redundant download the mail.
+        // Purge missing message ids from potentially deleted mails to prevent this.
+
+        var messageDeletedHistoryChanges = deltaChanges
+            .Where(a => a.History != null)
+            .SelectMany(a => a.History)
+            .Where(a => a.MessagesDeleted != null)
+            .SelectMany(a => a.MessagesDeleted);
+
+        var deletedMailIdsInHistory = messageDeletedHistoryChanges.Select(a => a.Message.Id);
+
+        if (deletedMailIdsInHistory.Any())
+        {
+            var mailIdsToConsolidate = missingMessageIds.Where(a => deletedMailIdsInHistory.Contains(a)).ToList();
+
+            int consolidatedMessageCount = missingMessageIds.RemoveAll(a => deletedMailIdsInHistory.Contains(a));
+
+            if (consolidatedMessageCount > 0)
             {
-                _logger.Warning("No folders found for {Name}", Account.Name);
-                return;
-            }
+                // TODO: Also delete the history changes that are related to these mails.
+                // This will prevent unwanted logs and additional queries to look for them in processing.
 
-            List<MailItemFolder> insertedFolders = new();
-            List<MailItemFolder> updatedFolders = new();
-            List<MailItemFolder> deletedFolders = new();
-
-            // 1. Handle deleted labels.
-
-            foreach (var localFolder in localFolders)
-            {
-                // Category folder is virtual folder for Wino. Skip it.
-                if (localFolder.SpecialFolderType == SpecialFolderType.Category) continue;
-
-                var remoteFolder = labelsResponse.Labels.FirstOrDefault(a => a.Id == localFolder.RemoteFolderId);
-
-                if (remoteFolder == null)
-                {
-                    // Local folder doesn't exists remotely. Delete local copy.
-                    await _gmailChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
-
-                    deletedFolders.Add(localFolder);
-                }
-            }
-
-            // Delete the deleted folders from local list.
-            deletedFolders.ForEach(a => localFolders.Remove(a));
-
-            // 2. Handle update/insert based on remote folders.
-            foreach (var remoteFolder in labelsResponse.Labels)
-            {
-                var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.Id);
-
-                if (existingLocalFolder == null)
-                {
-                    // Insert new folder.
-                    var localFolder = remoteFolder.GetLocalFolder(labelsResponse, Account.Id);
-
-                    insertedFolders.Add(localFolder);
-                }
-                else
-                {
-                    // Update existing folder. Right now we only update the name.
-
-                    // TODO: Moving folders around different parents. This is not supported right now.
-                    // We will need more comphrensive folder update mechanism to support this.
-
-                    if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
-                    {
-                        existingLocalFolder.FolderName = remoteFolder.Name;
-                        existingLocalFolder.TextColorHex = remoteFolder.Color?.TextColor;
-                        existingLocalFolder.BackgroundColorHex = remoteFolder.Color?.BackgroundColor;
-
-                        updatedFolders.Add(existingLocalFolder);
-                    }
-                    else
-                    {
-                        // Remove it from the local folder list to skip additional folder updates.
-                        localFolders.Remove(existingLocalFolder);
-                    }
-                }
-            }
-
-            // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
-
-            foreach (var folder in insertedFolders)
-            {
-                await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
-            }
-
-            foreach (var folder in updatedFolders)
-            {
-                await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
-            }
-
-            if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
-            {
-                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+                _logger.Information($"Purged {consolidatedMessageCount} missing mail downloads. ({string.Join(",", mailIdsToConsolidate)})");
             }
         }
 
-        private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar)
+        // Start downloading missing messages.
+        await BatchDownloadMessagesAsync(missingMessageIds, cancellationToken).ConfigureAwait(false);
+
+        // Map remote drafts to local drafts.
+        await MapDraftIdsAsync(cancellationToken).ConfigureAwait(false);
+
+        // Start processing delta changes.
+        foreach (var historyResponse in deltaChanges)
         {
-            // TODO: Only calendar name is updated for now. We can add more checks here.
-
-            var remoteCalendarName = calendarListEntry.Summary;
-            var localCalendarName = accountCalendar.Name;
-
-            return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
+            await ProcessHistoryChangesAsync(historyResponse).ConfigureAwait(false);
         }
 
-        private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)
+        // Take the max history id from delta changes and update the account sync modifier.
+        var maxHistoryId = deltaChanges.Max(a => a.HistoryId);
+
+        if (maxHistoryId != null)
         {
-            var remoteFolderName = GoogleIntegratorExtensions.GetFolderName(remoteFolder.Name);
-            var localFolderName = GoogleIntegratorExtensions.GetFolderName(existingLocalFolder.FolderName);
-
-            bool isNameChanged = !localFolderName.Equals(remoteFolderName, StringComparison.OrdinalIgnoreCase);
-            bool isColorChanged = existingLocalFolder.BackgroundColorHex != remoteFolder.Color?.BackgroundColor ||
-                    existingLocalFolder.TextColorHex != remoteFolder.Color?.TextColor;
-
-            return isNameChanged || isColorChanged;
-        }
-
-        /// <summary>
-        /// Returns a single get request to retrieve the raw message with the given id
-        /// </summary>
-        /// <param name="messageId">Message to download.</param>
-        /// <returns>Get request for raw mail.</returns>
-        private UsersResource.MessagesResource.GetRequest CreateSingleMessageGet(string messageId)
-        {
-            var singleRequest = _gmailService.Users.Messages.Get("me", messageId);
-            singleRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
-
-            return singleRequest;
-        }
-
-        /// <summary>
-        /// Downloads given message ids per batch and processes them.
-        /// </summary>
-        /// <param name="messageIds">Gmail message ids to download.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        private async Task BatchDownloadMessagesAsync(IEnumerable<string> messageIds, CancellationToken cancellationToken = default)
-        {
-            var totalDownloadCount = messageIds.Count();
-
-            if (totalDownloadCount == 0) return;
-
-            var downloadedItemCount = 0;
-
-            _logger.Debug("Batch downloading {Count} messages for {Name}", messageIds.Count(), Account.Name);
-
-            var allDownloadRequests = messageIds.Select(CreateSingleMessageGet);
-
-            // Respect the batch size limit for batch requests.
-            var batchedDownloadRequests = allDownloadRequests.Batch((int)MaximumAllowedBatchRequestSize);
-
-            _logger.Debug("Total items to download: {TotalDownloadCount}. Created {Count} batch download requests for {Name}.", batchedDownloadRequests.Count(), Account.Name, totalDownloadCount);
-
-            // Gmail SDK's BatchRequest has Action delegate for callback, not Task.
-            // Therefore it's not possible to make sure that downloaded item is processed in the database before this
-            // async callback is finished. Therefore we need to wrap all local database processings into task list and wait all of them to finish
-            // Batch execution finishes after response parsing is done.
-
-            var batchProcessCallbacks = new List<Task>();
-
-            foreach (var batchBundle in batchedDownloadRequests)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var batchRequest = new BatchRequest(_gmailService);
-
-                // Queue each request into this batch.
-                batchBundle.ForEach(request =>
-                {
-                    batchRequest.Queue<Message>(request, (content, error, index, message) =>
-                    {
-                        var downloadingMessageId = messageIds.ElementAt(index);
-
-                        batchProcessCallbacks.Add(HandleSingleItemDownloadedCallbackAsync(content, error, downloadingMessageId, cancellationToken));
-
-                        downloadedItemCount++;
-
-                        var progressValue = downloadedItemCount * 100 / Math.Max(1, totalDownloadCount);
-
-                        PublishSynchronizationProgress(progressValue);
-                    });
-                });
-
-                _logger.Information("Executing batch download with {Count} items.", batchRequest.Count);
-
-                await batchRequest.ExecuteAsync(cancellationToken);
-
-                // This is important due to bug in Gmail SDK.
-                // We force GC here to prevent Out of Memory exception.
-                // https://github.com/googleapis/google-api-dotnet-client/issues/2603
-
-                GC.Collect();
-            }
-
-            // Wait for all processing to finish.
-            await Task.WhenAll(batchProcessCallbacks).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Processes the delta changes for the given history changes.
-        /// Message downloads are not handled here since it's better to batch them.
-        /// </summary>
-        /// <param name="listHistoryResponse">List of history changes.</param>
-        private async Task ProcessHistoryChangesAsync(ListHistoryResponse listHistoryResponse)
-        {
-            _logger.Debug("Processing delta change {HistoryId} for {Name}", Account.Name, listHistoryResponse.HistoryId.GetValueOrDefault());
-
-            foreach (var history in listHistoryResponse.History)
-            {
-                // Handle label additions.
-                if (history.LabelsAdded is not null)
-                {
-                    foreach (var addedLabel in history.LabelsAdded)
-                    {
-                        await HandleLabelAssignmentAsync(addedLabel);
-                    }
-                }
-
-                // Handle label removals.
-                if (history.LabelsRemoved is not null)
-                {
-                    foreach (var removedLabel in history.LabelsRemoved)
-                    {
-                        await HandleLabelRemovalAsync(removedLabel);
-                    }
-                }
-
-                // Handle removed messages.
-                if (history.MessagesDeleted is not null)
-                {
-                    foreach (var deletedMessage in history.MessagesDeleted)
-                    {
-                        var messageId = deletedMessage.Message.Id;
-
-                        _logger.Debug("Processing message deletion for {MessageId}", messageId);
-
-                        await _gmailChangeProcessor.DeleteMailAsync(Account.Id, messageId).ConfigureAwait(false);
-                    }
-                }
-            }
-        }
-
-        private async Task HandleLabelAssignmentAsync(HistoryLabelAdded addedLabel)
-        {
-            var messageId = addedLabel.Message.Id;
-
-            _logger.Debug("Processing label assignment for message {MessageId}", messageId);
-
-            foreach (var labelId in addedLabel.LabelIds)
-            {
-                // When UNREAD label is added mark the message as un-read.
-                if (labelId == ServiceConstants.UNREAD_LABEL_ID)
-                    await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, false).ConfigureAwait(false);
-
-                // When STARRED label is added mark the message as flagged.
-                if (labelId == ServiceConstants.STARRED_LABEL_ID)
-                    await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, true).ConfigureAwait(false);
-
-                await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
-            }
-        }
-
-        private async Task HandleLabelRemovalAsync(HistoryLabelRemoved removedLabel)
-        {
-            var messageId = removedLabel.Message.Id;
-
-            _logger.Debug("Processing label removed for message {MessageId}", messageId);
-
-            foreach (var labelId in removedLabel.LabelIds)
-            {
-                // When UNREAD label is removed mark the message as read.
-                if (labelId == ServiceConstants.UNREAD_LABEL_ID)
-                    await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, true).ConfigureAwait(false);
-
-                // When STARRED label is removed mark the message as un-flagged.
-                if (labelId == ServiceConstants.STARRED_LABEL_ID)
-                    await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, false).ConfigureAwait(false);
-
-                // For other labels remove the mail assignment.
-                await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
-            }
-        }
-
-        /// <summary>
-        /// Prepares Gmail Draft object from Google SDK.
-        /// If provided, ThreadId ties the draft to a thread. Used when replying messages.
-        /// If provided, DraftId updates the draft instead of creating a new one.
-        /// </summary>
-        /// <param name="mimeMessage">MailKit MimeMessage to include as raw message into Gmail request.</param>
-        /// <param name="messageThreadId">ThreadId that this draft should be tied to.</param>
-        /// <param name="messageDraftId">Existing DraftId from Gmail to update existing draft.</param>
-        /// <returns></returns>
-        private Draft PrepareGmailDraft(MimeMessage mimeMessage, string messageThreadId = "", string messageDraftId = "")
-        {
-            mimeMessage.Prepare(EncodingConstraint.None);
-
-            var mimeString = mimeMessage.ToString();
-            var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
-
-            var nativeMessage = new Message()
-            {
-                Raw = base64UrlEncodedMime,
-            };
-
-            if (!string.IsNullOrEmpty(messageThreadId))
-                nativeMessage.ThreadId = messageThreadId;
-
-            var draft = new Draft()
-            {
-                Message = nativeMessage,
-                Id = messageDraftId
-            };
-
-            return draft;
-        }
-
-        #region Mail Integrations
-
-        public override List<IRequestBundle<IClientServiceRequest>> Move(BatchMoveRequest request)
-        {
-            var toFolder = request[0].ToFolder;
-            var fromFolder = request[0].FromFolder;
-
-            // Sent label can't be removed from mails for Gmail.
-            // They are automatically assigned by Gmail.
-            // When you delete sent mail from gmail web portal, it's moved to Trash
-            // but still has Sent label. It's just hidden from the user.
-            // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
-
-            var batchModifyRequest = new BatchModifyMessagesRequest
-            {
-                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-                AddLabelIds = [toFolder.RemoteFolderId]
-            };
-
-            // Only add remove label ids if the source folder is not sent folder.
-            if (fromFolder.SpecialFolderType != SpecialFolderType.Sent)
-            {
-                batchModifyRequest.RemoveLabelIds = [fromFolder.RemoteFolderId];
-            }
-
-            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> ChangeFlag(BatchChangeFlagRequest request)
-        {
-            bool isFlagged = request[0].IsFlagged;
-
-            var batchModifyRequest = new BatchModifyMessagesRequest
-            {
-                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-            };
-
-            if (isFlagged)
-                batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
-            else
-                batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
-
-            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> MarkRead(BatchMarkReadRequest request)
-        {
-            bool readStatus = request[0].IsRead;
-
-            var batchModifyRequest = new BatchModifyMessagesRequest
-            {
-                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-            };
-
-            if (readStatus)
-                batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
-            else
-                batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
-
-            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> Delete(BatchDeleteRequest request)
-        {
-            var batchModifyRequest = new BatchDeleteMessagesRequest
-            {
-                Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
-            };
-
-            var networkCall = _gmailService.Users.Messages.BatchDelete(batchModifyRequest, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> CreateDraft(CreateDraftRequest singleRequest)
-        {
-            Draft draft = null;
-
-            // It's new mail. Not a reply
-            if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
-                draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
-            else
-                draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
-                    singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
-                    singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
-
-            var networkCall = _gmailService.Users.Drafts.Create(draft, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleRequest, singleRequest)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> Archive(BatchArchiveRequest request)
-        {
-            bool isArchiving = request[0].IsArchiving;
-            var batchModifyRequest = new BatchModifyMessagesRequest
-            {
-                Ids = request.Select(a => a.Item.Id.ToString()).ToList()
-            };
-
-            if (isArchiving)
-            {
-                batchModifyRequest.RemoveLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
-            }
-            else
-            {
-                batchModifyRequest.AddLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
-            }
-
-            var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> SendDraft(SendDraftRequest singleDraftRequest)
-        {
-
-            var message = new Message();
-
-            if (!string.IsNullOrEmpty(singleDraftRequest.Item.ThreadId))
-            {
-                message.ThreadId = singleDraftRequest.Item.ThreadId;
-            }
-
-            singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
-
-            var mimeString = singleDraftRequest.Request.Mime.ToString();
-            var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
-            message.Raw = base64UrlEncodedMime;
-
-            var draft = new Draft()
-            {
-                Id = singleDraftRequest.Request.MailItem.DraftId,
-                Message = message
-            };
-
-            var networkCall = _gmailService.Users.Drafts.Send(draft, "me");
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
-        }
-
-        public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
-                                                               ITransferProgress transferProgress = null,
-                                                               CancellationToken cancellationToken = default)
-        {
-            var request = _gmailService.Users.Messages.Get("me", mailItem.Id);
-            request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
-
-            var gmailMessage = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-            var mimeMessage = gmailMessage.GetGmailMimeMessage();
-
-            if (mimeMessage == null)
-            {
-                _logger.Warning("Tried to download Gmail Raw Mime with {Id} id and server responded without a data.", mailItem.Id);
-                return;
-            }
-
-            await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
-        {
-            var label = new Label()
-            {
-                Name = request.NewFolderName
-            };
-
-            var networkCall = _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
-
-            return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
-        {
-            // Create batch delete request.
-
-            var deleteRequests = request.MailsToDelete.Select(a => new DeleteRequest(a));
-
-            return Delete(new BatchDeleteRequest(deleteRequests));
-        }
-
-        public override List<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
-            => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
-
-        #endregion
-
-        #region Request Execution
-
-        public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IClientServiceRequest>> batchedRequests,
-                                                              CancellationToken cancellationToken = default)
-        {
-            var batchedBundles = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
-            var bundleCount = batchedBundles.Count();
-
-            for (int i = 0; i < bundleCount; i++)
-            {
-                var bundle = batchedBundles.ElementAt(i);
-
-                var nativeBatchRequest = new BatchRequest(_gmailService);
-
-                var bundleRequestCount = bundle.Count();
-
-                var bundleTasks = new List<Task>();
-
-                for (int k = 0; k < bundleRequestCount; k++)
-                {
-                    var requestBundle = bundle.ElementAt(k);
-                    requestBundle.UIChangeRequest?.ApplyUIChanges();
-
-                    nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
-                        => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
-                }
-
-                await nativeBatchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-
-                await Task.WhenAll(bundleTasks);
-            }
-        }
-
-        private void ProcessGmailRequestError(RequestError error, IRequestBundle<IClientServiceRequest> bundle)
-        {
-            if (error == null) return;
-
-            // OutOfMemoryException is a known bug in Gmail SDK.
-            if (error.Code == 0)
-            {
-                bundle?.UIChangeRequest?.RevertUIChanges();
-                throw new OutOfMemoryException(error.Message);
-            }
-
-            // Entity not found.
-            if (error.Code == 404)
-            {
-                bundle?.UIChangeRequest?.RevertUIChanges();
-                throw new SynchronizerEntityNotFoundException(error.Message);
-            }
-
-            if (!string.IsNullOrEmpty(error.Message))
-            {
-                bundle?.UIChangeRequest?.RevertUIChanges();
-                error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
-
-                throw new SynchronizerException(error.Message);
-            }
-        }
-
-        /// <summary>
-        /// Handles after each single message download.
-        /// This involves adding the Gmail message into Wino database.
-        /// </summary>
-        /// <param name="message"></param>
-        /// <param name="error"></param>
-        /// <param name="httpResponseMessage"></param>
-        /// <param name="cancellationToken"></param>
-        private async Task HandleSingleItemDownloadedCallbackAsync(Message message,
-                                                                   RequestError error,
-                                                                   string downloadingMessageId,
-                                                                   CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                ProcessGmailRequestError(error, null);
-            }
-            catch (OutOfMemoryException)
-            {
-                _logger.Warning("Gmail SDK got OutOfMemoryException due to bug in the SDK");
-            }
-            catch (SynchronizerEntityNotFoundException)
-            {
-                _logger.Warning("Resource not found for {DownloadingMessageId}", downloadingMessageId);
-            }
-            catch (SynchronizerException synchronizerException)
-            {
-                _logger.Error("Gmail SDK returned error for {DownloadingMessageId}\n{SynchronizerException}", downloadingMessageId, synchronizerException);
-            }
-
-            if (message == null)
-            {
-                _logger.Warning("Skipped GMail message download for {DownloadingMessageId}", downloadingMessageId);
-
-                return;
-            }
-
-            // Gmail has LabelId property for each message.
-            // Therefore we can pass null as the assigned folder safely.
-            var mailPackage = await CreateNewMailPackagesAsync(message, null, cancellationToken);
-
-            // If CreateNewMailPackagesAsync returns null it means local draft mapping is done.
-            // We don't need to insert anything else.
-            if (mailPackage == null)
-                return;
-
-            foreach (var package in mailPackage)
-            {
-                await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
-            }
-
-            // Try updating the history change identifier if any.
-            if (message.HistoryId == null) return;
-
-            // Delta changes also has history id but the maximum id is preserved in the account service.
             // TODO: This is not good. Centralize the identifier fetch and prevent direct access here.
-            Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, message.HistoryId.ToString());
+            Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, maxHistoryId.ToString()).ConfigureAwait(false);
+
+            _logger.Debug("Final sync identifier {SynchronizationDeltaIdentifier}", Account.SynchronizationDeltaIdentifier);
         }
 
-        private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<IClientServiceRequest> bundle,
-                                                                   RequestError error,
-                                                                   HttpResponseMessage httpResponseMessage,
-                                                                   CancellationToken cancellationToken = default)
+        // Get all unred new downloaded items and return in the result.
+        // This is primarily used in notifications.
+
+        var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, missingMessageIds).ConfigureAwait(false);
+
+        return MailSynchronizationResult.Completed(unreadNewItems);
+    }
+
+    protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+
+        bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
+
+        _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
+
+        var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+        // TODO: Better logging and exception handling.
+        foreach (var calendar in localCalendars)
         {
-            ProcessGmailRequestError(error, bundle);
+            var request = _calendarService.Events.List(calendar.RemoteCalendarId);
 
-            if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
+            request.SingleEvents = false;
+            request.ShowDeleted = true;
+
+            if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
             {
-                var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
-
-                if (gmailMessage == null) return;
-
-                await HandleSingleItemDownloadedCallbackAsync(gmailMessage, error, "unknown", cancellationToken);
+                // If a sync token is available, perform an incremental sync
+                request.SyncToken = calendar.SynchronizationDeltaToken;
             }
-            else if (bundle is HttpRequestBundle<IClientServiceRequest, Label> folderBundle)
+            else
             {
-                var gmailLabel = await folderBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
+                // If no sync token, perform an initial sync
+                // Fetch events from the past year
 
-                if (gmailLabel == null) return;
-
-                // TODO: Handle new Gmail Label added or updated.
+                request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
             }
-            else if (bundle is HttpRequestBundle<IClientServiceRequest, Draft> draftBundle && draftBundle.Request is CreateDraftRequest createDraftRequest)
+
+            string nextPageToken;
+            string syncToken;
+
+            var allEvents = new List<Event>();
+
+            do
             {
-                // New draft mail is created.
+                // Execute the request
+                var events = await request.ExecuteAsync();
 
-                var messageDraft = await draftBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
-
-                if (messageDraft == null) return;
-
-                var localDraftCopy = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftCopy;
-
-                // Here we have DraftId, MessageId and ThreadId.
-                // Update the local copy properties and re-synchronize to get the original message and update history.
-
-                // We don't fetch the single message here because it may skip some of the history changes when the
-                // fetch updates the historyId. Therefore we need to re-synchronize to get the latest history changes
-                // which will have the original message downloaded eventually.
-
-                await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId);
-
-                var options = new MailSynchronizationOptions()
+                // Process the fetched events
+                if (events.Items != null)
                 {
-                    AccountId = Account.Id,
-                    Type = MailSynchronizationType.FullFolders
-                };
+                    allEvents.AddRange(events.Items);
+                }
 
-                await SynchronizeMailsInternalAsync(options, cancellationToken);
+                // Get the next page token and sync token
+                nextPageToken = events.NextPageToken;
+                syncToken = events.NextSyncToken;
+
+                // Set the next page token for subsequent requests
+                request.PageToken = nextPageToken;
+
+            } while (!string.IsNullOrEmpty(nextPageToken));
+
+            calendar.SynchronizationDeltaToken = syncToken;
+
+            // allEvents contains new or updated events.
+            // Process them and create/update local calendar items.
+
+            foreach (var @event in allEvents)
+            {
+                // TODO: Exception handling for event processing.
+                // TODO: Also update attendees and other properties.
+
+                await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
+            }
+
+            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+        }
+
+        return default;
+    }
+
+    private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
+    {
+        var calendarListRequest = _calendarService.CalendarList.List();
+        var calendarListResponse = await calendarListRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+        if (calendarListResponse.Items == null)
+        {
+            _logger.Warning("No calendars found for {Name}", Account.Name);
+            return;
+        }
+
+        var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+        List<AccountCalendar> insertedCalendars = new();
+        List<AccountCalendar> updatedCalendars = new();
+        List<AccountCalendar> deletedCalendars = new();
+
+        // 1. Handle deleted calendars.
+
+        foreach (var calendar in localCalendars)
+        {
+            var remoteCalendar = calendarListResponse.Items.FirstOrDefault(a => a.Id == calendar.RemoteCalendarId);
+            if (remoteCalendar == null)
+            {
+                // Local calendar doesn't exists remotely. Delete local copy.
+
+                await _gmailChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                deletedCalendars.Add(calendar);
             }
         }
 
-        /// <summary>
-        /// Maps existing Gmail Draft resources to local mail copies.
-        /// This uses indexed search, therefore it's quite fast.
-        /// It's safe to execute this after each Draft creation + batch message download.
-        /// </summary>
-        private async Task MapDraftIdsAsync(CancellationToken cancellationToken = default)
+        // Delete the deleted folders from local list.
+        deletedCalendars.ForEach(a => localCalendars.Remove(a));
+
+        // 2. Handle update/insert based on remote calendars.
+        foreach (var calendar in calendarListResponse.Items)
         {
-            // TODO: This call is not necessary if we don't have any local drafts.
-            // Remote drafts will be downloaded in missing message batches anyways.
-            // Fix it by checking whether we need to do this or not.
-
-            var drafts = await _gmailService.Users.Drafts.List("me").ExecuteAsync(cancellationToken);
-
-            if (drafts.Drafts == null)
+            var existingLocalCalendar = localCalendars.FirstOrDefault(a => a.RemoteCalendarId == calendar.Id);
+            if (existingLocalCalendar == null)
             {
-                _logger.Information("There are no drafts to map for {Name}", Account.Name);
-
-                return;
+                // Insert new calendar.
+                var localCalendar = calendar.AsCalendar(Account.Id);
+                insertedCalendars.Add(localCalendar);
             }
-
-            foreach (var draft in drafts.Drafts)
+            else
             {
-                await _gmailChangeProcessor.MapLocalDraftAsync(draft.Message.Id, draft.Id, draft.Message.ThreadId);
-            }
-        }
-
-        /// <summary>
-        /// Creates new mail packages for the given message.
-        /// AssignedFolder is null since the LabelId is parsed out of the Message.
-        /// </summary>
-        /// <param name="message">Gmail message to create package for.</param>
-        /// <param name="assignedFolder">Null, not used.</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>New mail package that change processor can use to insert new mail into database.</returns>
-        public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message,
-                                                                                  MailItemFolder assignedFolder,
-                                                                                  CancellationToken cancellationToken = default)
-        {
-            var packageList = new List<NewMailItemPackage>();
-
-            MimeMessage mimeMessage = message.GetGmailMimeMessage();
-            var mailCopy = message.AsMailCopy(mimeMessage);
-
-            // Check whether this message is mapped to any local draft.
-            // Previously we were using Draft resource response as mapping drafts.
-            // This seem to be a worse approach. Now both Outlook and Gmail use X-Wino-Draft-Id header to map drafts.
-            // This is a better approach since we don't need to fetch the draft resource to get the draft id.
-
-            if (mailCopy.IsDraft
-                && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
-                && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
-            {
-                // This message belongs to existing local draft copy.
-                // We don't need to create a new mail copy for this message, just update the existing one.
-
-                bool isMappingSuccesfull = await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
-
-                if (isMappingSuccesfull) return null;
-
-                // Local copy doesn't exists. Continue execution to insert mail copy.
-            }
-
-            if (message.LabelIds is not null)
-            {
-                foreach (var labelId in message.LabelIds)
+                // Update existing calendar. Right now we only update the name.
+                if (ShouldUpdateCalendar(calendar, existingLocalCalendar))
                 {
-                    packageList.Add(new NewMailItemPackage(mailCopy, mimeMessage, labelId));
+                    existingLocalCalendar.Name = calendar.Summary;
+
+                    updatedCalendars.Add(existingLocalCalendar);
+                }
+                else
+                {
+                    // Remove it from the local folder list to skip additional calendar updates.
+                    localCalendars.Remove(existingLocalCalendar);
+                }
+            }
+        }
+
+        // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
+        foreach (var calendar in insertedCalendars)
+        {
+            await _gmailChangeProcessor.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
+        }
+
+        foreach (var calendar in updatedCalendars)
+        {
+            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+        }
+
+        if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
+        {
+            // TODO: Notify calendar updates.
+            // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        }
+    }
+
+    private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
+    {
+        var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var folderRequest = _gmailService.Users.Labels.List("me");
+
+        var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+        if (labelsResponse.Labels == null)
+        {
+            _logger.Warning("No folders found for {Name}", Account.Name);
+            return;
+        }
+
+        List<MailItemFolder> insertedFolders = new();
+        List<MailItemFolder> updatedFolders = new();
+        List<MailItemFolder> deletedFolders = new();
+
+        // 1. Handle deleted labels.
+
+        foreach (var localFolder in localFolders)
+        {
+            // Category folder is virtual folder for Wino. Skip it.
+            if (localFolder.SpecialFolderType == SpecialFolderType.Category) continue;
+
+            var remoteFolder = labelsResponse.Labels.FirstOrDefault(a => a.Id == localFolder.RemoteFolderId);
+
+            if (remoteFolder == null)
+            {
+                // Local folder doesn't exists remotely. Delete local copy.
+                await _gmailChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+
+                deletedFolders.Add(localFolder);
+            }
+        }
+
+        // Delete the deleted folders from local list.
+        deletedFolders.ForEach(a => localFolders.Remove(a));
+
+        // 2. Handle update/insert based on remote folders.
+        foreach (var remoteFolder in labelsResponse.Labels)
+        {
+            var existingLocalFolder = localFolders.FirstOrDefault(a => a.RemoteFolderId == remoteFolder.Id);
+
+            if (existingLocalFolder == null)
+            {
+                // Insert new folder.
+                var localFolder = remoteFolder.GetLocalFolder(labelsResponse, Account.Id);
+
+                insertedFolders.Add(localFolder);
+            }
+            else
+            {
+                // Update existing folder. Right now we only update the name.
+
+                // TODO: Moving folders around different parents. This is not supported right now.
+                // We will need more comphrensive folder update mechanism to support this.
+
+                if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
+                {
+                    existingLocalFolder.FolderName = remoteFolder.Name;
+                    existingLocalFolder.TextColorHex = remoteFolder.Color?.TextColor;
+                    existingLocalFolder.BackgroundColorHex = remoteFolder.Color?.BackgroundColor;
+
+                    updatedFolders.Add(existingLocalFolder);
+                }
+                else
+                {
+                    // Remove it from the local folder list to skip additional folder updates.
+                    localFolders.Remove(existingLocalFolder);
+                }
+            }
+        }
+
+        // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
+
+        foreach (var folder in insertedFolders)
+        {
+            await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
+        }
+
+        foreach (var folder in updatedFolders)
+        {
+            await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
+        }
+
+        if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
+        {
+            WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        }
+    }
+
+    private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar)
+    {
+        // TODO: Only calendar name is updated for now. We can add more checks here.
+
+        var remoteCalendarName = calendarListEntry.Summary;
+        var localCalendarName = accountCalendar.Name;
+
+        return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)
+    {
+        var remoteFolderName = GoogleIntegratorExtensions.GetFolderName(remoteFolder.Name);
+        var localFolderName = GoogleIntegratorExtensions.GetFolderName(existingLocalFolder.FolderName);
+
+        bool isNameChanged = !localFolderName.Equals(remoteFolderName, StringComparison.OrdinalIgnoreCase);
+        bool isColorChanged = existingLocalFolder.BackgroundColorHex != remoteFolder.Color?.BackgroundColor ||
+                existingLocalFolder.TextColorHex != remoteFolder.Color?.TextColor;
+
+        return isNameChanged || isColorChanged;
+    }
+
+    /// <summary>
+    /// Returns a single get request to retrieve the raw message with the given id
+    /// </summary>
+    /// <param name="messageId">Message to download.</param>
+    /// <returns>Get request for raw mail.</returns>
+    private UsersResource.MessagesResource.GetRequest CreateSingleMessageGet(string messageId)
+    {
+        var singleRequest = _gmailService.Users.Messages.Get("me", messageId);
+        singleRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
+
+        return singleRequest;
+    }
+
+    /// <summary>
+    /// Downloads given message ids per batch and processes them.
+    /// </summary>
+    /// <param name="messageIds">Gmail message ids to download.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task BatchDownloadMessagesAsync(IEnumerable<string> messageIds, CancellationToken cancellationToken = default)
+    {
+        var totalDownloadCount = messageIds.Count();
+
+        if (totalDownloadCount == 0) return;
+
+        var downloadedItemCount = 0;
+
+        _logger.Debug("Batch downloading {Count} messages for {Name}", messageIds.Count(), Account.Name);
+
+        var allDownloadRequests = messageIds.Select(CreateSingleMessageGet);
+
+        // Respect the batch size limit for batch requests.
+        var batchedDownloadRequests = allDownloadRequests.Batch((int)MaximumAllowedBatchRequestSize);
+
+        _logger.Debug("Total items to download: {TotalDownloadCount}. Created {Count} batch download requests for {Name}.", batchedDownloadRequests.Count(), Account.Name, totalDownloadCount);
+
+        // Gmail SDK's BatchRequest has Action delegate for callback, not Task.
+        // Therefore it's not possible to make sure that downloaded item is processed in the database before this
+        // async callback is finished. Therefore we need to wrap all local database processings into task list and wait all of them to finish
+        // Batch execution finishes after response parsing is done.
+
+        var batchProcessCallbacks = new List<Task>();
+
+        foreach (var batchBundle in batchedDownloadRequests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var batchRequest = new BatchRequest(_gmailService);
+
+            // Queue each request into this batch.
+            batchBundle.ForEach(request =>
+            {
+                batchRequest.Queue<Message>(request, (content, error, index, message) =>
+                {
+                    var downloadingMessageId = messageIds.ElementAt(index);
+
+                    batchProcessCallbacks.Add(HandleSingleItemDownloadedCallbackAsync(content, error, downloadingMessageId, cancellationToken));
+
+                    downloadedItemCount++;
+
+                    var progressValue = downloadedItemCount * 100 / Math.Max(1, totalDownloadCount);
+
+                    PublishSynchronizationProgress(progressValue);
+                });
+            });
+
+            _logger.Information("Executing batch download with {Count} items.", batchRequest.Count);
+
+            await batchRequest.ExecuteAsync(cancellationToken);
+
+            // This is important due to bug in Gmail SDK.
+            // We force GC here to prevent Out of Memory exception.
+            // https://github.com/googleapis/google-api-dotnet-client/issues/2603
+
+            GC.Collect();
+        }
+
+        // Wait for all processing to finish.
+        await Task.WhenAll(batchProcessCallbacks).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Processes the delta changes for the given history changes.
+    /// Message downloads are not handled here since it's better to batch them.
+    /// </summary>
+    /// <param name="listHistoryResponse">List of history changes.</param>
+    private async Task ProcessHistoryChangesAsync(ListHistoryResponse listHistoryResponse)
+    {
+        _logger.Debug("Processing delta change {HistoryId} for {Name}", Account.Name, listHistoryResponse.HistoryId.GetValueOrDefault());
+
+        foreach (var history in listHistoryResponse.History)
+        {
+            // Handle label additions.
+            if (history.LabelsAdded is not null)
+            {
+                foreach (var addedLabel in history.LabelsAdded)
+                {
+                    await HandleLabelAssignmentAsync(addedLabel);
                 }
             }
 
-            return packageList;
+            // Handle label removals.
+            if (history.LabelsRemoved is not null)
+            {
+                foreach (var removedLabel in history.LabelsRemoved)
+                {
+                    await HandleLabelRemovalAsync(removedLabel);
+                }
+            }
+
+            // Handle removed messages.
+            if (history.MessagesDeleted is not null)
+            {
+                foreach (var deletedMessage in history.MessagesDeleted)
+                {
+                    var messageId = deletedMessage.Message.Id;
+
+                    _logger.Debug("Processing message deletion for {MessageId}", messageId);
+
+                    await _gmailChangeProcessor.DeleteMailAsync(Account.Id, messageId).ConfigureAwait(false);
+                }
+            }
         }
+    }
 
-        #endregion
+    private async Task HandleLabelAssignmentAsync(HistoryLabelAdded addedLabel)
+    {
+        var messageId = addedLabel.Message.Id;
 
-        public override async Task KillSynchronizerAsync()
+        _logger.Debug("Processing label assignment for message {MessageId}", messageId);
+
+        foreach (var labelId in addedLabel.LabelIds)
         {
-            await base.KillSynchronizerAsync();
+            // When UNREAD label is added mark the message as un-read.
+            if (labelId == ServiceConstants.UNREAD_LABEL_ID)
+                await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, false).ConfigureAwait(false);
 
-            _gmailService.Dispose();
-            _peopleService.Dispose();
-            _calendarService.Dispose();
-            _googleHttpClient.Dispose();
+            // When STARRED label is added mark the message as flagged.
+            if (labelId == ServiceConstants.STARRED_LABEL_ID)
+                await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, true).ConfigureAwait(false);
+
+            await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
         }
+    }
+
+    private async Task HandleLabelRemovalAsync(HistoryLabelRemoved removedLabel)
+    {
+        var messageId = removedLabel.Message.Id;
+
+        _logger.Debug("Processing label removed for message {MessageId}", messageId);
+
+        foreach (var labelId in removedLabel.LabelIds)
+        {
+            // When UNREAD label is removed mark the message as read.
+            if (labelId == ServiceConstants.UNREAD_LABEL_ID)
+                await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, true).ConfigureAwait(false);
+
+            // When STARRED label is removed mark the message as un-flagged.
+            if (labelId == ServiceConstants.STARRED_LABEL_ID)
+                await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, false).ConfigureAwait(false);
+
+            // For other labels remove the mail assignment.
+            await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Prepares Gmail Draft object from Google SDK.
+    /// If provided, ThreadId ties the draft to a thread. Used when replying messages.
+    /// If provided, DraftId updates the draft instead of creating a new one.
+    /// </summary>
+    /// <param name="mimeMessage">MailKit MimeMessage to include as raw message into Gmail request.</param>
+    /// <param name="messageThreadId">ThreadId that this draft should be tied to.</param>
+    /// <param name="messageDraftId">Existing DraftId from Gmail to update existing draft.</param>
+    /// <returns></returns>
+    private Draft PrepareGmailDraft(MimeMessage mimeMessage, string messageThreadId = "", string messageDraftId = "")
+    {
+        mimeMessage.Prepare(EncodingConstraint.None);
+
+        var mimeString = mimeMessage.ToString();
+        var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
+
+        var nativeMessage = new Message()
+        {
+            Raw = base64UrlEncodedMime,
+        };
+
+        if (!string.IsNullOrEmpty(messageThreadId))
+            nativeMessage.ThreadId = messageThreadId;
+
+        var draft = new Draft()
+        {
+            Message = nativeMessage,
+            Id = messageDraftId
+        };
+
+        return draft;
+    }
+
+    #region Mail Integrations
+
+    public override List<IRequestBundle<IClientServiceRequest>> Move(BatchMoveRequest request)
+    {
+        var toFolder = request[0].ToFolder;
+        var fromFolder = request[0].FromFolder;
+
+        // Sent label can't be removed from mails for Gmail.
+        // They are automatically assigned by Gmail.
+        // When you delete sent mail from gmail web portal, it's moved to Trash
+        // but still has Sent label. It's just hidden from the user.
+        // Proper assignments will be done later on CreateAssignment call to mimic this behavior.
+
+        var batchModifyRequest = new BatchModifyMessagesRequest
+        {
+            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+            AddLabelIds = [toFolder.RemoteFolderId]
+        };
+
+        // Only add remove label ids if the source folder is not sent folder.
+        if (fromFolder.SpecialFolderType != SpecialFolderType.Sent)
+        {
+            batchModifyRequest.RemoveLabelIds = [fromFolder.RemoteFolderId];
+        }
+
+        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> ChangeFlag(BatchChangeFlagRequest request)
+    {
+        bool isFlagged = request[0].IsFlagged;
+
+        var batchModifyRequest = new BatchModifyMessagesRequest
+        {
+            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+        };
+
+        if (isFlagged)
+            batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
+        else
+            batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.STARRED_LABEL_ID };
+
+        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> MarkRead(BatchMarkReadRequest request)
+    {
+        bool readStatus = request[0].IsRead;
+
+        var batchModifyRequest = new BatchModifyMessagesRequest
+        {
+            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+        };
+
+        if (readStatus)
+            batchModifyRequest.RemoveLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
+        else
+            batchModifyRequest.AddLabelIds = new List<string>() { ServiceConstants.UNREAD_LABEL_ID };
+
+        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> Delete(BatchDeleteRequest request)
+    {
+        var batchModifyRequest = new BatchDeleteMessagesRequest
+        {
+            Ids = request.Select(a => a.Item.Id.ToString()).ToList(),
+        };
+
+        var networkCall = _gmailService.Users.Messages.BatchDelete(batchModifyRequest, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> CreateDraft(CreateDraftRequest singleRequest)
+    {
+        Draft draft = null;
+
+        // It's new mail. Not a reply
+        if (singleRequest.DraftPreperationRequest.ReferenceMailCopy == null)
+            draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage);
+        else
+            draft = PrepareGmailDraft(singleRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage,
+                singleRequest.DraftPreperationRequest.ReferenceMailCopy.ThreadId,
+                singleRequest.DraftPreperationRequest.ReferenceMailCopy.DraftId);
+
+        var networkCall = _gmailService.Users.Drafts.Create(draft, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleRequest, singleRequest)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> Archive(BatchArchiveRequest request)
+    {
+        bool isArchiving = request[0].IsArchiving;
+        var batchModifyRequest = new BatchModifyMessagesRequest
+        {
+            Ids = request.Select(a => a.Item.Id.ToString()).ToList()
+        };
+
+        if (isArchiving)
+        {
+            batchModifyRequest.RemoveLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
+        }
+        else
+        {
+            batchModifyRequest.AddLabelIds = new[] { ServiceConstants.INBOX_LABEL_ID };
+        }
+
+        var networkCall = _gmailService.Users.Messages.BatchModify(batchModifyRequest, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> SendDraft(SendDraftRequest singleDraftRequest)
+    {
+
+        var message = new Message();
+
+        if (!string.IsNullOrEmpty(singleDraftRequest.Item.ThreadId))
+        {
+            message.ThreadId = singleDraftRequest.Item.ThreadId;
+        }
+
+        singleDraftRequest.Request.Mime.Prepare(EncodingConstraint.None);
+
+        var mimeString = singleDraftRequest.Request.Mime.ToString();
+        var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
+        message.Raw = base64UrlEncodedMime;
+
+        var draft = new Draft()
+        {
+            Id = singleDraftRequest.Request.MailItem.DraftId,
+            Message = message
+        };
+
+        var networkCall = _gmailService.Users.Drafts.Send(draft, "me");
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
+    }
+
+    public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
+                                                           ITransferProgress transferProgress = null,
+                                                           CancellationToken cancellationToken = default)
+    {
+        var request = _gmailService.Users.Messages.Get("me", mailItem.Id);
+        request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
+
+        var gmailMessage = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        var mimeMessage = gmailMessage.GetGmailMimeMessage();
+
+        if (mimeMessage == null)
+        {
+            _logger.Warning("Tried to download Gmail Raw Mime with {Id} id and server responded without a data.", mailItem.Id);
+            return;
+        }
+
+        await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
+    {
+        var label = new Label()
+        {
+            Name = request.NewFolderName
+        };
+
+        var networkCall = _gmailService.Users.Labels.Update(label, "me", request.Folder.RemoteFolderId);
+
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> EmptyFolder(EmptyFolderRequest request)
+    {
+        // Create batch delete request.
+
+        var deleteRequests = request.MailsToDelete.Select(a => new DeleteRequest(a));
+
+        return Delete(new BatchDeleteRequest(deleteRequests));
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+        => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
+
+    #endregion
+
+    #region Request Execution
+
+    public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IClientServiceRequest>> batchedRequests,
+                                                          CancellationToken cancellationToken = default)
+    {
+        var batchedBundles = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
+        var bundleCount = batchedBundles.Count();
+
+        for (int i = 0; i < bundleCount; i++)
+        {
+            var bundle = batchedBundles.ElementAt(i);
+
+            var nativeBatchRequest = new BatchRequest(_gmailService);
+
+            var bundleRequestCount = bundle.Count();
+
+            var bundleTasks = new List<Task>();
+
+            for (int k = 0; k < bundleRequestCount; k++)
+            {
+                var requestBundle = bundle.ElementAt(k);
+                requestBundle.UIChangeRequest?.ApplyUIChanges();
+
+                nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
+                    => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
+            }
+
+            await nativeBatchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+            await Task.WhenAll(bundleTasks);
+        }
+    }
+
+    private void ProcessGmailRequestError(RequestError error, IRequestBundle<IClientServiceRequest> bundle)
+    {
+        if (error == null) return;
+
+        // OutOfMemoryException is a known bug in Gmail SDK.
+        if (error.Code == 0)
+        {
+            bundle?.UIChangeRequest?.RevertUIChanges();
+            throw new OutOfMemoryException(error.Message);
+        }
+
+        // Entity not found.
+        if (error.Code == 404)
+        {
+            bundle?.UIChangeRequest?.RevertUIChanges();
+            throw new SynchronizerEntityNotFoundException(error.Message);
+        }
+
+        if (!string.IsNullOrEmpty(error.Message))
+        {
+            bundle?.UIChangeRequest?.RevertUIChanges();
+            error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
+
+            throw new SynchronizerException(error.Message);
+        }
+    }
+
+    /// <summary>
+    /// Handles after each single message download.
+    /// This involves adding the Gmail message into Wino database.
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="error"></param>
+    /// <param name="httpResponseMessage"></param>
+    /// <param name="cancellationToken"></param>
+    private async Task HandleSingleItemDownloadedCallbackAsync(Message message,
+                                                               RequestError error,
+                                                               string downloadingMessageId,
+                                                               CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            ProcessGmailRequestError(error, null);
+        }
+        catch (OutOfMemoryException)
+        {
+            _logger.Warning("Gmail SDK got OutOfMemoryException due to bug in the SDK");
+        }
+        catch (SynchronizerEntityNotFoundException)
+        {
+            _logger.Warning("Resource not found for {DownloadingMessageId}", downloadingMessageId);
+        }
+        catch (SynchronizerException synchronizerException)
+        {
+            _logger.Error("Gmail SDK returned error for {DownloadingMessageId}\n{SynchronizerException}", downloadingMessageId, synchronizerException);
+        }
+
+        if (message == null)
+        {
+            _logger.Warning("Skipped GMail message download for {DownloadingMessageId}", downloadingMessageId);
+
+            return;
+        }
+
+        // Gmail has LabelId property for each message.
+        // Therefore we can pass null as the assigned folder safely.
+        var mailPackage = await CreateNewMailPackagesAsync(message, null, cancellationToken);
+
+        // If CreateNewMailPackagesAsync returns null it means local draft mapping is done.
+        // We don't need to insert anything else.
+        if (mailPackage == null)
+            return;
+
+        foreach (var package in mailPackage)
+        {
+            await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+        }
+
+        // Try updating the history change identifier if any.
+        if (message.HistoryId == null) return;
+
+        // Delta changes also has history id but the maximum id is preserved in the account service.
+        // TODO: This is not good. Centralize the identifier fetch and prevent direct access here.
+        Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, message.HistoryId.ToString());
+    }
+
+    private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<IClientServiceRequest> bundle,
+                                                               RequestError error,
+                                                               HttpResponseMessage httpResponseMessage,
+                                                               CancellationToken cancellationToken = default)
+    {
+        ProcessGmailRequestError(error, bundle);
+
+        if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
+        {
+            var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
+
+            if (gmailMessage == null) return;
+
+            await HandleSingleItemDownloadedCallbackAsync(gmailMessage, error, "unknown", cancellationToken);
+        }
+        else if (bundle is HttpRequestBundle<IClientServiceRequest, Label> folderBundle)
+        {
+            var gmailLabel = await folderBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
+
+            if (gmailLabel == null) return;
+
+            // TODO: Handle new Gmail Label added or updated.
+        }
+        else if (bundle is HttpRequestBundle<IClientServiceRequest, Draft> draftBundle && draftBundle.Request is CreateDraftRequest createDraftRequest)
+        {
+            // New draft mail is created.
+
+            var messageDraft = await draftBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
+
+            if (messageDraft == null) return;
+
+            var localDraftCopy = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftCopy;
+
+            // Here we have DraftId, MessageId and ThreadId.
+            // Update the local copy properties and re-synchronize to get the original message and update history.
+
+            // We don't fetch the single message here because it may skip some of the history changes when the
+            // fetch updates the historyId. Therefore we need to re-synchronize to get the latest history changes
+            // which will have the original message downloaded eventually.
+
+            await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId);
+
+            var options = new MailSynchronizationOptions()
+            {
+                AccountId = Account.Id,
+                Type = MailSynchronizationType.FullFolders
+            };
+
+            await SynchronizeMailsInternalAsync(options, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Maps existing Gmail Draft resources to local mail copies.
+    /// This uses indexed search, therefore it's quite fast.
+    /// It's safe to execute this after each Draft creation + batch message download.
+    /// </summary>
+    private async Task MapDraftIdsAsync(CancellationToken cancellationToken = default)
+    {
+        // TODO: This call is not necessary if we don't have any local drafts.
+        // Remote drafts will be downloaded in missing message batches anyways.
+        // Fix it by checking whether we need to do this or not.
+
+        var drafts = await _gmailService.Users.Drafts.List("me").ExecuteAsync(cancellationToken);
+
+        if (drafts.Drafts == null)
+        {
+            _logger.Information("There are no drafts to map for {Name}", Account.Name);
+
+            return;
+        }
+
+        foreach (var draft in drafts.Drafts)
+        {
+            await _gmailChangeProcessor.MapLocalDraftAsync(draft.Message.Id, draft.Id, draft.Message.ThreadId);
+        }
+    }
+
+    /// <summary>
+    /// Creates new mail packages for the given message.
+    /// AssignedFolder is null since the LabelId is parsed out of the Message.
+    /// </summary>
+    /// <param name="message">Gmail message to create package for.</param>
+    /// <param name="assignedFolder">Null, not used.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>New mail package that change processor can use to insert new mail into database.</returns>
+    public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message,
+                                                                              MailItemFolder assignedFolder,
+                                                                              CancellationToken cancellationToken = default)
+    {
+        var packageList = new List<NewMailItemPackage>();
+
+        MimeMessage mimeMessage = message.GetGmailMimeMessage();
+        var mailCopy = message.AsMailCopy(mimeMessage);
+
+        // Check whether this message is mapped to any local draft.
+        // Previously we were using Draft resource response as mapping drafts.
+        // This seem to be a worse approach. Now both Outlook and Gmail use X-Wino-Draft-Id header to map drafts.
+        // This is a better approach since we don't need to fetch the draft resource to get the draft id.
+
+        if (mailCopy.IsDraft
+            && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
+            && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
+        {
+            // This message belongs to existing local draft copy.
+            // We don't need to create a new mail copy for this message, just update the existing one.
+
+            bool isMappingSuccesfull = await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
+
+            if (isMappingSuccesfull) return null;
+
+            // Local copy doesn't exists. Continue execution to insert mail copy.
+        }
+
+        if (message.LabelIds is not null)
+        {
+            foreach (var labelId in message.LabelIds)
+            {
+                packageList.Add(new NewMailItemPackage(mailCopy, mimeMessage, labelId));
+            }
+        }
+
+        return packageList;
+    }
+
+    #endregion
+
+    public override async Task KillSynchronizerAsync()
+    {
+        await base.KillSynchronizerAsync();
+
+        _gmailService.Dispose();
+        _peopleService.Dispose();
+        _calendarService.Dispose();
+        _googleHttpClient.Dispose();
     }
 }

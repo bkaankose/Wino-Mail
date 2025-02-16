@@ -11,92 +11,91 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 
-namespace Wino.Views
+namespace Wino.Views;
+
+public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
+    IRecipient<BackBreadcrumNavigationRequested>,
+    IRecipient<BreadcrumbNavigationRequested>,
+    IRecipient<MergedInboxRenamed>
 {
-    public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
-        IRecipient<BackBreadcrumNavigationRequested>,
-        IRecipient<BreadcrumbNavigationRequested>,
-        IRecipient<MergedInboxRenamed>
+    public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = new ObservableCollection<BreadcrumbNavigationItemViewModel>();
+
+
+    public ManageAccountsPage()
     {
-        public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = new ObservableCollection<BreadcrumbNavigationItemViewModel>();
+        InitializeComponent();
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+
+        var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuManageAccounts, WinoPage.AccountManagementPage);
+        PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
+
+        var accountManagementPageType = ViewModel.NavigationService.GetPageType(WinoPage.AccountManagementPage);
+
+        AccountPagesFrame.Navigate(accountManagementPageType, null, new SuppressNavigationTransitionInfo());
+    }
 
 
-        public ManageAccountsPage()
+    void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
+    {
+        var pageType = ViewModel.NavigationService.GetPageType(message.PageType);
+
+        if (pageType == null) return;
+
+        AccountPagesFrame.Navigate(pageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+
+        PageHistory.ForEach(a => a.IsActive = false);
+
+        PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, true));
+    }
+
+    private void GoBackFrame()
+    {
+        if (AccountPagesFrame.CanGoBack)
         {
-            InitializeComponent();
-        }
+            PageHistory.RemoveAt(PageHistory.Count - 1);
 
-        protected override void OnNavigatedTo(NavigationEventArgs e)
+            AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+        }
+    }
+
+    private void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
+    {
+        var clickedPageHistory = PageHistory[args.Index];
+
+        while (PageHistory.FirstOrDefault(a => a.IsActive) != clickedPageHistory)
         {
-            base.OnNavigatedTo(e);
-
-            var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuManageAccounts, WinoPage.AccountManagementPage);
-            PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
-
-            var accountManagementPageType = ViewModel.NavigationService.GetPageType(WinoPage.AccountManagementPage);
-
-            AccountPagesFrame.Navigate(accountManagementPageType, null, new SuppressNavigationTransitionInfo());
+            AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+            PageHistory.RemoveAt(PageHistory.Count - 1);
+            PageHistory[PageHistory.Count - 1].IsActive = true;
         }
+    }
 
+    public void Receive(BackBreadcrumNavigationRequested message)
+    {
+        GoBackFrame();
+    }
 
-        void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
-        {
-            var pageType = ViewModel.NavigationService.GetPageType(message.PageType);
+    public void Receive(AccountUpdatedMessage message)
+    {
+        // TODO: Find better way to retrieve page history from the stack for the account.
+        var activePage = PageHistory.LastOrDefault();
 
-            if (pageType == null) return;
+        if (activePage == null) return;
 
-            AccountPagesFrame.Navigate(pageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+        activePage.Title = message.Account.Name;
+    }
 
-            PageHistory.ForEach(a => a.IsActive = false);
+    public void Receive(MergedInboxRenamed message)
+    {
+        // TODO: Find better way to retrieve page history from the stack for the merged account.
+        var activePage = PageHistory.LastOrDefault();
 
-            PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, true));
-        }
+        if (activePage == null) return;
 
-        private void GoBackFrame()
-        {
-            if (AccountPagesFrame.CanGoBack)
-            {
-                PageHistory.RemoveAt(PageHistory.Count - 1);
-
-                AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
-            }
-        }
-
-        private void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
-        {
-            var clickedPageHistory = PageHistory[args.Index];
-
-            while (PageHistory.FirstOrDefault(a => a.IsActive) != clickedPageHistory)
-            {
-                AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
-                PageHistory.RemoveAt(PageHistory.Count - 1);
-                PageHistory[PageHistory.Count - 1].IsActive = true;
-            }
-        }
-
-        public void Receive(BackBreadcrumNavigationRequested message)
-        {
-            GoBackFrame();
-        }
-
-        public void Receive(AccountUpdatedMessage message)
-        {
-            // TODO: Find better way to retrieve page history from the stack for the account.
-            var activePage = PageHistory.LastOrDefault();
-
-            if (activePage == null) return;
-
-            activePage.Title = message.Account.Name;
-        }
-
-        public void Receive(MergedInboxRenamed message)
-        {
-            // TODO: Find better way to retrieve page history from the stack for the merged account.
-            var activePage = PageHistory.LastOrDefault();
-
-            if (activePage == null) return;
-
-            activePage.Title = message.NewName;
-        }
+        activePage.Title = message.NewName;
     }
 }

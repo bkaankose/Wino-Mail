@@ -7,35 +7,34 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Mail
+namespace Wino.Core.Requests.Mail;
+
+public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item), ICustomFolderSynchronizationRequest
 {
-    public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item), ICustomFolderSynchronizationRequest
+    public List<Guid> SynchronizationFolderIds => [Item.FolderId];
+
+    public override MailSynchronizerOperation Operation => MailSynchronizerOperation.MarkRead;
+
+    public bool ExcludeMustHaveFolders => true;
+
+    public override void ApplyUIChanges()
     {
-        public List<Guid> SynchronizationFolderIds => [Item.FolderId];
+        Item.IsRead = IsRead;
 
-        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.MarkRead;
-
-        public bool ExcludeMustHaveFolders => true;
-
-        public override void ApplyUIChanges()
-        {
-            Item.IsRead = IsRead;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
-        }
-
-        public override void RevertUIChanges()
-        {
-            Item.IsRead = !IsRead;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
-        }
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
     }
 
-    public class BatchMarkReadRequest : BatchCollection<MarkReadRequest>
+    public override void RevertUIChanges()
     {
-        public BatchMarkReadRequest(IEnumerable<MarkReadRequest> collection) : base(collection)
-        {
-        }
+        Item.IsRead = !IsRead;
+
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
+    }
+}
+
+public class BatchMarkReadRequest : BatchCollection<MarkReadRequest>
+{
+    public BatchMarkReadRequest(IEnumerable<MarkReadRequest> collection) : base(collection)
+    {
     }
 }

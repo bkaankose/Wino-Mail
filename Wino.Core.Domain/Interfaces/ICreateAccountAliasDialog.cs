@@ -1,9 +1,8 @@
 ﻿using Wino.Core.Domain.Entities.Mail;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Core.Domain.Interfaces;
+
+public interface ICreateAccountAliasDialog
 {
-    public interface ICreateAccountAliasDialog
-    {
-        public MailAccountAlias CreatedAccountAlias { get; set; }
-    }
+    public MailAccountAlias CreatedAccountAlias { get; set; }
 }

@@ -1,6 +1,5 @@
-﻿namespace Wino.Core.Domain.Interfaces
+﻿namespace Wino.Core.Domain.Interfaces;
+
+public interface IAccountPickerDialog
 {
-    public interface IAccountPickerDialog
-    {
-    }
 }

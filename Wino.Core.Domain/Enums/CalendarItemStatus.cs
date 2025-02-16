@@ -1,10 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum CalendarItemStatus
 {
-    public enum CalendarItemStatus
-    {
-        NotResponded,
-        Confirmed,
-        Tentative,
-        Cancelled,
-    }
+    NotResponded,
+    Confirmed,
+    Tentative,
+    Cancelled,
 }

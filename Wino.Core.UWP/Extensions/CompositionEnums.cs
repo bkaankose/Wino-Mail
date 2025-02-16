@@ -4,70 +4,69 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Wino.Extensions
+namespace Wino.Extensions;
+
+public enum TransitionDirection
 {
-    public enum TransitionDirection
-    {
-        TopToBottom,
-        BottomToTop,
-        LeftToRight,
-        RightToLeft
-    }
+    TopToBottom,
+    BottomToTop,
+    LeftToRight,
+    RightToLeft
+}
 
-    public enum ClipAnimationDirection
-    {
-        Top,
-        Bottom,
-        Left,
-        Right
-    }
+public enum ClipAnimationDirection
+{
+    Top,
+    Bottom,
+    Left,
+    Right
+}
 
-    public enum AnimationAxis
-    {
-        X,
-        Y,
-        Z
-    }
+public enum AnimationAxis
+{
+    X,
+    Y,
+    Z
+}
 
-    public enum AnimationType
-    {
-        KeyFrame,
-        Expression
-    }
+public enum AnimationType
+{
+    KeyFrame,
+    Expression
+}
 
-    public enum FlickDirection
-    {
-        None,
-        Up,
-        Down,
-        Left,
-        Right
-    }
+public enum FlickDirection
+{
+    None,
+    Up,
+    Down,
+    Left,
+    Right
+}
 
-    public enum ViewState
-    {
-        Empty,
-        Small,
-        Big,
-        Full
-    }
+public enum ViewState
+{
+    Empty,
+    Small,
+    Big,
+    Full
+}
 
-    public enum Gesture
-    {
-        Initial,
-        Tap,
-        Swipe
-    }
+public enum Gesture
+{
+    Initial,
+    Tap,
+    Swipe
+}
 
-    [Flags]
-    public enum VisualPropertyType
-    {
-        None = 0,
-        Opacity = 1 << 0,
-        Offset = 1 << 1,
-        Scale = 1 << 2,
-        Size = 1 << 3,
-        RotationAngleInDegrees = 1 << 4,
-        All = ~0
-    }
+[Flags]
+public enum VisualPropertyType
+{
+    None = 0,
+    Opacity = 1 << 0,
+    Offset = 1 << 1,
+    Scale = 1 << 2,
+    Size = 1 << 3,
+    RotationAngleInDegrees = 1 << 4,
+    All = ~0
 }

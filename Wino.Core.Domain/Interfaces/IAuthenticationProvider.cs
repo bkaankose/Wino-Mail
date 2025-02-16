@@ -1,9 +1,8 @@
 ﻿using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IAuthenticationProvider
 {
-    public interface IAuthenticationProvider
-    {
-        IAuthenticator GetAuthenticator(MailProviderType providerType);
-    }
+    IAuthenticator GetAuthenticator(MailProviderType providerType);
 }

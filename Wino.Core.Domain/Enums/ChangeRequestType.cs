@@ -1,24 +1,23 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum ChangeRequestType
 {
-    public enum ChangeRequestType
-    {
-        MailMarkAs,
-        MailChangeFlag,
-        MailHardDelete,
-        MailMove,
-        MailAlwaysMoveTo,
-        MailChangeFocused,
-        MailArchive,
-        MailUnarchive,
-        FolderMarkAsRead,
-        FolderDelete,
-        FolderEmpty,
-        FolderRename,
-        CreateNewDraft,
-        CreateReplyDraft,
-        CreateForwardDraft,
-        DiscardDraft,
-        SendDraft,
-        FetchSingleItem
-    }
+    MailMarkAs,
+    MailChangeFlag,
+    MailHardDelete,
+    MailMove,
+    MailAlwaysMoveTo,
+    MailChangeFocused,
+    MailArchive,
+    MailUnarchive,
+    FolderMarkAsRead,
+    FolderDelete,
+    FolderEmpty,
+    FolderRename,
+    CreateNewDraft,
+    CreateReplyDraft,
+    CreateForwardDraft,
+    DiscardDraft,
+    SendDraft,
+    FetchSingleItem
 }

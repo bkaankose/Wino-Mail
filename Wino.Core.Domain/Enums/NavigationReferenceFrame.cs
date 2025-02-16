@@ -1,8 +1,7 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum NavigationReferenceFrame
 {
-    public enum NavigationReferenceFrame
-    {
-        ShellFrame,
-        RenderingFrame
-    }
+    ShellFrame,
+    RenderingFrame
 }

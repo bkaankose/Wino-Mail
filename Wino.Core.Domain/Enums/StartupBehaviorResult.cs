@@ -1,11 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum StartupBehaviorResult
 {
-    public enum StartupBehaviorResult
-    {
-        Enabled,
-        Disabled,
-        DisabledByUser,
-        DisabledByPolicy,
-        Fatal
-    }
+    Enabled,
+    Disabled,
+    DisabledByUser,
+    DisabledByPolicy,
+    Fatal
 }

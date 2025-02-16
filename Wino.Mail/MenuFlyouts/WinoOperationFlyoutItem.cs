@@ -7,52 +7,51 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.UWP.Controls;
 using Wino.Helpers;
 
-namespace Wino.MenuFlyouts
+namespace Wino.MenuFlyouts;
+
+public partial class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutItem, IDisposable where TOperationMenuItem : IMenuOperation
 {
-    public partial class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutItem, IDisposable where TOperationMenuItem : IMenuOperation
+    private const double CustomHeight = 35;
+
+    public TOperationMenuItem Operation { get; set; }
+    Action<TOperationMenuItem> Clicked { get; set; }
+
+    public WinoOperationFlyoutItem(TOperationMenuItem operationMenuItem, Action<TOperationMenuItem> clicked)
     {
-        private const double CustomHeight = 35;
+        Margin = new Thickness(4, 2, 4, 2);
+        CornerRadius = new CornerRadius(6, 6, 6, 6);
 
-        public TOperationMenuItem Operation { get; set; }
-        Action<TOperationMenuItem> Clicked { get; set; }
+        MinHeight = CustomHeight;
 
-        public WinoOperationFlyoutItem(TOperationMenuItem operationMenuItem, Action<TOperationMenuItem> clicked)
+        Operation = operationMenuItem;
+        IsEnabled = operationMenuItem.IsEnabled;
+
+        if (Operation is FolderOperationMenuItem folderOperationMenuItem)
         {
-            Margin = new Thickness(4, 2, 4, 2);
-            CornerRadius = new CornerRadius(6, 6, 6, 6);
+            var internalOperation = folderOperationMenuItem.Operation;
 
-            MinHeight = CustomHeight;
+            Icon = new WinoFontIcon() { Icon = XamlHelpers.GetPathGeometry(internalOperation) };
+            Text = XamlHelpers.GetOperationString(internalOperation);
+        }
+        else if (Operation is MailOperationMenuItem mailOperationMenuItem)
+        {
+            var internalOperation = mailOperationMenuItem.Operation;
 
-            Operation = operationMenuItem;
-            IsEnabled = operationMenuItem.IsEnabled;
-
-            if (Operation is FolderOperationMenuItem folderOperationMenuItem)
-            {
-                var internalOperation = folderOperationMenuItem.Operation;
-
-                Icon = new WinoFontIcon() { Icon = XamlHelpers.GetPathGeometry(internalOperation) };
-                Text = XamlHelpers.GetOperationString(internalOperation);
-            }
-            else if (Operation is MailOperationMenuItem mailOperationMenuItem)
-            {
-                var internalOperation = mailOperationMenuItem.Operation;
-
-                Icon = new WinoFontIcon() { Icon = XamlHelpers.GetWinoIconGlyph(internalOperation) };
-                Text = XamlHelpers.GetOperationString(internalOperation);
-            }
-
-            Clicked = clicked;
-            Click += MenuClicked;
+            Icon = new WinoFontIcon() { Icon = XamlHelpers.GetWinoIconGlyph(internalOperation) };
+            Text = XamlHelpers.GetOperationString(internalOperation);
         }
 
-        private void MenuClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-        {
-            Clicked(Operation);
-        }
+        Clicked = clicked;
+        Click += MenuClicked;
+    }
 
-        public void Dispose()
-        {
-            Click -= MenuClicked;
-        }
+    private void MenuClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+    {
+        Clicked(Operation);
+    }
+
+    public void Dispose()
+    {
+        Click -= MenuClicked;
     }
 }

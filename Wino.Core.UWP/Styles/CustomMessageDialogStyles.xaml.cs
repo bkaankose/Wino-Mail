@@ -1,12 +1,11 @@
 ﻿using Windows.UI.Xaml;
 
-namespace Wino.Core.UWP.Styles
+namespace Wino.Core.UWP.Styles;
+
+partial class CustomMessageDialogStyles : ResourceDictionary
 {
-    partial class CustomMessageDialogStyles : ResourceDictionary
+    public CustomMessageDialogStyles()
     {
-        public CustomMessageDialogStyles()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

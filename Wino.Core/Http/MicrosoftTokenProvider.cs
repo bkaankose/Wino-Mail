@@ -6,28 +6,27 @@ using Microsoft.Kiota.Abstractions.Authentication;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Http
+namespace Wino.Core.Http;
+
+public class MicrosoftTokenProvider : IAccessTokenProvider
 {
-    public class MicrosoftTokenProvider : IAccessTokenProvider
+    private readonly MailAccount _account;
+    private readonly IAuthenticator _authenticator;
+
+    public MicrosoftTokenProvider(MailAccount account, IAuthenticator authenticator)
     {
-        private readonly MailAccount _account;
-        private readonly IAuthenticator _authenticator;
+        _account = account;
+        _authenticator = authenticator;
+    }
 
-        public MicrosoftTokenProvider(MailAccount account, IAuthenticator authenticator)
-        {
-            _account = account;
-            _authenticator = authenticator;
-        }
+    public AllowedHostsValidator AllowedHostsValidator { get; }
 
-        public AllowedHostsValidator AllowedHostsValidator { get; }
+    public async Task<string> GetAuthorizationTokenAsync(Uri uri,
+                                                   Dictionary<string, object> additionalAuthenticationContext = null,
+                                                   CancellationToken cancellationToken = default)
+    {
+        var tokenInfo = await _authenticator.GetTokenInformationAsync(_account);
 
-        public async Task<string> GetAuthorizationTokenAsync(Uri uri,
-                                                       Dictionary<string, object> additionalAuthenticationContext = null,
-                                                       CancellationToken cancellationToken = default)
-        {
-            var tokenInfo = await _authenticator.GetTokenInformationAsync(_account);
-
-            return tokenInfo.AccessToken;
-        }
+        return tokenInfo.AccessToken;
     }
 }
