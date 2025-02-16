@@ -624,9 +624,18 @@ public partial class AppShellViewModel : MailBaseViewModel,
         {
             NavigationService.Navigate(WinoPage.ManageAccountsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
         }
-        else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem && latestSelectedAccountMenuItem != clickedAccountMenuItem)
+        else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
         {
-            await ChangeLoadedAccountAsync(clickedAccountMenuItem);
+            // Changing loaded account.
+            if (latestSelectedAccountMenuItem != clickedAccountMenuItem)
+            {
+                await ChangeLoadedAccountAsync(clickedAccountMenuItem);
+            }
+            else
+            {
+                // Clicked on the same account. Just navigate to Inbox.
+                await NavigateInboxAsync(clickedAccountMenuItem);
+            }
         }
     }
 
