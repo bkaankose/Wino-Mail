@@ -90,35 +90,33 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
-    private bool isIndetermineProgress;
+    public partial bool IsIndetermineProgress { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
-    private double currentDownloadPercentage;
+    public partial double CurrentDownloadPercentage { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanUnsubscribe))]
-    private MailRenderModel currentRenderModel;
+    public partial MailRenderModel CurrentRenderModel { get; set; }
 
     [ObservableProperty]
-    private string subject;
+    public partial string Subject { get; set; }
 
     [ObservableProperty]
-    private string fromAddress;
+    public partial string FromAddress { get; set; }
 
     [ObservableProperty]
-    private string fromName;
+    public partial string FromName { get; set; }
 
     [ObservableProperty]
-    private string contactPicture;
+    public partial string ContactPicture { get; set; }
 
     [ObservableProperty]
-    private DateTime creationDate;
-
-
-    public ObservableCollection<AccountContact> ToItems { get; set; } = [];
-    public ObservableCollection<AccountContact> CcItems { get; set; } = [];
-    public ObservableCollection<AccountContact> BccItems { get; set; } = [];
+    public partial DateTime CreationDate { get; set; }
+    public ObservableCollection<AccountContactViewModel> ToItems { get; set; } = [];
+    public ObservableCollection<AccountContactViewModel> CcItems { get; set; } = [];
+    public ObservableCollection<AccountContactViewModel> BccItems { get; set; } = [];
     public ObservableCollection<MailAttachmentViewModel> Attachments { get; set; } = [];
     public ObservableCollection<MailOperationMenuItem> MenuItems { get; set; } = [];
 
@@ -467,9 +465,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         });
     }
 
-    private async Task<List<AccountContact>> GetAccountContacts(InternetAddressList internetAddresses)
+    private async Task<List<AccountContactViewModel>> GetAccountContacts(InternetAddressList internetAddresses)
     {
-        var accounts = new List<AccountContact>();
+        List<AccountContactViewModel> accounts = [];
         foreach (var item in internetAddresses)
         {
             if (item is MailboxAddress mailboxAddress)
@@ -477,14 +475,17 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
                     ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
 
+                var contactViewModel = new AccountContactViewModel(foundContact);
+
                 // Make sure that user account first in the list.
-                if (foundContact.Address == initializedMailItemViewModel?.AssignedAccount?.Address)
+                if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))
                 {
-                    accounts.Insert(0, foundContact);
+                    contactViewModel.IsMe = true;
+                    accounts.Insert(0, contactViewModel);
                 }
                 else
                 {
-                    accounts.Add(foundContact);
+                    accounts.Add(contactViewModel);
                 }
             }
             else if (item is GroupAddress groupAddress)

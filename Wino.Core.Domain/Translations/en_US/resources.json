@@ -15,6 +15,7 @@
     "AccountSettingsDialog_AccountName": "Sender Display Name",
     "AccountSettingsDialog_AccountNamePlaceholder": "eg. John Doe",
     "AddHyperlink": "Add",
+    "AccountContactNameYou": "You",
     "AutoDiscoveryProgressMessage": "Searching for mail settings...",
     "AppCloseBackgroundSynchronizationWarningTitle": "Background Synchronization",
     "AppCloseTerminateBehaviorWarningMessageFirstLine": "You are terminating Wino Mail and your app close behavior is set to 'Terminate'.",

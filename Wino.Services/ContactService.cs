@@ -37,7 +37,7 @@ public class ContactService : BaseDatabaseService, IContactService
     }
 
     public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
-        => Connection.Table<AccountContact>().Where(a => a.Address == address).FirstOrDefaultAsync();
+        => Connection.Table<AccountContact>().FirstOrDefaultAsync(a => a.Address == address);
 
     public async Task SaveAddressInformationAsync(MimeMessage message)
     {

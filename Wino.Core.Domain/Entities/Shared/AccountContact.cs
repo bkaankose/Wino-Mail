@@ -36,14 +36,6 @@ public class AccountContact : IEquatable<AccountContact>
     /// </summary>
     public bool IsRootContact { get; set; }
 
-    /// <summary>
-    /// Short display name of the contact.
-    /// Eather Name or Address.
-    /// </summary>
-    public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? $"{Address.ToLowerInvariant()};" : $"{Name};";
-
-    public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address.ToLowerInvariant() : $"{Name} <{Address.ToLowerInvariant()}>";
-
     public override bool Equals(object obj)
     {
         return Equals(obj as AccountContact);
@@ -58,10 +50,7 @@ public class AccountContact : IEquatable<AccountContact>
 
     public override int GetHashCode()
     {
-        int hashCode = -1717786383;
-        hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Address);
-        hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Name);
-        return hashCode;
+        return HashCode.Combine(Address, Name);
     }
 
     public static bool operator ==(AccountContact left, AccountContact right)
