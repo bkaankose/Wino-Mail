@@ -20,188 +20,187 @@ using Wino.Mail.Dialogs;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
-namespace Wino.Services
+namespace Wino.Services;
+
+public class DialogService : DialogServiceBase, IMailDialogService
 {
-    public class DialogService : DialogServiceBase, IMailDialogService
+    public DialogService(IThemeService themeService,
+                         IConfigurationService configurationService,
+                         IApplicationResourceManager<ResourceDictionary> applicationResourceManager) : base(themeService, configurationService, applicationResourceManager)
     {
-        public DialogService(IThemeService themeService,
-                             IConfigurationService configurationService,
-                             IApplicationResourceManager<ResourceDictionary> applicationResourceManager) : base(themeService, configurationService, applicationResourceManager)
-        {
 
-        }
+    }
 
-        public override IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
+    public override IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
+    {
+        if (accountCreationDialogResult.SpecialImapProviderDetails == null)
         {
-            if (accountCreationDialogResult.SpecialImapProviderDetails == null)
+            if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
             {
-                if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
+                return new NewImapSetupDialog
                 {
-                    return new NewImapSetupDialog
-                    {
-                        RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-                    };
-                }
-                else
-                {
-                    return base.GetAccountCreationDialog(accountCreationDialogResult);
-                }
+                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+                };
             }
             else
             {
-                // Special IMAP provider like iCloud or Yahoo.
-
                 return base.GetAccountCreationDialog(accountCreationDialogResult);
             }
         }
-
-        public async Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account)
+        else
         {
-            var editAccountDialog = new AccountEditDialog(account)
+            // Special IMAP provider like iCloud or Yahoo.
+
+            return base.GetAccountCreationDialog(accountCreationDialogResult);
+        }
+    }
+
+    public async Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account)
+    {
+        var editAccountDialog = new AccountEditDialog(account)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(editAccountDialog);
+
+        return editAccountDialog.IsSaved ? editAccountDialog.Account : null;
+    }
+
+    public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
+    {
+        var createAccountAliasDialog = new CreateAccountAliasDialog()
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(createAccountAliasDialog);
+
+        return createAccountAliasDialog;
+    }
+
+    public async Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
+    {
+        try
+        {
+            var configurableFolder = await folderService.GetFoldersAsync(accountId);
+
+            var systemFolderConfigurationDialog = new SystemFolderConfigurationDialog(configurableFolder)
             {
                 RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
             };
 
-            await HandleDialogPresentationAsync(editAccountDialog);
+            await HandleDialogPresentationAsync(systemFolderConfigurationDialog);
 
-            return editAccountDialog.IsSaved ? editAccountDialog.Account : null;
-        }
+            var configuration = systemFolderConfigurationDialog.Configuration;
 
-        public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
-        {
-            var createAccountAliasDialog = new CreateAccountAliasDialog()
+            if (configuration != null)
             {
-                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-            };
+                await folderService.UpdateSystemFolderConfigurationAsync(accountId, configuration);
 
-            await HandleDialogPresentationAsync(createAccountAliasDialog);
+                InfoBarMessage(Translator.SystemFolderConfigSetupSuccess_Title, Translator.SystemFolderConfigSetupSuccess_Message, InfoBarMessageType.Success);
 
-            return createAccountAliasDialog;
-        }
+                WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
 
-        public async Task HandleSystemFolderConfigurationDialogAsync(Guid accountId, IFolderService folderService)
-        {
-            try
-            {
-                var configurableFolder = await folderService.GetFoldersAsync(accountId);
-
-                var systemFolderConfigurationDialog = new SystemFolderConfigurationDialog(configurableFolder)
+                var options = new MailSynchronizationOptions()
                 {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+                    AccountId = accountId,
+                    Type = MailSynchronizationType.FullFolders,
                 };
 
-                await HandleDialogPresentationAsync(systemFolderConfigurationDialog);
-
-                var configuration = systemFolderConfigurationDialog.Configuration;
-
-                if (configuration != null)
-                {
-                    await folderService.UpdateSystemFolderConfigurationAsync(accountId, configuration);
-
-                    InfoBarMessage(Translator.SystemFolderConfigSetupSuccess_Title, Translator.SystemFolderConfigSetupSuccess_Message, InfoBarMessageType.Success);
-
-                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(accountId));
-
-                    var options = new MailSynchronizationOptions()
-                    {
-                        AccountId = accountId,
-                        Type = MailSynchronizationType.FullFolders,
-                    };
-
-                    WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
-                }
-            }
-            catch (Exception ex)
-            {
-                InfoBarMessage(Translator.Error_FailedToSetupSystemFolders_Title, ex.Message, InfoBarMessageType.Error);
+                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
             }
         }
-
-        public async Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
+        catch (Exception ex)
         {
-            var moveDialog = new MoveMailDialog(availableFolders)
+            InfoBarMessage(Translator.Error_FailedToSetupSystemFolders_Title, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    public async Task<IMailItemFolder> ShowMoveMailFolderDialogAsync(List<IMailItemFolder> availableFolders)
+    {
+        var moveDialog = new MoveMailDialog(availableFolders)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(moveDialog);
+
+        return moveDialog.SelectedFolder;
+    }
+
+    public async Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
+    {
+        var allFolders = await folderService.GetFolderStructureForAccountAsync(accountId, true);
+
+        return await ShowMoveMailFolderDialogAsync(allFolders.Folders);
+    }
+
+
+
+    public Task<bool> ShowHardDeleteConfirmationAsync()
+        => ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_HardDeleteConfirmationMessage,
+                                           Translator.DialogMessage_HardDeleteConfirmationTitle,
+                                           Translator.Buttons_Yes,
+                                           WinoCustomMessageDialogIcon.Warning,
+                                           Translator.Buttons_No);
+
+    public async Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
+    {
+        var accountPicker = new AccountPickerDialog(availableAccounts)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(accountPicker);
+
+        return accountPicker.PickedAccount;
+    }
+
+    public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null)
+    {
+        SignatureEditorDialog signatureEditorDialog;
+        if (signatureModel != null)
+        {
+            signatureEditorDialog = new SignatureEditorDialog(signatureModel)
             {
                 RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
             };
-
-            await HandleDialogPresentationAsync(moveDialog);
-
-            return moveDialog.SelectedFolder;
         }
-
-        public async Task<IMailItemFolder> PickFolderAsync(Guid accountId, PickFolderReason reason, IFolderService folderService)
+        else
         {
-            var allFolders = await folderService.GetFolderStructureForAccountAsync(accountId, true);
-
-            return await ShowMoveMailFolderDialogAsync(allFolders.Folders);
-        }
-
-
-
-        public Task<bool> ShowHardDeleteConfirmationAsync()
-            => ShowWinoCustomMessageDialogAsync(Translator.DialogMessage_HardDeleteConfirmationMessage,
-                                               Translator.DialogMessage_HardDeleteConfirmationTitle,
-                                               Translator.Buttons_Yes,
-                                               WinoCustomMessageDialogIcon.Warning,
-                                               Translator.Buttons_No);
-
-        public async Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts)
-        {
-            var accountPicker = new AccountPickerDialog(availableAccounts)
+            signatureEditorDialog = new SignatureEditorDialog()
             {
                 RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
             };
-
-            await HandleDialogPresentationAsync(accountPicker);
-
-            return accountPicker.PickedAccount;
         }
 
-        public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null)
+        var result = await HandleDialogPresentationAsync(signatureEditorDialog);
+
+        return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
+    }
+
+    public async Task ShowMessageSourceDialogAsync(string messageSource)
+    {
+        var dialog = new MessageSourceDialog()
         {
-            SignatureEditorDialog signatureEditorDialog;
-            if (signatureModel != null)
-            {
-                signatureEditorDialog = new SignatureEditorDialog(signatureModel)
-                {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-                };
-            }
-            else
-            {
-                signatureEditorDialog = new SignatureEditorDialog()
-                {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-                };
-            }
+            MessageSource = messageSource,
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
 
-            var result = await HandleDialogPresentationAsync(signatureEditorDialog);
+        await HandleDialogPresentationAsync(dialog);
 
-            return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
-        }
+        if(dialog.Copied)
+            InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, Translator.MessageSourceDialog_Title), InfoBarMessageType.Information);
+    }
 
-        public async Task ShowMessageSourceDialogAsync(string messageSource)
+    public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
+    {
+        var accountReorderDialog = new AccountReorderDialog(availableAccounts)
         {
-            var dialog = new MessageSourceDialog()
-            {
-                MessageSource = messageSource,
-                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-            };
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
 
-            await HandleDialogPresentationAsync(dialog);
-
-            if(dialog.Copied)
-                InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, Translator.MessageSourceDialog_Title), InfoBarMessageType.Information);
-        }
-
-        public async Task ShowAccountReorderDialogAsync(ObservableCollection<IAccountProviderDetailViewModel> availableAccounts)
-        {
-            var accountReorderDialog = new AccountReorderDialog(availableAccounts)
-            {
-                RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-            };
-
-            await HandleDialogPresentationAsync(accountReorderDialog);
-        }
+        await HandleDialogPresentationAsync(accountReorderDialog);
     }
 }

@@ -1,11 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum CalendarDisplayType
 {
-    public enum CalendarDisplayType
-    {
-        Day,
-        Week,
-        WorkWeek,
-        Month,
-        Year
-    }
+    Day,
+    Week,
+    WorkWeek,
+    Month,
+    Year
 }

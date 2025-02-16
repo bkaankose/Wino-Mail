@@ -7,36 +7,35 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Mail
+namespace Wino.Core.Requests.Mail;
+
+public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase(Item),
+    ICustomFolderSynchronizationRequest
 {
-    public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase(Item),
-        ICustomFolderSynchronizationRequest
+    public List<Guid> SynchronizationFolderIds => [Item.FolderId];
+
+    public bool ExcludeMustHaveFolders => true;
+
+    public override MailSynchronizerOperation Operation => MailSynchronizerOperation.ChangeFlag;
+
+    public override void ApplyUIChanges()
     {
-        public List<Guid> SynchronizationFolderIds => [Item.FolderId];
+        Item.IsFlagged = IsFlagged;
 
-        public bool ExcludeMustHaveFolders => true;
-
-        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.ChangeFlag;
-
-        public override void ApplyUIChanges()
-        {
-            Item.IsFlagged = IsFlagged;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
-        }
-
-        public override void RevertUIChanges()
-        {
-            Item.IsFlagged = !IsFlagged;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
-        }
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
     }
 
-    public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
+    public override void RevertUIChanges()
     {
-        public BatchChangeFlagRequest(IEnumerable<ChangeFlagRequest> collection) : base(collection)
-        {
-        }
+        Item.IsFlagged = !IsFlagged;
+
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
+    }
+}
+
+public class BatchChangeFlagRequest : BatchCollection<ChangeFlagRequest>
+{
+    public BatchChangeFlagRequest(IEnumerable<ChangeFlagRequest> collection) : base(collection)
+    {
     }
 }

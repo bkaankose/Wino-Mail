@@ -6,34 +6,33 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.ImapSync;
 
-namespace Wino.Core
+namespace Wino.Core;
+
+public static class CoreContainerSetup
 {
-    public static class CoreContainerSetup
+    public static void RegisterCoreServices(this IServiceCollection services)
     {
-        public static void RegisterCoreServices(this IServiceCollection services)
-        {
-            var loggerLevelSwitcher = new LoggingLevelSwitch();
+        var loggerLevelSwitcher = new LoggingLevelSwitch();
 
-            services.AddSingleton(loggerLevelSwitcher);
-            services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
+        services.AddSingleton(loggerLevelSwitcher);
+        services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
 
-            services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
-            services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
-            services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
-            services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
-            services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
-            services.AddTransient<IImapTestService, ImapTestService>();
-            services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
-            services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
-            services.AddTransient<IFontService, FontService>();
-            services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
-            services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
-            services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+        services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
+        services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
+        services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
+        services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
+        services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
+        services.AddTransient<IImapTestService, ImapTestService>();
+        services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
+        services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IFontService, FontService>();
+        services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
+        services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
+        services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
 
-            services.AddTransient<IImapSynchronizationStrategyProvider, ImapSynchronizationStrategyProvider>();
-            services.AddTransient<CondstoreSynchronizer>();
-            services.AddTransient<QResyncSynchronizer>();
-            services.AddTransient<UidBasedSynchronizer>();
-        }
+        services.AddTransient<IImapSynchronizationStrategyProvider, ImapSynchronizationStrategyProvider>();
+        services.AddTransient<CondstoreSynchronizer>();
+        services.AddTransient<QResyncSynchronizer>();
+        services.AddTransient<UidBasedSynchronizer>();
     }
 }

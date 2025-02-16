@@ -1,7 +1,6 @@
-﻿namespace Wino.Core.Domain.Models.Store
+﻿namespace Wino.Core.Domain.Models.Store;
+
+public enum StoreProductType
 {
-    public enum StoreProductType
-    {
-        UnlimitedAccounts
-    }
+    UnlimitedAccounts
 }

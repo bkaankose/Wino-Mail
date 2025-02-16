@@ -4,70 +4,69 @@ using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.ViewModels
+namespace Wino.Mail.ViewModels;
+
+public partial class ReadComposePanePageViewModel : MailBaseViewModel,
+    IRecipient<PropertyChangedMessage<string>>,
+    IRecipient<PropertyChangedMessage<int>>
 {
-    public partial class ReadComposePanePageViewModel : MailBaseViewModel,
-        IRecipient<PropertyChangedMessage<string>>,
-        IRecipient<PropertyChangedMessage<int>>
+    private readonly IFontService _fontService;
+
+    public IPreferencesService PreferencesService { get; set; }
+    public List<string> AvailableFonts => _fontService.GetFonts();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
+    string currentReaderFont;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
+    int currentReaderFontSize;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
+    string currentComposerFont;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
+    int currentComposerFontSize;
+
+    public ReadComposePanePageViewModel(IMailDialogService dialogService,
+                                    IFontService fontService,
+                                    IPreferencesService preferencesService) 
     {
-        private readonly IFontService _fontService;
+        _fontService = fontService;
+        PreferencesService = preferencesService;
 
-        public IPreferencesService PreferencesService { get; set; }
-        public List<string> AvailableFonts => _fontService.GetFonts();
+        CurrentReaderFont = preferencesService.ReaderFont;
+        CurrentReaderFontSize = preferencesService.ReaderFontSize;
 
-        [ObservableProperty]
-        [NotifyPropertyChangedRecipients]
-        string currentReaderFont;
+        CurrentComposerFont = preferencesService.ComposerFont;
+        CurrentComposerFontSize = preferencesService.ComposerFontSize;
+    }
 
-        [ObservableProperty]
-        [NotifyPropertyChangedRecipients]
-        int currentReaderFontSize;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedRecipients]
-        string currentComposerFont;
-
-        [ObservableProperty]
-        [NotifyPropertyChangedRecipients]
-        int currentComposerFontSize;
-
-        public ReadComposePanePageViewModel(IMailDialogService dialogService,
-                                        IFontService fontService,
-                                        IPreferencesService preferencesService) 
+    public void Receive(PropertyChangedMessage<string> message)
+    {
+        if (message.PropertyName == nameof(CurrentReaderFont) && message.OldValue != message.NewValue)
         {
-            _fontService = fontService;
-            PreferencesService = preferencesService;
-
-            CurrentReaderFont = preferencesService.ReaderFont;
-            CurrentReaderFontSize = preferencesService.ReaderFontSize;
-
-            CurrentComposerFont = preferencesService.ComposerFont;
-            CurrentComposerFontSize = preferencesService.ComposerFontSize;
+            PreferencesService.ReaderFont = message.NewValue;
         }
 
-        public void Receive(PropertyChangedMessage<string> message)
+        if (message.PropertyName == nameof(CurrentComposerFont) && message.OldValue != message.NewValue)
         {
-            if (message.PropertyName == nameof(CurrentReaderFont) && message.OldValue != message.NewValue)
-            {
-                PreferencesService.ReaderFont = message.NewValue;
-            }
-
-            if (message.PropertyName == nameof(CurrentComposerFont) && message.OldValue != message.NewValue)
-            {
-                PreferencesService.ComposerFont = message.NewValue;
-            }
+            PreferencesService.ComposerFont = message.NewValue;
         }
+    }
 
-        public void Receive(PropertyChangedMessage<int> message)
+    public void Receive(PropertyChangedMessage<int> message)
+    {
+        if (message.PropertyName == nameof(CurrentReaderFontSize))
         {
-            if (message.PropertyName == nameof(CurrentReaderFontSize))
-            {
-                PreferencesService.ReaderFontSize = CurrentReaderFontSize;
-            }
-            else if (message.PropertyName == nameof(CurrentComposerFontSize))
-            {
-                PreferencesService.ComposerFontSize = CurrentComposerFontSize;
-            }
+            PreferencesService.ReaderFontSize = CurrentReaderFontSize;
+        }
+        else if (message.PropertyName == nameof(CurrentComposerFontSize))
+        {
+            PreferencesService.ComposerFontSize = CurrentComposerFontSize;
         }
     }
 }

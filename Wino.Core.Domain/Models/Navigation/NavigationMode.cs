@@ -1,10 +1,9 @@
-﻿namespace Wino.Core.Domain.Models.Navigation
+﻿namespace Wino.Core.Domain.Models.Navigation;
+
+public enum NavigationMode
 {
-    public enum NavigationMode
-    {
-        New,
-        Back,
-        Forward,
-        Refresh
-    }
+    New,
+    Back,
+    Forward,
+    Refresh
 }

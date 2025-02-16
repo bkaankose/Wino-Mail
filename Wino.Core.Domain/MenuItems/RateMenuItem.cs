@@ -1,4 +1,3 @@
-﻿namespace Wino.Core.Domain.MenuItems
-{
-    public class RateMenuItem : MenuItemBase { }
-}
+﻿namespace Wino.Core.Domain.MenuItems;
+
+public class RateMenuItem : MenuItemBase { }

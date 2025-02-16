@@ -1,8 +1,7 @@
-﻿namespace Wino.Core.Domain.Enums
+﻿namespace Wino.Core.Domain.Enums;
+
+public enum BackgroundSynchronizationReason
 {
-    public enum BackgroundSynchronizationReason
-    {
-        SessionConnected,
-        Timer
-    }
+    SessionConnected,
+    Timer
 }

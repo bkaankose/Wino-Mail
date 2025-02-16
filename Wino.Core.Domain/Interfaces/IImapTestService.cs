@@ -1,10 +1,9 @@
 ﻿using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Core.Domain.Interfaces
+namespace Wino.Core.Domain.Interfaces;
+
+public interface IImapTestService
 {
-    public interface IImapTestService
-    {
-        Task TestImapConnectionAsync(CustomServerInformation serverInformation, bool allowSSLHandShake);
-    }
+    Task TestImapConnectionAsync(CustomServerInformation serverInformation, bool allowSSLHandShake);
 }
