@@ -36,9 +36,6 @@ public static class XamlHelpers
         };
     }
 
-
-
-
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
@@ -125,7 +122,7 @@ public static class XamlHelpers
     public static string GetCreationDateString(DateTime date, bool prefer24HourTime)
     {
         var localTime = date.ToLocalTime();
-        return $"{localTime.ToLongDateString()} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
+        return $"{localTime.ToString("D", CultureInfo.DefaultThreadCurrentUICulture)} {(prefer24HourTime ? localTime.ToString(TwentyFourHourTimeFormat) : localTime.ToString(TwelveHourTimeFormat))}";
     }
     public static string GetMailGroupDateString(object groupObject)
     {
@@ -152,7 +149,10 @@ public static class XamlHelpers
                 else if (dateTimeValue == DateTime.Today.AddDays(-1))
                     return Translator.Yesterday;
                 else
-                    return dateTimeValue.ToLongDateString();
+                {
+                    return dateTimeValue.ToString("D", CultureInfo.DefaultThreadCurrentUICulture);
+                }
+
             }
             else
                 return dateObject.ToString();

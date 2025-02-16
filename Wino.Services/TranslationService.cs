@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -19,6 +20,8 @@ public class TranslationService : ITranslationService
     private ILogger _logger = Log.ForContext<TranslationService>();
     private readonly IPreferencesService _preferencesService;
     private bool isInitialized = false;
+
+    public AppLanguageModel CurrentLanguageModel { get; private set; }
 
     public TranslationService(IPreferencesService preferencesService)
     {
@@ -56,6 +59,7 @@ public class TranslationService : ITranslationService
         }
 
         _preferencesService.CurrentLanguage = language;
+        CurrentLanguageModel = GetAvailableLanguages().FirstOrDefault(a => a.Language == language);
 
         isInitialized = true;
         WeakReferenceMessenger.Default.Send(new LanguageChanged());
@@ -65,20 +69,20 @@ public class TranslationService : ITranslationService
     {
         return
         [
-            new AppLanguageModel(AppLanguage.Chinese, "Chinese"),
-            new AppLanguageModel(AppLanguage.Czech, "Czech"),
-            new AppLanguageModel(AppLanguage.Deutsch, "Deutsch"),
-            new AppLanguageModel(AppLanguage.English, "English"),
-            new AppLanguageModel(AppLanguage.French, "French"),
-            new AppLanguageModel(AppLanguage.Italian, "Italian"),
-            new AppLanguageModel(AppLanguage.Greek, "Greek"),
-            new AppLanguageModel(AppLanguage.Indonesian, "Indonesian"),
-            new AppLanguageModel(AppLanguage.Polish, "Polski"),
-            new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil"),
-            new AppLanguageModel(AppLanguage.Russian, "Russian"),
-            new AppLanguageModel(AppLanguage.Romanian, "Romanian"),
-            new AppLanguageModel(AppLanguage.Spanish, "Spanish"),
-            new AppLanguageModel(AppLanguage.Turkish, "Turkish")
+            new AppLanguageModel(AppLanguage.Chinese, "Chinese", "zh-CN"),
+            new AppLanguageModel(AppLanguage.Czech, "Czech", "cs-CZ"),
+            new AppLanguageModel(AppLanguage.Deutsch, "Deutsch", "de-DE"),
+            new AppLanguageModel(AppLanguage.English, "English", "en-US"),
+            new AppLanguageModel(AppLanguage.French, "French", "fr-FR"),
+            new AppLanguageModel(AppLanguage.Italian, "Italian", "it-IT"),
+            new AppLanguageModel(AppLanguage.Greek, "Greek", "el-GR"),
+            new AppLanguageModel(AppLanguage.Indonesian, "Indonesian", "id-ID"),
+            new AppLanguageModel(AppLanguage.Polish, "Polski", "pl-PL"),
+            new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil", "pt-BR"),
+            new AppLanguageModel(AppLanguage.Russian, "Russian", "ru-RU"),
+            new AppLanguageModel(AppLanguage.Romanian, "Romanian", "ro-RO"),
+            new AppLanguageModel(AppLanguage.Spanish, "Spanish", "es-ES"),
+            new AppLanguageModel(AppLanguage.Turkish, "Turkish", "tr-TR")
         ];
     }
 }
