@@ -1,13 +1,14 @@
-﻿namespace Wino.Core.Domain.Models.Calendar;
-
-public class CalendarRenderOptions
+﻿namespace Wino.Core.Domain.Models.Calendar
 {
-    public CalendarRenderOptions(DateRange dateRange, CalendarSettings calendarSettings)
+    public class CalendarRenderOptions
     {
-        DateRange = dateRange;
-        CalendarSettings = calendarSettings;
+        public CalendarRenderOptions(DateRange dateRange, CalendarSettings calendarSettings)
+        {
+            DateRange = dateRange;
+            CalendarSettings = calendarSettings;
+        }
+        public int TotalDayCount => DateRange.TotalDays;
+        public DateRange DateRange { get; }
+        public CalendarSettings CalendarSettings { get; }
     }
-    public int TotalDayCount => DateRange.TotalDays;
-    public DateRange DateRange { get; }
-    public CalendarSettings CalendarSettings { get; }
 }

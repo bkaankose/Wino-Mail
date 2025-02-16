@@ -1,3 +1,4 @@
-﻿namespace Wino.Messaging.Client.Shell;
-
-public class MailtoProtocolMessageRequested { }
+﻿namespace Wino.Messaging.Client.Shell
+{
+    public class MailtoProtocolMessageRequested { }
+}

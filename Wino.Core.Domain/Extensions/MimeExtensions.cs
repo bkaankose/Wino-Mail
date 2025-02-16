@@ -1,19 +1,20 @@
 ﻿using System;
 using System.IO;
 
-namespace Wino.Core.Domain.Extensions;
-
-public static class MimeExtensions
+namespace Wino.Core.Domain.Extensions
 {
-    public static string GetBase64MimeMessage(this MimeKit.MimeMessage message)
+    public static class MimeExtensions
     {
-        using MemoryStream memoryStream = new();
+        public static string GetBase64MimeMessage(this MimeKit.MimeMessage message)
+        {
+            using MemoryStream memoryStream = new();
 
-        message.WriteTo(memoryStream);
+            message.WriteTo(memoryStream);
 
-        return Convert.ToBase64String(memoryStream.ToArray());
+            return Convert.ToBase64String(memoryStream.ToArray());
+        }
+
+        public static MimeKit.MimeMessage GetMimeMessageFromBase64(this string base64)
+            => MimeKit.MimeMessage.Load(new System.IO.MemoryStream(Convert.FromBase64String(base64)));
     }
-
-    public static MimeKit.MimeMessage GetMimeMessageFromBase64(this string base64)
-        => MimeKit.MimeMessage.Load(new System.IO.MemoryStream(Convert.FromBase64String(base64)));
 }

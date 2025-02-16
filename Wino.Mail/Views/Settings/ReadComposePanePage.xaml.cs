@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class ReadComposePanePage : ReadComposePanePageAbstract
+namespace Wino.Views.Settings
 {
-    public ReadComposePanePage()
+    public sealed partial class ReadComposePanePage : ReadComposePanePageAbstract
     {
-        InitializeComponent();
+        public ReadComposePanePage()
+        {
+            InitializeComponent();
+        }
     }
 }

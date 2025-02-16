@@ -15,163 +15,164 @@ using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
-namespace Wino.Mail.ViewModels;
-
-public partial class AccountDetailsPageViewModel : MailBaseViewModel
+namespace Wino.Mail.ViewModels
 {
-    private readonly IMailDialogService _dialogService;
-    private readonly IAccountService _accountService;
-    private readonly IWinoServerConnectionManager _serverConnectionManager;
-    private readonly IFolderService _folderService;
-
-    public MailAccount Account { get; set; }
-    public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
-
-    [ObservableProperty]
-    private bool isFocusedInboxEnabled;
-
-    [ObservableProperty]
-    private bool areNotificationsEnabled;
-
-    [ObservableProperty]
-    private bool isSignatureEnabled;
-
-    [ObservableProperty]
-    private bool isAppendMessageSettingVisible;
-
-    [ObservableProperty]
-    private bool isAppendMessageSettinEnabled;
-
-    [ObservableProperty]
-    private bool isTaskbarBadgeEnabled;
-
-    public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-
-
-    public AccountDetailsPageViewModel(IMailDialogService dialogService,
-        IAccountService accountService,
-        IWinoServerConnectionManager serverConnectionManager,
-        IFolderService folderService)
+    public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
-        _dialogService = dialogService;
-        _accountService = accountService;
-        _serverConnectionManager = serverConnectionManager;
-        _folderService = folderService;
-    }
+        private readonly IMailDialogService _dialogService;
+        private readonly IAccountService _accountService;
+        private readonly IWinoServerConnectionManager _serverConnectionManager;
+        private readonly IFolderService _folderService;
 
-    [RelayCommand]
-    private Task SetupSpecialFolders()
-        => _dialogService.HandleSystemFolderConfigurationDialogAsync(Account.Id, _folderService);
+        public MailAccount Account { get; set; }
+        public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
 
-    [RelayCommand]
-    private void EditSignature()
-        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsSignature_Title, WinoPage.SignatureManagementPage, Account.Id));
+        [ObservableProperty]
+        private bool isFocusedInboxEnabled;
 
-    [RelayCommand]
-    private void EditAliases()
-        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
+        [ObservableProperty]
+        private bool areNotificationsEnabled;
 
-    public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
-        => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
+        [ObservableProperty]
+        private bool isSignatureEnabled;
 
-    public Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
-        => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
+        [ObservableProperty]
+        private bool isAppendMessageSettingVisible;
 
-    [RelayCommand]
-    private async Task RenameAccount()
-    {
-        if (Account == null)
-            return;
+        [ObservableProperty]
+        private bool isAppendMessageSettinEnabled;
 
-        var updatedAccount = await _dialogService.ShowEditAccountDialogAsync(Account);
+        [ObservableProperty]
+        private bool isTaskbarBadgeEnabled;
 
-        if (updatedAccount != null)
+        public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
+
+
+        public AccountDetailsPageViewModel(IMailDialogService dialogService,
+            IAccountService accountService,
+            IWinoServerConnectionManager serverConnectionManager,
+            IFolderService folderService)
         {
-            await _accountService.UpdateAccountAsync(updatedAccount);
-
-            ReportUIChange(new AccountUpdatedMessage(updatedAccount));
+            _dialogService = dialogService;
+            _accountService = accountService;
+            _serverConnectionManager = serverConnectionManager;
+            _folderService = folderService;
         }
-    }
 
-    [RelayCommand]
-    private async Task DeleteAccount()
-    {
-        if (Account == null)
-            return;
+        [RelayCommand]
+        private Task SetupSpecialFolders()
+            => _dialogService.HandleSystemFolderConfigurationDialogAsync(Account.Id, _folderService);
 
-        var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DeleteAccountConfirmationTitle,
-                                                                           string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, Account.Name),
-                                                                           Translator.Buttons_Delete);
+        [RelayCommand]
+        private void EditSignature()
+            => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsSignature_Title, WinoPage.SignatureManagementPage, Account.Id));
 
-        if (!confirmation)
-            return;
+        [RelayCommand]
+        private void EditAliases()
+            => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsManageAliases_Title, WinoPage.AliasManagementPage, Account.Id));
 
+        public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
+            => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
 
-        var isSynchronizerKilledResponse = await _serverConnectionManager.GetResponseAsync<bool, KillAccountSynchronizerRequested>(new KillAccountSynchronizerRequested(Account.Id));
+        public Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
+            => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
 
-        if (isSynchronizerKilledResponse.IsSuccess)
+        [RelayCommand]
+        private async Task RenameAccount()
         {
-            await _accountService.DeleteAccountAsync(Account);
+            if (Account == null)
+                return;
 
-            _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+            var updatedAccount = await _dialogService.ShowEditAccountDialogAsync(Account);
 
-            Messenger.Send(new BackBreadcrumNavigationRequested());
-        }
-    }
-
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
-    {
-        base.OnNavigatedTo(mode, parameters);
-
-        if (parameters is Guid accountId)
-        {
-            Account = await _accountService.GetAccountAsync(accountId);
-
-            IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
-            AreNotificationsEnabled = Account.Preferences.IsNotificationsEnabled;
-            IsSignatureEnabled = Account.Preferences.IsSignatureEnabled;
-
-            IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
-            IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
-            IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
-
-            OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
-
-            var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
-
-            foreach (var folder in folderStructures)
+            if (updatedAccount != null)
             {
-                CurrentFolders.Add(folder);
+                await _accountService.UpdateAccountAsync(updatedAccount);
+
+                ReportUIChange(new AccountUpdatedMessage(updatedAccount));
             }
         }
-    }
 
-    protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
-    {
-        base.OnPropertyChanged(e);
-
-        switch (e.PropertyName)
+        [RelayCommand]
+        private async Task DeleteAccount()
         {
-            case nameof(IsFocusedInboxEnabled) when IsFocusedInboxSupportedForAccount:
-                Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
-                await _accountService.UpdateAccountAsync(Account);
-                break;
-            case nameof(AreNotificationsEnabled):
-                Account.Preferences.IsNotificationsEnabled = AreNotificationsEnabled;
-                await _accountService.UpdateAccountAsync(Account);
-                break;
-            case nameof(IsAppendMessageSettinEnabled):
-                Account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;
-                await _accountService.UpdateAccountAsync(Account);
-                break;
-            case nameof(IsSignatureEnabled):
-                Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
-                await _accountService.UpdateAccountAsync(Account);
-                break;
-            case nameof(IsTaskbarBadgeEnabled):
-                Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
-                await _accountService.UpdateAccountAsync(Account);
-                break;
+            if (Account == null)
+                return;
+
+            var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DeleteAccountConfirmationTitle,
+                                                                               string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, Account.Name),
+                                                                               Translator.Buttons_Delete);
+
+            if (!confirmation)
+                return;
+
+
+            var isSynchronizerKilledResponse = await _serverConnectionManager.GetResponseAsync<bool, KillAccountSynchronizerRequested>(new KillAccountSynchronizerRequested(Account.Id));
+
+            if (isSynchronizerKilledResponse.IsSuccess)
+            {
+                await _accountService.DeleteAccountAsync(Account);
+
+                _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+
+                Messenger.Send(new BackBreadcrumNavigationRequested());
+            }
+        }
+
+        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        {
+            base.OnNavigatedTo(mode, parameters);
+
+            if (parameters is Guid accountId)
+            {
+                Account = await _accountService.GetAccountAsync(accountId);
+
+                IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
+                AreNotificationsEnabled = Account.Preferences.IsNotificationsEnabled;
+                IsSignatureEnabled = Account.Preferences.IsSignatureEnabled;
+
+                IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
+                IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
+                IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
+
+                OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
+
+                var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
+
+                foreach (var folder in folderStructures)
+                {
+                    CurrentFolders.Add(folder);
+                }
+            }
+        }
+
+        protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
+
+            switch (e.PropertyName)
+            {
+                case nameof(IsFocusedInboxEnabled) when IsFocusedInboxSupportedForAccount:
+                    Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(AreNotificationsEnabled):
+                    Account.Preferences.IsNotificationsEnabled = AreNotificationsEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(IsAppendMessageSettinEnabled):
+                    Account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(IsSignatureEnabled):
+                    Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+                case nameof(IsTaskbarBadgeEnabled):
+                    Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
+                    await _accountService.UpdateAccountAsync(Account);
+                    break;
+            }
         }
     }
 }

@@ -2,25 +2,26 @@
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Dialogs;
-
-public sealed partial class AccountPickerDialog : ContentDialog
+namespace Wino.Dialogs
 {
-    public MailAccount PickedAccount { get; set; }
-
-    public List<MailAccount> AvailableAccounts { get; set; }
-
-    public AccountPickerDialog(List<MailAccount> availableAccounts)
+    public sealed partial class AccountPickerDialog : ContentDialog
     {
-        AvailableAccounts = availableAccounts;
+        public MailAccount PickedAccount { get; set; }
 
-        InitializeComponent();
-    }
+        public List<MailAccount> AvailableAccounts { get; set; }
 
-    private void AccountClicked(object sender, ItemClickEventArgs e)
-    {
-        PickedAccount = e.ClickedItem as MailAccount;
+        public AccountPickerDialog(List<MailAccount> availableAccounts)
+        {
+            AvailableAccounts = availableAccounts;
 
-        Hide();
+            InitializeComponent();
+        }
+
+        private void AccountClicked(object sender, ItemClickEventArgs e)
+        {
+            PickedAccount = e.ClickedItem as MailAccount;
+
+            Hide();
+        }
     }
 }

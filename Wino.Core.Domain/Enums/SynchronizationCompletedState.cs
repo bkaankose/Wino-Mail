@@ -1,8 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum SynchronizationCompletedState
+﻿namespace Wino.Core.Domain.Enums
 {
-    Success, // All succeeded.
-    Canceled, // Canceled by user or HTTP call.
-    Failed // Exception.
+    public enum SynchronizationCompletedState
+    {
+        Success, // All succeeded.
+        Canceled, // Canceled by user or HTTP call.
+        Failed // Exception.
+    }
 }

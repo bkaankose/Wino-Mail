@@ -1,13 +1,14 @@
 ﻿using System;
 
-namespace Wino.Core.Domain.Exceptions;
-
-public class ImapClientPoolException : Exception
+namespace Wino.Core.Domain.Exceptions
 {
-    public ImapClientPoolException(Exception innerException, string protocolLog) : base(Translator.Exception_ImapClientPoolFailed, innerException)
+    public class ImapClientPoolException : Exception
     {
-        ProtocolLog = protocolLog;
-    }
+        public ImapClientPoolException(Exception innerException, string protocolLog) : base(Translator.Exception_ImapClientPoolFailed, innerException)
+        {
+            ProtocolLog = protocolLog;
+        }
 
-    public string ProtocolLog { get; }
+        public string ProtocolLog { get; }
+    }
 }

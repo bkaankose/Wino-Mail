@@ -1,8 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum ApplicationElementTheme
+﻿namespace Wino.Core.Domain.Enums
 {
-    Default,
-    Light,
-    Dark
+    public enum ApplicationElementTheme
+    {
+        Default,
+        Light,
+        Dark
+    }
 }

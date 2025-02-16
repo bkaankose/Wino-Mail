@@ -1,8 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum MailMarkAsOption
+﻿namespace Wino.Core.Domain.Enums
 {
-    WhenSelected,
-    DontMark,
-    AfterDelay
+    public enum MailMarkAsOption
+    {
+        WhenSelected,
+        DontMark,
+        AfterDelay
+    }
 }

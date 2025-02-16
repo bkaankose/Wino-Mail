@@ -1,7 +1,8 @@
-﻿namespace Wino.Core.Domain.Interfaces;
-
-public interface IKeyPressService
+﻿namespace Wino.Core.Domain.Interfaces
 {
-    bool IsCtrlKeyPressed();
-    bool IsShiftKeyPressed();
+    public interface IKeyPressService
+    {
+        bool IsCtrlKeyPressed();
+        bool IsShiftKeyPressed();
+    }
 }

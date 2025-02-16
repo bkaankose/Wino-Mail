@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum InfoBarMessageType
+﻿namespace Wino.Core.Domain.Enums
 {
-    Information,
-    Success,
-    Warning,
-    Error
+    public enum InfoBarMessageType
+    {
+        Information,
+        Success,
+        Warning,
+        Error
+    }
 }

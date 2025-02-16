@@ -1,7 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum DayHeaderDisplayType
+﻿namespace Wino.Core.Domain.Enums
 {
-    TwelveHour,
-    TwentyFourHour,
+    public enum DayHeaderDisplayType
+    {
+        TwelveHour,
+        TwentyFourHour,
+    }
 }

@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Interfaces;
-
-public interface IOutlookAuthenticator : IAuthenticator { }
-public interface IGmailAuthenticator : IAuthenticator
+﻿namespace Wino.Core.Domain.Interfaces
 {
-    bool ProposeCopyAuthURL { get; set; }
-}
+    public interface IOutlookAuthenticator : IAuthenticator { }
+    public interface IGmailAuthenticator : IAuthenticator
+    {
+        bool ProposeCopyAuthURL { get; set; }
+    }
 
-public interface IImapAuthenticator : IAuthenticator { }
+    public interface IImapAuthenticator : IAuthenticator { }
+}

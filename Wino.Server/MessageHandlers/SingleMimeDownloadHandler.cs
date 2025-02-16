@@ -6,25 +6,26 @@ using Wino.Core.Domain.Models.Server;
 using Wino.Messaging.Server;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers;
-
-public class SingleMimeDownloadHandler : ServerMessageHandler<DownloadMissingMessageRequested, bool>
+namespace Wino.Server.MessageHandlers
 {
-    public override WinoServerResponse<bool> FailureDefaultResponse(Exception ex) => WinoServerResponse<bool>.CreateErrorResponse(ex.Message);
-
-    private readonly ISynchronizerFactory _synchronizerFactory;
-    public SingleMimeDownloadHandler(ISynchronizerFactory synchronizerFactory)
+    public class SingleMimeDownloadHandler : ServerMessageHandler<DownloadMissingMessageRequested, bool>
     {
-        _synchronizerFactory = synchronizerFactory;
-    }
+        public override WinoServerResponse<bool> FailureDefaultResponse(Exception ex) => WinoServerResponse<bool>.CreateErrorResponse(ex.Message);
 
-    protected override async Task<WinoServerResponse<bool>> HandleAsync(DownloadMissingMessageRequested message, CancellationToken cancellationToken = default)
-    {
-        var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.AccountId);
+        private readonly ISynchronizerFactory _synchronizerFactory;
+        public SingleMimeDownloadHandler(ISynchronizerFactory synchronizerFactory)
+        {
+            _synchronizerFactory = synchronizerFactory;
+        }
 
-        // TODO: ITransferProgress support is lost.
-        await synchronizer.DownloadMissingMimeMessageAsync(message.MailItem, null, cancellationToken);
+        protected override async Task<WinoServerResponse<bool>> HandleAsync(DownloadMissingMessageRequested message, CancellationToken cancellationToken = default)
+        {
+            var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(message.AccountId);
 
-        return WinoServerResponse<bool>.CreateSuccessResponse(true);
+            // TODO: ITransferProgress support is lost.
+            await synchronizer.DownloadMissingMimeMessageAsync(message.MailItem, null, cancellationToken);
+
+            return WinoServerResponse<bool>.CreateSuccessResponse(true);
+        }
     }
 }

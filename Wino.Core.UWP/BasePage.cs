@@ -8,80 +8,81 @@ using Windows.UI.Xaml.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino.Core.UWP;
-
-public partial class BasePage : Page, IRecipient<LanguageChanged>
+namespace Wino.Core.UWP
 {
-    public UIElement ShellContent
+    public partial class BasePage : Page, IRecipient<LanguageChanged>
     {
-        get { return (UIElement)GetValue(ShellContentProperty); }
-        set { SetValue(ShellContentProperty, value); }
+        public UIElement ShellContent
+        {
+            get { return (UIElement)GetValue(ShellContentProperty); }
+            set { SetValue(ShellContentProperty, value); }
+        }
+
+        public static readonly DependencyProperty ShellContentProperty = DependencyProperty.Register(nameof(ShellContent), typeof(UIElement), typeof(BasePage), new PropertyMetadata(null));
+
+        public void Receive(LanguageChanged message)
+        {
+            OnLanguageChanged();
+        }
+
+        public virtual void OnLanguageChanged() { }
     }
 
-    public static readonly DependencyProperty ShellContentProperty = DependencyProperty.Register(nameof(ShellContent), typeof(UIElement), typeof(BasePage), new PropertyMetadata(null));
-
-    public void Receive(LanguageChanged message)
+    public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
     {
-        OnLanguageChanged();
-    }
+        public T ViewModel { get; } = WinoApplication.Current.Services.GetService<T>();
 
-    public virtual void OnLanguageChanged() { }
-}
+        protected BasePage()
+        {
+            ViewModel.Dispatcher = new UWPDispatcher(Dispatcher);
 
-public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
-{
-    public T ViewModel { get; } = WinoApplication.Current.Services.GetService<T>();
+            Loaded += PageLoaded;
+            Unloaded += PageUnloaded;
+        }
 
-    protected BasePage()
-    {
-        ViewModel.Dispatcher = new UWPDispatcher(Dispatcher);
+        private void PageUnloaded(object sender, RoutedEventArgs e)
+        {
+            Loaded -= PageLoaded;
+            Unloaded -= PageUnloaded;
+        }
 
-        Loaded += PageLoaded;
-        Unloaded += PageUnloaded;
-    }
+        private void PageLoaded(object sender, RoutedEventArgs e) => ViewModel.OnPageLoaded();
 
-    private void PageUnloaded(object sender, RoutedEventArgs e)
-    {
-        Loaded -= PageLoaded;
-        Unloaded -= PageUnloaded;
-    }
+        ~BasePage()
+        {
+            Debug.WriteLine($"Disposed {GetType().Name}");
+        }
 
-    private void PageLoaded(object sender, RoutedEventArgs e) => ViewModel.OnPageLoaded();
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
 
-    ~BasePage()
-    {
-        Debug.WriteLine($"Disposed {GetType().Name}");
-    }
+            var mode = GetNavigationMode(e.NavigationMode);
+            var parameter = e.Parameter;
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
-    {
-        base.OnNavigatedTo(e);
+            WeakReferenceMessenger.Default.UnregisterAll(this);
+            WeakReferenceMessenger.Default.RegisterAll(this);
 
-        var mode = GetNavigationMode(e.NavigationMode);
-        var parameter = e.Parameter;
+            ViewModel.OnNavigatedTo(mode, parameter);
+        }
 
-        WeakReferenceMessenger.Default.UnregisterAll(this);
-        WeakReferenceMessenger.Default.RegisterAll(this);
+        protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+        {
+            base.OnNavigatingFrom(e);
 
-        ViewModel.OnNavigatedTo(mode, parameter);
-    }
+            var mode = GetNavigationMode(e.NavigationMode);
+            var parameter = e.Parameter;
 
-    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
-    {
-        base.OnNavigatingFrom(e);
+            WeakReferenceMessenger.Default.UnregisterAll(this);
 
-        var mode = GetNavigationMode(e.NavigationMode);
-        var parameter = e.Parameter;
+            ViewModel.OnNavigatedFrom(mode, parameter);
 
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+            GC.Collect();
+        }
 
-        ViewModel.OnNavigatedFrom(mode, parameter);
-
-        GC.Collect();
-    }
-
-    private Domain.Models.Navigation.NavigationMode GetNavigationMode(NavigationMode mode)
-    {
-        return (Domain.Models.Navigation.NavigationMode)mode;
+        private Domain.Models.Navigation.NavigationMode GetNavigationMode(NavigationMode mode)
+        {
+            return (Domain.Models.Navigation.NavigationMode)mode;
+        }
     }
 }

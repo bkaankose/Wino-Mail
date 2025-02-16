@@ -1,13 +1,14 @@
 ﻿using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.ViewModels;
-
-public class SettingsPageViewModel : CoreBaseViewModel
+namespace Wino.Core.ViewModels
 {
-    public SettingsPageViewModel(INavigationService navigationService)
+    public class SettingsPageViewModel : CoreBaseViewModel
     {
-        NavigationService = navigationService;
-    }
+        public SettingsPageViewModel(INavigationService navigationService)
+        {
+            NavigationService = navigationService;
+        }
 
-    public INavigationService NavigationService { get; }
+        public INavigationService NavigationService { get; }
+    }
 }

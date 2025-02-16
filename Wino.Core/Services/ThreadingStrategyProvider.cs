@@ -2,30 +2,31 @@
 using Wino.Core.Domain.Interfaces;
 using Wino.Services.Threading;
 
-namespace Wino.Core.Services;
-
-public class ThreadingStrategyProvider : IThreadingStrategyProvider
+namespace Wino.Core.Services
 {
-    private readonly OutlookThreadingStrategy _outlookThreadingStrategy;
-    private readonly GmailThreadingStrategy _gmailThreadingStrategy;
-    private readonly ImapThreadingStrategy _imapThreadStrategy;
-
-    public ThreadingStrategyProvider(OutlookThreadingStrategy outlookThreadingStrategy,
-                                     GmailThreadingStrategy gmailThreadingStrategy,
-                                     ImapThreadingStrategy imapThreadStrategy)
+    public class ThreadingStrategyProvider : IThreadingStrategyProvider
     {
-        _outlookThreadingStrategy = outlookThreadingStrategy;
-        _gmailThreadingStrategy = gmailThreadingStrategy;
-        _imapThreadStrategy = imapThreadStrategy;
-    }
+        private readonly OutlookThreadingStrategy _outlookThreadingStrategy;
+        private readonly GmailThreadingStrategy _gmailThreadingStrategy;
+        private readonly ImapThreadingStrategy _imapThreadStrategy;
 
-    public IThreadingStrategy GetStrategy(MailProviderType mailProviderType)
-    {
-        return mailProviderType switch
+        public ThreadingStrategyProvider(OutlookThreadingStrategy outlookThreadingStrategy,
+                                         GmailThreadingStrategy gmailThreadingStrategy,
+                                         ImapThreadingStrategy imapThreadStrategy)
         {
-            MailProviderType.Outlook => _outlookThreadingStrategy,
-            MailProviderType.Gmail => _gmailThreadingStrategy,
-            _ => _imapThreadStrategy,
-        };
+            _outlookThreadingStrategy = outlookThreadingStrategy;
+            _gmailThreadingStrategy = gmailThreadingStrategy;
+            _imapThreadStrategy = imapThreadStrategy;
+        }
+
+        public IThreadingStrategy GetStrategy(MailProviderType mailProviderType)
+        {
+            return mailProviderType switch
+            {
+                MailProviderType.Outlook => _outlookThreadingStrategy,
+                MailProviderType.Gmail => _gmailThreadingStrategy,
+                _ => _imapThreadStrategy,
+            };
+        }
     }
 }

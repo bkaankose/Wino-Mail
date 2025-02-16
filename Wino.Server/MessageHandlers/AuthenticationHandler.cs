@@ -7,49 +7,50 @@ using Wino.Core.Domain.Models.Server;
 using Wino.Messaging.Server;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers;
-
-public class AuthenticationHandler : ServerMessageHandler<AuthorizationRequested, TokenInformationEx>
+namespace Wino.Server.MessageHandlers
 {
-    private readonly IAuthenticationProvider _authenticationProvider;
-
-    public override WinoServerResponse<TokenInformationEx> FailureDefaultResponse(Exception ex)
-        => WinoServerResponse<TokenInformationEx>.CreateErrorResponse(ex.Message);
-
-    public AuthenticationHandler(IAuthenticationProvider authenticationProvider)
+    public class AuthenticationHandler : ServerMessageHandler<AuthorizationRequested, TokenInformationEx>
     {
-        _authenticationProvider = authenticationProvider;
-    }
+        private readonly IAuthenticationProvider _authenticationProvider;
 
-    protected override async Task<WinoServerResponse<TokenInformationEx>> HandleAsync(AuthorizationRequested message,
-                                                                                    CancellationToken cancellationToken = default)
-    {
-        var authenticator = _authenticationProvider.GetAuthenticator(message.MailProviderType);
+        public override WinoServerResponse<TokenInformationEx> FailureDefaultResponse(Exception ex)
+            => WinoServerResponse<TokenInformationEx>.CreateErrorResponse(ex.Message);
 
-        // Some users are having issues with Gmail authentication.
-        // Their browsers may never launch to complete authentication.
-        // Offer to copy auth url for them to complete it manually.
-        // Redirection will occur to the app and the token will be saved.
-
-        if (message.ProposeCopyAuthorizationURL && authenticator is IGmailAuthenticator gmailAuthenticator)
+        public AuthenticationHandler(IAuthenticationProvider authenticationProvider)
         {
-            gmailAuthenticator.ProposeCopyAuthURL = true;
+            _authenticationProvider = authenticationProvider;
         }
 
-        TokenInformationEx generatedToken = null;
-
-        if (message.CreatedAccount != null)
+        protected override async Task<WinoServerResponse<TokenInformationEx>> HandleAsync(AuthorizationRequested message,
+                                                                                        CancellationToken cancellationToken = default)
         {
-            generatedToken = await authenticator.GetTokenInformationAsync(message.CreatedAccount);
-        }
-        else
-        {
-            // Initial authentication request.
-            // There is no account to get token for.
+            var authenticator = _authenticationProvider.GetAuthenticator(message.MailProviderType);
 
-            generatedToken = await authenticator.GenerateTokenInformationAsync(message.CreatedAccount);
-        }
+            // Some users are having issues with Gmail authentication.
+            // Their browsers may never launch to complete authentication.
+            // Offer to copy auth url for them to complete it manually.
+            // Redirection will occur to the app and the token will be saved.
 
-        return WinoServerResponse<TokenInformationEx>.CreateSuccessResponse(generatedToken);
+            if (message.ProposeCopyAuthorizationURL && authenticator is IGmailAuthenticator gmailAuthenticator)
+            {
+                gmailAuthenticator.ProposeCopyAuthURL = true;
+            }
+
+            TokenInformationEx generatedToken = null;
+
+            if (message.CreatedAccount != null)
+            {
+                generatedToken = await authenticator.GetTokenInformationAsync(message.CreatedAccount);
+            }
+            else
+            {
+                // Initial authentication request.
+                // There is no account to get token for.
+
+                generatedToken = await authenticator.GenerateTokenInformationAsync(message.CreatedAccount);
+            }
+
+            return WinoServerResponse<TokenInformationEx>.CreateSuccessResponse(generatedToken);
+        }
     }
 }

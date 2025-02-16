@@ -1,15 +1,16 @@
 ﻿using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Personalization;
-
-public class ElementThemeContainer
+namespace Wino.Core.Domain.Models.Personalization
 {
-    public ElementThemeContainer(ApplicationElementTheme nativeTheme, string title)
+    public class ElementThemeContainer
     {
-        NativeTheme = nativeTheme;
-        Title = title;
-    }
+        public ElementThemeContainer(ApplicationElementTheme nativeTheme, string title)
+        {
+            NativeTheme = nativeTheme;
+            Title = title;
+        }
 
-    public ApplicationElementTheme NativeTheme { get; set; }
-    public string Title { get; set; }
+        public ApplicationElementTheme NativeTheme { get; set; }
+        public string Title { get; set; }
+    }
 }

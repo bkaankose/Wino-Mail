@@ -7,31 +7,32 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Folder;
-
-public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> MailsToMarkRead) : FolderRequestBase(Folder, FolderSynchronizerOperation.MarkFolderRead), ICustomFolderSynchronizationRequest
+namespace Wino.Core.Requests.Folder
 {
-    public override void ApplyUIChanges()
+    public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> MailsToMarkRead) : FolderRequestBase(Folder, FolderSynchronizerOperation.MarkFolderRead), ICustomFolderSynchronizationRequest
     {
-        foreach (var item in MailsToMarkRead)
+        public override void ApplyUIChanges()
         {
-            item.IsRead = true;
+            foreach (var item in MailsToMarkRead)
+            {
+                item.IsRead = true;
 
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+                WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+            }
         }
-    }
 
-    public override void RevertUIChanges()
-    {
-        foreach (var item in MailsToMarkRead)
+        public override void RevertUIChanges()
         {
-            item.IsRead = false;
+            foreach (var item in MailsToMarkRead)
+            {
+                item.IsRead = false;
 
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+                WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+            }
         }
+
+        public List<Guid> SynchronizationFolderIds => [Folder.Id];
+
+        public bool ExcludeMustHaveFolders => true;
     }
-
-    public List<Guid> SynchronizationFolderIds => [Folder.Id];
-
-    public bool ExcludeMustHaveFolders => true;
 }

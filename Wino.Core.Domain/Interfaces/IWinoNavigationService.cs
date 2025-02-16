@@ -2,15 +2,16 @@
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Navigation;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface INavigationService
+namespace Wino.Core.Domain.Interfaces
 {
-    bool Navigate(WinoPage page,
-                         object parameter = null,
-                         NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame,
-                         NavigationTransitionType transition = NavigationTransitionType.None);
+    public interface INavigationService
+    {
+        bool Navigate(WinoPage page,
+                             object parameter = null,
+                             NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame,
+                             NavigationTransitionType transition = NavigationTransitionType.None);
 
-    Type GetPageType(WinoPage winoPage);
-    void GoBack();
+        Type GetPageType(WinoPage winoPage);
+        void GoBack();
+    }
 }

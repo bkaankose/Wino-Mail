@@ -8,42 +8,43 @@ using Wino.Core.Domain.Models.Server;
 using Wino.Messaging.Server;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers;
-
-public class ImapConnectivityTestHandler : ServerMessageHandler<ImapConnectivityTestRequested, ImapConnectivityTestResults>
+namespace Wino.Server.MessageHandlers
 {
-    private readonly IImapTestService _imapTestService;
-
-    public override WinoServerResponse<ImapConnectivityTestResults> FailureDefaultResponse(Exception ex)
-        => WinoServerResponse<ImapConnectivityTestResults>.CreateErrorResponse(ex.Message);
-
-    public ImapConnectivityTestHandler(IImapTestService imapTestService)
+    public class ImapConnectivityTestHandler : ServerMessageHandler<ImapConnectivityTestRequested, ImapConnectivityTestResults>
     {
-        _imapTestService = imapTestService;
-    }
+        private readonly IImapTestService _imapTestService;
 
-    protected override async Task<WinoServerResponse<ImapConnectivityTestResults>> HandleAsync(ImapConnectivityTestRequested message, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await _imapTestService.TestImapConnectionAsync(message.ServerInformation, message.IsSSLHandshakeAllowed);
+        public override WinoServerResponse<ImapConnectivityTestResults> FailureDefaultResponse(Exception ex)
+            => WinoServerResponse<ImapConnectivityTestResults>.CreateErrorResponse(ex.Message);
 
-            return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.Success());
-        }
-        catch (ImapTestSSLCertificateException sslTestException)
+        public ImapConnectivityTestHandler(IImapTestService imapTestService)
         {
-            // User must confirm to continue ignoring the SSL certificate.
-            return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.CertificateUIRequired(sslTestException.Issuer, sslTestException.ExpirationDateString, sslTestException.ValidFromDateString));
+            _imapTestService = imapTestService;
         }
-        catch (ImapClientPoolException clientPoolException)
+
+        protected override async Task<WinoServerResponse<ImapConnectivityTestResults>> HandleAsync(ImapConnectivityTestRequested message, CancellationToken cancellationToken = default)
         {
-            // Connectivity failed with protocol log.
-            return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.Failure(clientPoolException, clientPoolException.ProtocolLog));
-        }
-        catch (Exception exception)
-        {
-            // Unknown error 
-            return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.Failure(exception, string.Empty));
+            try
+            {
+                await _imapTestService.TestImapConnectionAsync(message.ServerInformation, message.IsSSLHandshakeAllowed);
+
+                return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.Success());
+            }
+            catch (ImapTestSSLCertificateException sslTestException)
+            {
+                // User must confirm to continue ignoring the SSL certificate.
+                return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.CertificateUIRequired(sslTestException.Issuer, sslTestException.ExpirationDateString, sslTestException.ValidFromDateString));
+            }
+            catch (ImapClientPoolException clientPoolException)
+            {
+                // Connectivity failed with protocol log.
+                return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.Failure(clientPoolException, clientPoolException.ProtocolLog));
+            }
+            catch (Exception exception)
+            {
+                // Unknown error 
+                return WinoServerResponse<ImapConnectivityTestResults>.CreateSuccessResponse(ImapConnectivityTestResults.Failure(exception, string.Empty));
+            }
         }
     }
 }

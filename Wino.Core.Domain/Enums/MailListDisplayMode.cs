@@ -1,8 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum MailListDisplayMode
+﻿namespace Wino.Core.Domain.Enums
 {
-    Spacious,
-    Medium,
-    Compact,
+    public enum MailListDisplayMode
+    {
+        Spacious,
+        Medium,
+        Compact,
+    }
 }

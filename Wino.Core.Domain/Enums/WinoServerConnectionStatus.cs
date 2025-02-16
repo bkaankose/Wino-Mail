@@ -1,10 +1,11 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum WinoServerConnectionStatus
+﻿namespace Wino.Core.Domain.Enums
 {
-    None,
-    Connecting,
-    Connected,
-    Disconnected,
-    Failed
+    public enum WinoServerConnectionStatus
+    {
+        None,
+        Connecting,
+        Connected,
+        Disconnected,
+        Failed
+    }
 }

@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Wino.Core.Domain.Models.Comparers;
-
-/// <summary>
-/// Used to insert date grouping into proper place in Reader page.
-/// </summary>
-public class DateTimeComparer : IComparer<DateTime>
+namespace Wino.Core.Domain.Models.Comparers
 {
-    public int Compare(DateTime x, DateTime y)
+    /// <summary>
+    /// Used to insert date grouping into proper place in Reader page.
+    /// </summary>
+    public class DateTimeComparer : IComparer<DateTime>
     {
-        return DateTime.Compare(y, x);
+        public int Compare(DateTime x, DateTime y)
+        {
+            return DateTime.Compare(y, x);
+        }
     }
 }

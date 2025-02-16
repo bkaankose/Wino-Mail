@@ -1,8 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum AccountAttentionReason
+﻿namespace Wino.Core.Domain.Enums
 {
-    None,
-    InvalidCredentials,
-    MissingSystemFolderConfiguration
+    public enum AccountAttentionReason
+    {
+        None,
+        InvalidCredentials,
+        MissingSystemFolderConfiguration
+    }
 }

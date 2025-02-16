@@ -6,30 +6,31 @@ using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Reader;
 
-namespace Wino.Core.Services;
-
-public class UnsubscriptionService : IUnsubscriptionService
+namespace Wino.Core.Services
 {
-    public async Task<bool> OneClickUnsubscribeAsync(UnsubscribeInfo info)
+    public class UnsubscriptionService : IUnsubscriptionService
     {
-        try
+        public async Task<bool> OneClickUnsubscribeAsync(UnsubscribeInfo info)
         {
-            using var httpClient = new HttpClient();
-
-            var unsubscribeRequest = new HttpRequestMessage(HttpMethod.Post, info.HttpLink)
+            try
             {
-                Content = new StringContent("List-Unsubscribe=One-Click", Encoding.UTF8, "application/x-www-form-urlencoded")
-            };
+                using var httpClient = new HttpClient();
 
-            var result = await httpClient.SendAsync(unsubscribeRequest).ConfigureAwait(false);
+                var unsubscribeRequest = new HttpRequestMessage(HttpMethod.Post, info.HttpLink)
+                {
+                    Content = new StringContent("List-Unsubscribe=One-Click", Encoding.UTF8, "application/x-www-form-urlencoded")
+                };
 
-            return result.IsSuccessStatusCode;
+                var result = await httpClient.SendAsync(unsubscribeRequest).ConfigureAwait(false);
+
+                return result.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Failed to unsubscribe from {HttpLink} - {Message}", info.HttpLink, ex.Message);
+            }
+
+            return false;
         }
-        catch (Exception ex)
-        {
-            Log.Error("Failed to unsubscribe from {HttpLink} - {Message}", info.HttpLink, ex.Message);
-        }
-
-        return false;
     }
 }

@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class AliasManagementPage : AliasManagementPageAbstract
+namespace Wino.Views.Settings
 {
-    public AliasManagementPage()
+    public sealed partial class AliasManagementPage : AliasManagementPageAbstract
     {
-        this.InitializeComponent();
+        public AliasManagementPage()
+        {
+            this.InitializeComponent();
+        }
     }
 }

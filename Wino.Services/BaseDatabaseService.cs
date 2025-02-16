@@ -2,20 +2,21 @@
 using SQLite;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Services;
-
-public class BaseDatabaseService
+namespace Wino.Services
 {
-    protected IMessenger Messenger => WeakReferenceMessenger.Default;
-    protected SQLiteAsyncConnection Connection => _databaseService.Connection;
-
-    private readonly IDatabaseService _databaseService;
-
-    public BaseDatabaseService(IDatabaseService databaseService)
+    public class BaseDatabaseService
     {
-        _databaseService = databaseService;
-    }
+        protected IMessenger Messenger => WeakReferenceMessenger.Default;
+        protected SQLiteAsyncConnection Connection => _databaseService.Connection;
 
-    public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
-        => Messenger.Send(message);
+        private readonly IDatabaseService _databaseService;
+
+        public BaseDatabaseService(IDatabaseService databaseService)
+        {
+            _databaseService = databaseService;
+        }
+
+        public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage
+            => Messenger.Send(message);
+    }
 }

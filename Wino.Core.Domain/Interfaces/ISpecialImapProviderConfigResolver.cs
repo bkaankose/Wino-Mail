@@ -1,9 +1,10 @@
 ﻿using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Accounts;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface ISpecialImapProviderConfigResolver
+namespace Wino.Core.Domain.Interfaces
 {
-    CustomServerInformation GetServerInformation(MailAccount account, AccountCreationDialogResult dialogResult);
+    public interface ISpecialImapProviderConfigResolver
+    {
+        CustomServerInformation GetServerInformation(MailAccount account, AccountCreationDialogResult dialogResult);
+    }
 }

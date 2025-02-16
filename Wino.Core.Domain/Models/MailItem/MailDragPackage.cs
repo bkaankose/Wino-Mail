@@ -1,24 +1,25 @@
 ﻿using System.Collections.Generic;
 
-namespace Wino.Core.Domain.Models.MailItem;
-
-/// <summary>
-/// Class that holds information when the drag/drop of mails are performed.
-/// </summary>
-public class MailDragPackage
+namespace Wino.Core.Domain.Models.MailItem
 {
-    public MailDragPackage(IEnumerable<IMailItem> draggingMails)
+    /// <summary>
+    /// Class that holds information when the drag/drop of mails are performed.
+    /// </summary>
+    public class MailDragPackage
     {
-        DraggingMails = draggingMails;
-    }
+        public MailDragPackage(IEnumerable<IMailItem> draggingMails)
+        {
+            DraggingMails = draggingMails;
+        }
 
-    public MailDragPackage(IMailItem draggingMail)
-    {
-        DraggingMails =
-        [
-            draggingMail
-        ];
-    }
+        public MailDragPackage(IMailItem draggingMail)
+        {
+            DraggingMails =
+            [
+                draggingMail
+            ];
+        }
 
-    public IEnumerable<IMailItem> DraggingMails { get; set; }
+        public IEnumerable<IMailItem> DraggingMails { get; set; }
+    }
 }

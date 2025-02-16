@@ -3,31 +3,32 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Mail.ViewModels.Data;
-
-public partial class AccountProviderDetailViewModel : ObservableObject, IAccountProviderDetailViewModel
+namespace Wino.Mail.ViewModels.Data
 {
-
-    [ObservableProperty]
-    private MailAccount account;
-
-    public IProviderDetail ProviderDetail { get; set; }
-
-    public Guid StartupEntityId => Account.Id;
-
-    public string StartupEntityTitle => Account.Name;
-
-    public int Order => Account.Order;
-
-    public string StartupEntityAddresses => Account.Address;
-
-    public int HoldingAccountCount => 1;
-
-    public bool HasProfilePicture => !string.IsNullOrEmpty(Account.Base64ProfilePictureData);
-
-    public AccountProviderDetailViewModel(IProviderDetail providerDetail, MailAccount account)
+    public partial class AccountProviderDetailViewModel : ObservableObject, IAccountProviderDetailViewModel
     {
-        ProviderDetail = providerDetail;
-        Account = account;
+
+        [ObservableProperty]
+        private MailAccount account;
+
+        public IProviderDetail ProviderDetail { get; set; }
+
+        public Guid StartupEntityId => Account.Id;
+
+        public string StartupEntityTitle => Account.Name;
+
+        public int Order => Account.Order;
+
+        public string StartupEntityAddresses => Account.Address;
+
+        public int HoldingAccountCount => 1;
+
+        public bool HasProfilePicture => !string.IsNullOrEmpty(Account.Base64ProfilePictureData);
+
+        public AccountProviderDetailViewModel(IProviderDetail providerDetail, MailAccount account)
+        {
+            ProviderDetail = providerDetail;
+            Account = account;
+        }
     }
 }

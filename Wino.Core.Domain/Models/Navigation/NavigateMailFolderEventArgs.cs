@@ -1,23 +1,24 @@
 ﻿using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Domain.Models.Navigation;
-
-public class NavigateMailFolderEventArgs
+namespace Wino.Core.Domain.Models.Navigation
 {
-    public NavigateMailFolderEventArgs(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitLoadAwaitTask = null)
+    public class NavigateMailFolderEventArgs
     {
-        BaseFolderMenuItem = baseFolderMenuItem;
-        FolderInitLoadAwaitTask = folderInitLoadAwaitTask;
+        public NavigateMailFolderEventArgs(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool> folderInitLoadAwaitTask = null)
+        {
+            BaseFolderMenuItem = baseFolderMenuItem;
+            FolderInitLoadAwaitTask = folderInitLoadAwaitTask;
+        }
+
+        /// <summary>
+        /// Base folder menu item.
+        /// </summary>
+        public IBaseFolderMenuItem BaseFolderMenuItem { get; set; }
+
+        /// <summary>
+        /// Completion source for waiting folder's mail initialization.
+        /// </summary>
+        public TaskCompletionSource<bool> FolderInitLoadAwaitTask { get; }
     }
-
-    /// <summary>
-    /// Base folder menu item.
-    /// </summary>
-    public IBaseFolderMenuItem BaseFolderMenuItem { get; set; }
-
-    /// <summary>
-    /// Completion source for waiting folder's mail initialization.
-    /// </summary>
-    public TaskCompletionSource<bool> FolderInitLoadAwaitTask { get; }
 }

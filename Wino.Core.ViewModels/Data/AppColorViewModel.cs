@@ -1,22 +1,23 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace Wino.Core.ViewModels.Data;
-
-public class AppColorViewModel : ObservableObject
+namespace Wino.Core.ViewModels.Data
 {
-    private string _hex;
-
-    public string Hex
+    public class AppColorViewModel : ObservableObject
     {
-        get => _hex;
-        set => SetProperty(ref _hex, value);
-    }
+        private string _hex;
 
-    public bool IsAccentColor { get; }
+        public string Hex
+        {
+            get => _hex;
+            set => SetProperty(ref _hex, value);
+        }
 
-    public AppColorViewModel(string hex, bool isAccentColor = false)
-    {
-        IsAccentColor = isAccentColor;
-        Hex = hex;
+        public bool IsAccentColor { get; }
+
+        public AppColorViewModel(string hex, bool isAccentColor = false)
+        {
+            IsAccentColor = isAccentColor;
+            Hex = hex;
+        }
     }
 }

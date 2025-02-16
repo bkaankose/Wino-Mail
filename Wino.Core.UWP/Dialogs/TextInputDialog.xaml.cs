@@ -1,44 +1,45 @@
 ﻿using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 
-namespace Wino.Dialogs;
-
-public sealed partial class TextInputDialog : ContentDialog
+namespace Wino.Dialogs
 {
-    public bool? HasInput { get; set; }
-
-    public string CurrentInput
+    public sealed partial class TextInputDialog : ContentDialog
     {
-        get { return (string)GetValue(CurrentInputProperty); }
-        set { SetValue(CurrentInputProperty, value); }
-    }
+        public bool? HasInput { get; set; }
 
-    public static readonly DependencyProperty CurrentInputProperty = DependencyProperty.Register(nameof(CurrentInput), typeof(string), typeof(TextInputDialog), new PropertyMetadata(string.Empty));
+        public string CurrentInput
+        {
+            get { return (string)GetValue(CurrentInputProperty); }
+            set { SetValue(CurrentInputProperty, value); }
+        }
 
-    public TextInputDialog()
-    {
-        InitializeComponent();
-    }
+        public static readonly DependencyProperty CurrentInputProperty = DependencyProperty.Register(nameof(CurrentInput), typeof(string), typeof(TextInputDialog), new PropertyMetadata(string.Empty));
 
-    public void SetDescription(string description)
-    {
-        DialogDescription.Text = description;
-    }
+        public TextInputDialog()
+        {
+            InitializeComponent();
+        }
 
-    public void SetPrimaryButtonText(string text)
-    {
-        PrimaryButtonText = text;
-    }
+        public void SetDescription(string description)
+        {
+            DialogDescription.Text = description;
+        }
 
-    private void CancelClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        Hide();
-    }
+        public void SetPrimaryButtonText(string text)
+        {
+            PrimaryButtonText = text;
+        }
 
-    private void UpdateOrCreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        HasInput = true;
+        private void CancelClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        {
+            Hide();
+        }
 
-        Hide();
+        private void UpdateOrCreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        {
+            HasInput = true;
+
+            Hide();
+        }
     }
 }

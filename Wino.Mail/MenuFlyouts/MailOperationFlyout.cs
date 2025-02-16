@@ -4,23 +4,24 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Menus;
 
-namespace Wino.MenuFlyouts.Context;
-
-public partial class MailOperationFlyout : WinoOperationFlyout<MailOperationMenuItem>
+namespace Wino.MenuFlyouts.Context
 {
-    public MailOperationFlyout(IEnumerable<MailOperationMenuItem> availableActions, TaskCompletionSource<MailOperationMenuItem> completionSource) : base(availableActions, completionSource)
+    public partial class MailOperationFlyout : WinoOperationFlyout<MailOperationMenuItem>
     {
-        if (AvailableActions == null) return;
-
-        foreach (var action in AvailableActions)
+        public MailOperationFlyout(IEnumerable<MailOperationMenuItem> availableActions, TaskCompletionSource<MailOperationMenuItem> completionSource) : base(availableActions, completionSource)
         {
-            if (action.Operation == MailOperation.Seperator)
-                Items.Add(new MenuFlyoutSeparator());
-            else
-            {
-                var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, (c) => MenuItemClicked(c));
+            if (AvailableActions == null) return;
 
-                Items.Add(menuFlyoutItem);
+            foreach (var action in AvailableActions)
+            {
+                if (action.Operation == MailOperation.Seperator)
+                    Items.Add(new MenuFlyoutSeparator());
+                else
+                {
+                    var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, (c) => MenuItemClicked(c));
+
+                    Items.Add(menuFlyoutItem);
+                }
             }
         }
     }

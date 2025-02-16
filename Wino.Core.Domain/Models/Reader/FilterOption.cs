@@ -1,15 +1,16 @@
 ﻿using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Models.Reader;
-
-public class FilterOption
+namespace Wino.Core.Domain.Models.Reader
 {
-    public FilterOptionType Type { get; set; }
-    public string Title { get; set; }
-
-    public FilterOption(string title, FilterOptionType type)
+    public class FilterOption
     {
-        Title = title;
-        Type = type;
+        public FilterOptionType Type { get; set; }
+        public string Title { get; set; }
+
+        public FilterOption(string title, FilterOptionType type)
+        {
+            Title = title;
+            Type = type;
+        }
     }
 }

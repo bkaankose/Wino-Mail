@@ -9,54 +9,55 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Messaging.Client.Navigation;
 
-namespace Wino.Core.ViewModels;
-
-public partial class SettingOptionsPageViewModel : CoreBaseViewModel
+namespace Wino.Core.ViewModels
 {
-    private readonly ISettingsBuilderService _settingsBuilderService;
-
-    [RelayCommand]
-    private void GoAccountSettings() => Messenger.Send<NavigateManageAccountsRequested>();
-
-    [RelayCommand]
-    public void NavigateSubDetail(object type)
+    public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     {
-        if (type is WinoPage pageType)
+        private readonly ISettingsBuilderService _settingsBuilderService;
+
+        [RelayCommand]
+        private void GoAccountSettings() => Messenger.Send<NavigateManageAccountsRequested>();
+
+        [RelayCommand]
+        public void NavigateSubDetail(object type)
         {
-            if (pageType == WinoPage.AccountManagementPage)
+            if (type is WinoPage pageType)
             {
-                GoAccountSettings();
-                return;
+                if (pageType == WinoPage.AccountManagementPage)
+                {
+                    GoAccountSettings();
+                    return;
+                }
+
+                string pageTitle = pageType switch
+                {
+                    WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
+                    WinoPage.AboutPage => Translator.SettingsAbout_Title,
+                    WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
+                    WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
+                    WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
+                    WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
+                    WinoPage.CalendarSettingsPage => Translator.SettingsCalendarSettings_Title,
+                    _ => throw new NotImplementedException()
+                };
+
+                Messenger.Send(new BreadcrumbNavigationRequested(pageTitle, pageType));
             }
-
-            string pageTitle = pageType switch
-            {
-                WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
-                WinoPage.AboutPage => Translator.SettingsAbout_Title,
-                WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
-                WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
-                WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
-                WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
-                WinoPage.CalendarSettingsPage => Translator.SettingsCalendarSettings_Title,
-                _ => throw new NotImplementedException()
-            };
-
-            Messenger.Send(new BreadcrumbNavigationRequested(pageTitle, pageType));
         }
-    }
 
-    [ObservableProperty]
-    private List<SettingOption> _settingOptions = new();
+        [ObservableProperty]
+        private List<SettingOption> _settingOptions = new();
 
-    public SettingOptionsPageViewModel(ISettingsBuilderService settingsBuilderService)
-    {
-        _settingsBuilderService = settingsBuilderService;
+        public SettingOptionsPageViewModel(ISettingsBuilderService settingsBuilderService)
+        {
+            _settingsBuilderService = settingsBuilderService;
 
-        ReloadSettings();
-    }
+            ReloadSettings();
+        }
 
-    private void ReloadSettings()
-    {
-        SettingOptions = _settingsBuilderService.GetSettingItems();
+        private void ReloadSettings()
+        {
+            SettingOptions = _settingsBuilderService.GetSettingItems();
+        }
     }
 }

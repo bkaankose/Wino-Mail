@@ -1,3 +1,4 @@
-﻿namespace Wino.Core.Domain.MenuItems;
-
-public class SettingsItem : MenuItemBase { }
+﻿namespace Wino.Core.Domain.MenuItems
+{
+    public class SettingsItem : MenuItemBase { }
+}

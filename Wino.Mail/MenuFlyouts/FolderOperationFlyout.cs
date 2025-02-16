@@ -4,23 +4,24 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
-namespace Wino.MenuFlyouts.Context;
-
-public partial class FolderOperationFlyout : WinoOperationFlyout<FolderOperationMenuItem>
+namespace Wino.MenuFlyouts.Context
 {
-    public FolderOperationFlyout(IEnumerable<FolderOperationMenuItem> availableActions, TaskCompletionSource<FolderOperationMenuItem> completionSource) : base(availableActions, completionSource)
+    public partial class FolderOperationFlyout : WinoOperationFlyout<FolderOperationMenuItem>
     {
-        if (AvailableActions == null) return;
-
-        foreach (var action in AvailableActions)
+        public FolderOperationFlyout(IEnumerable<FolderOperationMenuItem> availableActions, TaskCompletionSource<FolderOperationMenuItem> completionSource) : base(availableActions, completionSource)
         {
-            if (action.Operation == FolderOperation.Seperator)
-                Items.Add(new MenuFlyoutSeparator());
-            else
-            {
-                var menuFlyoutItem = new FolderOperationMenuFlyoutItem(action, (c) => MenuItemClicked(c));
+            if (AvailableActions == null) return;
 
-                Items.Add(menuFlyoutItem);
+            foreach (var action in AvailableActions)
+            {
+                if (action.Operation == FolderOperation.Seperator)
+                    Items.Add(new MenuFlyoutSeparator());
+                else
+                {
+                    var menuFlyoutItem = new FolderOperationMenuFlyoutItem(action, (c) => MenuItemClicked(c));
+
+                    Items.Add(menuFlyoutItem);
+                }
             }
         }
     }

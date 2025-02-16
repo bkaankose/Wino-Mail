@@ -1,11 +1,12 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-/// <summary>
-/// Indicates the state of synchronizer.
-/// </summary>
-public enum AccountSynchronizerState
+﻿namespace Wino.Core.Domain.Enums
 {
-    Idle,
-    ExecutingRequests,
-    Synchronizing
+    /// <summary>
+    /// Indicates the state of synchronizer.
+    /// </summary>
+    public enum AccountSynchronizerState
+    {
+        Idle,
+        ExecutingRequests,
+        Synchronizing
+    }
 }

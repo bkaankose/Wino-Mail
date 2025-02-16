@@ -7,29 +7,30 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Mail;
-
-public record MoveRequest(MailCopy Item, MailItemFolder FromFolder, MailItemFolder ToFolder)
-    : MailRequestBase(Item), ICustomFolderSynchronizationRequest
+namespace Wino.Core.Requests.Mail
 {
-    public List<Guid> SynchronizationFolderIds => new() { FromFolder.Id, ToFolder.Id };
-    public bool ExcludeMustHaveFolders => false;
-    public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Move;
-
-    public override void ApplyUIChanges()
+    public record MoveRequest(MailCopy Item, MailItemFolder FromFolder, MailItemFolder ToFolder)
+        : MailRequestBase(Item), ICustomFolderSynchronizationRequest
     {
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
+        public List<Guid> SynchronizationFolderIds => new() { FromFolder.Id, ToFolder.Id };
+        public bool ExcludeMustHaveFolders => false;
+        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.Move;
+
+        public override void ApplyUIChanges()
+        {
+            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
+        }
+
+        public override void RevertUIChanges()
+        {
+            WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item));
+        }
     }
 
-    public override void RevertUIChanges()
+    public class BatchMoveRequest : BatchCollection<MoveRequest>, IUIChangeRequest
     {
-        WeakReferenceMessenger.Default.Send(new MailAddedMessage(Item));
-    }
-}
-
-public class BatchMoveRequest : BatchCollection<MoveRequest>, IUIChangeRequest
-{
-    public BatchMoveRequest(IEnumerable<MoveRequest> collection) : base(collection)
-    {
+        public BatchMoveRequest(IEnumerable<MoveRequest> collection) : base(collection)
+        {
+        }
     }
 }

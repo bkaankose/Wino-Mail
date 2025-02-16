@@ -1,7 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum CalendarOrientation
+﻿namespace Wino.Core.Domain.Enums
 {
-    Horizontal,
-    Vertical
+    public enum CalendarOrientation
+    {
+        Horizontal,
+        Vertical
+    }
 }

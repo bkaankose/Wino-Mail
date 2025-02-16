@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum AttendeeStatus
+﻿namespace Wino.Core.Domain.Enums
 {
-    NeedsAction,
-    Accepted,
-    Tentative,
-    Declined
+    public enum AttendeeStatus
+    {
+        NeedsAction,
+        Accepted,
+        Tentative,
+        Declined
+    }
 }

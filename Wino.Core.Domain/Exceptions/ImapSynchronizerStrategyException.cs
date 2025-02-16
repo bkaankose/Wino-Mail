@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Exceptions;
-
-public class ImapSynchronizerStrategyException : System.Exception
+﻿namespace Wino.Core.Domain.Exceptions
 {
-    public ImapSynchronizerStrategyException(string message) : base(message)
+    public class ImapSynchronizerStrategyException : System.Exception
     {
+        public ImapSynchronizerStrategyException(string message) : base(message)
+        {
 
+        }
     }
 }

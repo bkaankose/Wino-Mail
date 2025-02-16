@@ -3,29 +3,30 @@ using System.Collections;
 using System.Collections.Generic;
 using Wino.Core.Domain.Models.MailItem;
 
-namespace Wino.Core.Domain.Models.Comparers;
-
-public class DateComparer : IComparer<IMailItem>, IEqualityComparer
+namespace Wino.Core.Domain.Models.Comparers
 {
-    public int Compare(IMailItem x, IMailItem y)
+    public class DateComparer : IComparer<IMailItem>, IEqualityComparer
     {
-        return DateTime.Compare(y.CreationDate, x.CreationDate);
-    }
-
-    public new bool Equals(object x, object y)
-    {
-        if (x is IMailItem firstItem && y is IMailItem secondItem)
+        public int Compare(IMailItem x, IMailItem y)
         {
-            return firstItem.Equals(secondItem);
+            return DateTime.Compare(y.CreationDate, x.CreationDate);
         }
 
-        return false;
-    }
+        public new bool Equals(object x, object y)
+        {
+            if (x is IMailItem firstItem && y is IMailItem secondItem)
+            {
+                return firstItem.Equals(secondItem);
+            }
 
-    public int GetHashCode(object obj) => (obj as IMailItem).GetHashCode();
+            return false;
+        }
 
-    public DateComparer()
-    {
+        public int GetHashCode(object obj) => (obj as IMailItem).GetHashCode();
 
+        public DateComparer()
+        {
+
+        }
     }
 }

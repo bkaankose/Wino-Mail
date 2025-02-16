@@ -1,6 +1,7 @@
-﻿namespace Wino.Core.Domain.Exceptions;
-
-public class MissingAliasException : System.Exception
+﻿namespace Wino.Core.Domain.Exceptions
 {
-    public MissingAliasException() : base(Translator.Exception_MissingAlias) { }
+    public class MissingAliasException : System.Exception
+    {
+        public MissingAliasException() : base(Translator.Exception_MissingAlias) { }
+    }
 }

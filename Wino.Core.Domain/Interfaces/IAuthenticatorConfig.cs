@@ -1,10 +1,11 @@
-﻿namespace Wino.Core.Domain.Interfaces;
-
-public interface IAuthenticatorConfig
+﻿namespace Wino.Core.Domain.Interfaces
 {
-    string OutlookAuthenticatorClientId { get; }
-    string[] OutlookScope { get; }
-    string GmailAuthenticatorClientId { get; }
-    string[] GmailScope { get; }
-    string GmailTokenStoreIdentifier { get; }
+    public interface IAuthenticatorConfig
+    {
+        string OutlookAuthenticatorClientId { get; }
+        string[] OutlookScope { get; }
+        string GmailAuthenticatorClientId { get; }
+        string[] GmailScope { get; }
+        string GmailTokenStoreIdentifier { get; }
+    }
 }

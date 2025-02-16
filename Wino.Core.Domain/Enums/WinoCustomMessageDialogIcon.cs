@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum WinoCustomMessageDialogIcon
+﻿namespace Wino.Core.Domain.Enums
 {
-    Information,
-    Warning,
-    Error,
-    Question
+    public enum WinoCustomMessageDialogIcon
+    {
+        Information,
+        Warning,
+        Error,
+        Question
+    }
 }

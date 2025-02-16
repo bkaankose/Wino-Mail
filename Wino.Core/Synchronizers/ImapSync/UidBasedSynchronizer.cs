@@ -10,71 +10,72 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration;
 
-namespace Wino.Core.Synchronizers.ImapSync;
-
-/// <summary>
-/// Uid based IMAP Synchronization strategy.
-/// </summary>
-internal class UidBasedSynchronizer : ImapSynchronizationStrategyBase
+namespace Wino.Core.Synchronizers.ImapSync
 {
-    public UidBasedSynchronizer(IFolderService folderService, Domain.Interfaces.IMailService mailService) : base(folderService, mailService)
+    /// <summary>
+    /// Uid based IMAP Synchronization strategy.
+    /// </summary>
+    internal class UidBasedSynchronizer : ImapSynchronizationStrategyBase
     {
-    }
-
-    public override async Task<List<string>> HandleSynchronizationAsync(IImapClient client, MailItemFolder folder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
-    {
-        if (client is not WinoImapClient winoClient)
-            throw new ArgumentException("Client must be of type WinoImapClient.", nameof(client));
-
-        Folder = folder;
-
-        var downloadedMessageIds = new List<string>();
-        IMailFolder remoteFolder = null;
-
-        try
+        public UidBasedSynchronizer(IFolderService folderService, Domain.Interfaces.IMailService mailService) : base(folderService, mailService)
         {
-            remoteFolder = await winoClient.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
-
-            await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
-
-            // Fetch UIDs from the remote folder
-            var remoteUids = await remoteFolder.SearchAsync(SearchQuery.All, cancellationToken).ConfigureAwait(false);
-
-            remoteUids = remoteUids.OrderByDescending(a => a.Id).Take((int)synchronizer.InitialMessageDownloadCountPerFolder).ToList();
-
-            await HandleChangedUIdsAsync(synchronizer, remoteFolder, remoteUids, cancellationToken).ConfigureAwait(false);
-            await ManageUUIdBasedDeletedMessagesAsync(folder, remoteFolder, cancellationToken).ConfigureAwait(false);
         }
-        catch (FolderNotFoundException)
-        {
-            await FolderService.DeleteFolderAsync(folder.MailAccountId, folder.RemoteFolderId).ConfigureAwait(false);
 
-            return default;
-        }
-        catch (Exception)
+        public override async Task<List<string>> HandleSynchronizationAsync(IImapClient client, MailItemFolder folder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
         {
+            if (client is not WinoImapClient winoClient)
+                throw new ArgumentException("Client must be of type WinoImapClient.", nameof(client));
 
-            throw;
-        }
-        finally
-        {
-            if (!cancellationToken.IsCancellationRequested)
+            Folder = folder;
+
+            var downloadedMessageIds = new List<string>();
+            IMailFolder remoteFolder = null;
+
+            try
             {
-                if (remoteFolder != null)
+                remoteFolder = await winoClient.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
+
+                await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+                // Fetch UIDs from the remote folder
+                var remoteUids = await remoteFolder.SearchAsync(SearchQuery.All, cancellationToken).ConfigureAwait(false);
+
+                remoteUids = remoteUids.OrderByDescending(a => a.Id).Take((int)synchronizer.InitialMessageDownloadCountPerFolder).ToList();
+
+                await HandleChangedUIdsAsync(synchronizer, remoteFolder, remoteUids, cancellationToken).ConfigureAwait(false);
+                await ManageUUIdBasedDeletedMessagesAsync(folder, remoteFolder, cancellationToken).ConfigureAwait(false);
+            }
+            catch (FolderNotFoundException)
+            {
+                await FolderService.DeleteFolderAsync(folder.MailAccountId, folder.RemoteFolderId).ConfigureAwait(false);
+
+                return default;
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+            finally
+            {
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    if (remoteFolder.IsOpen)
+                    if (remoteFolder != null)
                     {
-                        await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                        if (remoteFolder.IsOpen)
+                        {
+                            await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                        }
                     }
                 }
             }
+
+            return downloadedMessageIds;
         }
 
-        return downloadedMessageIds;
-    }
-
-    internal override Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
+        internal override Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface IDispatcher
+namespace Wino.Core.Domain.Interfaces
 {
-    Task ExecuteOnUIThread(Action action);
+    public interface IDispatcher
+    {
+        Task ExecuteOnUIThread(Action action);
+    }
 }

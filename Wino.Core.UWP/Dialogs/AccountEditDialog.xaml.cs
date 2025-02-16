@@ -1,21 +1,22 @@
 ﻿using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Shared;
 
-namespace Wino.Dialogs;
-
-public sealed partial class AccountEditDialog : ContentDialog
+namespace Wino.Dialogs
 {
-    public MailAccount Account { get; private set; }
-    public bool IsSaved { get; set; }
-
-    public AccountEditDialog(MailAccount account)
+    public sealed partial class AccountEditDialog : ContentDialog
     {
-        InitializeComponent();
-        Account = account;
-    }
+        public MailAccount Account { get; private set; }
+        public bool IsSaved { get; set; }
 
-    private void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        IsSaved = true;
+        public AccountEditDialog(MailAccount account)
+        {
+            InitializeComponent();
+            Account = account;
+        }
+
+        private void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        {
+            IsSaved = true;
+        }
     }
 }

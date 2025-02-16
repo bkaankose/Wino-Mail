@@ -6,59 +6,60 @@ using Windows.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP;
 
-namespace Wino.Dialogs;
-
-public sealed partial class CustomThemeBuilderDialog : ContentDialog
+namespace Wino.Dialogs
 {
-    public byte[] WallpaperData { get; private set; }
-    public string AccentColor { get; private set; }
-
-    private IThemeService _themeService;
-
-    public CustomThemeBuilderDialog()
+    public sealed partial class CustomThemeBuilderDialog : ContentDialog
     {
-        InitializeComponent();
+        public byte[] WallpaperData { get; private set; }
+        public string AccentColor { get; private set; }
 
-        _themeService = WinoApplication.Current.Services.GetService<IThemeService>();
-    }
+        private IThemeService _themeService;
 
-    private async void ApplyClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        if (Array.Empty<byte>() == WallpaperData)
-            return;
-
-        var deferal = args.GetDeferral();
-
-        try
+        public CustomThemeBuilderDialog()
         {
-            await _themeService.CreateNewCustomThemeAsync(ThemeNameBox.Text, AccentColor, WallpaperData);
+            InitializeComponent();
+
+            _themeService = WinoApplication.Current.Services.GetService<IThemeService>();
         }
-        catch (Exception exception)
+
+        private async void ApplyClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
-            ErrorTextBlock.Text = exception.Message;
+            if (Array.Empty<byte>() == WallpaperData)
+                return;
+
+            var deferal = args.GetDeferral();
+
+            try
+            {
+                await _themeService.CreateNewCustomThemeAsync(ThemeNameBox.Text, AccentColor, WallpaperData);
+            }
+            catch (Exception exception)
+            {
+                ErrorTextBlock.Text = exception.Message;
+            }
+            finally
+            {
+                deferal.Complete();
+            }
         }
-        finally
+
+        private async void BrowseWallpaperClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            deferal.Complete();
+            var dialogService = WinoApplication.Current.Services.GetService<IMailDialogService>();
+
+            var pickedFileData = await dialogService.PickWindowsFileContentAsync(".jpg", ".png");
+
+            if (pickedFileData == Array.Empty<byte>()) return;
+
+            IsPrimaryButtonEnabled = true;
+
+            WallpaperData = pickedFileData;
         }
-    }
 
-    private async void BrowseWallpaperClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        var dialogService = WinoApplication.Current.Services.GetService<IMailDialogService>();
-
-        var pickedFileData = await dialogService.PickWindowsFileContentAsync(".jpg", ".png");
-
-        if (pickedFileData == Array.Empty<byte>()) return;
-
-        IsPrimaryButtonEnabled = true;
-
-        WallpaperData = pickedFileData;
-    }
-
-    private void PickerColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender, Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
-    {
-        PreviewAccentColorGrid.Background = new SolidColorBrush(args.NewColor);
-        AccentColor = args.NewColor.ToHex();
+        private void PickerColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender, Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
+        {
+            PreviewAccentColorGrid.Background = new SolidColorBrush(args.NewColor);
+            AccentColor = args.NewColor.ToHex();
+        }
     }
 }

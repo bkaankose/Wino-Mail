@@ -2,30 +2,31 @@
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
-
-public class UnderlyingThemeService : IUnderlyingThemeService
+namespace Wino.Core.UWP.Services
 {
-    public const string SelectedAppThemeKey = nameof(SelectedAppThemeKey);
-
-    private readonly UISettings uiSettings = new UISettings();
-    private readonly IConfigurationService _configurationService;
-
-    public UnderlyingThemeService(IConfigurationService configurationService)
+    public class UnderlyingThemeService : IUnderlyingThemeService
     {
-        _configurationService = configurationService;
-    }
+        public const string SelectedAppThemeKey = nameof(SelectedAppThemeKey);
 
-    // This should not rely on application window to be present.
-    // Check theme from the settings, rely on UISettings background color if Default.
+        private readonly UISettings uiSettings = new UISettings();
+        private readonly IConfigurationService _configurationService;
 
-    public bool IsUnderlyingThemeDark()
-    {
-        var currentTheme = _configurationService.Get(SelectedAppThemeKey, ApplicationElementTheme.Default);
+        public UnderlyingThemeService(IConfigurationService configurationService)
+        {
+            _configurationService = configurationService;
+        }
 
-        if (currentTheme == ApplicationElementTheme.Default)
-            return uiSettings.GetColorValue(UIColorType.Background).ToString() == "#FF000000";
-        else
-            return currentTheme == ApplicationElementTheme.Dark;
+        // This should not rely on application window to be present.
+        // Check theme from the settings, rely on UISettings background color if Default.
+
+        public bool IsUnderlyingThemeDark()
+        {
+            var currentTheme = _configurationService.Get(SelectedAppThemeKey, ApplicationElementTheme.Default);
+
+            if (currentTheme == ApplicationElementTheme.Default)
+                return uiSettings.GetColorValue(UIColorType.Background).ToString() == "#FF000000";
+            else
+                return currentTheme == ApplicationElementTheme.Dark;
+        }
     }
 }

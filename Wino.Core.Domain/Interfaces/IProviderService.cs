@@ -1,10 +1,11 @@
 ﻿using System.Collections.Generic;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface IProviderService
+namespace Wino.Core.Domain.Interfaces
 {
-    List<IProviderDetail> GetAvailableProviders();
-    IProviderDetail GetProviderDetail(MailProviderType type);
+    public interface IProviderService
+    {
+        List<IProviderDetail> GetAvailableProviders();
+        IProviderDetail GetProviderDetail(MailProviderType type);
+    }
 }

@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface ISynchronizerFactory
+namespace Wino.Core.Domain.Interfaces
 {
-    Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId);
-    Task InitializeAsync();
-    Task DeleteSynchronizerAsync(Guid accountId);
+    public interface ISynchronizerFactory
+    {
+        Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId);
+        Task InitializeAsync();
+        Task DeleteSynchronizerAsync(Guid accountId);
+    }
 }

@@ -2,14 +2,15 @@
 using Windows.UI.Xaml.Navigation;
 using Wino.Views.Abstract;
 
-namespace Wino.Views;
-
-public sealed partial class AccountManagementPage : AccountManagementPageAbstract
+namespace Wino.Views
 {
-    public AccountManagementPage()
+    public sealed partial class AccountManagementPage : AccountManagementPageAbstract
     {
-        InitializeComponent();
+        public AccountManagementPage()
+        {
+            InitializeComponent();
 
-        NavigationCacheMode = NavigationCacheMode.Enabled;
+            NavigationCacheMode = NavigationCacheMode.Enabled;
+        }
     }
 }

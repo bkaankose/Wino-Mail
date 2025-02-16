@@ -5,28 +5,29 @@ using Google.Apis.Http;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.Http;
-
-internal class GmailClientMessageHandler : ConfigurableMessageHandler
+namespace Wino.Core.Http
 {
-    private readonly IGmailAuthenticator _gmailAuthenticator;
-    private readonly MailAccount _mailAccount;
-
-    public GmailClientMessageHandler(IGmailAuthenticator gmailAuthenticator, MailAccount mailAccount) : base(new HttpClientHandler())
+    internal class GmailClientMessageHandler : ConfigurableMessageHandler
     {
-        _gmailAuthenticator = gmailAuthenticator;
-        _mailAccount = mailAccount;
-    }
+        private readonly IGmailAuthenticator _gmailAuthenticator;
+        private readonly MailAccount _mailAccount;
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        // This call here will automatically trigger Google Auth's interactive login if the token is not found.
-        // or refresh the token based on the FileDataStore.
+        public GmailClientMessageHandler(IGmailAuthenticator gmailAuthenticator, MailAccount mailAccount) : base(new HttpClientHandler())
+        {
+            _gmailAuthenticator = gmailAuthenticator;
+            _mailAccount = mailAccount;
+        }
 
-        var tokenInformation = await _gmailAuthenticator.GetTokenInformationAsync(_mailAccount);
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            // This call here will automatically trigger Google Auth's interactive login if the token is not found.
+            // or refresh the token based on the FileDataStore.
 
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenInformation.AccessToken);
+            var tokenInformation = await _gmailAuthenticator.GetTokenInformationAsync(_mailAccount);
 
-        return await base.SendAsync(request, cancellationToken);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenInformation.AccessToken);
+
+            return await base.SendAsync(request, cancellationToken);
+        }
     }
 }

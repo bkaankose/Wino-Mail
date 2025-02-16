@@ -3,29 +3,30 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface IFolderMenuItem : IBaseFolderMenuItem
+namespace Wino.Core.Domain.Interfaces
 {
-    MailAccount ParentAccount { get; }
-    void UpdateParentAccounnt(MailAccount account);
-}
+    public interface IFolderMenuItem : IBaseFolderMenuItem
+    {
+        MailAccount ParentAccount { get; }
+        void UpdateParentAccounnt(MailAccount account);
+    }
 
-public interface IMergedAccountFolderMenuItem : IBaseFolderMenuItem { }
+    public interface IMergedAccountFolderMenuItem : IBaseFolderMenuItem { }
 
-public interface IBaseFolderMenuItem : IMenuItem
-{
-    string FolderName { get; }
-    bool IsSynchronizationEnabled { get; }
-    int UnreadItemCount { get; set; }
-    SpecialFolderType SpecialFolderType { get; }
-    IEnumerable<IMailItemFolder> HandlingFolders { get; }
-    IEnumerable<IMenuItem> SubMenuItems { get; }
-    bool IsMoveTarget { get; }
-    bool IsSticky { get; }
-    bool IsSystemFolder { get; }
-    bool ShowUnreadCount { get; }
-    string AssignedAccountName { get; }
+    public interface IBaseFolderMenuItem : IMenuItem
+    {
+        string FolderName { get; }
+        bool IsSynchronizationEnabled { get; }
+        int UnreadItemCount { get; set; }
+        SpecialFolderType SpecialFolderType { get; }
+        IEnumerable<IMailItemFolder> HandlingFolders { get; }
+        IEnumerable<IMenuItem> SubMenuItems { get; }
+        bool IsMoveTarget { get; }
+        bool IsSticky { get; }
+        bool IsSystemFolder { get; }
+        bool ShowUnreadCount { get; }
+        string AssignedAccountName { get; }
 
-    void UpdateFolder(IMailItemFolder folder);
+        void UpdateFolder(IMailItemFolder folder);
+    }
 }

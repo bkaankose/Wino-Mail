@@ -1,19 +1,20 @@
 ﻿using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.Domain.Exceptions;
-
-/// <summary>
-/// Emitted when special folder is needed for an operation but it couldn't be found.
-/// </summary>
-public class UnavailableSpecialFolderException : Exception
+namespace Wino.Core.Domain.Exceptions
 {
-    public UnavailableSpecialFolderException(SpecialFolderType specialFolderType, Guid accountId)
+    /// <summary>
+    /// Emitted when special folder is needed for an operation but it couldn't be found.
+    /// </summary>
+    public class UnavailableSpecialFolderException : Exception
     {
-        SpecialFolderType = specialFolderType;
-        AccountId = accountId;
-    }
+        public UnavailableSpecialFolderException(SpecialFolderType specialFolderType, Guid accountId)
+        {
+            SpecialFolderType = specialFolderType;
+            AccountId = accountId;
+        }
 
-    public SpecialFolderType SpecialFolderType { get; }
-    public Guid AccountId { get; set; }
+        public SpecialFolderType SpecialFolderType { get; }
+        public Guid AccountId { get; set; }
+    }
 }

@@ -1,25 +1,26 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface INativeAppService
+namespace Wino.Core.Domain.Interfaces
 {
-    string GetWebAuthenticationBrokerUri();
-    Task<string> GetMimeMessageStoragePath();
-    Task<string> GetEditorBundlePathAsync();
-    Task LaunchFileAsync(string filePath);
-    Task<bool> LaunchUriAsync(Uri uri);
+    public interface INativeAppService
+    {
+        string GetWebAuthenticationBrokerUri();
+        Task<string> GetMimeMessageStoragePath();
+        Task<string> GetEditorBundlePathAsync();
+        Task LaunchFileAsync(string filePath);
+        Task<bool> LaunchUriAsync(Uri uri);
 
-    bool IsAppRunning();
+        bool IsAppRunning();
 
-    string GetFullAppVersion();
+        string GetFullAppVersion();
 
-    Task PinAppToTaskbarAsync();
+        Task PinAppToTaskbarAsync();
 
-    /// <summary>
-    /// Gets or sets the function that returns a pointer for main window hwnd for UWP.
-    /// This is used to display WAM broker dialog on running UWP app called by a windowless server code.
-    /// </summary>
-    Func<IntPtr> GetCoreWindowHwnd { get; set; }
+        /// <summary>
+        /// Gets or sets the function that returns a pointer for main window hwnd for UWP.
+        /// This is used to display WAM broker dialog on running UWP app called by a windowless server code.
+        /// </summary>
+        Func<IntPtr> GetCoreWindowHwnd { get; set; }
+    }
 }

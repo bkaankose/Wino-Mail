@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class AboutPage : AboutPageAbstract
+namespace Wino.Views.Settings
 {
-    public AboutPage()
+    public sealed partial class AboutPage : AboutPageAbstract
     {
-        InitializeComponent();
+        public AboutPage()
+        {
+            InitializeComponent();
+        }
     }
 }

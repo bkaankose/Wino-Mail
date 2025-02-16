@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class AppPreferencesPage : AppPreferencesPageAbstract
+namespace Wino.Views.Settings
 {
-    public AppPreferencesPage()
+    public sealed partial class AppPreferencesPage : AppPreferencesPageAbstract
     {
-        this.InitializeComponent();
+        public AppPreferencesPage()
+        {
+            this.InitializeComponent();
+        }
     }
 }

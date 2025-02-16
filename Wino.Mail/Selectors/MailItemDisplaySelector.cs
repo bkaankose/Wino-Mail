@@ -2,20 +2,21 @@
 using Windows.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Selectors;
-
-public partial class MailItemDisplaySelector : DataTemplateSelector
+namespace Wino.Selectors
 {
-    public DataTemplate SingleMailItemTemplate { get; set; }
-    public DataTemplate ThreadMailItemTemplate { get; set; }
-
-    protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
+    public partial class MailItemDisplaySelector : DataTemplateSelector
     {
-        if (item is MailItemViewModel)
-            return SingleMailItemTemplate;
-        else if (item is ThreadMailItemViewModel)
-            return ThreadMailItemTemplate;
+        public DataTemplate SingleMailItemTemplate { get; set; }
+        public DataTemplate ThreadMailItemTemplate { get; set; }
 
-        return base.SelectTemplateCore(item, container);
+        protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
+        {
+            if (item is MailItemViewModel)
+                return SingleMailItemTemplate;
+            else if (item is ThreadMailItemViewModel)
+                return ThreadMailItemTemplate;
+
+            return base.SelectTemplateCore(item, container);
+        }
     }
 }

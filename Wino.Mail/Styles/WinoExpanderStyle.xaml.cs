@@ -1,11 +1,12 @@
 ﻿using Windows.UI.Xaml;
 
-namespace Wino.Styles;
-
-partial class WinoExpanderStyle : ResourceDictionary
+namespace Wino.Styles
 {
-    public WinoExpanderStyle()
+    partial class WinoExpanderStyle : ResourceDictionary
     {
-        InitializeComponent();
+        public WinoExpanderStyle()
+        {
+            InitializeComponent();
+        }
     }
 }

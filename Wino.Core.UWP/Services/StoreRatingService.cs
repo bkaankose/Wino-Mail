@@ -7,126 +7,127 @@ using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
-
-public class StoreRatingService : IStoreRatingService
+namespace Wino.Core.UWP.Services
 {
-    private const string RatedStorageKey = nameof(RatedStorageKey);
-    private const string LatestAskedKey = nameof(LatestAskedKey);
-
-    private readonly IConfigurationService _configurationService;
-    private readonly IMailDialogService _dialogService;
-
-    public StoreRatingService(IConfigurationService configurationService, IMailDialogService dialogService)
+    public class StoreRatingService : IStoreRatingService
     {
-        _configurationService = configurationService;
-        _dialogService = dialogService;
-    }
+        private const string RatedStorageKey = nameof(RatedStorageKey);
+        private const string LatestAskedKey = nameof(LatestAskedKey);
 
-    private bool IsAskingThresholdExceeded()
-    {
-        var latestAskedDate = _configurationService.Get(LatestAskedKey, DateTime.MinValue);
+        private readonly IConfigurationService _configurationService;
+        private readonly IMailDialogService _dialogService;
 
-        // Never asked before.
-        // Set the threshold and wait for the next trigger.
-
-        if (latestAskedDate == DateTime.MinValue)
+        public StoreRatingService(IConfigurationService configurationService, IMailDialogService dialogService)
         {
-            _configurationService.Set(LatestAskedKey, DateTime.UtcNow);
-        }
-        else if (DateTime.UtcNow >= latestAskedDate.AddMinutes(30))
-        {
-            return true;
+            _configurationService = configurationService;
+            _dialogService = dialogService;
         }
 
-        return false;
-    }
-
-    public async Task PromptRatingDialogAsync()
-    {
-        // Annoying.
-        if (Debugger.IsAttached) return;
-
-        // Swallow all exceptions. App should not crash in any errors.
-
-        try
+        private bool IsAskingThresholdExceeded()
         {
-            bool isRated = _configurationService.GetRoaming(RatedStorageKey, false);
+            var latestAskedDate = _configurationService.Get(LatestAskedKey, DateTime.MinValue);
 
-            if (isRated) return;
+            // Never asked before.
+            // Set the threshold and wait for the next trigger.
 
-            if (!isRated)
+            if (latestAskedDate == DateTime.MinValue)
             {
-                if (!IsAskingThresholdExceeded()) return;
+                _configurationService.Set(LatestAskedKey, DateTime.UtcNow);
+            }
+            else if (DateTime.UtcNow >= latestAskedDate.AddMinutes(30))
+            {
+                return true;
+            }
 
-                var isRateWinoApproved = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.StoreRatingDialog_Title,
-                    Translator.StoreRatingDialog_MessageFirstLine,
-                    Translator.Buttons_RateWino,
-                    Domain.Enums.WinoCustomMessageDialogIcon.Question,
-                    Translator.Buttons_No,
-                    RatedStorageKey);
+            return false;
+        }
 
-                if (isRateWinoApproved)
+        public async Task PromptRatingDialogAsync()
+        {
+            // Annoying.
+            if (Debugger.IsAttached) return;
+
+            // Swallow all exceptions. App should not crash in any errors.
+
+            try
+            {
+                bool isRated = _configurationService.GetRoaming(RatedStorageKey, false);
+
+                if (isRated) return;
+
+                if (!isRated)
                 {
-                    // In case of failure of this call, we will navigate users to Store page directly.
+                    if (!IsAskingThresholdExceeded()) return;
 
-                    try
+                    var isRateWinoApproved = await _dialogService.ShowWinoCustomMessageDialogAsync(Translator.StoreRatingDialog_Title,
+                        Translator.StoreRatingDialog_MessageFirstLine,
+                        Translator.Buttons_RateWino,
+                        Domain.Enums.WinoCustomMessageDialogIcon.Question,
+                        Translator.Buttons_No,
+                        RatedStorageKey);
+
+                    if (isRateWinoApproved)
                     {
-                        await ShowPortableRatingDialogAsync();
-                    }
-                    catch (Exception)
-                    {
-                        await Launcher.LaunchUriAsync(new Uri($"ms-windows-store://review/?ProductId=9NCRCVJC50WL"));
+                        // In case of failure of this call, we will navigate users to Store page directly.
+
+                        try
+                        {
+                            await ShowPortableRatingDialogAsync();
+                        }
+                        catch (Exception)
+                        {
+                            await Launcher.LaunchUriAsync(new Uri($"ms-windows-store://review/?ProductId=9NCRCVJC50WL"));
+                        }
                     }
                 }
             }
-        }
-        catch (Exception) { }
-        finally
-        {
-            _configurationService.Set(LatestAskedKey, DateTime.UtcNow);
-        }
-    }
-
-    private async Task ShowPortableRatingDialogAsync()
-    {
-        var _storeContext = StoreContext.GetDefault();
-
-        StoreRateAndReviewResult result = await _storeContext.RequestRateAndReviewAppAsync();
-
-        // Check status
-        switch (result.Status)
-        {
-            case StoreRateAndReviewStatus.Succeeded:
-                if (result.WasUpdated)
-                    _dialogService.InfoBarMessage(Translator.Info_ReviewSuccessTitle, Translator.Info_ReviewUpdatedMessage, Domain.Enums.InfoBarMessageType.Success);
-                else
-                    _dialogService.InfoBarMessage(Translator.Info_ReviewSuccessTitle, Translator.Info_ReviewNewMessage, Domain.Enums.InfoBarMessageType.Success);
-
-                _configurationService.Set(RatedStorageKey, true);
-                break;
-            case StoreRateAndReviewStatus.CanceledByUser:
-                break;
-
-            case StoreRateAndReviewStatus.NetworkError:
-                _dialogService.InfoBarMessage(Translator.Info_ReviewNetworkErrorTitle, Translator.Info_ReviewNetworkErrorMessage, Domain.Enums.InfoBarMessageType.Warning);
-                break;
-            default:
-                _dialogService.InfoBarMessage(Translator.Info_ReviewUnknownErrorTitle, string.Format(Translator.Info_ReviewUnknownErrorMessage, result.ExtendedError.Message), Domain.Enums.InfoBarMessageType.Warning);
-                break;
-        }
-    }
-
-    public async Task LaunchStorePageForReviewAsync()
-    {
-        try
-        {
-            await CoreApplication.GetCurrentView()?.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
+            catch (Exception) { }
+            finally
             {
-                // TODO: Get it from package info.
-                await Launcher.LaunchUriAsync(new Uri($"ms-windows-store://review/?ProductId=9NCRCVJC50WL"));
-            });
+                _configurationService.Set(LatestAskedKey, DateTime.UtcNow);
+            }
         }
-        catch (Exception) { }
+
+        private async Task ShowPortableRatingDialogAsync()
+        {
+            var _storeContext = StoreContext.GetDefault();
+
+            StoreRateAndReviewResult result = await _storeContext.RequestRateAndReviewAppAsync();
+
+            // Check status
+            switch (result.Status)
+            {
+                case StoreRateAndReviewStatus.Succeeded:
+                    if (result.WasUpdated)
+                        _dialogService.InfoBarMessage(Translator.Info_ReviewSuccessTitle, Translator.Info_ReviewUpdatedMessage, Domain.Enums.InfoBarMessageType.Success);
+                    else
+                        _dialogService.InfoBarMessage(Translator.Info_ReviewSuccessTitle, Translator.Info_ReviewNewMessage, Domain.Enums.InfoBarMessageType.Success);
+
+                    _configurationService.Set(RatedStorageKey, true);
+                    break;
+                case StoreRateAndReviewStatus.CanceledByUser:
+                    break;
+
+                case StoreRateAndReviewStatus.NetworkError:
+                    _dialogService.InfoBarMessage(Translator.Info_ReviewNetworkErrorTitle, Translator.Info_ReviewNetworkErrorMessage, Domain.Enums.InfoBarMessageType.Warning);
+                    break;
+                default:
+                    _dialogService.InfoBarMessage(Translator.Info_ReviewUnknownErrorTitle, string.Format(Translator.Info_ReviewUnknownErrorMessage, result.ExtendedError.Message), Domain.Enums.InfoBarMessageType.Warning);
+                    break;
+            }
+        }
+
+        public async Task LaunchStorePageForReviewAsync()
+        {
+            try
+            {
+                await CoreApplication.GetCurrentView()?.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
+                {
+                    // TODO: Get it from package info.
+                    await Launcher.LaunchUriAsync(new Uri($"ms-windows-store://review/?ProductId=9NCRCVJC50WL"));
+                });
+            }
+            catch (Exception) { }
+        }
     }
 }

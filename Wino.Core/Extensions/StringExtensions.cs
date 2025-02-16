@@ -1,21 +1,22 @@
 ﻿using System;
 
-namespace Wino.Core.Extensions;
-
-public static class StringExtensions
+namespace Wino.Core.Extensions
 {
-    public static bool Contains(this string source, string toCheck, StringComparison comp)
+    public static class StringExtensions
     {
-        return source?.IndexOf(toCheck, comp) >= 0;
-    }
-
-    public static string ReplaceFirst(this string text, string search, string replace)
-    {
-        int pos = text.IndexOf(search);
-        if (pos < 0)
+        public static bool Contains(this string source, string toCheck, StringComparison comp)
         {
-            return text;
+            return source?.IndexOf(toCheck, comp) >= 0;
         }
-        return text.Substring(0, pos) + replace + text.Substring(pos + search.Length);
+
+        public static string ReplaceFirst(this string text, string search, string replace)
+        {
+            int pos = text.IndexOf(search);
+            if (pos < 0)
+            {
+                return text;
+            }
+            return text.Substring(0, pos) + replace + text.Substring(pos + search.Length);
+        }
     }
 }

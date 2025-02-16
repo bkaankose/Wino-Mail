@@ -1,16 +1,17 @@
 ﻿using Wino.Mail.ViewModels.Data;
 
-namespace Wino.Mail.ViewModels.Messages;
-
-/// <summary>
-/// Selected item removed event.
-/// </summary>
-public class MailItemSelectionRemovedEvent
+namespace Wino.Mail.ViewModels.Messages
 {
-    public MailItemSelectionRemovedEvent(MailItemViewModel removedMailItem)
+    /// <summary>
+    /// Selected item removed event.
+    /// </summary>
+    public class MailItemSelectionRemovedEvent
     {
-        RemovedMailItem = removedMailItem;
-    }
+        public MailItemSelectionRemovedEvent(MailItemViewModel removedMailItem)
+        {
+            RemovedMailItem = removedMailItem;
+        }
 
-    public MailItemViewModel RemovedMailItem { get; set; }
+        public MailItemViewModel RemovedMailItem { get; set; }
+    }
 }

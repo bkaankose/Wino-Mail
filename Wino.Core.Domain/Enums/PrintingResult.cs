@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum PrintingResult
+﻿namespace Wino.Core.Domain.Enums
 {
-    Abandoned,
-    Canceled,
-    Failed,
-    Submitted
+    public enum PrintingResult
+    {
+        Abandoned,
+        Canceled,
+        Failed,
+        Submitted
+    }
 }

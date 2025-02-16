@@ -1,7 +1,8 @@
-﻿namespace Wino.Core.Domain.Interfaces;
-
-public interface IMenuOperation
+﻿namespace Wino.Core.Domain.Interfaces
 {
-    bool IsEnabled { get; }
-    string Identifier { get; }
+    public interface IMenuOperation
+    {
+        bool IsEnabled { get; }
+        string Identifier { get; }
+    }
 }

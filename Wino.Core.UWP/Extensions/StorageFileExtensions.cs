@@ -4,27 +4,28 @@ using System.Threading.Tasks;
 using Windows.Storage;
 using Wino.Core.Domain.Models.Common;
 
-namespace Wino.Core.UWP.Extensions;
-
-public static class StorageFileExtensions
+namespace Wino.Core.UWP.Extensions
 {
-    public static async Task<SharedFile> ToSharedFileAsync(this Windows.Storage.StorageFile storageFile)
+    public static class StorageFileExtensions
     {
-        var content = await storageFile.ToByteArrayAsync();
-
-        return new SharedFile(storageFile.Path, content);
-    }
-
-    public static async Task<byte[]> ToByteArrayAsync(this StorageFile file)
-    {
-        if (file == null)
-            throw new ArgumentNullException(nameof(file));
-
-        using (var stream = await file.OpenReadAsync())
-        using (var memoryStream = new MemoryStream())
+        public static async Task<SharedFile> ToSharedFileAsync(this Windows.Storage.StorageFile storageFile)
         {
-            await stream.AsStreamForRead().CopyToAsync(memoryStream);
-            return memoryStream.ToArray();
+            var content = await storageFile.ToByteArrayAsync();
+
+            return new SharedFile(storageFile.Path, content);
+        }
+
+        public static async Task<byte[]> ToByteArrayAsync(this StorageFile file)
+        {
+            if (file == null)
+                throw new ArgumentNullException(nameof(file));
+
+            using (var stream = await file.OpenReadAsync())
+            using (var memoryStream = new MemoryStream())
+            {
+                await stream.AsStreamForRead().CopyToAsync(memoryStream);
+                return memoryStream.ToArray();
+            }
         }
     }
 }

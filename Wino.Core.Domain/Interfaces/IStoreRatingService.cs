@@ -1,9 +1,10 @@
 ﻿using System.Threading.Tasks;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface IStoreRatingService
+namespace Wino.Core.Domain.Interfaces
 {
-    Task PromptRatingDialogAsync();
-    Task LaunchStorePageForReviewAsync();
+    public interface IStoreRatingService
+    {
+        Task PromptRatingDialogAsync();
+        Task LaunchStorePageForReviewAsync();
+    }
 }

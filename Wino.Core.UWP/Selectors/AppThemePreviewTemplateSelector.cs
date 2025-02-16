@@ -2,23 +2,24 @@
 using Windows.UI.Xaml.Controls;
 using Wino.Core.UWP.Models.Personalization;
 
-namespace Wino.Core.UWP.Selectors;
-
-public partial class AppThemePreviewTemplateSelector : DataTemplateSelector
+namespace Wino.Core.UWP.Selectors
 {
-    public DataTemplate SystemThemeTemplate { get; set; }
-    public DataTemplate PreDefinedThemeTemplate { get; set; }
-    public DataTemplate CustomAppTemplate { get; set; }
-
-    protected override DataTemplate SelectTemplateCore(object item)
+    public partial class AppThemePreviewTemplateSelector : DataTemplateSelector
     {
-        if (item is SystemAppTheme)
-            return SystemThemeTemplate;
-        else if (item is PreDefinedAppTheme)
-            return PreDefinedThemeTemplate;
-        else if (item is CustomAppTheme)
-            return CustomAppTemplate;
+        public DataTemplate SystemThemeTemplate { get; set; }
+        public DataTemplate PreDefinedThemeTemplate { get; set; }
+        public DataTemplate CustomAppTemplate { get; set; }
 
-        return base.SelectTemplateCore(item);
+        protected override DataTemplate SelectTemplateCore(object item)
+        {
+            if (item is SystemAppTheme)
+                return SystemThemeTemplate;
+            else if (item is PreDefinedAppTheme)
+                return PreDefinedThemeTemplate;
+            else if (item is CustomAppTheme)
+                return CustomAppTemplate;
+
+            return base.SelectTemplateCore(item);
+        }
     }
 }

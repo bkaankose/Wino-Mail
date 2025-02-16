@@ -1,16 +1,17 @@
-﻿namespace Wino.Core.Domain.Exceptions;
-
-public class ImapTestSSLCertificateException : System.Exception
+﻿namespace Wino.Core.Domain.Exceptions
 {
-    public ImapTestSSLCertificateException(string issuer, string expirationDateString, string validFromDateString)
+    public class ImapTestSSLCertificateException : System.Exception
     {
-        Issuer = issuer;
-        ExpirationDateString = expirationDateString;
-        ValidFromDateString = validFromDateString;
+        public ImapTestSSLCertificateException(string issuer, string expirationDateString, string validFromDateString)
+        {
+            Issuer = issuer;
+            ExpirationDateString = expirationDateString;
+            ValidFromDateString = validFromDateString;
+        }
+
+        public string Issuer { get; set; }
+        public string ExpirationDateString { get; set; }
+        public string ValidFromDateString { get; set; }
+
     }
-
-    public string Issuer { get; set; }
-    public string ExpirationDateString { get; set; }
-    public string ValidFromDateString { get; set; }
-
 }

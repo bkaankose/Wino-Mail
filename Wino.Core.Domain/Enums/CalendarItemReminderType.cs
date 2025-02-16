@@ -1,7 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum CalendarItemReminderType
+﻿namespace Wino.Core.Domain.Enums
 {
-    Popup,
-    Email
+    public enum CalendarItemReminderType
+    {
+        Popup,
+        Email
+    }
 }

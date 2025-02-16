@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class MessageListPage : MessageListPageAbstract
+namespace Wino.Views.Settings
 {
-    public MessageListPage()
+    public sealed partial class MessageListPage : MessageListPageAbstract
     {
-        this.InitializeComponent();
+        public MessageListPage()
+        {
+            this.InitializeComponent();
+        }
     }
 }

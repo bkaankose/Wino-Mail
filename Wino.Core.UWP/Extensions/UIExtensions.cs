@@ -1,19 +1,20 @@
 ﻿using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Extensions;
-
-public static class UIExtensions
+namespace Wino.Extensions
 {
-    public static InfoBarSeverity AsMUXCInfoBarSeverity(this InfoBarMessageType messageType)
+    public static class UIExtensions
     {
-        return messageType switch
+        public static InfoBarSeverity AsMUXCInfoBarSeverity(this InfoBarMessageType messageType)
         {
-            InfoBarMessageType.Error => InfoBarSeverity.Error,
-            InfoBarMessageType.Warning => InfoBarSeverity.Warning,
-            InfoBarMessageType.Information => InfoBarSeverity.Informational,
-            InfoBarMessageType.Success => InfoBarSeverity.Success,
-            _ => InfoBarSeverity.Informational
-        };
+            return messageType switch
+            {
+                InfoBarMessageType.Error => InfoBarSeverity.Error,
+                InfoBarMessageType.Warning => InfoBarSeverity.Warning,
+                InfoBarMessageType.Information => InfoBarSeverity.Informational,
+                InfoBarMessageType.Success => InfoBarSeverity.Success,
+                _ => InfoBarSeverity.Informational
+            };
+        }
     }
 }

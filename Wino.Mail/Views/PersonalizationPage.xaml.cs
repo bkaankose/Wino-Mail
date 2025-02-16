@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class PersonalizationPage : PersonalizationPageAbstract
+namespace Wino.Views.Settings
 {
-    public PersonalizationPage()
+    public sealed partial class PersonalizationPage : PersonalizationPageAbstract
     {
-        InitializeComponent();
+        public PersonalizationPage()
+        {
+            InitializeComponent();
+        }
     }
 }

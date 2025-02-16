@@ -2,17 +2,18 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Wino.Core.Http;
-
-/// <summary>
-/// Adds additional Prefer header for immutable id support in the Graph service client.
-/// </summary>
-public class MicrosoftImmutableIdHandler : DelegatingHandler
+namespace Wino.Core.Http
 {
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    /// <summary>
+    /// Adds additional Prefer header for immutable id support in the Graph service client.
+    /// </summary>
+    public class MicrosoftImmutableIdHandler : DelegatingHandler
     {
-        request.Headers.TryAddWithoutValidation("Prefer", "IdType=\"ImmutableId\"");
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.Headers.TryAddWithoutValidation("Prefer", "IdType=\"ImmutableId\"");
 
-        return base.SendAsync(request, cancellationToken);
+            return base.SendAsync(request, cancellationToken);
+        }
     }
 }

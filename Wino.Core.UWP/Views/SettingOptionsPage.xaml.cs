@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views.Settings;
-
-public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
+namespace Wino.Views.Settings
 {
-    public SettingOptionsPage()
+    public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
     {
-        InitializeComponent();
+        public SettingOptionsPage()
+        {
+            InitializeComponent();
+        }
     }
 }

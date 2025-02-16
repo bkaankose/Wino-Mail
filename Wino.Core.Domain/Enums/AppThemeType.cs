@@ -1,8 +1,9 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum AppThemeType
+﻿namespace Wino.Core.Domain.Enums
 {
-    System,
-    PreDefined,
-    Custom,
+    public enum AppThemeType
+    {
+        System,
+        PreDefined,
+        Custom,
+    }
 }

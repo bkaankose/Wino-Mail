@@ -1,7 +1,8 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum InfoBarAnimationType
+﻿namespace Wino.Core.Domain.Enums
 {
-    SlideFromRightToLeft,
-    SlideFromBottomToTop
+    public enum InfoBarAnimationType
+    {
+        SlideFromRightToLeft,
+        SlideFromBottomToTop
+    }
 }

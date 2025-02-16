@@ -6,16 +6,17 @@ using Wino.Core.Domain.Models.Server;
 using Wino.Messaging.Server;
 using Wino.Server.Core;
 
-namespace Wino.Server.MessageHandlers;
-
-public class ServerTerminationModeHandler : ServerMessageHandler<ServerTerminationModeChanged, bool>
+namespace Wino.Server.MessageHandlers
 {
-    public override WinoServerResponse<bool> FailureDefaultResponse(Exception ex) => WinoServerResponse<bool>.CreateErrorResponse(ex.Message);
-
-    protected override Task<WinoServerResponse<bool>> HandleAsync(ServerTerminationModeChanged message, CancellationToken cancellationToken = default)
+    public class ServerTerminationModeHandler : ServerMessageHandler<ServerTerminationModeChanged, bool>
     {
-        WeakReferenceMessenger.Default.Send(message);
+        public override WinoServerResponse<bool> FailureDefaultResponse(Exception ex) => WinoServerResponse<bool>.CreateErrorResponse(ex.Message);
 
-        return Task.FromResult(WinoServerResponse<bool>.CreateSuccessResponse(true));
+        protected override Task<WinoServerResponse<bool>> HandleAsync(ServerTerminationModeChanged message, CancellationToken cancellationToken = default)
+        {
+            WeakReferenceMessenger.Default.Send(message);
+
+            return Task.FromResult(WinoServerResponse<bool>.CreateSuccessResponse(true));
+        }
     }
 }

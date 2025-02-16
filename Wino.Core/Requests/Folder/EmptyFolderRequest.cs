@@ -7,26 +7,27 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Folder;
-
-public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, FolderSynchronizerOperation.EmptyFolder), ICustomFolderSynchronizationRequest
+namespace Wino.Core.Requests.Folder
 {
-    public bool ExcludeMustHaveFolders => false;
-    public override void ApplyUIChanges()
+    public record EmptyFolderRequest(MailItemFolder Folder, List<MailCopy> MailsToDelete) : FolderRequestBase(Folder, FolderSynchronizerOperation.EmptyFolder), ICustomFolderSynchronizationRequest
     {
-        foreach (var item in MailsToDelete)
+        public bool ExcludeMustHaveFolders => false;
+        public override void ApplyUIChanges()
         {
-            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item));
+            foreach (var item in MailsToDelete)
+            {
+                WeakReferenceMessenger.Default.Send(new MailRemovedMessage(item));
+            }
         }
-    }
 
-    public override void RevertUIChanges()
-    {
-        foreach (var item in MailsToDelete)
+        public override void RevertUIChanges()
         {
-            WeakReferenceMessenger.Default.Send(new MailAddedMessage(item));
+            foreach (var item in MailsToDelete)
+            {
+                WeakReferenceMessenger.Default.Send(new MailAddedMessage(item));
+            }
         }
-    }
 
-    public List<Guid> SynchronizationFolderIds => [Folder.Id];
+        public List<Guid> SynchronizationFolderIds => [Folder.Id];
+    }
 }

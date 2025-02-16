@@ -1,11 +1,12 @@
 ﻿using Windows.UI.Xaml;
 
-namespace Wino.Core.UWP.Styles;
-
-public partial class DataTemplates : ResourceDictionary
+namespace Wino.Core.UWP.Styles
 {
-    public DataTemplates()
+    public partial class DataTemplates : ResourceDictionary
     {
-        InitializeComponent();
+        public DataTemplates()
+        {
+            InitializeComponent();
+        }
     }
 }

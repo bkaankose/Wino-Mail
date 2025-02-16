@@ -1,17 +1,18 @@
 ﻿using Wino.Core.Domain.Models.AutoDiscovery;
 
-namespace Wino.Core.Domain.Exceptions;
-
-public class ImapConnectionFailedPackage
+namespace Wino.Core.Domain.Exceptions
 {
-    public ImapConnectionFailedPackage(string errorMessage, string protocolLog, AutoDiscoverySettings settings)
+    public class ImapConnectionFailedPackage
     {
-        ErrorMessage = errorMessage;
-        ProtocolLog = protocolLog;
-        Settings = settings;
-    }
+        public ImapConnectionFailedPackage(string errorMessage, string protocolLog, AutoDiscoverySettings settings)
+        {
+            ErrorMessage = errorMessage;
+            ProtocolLog = protocolLog;
+            Settings = settings;
+        }
 
-    public AutoDiscoverySettings Settings { get; }
-    public string ErrorMessage { get; set; }
-    public string ProtocolLog { get; }
+        public AutoDiscoverySettings Settings { get; }
+        public string ErrorMessage { get; set; }
+        public string ProtocolLog { get; }
+    }
 }

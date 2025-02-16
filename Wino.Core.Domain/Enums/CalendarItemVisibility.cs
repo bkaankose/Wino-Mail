@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum CalendarItemVisibility
+﻿namespace Wino.Core.Domain.Enums
 {
-    Default,
-    Public,
-    Private,
-    Confidential
+    public enum CalendarItemVisibility
+    {
+        Default,
+        Public,
+        Private,
+        Confidential
+    }
 }

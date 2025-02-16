@@ -1,12 +1,13 @@
 ﻿using Wino.Views.Abstract;
 
 
-namespace Wino.Views.Account;
-
-public sealed partial class MergedAccountDetailsPage : MergedAccountDetailsPageAbstract
+namespace Wino.Views.Account
 {
-    public MergedAccountDetailsPage()
+    public sealed partial class MergedAccountDetailsPage : MergedAccountDetailsPageAbstract
     {
-        InitializeComponent();
+        public MergedAccountDetailsPage()
+        {
+            InitializeComponent();
+        }
     }
 }

@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using Wino.Core.Domain.Models.Settings;
 
-namespace Wino.Core.Domain.Interfaces;
-
-public interface ISettingsBuilderService
+namespace Wino.Core.Domain.Interfaces
 {
-    List<SettingOption> GetSettingItems();
+    public interface ISettingsBuilderService
+    {
+        List<SettingOption> GetSettingItems();
+    }
 }

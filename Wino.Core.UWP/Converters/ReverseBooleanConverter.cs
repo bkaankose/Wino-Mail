@@ -1,20 +1,21 @@
 ﻿using System;
 using Windows.UI.Xaml.Data;
 
-namespace Wino.Converters;
-
-public partial class ReverseBooleanConverter : IValueConverter
+namespace Wino.Converters
 {
-    public object Convert(object value, Type targetType, object parameter, string language)
+    public partial class ReverseBooleanConverter : IValueConverter
     {
-        if (value is bool boolval)
-            return !boolval;
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is bool boolval)
+                return !boolval;
 
-        return false;
-    }
+            return false;
+        }
 
-    public object ConvertBack(object value, Type targetType, object parameter, string language)
-    {
-        throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

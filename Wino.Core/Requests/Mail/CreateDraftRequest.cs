@@ -7,23 +7,24 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.Requests.Mail;
-
-public record CreateDraftRequest(DraftPreparationRequest DraftPreperationRequest)
-    : MailRequestBase(DraftPreperationRequest.CreatedLocalDraftCopy),
-    ICustomFolderSynchronizationRequest
+namespace Wino.Core.Requests.Mail
 {
-    public bool ExcludeMustHaveFolders => false;
-
-    public List<Guid> SynchronizationFolderIds =>
-    [
-        DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.Id
-    ];
-
-    public override MailSynchronizerOperation Operation => MailSynchronizerOperation.CreateDraft;
-
-    public override void RevertUIChanges()
+    public record CreateDraftRequest(DraftPreparationRequest DraftPreperationRequest)
+        : MailRequestBase(DraftPreperationRequest.CreatedLocalDraftCopy),
+        ICustomFolderSynchronizationRequest
     {
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
+        public bool ExcludeMustHaveFolders => false;
+
+        public List<Guid> SynchronizationFolderIds =>
+        [
+            DraftPreperationRequest.CreatedLocalDraftCopy.AssignedFolder.Id
+        ];
+
+        public override MailSynchronizerOperation Operation => MailSynchronizerOperation.CreateDraft;
+
+        public override void RevertUIChanges()
+        {
+            WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
+        }
     }
 }

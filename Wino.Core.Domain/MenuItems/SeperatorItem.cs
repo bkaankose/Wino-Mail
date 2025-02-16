@@ -1,3 +1,4 @@
-﻿namespace Wino.Core.Domain.MenuItems;
-
-public class SeperatorItem : MenuItemBase { }
+﻿namespace Wino.Core.Domain.MenuItems
+{
+    public class SeperatorItem : MenuItemBase { }
+}

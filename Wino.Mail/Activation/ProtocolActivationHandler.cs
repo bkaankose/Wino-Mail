@@ -6,54 +6,55 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino.Activation;
-
-internal class ProtocolActivationHandler : ActivationHandler<ProtocolActivatedEventArgs>
+namespace Wino.Activation
 {
-    private const string MailtoProtocolTag = "mailto:";
-
-    private readonly INativeAppService _nativeAppService;
-    private readonly ILaunchProtocolService _launchProtocolService;
-
-    public ProtocolActivationHandler(INativeAppService nativeAppService, ILaunchProtocolService launchProtocolService)
+    internal class ProtocolActivationHandler : ActivationHandler<ProtocolActivatedEventArgs>
     {
-        _nativeAppService = nativeAppService;
-        _launchProtocolService = launchProtocolService;
-    }
+        private const string MailtoProtocolTag = "mailto:";
 
-    protected override Task HandleInternalAsync(ProtocolActivatedEventArgs args)
-    {
-        // Check URI prefix.
-        var protocolString = args.Uri.AbsoluteUri;
+        private readonly INativeAppService _nativeAppService;
+        private readonly ILaunchProtocolService _launchProtocolService;
 
-        if (protocolString.StartsWith(MailtoProtocolTag))
+        public ProtocolActivationHandler(INativeAppService nativeAppService, ILaunchProtocolService launchProtocolService)
         {
-            // mailto activation. Try to parse params.
-            _launchProtocolService.MailToUri = new MailToUri(protocolString);
+            _nativeAppService = nativeAppService;
+            _launchProtocolService = launchProtocolService;
+        }
 
-            if (_nativeAppService.IsAppRunning())
+        protected override Task HandleInternalAsync(ProtocolActivatedEventArgs args)
+        {
+            // Check URI prefix.
+            var protocolString = args.Uri.AbsoluteUri;
+
+            if (protocolString.StartsWith(MailtoProtocolTag))
             {
-                // Just send publish a message. Shell will continue.
-                WeakReferenceMessenger.Default.Send(new MailtoProtocolMessageRequested());
+                // mailto activation. Try to parse params.
+                _launchProtocolService.MailToUri = new MailToUri(protocolString);
+
+                if (_nativeAppService.IsAppRunning())
+                {
+                    // Just send publish a message. Shell will continue.
+                    WeakReferenceMessenger.Default.Send(new MailtoProtocolMessageRequested());
+                }
             }
+
+            return Task.CompletedTask;
         }
 
-        return Task.CompletedTask;
-    }
-
-    protected override bool CanHandleInternal(ProtocolActivatedEventArgs args)
-    {
-        // Validate the URI scheme.
-
-        try
+        protected override bool CanHandleInternal(ProtocolActivatedEventArgs args)
         {
-            var uriGet = args.Uri;
-        }
-        catch (UriFormatException)
-        {
-            return false;
-        }
+            // Validate the URI scheme.
 
-        return base.CanHandleInternal(args);
+            try
+            {
+                var uriGet = args.Uri;
+            }
+            catch (UriFormatException)
+            {
+                return false;
+            }
+
+            return base.CanHandleInternal(args);
+        }
     }
 }

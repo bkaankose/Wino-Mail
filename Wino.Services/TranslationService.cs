@@ -10,75 +10,76 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino.Services;
-
-public class TranslationService : ITranslationService
+namespace Wino.Services
 {
-    public const AppLanguage DefaultAppLanguage = AppLanguage.English;
-
-    private ILogger _logger = Log.ForContext<TranslationService>();
-    private readonly IPreferencesService _preferencesService;
-    private bool isInitialized = false;
-
-    public TranslationService(IPreferencesService preferencesService)
+    public class TranslationService : ITranslationService
     {
-        _preferencesService = preferencesService;
-    }
+        public const AppLanguage DefaultAppLanguage = AppLanguage.English;
 
-    // Initialize default language with ignoring current language check.
-    public Task InitializeAsync() => InitializeLanguageAsync(_preferencesService.CurrentLanguage, ignoreCurrentLanguageCheck: true);
+        private ILogger _logger = Log.ForContext<TranslationService>();
+        private readonly IPreferencesService _preferencesService;
+        private bool isInitialized = false;
 
-    public async Task InitializeLanguageAsync(AppLanguage language, bool ignoreCurrentLanguageCheck = false)
-    {
-        if (!ignoreCurrentLanguageCheck && _preferencesService.CurrentLanguage == language)
+        public TranslationService(IPreferencesService preferencesService)
         {
-            _logger.Warning("Changing language is ignored because current language and requested language are same.");
-
-            return;
+            _preferencesService = preferencesService;
         }
 
-        if (ignoreCurrentLanguageCheck && isInitialized) return;
+        // Initialize default language with ignoring current language check.
+        public Task InitializeAsync() => InitializeLanguageAsync(_preferencesService.CurrentLanguage, ignoreCurrentLanguageCheck: true);
 
-        var currentDictionary = Translator.Resources;
-        await using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language);
-
-        var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
-
-        var translationLookups = JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString);
-
-        // Insert new translation key-value pairs.
-        // Overwrite existing values for the same keys.
-
-        foreach (var pair in translationLookups)
+        public async Task InitializeLanguageAsync(AppLanguage language, bool ignoreCurrentLanguageCheck = false)
         {
-            // Replace existing value.
-            currentDictionary[pair.Key] = pair.Value;
+            if (!ignoreCurrentLanguageCheck && _preferencesService.CurrentLanguage == language)
+            {
+                _logger.Warning("Changing language is ignored because current language and requested language are same.");
+
+                return;
+            }
+
+            if (ignoreCurrentLanguageCheck && isInitialized) return;
+
+            var currentDictionary = Translator.Resources;
+            await using var resourceStream = Core.Domain.Translations.WinoTranslationDictionary.GetLanguageStream(language);
+
+            var streamValue = await new StreamReader(resourceStream).ReadToEndAsync().ConfigureAwait(false);
+
+            var translationLookups = JsonSerializer.Deserialize(streamValue, BasicTypesJsonContext.Default.DictionaryStringString);
+
+            // Insert new translation key-value pairs.
+            // Overwrite existing values for the same keys.
+
+            foreach (var pair in translationLookups)
+            {
+                // Replace existing value.
+                currentDictionary[pair.Key] = pair.Value;
+            }
+
+            _preferencesService.CurrentLanguage = language;
+
+            isInitialized = true;
+            WeakReferenceMessenger.Default.Send(new LanguageChanged());
         }
 
-        _preferencesService.CurrentLanguage = language;
-
-        isInitialized = true;
-        WeakReferenceMessenger.Default.Send(new LanguageChanged());
-    }
-
-    public List<AppLanguageModel> GetAvailableLanguages()
-    {
-        return
-        [
-            new AppLanguageModel(AppLanguage.Chinese, "Chinese"),
-            new AppLanguageModel(AppLanguage.Czech, "Czech"),
-            new AppLanguageModel(AppLanguage.Deutsch, "Deutsch"),
-            new AppLanguageModel(AppLanguage.English, "English"),
-            new AppLanguageModel(AppLanguage.French, "French"),
-            new AppLanguageModel(AppLanguage.Italian, "Italian"),
-            new AppLanguageModel(AppLanguage.Greek, "Greek"),
-            new AppLanguageModel(AppLanguage.Indonesian, "Indonesian"),
-            new AppLanguageModel(AppLanguage.Polish, "Polski"),
-            new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil"),
-            new AppLanguageModel(AppLanguage.Russian, "Russian"),
-            new AppLanguageModel(AppLanguage.Romanian, "Romanian"),
-            new AppLanguageModel(AppLanguage.Spanish, "Spanish"),
-            new AppLanguageModel(AppLanguage.Turkish, "Turkish")
-        ];
+        public List<AppLanguageModel> GetAvailableLanguages()
+        {
+            return
+            [
+                new AppLanguageModel(AppLanguage.Chinese, "Chinese"),
+                new AppLanguageModel(AppLanguage.Czech, "Czech"),
+                new AppLanguageModel(AppLanguage.Deutsch, "Deutsch"),
+                new AppLanguageModel(AppLanguage.English, "English"),
+                new AppLanguageModel(AppLanguage.French, "French"),
+                new AppLanguageModel(AppLanguage.Italian, "Italian"),
+                new AppLanguageModel(AppLanguage.Greek, "Greek"),
+                new AppLanguageModel(AppLanguage.Indonesian, "Indonesian"),
+                new AppLanguageModel(AppLanguage.Polish, "Polski"),
+                new AppLanguageModel(AppLanguage.PortugeseBrazil, "Portugese-Brazil"),
+                new AppLanguageModel(AppLanguage.Russian, "Russian"),
+                new AppLanguageModel(AppLanguage.Romanian, "Romanian"),
+                new AppLanguageModel(AppLanguage.Spanish, "Spanish"),
+                new AppLanguageModel(AppLanguage.Turkish, "Turkish")
+            ];
+        }
     }
 }

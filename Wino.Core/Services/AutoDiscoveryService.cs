@@ -7,50 +7,51 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.AutoDiscovery;
 
-namespace Wino.Core.Services;
-
-/// <summary>
-/// We have 2 methods to do auto discovery.
-/// 1. Use https://emailsettings.firetrust.com/settings?q={address} API
-/// 2. TODO: Thunderbird auto discovery file.
-/// </summary>
-public class AutoDiscoveryService : IAutoDiscoveryService
+namespace Wino.Core.Services
 {
-    private const string FiretrustURL = " https://emailsettings.firetrust.com/settings?q=";
-
-    // TODO: Try Thunderbird Auto Discovery as second approach.
-
-    public Task<AutoDiscoverySettings> GetAutoDiscoverySettings(AutoDiscoveryMinimalSettings autoDiscoveryMinimalSettings)
-        => GetSettingsFromFiretrustAsync(autoDiscoveryMinimalSettings.Email);
-
-    private static async Task<AutoDiscoverySettings> GetSettingsFromFiretrustAsync(string mailAddress)
+    /// <summary>
+    /// We have 2 methods to do auto discovery.
+    /// 1. Use https://emailsettings.firetrust.com/settings?q={address} API
+    /// 2. TODO: Thunderbird auto discovery file.
+    /// </summary>
+    public class AutoDiscoveryService : IAutoDiscoveryService
     {
-        using var client = new HttpClient();
-        var response = await client.GetAsync($"{FiretrustURL}{mailAddress}");
+        private const string FiretrustURL = " https://emailsettings.firetrust.com/settings?q=";
 
-        if (response.IsSuccessStatusCode)
-            return await DeserializeFiretrustResponse(response);
-        else
+        // TODO: Try Thunderbird Auto Discovery as second approach.
+
+        public Task<AutoDiscoverySettings> GetAutoDiscoverySettings(AutoDiscoveryMinimalSettings autoDiscoveryMinimalSettings)
+            => GetSettingsFromFiretrustAsync(autoDiscoveryMinimalSettings.Email);
+
+        private static async Task<AutoDiscoverySettings> GetSettingsFromFiretrustAsync(string mailAddress)
         {
-            Log.Warning($"Firetrust AutoDiscovery failed. ({response.StatusCode})");
+            using var client = new HttpClient();
+            var response = await client.GetAsync($"{FiretrustURL}{mailAddress}");
+
+            if (response.IsSuccessStatusCode)
+                return await DeserializeFiretrustResponse(response);
+            else
+            {
+                Log.Warning($"Firetrust AutoDiscovery failed. ({response.StatusCode})");
+
+                return null;
+            }
+        }
+
+        private static async Task<AutoDiscoverySettings> DeserializeFiretrustResponse(HttpResponseMessage response)
+        {
+            try
+            {
+                var content = await response.Content.ReadAsStringAsync();
+
+                return JsonSerializer.Deserialize(content, DomainModelsJsonContext.Default.AutoDiscoverySettings);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to deserialize Firetrust response.");
+            }
 
             return null;
         }
-    }
-
-    private static async Task<AutoDiscoverySettings> DeserializeFiretrustResponse(HttpResponseMessage response)
-    {
-        try
-        {
-            var content = await response.Content.ReadAsStringAsync();
-
-            return JsonSerializer.Deserialize(content, DomainModelsJsonContext.Default.AutoDiscoverySettings);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to deserialize Firetrust response.");
-        }
-
-        return null;
     }
 }

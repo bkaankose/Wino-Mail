@@ -1,9 +1,10 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum CalendarItemRecurrenceFrequency
+﻿namespace Wino.Core.Domain.Enums
 {
-    Daily,
-    Weekly,
-    Monthly,
-    Yearly
+    public enum CalendarItemRecurrenceFrequency
+    {
+        Daily,
+        Weekly,
+        Monthly,
+        Yearly
+    }
 }

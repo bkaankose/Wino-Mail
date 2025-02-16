@@ -5,53 +5,54 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Integration;
 
-namespace Wino.Core.Services;
-
-public class ImapTestService : IImapTestService
+namespace Wino.Core.Services
 {
-    public const string ProtocolLogFileName = "ImapProtocolLog.log";
-
-    private readonly IPreferencesService _preferencesService;
-    private readonly IApplicationConfiguration _appInitializerService;
-
-    private Stream _protocolLogStream;
-
-    public ImapTestService(IPreferencesService preferencesService, IApplicationConfiguration appInitializerService)
+    public class ImapTestService : IImapTestService
     {
-        _preferencesService = preferencesService;
-        _appInitializerService = appInitializerService;
-    }
+        public const string ProtocolLogFileName = "ImapProtocolLog.log";
 
-    private void EnsureProtocolLogFileExists()
-    {
-        // Create new file for protocol logger.
-        var localAppFolderPath = _appInitializerService.ApplicationDataFolderPath;
+        private readonly IPreferencesService _preferencesService;
+        private readonly IApplicationConfiguration _appInitializerService;
 
-        var logFile = Path.Combine(localAppFolderPath, ProtocolLogFileName);
+        private Stream _protocolLogStream;
 
-        if (File.Exists(logFile))
-            File.Delete(logFile);
-
-        _protocolLogStream = File.Create(logFile);
-    }
-
-    public async Task TestImapConnectionAsync(CustomServerInformation serverInformation, bool allowSSLHandShake)
-    {
-        EnsureProtocolLogFileExists();
-
-        var poolOptions = ImapClientPoolOptions.CreateTestPool(serverInformation, _protocolLogStream);
-
-        var clientPool = new ImapClientPool(poolOptions)
+        public ImapTestService(IPreferencesService preferencesService, IApplicationConfiguration appInitializerService)
         {
-            ThrowOnSSLHandshakeCallback = !allowSSLHandShake
-        };
+            _preferencesService = preferencesService;
+            _appInitializerService = appInitializerService;
+        }
 
-        using (clientPool)
+        private void EnsureProtocolLogFileExists()
         {
-            // This call will make sure that everything is authenticated + connected successfully.
-            var client = await clientPool.GetClientAsync();
+            // Create new file for protocol logger.
+            var localAppFolderPath = _appInitializerService.ApplicationDataFolderPath;
 
-            clientPool.Release(client);
+            var logFile = Path.Combine(localAppFolderPath, ProtocolLogFileName);
+
+            if (File.Exists(logFile))
+                File.Delete(logFile);
+
+            _protocolLogStream = File.Create(logFile);
+        }
+
+        public async Task TestImapConnectionAsync(CustomServerInformation serverInformation, bool allowSSLHandShake)
+        {
+            EnsureProtocolLogFileExists();
+
+            var poolOptions = ImapClientPoolOptions.CreateTestPool(serverInformation, _protocolLogStream);
+
+            var clientPool = new ImapClientPool(poolOptions)
+            {
+                ThrowOnSSLHandshakeCallback = !allowSSLHandShake
+            };
+
+            using (clientPool)
+            {
+                // This call will make sure that everything is authenticated + connected successfully.
+                var client = await clientPool.GetClientAsync();
+
+                clientPool.Release(client);
+            }
         }
     }
 }

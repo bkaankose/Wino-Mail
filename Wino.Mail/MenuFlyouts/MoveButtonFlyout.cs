@@ -6,81 +6,82 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Mail;
 
-namespace Wino.MenuFlyouts;
-
-public class MoveButtonMenuItemClickedEventArgs
+namespace Wino.MenuFlyouts
 {
-    public Guid ClickedFolderId { get; set; }
-}
-
-public partial class MoveButtonFlyout : MenuFlyout
-{
-    public event TypedEventHandler<MoveButtonFlyout, MoveButtonMenuItemClickedEventArgs> MenuItemClick;
-    public static readonly DependencyProperty FoldersProperty = DependencyProperty.Register(nameof(Folders), typeof(List<MailItemFolder>), typeof(MoveButtonFlyout), new PropertyMetadata(null, new PropertyChangedCallback(OnFoldersChanged)));
-
-    public List<MailItemFolder> Folders
+    public class MoveButtonMenuItemClickedEventArgs
     {
-        get { return (List<MailItemFolder>)GetValue(FoldersProperty); }
-        set { SetValue(FoldersProperty, value); }
+        public Guid ClickedFolderId { get; set; }
     }
 
-    private static void OnFoldersChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    public partial class MoveButtonFlyout : MenuFlyout
     {
-        if (obj is MoveButtonFlyout menu)
+        public event TypedEventHandler<MoveButtonFlyout, MoveButtonMenuItemClickedEventArgs> MenuItemClick;
+        public static readonly DependencyProperty FoldersProperty = DependencyProperty.Register(nameof(Folders), typeof(List<MailItemFolder>), typeof(MoveButtonFlyout), new PropertyMetadata(null, new PropertyChangedCallback(OnFoldersChanged)));
+
+        public List<MailItemFolder> Folders
         {
-            menu.InitializeMenu();
+            get { return (List<MailItemFolder>)GetValue(FoldersProperty); }
+            set { SetValue(FoldersProperty, value); }
         }
 
-
-    }
-
-    private void InitializeMenu()
-    {
-        Dispose();
-
-        Items.Clear();
-
-        if (Folders == null || !Folders.Any())
-            return;
-
-        // TODO: Child folders.
-
-        foreach (var item in Folders)
+        private static void OnFoldersChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
         {
-            // We don't expect this, but it crashes startup.
-            // Just to be on the safe side.
-            if (item.FolderName != null)
+            if (obj is MoveButtonFlyout menu)
             {
-                var folderMenuItem = new MenuFlyoutItem()
+                menu.InitializeMenu();
+            }
+
+
+        }
+
+        private void InitializeMenu()
+        {
+            Dispose();
+
+            Items.Clear();
+
+            if (Folders == null || !Folders.Any())
+                return;
+
+            // TODO: Child folders.
+
+            foreach (var item in Folders)
+            {
+                // We don't expect this, but it crashes startup.
+                // Just to be on the safe side.
+                if (item.FolderName != null)
                 {
-                    Tag = item,
-                    Text = item.FolderName
-                };
+                    var folderMenuItem = new MenuFlyoutItem()
+                    {
+                        Tag = item,
+                        Text = item.FolderName
+                    };
 
-                folderMenuItem.Click += MenuItemClicked;
+                    folderMenuItem.Click += MenuItemClicked;
 
-                Items.Add(folderMenuItem);
+                    Items.Add(folderMenuItem);
+                }
             }
         }
-    }
 
-    private void MenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        var clickedFolder = (sender as MenuFlyoutItem).Tag as MailItemFolder;
-
-        MenuItemClick?.Invoke(this, new MoveButtonMenuItemClickedEventArgs()
+        private void MenuItemClicked(object sender, RoutedEventArgs e)
         {
-            ClickedFolderId = clickedFolder.Id
-        });
-    }
+            var clickedFolder = (sender as MenuFlyoutItem).Tag as MailItemFolder;
 
-    public void Dispose()
-    {
-        foreach (var item in Items)
-        {
-            if (item is MenuFlyoutItem menuItem)
+            MenuItemClick?.Invoke(this, new MoveButtonMenuItemClickedEventArgs()
             {
-                menuItem.Click -= MenuItemClicked;
+                ClickedFolderId = clickedFolder.Id
+            });
+        }
+
+        public void Dispose()
+        {
+            foreach (var item in Items)
+            {
+                if (item is MenuFlyoutItem menuItem)
+                {
+                    menuItem.Click -= MenuItemClicked;
+                }
             }
         }
     }

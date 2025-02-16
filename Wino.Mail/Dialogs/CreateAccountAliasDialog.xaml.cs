@@ -3,27 +3,28 @@ using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Dialogs;
-
-public sealed partial class CreateAccountAliasDialog : ContentDialog, ICreateAccountAliasDialog
+namespace Wino.Dialogs
 {
-    public MailAccountAlias CreatedAccountAlias { get; set; }
-    public CreateAccountAliasDialog()
+    public sealed partial class CreateAccountAliasDialog : ContentDialog, ICreateAccountAliasDialog
     {
-        InitializeComponent();
-    }
-
-    private void CreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        CreatedAccountAlias = new MailAccountAlias
+        public MailAccountAlias CreatedAccountAlias { get; set; }
+        public CreateAccountAliasDialog()
         {
-            AliasAddress = AliasTextBox.Text.Trim(),
-            ReplyToAddress = ReplyToTextBox.Text.Trim(),
-            Id = Guid.NewGuid(),
-            IsPrimary = false,
-            IsVerified = false
-        };
+            InitializeComponent();
+        }
 
-        Hide();
+        private void CreateClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+        {
+            CreatedAccountAlias = new MailAccountAlias
+            {
+                AliasAddress = AliasTextBox.Text.Trim(),
+                ReplyToAddress = ReplyToTextBox.Text.Trim(),
+                Id = Guid.NewGuid(),
+                IsPrimary = false,
+                IsVerified = false
+            };
+
+            Hide();
+        }
     }
 }

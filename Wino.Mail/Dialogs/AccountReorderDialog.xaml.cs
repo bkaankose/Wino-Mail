@@ -4,48 +4,49 @@ using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Dialogs;
-
-public sealed partial class AccountReorderDialog : ContentDialog
+namespace Wino.Dialogs
 {
-    public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; }
-
-    private int count;
-    private bool isOrdering = false;
-
-    private readonly IAccountService _accountService = App.Current.Services.GetService<IAccountService>();
-
-    public AccountReorderDialog(ObservableCollection<IAccountProviderDetailViewModel> accounts)
+    public sealed partial class AccountReorderDialog : ContentDialog
     {
-        Accounts = accounts;
+        public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; }
 
-        count = accounts.Count;
+        private int count;
+        private bool isOrdering = false;
 
-        InitializeComponent();
-    }
+        private readonly IAccountService _accountService = App.Current.Services.GetService<IAccountService>();
 
-    private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
-    {
-        Accounts.CollectionChanged -= AccountsChanged;
-        Accounts.CollectionChanged += AccountsChanged;
-    }
-
-    private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => Accounts.CollectionChanged -= AccountsChanged;
-
-    private async void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        if (count - 1 == Accounts.Count)
-            isOrdering = true;
-
-        if (count == Accounts.Count && isOrdering)
+        public AccountReorderDialog(ObservableCollection<IAccountProviderDetailViewModel> accounts)
         {
-            // Order is completed. Apply changes.
+            Accounts = accounts;
 
-            var dict = Accounts.ToDictionary(a => a.StartupEntityId, a => Accounts.IndexOf(a));
+            count = accounts.Count;
 
-            await _accountService.UpdateAccountOrdersAsync(dict);
+            InitializeComponent();
+        }
 
-            isOrdering = false;
+        private void DialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+        {
+            Accounts.CollectionChanged -= AccountsChanged;
+            Accounts.CollectionChanged += AccountsChanged;
+        }
+
+        private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => Accounts.CollectionChanged -= AccountsChanged;
+
+        private async void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (count - 1 == Accounts.Count)
+                isOrdering = true;
+
+            if (count == Accounts.Count && isOrdering)
+            {
+                // Order is completed. Apply changes.
+
+                var dict = Accounts.ToDictionary(a => a.StartupEntityId, a => Accounts.IndexOf(a));
+
+                await _accountService.UpdateAccountOrdersAsync(dict);
+
+                isOrdering = false;
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
-﻿namespace Wino.Core.Domain.Interfaces;
-
-public interface IGmailThreadingStrategy : IThreadingStrategy { }
+﻿namespace Wino.Core.Domain.Interfaces
+{
+    public interface IGmailThreadingStrategy : IThreadingStrategy { }
+}

@@ -2,50 +2,51 @@
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Media;
 
-namespace Wino.Helpers;
-
-public static class WinoVisualTreeHelper
+namespace Wino.Helpers
 {
-    public static T GetChildObject<T>(DependencyObject obj, string name) where T : FrameworkElement
+    public static class WinoVisualTreeHelper
     {
-        DependencyObject child = null;
-        T grandChild = null;
-
-        for (int i = 0; i <= VisualTreeHelper.GetChildrenCount(obj) - 1; i++)
+        public static T GetChildObject<T>(DependencyObject obj, string name) where T : FrameworkElement
         {
-            child = VisualTreeHelper.GetChild(obj, i);
+            DependencyObject child = null;
+            T grandChild = null;
 
-            if (child is T && (((T)child).Name == name | string.IsNullOrEmpty(name)))
+            for (int i = 0; i <= VisualTreeHelper.GetChildrenCount(obj) - 1; i++)
             {
-                return (T)child;
-            }
-            else
-            {
-                grandChild = GetChildObject<T>(child, name);
-            }
-            if (grandChild != null)
-            {
-                return grandChild;
-            }
-        }
-        return null;
-    }
+                child = VisualTreeHelper.GetChild(obj, i);
 
-    public static IEnumerable<T> FindDescendants<T>(this DependencyObject depObj) where T : DependencyObject
-    {
-        if (depObj != null)
-        {
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
-            {
-                var child = VisualTreeHelper.GetChild(depObj, i);
-                if (child != null && child is T)
+                if (child is T && (((T)child).Name == name | string.IsNullOrEmpty(name)))
                 {
-                    yield return (T)child;
+                    return (T)child;
                 }
-
-                foreach (T childOfChild in FindDescendants<T>(child))
+                else
                 {
-                    yield return childOfChild;
+                    grandChild = GetChildObject<T>(child, name);
+                }
+                if (grandChild != null)
+                {
+                    return grandChild;
+                }
+            }
+            return null;
+        }
+
+        public static IEnumerable<T> FindDescendants<T>(this DependencyObject depObj) where T : DependencyObject
+        {
+            if (depObj != null)
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
+                {
+                    var child = VisualTreeHelper.GetChild(depObj, i);
+                    if (child != null && child is T)
+                    {
+                        yield return (T)child;
+                    }
+
+                    foreach (T childOfChild in FindDescendants<T>(child))
+                    {
+                        yield return childOfChild;
+                    }
                 }
             }
         }

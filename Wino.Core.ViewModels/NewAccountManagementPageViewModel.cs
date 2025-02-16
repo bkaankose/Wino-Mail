@@ -1,13 +1,14 @@
 ﻿using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.ViewModels;
-
-public class ManageAccountsPagePageViewModel : CoreBaseViewModel
+namespace Wino.Core.ViewModels
 {
-    public ManageAccountsPagePageViewModel(INavigationService navigationService)
+    public class ManageAccountsPagePageViewModel : CoreBaseViewModel
     {
-        NavigationService = navigationService;
-    }
+        public ManageAccountsPagePageViewModel(INavigationService navigationService)
+        {
+            NavigationService = navigationService;
+        }
 
-    public INavigationService NavigationService { get; }
+        public INavigationService NavigationService { get; }
+    }
 }

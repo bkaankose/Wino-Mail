@@ -2,25 +2,26 @@ using System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
 
-namespace Wino.Converters;
-
-public partial class GridLengthConverter : IValueConverter
+namespace Wino.Converters
 {
-    public object Convert(object value, Type targetType, object parameter, string language)
+    public partial class GridLengthConverter : IValueConverter
     {
-        if (value is double doubleValue)
+        public object Convert(object value, Type targetType, object parameter, string language)
         {
-            return new GridLength(doubleValue);
+            if (value is double doubleValue)
+            {
+                return new GridLength(doubleValue);
+            }
+            return new GridLength(1, GridUnitType.Auto);
         }
-        return new GridLength(1, GridUnitType.Auto);
-    }
 
-    public object ConvertBack(object value, Type targetType, object parameter, string language)
-    {
-        if (value is GridLength gridLength)
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
         {
-            return gridLength.Value;
+            if (value is GridLength gridLength)
+            {
+                return gridLength.Value;
+            }
+            return 0.0;
         }
-        return 0.0;
     }
 }

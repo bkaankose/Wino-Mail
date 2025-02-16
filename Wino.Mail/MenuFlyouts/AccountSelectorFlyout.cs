@@ -7,52 +7,53 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.UWP.Controls;
 using Wino.Helpers;
 
-namespace Wino.MenuFlyouts;
-
-public partial class AccountSelectorFlyout : MenuFlyout, IDisposable
+namespace Wino.MenuFlyouts
 {
-    private readonly IEnumerable<MailAccount> _accounts;
-    private readonly Func<MailAccount, Task> _onItemSelection;
-
-    public AccountSelectorFlyout(IEnumerable<MailAccount> accounts, Func<MailAccount, Task> onItemSelection)
+    public partial class AccountSelectorFlyout : MenuFlyout, IDisposable
     {
-        _accounts = accounts;
-        _onItemSelection = onItemSelection;
+        private readonly IEnumerable<MailAccount> _accounts;
+        private readonly Func<MailAccount, Task> _onItemSelection;
 
-        foreach (var account in _accounts)
+        public AccountSelectorFlyout(IEnumerable<MailAccount> accounts, Func<MailAccount, Task> onItemSelection)
         {
-            var pathData = new WinoFontIcon() { Icon = XamlHelpers.GetProviderIcon(account) };
-            var menuItem = new MenuFlyoutItem() { Tag = account.Address, Icon = pathData, Text = $"{account.Name} ({account.Address})", MinHeight = 55 };
+            _accounts = accounts;
+            _onItemSelection = onItemSelection;
 
-            menuItem.Click += AccountClicked;
-            Items.Add(menuItem);
-        }
-    }
-
-    public void Dispose()
-    {
-        foreach (var menuItem in Items)
-        {
-            if (menuItem is MenuFlyoutItem flyoutItem)
+            foreach (var account in _accounts)
             {
-                flyoutItem.Click -= AccountClicked;
-            }
-        }
-    }
+                var pathData = new WinoFontIcon() { Icon = XamlHelpers.GetProviderIcon(account) };
+                var menuItem = new MenuFlyoutItem() { Tag = account.Address, Icon = pathData, Text = $"{account.Name} ({account.Address})", MinHeight = 55 };
 
-    private async void AccountClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem menuItem && menuItem.Tag is string accountAddress)
-        {
-            var selectedMenuItem = _accounts.FirstOrDefault(a => a.Address == accountAddress);
-
-            if (selectedMenuItem != null)
-            {
-                await _onItemSelection(selectedMenuItem);
+                menuItem.Click += AccountClicked;
+                Items.Add(menuItem);
             }
         }
 
-        Dispose();
-        Hide();
+        public void Dispose()
+        {
+            foreach (var menuItem in Items)
+            {
+                if (menuItem is MenuFlyoutItem flyoutItem)
+                {
+                    flyoutItem.Click -= AccountClicked;
+                }
+            }
+        }
+
+        private async void AccountClicked(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (sender is MenuFlyoutItem menuItem && menuItem.Tag is string accountAddress)
+            {
+                var selectedMenuItem = _accounts.FirstOrDefault(a => a.Address == accountAddress);
+
+                if (selectedMenuItem != null)
+                {
+                    await _onItemSelection(selectedMenuItem);
+                }
+            }
+
+            Dispose();
+            Hide();
+        }
     }
 }

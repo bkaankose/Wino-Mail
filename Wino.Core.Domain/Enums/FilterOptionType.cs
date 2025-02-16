@@ -1,10 +1,11 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum FilterOptionType
+﻿namespace Wino.Core.Domain.Enums
 {
-    All,
-    Unread,
-    Flagged,
-    Mentions,
-    Files
+    public enum FilterOptionType
+    {
+        All,
+        Unread,
+        Flagged,
+        Mentions,
+        Files
+    }
 }

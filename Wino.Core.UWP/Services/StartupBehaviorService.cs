@@ -6,50 +6,51 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.UWP.Extensions;
 
-namespace Wino.Core.UWP.Services;
-
-public class StartupBehaviorService : IStartupBehaviorService
+namespace Wino.Core.UWP.Services
 {
-    private const string WinoServerTaskId = "WinoServer";
-
-    public async Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled)
+    public class StartupBehaviorService : IStartupBehaviorService
     {
-        try
-        {
-            var task = await StartupTask.GetAsync(WinoServerTaskId);
+        private const string WinoServerTaskId = "WinoServer";
 
-            if (isEnabled)
+        public async Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled)
+        {
+            try
             {
-                await task.RequestEnableAsync();
+                var task = await StartupTask.GetAsync(WinoServerTaskId);
+
+                if (isEnabled)
+                {
+                    await task.RequestEnableAsync();
+                }
+                else
+                {
+                    task.Disable();
+                }
             }
-            else
+            catch (Exception)
             {
-                task.Disable();
+                Log.Error("Error toggling startup behavior");
+
             }
-        }
-        catch (Exception)
-        {
-            Log.Error("Error toggling startup behavior");
 
+            return await GetCurrentStartupBehaviorAsync();
         }
 
-        return await GetCurrentStartupBehaviorAsync();
-    }
-
-    public async Task<StartupBehaviorResult> GetCurrentStartupBehaviorAsync()
-    {
-        try
+        public async Task<StartupBehaviorResult> GetCurrentStartupBehaviorAsync()
         {
-            var task = await StartupTask.GetAsync(WinoServerTaskId);
+            try
+            {
+                var task = await StartupTask.GetAsync(WinoServerTaskId);
 
-            return task.State.AsStartupBehaviorResult();
+                return task.State.AsStartupBehaviorResult();
 
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error getting startup behavior");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error getting startup behavior");
 
-            return StartupBehaviorResult.Fatal;
+                return StartupBehaviorResult.Fatal;
+            }
         }
     }
 }

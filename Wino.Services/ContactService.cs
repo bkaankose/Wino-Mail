@@ -7,57 +7,58 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services.Extensions;
 
-namespace Wino.Services;
-
-public class ContactService : BaseDatabaseService, IContactService
+namespace Wino.Services
 {
-    public ContactService(IDatabaseService databaseService) : base(databaseService) { }
-
-    public async Task<AccountContact> CreateNewContactAsync(string address, string displayName)
+    public class ContactService : BaseDatabaseService, IContactService
     {
-        var contact = new AccountContact() { Address = address, Name = displayName };
+        public ContactService(IDatabaseService databaseService) : base(databaseService) { }
 
-        await Connection.InsertAsync(contact).ConfigureAwait(false);
-
-        return contact;
-    }
-
-    public Task<List<AccountContact>> GetAddressInformationAsync(string queryText)
-    {
-        if (queryText == null || queryText.Length < 2)
-            return Task.FromResult<List<AccountContact>>(null);
-
-        var query = new Query(nameof(AccountContact));
-        query.WhereContains("Address", queryText);
-        query.OrWhereContains("Name", queryText);
-
-        var rawLikeQuery = query.GetRawQuery();
-
-        return Connection.QueryAsync<AccountContact>(rawLikeQuery);
-    }
-
-    public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
-        => Connection.Table<AccountContact>().Where(a => a.Address == address).FirstOrDefaultAsync();
-
-    public async Task SaveAddressInformationAsync(MimeMessage message)
-    {
-        var recipients = message
-                    .GetRecipients(true)
-                    .Where(a => !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.Address));
-
-        var addressInformations = recipients.Select(a => new AccountContact() { Name = a.Name, Address = a.Address });
-
-        foreach (var info in addressInformations)
+        public async Task<AccountContact> CreateNewContactAsync(string address, string displayName)
         {
-            var currentContact = await GetAddressInformationByAddressAsync(info.Address).ConfigureAwait(false);
+            var contact = new AccountContact() { Address = address, Name = displayName };
 
-            if (currentContact == null)
+            await Connection.InsertAsync(contact).ConfigureAwait(false);
+
+            return contact;
+        }
+
+        public Task<List<AccountContact>> GetAddressInformationAsync(string queryText)
+        {
+            if (queryText == null || queryText.Length < 2)
+                return Task.FromResult<List<AccountContact>>(null);
+
+            var query = new Query(nameof(AccountContact));
+            query.WhereContains("Address", queryText);
+            query.OrWhereContains("Name", queryText);
+
+            var rawLikeQuery = query.GetRawQuery();
+
+            return Connection.QueryAsync<AccountContact>(rawLikeQuery);
+        }
+
+        public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
+            => Connection.Table<AccountContact>().Where(a => a.Address == address).FirstOrDefaultAsync();
+
+        public async Task SaveAddressInformationAsync(MimeMessage message)
+        {
+            var recipients = message
+                        .GetRecipients(true)
+                        .Where(a => !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.Address));
+
+            var addressInformations = recipients.Select(a => new AccountContact() { Name = a.Name, Address = a.Address });
+
+            foreach (var info in addressInformations)
             {
-                await Connection.InsertAsync(info).ConfigureAwait(false);
-            }
-            else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
-            {
-                await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                var currentContact = await GetAddressInformationByAddressAsync(info.Address).ConfigureAwait(false);
+
+                if (currentContact == null)
+                {
+                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                }
+                else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+                {
+                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                }
             }
         }
     }

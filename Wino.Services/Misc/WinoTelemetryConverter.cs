@@ -5,33 +5,34 @@ using Microsoft.ApplicationInsights.DataContracts;
 using Serilog.Events;
 using Serilog.Sinks.ApplicationInsights.TelemetryConverters;
 
-namespace Wino.Services.Misc;
-
-internal class WinoTelemetryConverter : EventTelemetryConverter
+namespace Wino.Services.Misc
 {
-    private readonly string _userDiagnosticId;
-
-    public WinoTelemetryConverter(string userDiagnosticId)
+    internal class WinoTelemetryConverter : EventTelemetryConverter
     {
-        _userDiagnosticId = userDiagnosticId;
-    }
+        private readonly string _userDiagnosticId;
 
-    public override IEnumerable<ITelemetry> Convert(LogEvent logEvent, IFormatProvider formatProvider)
-    {
-        foreach (ITelemetry telemetry in base.Convert(logEvent, formatProvider))
+        public WinoTelemetryConverter(string userDiagnosticId)
         {
-            // Assign diagnostic id as user id.
-            telemetry.Context.User.Id = _userDiagnosticId;
-
-            yield return telemetry;
+            _userDiagnosticId = userDiagnosticId;
         }
-    }
 
-    public override void ForwardPropertiesToTelemetryProperties(LogEvent logEvent, ISupportProperties telemetryProperties, IFormatProvider formatProvider)
-    {
-        ForwardPropertiesToTelemetryProperties(logEvent, telemetryProperties, formatProvider,
-            includeLogLevel: true,
-            includeRenderedMessage: true,
-            includeMessageTemplate: false);
+        public override IEnumerable<ITelemetry> Convert(LogEvent logEvent, IFormatProvider formatProvider)
+        {
+            foreach (ITelemetry telemetry in base.Convert(logEvent, formatProvider))
+            {
+                // Assign diagnostic id as user id.
+                telemetry.Context.User.Id = _userDiagnosticId;
+
+                yield return telemetry;
+            }
+        }
+
+        public override void ForwardPropertiesToTelemetryProperties(LogEvent logEvent, ISupportProperties telemetryProperties, IFormatProvider formatProvider)
+        {
+            ForwardPropertiesToTelemetryProperties(logEvent, telemetryProperties, formatProvider,
+                includeLogLevel: true,
+                includeRenderedMessage: true,
+                includeMessageTemplate: false);
+        }
     }
 }

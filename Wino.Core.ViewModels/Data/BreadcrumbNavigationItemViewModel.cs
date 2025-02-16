@@ -1,22 +1,23 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Messaging.Client.Navigation;
 
-namespace Wino.Mail.ViewModels.Data;
-
-public partial class BreadcrumbNavigationItemViewModel : ObservableObject
+namespace Wino.Mail.ViewModels.Data
 {
-    [ObservableProperty]
-    private string title;
-
-    [ObservableProperty]
-    private bool isActive;
-
-    public BreadcrumbNavigationRequested Request { get; set; }
-
-    public BreadcrumbNavigationItemViewModel(BreadcrumbNavigationRequested request, bool isActive)
+    public partial class BreadcrumbNavigationItemViewModel : ObservableObject
     {
-        Request = request;
-        Title = request.PageTitle;
-        IsActive = isActive;
+        [ObservableProperty]
+        private string title;
+
+        [ObservableProperty]
+        private bool isActive;
+
+        public BreadcrumbNavigationRequested Request { get; set; }
+
+        public BreadcrumbNavigationItemViewModel(BreadcrumbNavigationRequested request, bool isActive)
+        {
+            Request = request;
+            Title = request.PageTitle;
+            IsActive = isActive;
+        }
     }
 }

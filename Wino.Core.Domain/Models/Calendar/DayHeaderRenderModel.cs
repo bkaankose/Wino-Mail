@@ -1,13 +1,14 @@
-﻿namespace Wino.Core.Domain.Models.Calendar;
-
-public class DayHeaderRenderModel
+﻿namespace Wino.Core.Domain.Models.Calendar
 {
-    public DayHeaderRenderModel(string dayHeader, double hourHeight)
+    public class DayHeaderRenderModel
     {
-        DayHeader = dayHeader;
-        HourHeight = hourHeight;
-    }
+        public DayHeaderRenderModel(string dayHeader, double hourHeight)
+        {
+            DayHeader = dayHeader;
+            HourHeight = hourHeight;
+        }
 
-    public string DayHeader { get; }
-    public double HourHeight { get; }
+        public string DayHeader { get; }
+        public double HourHeight { get; }
+    }
 }

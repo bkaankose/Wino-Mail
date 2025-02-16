@@ -1,20 +1,21 @@
-﻿namespace Wino.Core.Domain.Enums;
-
-public enum AppLanguage
+﻿namespace Wino.Core.Domain.Enums
 {
-    None,
-    English,
-    Deutsch,
-    Russian,
-    Turkish,
-    Polish,
-    Czech,
-    Chinese,
-    Spanish,
-    French,
-    Indonesian,
-    Greek,
-    PortugeseBrazil,
-    Italian,
-    Romanian
+    public enum AppLanguage
+    {
+        None,
+        English,
+        Deutsch,
+        Russian,
+        Turkish,
+        Polish,
+        Czech,
+        Chinese,
+        Spanish,
+        French,
+        Indonesian,
+        Greek,
+        PortugeseBrazil,
+        Italian,
+        Romanian
+    }
 }

@@ -2,25 +2,26 @@
 using Wino.Core.UWP;
 using Wino.Mail.ViewModels;
 
-namespace Wino.Views.Abstract;
-
-public abstract class MailRenderingPageAbstract : BasePage<MailRenderingPageViewModel>
+namespace Wino.Views.Abstract
 {
-    public bool IsDarkEditor
+    public abstract class MailRenderingPageAbstract : BasePage<MailRenderingPageViewModel>
     {
-        get { return (bool)GetValue(IsDarkEditorProperty); }
-        set { SetValue(IsDarkEditorProperty, value); }
-    }
-
-    public static readonly DependencyProperty IsDarkEditorProperty = DependencyProperty.Register(nameof(IsDarkEditor), typeof(bool), typeof(MailRenderingPageAbstract), new PropertyMetadata(false, OnIsComposerDarkModeChanged));
-
-    private static void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-    {
-        if (obj is MailRenderingPageAbstract page)
+        public bool IsDarkEditor
         {
-            page.OnEditorThemeChanged();
+            get { return (bool)GetValue(IsDarkEditorProperty); }
+            set { SetValue(IsDarkEditorProperty, value); }
         }
-    }
 
-    public virtual void OnEditorThemeChanged() { }
+        public static readonly DependencyProperty IsDarkEditorProperty = DependencyProperty.Register(nameof(IsDarkEditor), typeof(bool), typeof(MailRenderingPageAbstract), new PropertyMetadata(false, OnIsComposerDarkModeChanged));
+
+        private static void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+        {
+            if (obj is MailRenderingPageAbstract page)
+            {
+                page.OnEditorThemeChanged();
+            }
+        }
+
+        public virtual void OnEditorThemeChanged() { }
+    }
 }

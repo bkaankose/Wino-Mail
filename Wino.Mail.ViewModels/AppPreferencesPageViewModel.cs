@@ -9,133 +9,134 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Server;
 
-namespace Wino.Mail.ViewModels;
-
-public partial class AppPreferencesPageViewModel : MailBaseViewModel
+namespace Wino.Mail.ViewModels
 {
-    public IPreferencesService PreferencesService { get; }
-
-    [ObservableProperty]
-    private List<string> _appTerminationBehavior;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
-    [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
-    private StartupBehaviorResult startupBehaviorResult;
-
-    public bool IsStartupBehaviorDisabled => !IsStartupBehaviorEnabled;
-    public bool IsStartupBehaviorEnabled => StartupBehaviorResult == StartupBehaviorResult.Enabled;
-
-    private string _selectedAppTerminationBehavior;
-    public string SelectedAppTerminationBehavior
+    public partial class AppPreferencesPageViewModel : MailBaseViewModel
     {
-        get => _selectedAppTerminationBehavior;
-        set
+        public IPreferencesService PreferencesService { get; }
+
+        [ObservableProperty]
+        private List<string> _appTerminationBehavior;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
+        [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
+        private StartupBehaviorResult startupBehaviorResult;
+
+        public bool IsStartupBehaviorDisabled => !IsStartupBehaviorEnabled;
+        public bool IsStartupBehaviorEnabled => StartupBehaviorResult == StartupBehaviorResult.Enabled;
+
+        private string _selectedAppTerminationBehavior;
+        public string SelectedAppTerminationBehavior
         {
-            SetProperty(ref _selectedAppTerminationBehavior, value);
-
-            PreferencesService.ServerTerminationBehavior = (ServerBackgroundMode)AppTerminationBehavior.IndexOf(value);
-        }
-    }
-
-    private readonly IMailDialogService _dialogService;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
-    private readonly IStartupBehaviorService _startupBehaviorService;
-
-    public AppPreferencesPageViewModel(IMailDialogService dialogService,
-                                       IPreferencesService preferencesService,
-                                       IWinoServerConnectionManager winoServerConnectionManager,
-                                       IStartupBehaviorService startupBehaviorService)
-    {
-        _dialogService = dialogService;
-        PreferencesService = preferencesService;
-        _winoServerConnectionManager = winoServerConnectionManager;
-        _startupBehaviorService = startupBehaviorService;
-
-        // Load the app termination behavior options
-
-        _appTerminationBehavior =
-        [
-            Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title, // "Minimize to tray"
-            Translator.SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title, // "Invisible"
-            Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title // "Terminate"
-        ];
-
-        SelectedAppTerminationBehavior = _appTerminationBehavior[(int)PreferencesService.ServerTerminationBehavior];
-    }
-
-    [RelayCommand]
-    private async Task ToggleStartupBehaviorAsync()
-    {
-        if (IsStartupBehaviorEnabled)
-        {
-            await DisableStartupAsync();
-        }
-        else
-        {
-            await EnableStartupAsync();
-        }
-
-        OnPropertyChanged(nameof(IsStartupBehaviorEnabled));
-    }
-
-    private async Task EnableStartupAsync()
-    {
-        StartupBehaviorResult = await _startupBehaviorService.ToggleStartupBehavior(true);
-
-        NotifyCurrentStartupState();
-    }
-
-    private async Task DisableStartupAsync()
-    {
-        StartupBehaviorResult = await _startupBehaviorService.ToggleStartupBehavior(false);
-
-        NotifyCurrentStartupState();
-    }
-
-    private void NotifyCurrentStartupState()
-    {
-        if (StartupBehaviorResult == StartupBehaviorResult.Enabled)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Enabled, InfoBarMessageType.Success);
-        }
-        else if (StartupBehaviorResult == StartupBehaviorResult.Disabled)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Disabled, InfoBarMessageType.Warning);
-        }
-        else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByPolicy)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByPolicy, InfoBarMessageType.Warning);
-        }
-        else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByUser)
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByUser, InfoBarMessageType.Warning);
-        }
-        else
-        {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.SettingsAppPreferences_StartupBehavior_FatalError, InfoBarMessageType.Error);
-        }
-    }
-
-    protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
-    {
-        base.OnPropertyChanged(e);
-
-        if (e.PropertyName == nameof(SelectedAppTerminationBehavior))
-        {
-            var terminationModeChangedResult = await _winoServerConnectionManager.GetResponseAsync<bool, ServerTerminationModeChanged>(new ServerTerminationModeChanged(PreferencesService.ServerTerminationBehavior));
-
-            if (!terminationModeChangedResult.IsSuccess)
+            get => _selectedAppTerminationBehavior;
+            set
             {
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, terminationModeChangedResult.Message, InfoBarMessageType.Error);
+                SetProperty(ref _selectedAppTerminationBehavior, value);
+
+                PreferencesService.ServerTerminationBehavior = (ServerBackgroundMode)AppTerminationBehavior.IndexOf(value);
             }
         }
-    }
 
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
-    {
-        base.OnNavigatedTo(mode, parameters);
+        private readonly IMailDialogService _dialogService;
+        private readonly IWinoServerConnectionManager _winoServerConnectionManager;
+        private readonly IStartupBehaviorService _startupBehaviorService;
 
-        StartupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+        public AppPreferencesPageViewModel(IMailDialogService dialogService,
+                                           IPreferencesService preferencesService,
+                                           IWinoServerConnectionManager winoServerConnectionManager,
+                                           IStartupBehaviorService startupBehaviorService)
+        {
+            _dialogService = dialogService;
+            PreferencesService = preferencesService;
+            _winoServerConnectionManager = winoServerConnectionManager;
+            _startupBehaviorService = startupBehaviorService;
+
+            // Load the app termination behavior options
+
+            _appTerminationBehavior =
+            [
+                Translator.SettingsAppPreferences_ServerBackgroundingMode_MinimizeTray_Title, // "Minimize to tray"
+                Translator.SettingsAppPreferences_ServerBackgroundingMode_Invisible_Title, // "Invisible"
+                Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title // "Terminate"
+            ];
+
+            SelectedAppTerminationBehavior = _appTerminationBehavior[(int)PreferencesService.ServerTerminationBehavior];
+        }
+
+        [RelayCommand]
+        private async Task ToggleStartupBehaviorAsync()
+        {
+            if (IsStartupBehaviorEnabled)
+            {
+                await DisableStartupAsync();
+            }
+            else
+            {
+                await EnableStartupAsync();
+            }
+
+            OnPropertyChanged(nameof(IsStartupBehaviorEnabled));
+        }
+
+        private async Task EnableStartupAsync()
+        {
+            StartupBehaviorResult = await _startupBehaviorService.ToggleStartupBehavior(true);
+
+            NotifyCurrentStartupState();
+        }
+
+        private async Task DisableStartupAsync()
+        {
+            StartupBehaviorResult = await _startupBehaviorService.ToggleStartupBehavior(false);
+
+            NotifyCurrentStartupState();
+        }
+
+        private void NotifyCurrentStartupState()
+        {
+            if (StartupBehaviorResult == StartupBehaviorResult.Enabled)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Enabled, InfoBarMessageType.Success);
+            }
+            else if (StartupBehaviorResult == StartupBehaviorResult.Disabled)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_Disabled, InfoBarMessageType.Warning);
+            }
+            else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByPolicy)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByPolicy, InfoBarMessageType.Warning);
+            }
+            else if (StartupBehaviorResult == StartupBehaviorResult.DisabledByUser)
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsAppPreferences_StartupBehavior_DisabledByUser, InfoBarMessageType.Warning);
+            }
+            else
+            {
+                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.SettingsAppPreferences_StartupBehavior_FatalError, InfoBarMessageType.Error);
+            }
+        }
+
+        protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
+
+            if (e.PropertyName == nameof(SelectedAppTerminationBehavior))
+            {
+                var terminationModeChangedResult = await _winoServerConnectionManager.GetResponseAsync<bool, ServerTerminationModeChanged>(new ServerTerminationModeChanged(PreferencesService.ServerTerminationBehavior));
+
+                if (!terminationModeChangedResult.IsSuccess)
+                {
+                    _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, terminationModeChangedResult.Message, InfoBarMessageType.Error);
+                }
+            }
+        }
+
+        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        {
+            base.OnNavigatedTo(mode, parameters);
+
+            StartupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+        }
     }
 }

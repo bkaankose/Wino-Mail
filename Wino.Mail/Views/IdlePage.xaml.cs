@@ -1,11 +1,12 @@
 ﻿using Wino.Views.Abstract;
 
-namespace Wino.Views;
-
-public sealed partial class IdlePage : IdlePageAbstract
+namespace Wino.Views
 {
-    public IdlePage()
+    public sealed partial class IdlePage : IdlePageAbstract
     {
-        InitializeComponent();
+        public IdlePage()
+        {
+            InitializeComponent();
+        }
     }
 }
