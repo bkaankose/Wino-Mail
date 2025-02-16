@@ -723,12 +723,12 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }
         catch (ImapProtocolException protocolException)
         {
-            Log.Warning(protocolException, "Idle client received protocol exception.");
+            Log.Information(protocolException, "Idle client received protocol exception.");
             reconnect = true;
         }
         catch (IOException ioException)
         {
-            Log.Warning(ioException, "Idle client received IO exception.");
+            Log.Information(ioException, "Idle client received IO exception.");
             reconnect = true;
         }
         catch (OperationCanceledException)
@@ -737,7 +737,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Idle client failed to start.");
+            Log.Error(ex, "Idle client failed to start.");
             reconnect = false;
         }
         finally
