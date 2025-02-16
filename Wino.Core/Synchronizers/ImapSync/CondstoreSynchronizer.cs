@@ -38,6 +38,8 @@ internal class CondstoreSynchronizer : ImapSynchronizationStrategyBase
 
         var downloadedMessageIds = new List<string>();
 
+        Folder = folder;
+
         try
         {
             remoteFolder = await winoClient.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
