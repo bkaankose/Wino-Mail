@@ -406,6 +406,27 @@ public class MailService : BaseDatabaseService, IMailService
         return mailCopy;
     }
 
+    /// <summary>
+    /// Using this override is dangerous.
+    /// Gmail stores multiple copies of same mail in different folders.
+    /// This one will always return the first one. Use with caution.
+    /// </summary>
+    /// <param name="mailCopyId">Mail copy id.</param>
+    public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId)
+    {
+        var query = new Query("MailCopy")
+                       .Where("MailCopy.Id", mailCopyId)
+                       .SelectRaw("MailCopy.*")
+                       .GetRawQuery();
+
+        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(query);
+        if (mailCopy == null) return null;
+
+        await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
+
+        return mailCopy;
+    }
+
     public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId)
     {
         var query = new Query("MailCopy")

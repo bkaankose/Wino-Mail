@@ -20,8 +20,6 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
                                     IMimeFileService mimeFileService) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
     , IOutlookChangeProcessor
 {
-    public Task<bool> IsMailExistsAsync(string messageId)
-        => MailService.IsMailExistsAsync(messageId);
 
     public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
         => MailService.IsMailExistsAsync(messageId, folderId);

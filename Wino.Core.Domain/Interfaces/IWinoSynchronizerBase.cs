@@ -1,6 +1,9 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using MailKit;
+using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 
@@ -35,4 +38,13 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// 3. Dispose all resources.
     /// </summary>
     Task KillSynchronizerAsync();
+
+    /// <summary>
+    /// Perform online search on the server.
+    /// </summary>
+    /// <param name="queryText">Search query.</param>
+    /// <param name="folders">Folders to include in search. All folders if null.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Search results after downloading missing mail copies from server.</returns>
+    Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default);
 }

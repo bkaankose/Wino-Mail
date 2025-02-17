@@ -13,6 +13,14 @@ public interface IMailService
 {
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
     Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId);
+
+    /// <summary>
+    /// Returns the single mail item with the given mail copy id.
+    /// Caution: This method is not safe. Use other overrides.
+    /// </summary>
+    /// <param name="mailCopyId"></param>
+    /// <returns></returns>
+    Task<MailCopy> GetSingleMailItemAsync(string mailCopyId);
     Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>

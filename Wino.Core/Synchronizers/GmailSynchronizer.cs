@@ -24,6 +24,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
@@ -901,6 +902,77 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var networkCall = _gmailService.Users.Drafts.Send(draft, "me");
 
         return [new HttpRequestBundle<IClientServiceRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
+    }
+
+    public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
+    {
+        var request = _gmailService.Users.Messages.List("me");
+        request.Q = queryText;
+        request.MaxResults = 500; // Max 500 is returned.
+
+        string pageToken = null;
+
+        var messagesToDownload = new List<Message>();
+
+        do
+        {
+            if (folders?.Any() ?? false)
+            {
+                request.LabelIds = folders.Select(a => a.RemoteFolderId).ToList();
+            }
+
+            if (!string.IsNullOrEmpty(pageToken))
+            {
+                request.PageToken = pageToken;
+            }
+
+            var response = await request.ExecuteAsync(cancellationToken);
+            if (response.Messages == null) break;
+
+            // Handle skipping manually
+            foreach (var message in response.Messages)
+            {
+                messagesToDownload.Add(message);
+            }
+
+            pageToken = response.NextPageToken;
+        } while (!string.IsNullOrEmpty(pageToken));
+
+        // Do not download messages that exists, but return them for listing.
+
+        var messageIds = messagesToDownload.Select(a => a.Id).ToList();
+
+        List<string> downloadRequireMessageIds = new();
+
+        foreach (var messageId in messageIds)
+        {
+            var exists = await _gmailChangeProcessor.IsMailExistsAsync(messageId).ConfigureAwait(false);
+
+            if (!exists)
+            {
+                downloadRequireMessageIds.Add(messageId);
+            }
+        }
+
+        // Download missing messages.
+        await BatchDownloadMessagesAsync(downloadRequireMessageIds, cancellationToken);
+
+        // Get results from database and return.
+
+        var searchResults = new List<MailCopy>();
+
+        foreach (var messageId in messageIds)
+        {
+            var copy = await _gmailChangeProcessor.GetMailCopyAsync(messageId).ConfigureAwait(false);
+
+            if (copy == null) continue;
+
+            searchResults.Add(copy);
+        }
+
+        return searchResults;
+
+        // TODO: Return the search result ids.
     }
 
     public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
