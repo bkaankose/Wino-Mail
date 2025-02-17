@@ -14,6 +14,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
@@ -415,6 +416,16 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <param name="transferProgress">Optional download progress for IMAP synchronizer.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public virtual Task DownloadMissingMimeMessageAsync(IMailItem mailItem, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    /// <summary>
+    /// Performs an online search for the given query text in the given folders.
+    /// Downloads the missing messages from the server.
+    /// </summary>
+    /// <param name="queryText">Query to search for.</param>
+    /// <param name="folders">Which folders to include in.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="NotSupportedException"></exception>
+    public virtual Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
     {
