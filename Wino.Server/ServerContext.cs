@@ -43,7 +43,8 @@ public class ServerContext :
     IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<AccountFolderConfigurationUpdated>,
     IRecipient<CopyAuthURLRequested>,
-    IRecipient<NewMailSynchronizationRequested>
+    IRecipient<NewMailSynchronizationRequested>,
+    IRecipient<OnlineSearchRequested>
 {
     private readonly System.Timers.Timer _timer;
     private static object connectionLock = new object();
@@ -141,7 +142,10 @@ public class ServerContext :
     public async void Receive(AccountFolderConfigurationUpdated message) => await SendMessageAsync(MessageType.UIMessage, message);
 
     public async void Receive(CopyAuthURLRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
+
     public async void Receive(NewMailSynchronizationRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
+
+    public async void Receive(OnlineSearchRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
 
     #endregion
 
@@ -325,6 +329,9 @@ public class ServerContext :
                 break;
             case nameof(KillAccountSynchronizerRequested):
                 await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<KillAccountSynchronizerRequested>(messageJson, _jsonSerializerOptions));
+                break;
+            case nameof(OnlineSearchRequested):
+                await ExecuteServerMessageSafeAsync(args, JsonSerializer.Deserialize<OnlineSearchRequested>(messageJson, _jsonSerializerOptions));
                 break;
             default:
                 Debug.WriteLine($"Missing handler for {typeName} in the server. Check ServerContext.cs - HandleServerMessageAsync.");

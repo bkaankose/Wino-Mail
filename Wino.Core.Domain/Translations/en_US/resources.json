@@ -393,6 +393,7 @@
     "Notifications_WinoUpdatedMessage": "Checkout new version {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
     "Other": "Other",
+    "OnlineSearchFailed_Message": "Failed to perform search\n{0}\n\nListing offline mails.",
     "PaneLengthOption_Default": "Default",
     "PaneLengthOption_ExtraLarge": "Extra Large",
     "PaneLengthOption_Large": "Large",
