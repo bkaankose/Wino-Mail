@@ -103,7 +103,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private bool isMultiSelectionModeEnabled;
 
     [ObservableProperty]
-    private string searchQuery;
+    public partial string SearchQuery { get; set; }
 
     [ObservableProperty]
     private FilterOption _selectedFilterOption;
@@ -112,7 +112,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     // Indicates state when folder is initializing. It can happen after folder navigation, search or filter change applied or loading more items.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
-    [NotifyPropertyChangedFor(nameof(IsCriteriaFailed))]
     [NotifyPropertyChangedFor(nameof(IsFolderEmpty))]
     [NotifyPropertyChangedFor(nameof(IsProgressRing))]
     private bool isInitializingFolder;
@@ -261,6 +260,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
 
     public string SelectedMessageText => HasSelectedItems ? string.Format(Translator.MailsSelected, SelectedItemCount) : Translator.NoMailSelected;
+
     /// <summary>
     /// Indicates current state of the mail list. Doesn't matter it's loading or no.
     /// </summary>
@@ -270,11 +270,21 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     /// Progress ring only should be visible when the folder is initializing and there are no items. We don't need to show it when there are items.
     /// </summary>
     public bool IsProgressRing => IsInitializingFolder && IsEmpty;
-    private bool isFilters => IsInSearchMode || SelectedFilterOption.Type != FilterOptionType.All;
-    public bool IsCriteriaFailed => !IsInitializingFolder && IsEmpty && isFilters;
-    public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty && !isFilters;
+    public bool IsFolderEmpty => !IsInitializingFolder && IsEmpty;
 
-    public bool IsInSearchMode { get; set; }
+    public bool HasNoOnlineSearchResult { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsInSearchMode { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsOnlineSearchButtonVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsOnlineSearchEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial bool AreSearchResultsOnline { get; set; }
 
     #endregion
 
@@ -340,7 +350,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private void NotifyItemFoundState()
     {
         OnPropertyChanged(nameof(IsEmpty));
-        OnPropertyChanged(nameof(IsCriteriaFailed));
         OnPropertyChanged(nameof(IsFolderEmpty));
     }
 
@@ -385,40 +394,51 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async Task UpdateFolderPivotsAsync()
     {
+        if (ActiveFolder == null) return;
+
         PivotFolders.Clear();
         SelectedFolderPivot = null;
 
-        if (ActiveFolder == null) return;
-
-        // Merged folders don't support focused feature.
-
-        if (ActiveFolder is IMergedAccountFolderMenuItem)
+        if (IsInSearchMode)
         {
-            PivotFolders.Add(new FolderPivotViewModel(ActiveFolder.FolderName, null));
+            var isFocused = SelectedFolderPivot?.IsFocused;
+
+            PivotFolders.Add(new FolderPivotViewModel(Translator.SearchPivotName, isFocused));
         }
-        else if (ActiveFolder is IFolderMenuItem singleFolderMenuItem)
+        else
         {
-            var parentAccount = singleFolderMenuItem.ParentAccount;
+            // Merged folders don't support focused feature.
 
-            bool isFocusedInboxEnabled = await _accountService.IsAccountFocusedEnabledAsync(parentAccount.Id);
-            bool isInboxFolder = ActiveFolder.SpecialFolderType == SpecialFolderType.Inbox;
-
-            // Folder supports Focused - Other
-            if (isInboxFolder && isFocusedInboxEnabled)
+            if (ActiveFolder is IMergedAccountFolderMenuItem)
             {
-                // Can be passed as empty string. Focused - Other will be used regardless.
-                var focusedItem = new FolderPivotViewModel(string.Empty, true);
-                var otherItem = new FolderPivotViewModel(string.Empty, false);
-
-                PivotFolders.Add(focusedItem);
-                PivotFolders.Add(otherItem);
+                PivotFolders.Add(new FolderPivotViewModel(ActiveFolder.FolderName, null));
             }
-            else
+            else if (ActiveFolder is IFolderMenuItem singleFolderMenuItem)
             {
-                // If the account and folder doesn't support focused feature, just add itself.
-                PivotFolders.Add(new FolderPivotViewModel(singleFolderMenuItem.FolderName, null));
+                var parentAccount = singleFolderMenuItem.ParentAccount;
+
+                bool isFocusedInboxEnabled = await _accountService.IsAccountFocusedEnabledAsync(parentAccount.Id);
+                bool isInboxFolder = ActiveFolder.SpecialFolderType == SpecialFolderType.Inbox;
+
+                // Folder supports Focused - Other
+                if (isInboxFolder && isFocusedInboxEnabled)
+                {
+                    // Can be passed as empty string. Focused - Other will be used regardless.
+                    var focusedItem = new FolderPivotViewModel(string.Empty, true);
+                    var otherItem = new FolderPivotViewModel(string.Empty, false);
+
+                    PivotFolders.Add(focusedItem);
+                    PivotFolders.Add(otherItem);
+                }
+                else
+                {
+                    // If the account and folder doesn't support focused feature, just add itself.
+                    PivotFolders.Add(new FolderPivotViewModel(singleFolderMenuItem.FolderName, null));
+                }
             }
         }
+
+
 
         // This will trigger refresh.
         SelectedFolderPivot = PivotFolders.FirstOrDefault();
@@ -519,32 +539,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     public async Task PerformSearchAsync()
     {
-        if (string.IsNullOrEmpty(SearchQuery) && IsInSearchMode)
+        IsOnlineSearchEnabled = false;
+        AreSearchResultsOnline = false;
+        IsInSearchMode = !string.IsNullOrEmpty(SearchQuery);
+
+        if (IsInSearchMode)
         {
-            await UpdateFolderPivotsAsync();
-            IsInSearchMode = false;
-            await InitializeFolderAsync();
+            IsOnlineSearchButtonVisible = false;
         }
 
-        if (!string.IsNullOrEmpty(SearchQuery))
-        {
-            IsInSearchMode = true;
-            CreateSearchPivot();
-        }
-
-        void CreateSearchPivot()
-        {
-            PivotFolders.Clear();
-            var isFocused = SelectedFolderPivot?.IsFocused;
-            SelectedFolderPivot = null;
-
-            if (ActiveFolder == null) return;
-
-            PivotFolders.Add(new FolderPivotViewModel(Translator.SearchPivotName, isFocused));
-
-            // This will trigger refresh.
-            SelectedFolderPivot = PivotFolders.FirstOrDefault();
-        }
+        await UpdateFolderPivotsAsync();
     }
 
     [RelayCommand]
@@ -561,7 +565,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task LoadMoreItemsAsync()
     {
-        if (IsInitializingFolder) return;
+        if (IsInitializingFolder || IsOnlineSearchEnabled) return;
 
         await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
@@ -769,6 +773,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    [RelayCommand]
+    private async Task PerformOnlineSearchAsync()
+    {
+        IsOnlineSearchButtonVisible = false;
+        IsOnlineSearchEnabled = true;
+
+        await InitializeFolderAsync();
+    }
+
     private async Task InitializeFolderAsync()
     {
         if (SelectedFilterOption == null || SelectedFolderPivot == null || SelectedSortingOption == null)
@@ -811,56 +824,64 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Here items are sorted and filtered.
 
             List<IMailItem> items = null;
+            List<MailCopy> onlineSearchItems = null;
 
-            WinoServerResponse<OnlineSearchResult> onlineSearchResult = null;
-            string onlineSearchFailedMessage = null;
+            bool isDoingSearch = !string.IsNullOrEmpty(SearchQuery);
+            bool isDoingOnlineSearch = false;
 
-            List<MailCopy> onlineSearchResults = null;
-
-            // Online search.
-            // If somehow we can't get the results from the server, fallback to offline search and notify user.
-            if (!string.IsNullOrEmpty(SearchQuery))
+            if (isDoingSearch)
             {
-                try
+                isDoingOnlineSearch = PreferencesService.DefaultSearchMode == SearchMode.Online || IsOnlineSearchEnabled;
+
+                // Perform online search.
+                if (isDoingOnlineSearch)
                 {
-                    var accountIds = ActiveFolder.HandlingFolders.Select(a => a.MailAccountId).ToList();
-                    var folders = ActiveFolder.HandlingFolders.ToList();
-                    var searchRequest = new OnlineSearchRequested(accountIds, SearchQuery, folders);
+                    WinoServerResponse<OnlineSearchResult> onlineSearchResult = null;
+                    string onlineSearchFailedMessage = null;
 
-                    onlineSearchResult = await _winoServerConnectionManager.GetResponseAsync<OnlineSearchResult, OnlineSearchRequested>(searchRequest, cancellationToken);
-
-                    if (onlineSearchResult.IsSuccess)
+                    try
                     {
-                        onlineSearchResults = onlineSearchResult.Data.SearchResult;
+                        var accountIds = ActiveFolder.HandlingFolders.Select(a => a.MailAccountId).ToList();
+                        var folders = ActiveFolder.HandlingFolders.ToList();
+                        var searchRequest = new OnlineSearchRequested(accountIds, SearchQuery, folders);
+
+                        onlineSearchResult = await _winoServerConnectionManager.GetResponseAsync<OnlineSearchResult, OnlineSearchRequested>(searchRequest, cancellationToken);
+
+                        if (onlineSearchResult.IsSuccess)
+                        {
+                            await ExecuteUIThread(() => { AreSearchResultsOnline = true; });
+
+                            onlineSearchItems = onlineSearchResult.Data.SearchResult;
+                        }
+                        else
+                        {
+                            onlineSearchFailedMessage = onlineSearchResult.Message;
+                        }
                     }
-                    else
+                    catch (OperationCanceledException)
                     {
-                        onlineSearchFailedMessage = onlineSearchResult.Message;
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to perform online search.");
+                        onlineSearchFailedMessage = ex.Message;
+                    }
+
+                    if (onlineSearchResult != null && !onlineSearchResult.IsSuccess)
+                    {
+                        // Query or server error.
+                        var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchResult.Message);
+                        _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
+
+                    }
+                    else if (!string.IsNullOrEmpty(onlineSearchFailedMessage))
+                    {
+                        // Fatal error.
+                        var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchFailedMessage);
+                        _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    // Ignore.
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning(ex, "Failed to perform online search.");
-                    onlineSearchFailedMessage = ex.Message;
-                }
-            }
-
-            if (onlineSearchResult != null && !onlineSearchResult.IsSuccess)
-            {
-                // Query or server error.
-                var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchResult.Message);
-                _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
-
-            }
-            else if (!string.IsNullOrEmpty(onlineSearchFailedMessage))
-            {
-                // Fatal error.
-                var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchFailedMessage);
-                _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
             }
 
             var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
@@ -870,8 +891,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                                           SelectedFolderPivot.IsFocused,
                                                                           SearchQuery,
                                                                           MailCollection.MailCopyIdHashSet,
-                                                                          onlineSearchResult?.Data?.SearchResult ?? null);
-
+                                                                          onlineSearchItems);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 
@@ -883,7 +903,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
                 var viewModels = PrepareMailViewModels(items);
 
-                await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, true); });
+                await ExecuteUIThread(() =>
+                {
+                    MailCollection.AddRange(viewModels, true);
+
+                    if (isDoingSearch && !isDoingOnlineSearch)
+                    {
+                        IsOnlineSearchButtonVisible = true;
+                    }
+                });
             }
         }
         catch (OperationCanceledException)
@@ -971,6 +999,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             SelectedSortingOption = SortingOptions[0];
             SearchQuery = string.Empty;
             IsInSearchMode = false;
+            IsOnlineSearchEnabled = false;
         }
     }
 

@@ -18,6 +18,10 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     [ObservableProperty]
     private List<string> _appTerminationBehavior;
 
+
+    [ObservableProperty]
+    public partial List<string> SearchModes { get; set; }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
@@ -35,6 +39,18 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             SetProperty(ref _selectedAppTerminationBehavior, value);
 
             PreferencesService.ServerTerminationBehavior = (ServerBackgroundMode)AppTerminationBehavior.IndexOf(value);
+        }
+    }
+
+    private string _selectedDefaultSearchMode;
+    public string SelectedDefaultSearchMode
+    {
+        get => _selectedDefaultSearchMode;
+        set
+        {
+            SetProperty(ref _selectedDefaultSearchMode, value);
+
+            PreferencesService.DefaultSearchMode = (SearchMode)SearchModes.IndexOf(value);
         }
     }
 
@@ -61,7 +77,14 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title // "Terminate"
         ];
 
+        SearchModes =
+        [
+            Translator.SettingsAppPreferences_SearchMode_Local,
+            Translator.SettingsAppPreferences_SearchMode_Online
+        ];
+
         SelectedAppTerminationBehavior = _appTerminationBehavior[(int)PreferencesService.ServerTerminationBehavior];
+        SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
     }
 
     [RelayCommand]
