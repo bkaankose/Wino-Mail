@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization.Metadata;
-using MailKit;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
@@ -45,7 +45,7 @@ public class ServerRequestTypeInfoResolver : DefaultJsonTypeInfoResolver
                     }
                 };
             }
-            else if (t.Type == typeof(IMailFolder))
+            else if (t.Type == typeof(IMailItemFolder))
             {
                 t.PolymorphismOptions = new JsonPolymorphismOptions()
                 {

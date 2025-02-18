@@ -195,9 +195,20 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
-        var query = BuildMailFetchQuery(options);
+        List<MailCopy> mails = null;
 
-        var mails = await Connection.QueryAsync<MailCopy>(query);
+        // If user performs an online search, mail copies are passed to options.
+        if (options.PreFetchMailCopies != null)
+        {
+            mails = options.PreFetchMailCopies;
+        }
+        else
+        {
+            // If not just do the query.
+            var query = BuildMailFetchQuery(options);
+
+            mails = await Connection.QueryAsync<MailCopy>(query);
+        }
 
         Dictionary<Guid, MailItemFolder> folderCache = [];
         Dictionary<Guid, MailAccount> accountCache = [];

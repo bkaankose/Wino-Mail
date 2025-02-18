@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.Domain.Models.Server;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
@@ -71,12 +72,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public IThemeService ThemeService { get; }
 
     private readonly IAccountService _accountService;
+    private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
     private readonly IFolderService _folderService;
     private readonly IThreadingStrategyProvider _threadingStrategyProvider;
     private readonly IContextMenuItemService _contextMenuItemService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IKeyPressService _keyPressService;
+    private readonly IWinoLogger _winoLogger;
     private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private MailItemViewModel _activeMailItem;
 
@@ -147,6 +150,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public MailListPageViewModel(IMailDialogService dialogService,
                                  INavigationService navigationService,
                                  IAccountService accountService,
+                                 IMailDialogService mailDialogService,
                                  IMailService mailService,
                                  IStatePersistanceService statePersistenceService,
                                  IFolderService folderService,
@@ -156,14 +160,17 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IKeyPressService keyPressService,
                                  IPreferencesService preferencesService,
                                  IThemeService themeService,
+                                 IWinoLogger winoLogger,
                                  IWinoServerConnectionManager winoServerConnectionManager)
     {
         PreferencesService = preferencesService;
         ThemeService = themeService;
+        _winoLogger = winoLogger;
         _winoServerConnectionManager = winoServerConnectionManager;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
         _accountService = accountService;
+        _mailDialogService = mailDialogService;
         _mailService = mailService;
         _folderService = folderService;
         _threadingStrategyProvider = threadingStrategyProvider;
@@ -521,7 +528,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         if (!string.IsNullOrEmpty(SearchQuery))
         {
-
             IsInSearchMode = true;
             CreateSearchPivot();
         }
@@ -783,14 +789,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Folder is changed during initialization.
             // Just cancel the existing one and wait for new initialization.
 
-            //if (listManipulationSemepahore.CurrentCount == 0)
-            //{
-            //    Debug.WriteLine("Canceling initialization of mails.");
-
-            //    listManipulationCancellationTokenSource.Cancel();
-            //    listManipulationCancellationTokenSource.Token.ThrowIfCancellationRequested();
-            //}
-
             if (!listManipulationCancellationTokenSource.IsCancellationRequested)
             {
                 listManipulationCancellationTokenSource.Cancel();
@@ -812,15 +810,70 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             // Here items are sorted and filtered.
 
+            List<IMailItem> items = null;
+
+            WinoServerResponse<OnlineSearchResult> onlineSearchResult = null;
+            string onlineSearchFailedMessage = null;
+
+            List<MailCopy> onlineSearchResults = null;
+
+            // Online search.
+            // If somehow we can't get the results from the server, fallback to offline search and notify user.
+            if (!string.IsNullOrEmpty(SearchQuery))
+            {
+                try
+                {
+                    var accountIds = ActiveFolder.HandlingFolders.Select(a => a.MailAccountId).ToList();
+                    var folders = ActiveFolder.HandlingFolders.ToList();
+                    var searchRequest = new OnlineSearchRequested(accountIds, SearchQuery, folders);
+
+                    onlineSearchResult = await _winoServerConnectionManager.GetResponseAsync<OnlineSearchResult, OnlineSearchRequested>(searchRequest, cancellationToken);
+
+                    if (onlineSearchResult.IsSuccess)
+                    {
+                        onlineSearchResults = onlineSearchResult.Data.SearchResult;
+                    }
+                    else
+                    {
+                        onlineSearchFailedMessage = onlineSearchResult.Message;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore.
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to perform online search.");
+                    onlineSearchFailedMessage = ex.Message;
+                }
+            }
+
+            if (onlineSearchResult != null && !onlineSearchResult.IsSuccess)
+            {
+                // Query or server error.
+                var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchResult.Message);
+                _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
+
+            }
+            else if (!string.IsNullOrEmpty(onlineSearchFailedMessage))
+            {
+                // Fatal error.
+                var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchFailedMessage);
+                _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
+            }
+
             var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
                                                                           SelectedFilterOption.Type,
                                                                           SelectedSortingOption.Type,
                                                                           PreferencesService.IsThreadingEnabled,
                                                                           SelectedFolderPivot.IsFocused,
                                                                           SearchQuery,
-                                                                          MailCollection.MailCopyIdHashSet);
+                                                                          MailCollection.MailCopyIdHashSet,
+                                                                          onlineSearchResult?.Data?.SearchResult ?? null);
 
-            var items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
+
+            items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 
             if (!listManipulationCancellationTokenSource.IsCancellationRequested)
             {
