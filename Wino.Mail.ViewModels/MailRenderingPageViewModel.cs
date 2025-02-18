@@ -494,6 +494,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
         }
 
+        if (accounts.Count > 0)
+            accounts[^1].IsSemicolon = false;
+
         return accounts;
     }
 

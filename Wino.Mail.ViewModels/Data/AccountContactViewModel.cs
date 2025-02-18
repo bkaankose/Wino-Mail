@@ -19,16 +19,21 @@ public class AccountContactViewModel : AccountContact
     public bool IsMe { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the ShortNameOrYOu should have semicolon.
+    /// </summary>
+    public bool IsSemicolon { get; set; } = true;
+
+    /// <summary>
     /// Provides a short name of the contact.
     /// <see cref="ShortDisplayName"/> or "You"
     /// </summary>
-    public string ShortNameOrYou => IsMe ? $"{Translator.AccountContactNameYou};" : ShortDisplayName;
+    public string ShortNameOrYou => (IsMe ? Translator.AccountContactNameYou : ShortDisplayName) + (IsSemicolon ? ";" : string.Empty);
 
     /// <summary>
     /// Short display name of the contact.
     /// Either Name or Address.
     /// </summary>
-    public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? $"{Address.ToLowerInvariant()};" : $"{Name};";
+    public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? $"{Address.ToLowerInvariant()}" : $"{Name}";
 
     /// <summary>
     /// Display name of the contact in a format: Name <Address>.
