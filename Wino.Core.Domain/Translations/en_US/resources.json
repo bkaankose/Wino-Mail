@@ -394,6 +394,8 @@
     "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
     "Other": "Other",
     "OnlineSearchFailed_Message": "Failed to perform search\n{0}\n\nListing offline mails.",
+    "OnlineSearchTry_Line1": "Can't find what you are looking for?",
+    "OnlineSearchTry_Line2": "Try online search.",
     "PaneLengthOption_Default": "Default",
     "PaneLengthOption_ExtraLarge": "Extra Large",
     "PaneLengthOption_Large": "Large",

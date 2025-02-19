@@ -666,6 +666,24 @@ public class MailService : BaseDatabaseService, IMailService
         await DeleteMailInternalAsync(mailItem, preserveMimeFile: false).ConfigureAwait(false);
     }
 
+    public async Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
+    {
+        var mailCopy = package.Copy;
+        var mimeMessage = package.Mime;
+
+        mailCopy.UniqueId = Guid.NewGuid();
+        mailCopy.AssignedAccount = account;
+        mailCopy.AssignedFolder = mailItemFolder;
+        mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+        mailCopy.FolderId = mailItemFolder.Id;
+
+        var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
+        var contactSaveTask = _contactService.SaveAddressInformationAsync(mimeMessage);
+        var insertMailTask = InsertMailAsync(mailCopy);
+
+        await Task.WhenAll(mimeSaveTask, contactSaveTask, insertMailTask).ConfigureAwait(false);
+    }
+
     public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
     {
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);

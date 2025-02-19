@@ -968,6 +968,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         // Notify change for archive-unarchive app bar button.
         OnPropertyChanged(nameof(IsArchiveSpecialFolder));
 
+        IsInSearchMode = false;
+        IsOnlineSearchButtonVisible = false;
+        AreSearchResultsOnline = false;
+
         // Prepare Focused - Other or folder name tabs.
         await UpdateFolderPivotsAsync();
 

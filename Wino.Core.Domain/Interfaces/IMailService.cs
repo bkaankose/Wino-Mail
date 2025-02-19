@@ -125,4 +125,14 @@ public interface IMailService
     /// <param name="uniqueIds"></param>
     /// <returns></returns>
     Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
+
+    /// <summary>
+    /// Creates a new mail from a package without doing any existence check.
+    /// Use it with caution.
+    /// </summary>
+    /// <param name="account">Account that mail belongs to.</param>
+    /// <param name="mailItemFolder">Assigned folder.</param>
+    /// <param name="package">Mail creation package.</param>
+    /// <returns></returns>
+    Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
 }
