@@ -28,6 +28,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
@@ -42,7 +43,7 @@ namespace Wino.Core.Synchronizers.Mail;
 
 [JsonSerializable(typeof(Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody))]
 [JsonSerializable(typeof(OutlookFileAttachment))]
-public partial class OutlookSynchronizerJsonContext: JsonSerializerContext;
+public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
 public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>
 {
@@ -185,6 +186,33 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var unreadNewItems = await _outlookChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
         return MailSynchronizationResult.Completed(unreadNewItems);
+    }
+
+    public async Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
+    {
+        Log.Information("Downloading search result message {messageId} for {Name} - {FolderName}", messageId, Account.Name, assignedFolder.FolderName);
+
+        // Outlook message handling was a little strange.
+        // Instead of changing it from the scratch, we will just download the message and process it.
+        // Search results will only return Id for the messages.
+        // This method will download the raw mime, get the required enough metadata from the service and create
+        // the mail locally. Message ids passed to this method is expected to be non-existent locally.
+
+        var message = await _graphClient.Me.Messages[messageId].GetAsync((config) =>
+        {
+            config.QueryParameters.Select = outlookMessageSelectParameters;
+        }, cancellationToken).ConfigureAwait(false);
+
+        var mailPackages = await CreateNewMailPackagesAsync(message, assignedFolder, cancellationToken).ConfigureAwait(false);
+
+        if (mailPackages == null) return;
+
+        foreach (var package in mailPackages)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await _outlookChangeProcessor.CreateMailRawAsync(Account, assignedFolder, package).ConfigureAwait(false);
+        }
     }
 
     private async Task<IEnumerable<string>> SynchronizeFolderAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
@@ -927,6 +955,109 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
+    public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
+    {
+        bool isFoldersIncluded = folders?.Any() ?? false;
+
+        var messagesToDownload = new List<Message>();
+
+        // Perform search for each folder separately.
+        if (isFoldersIncluded)
+        {
+            var folderIds = folders.Select(a => a.RemoteFolderId);
+
+            var tasks = folderIds.Select(async folderId =>
+            {
+                var mailQuery = _graphClient.Me.MailFolders[folderId].Messages
+                    .GetAsync(requestConfig =>
+                    {
+                        requestConfig.QueryParameters.Search = $"\"{queryText}\"";
+                        requestConfig.QueryParameters.Select = ["Id, ParentFolderId"];
+                        requestConfig.QueryParameters.Top = 1000;
+                    });
+
+                var result = await mailQuery;
+
+                if (result?.Value != null)
+                {
+                    lock (messagesToDownload)
+                    {
+                        messagesToDownload.AddRange(result.Value);
+                    }
+                }
+            });
+
+            await Task.WhenAll(tasks);
+        }
+        else
+        {
+            // Perform search for all messages without folder data.
+            var mailQuery = _graphClient.Me.Messages
+                .GetAsync(requestConfig =>
+                {
+                    requestConfig.QueryParameters.Search = $"\"{queryText}\"";
+                    requestConfig.QueryParameters.Select = ["Id, ParentFolderId"];
+                    requestConfig.QueryParameters.Top = 1000;
+                });
+
+            var result = await mailQuery;
+
+            if (result?.Value != null)
+            {
+                lock (messagesToDownload)
+                {
+                    messagesToDownload.AddRange(result.Value);
+                }
+            }
+        }
+
+        // Do not download messages that exists, but return them for listing.
+
+        var localFolders = await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+
+        var existingMessageIds = new List<string>();
+
+        //Download missing messages.
+        foreach (var message in messagesToDownload)
+        {
+            var messageId = message.Id;
+            var parentFolderId = message.ParentFolderId;
+
+            if (!localFolders.Any(a => a.RemoteFolderId == parentFolderId))
+            {
+                Log.Warning($"Search result returned a message from a folder that is not synchronized.");
+                continue;
+            }
+
+            existingMessageIds.Add(messageId);
+
+            var exists = await _outlookChangeProcessor.IsMailExistsAsync(messageId).ConfigureAwait(false);
+
+            if (!exists)
+            {
+                // Check if folder exists. We can't download a mail without existing folder.
+
+                var localFolder = localFolders.Find(a => a.RemoteFolderId == parentFolderId);
+
+                await DownloadSearchResultMessageAsync(messageId, localFolder, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        // Get results from database and return.
+        var searchResults = new List<MailCopy>();
+
+        foreach (var messageId in existingMessageIds)
+        {
+            var copy = await _outlookChangeProcessor.GetMailCopyAsync(messageId).ConfigureAwait(false);
+
+            if (copy == null) continue;
+
+            searchResults.Add(copy);
+        }
+
+        return searchResults;
+    }
+
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
     {
         var mimeContentStream = await _graphClient.Me.Messages[messageId].Content.GetAsync(null, cancellationToken).ConfigureAwait(false);
@@ -935,7 +1066,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
-
         var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
         var mailCopy = message.AsMailCopy();
 

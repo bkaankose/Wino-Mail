@@ -428,7 +428,7 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind ViewModel.IsProgressRing, Mode=OneWay}"
-                        Canvas.ZIndex="999" />
+                        Canvas.ZIndex="2000" />
                 </StackPanel>
 
                 <!--  Mail Items  -->
@@ -535,14 +535,14 @@
                                     </Grid.RowDefinitions>
                                     <TextBlock
                                         VerticalAlignment="Center"
-                                        Text="Can't find what you are looking for?"
+                                        Text="{x:Bind domain:Translator.OnlineSearchTry_Line1}"
                                         TextWrapping="Wrap" />
                                     <TextBlock
                                         Grid.Row="1"
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         FontWeight="SemiBold"
-                                        Text="Try online search."
+                                        Text="{x:Bind domain:Translator.OnlineSearchTry_Line2}"
                                         TextWrapping="Wrap" />
                                 </Grid>
 

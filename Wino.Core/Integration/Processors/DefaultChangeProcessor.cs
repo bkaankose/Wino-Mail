@@ -38,7 +38,6 @@ public interface IDefaultChangeProcessor
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
     Task UpdateFolderLastSyncDateAsync(Guid folderId);
-    Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
     Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
 
     /// <summary>
@@ -61,6 +60,7 @@ public interface IDefaultChangeProcessor
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
     Task<MailCopy> GetMailCopyAsync(string mailCopyId);
+    Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -161,8 +161,8 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
         => MailService.CreateMailAsync(accountId, package);
 
-    public Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId)
-        => FolderService.GetFoldersAsync(accountId);
+    public Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
+        => MailService.CreateMailRawAsync(account, mailItemFolder, package);
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
