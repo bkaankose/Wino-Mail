@@ -58,7 +58,7 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
 
         foreach (var update in existingFlagData)
         {
-            if (update.UniqueId == null)
+            if (update.UniqueId == UniqueId.Invalid)
             {
                 Log.Warning($"Couldn't fetch UniqueId for the mail. FetchAsync failed.");
                 continue;
@@ -87,7 +87,9 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
 
         foreach (var group in batchedMessageIds)
         {
-            var summaries = await remoteFolder.FetchAsync(group, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
+            var uniqueIdSet = new UniqueIdSet(group, SortOrder.Ascending);
+
+            var summaries = await remoteFolder.FetchAsync(uniqueIdSet, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
 
             foreach (var summary in summaries)
             {
