@@ -83,38 +83,19 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
 
         // Fetch the new mails in batch.
 
-        var batchedMessageIds = newMessageIds.Batch(50);
+        var batchedMessageIds = newMessageIds.Batch(50).ToList();
+        var downloadTasks = new List<Task>();
 
+        // Create tasks for each batch.
         foreach (var group in batchedMessageIds)
         {
-            var uniqueIdSet = new UniqueIdSet(group, SortOrder.Ascending);
-
-            var summaries = await remoteFolder.FetchAsync(uniqueIdSet, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
-
-            foreach (var summary in summaries)
-            {
-                var mimeMessage = await remoteFolder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
-
-                var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
-
-                var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, Folder, cancellationToken).ConfigureAwait(false);
-
-                if (mailPackages != null)
-                {
-                    foreach (var package in mailPackages)
-                    {
-                        // Local draft is mapped. We don't need to create a new mail copy.
-                        if (package == null) continue;
-
-                        bool isCreatedNew = await MailService.CreateMailAsync(Folder.MailAccountId, package).ConfigureAwait(false);
-
-                        // This is upsert. We are not interested in updated mails.
-                        if (isCreatedNew) downloadedMessageIds.Add(package.Copy.Id);
-                    }
-                }
-            }
+            downloadedMessageIds.AddRange(group.Select(a => MailkitClientExtensions.CreateUid(Folder.Id, a.Id)));
+            var task = DownloadMessagesAsync(synchronizer, remoteFolder, new UniqueIdSet(group), cancellationToken);
+            downloadTasks.Add(task);
         }
 
+        // Wait for all batches to complete.
+        await Task.WhenAll(downloadTasks).ConfigureAwait(false);
 
         return downloadedMessageIds;
     }
@@ -181,6 +162,34 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
             var deletedUids = allUids.Except(remoteAllUids).ToList();
 
             await HandleMessageDeletedAsync(deletedUids).ConfigureAwait(false);
+        }
+    }
+
+    public async Task DownloadMessagesAsync(IImapSynchronizer synchronizer,
+                                            IMailFolder folder,
+                                            UniqueIdSet uniqueIdSet,
+                                            CancellationToken cancellationToken = default)
+    {
+        var summaries = await folder.FetchAsync(uniqueIdSet, MailSynchronizationFlags, cancellationToken).ConfigureAwait(false);
+
+        foreach (var summary in summaries)
+        {
+            var mimeMessage = await folder.GetMessageAsync(summary.UniqueId, cancellationToken).ConfigureAwait(false);
+
+            var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
+
+            var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, Folder, cancellationToken).ConfigureAwait(false);
+
+            if (mailPackages != null)
+            {
+                foreach (var package in mailPackages)
+                {
+                    // Local draft is mapped. We don't need to create a new mail copy.
+                    if (package == null) continue;
+
+                    await MailService.CreateMailAsync(Folder.MailAccountId, package).ConfigureAwait(false);
+                }
+            }
         }
     }
 }

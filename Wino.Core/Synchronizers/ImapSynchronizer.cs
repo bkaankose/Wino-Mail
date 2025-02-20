@@ -651,6 +651,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 var query = SearchQuery.BodyContains(queryText).Or(SearchQuery.SubjectContains(queryText));
 
                 var searchResultsInFolder = await remoteFolder.SearchAsync(query, cancellationToken).ConfigureAwait(false);
+                var nonExisttingUniqueIds = new List<UniqueId>();
 
                 foreach (var searchResultId in searchResultsInFolder)
                 {
@@ -661,11 +662,14 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                     if (!exists)
                     {
-                        // TODO: Download the mail and save it to the local storage.
-
-                        //var message = await remoteFolder.GetMessageAsync(searchResultId, cancellationToken).ConfigureAwait(false);
-                        //await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
+                        nonExisttingUniqueIds.Add(searchResultId);
                     }
+                }
+
+                if (nonExisttingUniqueIds.Any())
+                {
+                    var syncStrategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(client);
+                    await syncStrategy.DownloadMessagesAsync(this, remoteFolder, new UniqueIdSet(nonExisttingUniqueIds, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
                 }
 
                 await remoteFolder.CloseAsync().ConfigureAwait(false);
