@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
+using MailKit.Search;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
@@ -16,6 +17,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
@@ -626,6 +628,76 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 _clientPool.Release(executorClient);
             }
         }
+    }
+
+    public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
+    {
+        IImapClient client = null;
+        IMailFolder activeFolder = null;
+
+        try
+        {
+            client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+
+            var searchResults = new List<MailCopy>();
+            List<string> searchResultFolderMailUids = new();
+
+            foreach (var folder in folders)
+            {
+                var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+                await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+
+                // Look for subject and body.
+                var query = SearchQuery.BodyContains(queryText).Or(SearchQuery.SubjectContains(queryText));
+
+                var searchResultsInFolder = await remoteFolder.SearchAsync(query, cancellationToken).ConfigureAwait(false);
+
+                foreach (var searchResultId in searchResultsInFolder)
+                {
+                    var folderMailUid = MailkitClientExtensions.CreateUid(folder.Id, searchResultId.Id);
+                    searchResultFolderMailUids.Add(folderMailUid);
+
+                    bool exists = await _imapChangeProcessor.IsMailExistsAsync(folderMailUid);
+
+                    if (!exists)
+                    {
+                        // TODO: Download the mail and save it to the local storage.
+
+                        //var message = await remoteFolder.GetMessageAsync(searchResultId, cancellationToken).ConfigureAwait(false);
+                        //await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
+                    }
+                }
+
+                await remoteFolder.CloseAsync().ConfigureAwait(false);
+            }
+
+            foreach (var messageId in searchResultFolderMailUids)
+            {
+                var copy = await _imapChangeProcessor.GetMailCopyAsync(messageId).ConfigureAwait(false);
+
+                if (copy == null) continue;
+
+                searchResults.Add(copy);
+            }
+
+            return searchResults;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to perform online imap search.");
+            throw;
+        }
+        finally
+        {
+            if (activeFolder?.IsOpen ?? false)
+            {
+                await activeFolder.CloseAsync().ConfigureAwait(false);
+            }
+
+            _clientPool.Release(client);
+        }
+
+        return new List<MailCopy>();
     }
 
     private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
