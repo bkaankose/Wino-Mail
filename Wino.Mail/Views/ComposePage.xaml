@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:Wino.Mail.Controls"
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:customcontrols="using:Wino.Core.UWP.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -189,20 +190,20 @@
                             IsDynamicOverflowEnabled="True"
                             OverflowButtonAlignment="Left">
                             <AppBarButton
-                                Click="InvertComposerThemeClicked"
+                                Click="{x:Bind WebViewEditor.ToggleEditorTheme}"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="Light Theme"
-                                Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay}">
+                                Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="LightEditor" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
                             <AppBarButton
-                                Click="InvertComposerThemeClicked"
+                                Click="{x:Bind WebViewEditor.ToggleEditorTheme}"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="Dark Theme"
-                                Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
+                                Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="DarkEditor" />
                                 </AppBarButton.Icon>
@@ -222,34 +223,22 @@
                     </toolkit:TabbedCommandBar.PaneCustomContent>
                     <toolkit:TabbedCommandBar.MenuItems>
                         <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="{x:Bind domain:Translator.EditorToolbarOption_Format}">
-                            <AppBarToggleButton
-                                x:Name="BoldButton"
-                                Click="BoldButtonClicked"
-                                Label="Bold">
+                            <AppBarToggleButton IsChecked="{x:Bind WebViewEditor.IsEditorBold, Mode=TwoWay}" Label="Bold">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource BoldPathIcon}" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
-                            <AppBarToggleButton
-                                x:Name="ItalicButton"
-                                Click="ItalicButtonClicked"
-                                Label="Italic">
+                            <AppBarToggleButton IsChecked="{x:Bind WebViewEditor.IsEditorItalic, Mode=TwoWay}" Label="Italic">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource ItalicPathIcon}" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
-                            <AppBarToggleButton
-                                x:Name="UnderlineButton"
-                                Click="UnderlineButtonClicked"
-                                Label="Underline">
+                            <AppBarToggleButton IsChecked="{x:Bind WebViewEditor.IsEditorUnderline, Mode=TwoWay}" Label="Underline">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource UnderlinePathIcon}" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
-                            <AppBarToggleButton
-                                x:Name="StrokeButton"
-                                Click="StrokeButtonClicked"
-                                Label="Stroke">
+                            <AppBarToggleButton IsChecked="{x:Bind WebViewEditor.IsEditorStrikethrough, Mode=TwoWay}" Label="Stroke">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource StrikePathIcon}" />
                                 </AppBarToggleButton.Icon>
@@ -257,19 +246,13 @@
 
                             <AppBarSeparator />
 
-                            <AppBarToggleButton
-                                x:Name="BulletListButton"
-                                Click="BulletListButtonClicked"
-                                Label="Bullet List">
+                            <AppBarToggleButton IsChecked="{x:Bind WebViewEditor.IsEditorUl, Mode=TwoWay}" Label="Bullet List">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource BulletedListPathIcon}" />
                                 </AppBarToggleButton.Icon>
                             </AppBarToggleButton>
 
-                            <AppBarToggleButton
-                                x:Name="OrderedListButton"
-                                Click="OrderedListButtonClicked"
-                                Label="Ordered List">
+                            <AppBarToggleButton IsChecked="{x:Bind WebViewEditor.IsEditorOl, Mode=TwoWay}" Label="Ordered List">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource OrderedListPathIcon}" />
                                 </AppBarToggleButton.Icon>
@@ -278,8 +261,8 @@
                             <AppBarSeparator />
 
                             <AppBarButton
-                                x:Name="DecreaseIndentButton"
-                                Click="DecreaseIndentClicked"
+                                Click="{x:Bind WebViewEditor.EditorOutdentAsync}"
+                                IsEnabled="{x:Bind WebViewEditor.IsEditorOutdentEnabled, Mode=OneWay}"
                                 Label="Outdent">
                                 <AppBarButton.Content>
                                     <Viewbox Width="16">
@@ -289,8 +272,8 @@
                             </AppBarButton>
 
                             <AppBarButton
-                                x:Name="IncreaseIndentButton"
-                                Click="IncreaseIndentClicked"
+                                Click="{x:Bind WebViewEditor.EditorIndentAsync}"
+                                IsEnabled="{x:Bind WebViewEditor.IsEditorIndentEnabled, Mode=OneWay}"
                                 Label="Indent">
                                 <AppBarButton.Content>
                                     <Viewbox Width="16">
@@ -305,7 +288,7 @@
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderBrush="Transparent"
-                                    SelectionChanged="AlignmentChanged">
+                                    SelectedIndex="{x:Bind WebViewEditor.EditorAlignmentSelectedIndex, Mode=TwoWay}">
                                     <ComboBoxItem IsSelected="True" Tag="left">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <Viewbox Width="16">
@@ -347,8 +330,7 @@
                             <AppBarSeparator />
 
                             <AppBarToggleButton
-                                x:Name="WebviewToolBarButton"
-                                Click="WebViewToggleButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorWebViewEditor, Mode=TwoWay}"
                                 Label="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}">
                                 <AppBarToggleButton.Icon>
@@ -368,19 +350,13 @@
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
-                            <AppBarButton
-                                x:Name="AddImageButton"
-                                Click="AddImageClicked"
-                                Label="{x:Bind domain:Translator.Photos}">
+                            <AppBarButton Click="{x:Bind WebViewEditor.ShowImagePicker}" Label="{x:Bind domain:Translator.Photos}">
                                 <AppBarButton.Icon>
                                     <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
-                            <AppBarButton
-                                x:Name="EmojiButton"
-                                Click="EmojiButtonClicked"
-                                Label="{x:Bind domain:Translator.Emoji}">
+                            <AppBarButton Click="{x:Bind WebViewEditor.ShowEmojiPicker}" Label="{x:Bind domain:Translator.Emoji}">
                                 <AppBarButton.Icon>
                                     <PathIcon Data="{StaticResource EmojiPathIcon}" />
                                 </AppBarButton.Icon>
@@ -630,9 +606,7 @@
             BorderThickness="1"
             CornerRadius="7">
             <Grid Margin="1" CornerRadius="7">
-                <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
-
-                <muxc:WebView2 x:Name="Chromium" />
+                <controls1:WebViewEditorControl x:Name="WebViewEditor" />
 
                 <!--  Dropzone for images  -->
                 <Grid

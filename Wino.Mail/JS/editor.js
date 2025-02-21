@@ -115,7 +115,7 @@ function SetDarkEditor() {
 
 function toggleToolbar(enable) {
     const toolbar = document.querySelector('.jodit-toolbar__box');
-    if (enable == 'true') {
+    if (enable) {
         toolbar.style.display = 'flex';
     }
     else {

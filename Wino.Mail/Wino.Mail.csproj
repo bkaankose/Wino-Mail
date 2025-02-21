@@ -79,6 +79,7 @@
 		<PackageReference Include="CommunityToolkit.Common" />
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Labs.Uwp.Controls.MarkdownTextBlock" />
+		<PackageReference Include="CommunityToolkit.Labs.Uwp.DependencyPropertyGenerator" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="CommunityToolkit.Uwp.Animations" />
 		<PackageReference Include="CommunityToolkit.Uwp.Behaviors" />
