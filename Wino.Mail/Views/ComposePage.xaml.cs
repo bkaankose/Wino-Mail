@@ -17,7 +17,6 @@ using Windows.UI.Core.Preview;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -43,9 +42,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         InitializeComponent();
         _navManagerPreview.CloseRequested += OnClose;
-
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-        Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
     }
 
     private async void GlobalFocusManagerGotFocus(object sender, FocusManagerGotFocusEventArgs e)
@@ -229,29 +225,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         return allowedTypes.Contains(fileType);
     }
 
-    private async void AlignmentChanged(object sender, SelectionChangedEventArgs e)
-    {
-        var selectedItem = AlignmentListView.SelectedItem as ComboBoxItem;
-        var alignment = selectedItem.Tag.ToString();
-
-        // TODO
-        //switch (alignment)
-        //{
-        //    case "left":
-        //        await InvokeScriptSafeAsync("editor.execCommand('justifyleft')");
-        //        break;
-        //    case "center":
-        //        await InvokeScriptSafeAsync("editor.execCommand('justifycenter')");
-        //        break;
-        //    case "right":
-        //        await InvokeScriptSafeAsync("editor.execCommand('justifyright')");
-        //        break;
-        //    case "justify":
-        //        await InvokeScriptSafeAsync("editor.execCommand('justifyfull')");
-        //        break;
-        //}
-    }
-
     private void DisposeDisposables()
     {
         if (_disposables.Count != 0)
@@ -291,7 +264,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
     {
         // Check is valid email.
-
         if (!EmailValidator.Validate(args.TokenText))
         {
             args.Cancel = true;

@@ -35,10 +35,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorBold { get; set; }
-    private bool IsEditorBoldInternal { get; set; }
+    private bool _isEditorBoldInternal;
     async partial void OnIsEditorBoldChanged(bool newValue)
     {
-        if (newValue != IsEditorBoldInternal)
+        if (newValue != _isEditorBoldInternal)
         {
             await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("bold", BasicTypesJsonContext.Default.String));
         }
@@ -46,10 +46,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorItalic { get; set; }
-    private bool IsEditorItalicInternal { get; set; }
+    private bool _isEditorItalicInternal;
     async partial void OnIsEditorItalicChanged(bool newValue)
     {
-        if (newValue != IsEditorItalicInternal)
+        if (newValue != _isEditorItalicInternal)
         {
             await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("italic", BasicTypesJsonContext.Default.String));
         }
@@ -57,10 +57,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorUnderline { get; set; }
-    private bool IsEditorUnderlineInternal { get; set; }
+    private bool _isEditorUnderlineInternal;
     async partial void OnIsEditorUnderlineChanged(bool newValue)
     {
-        if (newValue != IsEditorUnderlineInternal)
+        if (newValue != _isEditorUnderlineInternal)
         {
             await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("underline", BasicTypesJsonContext.Default.String));
         }
@@ -68,10 +68,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorStrikethrough { get; set; }
-    private bool IsEditorStrikethroughInternal { get; set; }
+    private bool _isEditorStrikethroughInternal;
     async partial void OnIsEditorStrikethroughChanged(bool newValue)
     {
-        if (newValue != IsEditorStrikethroughInternal)
+        if (newValue != _isEditorStrikethroughInternal)
         {
             await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("strikethrough", BasicTypesJsonContext.Default.String));
         }
@@ -79,10 +79,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorOl { get; set; }
-    private bool IsEditorOlInternal { get; set; }
+    private bool _isEditorOlInternal;
     async partial void OnIsEditorOlChanged(bool newValue)
     {
-        if (newValue != IsEditorOlInternal)
+        if (newValue != _isEditorOlInternal)
         {
             await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("insertorderedlist", BasicTypesJsonContext.Default.String));
         }
@@ -90,10 +90,10 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorUl { get; set; }
-    private bool IsEditorUlInternal { get; set; }
+    private bool _isEditorUlInternal;
     async partial void OnIsEditorUlChanged(bool newValue)
     {
-        if (newValue != IsEditorUlInternal)
+        if (newValue != _isEditorUlInternal)
         {
             await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("insertunorderedlist", BasicTypesJsonContext.Default.String));
         }
@@ -105,11 +105,29 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     [GeneratedDependencyProperty]
     public partial bool IsEditorOutdentEnabled { get; private set; }
 
+    // Not used for now due to issues with ComboBox and contentPresenter.
     [GeneratedDependencyProperty]
     public partial ObservableCollection<AlignmentOption> EditorAlignmentOptions { get; set; }
 
     [GeneratedDependencyProperty]
-    public partial int EditorAlignmentSelectedId { get; set; }
+    public partial int EditorAlignmentSelectedIndex { get; set; }
+    private int _editorAlignmentSelectedIndexInternal;
+    async partial void OnEditorAlignmentSelectedIndexChanged(int newValue)
+    {
+        if (newValue != _editorAlignmentSelectedIndexInternal)
+        {
+            var alignmentAction = newValue switch
+            {
+                0 => "justifyleft",
+                1 => "justifycenter",
+                2 => "justifyright",
+                3 => "justifyfull",
+                _ => throw new ArgumentOutOfRangeException(nameof(newValue))
+            };
+
+            await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize(alignmentAction, BasicTypesJsonContext.Default.String));
+        }
+    }
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorWebViewEditor { get; set; }
@@ -281,33 +299,33 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
         if (change.Type == "bold")
         {
-            IsEditorBoldInternal = change.Value == "true";
-            IsEditorBold = IsEditorBoldInternal;
+            _isEditorBoldInternal = change.Value == "true";
+            IsEditorBold = _isEditorBoldInternal;
         }
         else if (change.Type == "italic")
         {
-            IsEditorItalicInternal = change.Value == "true";
-            IsEditorItalic = IsEditorItalicInternal;
+            _isEditorItalicInternal = change.Value == "true";
+            IsEditorItalic = _isEditorItalicInternal;
         }
         else if (change.Type == "underline")
         {
-            IsEditorUnderlineInternal = change.Value == "true";
-            IsEditorUnderline = IsEditorUnderlineInternal;
+            _isEditorUnderlineInternal = change.Value == "true";
+            IsEditorUnderline = _isEditorUnderlineInternal;
         }
         else if (change.Type == "strikethrough")
         {
-            IsEditorStrikethroughInternal = change.Value == "true";
-            IsEditorStrikethrough = IsEditorStrikethroughInternal;
+            _isEditorStrikethroughInternal = change.Value == "true";
+            IsEditorStrikethrough = _isEditorStrikethroughInternal;
         }
         else if (change.Type == "ol")
         {
-            IsEditorOlInternal = change.Value == "true";
-            IsEditorOl = IsEditorOlInternal;
+            _isEditorOlInternal = change.Value == "true";
+            IsEditorOl = _isEditorOlInternal;
         }
         else if (change.Type == "ul")
         {
-            IsEditorUlInternal = change.Value == "true";
-            IsEditorUl = IsEditorUlInternal;
+            _isEditorUlInternal = change.Value == "true";
+            IsEditorUl = _isEditorUlInternal;
         }
         else if (change.Type == "indent")
         {
@@ -316,6 +334,19 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         else if (change.Type == "outdent")
         {
             IsEditorOutdentEnabled = change.Value != "disabled";
+        }
+        else if (change.Type == "alignment")
+        {
+            var parsedValue = change.Value switch
+            {
+                "jodit-icon_left" => 0,
+                "jodit-icon_center" => 1,
+                "jodit-icon_right" => 2,
+                "jodit-icon_justify" => 3,
+                _ => 0
+            };
+            _editorAlignmentSelectedIndexInternal = parsedValue;
+            EditorAlignmentSelectedIndex = _editorAlignmentSelectedIndexInternal;
         }
     }
 
