@@ -105,10 +105,6 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     [GeneratedDependencyProperty]
     public partial bool IsEditorOutdentEnabled { get; private set; }
 
-    // Not used for now due to issues with ComboBox and contentPresenter.
-    [GeneratedDependencyProperty]
-    public partial ObservableCollection<AlignmentOption> EditorAlignmentOptions { get; set; }
-
     [GeneratedDependencyProperty]
     public partial int EditorAlignmentSelectedIndex { get; set; }
     private int _editorAlignmentSelectedIndexInternal;
@@ -149,12 +145,6 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         IsEditorIndentEnabled = true;
 
         IsEditorDarkMode = _underlyingThemeService.IsUnderlyingThemeDark();
-
-        EditorAlignmentOptions = [
-               new AlignmentOption { Tag = 1, DisplayText = "Left", Icon = new PathIcon { Data = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), App.Current.Resources["AlignLeftPathIcon"]) } },
-                new AlignmentOption { Tag = 2, DisplayText = "Center", Icon = new PathIcon { Data = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), App.Current.Resources["AlignCenterPathIcon"]) } },
-                new AlignmentOption { Tag = 3, DisplayText = "Right", Icon = new PathIcon { Data = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), App.Current.Resources["AlignRightPathIcon"]) } },
-                new AlignmentOption { Tag = 4, DisplayText = "Justify", Icon = new PathIcon { Data = (Geometry)XamlBindingHelper.ConvertValue(typeof(Geometry), App.Current.Resources["AlignJustifyPathIcon"]) } }];
     }
 
     protected override async void OnApplyTemplate()
@@ -170,12 +160,9 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     {
         Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
         Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
-        _chromium.CoreWebView2Initialized -= ChromiumInitialized;
         _chromium.CoreWebView2Initialized += ChromiumInitialized;
 
         await _chromium.EnsureCoreWebView2Async();
-
-        await RenderHtmlAsync(string.Empty);
     }
 
     public async void EditorIndentAsync()
@@ -205,9 +192,6 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         await _chromium.ExecuteScriptFunctionSafeAsync("imageInput.click");
     }
 
-    /// <summary>
-    /// Inserts images into the editor.
-    /// </summary>
     public async Task InsertImagesAsync(List<ImageInfo> images)
     {
         await _chromium.ExecuteScriptFunctionSafeAsync("insertImages", JsonSerializer.Serialize(images, DomainModelsJsonContext.Default.ListImageInfo));
@@ -254,10 +238,8 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         _chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
         _chromium.Source = new Uri("https://app.editor/editor.html");
 
-        _chromium.CoreWebView2.DOMContentLoaded -= DomLoaded;
         _chromium.CoreWebView2.DOMContentLoaded += DomLoaded;
 
-        _chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
         _chromium.CoreWebView2.WebMessageReceived += ScriptMessageReceived;
     }
 
@@ -283,8 +265,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     /// <param name="focusControlAsWell">Whether control itself should be focused as well or not.</param>
     public async Task FocusEditorAsync(bool focusControlAsWell)
     {
-        // TODO
-        //await InvokeScriptSafeAsync("editor.selection.setCursorIn(editor.editor.firstChild, true)");
+        await _chromium.ExecuteScriptSafeAsync("editor.selection.setCursorIn(editor.editor.firstChild, true)");
 
         if (focusControlAsWell)
         {
@@ -378,11 +359,4 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
-}
-
-public class AlignmentOption
-{
-    public int Tag { get; set; }
-    public string DisplayText { get; set; }
-    public PathIcon Icon { get; set; }
 }

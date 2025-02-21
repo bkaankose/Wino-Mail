@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading;
@@ -241,8 +240,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         //var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
         //anim?.TryStart(GetWebView());
 
-        DisposeDisposables();
-
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
@@ -324,17 +321,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
             if (!string.IsNullOrEmpty(currentText) && EmailValidator.Validate(currentText))
             {
-                var boxTag = tokenizingTextBox.Tag?.ToString();
+                var addressCollection = tokenizingTextBox.Tag?.ToString() switch
+                {
+                    "ToBox" => ViewModel.ToItems,
+                    "CCBox" => ViewModel.CCItems,
+                    "BCCBox" => ViewModel.BCCItems,
+                    _ => null
+                };
 
                 AccountContact addedItem = null;
-                ObservableCollection<AccountContact> addressCollection = null;
-
-                if (boxTag == "ToBox")
-                    addressCollection = ViewModel.ToItems;
-                else if (boxTag == "CCBox")
-                    addressCollection = ViewModel.CCItems;
-                else if (boxTag == "BCCBox")
-                    addressCollection = ViewModel.BCCItems;
 
                 if (addressCollection != null)
                     addedItem = await ViewModel.GetAddressInformationAsync(currentText, addressCollection);

@@ -139,7 +139,7 @@
                 <AppBarButton
                     Width="48"
                     Click="{x:Bind WebViewEditor.EditorOutdentAsync}"
-                    IsEnabled="{x:Bind WebViewEditor.IsEditorOutdentEnabled}"
+                    IsEnabled="{x:Bind WebViewEditor.IsEditorOutdentEnabled, Mode=OneWay}"
                     Label="Decrease Indent"
                     ToolTipService.ToolTip="Decrease Indent">
                     <AppBarButton.Icon>
@@ -149,7 +149,7 @@
                 <AppBarButton
                     Width="48"
                     Click="{x:Bind WebViewEditor.EditorIndentAsync}"
-                    IsEnabled="{x:Bind WebViewEditor.IsEditorIndentEnabled}"
+                    IsEnabled="{x:Bind WebViewEditor.IsEditorIndentEnabled, Mode=OneWay}"
                     Label="Increase Indent"
                     ToolTipService.ToolTip="Increase Indent">
                     <AppBarButton.Icon>
@@ -229,7 +229,7 @@
 
                 <AppBarToggleButton
                     Width="48"
-                    IsEnabled="{x:Bind WebViewEditor.IsEditorWebViewEditor, Mode=TwoWay}"
+                    IsChecked="{x:Bind WebViewEditor.IsEditorWebViewEditor, Mode=TwoWay}"
                     Label="Webview ToolBar"
                     ToolTipService.ToolTip="Webview ToolBar">
                     <AppBarToggleButton.Icon>

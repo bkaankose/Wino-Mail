@@ -29,4 +29,17 @@ public static class WebViewExtensions
 
         return string.Empty;
     }
+
+    public static async Task<string> ExecuteScriptSafeAsync(this Microsoft.UI.Xaml.Controls.WebView2 Chromium, string script)
+    {
+        if (Chromium == null) return string.Empty;
+
+        try
+        {
+            return await Chromium.ExecuteScriptAsync(script);
+        }
+        catch { }
+
+        return string.Empty;
+    }
 }
