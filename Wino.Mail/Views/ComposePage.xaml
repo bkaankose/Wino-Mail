@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:Wino.Mail.Controls"
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:customcontrols="using:Wino.Core.UWP.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -189,20 +190,20 @@
                             IsDynamicOverflowEnabled="True"
                             OverflowButtonAlignment="Left">
                             <AppBarButton
-                                Click="InvertComposerThemeClicked"
+                                Click="{x:Bind WebViewEditor.ToggleComposerTheme}"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="Light Theme"
-                                Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay}">
+                                Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="LightEditor" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
                             <AppBarButton
-                                Click="InvertComposerThemeClicked"
+                                Click="{x:Bind WebViewEditor.ToggleComposerTheme}"
                                 LabelPosition="Collapsed"
                                 ToolTipService.ToolTip="Dark Theme"
-                                Visibility="{x:Bind IsComposerDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
+                                Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Mode=OneWay, Converter={StaticResource ReverseBooleanToVisibilityConverter}}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="DarkEditor" />
                                 </AppBarButton.Icon>
@@ -224,7 +225,7 @@
                         <toolkit:TabbedCommandBarItem DefaultLabelPosition="Collapsed" Header="{x:Bind domain:Translator.EditorToolbarOption_Format}">
                             <AppBarToggleButton
                                 x:Name="BoldButton"
-                                Click="BoldButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorBold, Mode=TwoWay}"
                                 Label="Bold">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource BoldPathIcon}" />
@@ -232,7 +233,7 @@
                             </AppBarToggleButton>
                             <AppBarToggleButton
                                 x:Name="ItalicButton"
-                                Click="ItalicButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorItalic, Mode=TwoWay}"
                                 Label="Italic">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource ItalicPathIcon}" />
@@ -240,7 +241,7 @@
                             </AppBarToggleButton>
                             <AppBarToggleButton
                                 x:Name="UnderlineButton"
-                                Click="UnderlineButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorUnderline, Mode=TwoWay}"
                                 Label="Underline">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource UnderlinePathIcon}" />
@@ -248,7 +249,7 @@
                             </AppBarToggleButton>
                             <AppBarToggleButton
                                 x:Name="StrokeButton"
-                                Click="StrokeButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorStrikethrough, Mode=TwoWay}"
                                 Label="Stroke">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource StrikePathIcon}" />
@@ -259,7 +260,7 @@
 
                             <AppBarToggleButton
                                 x:Name="BulletListButton"
-                                Click="BulletListButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorUl, Mode=TwoWay}"
                                 Label="Bullet List">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource BulletedListPathIcon}" />
@@ -268,7 +269,7 @@
 
                             <AppBarToggleButton
                                 x:Name="OrderedListButton"
-                                Click="OrderedListButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorOl, Mode=TwoWay}"
                                 Label="Ordered List">
                                 <AppBarToggleButton.Icon>
                                     <PathIcon Data="{StaticResource OrderedListPathIcon}" />
@@ -279,7 +280,8 @@
 
                             <AppBarButton
                                 x:Name="DecreaseIndentButton"
-                                Click="DecreaseIndentClicked"
+                                Click="{x:Bind WebViewEditor.EditorOutdentClicked}"
+                                IsEnabled="{x:Bind WebViewEditor.IsEditorOutdentEnabled, Mode=OneWay}"
                                 Label="Outdent">
                                 <AppBarButton.Content>
                                     <Viewbox Width="16">
@@ -290,7 +292,8 @@
 
                             <AppBarButton
                                 x:Name="IncreaseIndentButton"
-                                Click="IncreaseIndentClicked"
+                                Click="{x:Bind WebViewEditor.EditorIndentClicked}"
+                                IsEnabled="{x:Bind WebViewEditor.IsEditorIndentEnabled, Mode=OneWay}"
                                 Label="Indent">
                                 <AppBarButton.Content>
                                     <Viewbox Width="16">
@@ -343,12 +346,31 @@
                                     </ComboBoxItem>
                                 </ComboBox>
                             </AppBarElementContainer>
+                            <AppBarElementContainer HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ComboBox
+                                    x:Name="AlignmentListView1"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderBrush="Transparent"
+                                    ItemsSource="{x:Bind WebViewEditor.EditorAlignmentOptions, Mode=OneWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="controls1:AlignmentOption">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Viewbox Width="16">
+                                                    <ContentPresenter Content="{x:Bind Icon}" />
+                                                </Viewbox>
+                                                <TextBlock VerticalAlignment="Center" Text="{x:Bind DisplayText}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </AppBarElementContainer>
 
                             <AppBarSeparator />
 
                             <AppBarToggleButton
                                 x:Name="WebviewToolBarButton"
-                                Click="WebViewToggleButtonClicked"
+                                IsChecked="{x:Bind WebViewEditor.IsEditorWebViewEditor, Mode=TwoWay}"
                                 Label="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.EditorTooltip_WebViewEditor}">
                                 <AppBarToggleButton.Icon>
@@ -370,7 +392,7 @@
 
                             <AppBarButton
                                 x:Name="AddImageButton"
-                                Click="AddImageClicked"
+                                Click="{x:Bind WebViewEditor.AddImageClicked}"
                                 Label="{x:Bind domain:Translator.Photos}">
                                 <AppBarButton.Icon>
                                     <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
@@ -630,9 +652,10 @@
             BorderThickness="1"
             CornerRadius="7">
             <Grid Margin="1" CornerRadius="7">
-                <Grid Background="White" Visibility="{x:Bind IsComposerDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+                <Grid Background="White" Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <muxc:WebView2 x:Name="Chromium" />
+                <muxc:WebView2 x:Name="Chromium" Visibility="Collapsed" />
+                <controls1:WebViewEditorControl x:Name="WebViewEditor" />
 
                 <!--  Dropzone for images  -->
                 <Grid

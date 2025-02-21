@@ -4,13 +4,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using MimeKit;
@@ -26,7 +24,6 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.UWP.Extensions;
@@ -41,13 +38,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<CreateNewComposeMailRequested>,
     IRecipient<ApplicationThemeChanged>
 {
-    public bool IsComposerDarkMode
-    {
-        get { return (bool)GetValue(IsComposerDarkModeProperty); }
-        set { SetValue(IsComposerDarkModeProperty, value); }
-    }
-
-    public static readonly DependencyProperty IsComposerDarkModeProperty = DependencyProperty.Register(nameof(IsComposerDarkMode), typeof(bool), typeof(ComposePage), new PropertyMetadata(false, OnIsComposerDarkModeChanged));
     public WebView2 GetWebView() => Chromium;
 
     private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
@@ -73,15 +63,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         if (e.NewFocusedElement == Chromium)
         {
-            await FocusEditorAsync(false);
-        }
-    }
-
-    private static async void OnIsComposerDarkModeChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-    {
-        if (obj is ComposePage page)
-        {
-            await page.UpdateEditorThemeAsync();
+            await WebViewEditor.FocusEditorAsync(false);
         }
     }
 
@@ -216,7 +198,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                     }
                 }
 
-                await InvokeScriptSafeAsync($"insertImages({JsonSerializer.Serialize(imagesInformation, ComposerPageJsonContext.Default.ListImageInfo)});");
+                await WebViewEditor.InsertImagesAsync(imagesInformation);
             }
         }
         // State should be reset even when an exception occurs, otherwise the UI will be stuck in a dragging state.
@@ -253,46 +235,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         return allowedTypes.Contains(fileType);
     }
 
-    private async void BoldButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('bold')");
-    }
-
-    private async void ItalicButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('italic')");
-    }
-
-    private async void UnderlineButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('underline')");
-    }
-
-    private async void StrokeButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('strikethrough')");
-    }
-
-    private async void BulletListButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('insertunorderedlist')");
-    }
-
-    private async void OrderedListButtonClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('insertorderedlist')");
-    }
-
-    private async void IncreaseIndentClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('indent')");
-    }
-
-    private async void DecreaseIndentClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("editor.execCommand('outdent')");
-    }
-
     private async void AlignmentChanged(object sender, SelectionChangedEventArgs e)
     {
         var selectedItem = AlignmentListView.SelectedItem as ComboBoxItem;
@@ -315,12 +257,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private async void WebViewToggleButtonClicked(object sender, RoutedEventArgs e)
-    {
-        var enable = WebviewToolBarButton.IsChecked == true ? "true" : "false";
-        await InvokeScriptSafeAsync($"toggleToolbar('{enable}');");
-    }
-
     private async Task<string> InvokeScriptSafeAsync(string function)
     {
         if (Chromium == null) return string.Empty;
@@ -335,11 +271,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
 
         return string.Empty;
-    }
-
-    private async void AddImageClicked(object sender, RoutedEventArgs e)
-    {
-        await InvokeScriptSafeAsync("imageInput.click();");
     }
 
     /// <summary>
@@ -364,74 +295,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
         await FocusEditorAsync(focusControlAsWell: true);
     }
 
-    public async Task UpdateEditorThemeAsync()
-    {
-        await _domLoadedTask.Task;
-
-        if (IsComposerDarkMode)
-        {
-            Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
-            await InvokeScriptSafeAsync("SetDarkEditor();");
-        }
-        else
-        {
-            Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
-            await InvokeScriptSafeAsync("SetLightEditor();");
-        }
-    }
-
-    private async Task RenderInternalAsync(string htmlBody)
-    {
-        await _domLoadedTask.Task;
-
-        await UpdateEditorThemeAsync();
-        await InitializeEditorAsync();
-
-        if (string.IsNullOrEmpty(htmlBody))
-        {
-            await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
-        }
-        else
-        {
-            await Chromium.ExecuteScriptFunctionAsync("RenderHTML", parameters: JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String));
-        }
-    }
-
-    private async Task<string> InitializeEditorAsync()
-    {
-        var fonts = ViewModel.FontService.GetFonts();
-        var composerFont = ViewModel.PreferencesService.ComposerFont;
-        int composerFontSize = ViewModel.PreferencesService.ComposerFontSize;
-        var readerFont = ViewModel.PreferencesService.ReaderFont;
-        int readerFontSize = ViewModel.PreferencesService.ReaderFontSize;
-        return await Chromium.ExecuteScriptFunctionAsync("initializeJodit",
-            false,
-            JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
-            JsonSerializer.Serialize(composerFont, BasicTypesJsonContext.Default.String),
-            JsonSerializer.Serialize(composerFontSize, BasicTypesJsonContext.Default.Int32),
-            JsonSerializer.Serialize(readerFont, BasicTypesJsonContext.Default.String),
-            JsonSerializer.Serialize(readerFontSize, BasicTypesJsonContext.Default.Int32));
-    }
-
-    private void DisposeWebView2()
-    {
-        if (Chromium == null) return;
-
-        Chromium.CoreWebView2Initialized -= ChromiumInitialized;
-
-        if (Chromium.CoreWebView2 != null)
-        {
-            Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
-            Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
-        }
-
-        Chromium.Close();
-        GC.Collect();
-    }
-
     private void DisposeDisposables()
     {
-        if (_disposables.Any())
+        if (_disposables.Count != 0)
             _disposables.ForEach(a => a.Dispose());
     }
 
@@ -449,22 +315,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
+        _disposables.Add(WebViewEditor);
 
         Chromium.CoreWebView2Initialized -= ChromiumInitialized;
         Chromium.CoreWebView2Initialized += ChromiumInitialized;
 
         await Chromium.EnsureCoreWebView2Async();
 
-        ViewModel.GetHTMLBodyFunction = new Func<Task<string>>(async () =>
-        {
-            var editorContent = await InvokeScriptSafeAsync("GetHTMLContent();");
-
-            return JsonSerializer.Deserialize(editorContent, BasicTypesJsonContext.Default.String);
-        });
-
-        var underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
-
-        IsComposerDarkMode = underlyingThemeService.IsUnderlyingThemeDark();
+        ViewModel.GetHTMLBodyFunction = WebViewEditor.GetHtmlBodyAsync;
     }
 
     private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
@@ -485,39 +343,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         var change = JsonSerializer.Deserialize(args.WebMessageAsJson, DomainModelsJsonContext.Default.WebViewMessage);
 
-        if (change.Type == "bold")
-        {
-            BoldButton.IsChecked = change.Value == "true";
-        }
-        else if (change.Type == "italic")
-        {
-            ItalicButton.IsChecked = change.Value == "true";
-        }
-        else if (change.Type == "underline")
-        {
-            UnderlineButton.IsChecked = change.Value == "true";
-        }
-        else if (change.Type == "strikethrough")
-        {
-            StrokeButton.IsChecked = change.Value == "true";
-        }
-        else if (change.Type == "ol")
-        {
-            OrderedListButton.IsChecked = change.Value == "true";
-        }
-        else if (change.Type == "ul")
-        {
-            BulletListButton.IsChecked = change.Value == "true";
-        }
-        else if (change.Type == "indent")
-        {
-            IncreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
-        }
-        else if (change.Type == "outdent")
-        {
-            DecreaseIndentButton.IsEnabled = change.Value == "disabled" ? false : true;
-        }
-        else if (change.Type == "alignment")
+        if (change.Type == "alignment")
         {
             var parsedValue = change.Value switch
             {
@@ -537,7 +363,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
     {
-        await RenderInternalAsync(message.RenderModel.RenderHtml);
+        await WebViewEditor.RenderHtmlAsync(message.RenderModel.RenderHtml);
     }
 
     private void ShowCCBCCClicked(object sender, RoutedEventArgs e)
@@ -557,7 +383,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             return;
         }
 
-        var deferal = args.GetDeferral();
+        var deferral = args.GetDeferral();
 
         AccountContact addedItem = null;
 
@@ -580,17 +406,12 @@ public sealed partial class ComposePage : ComposePageAbstract,
             args.Item = addedItem;
         }
 
-        deferal.Complete();
+        deferral.Complete();
     }
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
-        IsComposerDarkMode = message.IsUnderlyingThemeDark;
-    }
-
-    private void InvertComposerThemeClicked(object sender, RoutedEventArgs e)
-    {
-        IsComposerDarkMode = !IsComposerDarkMode;
+        WebViewEditor.IsEditorDarkMode = message.IsUnderlyingThemeDark;
     }
 
     private void ImportanceClicked(object sender, RoutedEventArgs e)
@@ -600,9 +421,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         if (sender is Button senderButton)
         {
-            var selectedImportance = (MessageImportance)senderButton.Tag;
-
-            ViewModel.SelectedMessageImportance = selectedImportance;
+            ViewModel.SelectedMessageImportance = (MessageImportance)senderButton.Tag;
             ((ImportanceSplitButton.Content as Viewbox).Child as SymbolIcon).Symbol = (senderButton.Content as SymbolIcon).Symbol;
         }
     }
@@ -613,7 +432,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         if (sender is TokenizingTextBox tokenizingTextBox)
         {
-            if (!(tokenizingTextBox.Items.LastOrDefault() is ITokenStringContainer info)) return;
+            if (tokenizingTextBox.Items.LastOrDefault() is not ITokenStringContainer info) return;
 
             var currentText = info.Text;
 
@@ -676,7 +495,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         await ViewModel.UpdateMimeChangesAsync();
 
         DisposeDisposables();
-        DisposeWebView2();
     }
     private async void OnClose(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
     {
@@ -689,6 +507,3 @@ public sealed partial class ComposePage : ComposePageAbstract,
         finally { deferral.Complete(); }
     }
 }
-
-[JsonSerializable(typeof(List<ImageInfo>))]
-public partial class ComposerPageJsonContext : JsonSerializerContext;
