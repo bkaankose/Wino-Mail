@@ -195,9 +195,20 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
-        var query = BuildMailFetchQuery(options);
+        List<MailCopy> mails = null;
 
-        var mails = await Connection.QueryAsync<MailCopy>(query);
+        // If user performs an online search, mail copies are passed to options.
+        if (options.PreFetchMailCopies != null)
+        {
+            mails = options.PreFetchMailCopies;
+        }
+        else
+        {
+            // If not just do the query.
+            var query = BuildMailFetchQuery(options);
+
+            mails = await Connection.QueryAsync<MailCopy>(query);
+        }
 
         Dictionary<Guid, MailItemFolder> folderCache = [];
         Dictionary<Guid, MailAccount> accountCache = [];
@@ -399,6 +410,27 @@ public class MailService : BaseDatabaseService, IMailService
     {
         var mailCopy = await Connection.Table<MailCopy>().FirstOrDefaultAsync(a => a.Id == mailCopyId);
 
+        if (mailCopy == null) return null;
+
+        await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
+
+        return mailCopy;
+    }
+
+    /// <summary>
+    /// Using this override is dangerous.
+    /// Gmail stores multiple copies of same mail in different folders.
+    /// This one will always return the first one. Use with caution.
+    /// </summary>
+    /// <param name="mailCopyId">Mail copy id.</param>
+    public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId)
+    {
+        var query = new Query("MailCopy")
+                       .Where("MailCopy.Id", mailCopyId)
+                       .SelectRaw("MailCopy.*")
+                       .GetRawQuery();
+
+        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(query);
         if (mailCopy == null) return null;
 
         await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
@@ -632,6 +664,24 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         await DeleteMailInternalAsync(mailItem, preserveMimeFile: false).ConfigureAwait(false);
+    }
+
+    public async Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
+    {
+        var mailCopy = package.Copy;
+        var mimeMessage = package.Mime;
+
+        mailCopy.UniqueId = Guid.NewGuid();
+        mailCopy.AssignedAccount = account;
+        mailCopy.AssignedFolder = mailItemFolder;
+        mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
+        mailCopy.FolderId = mailItemFolder.Id;
+
+        var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
+        var contactSaveTask = _contactService.SaveAddressInformationAsync(mimeMessage);
+        var insertMailTask = InsertMailAsync(mailCopy);
+
+        await Task.WhenAll(mimeSaveTask, contactSaveTask, insertMailTask).ConfigureAwait(false);
     }
 
     public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)

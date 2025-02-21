@@ -23,6 +23,7 @@ public class ServerMessageHandlerFactory : IServerMessageHandlerFactory
             nameof(TerminateServerRequested) => App.Current.Services.GetService<TerminateServerRequestHandler>(),
             nameof(ImapConnectivityTestRequested) => App.Current.Services.GetService<ImapConnectivityTestHandler>(),
             nameof(KillAccountSynchronizerRequested) => App.Current.Services.GetService<KillAccountSynchronizerHandler>(),
+            nameof(OnlineSearchRequested) => App.Current.Services.GetService<OnlineSearchRequestHandler>(),
             _ => throw new Exception($"Server handler for {typeName} is not registered."),
         };
     }
@@ -41,5 +42,6 @@ public class ServerMessageHandlerFactory : IServerMessageHandlerFactory
         serviceCollection.AddTransient<TerminateServerRequestHandler>();
         serviceCollection.AddTransient<ImapConnectivityTestHandler>();
         serviceCollection.AddTransient<KillAccountSynchronizerHandler>();
+        serviceCollection.AddTransient<OnlineSearchRequestHandler>();
     }
 }

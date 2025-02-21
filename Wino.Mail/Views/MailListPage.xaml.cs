@@ -438,8 +438,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
+        // User clicked 'x' button to clearout the search text.
         if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && string.IsNullOrWhiteSpace(sender.Text))
         {
+            ViewModel.IsOnlineSearchButtonVisible = false;
             await ViewModel.PerformSearchAsync();
         }
     }

@@ -13,6 +13,14 @@ public interface IMailService
 {
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId);
     Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId);
+
+    /// <summary>
+    /// Returns the single mail item with the given mail copy id.
+    /// Caution: This method is not safe. Use other overrides.
+    /// </summary>
+    /// <param name="mailCopyId"></param>
+    /// <returns></returns>
+    Task<MailCopy> GetSingleMailItemAsync(string mailCopyId);
     Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -117,4 +125,14 @@ public interface IMailService
     /// <param name="uniqueIds"></param>
     /// <returns></returns>
     Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<UniqueId> uniqueIds);
+
+    /// <summary>
+    /// Creates a new mail from a package without doing any existence check.
+    /// Use it with caution.
+    /// </summary>
+    /// <param name="account">Account that mail belongs to.</param>
+    /// <param name="mailItemFolder">Assigned folder.</param>
+    /// <param name="package">Mail creation package.</param>
+    /// <returns></returns>
+    Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
 }

@@ -235,6 +235,12 @@ public class PreferencesService : ObservableObject, IPreferencesService
         set => SaveProperty(propertyName: nameof(DiagnosticId), value);
     }
 
+    public SearchMode DefaultSearchMode
+    {
+        get => _configurationService.Get(nameof(DefaultSearchMode), SearchMode.Local);
+        set => SaveProperty(propertyName: nameof(DefaultSearchMode), value);
+    }
+
     public DayOfWeek FirstDayOfWeek
     {
         get => _configurationService.Get(nameof(FirstDayOfWeek), DayOfWeek.Monday);

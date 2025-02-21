@@ -39,6 +39,17 @@ public interface IPreferencesService
     /// </summary>
     bool Prefer24HourTimeFormat { get; set; }
 
+    /// <summary>
+    /// Diagnostic ID for the application.
+    /// Changes per-install.
+    /// </summary>
+    string DiagnosticId { get; set; }
+
+    /// <summary>
+    /// Setting: Defines the user's preference of default search mode in mail list.
+    /// Local search will still offer online search at the end of local search results.
+    /// </summary>
+    SearchMode DefaultSearchMode { get; set; }
     #endregion
 
     #region Mail
@@ -187,7 +198,7 @@ public interface IPreferencesService
     DayOfWeek WorkingDayStart { get; set; }
     DayOfWeek WorkingDayEnd { get; set; }
     double HourHeight { get; set; }
-    string DiagnosticId { get; set; }
+
 
     CalendarSettings GetCurrentCalendarSettings();
 

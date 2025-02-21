@@ -393,6 +393,9 @@
     "Notifications_WinoUpdatedMessage": "Checkout new version {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
     "Other": "Other",
+    "OnlineSearchFailed_Message": "Failed to perform search\n{0}\n\nListing offline mails.",
+    "OnlineSearchTry_Line1": "Can't find what you are looking for?",
+    "OnlineSearchTry_Line2": "Try online search.",
     "PaneLengthOption_Default": "Default",
     "PaneLengthOption_ExtraLarge": "Extra Large",
     "PaneLengthOption_Large": "Large",
@@ -520,6 +523,10 @@
     "SettingsAppPreferences_StartupBehavior_FatalError": "Fatal error occurred while changing the startup mode for Wino Mail.",
     "SettingsAppPreferences_StartupBehavior_Enable": "Enable",
     "SettingsAppPreferences_StartupBehavior_Disable": "Disable",
+    "SettingsAppPreferences_SearchMode_Title": "Default search mode",
+    "SettingsAppPreferences_SearchMode_Description": "Set whether Wino should check fetched mails first while doing a search or ask your mail server online. Local search is always faster and you can always do an online search if your mail is not in the results.",
+    "SettingsAppPreferences_SearchMode_Local": "Local",
+    "SettingsAppPreferences_SearchMode_Online": "Online",
     "SettingsReorderAccounts_Title": "Reorder Accounts",
     "SettingsReorderAccounts_Description": "Change the order of accounts in the account list.",
     "SettingsManageLink_Description": "Move items to add new link or remove existing link.",
@@ -649,4 +656,5 @@
     "QuickEventDialog_EventName": "Event name",
     "QuickEventDialog_IsAllDay": "All day"
 }
+
 

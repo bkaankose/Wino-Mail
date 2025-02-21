@@ -38,8 +38,16 @@ public interface IDefaultChangeProcessor
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
     Task UpdateFolderLastSyncDateAsync(Guid folderId);
-    Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId);
     Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
+
+    /// <summary>
+    /// Interrupted initial synchronization may cause downloaded mails to be saved in the database twice.
+    /// Since downloading mime is costly in Outlook, we need to check if the actual copy of the message has been saved before.
+    /// This is also used in online search to prevent duplicate mails.
+    /// </summary>
+    /// <param name="messageId">MailCopyId of the message.</param>
+    /// <returns>Whether mail exists or not.</returns>
+    Task<bool> IsMailExistsAsync(string messageId);
 
     // Calendar
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
@@ -51,6 +59,8 @@ public interface IDefaultChangeProcessor
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
+    Task<MailCopy> GetMailCopyAsync(string mailCopyId);
+    Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -62,14 +72,6 @@ public interface IGmailChangeProcessor : IDefaultChangeProcessor
 
 public interface IOutlookChangeProcessor : IDefaultChangeProcessor
 {
-    /// <summary>
-    /// Interrupted initial synchronization may cause downloaded mails to be saved in the database twice.
-    /// Since downloading mime is costly in Outlook, we need to check if the actual copy of the message has been saved before.
-    /// </summary>
-    /// <param name="messageId">MailCopyId of the message.</param>
-    /// <returns>Whether the mime has b</returns>
-    Task<bool> IsMailExistsAsync(string messageId);
-
     /// <summary>
     /// Checks whether the mail exists in the folder.
     /// When deciding Create or Update existing mail, we need to check if the mail exists in the folder.
@@ -141,13 +143,17 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
         => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);
 
+    public Task<bool> IsMailExistsAsync(string messageId)
+        => MailService.IsMailExistsAsync(messageId);
+
+    public Task<MailCopy> GetMailCopyAsync(string mailCopyId)
+        => MailService.GetSingleMailItemAsync(mailCopyId);
+
     public Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead)
         => MailService.ChangeReadStatusAsync(mailCopyId, isRead);
 
     public Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId)
         => MailService.DeleteAssignmentAsync(accountId, mailCopyId, remoteFolderId);
-
-
 
     public Task DeleteMailAsync(Guid accountId, string mailId)
         => MailService.DeleteMailAsync(accountId, mailId);
@@ -155,8 +161,8 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
         => MailService.CreateMailAsync(accountId, package);
 
-    public Task<List<MailItemFolder>> GetExistingFoldersAsync(Guid accountId)
-        => FolderService.GetFoldersAsync(accountId);
+    public Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package)
+        => MailService.CreateMailRawAsync(account, mailItemFolder, package);
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
