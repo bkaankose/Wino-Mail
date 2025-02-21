@@ -3,20 +3,17 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.Web.WebView2.Core;
 using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
 using Windows.UI.Core.Preview;
-using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -24,7 +21,6 @@ using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.UWP.Extensions;
 using Wino.Mail.ViewModels.Data;
@@ -38,11 +34,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<CreateNewComposeMailRequested>,
     IRecipient<ApplicationThemeChanged>
 {
-    public WebView2 GetWebView() => Chromium;
+    public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
-    private readonly TaskCompletionSource<bool> _domLoadedTask = new TaskCompletionSource<bool>();
-
-    private readonly List<IDisposable> _disposables = new List<IDisposable>();
+    private readonly List<IDisposable> _disposables = [];
     private readonly SystemNavigationManagerPreview _navManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
 
     public ComposePage()
@@ -61,7 +55,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         // This is not done on the WebView2 handlers, because somehow it is
         // repeatedly focusing itself, even though when it has the focus already.
 
-        if (e.NewFocusedElement == Chromium)
+        if (e.NewFocusedElement == WebViewEditor)
         {
             await WebViewEditor.FocusEditorAsync(false);
         }
@@ -227,9 +221,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private bool IsValidImageFile(StorageFile file)
+    private static bool IsValidImageFile(StorageFile file)
     {
-        string[] allowedTypes = new string[] { ".jpg", ".jpeg", ".png" };
+        string[] allowedTypes = [".jpg", ".jpeg", ".png"];
         var fileType = file.FileType.ToLower();
 
         return allowedTypes.Contains(fileType);
@@ -240,59 +234,22 @@ public sealed partial class ComposePage : ComposePageAbstract,
         var selectedItem = AlignmentListView.SelectedItem as ComboBoxItem;
         var alignment = selectedItem.Tag.ToString();
 
-        switch (alignment)
-        {
-            case "left":
-                await InvokeScriptSafeAsync("editor.execCommand('justifyleft')");
-                break;
-            case "center":
-                await InvokeScriptSafeAsync("editor.execCommand('justifycenter')");
-                break;
-            case "right":
-                await InvokeScriptSafeAsync("editor.execCommand('justifyright')");
-                break;
-            case "justify":
-                await InvokeScriptSafeAsync("editor.execCommand('justifyfull')");
-                break;
-        }
-    }
-
-    private async Task<string> InvokeScriptSafeAsync(string function)
-    {
-        if (Chromium == null) return string.Empty;
-
-        try
-        {
-            return await Chromium.ExecuteScriptAsync(function);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
-
-        return string.Empty;
-    }
-
-    /// <summary>
-    /// Places the cursor in the composer.
-    /// </summary>
-    /// <param name="focusControlAsWell">Whether control itself should be focused as well or not.</param>
-    private async Task FocusEditorAsync(bool focusControlAsWell)
-    {
-        await InvokeScriptSafeAsync("editor.selection.setCursorIn(editor.editor.firstChild, true)");
-
-        if (focusControlAsWell)
-        {
-            Chromium.Focus(FocusState.Keyboard);
-            Chromium.Focus(FocusState.Programmatic);
-        }
-    }
-
-    private async void EmojiButtonClicked(object sender, RoutedEventArgs e)
-    {
-        CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
-
-        await FocusEditorAsync(focusControlAsWell: true);
+        // TODO
+        //switch (alignment)
+        //{
+        //    case "left":
+        //        await InvokeScriptSafeAsync("editor.execCommand('justifyleft')");
+        //        break;
+        //    case "center":
+        //        await InvokeScriptSafeAsync("editor.execCommand('justifycenter')");
+        //        break;
+        //    case "right":
+        //        await InvokeScriptSafeAsync("editor.execCommand('justifyright')");
+        //        break;
+        //    case "justify":
+        //        await InvokeScriptSafeAsync("editor.execCommand('justifyfull')");
+        //        break;
+        //}
     }
 
     private void DisposeDisposables()
@@ -301,14 +258,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
             _disposables.ForEach(a => a.Dispose());
     }
 
-    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
         FocusManager.GotFocus += GlobalFocusManagerGotFocus;
 
-        var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
-        anim?.TryStart(Chromium);
+        // TODO: disabled animation for now, since it's still not working properly.
+        //var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
+        //anim?.TryStart(GetWebView());
 
         DisposeDisposables();
 
@@ -317,49 +275,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
         _disposables.Add(WebViewEditor);
 
-        Chromium.CoreWebView2Initialized -= ChromiumInitialized;
-        Chromium.CoreWebView2Initialized += ChromiumInitialized;
-
-        await Chromium.EnsureCoreWebView2Async();
-
         ViewModel.GetHTMLBodyFunction = WebViewEditor.GetHtmlBodyAsync;
     }
-
-    private async void ChromiumInitialized(Microsoft.UI.Xaml.Controls.WebView2 sender, Microsoft.UI.Xaml.Controls.CoreWebView2InitializedEventArgs args)
-    {
-        var editorBundlePath = (await ViewModel.NativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
-
-        Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
-        Chromium.Source = new Uri("https://app.editor/editor.html");
-
-        Chromium.CoreWebView2.DOMContentLoaded -= DOMLoaded;
-        Chromium.CoreWebView2.DOMContentLoaded += DOMLoaded;
-
-        Chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
-        Chromium.CoreWebView2.WebMessageReceived += ScriptMessageReceived;
-    }
-
-    private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
-    {
-        var change = JsonSerializer.Deserialize(args.WebMessageAsJson, DomainModelsJsonContext.Default.WebViewMessage);
-
-        if (change.Type == "alignment")
-        {
-            var parsedValue = change.Value switch
-            {
-                "jodit-icon_left" => 0,
-                "jodit-icon_center" => 1,
-                "jodit-icon_right" => 2,
-                "jodit-icon_justify" => 3,
-                _ => 0
-            };
-            AlignmentListView.SelectionChanged -= AlignmentChanged;
-            AlignmentListView.SelectedIndex = parsedValue;
-            AlignmentListView.SelectionChanged += AlignmentChanged;
-        }
-    }
-
-    private void DOMLoaded(CoreWebView2 sender, CoreWebView2DOMContentLoadedEventArgs args) => _domLoadedTask.TrySetResult(true);
 
     async void IRecipient<CreateNewComposeMailRequested>.Receive(CreateNewComposeMailRequested message)
     {
@@ -385,16 +302,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         var deferral = args.GetDeferral();
 
-        AccountContact addedItem = null;
-
-        var boxTag = sender.Tag?.ToString();
-
-        if (boxTag == "ToBox")
-            addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.ToItems);
-        else if (boxTag == "CCBox")
-            addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.CCItems);
-        else if (boxTag == "BCCBox")
-            addedItem = await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.BCCItems);
+        var addedItem = (sender.Tag?.ToString()) switch
+        {
+            "ToBox" => await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.ToItems),
+            "CCBox" => await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.CCItems),
+            "BCCBox" => await ViewModel.GetAddressInformationAsync(args.TokenText, ViewModel.BCCItems),
+            _ => null
+        };
 
         if (addedItem == null)
         {

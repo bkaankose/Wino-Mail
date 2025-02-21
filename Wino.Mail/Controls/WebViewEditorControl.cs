@@ -7,6 +7,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Markup;
@@ -159,17 +160,17 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         await RenderHtmlAsync(string.Empty);
     }
 
-    public async void EditorIndentClicked()
+    public async void EditorIndentAsync()
     {
         await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("indent", BasicTypesJsonContext.Default.String));
     }
 
-    public async void EditorOutdentClicked()
+    public async void EditorOutdentAsync()
     {
         await _chromium.ExecuteScriptFunctionSafeAsync("editor.execCommand", JsonSerializer.Serialize("outdent", BasicTypesJsonContext.Default.String));
     }
 
-    public void ToggleComposerTheme()
+    public void ToggleEditorTheme()
     {
         IsEditorDarkMode = !IsEditorDarkMode;
     }
@@ -181,7 +182,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         return JsonSerializer.Deserialize(editorContent, BasicTypesJsonContext.Default.String);
     }
 
-    public async Task AddImageClicked()
+    public async void ShowImagePicker()
     {
         await _chromium.ExecuteScriptFunctionSafeAsync("imageInput.click");
     }
@@ -189,11 +190,19 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     /// <summary>
     /// Inserts images into the editor.
     /// </summary>
-    /// <returns></returns>
     public async Task InsertImagesAsync(List<ImageInfo> images)
     {
         await _chromium.ExecuteScriptFunctionSafeAsync("insertImages", JsonSerializer.Serialize(images, DomainModelsJsonContext.Default.ListImageInfo));
     }
+
+    public async void ShowEmojiPicker()
+    {
+        CoreInputView.GetForCurrentView().TryShow(CoreInputViewKind.Emoji);
+
+        await FocusEditorAsync(focusControlAsWell: true);
+    }
+
+    public WebView2 GetUnderlyingWebView() => _chromium;
 
     public async Task RenderHtmlAsync(string htmlBody)
     {
