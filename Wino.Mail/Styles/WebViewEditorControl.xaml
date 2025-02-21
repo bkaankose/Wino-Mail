@@ -9,7 +9,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="controls:WebViewEditorControl">
-                        <muxc:WebView2 x:Name="WebView" />
+                        <Grid CornerRadius="3">
+                            <!--<Grid Background="White" Visibility="{Binding IsEditorDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />-->
+                            <muxc:WebView2 x:Name="WebView" />
+                        </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

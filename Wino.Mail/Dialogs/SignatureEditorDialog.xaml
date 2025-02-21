@@ -243,11 +243,7 @@
                 BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="3">
-                <Grid CornerRadius="3">
-                    <Grid Background="White" Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
-
-                    <controls2:WebViewEditorControl x:Name="WebViewEditor" />
-                </Grid>
+                <controls2:WebViewEditorControl x:Name="WebViewEditor" />
             </Border>
         </Grid>
     </Grid>

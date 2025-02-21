@@ -606,8 +606,6 @@
             BorderThickness="1"
             CornerRadius="7">
             <Grid Margin="1" CornerRadius="7">
-                <Grid Background="White" Visibility="{x:Bind WebViewEditor.IsEditorDarkMode, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
-
                 <controls1:WebViewEditorControl x:Name="WebViewEditor" />
 
                 <!--  Dropzone for images  -->
