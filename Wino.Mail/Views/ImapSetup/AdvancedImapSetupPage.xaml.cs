@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -15,6 +16,9 @@ namespace Wino.Views.ImapSetup;
 
 public sealed partial class AdvancedImapSetupPage : Page
 {
+    public static readonly DependencyProperty UseSameCredentialsForSendingProperty = DependencyProperty.Register(nameof(UseSameCredentialsForSending), typeof(bool), typeof(AdvancedImapSetupPage), new PropertyMetadata(true, OnUseSameCredentialsForSendingChanged));
+    public static readonly DependencyProperty ValidationErrorsProperty = DependencyProperty.Register(nameof(ValidationErrors), typeof(List<string>), typeof(AdvancedImapSetupPage), new PropertyMetadata(new List<string>()));
+
     public List<ImapAuthenticationMethodModel> AvailableAuthenticationMethods { get; } = new List<ImapAuthenticationMethodModel>()
     {
         new ImapAuthenticationMethodModel(Core.Domain.Enums.ImapAuthenticationMethod.Auto, Translator.ImapAuthenticationMethod_Auto),
@@ -40,7 +44,14 @@ public sealed partial class AdvancedImapSetupPage : Page
         set { SetValue(UseSameCredentialsForSendingProperty, value); }
     }
 
-    public static readonly DependencyProperty UseSameCredentialsForSendingProperty = DependencyProperty.Register(nameof(UseSameCredentialsForSending), typeof(bool), typeof(AdvancedImapSetupPage), new PropertyMetadata(true, OnUseSameCredentialsForSendingChanged));
+    public List<string> ValidationErrors
+    {
+        get { return (List<string>)GetValue(ValidationErrorsProperty); }
+        set { SetValue(ValidationErrorsProperty, value); }
+    }
+
+    [GeneratedDependencyProperty]
+    public partial bool HasValidationErrors { get; set; }
 
     public AdvancedImapSetupPage()
     {
@@ -130,6 +141,57 @@ public sealed partial class AdvancedImapSetupPage : Page
 
     private void SignInClicked(object sender, RoutedEventArgs e)
     {
+        var errors = new List<string>();
+
+        // Validate email and display name
+        if (string.IsNullOrWhiteSpace(AddressBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationEmailRequired);
+        else if (!EmailValidation.EmailValidator.Validate(AddressBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationEmailInvalid);
+
+        if (string.IsNullOrWhiteSpace(DisplayNameBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationDisplayNameRequired);
+
+        // Validate incoming server details
+        if (string.IsNullOrWhiteSpace(IncomingServerBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationIncomingServerRequired);
+        if (string.IsNullOrWhiteSpace(IncomingServerPortBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationIncomingPortRequired);
+        else if (!int.TryParse(IncomingServerPortBox.Text, out int inPort) || inPort <= 0 || inPort > 65535)
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationIncomingPortInvalid);
+
+        // Validate outgoing server details  
+        if (string.IsNullOrWhiteSpace(OutgoingServerBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingServerRequired);
+        if (string.IsNullOrWhiteSpace(OutgoingServerPort.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingPortRequired);
+        else if (!int.TryParse(OutgoingServerPort.Text, out int outPort) || outPort <= 0 || outPort > 65535)
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingPortInvalid);
+
+        // Validate authentication details
+        if (string.IsNullOrWhiteSpace(UsernameBox.Text))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationUsernameRequired);
+        if (string.IsNullOrWhiteSpace(PasswordBox.Password))
+            errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationPasswordRequired);
+
+        // Validate outgoing credentials if not using same as incoming
+        if (!UseSameCredentialsForSending)
+        {
+            if (string.IsNullOrWhiteSpace(OutgoingUsernameBox.Text))
+                errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingUsernameRequired);
+            if (string.IsNullOrWhiteSpace(OutgoingPasswordBox.Password))
+                errors.Add(Translator.IMAPAdvancedSetupDialog_ValidationOutgoingPasswordRequired);
+        }
+
+        // Show validation errors if any
+        HasValidationErrors = errors.Count > 0;
+
+        if (HasValidationErrors)
+        {
+            ValidationErrors = errors;
+            return;
+        }
+
         var info = new CustomServerInformation()
         {
             IncomingServer = GetServerWithoutPort(IncomingServerBox.Text),
@@ -210,5 +272,11 @@ public sealed partial class AdvancedImapSetupPage : Page
         {
             OutgoingPasswordBox.Password = PasswordBox.Password;
         }
+    }
+
+    private void ValidationsGoBackClicked(object sender, RoutedEventArgs e)
+    {
+        ValidationErrors.Clear();
+        HasValidationErrors = false;
     }
 }
