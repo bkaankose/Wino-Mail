@@ -221,6 +221,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         cancellationToken.ThrowIfCancellationRequested();
 
+    retry:
         string latestDeltaLink = string.Empty;
 
         bool isInitialSync = string.IsNullOrEmpty(folder.DeltaToken);
@@ -256,7 +257,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
             requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
 
-            messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+            try
+            {
+                messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse.CreateFromDiscriminatorValue, cancellationToken: cancellationToken);
+            }
+            catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
+            {
+                folder.DeltaToken = string.Empty;
+
+                goto retry;
+            }
         }
 
         var messageIteratorAsync = PageIterator<Message, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, async (item) =>
@@ -500,7 +510,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             }
             catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
             {
-                Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor.ResetAccountDeltaTokenAsync(Account.Id);
+                Account.SynchronizationDeltaIdentifier = string.Empty;
 
                 goto retry;
             }

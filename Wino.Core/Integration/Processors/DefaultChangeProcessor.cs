@@ -102,19 +102,7 @@ public interface IOutlookChangeProcessor : IDefaultChangeProcessor
     /// <returns>Empty string to assign folder delta sync for.</returns>
     Task<string> ResetFolderDeltaTokenAsync(Guid folderId);
 
-    /// <summary>
-    /// Outlook may expire account's delta token after a while.
-    /// This will result returning 410 GONE response from the API for synchronizing folders.
-    /// This method resets the token for the given account for re-syncing folders.
-    /// </summary>
-    /// <param name="accountId">Account identifier to reset delta token for.</param>
-    /// <returns>Empty string to assign account delta sync for.</returns>
-    Task<string> ResetAccountDeltaTokenAsync(Guid accountId);
-
-
     Task ManageCalendarEventAsync(Microsoft.Graph.Models.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
-
-
 }
 
 public interface IImapChangeProcessor : IDefaultChangeProcessor
