@@ -40,7 +40,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<MailItemSelectionRemovedEvent>,
     IRecipient<AccountSynchronizationCompleted>,
     IRecipient<NewMailSynchronizationRequested>,
-    IRecipient<AccountSynchronizerStateChanged>
+    IRecipient<AccountSynchronizerStateChanged>,
+    IRecipient<AccountCacheResetMessage>
 {
     private bool isChangingFolder = false;
 
@@ -1116,5 +1117,23 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
 
         await ExecuteUIThread(() => { IsAccountSynchronizerInSynchronization = isAnyAccountSynchronizing; });
+    }
+
+    public void Receive(AccountCacheResetMessage message)
+    {
+        if (message.Reason == AccountCacheResetReason.ExpiredCache &&
+            ActiveFolder.HandlingFolders.Any(a => a.MailAccountId == message.AccountId))
+        {
+            var handlingFolder = ActiveFolder.HandlingFolders.FirstOrDefault(a => a.MailAccountId == message.AccountId);
+
+            if (handlingFolder == null) return;
+
+            _ = ExecuteUIThread(() =>
+            {
+                MailCollection.Clear();
+
+                _mailDialogService.InfoBarMessage(Translator.AccountCacheReset_Title, Translator.AccountCacheReset_Message, InfoBarMessageType.Warning);
+            });
+        }
     }
 }

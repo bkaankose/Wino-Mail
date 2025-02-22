@@ -176,4 +176,22 @@ public class MimeFileService : IMimeFileService
 
         return renderingModel;
     }
+
+    public async Task DeleteUserMimeCacheAsync(Guid accountId)
+    {
+        var mimeFolderPath = await _nativeAppService.GetMimeMessageStoragePath().ConfigureAwait(false);
+        var mimeDirectory = Path.Combine(mimeFolderPath, accountId.ToString());
+
+        try
+        {
+            if (Directory.Exists(mimeDirectory))
+            {
+                Directory.Delete(mimeDirectory, true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to remove user's mime cache folder.");
+        }
+    }
 }

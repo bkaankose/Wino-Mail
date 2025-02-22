@@ -308,4 +308,6 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
         };
     }
 
+    public Task<bool> HasAccountAnyDraftAsync(Guid accountId)
+        => MailService.HasAccountAnyDraftAsync(accountId);
 }
