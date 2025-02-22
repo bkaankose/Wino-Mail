@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Google;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
@@ -120,7 +121,18 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             _logger.Information("Synchronizing folders for {Name}", Account.Name);
 
-            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (GoogleApiException googleException) when (googleException.Message.Contains("Mail service not enabled"))
+            {
+                throw new GmailServiceDisabledException();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
         }

@@ -274,6 +274,19 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success);
             }
         }
+        catch (GmailServiceDisabledException)
+        {
+            // For Google Workspace accounts, Gmail API might be disabled by the admin.
+            // Wino can't continue synchronization in this case.
+            // We must notify the user about this and prevent account creation.
+
+            DialogService.InfoBarMessage(Translator.GmailServiceDisabled_Title, Translator.GmailServiceDisabled_Message, InfoBarMessageType.Error);
+
+            if (createdAccount != null)
+            {
+                await AccountService.DeleteAccountAsync(createdAccount);
+            }
+        }
         catch (AccountSetupCanceledException)
         {
             // Ignore
