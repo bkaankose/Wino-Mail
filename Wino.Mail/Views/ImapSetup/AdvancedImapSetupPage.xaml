@@ -12,231 +12,267 @@
     mc:Ignorable="d">
 
     <Grid RowSpacing="4">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <Grid Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(HasValidationErrors), Mode=OneWay}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <ScrollViewer x:Name="MainScrollviewer" Padding="{StaticResource ImapSetupDialogSubPagePadding}">
-            <StackPanel Padding="0,0,16,0" Spacing="12">
-                <TextBlock
-                    Margin="1,0,0,0"
-                    d:Text="Advanced IMAP / SMTP Configuration"
-                    Style="{StaticResource TitleTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.IMAPSetupDialog_Title}" />
+            <ScrollViewer x:Name="MainScrollviewer" Padding="{StaticResource ImapSetupDialogSubPagePadding}">
+                <StackPanel Padding="0,0,16,0" Spacing="12">
+                    <TextBlock
+                        Margin="1,0,0,0"
+                        d:Text="Advanced IMAP / SMTP Configuration"
+                        Style="{StaticResource TitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.IMAPSetupDialog_Title}" />
 
-                <TextBox
-                    x:Name="AddressBox"
-                    d:Header="Mail"
-                    Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}"
-                    PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_MailAddressPlaceholder}" />
+                    <TextBox
+                        x:Name="AddressBox"
+                        d:Header="Mail"
+                        Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}"
+                        PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_MailAddressPlaceholder}" />
 
-                <TextBox
-                    x:Name="DisplayNameBox"
-                    d:Header="Display Name"
-                    Header="{x:Bind domain:Translator.IMAPSetupDialog_DisplayName}"
-                    PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_DisplayNamePlaceholder}" />
+                    <TextBox
+                        x:Name="DisplayNameBox"
+                        d:Header="Display Name"
+                        Header="{x:Bind domain:Translator.IMAPSetupDialog_DisplayName}"
+                        PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_DisplayNamePlaceholder}" />
 
-                <CheckBox Content="{x:Bind domain:Translator.IMAPSetupDialog_UseSameConfig}" IsChecked="{x:Bind UseSameCredentialsForSending, Mode=TwoWay}" />
+                    <CheckBox Content="{x:Bind domain:Translator.IMAPSetupDialog_UseSameConfig}" IsChecked="{x:Bind UseSameCredentialsForSending, Mode=TwoWay}" />
 
-                <muxc:TabView
-                    d:SelectedIndex="0"
-                    CanReorderTabs="False"
-                    IsAddTabButtonVisible="False"
-                    TabWidthMode="Equal">
-                    <muxc:TabViewItem Header="IMAP Settings" IsClosable="False">
-                        <!--  IMAP  -->
-                        <StackPanel Padding="12" Spacing="10">
-                            <!--  Server + Port  -->
-                            <Grid ColumnSpacing="6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                    <muxc:TabView
+                        d:SelectedIndex="0"
+                        CanReorderTabs="False"
+                        IsAddTabButtonVisible="False"
+                        TabWidthMode="Equal">
+                        <muxc:TabViewItem Header="IMAP Settings" IsClosable="False">
+                            <!--  IMAP  -->
+                            <StackPanel Padding="12" Spacing="10">
+                                <!--  Server + Port  -->
+                                <Grid ColumnSpacing="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                                <TextBox
-                                    x:Name="IncomingServerBox"
-                                    d:Header="Incoming Server"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer}"
-                                    PlaceholderText="eg. imap.gmail.com"
-                                    TextChanged="IncomingServerChanged" />
+                                    <TextBox
+                                        x:Name="IncomingServerBox"
+                                        d:Header="Incoming Server"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer}"
+                                        PlaceholderText="eg. imap.gmail.com"
+                                        TextChanged="IncomingServerChanged" />
 
-                                <TextBox
-                                    x:Name="IncomingServerPortBox"
-                                    Grid.Column="1"
-                                    d:Header="Port"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort}"
-                                    Text="993" />
-                            </Grid>
+                                    <TextBox
+                                        x:Name="IncomingServerPortBox"
+                                        Grid.Column="1"
+                                        d:Header="Port"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort}"
+                                        Text="993" />
+                                </Grid>
 
-                            <!--  Username + Password  -->
-                            <StackPanel Spacing="6">
-                                <TextBox
-                                    x:Name="UsernameBox"
-                                    d:Header="Username"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_Username}"
-                                    PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_UsernamePlaceholder}"
-                                    TextChanged="IncomingUsernameChanged" />
-
-                                <PasswordBox
-                                    x:Name="PasswordBox"
-                                    d:Header="Password"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_Password}"
-                                    PasswordChanged="IncomingPasswordChanged" />
-                            </StackPanel>
-
-                            <!--  Security and Authentication  -->
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <!--  Security  -->
+                                <!--  Username + Password  -->
                                 <StackPanel Spacing="6">
-                                    <TextBlock
-                                        HorizontalAlignment="Center"
-                                        d:Text="Connection security"
-                                        Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}" />
-                                    <ComboBox
-                                        x:Name="IncomingConnectionSecurity"
-                                        HorizontalAlignment="Stretch"
-                                        DisplayMemberPath="DisplayName"
-                                        ItemsSource="{x:Bind AvailableConnectionSecurities}"
-                                        SelectedIndex="0" />
+                                    <TextBox
+                                        x:Name="UsernameBox"
+                                        d:Header="Username"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_Username}"
+                                        PlaceholderText="{x:Bind domain:Translator.IMAPSetupDialog_UsernamePlaceholder}"
+                                        TextChanged="IncomingUsernameChanged" />
+
+                                    <PasswordBox
+                                        x:Name="PasswordBox"
+                                        d:Header="Password"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_Password}"
+                                        PasswordChanged="IncomingPasswordChanged" />
                                 </StackPanel>
 
-                                <!--  Authentication  -->
-                                <StackPanel Grid.Column="1" Spacing="6">
-                                    <TextBlock
-                                        HorizontalAlignment="Center"
-                                        d:Text="Authentication method"
-                                        Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}" />
-                                    <ComboBox
-                                        x:Name="IncomingAuthenticationMethod"
-                                        HorizontalAlignment="Stretch"
-                                        DisplayMemberPath="DisplayName"
-                                        ItemsSource="{x:Bind AvailableAuthenticationMethods}"
-                                        SelectedIndex="0" />
-                                </StackPanel>
-                            </Grid>
+                                <!--  Security and Authentication  -->
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <!--  Security  -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            d:Text="Connection security"
+                                            Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}" />
+                                        <ComboBox
+                                            x:Name="IncomingConnectionSecurity"
+                                            HorizontalAlignment="Stretch"
+                                            DisplayMemberPath="DisplayName"
+                                            ItemsSource="{x:Bind AvailableConnectionSecurities}"
+                                            SelectedIndex="0" />
+                                    </StackPanel>
 
-                        </StackPanel>
-                    </muxc:TabViewItem>
-                    <muxc:TabViewItem Header="SMTP Settings" IsClosable="False">
-                        <!--  SMTP  -->
-                        <StackPanel Padding="12" Spacing="10">
-                            <!--  Server + Port  -->
-                            <Grid ColumnSpacing="6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                    <!--  Authentication  -->
+                                    <StackPanel Grid.Column="1" Spacing="6">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            d:Text="Authentication method"
+                                            Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}" />
+                                        <ComboBox
+                                            x:Name="IncomingAuthenticationMethod"
+                                            HorizontalAlignment="Stretch"
+                                            DisplayMemberPath="DisplayName"
+                                            ItemsSource="{x:Bind AvailableAuthenticationMethods}"
+                                            SelectedIndex="0" />
+                                    </StackPanel>
+                                </Grid>
 
-                                <TextBox
-                                    x:Name="OutgoingServerBox"
-                                    d:Header="Outgoing Server"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer}"
-                                    PlaceholderText="eg. smtp.gmail.com"
-                                    TextChanged="OutgoingServerChanged" />
-
-                                <TextBox
-                                    x:Name="OutgoingServerPort"
-                                    Grid.Column="1"
-                                    d:Header="Port"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort}"
-                                    Text="465" />
-                            </Grid>
-
-                            <!--  Username + Password  -->
-                            <StackPanel x:Name="OutgoingAuthenticationPanel" Spacing="6">
-                                <TextBox
-                                    x:Name="OutgoingUsernameBox"
-                                    d:Header="UserName"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername}"
-                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(UseSameCredentialsForSending), Mode=OneWay}" />
-                                <PasswordBox
-                                    x:Name="OutgoingPasswordBox"
-                                    d:Header="Password"
-                                    Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword}"
-                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(UseSameCredentialsForSending), Mode=OneWay}" />
                             </StackPanel>
+                        </muxc:TabViewItem>
+                        <muxc:TabViewItem Header="SMTP Settings" IsClosable="False">
+                            <!--  SMTP  -->
+                            <StackPanel Padding="12" Spacing="10">
+                                <!--  Server + Port  -->
+                                <Grid ColumnSpacing="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                            <!--  Security and Authentication  -->
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <!--  Security  -->
-                                <StackPanel Spacing="6">
-                                    <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}" />
-                                    <ComboBox
-                                        x:Name="OutgoingConnectionSecurity"
-                                        HorizontalAlignment="Stretch"
-                                        DisplayMemberPath="DisplayName"
-                                        ItemsSource="{x:Bind AvailableConnectionSecurities}"
-                                        SelectedIndex="0" />
+                                    <TextBox
+                                        x:Name="OutgoingServerBox"
+                                        d:Header="Outgoing Server"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer}"
+                                        PlaceholderText="eg. smtp.gmail.com"
+                                        TextChanged="OutgoingServerChanged" />
+
+                                    <TextBox
+                                        x:Name="OutgoingServerPort"
+                                        Grid.Column="1"
+                                        d:Header="Port"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort}"
+                                        Text="465" />
+                                </Grid>
+
+                                <!--  Username + Password  -->
+                                <StackPanel x:Name="OutgoingAuthenticationPanel" Spacing="6">
+                                    <TextBox
+                                        x:Name="OutgoingUsernameBox"
+                                        d:Header="UserName"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername}"
+                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(UseSameCredentialsForSending), Mode=OneWay}" />
+                                    <PasswordBox
+                                        x:Name="OutgoingPasswordBox"
+                                        d:Header="Password"
+                                        Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword}"
+                                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(UseSameCredentialsForSending), Mode=OneWay}" />
                                 </StackPanel>
 
-                                <!--  Authentication  -->
-                                <StackPanel Grid.Column="1" Spacing="6">
-                                    <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}" />
-                                    <ComboBox
-                                        x:Name="OutgoingAuthenticationMethod"
-                                        HorizontalAlignment="Stretch"
-                                        DisplayMemberPath="DisplayName"
-                                        ItemsSource="{x:Bind AvailableAuthenticationMethods}"
-                                        SelectedIndex="0" />
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </muxc:TabViewItem>
-                    <muxc:TabViewItem Header="Proxy" IsClosable="False">
-                        <!--  Proxy  -->
-                        <StackPanel Padding="12" Spacing="10">
-                            <TextBlock Text="Define your optional proxy server for the connection if your mail server requires it. This is optional." />
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="ProxyServerBox" Header="Proxy server" />
-                                <muxc:NumberBox
-                                    x:Name="ProxyServerPortBox"
-                                    Grid.Column="1"
-                                    Header="Port" />
-                            </Grid>
-                        </StackPanel>
-                    </muxc:TabViewItem>
-                </muxc:TabView>
-            </StackPanel>
-        </ScrollViewer>
+                                <!--  Security and Authentication  -->
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <!--  Security  -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}" />
+                                        <ComboBox
+                                            x:Name="OutgoingConnectionSecurity"
+                                            HorizontalAlignment="Stretch"
+                                            DisplayMemberPath="DisplayName"
+                                            ItemsSource="{x:Bind AvailableConnectionSecurities}"
+                                            SelectedIndex="0" />
+                                    </StackPanel>
 
-        <!--  Buttons  -->
+                                    <!--  Authentication  -->
+                                    <StackPanel Grid.Column="1" Spacing="6">
+                                        <TextBlock HorizontalAlignment="Center" Text="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}" />
+                                        <ComboBox
+                                            x:Name="OutgoingAuthenticationMethod"
+                                            HorizontalAlignment="Stretch"
+                                            DisplayMemberPath="DisplayName"
+                                            ItemsSource="{x:Bind AvailableAuthenticationMethods}"
+                                            SelectedIndex="0" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </muxc:TabViewItem>
+                        <muxc:TabViewItem Header="Proxy" IsClosable="False">
+                            <!--  Proxy  -->
+                            <StackPanel Padding="12" Spacing="10">
+                                <TextBlock Text="Define your optional proxy server for the connection if your mail server requires it. This is optional." />
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ProxyServerBox" Header="Proxy server" />
+                                    <muxc:NumberBox
+                                        x:Name="ProxyServerPortBox"
+                                        Grid.Column="1"
+                                        Header="Port" />
+                                </Grid>
+                            </StackPanel>
+                        </muxc:TabViewItem>
+                    </muxc:TabView>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!--  Buttons  -->
+            <Grid
+                Grid.Row="1"
+                Padding="{StaticResource ImapSetupDialogSubPagePadding}"
+                VerticalAlignment="Bottom"
+                Background="{ThemeResource ContentDialogBackground}"
+                ColumnSpacing="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button
+                    HorizontalAlignment="Stretch"
+                    d:Content="Cancel"
+                    Click="CancelClicked"
+                    Content="{x:Bind domain:Translator.Buttons_Cancel}" />
+
+                <Button
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    d:Content="Sign In"
+                    Click="SignInClicked"
+                    Content="{x:Bind domain:Translator.Buttons_SignIn}"
+                    Style="{ThemeResource AccentButtonStyle}" />
+            </Grid>
+        </Grid>
+
+        <!--  Validation errors  -->
         <Grid
-            Grid.Row="1"
-            Padding="{StaticResource ImapSetupDialogSubPagePadding}"
-            VerticalAlignment="Bottom"
-            Background="{ThemeResource ContentDialogBackground}"
-            ColumnSpacing="6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+            Padding="12"
+            RowSpacing="12"
+            Visibility="{x:Bind HasValidationErrors, Mode=OneWay}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock
+                HorizontalAlignment="Center"
+                FontWeight="SemiBold"
+                Text="{x:Bind domain:Translator.IMAPAdvancedSetupDialog_ValidationErrorTitle}" />
+
+            <ItemsControl Grid.Row="1" ItemsSource="{x:Bind ValidationErrors, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <TextBlock>
+                            <Run Text="• " /><Run Text="{x:Bind}" />
+                        </TextBlock>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <Button
-                HorizontalAlignment="Stretch"
-                d:Content="Cancel"
-                Click="CancelClicked"
-                Content="{x:Bind domain:Translator.Buttons_Cancel}" />
+                Grid.Row="2"
+                HorizontalAlignment="Center"
+                Click="ValidationsGoBackClicked"
+                Content="{x:Bind domain:Translator.Buttons_TryAgain}"
+                Style="{StaticResource AccentButtonStyle}" />
 
-            <Button
-                Grid.Column="1"
-                HorizontalAlignment="Stretch"
-                d:Content="Sign In"
-                Click="SignInClicked"
-                Content="{x:Bind domain:Translator.Buttons_SignIn}"
-                Style="{ThemeResource AccentButtonStyle}" />
         </Grid>
     </Grid>
 </Page>
