@@ -214,6 +214,8 @@
     "GeneralTitle_Error": "Error",
     "GeneralTitle_Info": "Information",
     "GeneralTitle_Warning": "Warning",
+    "GmailServiceDisabled_Title": "Gmail Error",
+    "GmailServiceDisabled_Message": "Your Google Workspace account seems to be disabled for Gmail service. Please contact your administrator to enable Gmail service for your account.",
     "HoverActionOption_Archive": "Archive",
     "HoverActionOption_Delete": "Delete",
     "HoverActionOption_MoveJunk": "Move to Junk",
