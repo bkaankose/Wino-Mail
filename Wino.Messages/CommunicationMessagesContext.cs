@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Messaging;
@@ -23,4 +24,6 @@ namespace Wino.Messaging;
 [JsonSerializable(typeof(AccountSynchronizationProgressUpdatedMessage))]
 [JsonSerializable(typeof(AccountFolderConfigurationUpdated))]
 [JsonSerializable(typeof(CopyAuthURLRequested))]
+[JsonSerializable(typeof(NewMailSynchronizationRequested))]
+[JsonSerializable(typeof(AccountCacheResetMessage))]
 public partial class CommunicationMessagesContext : JsonSerializerContext;

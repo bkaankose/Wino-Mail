@@ -258,7 +258,10 @@ public class WinoServerConnectionManager :
                 WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.CopyAuthURLRequested));
                 break;
             case nameof(NewMailSynchronizationRequested):
-                WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize<NewMailSynchronizationRequested>(messageJson));
+                WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.NewMailSynchronizationRequested));
+                break;
+            case nameof(AccountCacheResetMessage):
+                WeakReferenceMessenger.Default.Send(JsonSerializer.Deserialize(messageJson, CommunicationMessagesContext.Default.AccountCacheResetMessage));
                 break;
             default:
                 throw new Exception("Invalid data type name passed to client.");

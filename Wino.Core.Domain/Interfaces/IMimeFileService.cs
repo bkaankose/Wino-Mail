@@ -66,4 +66,10 @@ public interface IMimeFileService
     /// <param name="mimeLocalPath">File path that physical MimeMessage is located.</param>
     /// <param name="options">Rendering options</param>
     MailRenderModel GetMailRenderModel(MimeMessage message, string mimeLocalPath, MailRenderingOptions options = null);
+
+    /// <summary>
+    /// Deletes every file in the mime cache for the given account.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    Task DeleteUserMimeCacheAsync(Guid accountId);
 }

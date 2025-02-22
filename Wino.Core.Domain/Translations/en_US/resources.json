@@ -4,6 +4,8 @@
     "AccountAlias_Column_Verified": "Verified",
     "AccountAlias_Disclaimer_FirstLine": "Wino can only import aliases for your Gmail accounts.",
     "AccountAlias_Disclaimer_SecondLine": "If you want to use aliases for your Outlook or IMAP account, please add them yourself.",
+    "AccountCacheReset_Title": "Account Cache Reset",
+    "AccountCacheReset_Message": "This account requires full re-sychronization to continue working. Please wait while Wino re-synchronizes your messages...",
     "AccountContactNameYou": "You",
     "AccountCreationDialog_Completed": "all done",
     "AccountCreationDialog_FetchingEvents": "Fetching calendar events.",

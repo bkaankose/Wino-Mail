@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -156,4 +157,11 @@ public interface IAccountService
     /// <returns>Primary alias for the account.</returns>
     Task<MailAccountAlias> GetPrimaryAccountAliasAsync(Guid accountId);
     Task<bool> IsAccountFocusedEnabledAsync(Guid accountId);
+
+    /// <summary>
+    /// Deletes mail cache in the database for the given account.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="AccountCacheResetReason">Reason for the cache reset.</param>
+    Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason);
 }

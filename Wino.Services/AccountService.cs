@@ -22,15 +22,18 @@ public class AccountService : BaseDatabaseService, IAccountService
     public IAuthenticator ExternalAuthenticationAuthenticator { get; set; }
 
     private readonly ISignatureService _signatureService;
+    private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
     public AccountService(IDatabaseService databaseService,
                           ISignatureService signatureService,
+                          IMimeFileService mimeFileService,
                           IPreferencesService preferencesService) : base(databaseService)
     {
         _signatureService = signatureService;
+        _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
     }
 
@@ -262,12 +265,26 @@ public class AccountService : BaseDatabaseService, IAccountService
     private Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)
         => Connection.Table<MergedInbox>().FirstOrDefaultAsync(a => a.Id == mergedInboxId);
 
+    public async Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason)
+    {
+        var deleteQuery = new Query("MailCopy")
+                .WhereIn("Id", q => q
+                .From("MailCopy")
+                .Select("Id")
+                .WhereIn("FolderId", q2 => q2
+                    .From("MailItemFolder")
+                    .Select("Id")
+                    .Where("MailAccountId", accountId)
+                )).AsDelete();
+
+        await Connection.ExecuteAsync(deleteQuery.GetRawQuery());
+
+        WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
+    }
+
     public async Task DeleteAccountAsync(MailAccount account)
     {
-        // TODO: Delete mime messages and attachments.
-        // TODO: Delete token cache by underlying provider.
-
-        await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE Id IN(SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id from MailItemFolder WHERE MailAccountId == ?))", account.Id);
+        await DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.AccountRemoval);
 
         await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
         await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
@@ -302,6 +319,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         await Connection.DeleteAsync(account);
 
+        await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
+
         // Clear out or set up a new startup entity id.
         // Next account after the deleted one will be the startup account.
 
@@ -318,8 +337,6 @@ public class AccountService : BaseDatabaseService, IAccountService
                 _preferencesService.StartupEntityId = null;
             }
         }
-
-
 
         ReportUIChange(new AccountRemovedMessage(account));
     }

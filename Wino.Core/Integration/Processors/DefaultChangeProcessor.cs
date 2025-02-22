@@ -6,6 +6,7 @@ using MimeKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -61,10 +62,12 @@ public interface IDefaultChangeProcessor
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
     Task<MailCopy> GetMailCopyAsync(string mailCopyId);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
+    Task DeleteUserMailCacheAsync(Guid accountId);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
 {
+    Task<bool> HasAccountAnyDraftAsync(Guid accountId);
     Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
     Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
@@ -214,4 +217,10 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
         => CalendarService.UpdateCalendarDeltaSynchronizationToken(calendarId, deltaToken);
+
+    public async Task DeleteUserMailCacheAsync(Guid accountId)
+    {
+        await _mimeFileService.DeleteUserMimeCacheAsync(accountId).ConfigureAwait(false);
+        await AccountService.DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
+    }
 }

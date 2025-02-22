@@ -135,4 +135,10 @@ public interface IMailService
     /// <param name="package">Mail creation package.</param>
     /// <returns></returns>
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
+
+    /// <summary>
+    /// Checks whether the account has any draft mail locally.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    Task<bool> HasAccountAnyDraftAsync(Guid accountId);
 }

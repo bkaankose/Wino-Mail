@@ -119,6 +119,18 @@ public class MailService : BaseDatabaseService, IMailService
         return mails;
     }
 
+    public async Task<bool> HasAccountAnyDraftAsync(Guid accountId)
+    {
+        // Get the draft folder.
+        var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(accountId, SpecialFolderType.Draft);
+
+        if (draftFolder == null) return false;
+
+        var draftCount = await Connection.Table<MailCopy>().Where(a => a.FolderId == draftFolder.Id).CountAsync();
+
+        return draftCount > 0;
+    }
+
     public async Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId)
     {
         var unreadMails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ? AND IsRead = 0", folderId);
@@ -143,7 +155,7 @@ public class MailService : BaseDatabaseService, IMailService
         //}
 
         // SQLite PCL doesn't support joins.
-        // We make the query using SqlKatka and execute it directly on SQLite-PCL.
+        // We make the query using SqlKata and execute it directly on SQLite-PCL.
 
         var query = new Query("MailCopy")
                     .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")

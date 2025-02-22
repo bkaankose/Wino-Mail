@@ -44,7 +44,8 @@ public class ServerContext :
     IRecipient<AccountFolderConfigurationUpdated>,
     IRecipient<CopyAuthURLRequested>,
     IRecipient<NewMailSynchronizationRequested>,
-    IRecipient<OnlineSearchRequested>
+    IRecipient<OnlineSearchRequested>,
+    IRecipient<AccountCacheResetMessage>
 {
     private readonly System.Timers.Timer _timer;
     private static object connectionLock = new object();
@@ -146,6 +147,8 @@ public class ServerContext :
     public async void Receive(NewMailSynchronizationRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
 
     public async void Receive(OnlineSearchRequested message) => await SendMessageAsync(MessageType.UIMessage, message);
+
+    public async void Receive(AccountCacheResetMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
     #endregion
 
