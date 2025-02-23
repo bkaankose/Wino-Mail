@@ -18,9 +18,13 @@ public interface IMailService
     /// Returns the single mail item with the given mail copy id.
     /// Caution: This method is not safe. Use other overrides.
     /// </summary>
-    /// <param name="mailCopyId"></param>
-    /// <returns></returns>
     Task<MailCopy> GetSingleMailItemAsync(string mailCopyId);
+
+    /// <summary>
+    /// Returns the multiple mail item with the given mail copy ids.
+    /// Caution: This method is not safe. Use other overrides.
+    /// </summary>
+    Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds);
     Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -87,6 +91,15 @@ public interface IMailService
     /// </summary>
     /// <param name="mailCopyId">Native mail id of the message.</param>
     Task<bool> IsMailExistsAsync(string mailCopyId);
+
+    /// <summary>
+    /// Checks whether the given mail copy ids exists in the database.
+    /// Safely used for Outlook to prevent downloading the same mail twice.
+    /// For Gmail, it should be avoided since one mail may belong to multiple folders.
+    /// </summary>
+    /// <param name="mailCopyIds">Native mail id of the messages.</param>
+    /// <returns>List of Mail ids that already exists in the database.</returns>
+    Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds);
 
     /// <summary>
     /// Returns all mails for given folder id.

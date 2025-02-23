@@ -61,6 +61,7 @@ public interface IDefaultChangeProcessor
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
     Task<MailCopy> GetMailCopyAsync(string mailCopyId);
+    Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
     Task DeleteUserMailCacheAsync(Guid accountId);
 
@@ -73,6 +74,7 @@ public interface IDefaultChangeProcessor
     /// <param name="folderId">Folder's local id.</param>
     /// <returns>Whether mail exists in the folder or not.</returns>
     Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId);
+    Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -139,8 +141,14 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task<bool> IsMailExistsAsync(string messageId)
         => MailService.IsMailExistsAsync(messageId);
 
+    public Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
+        => MailService.AreMailsExistsAsync(mailCopyIds);
+
     public Task<MailCopy> GetMailCopyAsync(string mailCopyId)
         => MailService.GetSingleMailItemAsync(mailCopyId);
+
+    public Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds)
+        => MailService.GetMailItemsAsync(mailCopyIds);
 
     public Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead)
         => MailService.ChangeReadStatusAsync(mailCopyId, isRead);

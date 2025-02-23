@@ -1054,18 +1054,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
 
         // Get results from database and return.
-        var searchResults = new List<MailCopy>();
-
-        foreach (var messageId in existingMessageIds)
-        {
-            var copy = await _outlookChangeProcessor.GetMailCopyAsync(messageId).ConfigureAwait(false);
-
-            if (copy == null) continue;
-
-            searchResults.Add(copy);
-        }
-
-        return searchResults;
+        return await _outlookChangeProcessor.GetMailCopiesAsync(existingMessageIds);
     }
 
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
