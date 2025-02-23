@@ -1063,13 +1063,15 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds)
     {
+        if (!mailCopyIds.Any()) return [];
+
         var query = new Query("MailCopy")
                        .WhereIn("MailCopy.Id", mailCopyIds)
                        .SelectRaw("MailCopy.*")
                        .GetRawQuery();
 
         var mailCopies = await Connection.QueryAsync<MailCopy>(query);
-        if (mailCopies?.Count == 0) return null;
+        if (mailCopies?.Count == 0) return [];
 
         Dictionary<Guid, MailItemFolder> folderCache = [];
         Dictionary<Guid, MailAccount> accountCache = [];
