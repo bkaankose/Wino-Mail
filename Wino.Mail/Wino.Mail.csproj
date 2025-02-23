@@ -31,7 +31,7 @@
 	  <None Remove="Assets\NotificationIcons\markread.png" />
 	  <None Remove="Assets\NotificationIcons\profile-dark.png" />
 	  <None Remove="Assets\NotificationIcons\profile-light.png" />
-	  <None Remove="Assets\ReleaseNotes\190.md" />
+	  <None Remove="Assets\ReleaseNotes\1102.md" />
 	  <None Remove="Assets\Thumbnails\airbnb.com.png" />
 	  <None Remove="Assets\Thumbnails\apple.com.png" />
 	  <None Remove="Assets\Thumbnails\google.com.png" />
@@ -56,7 +56,7 @@
 	  <Content Include="Assets\NotificationIcons\markread.png" />
 	  <Content Include="Assets\NotificationIcons\profile-dark.png" />
 	  <Content Include="Assets\NotificationIcons\profile-light.png" />
-	  <Content Include="Assets\ReleaseNotes\190.md" />
+	  <Content Include="Assets\ReleaseNotes\1102.md" />
 	  <Content Include="Assets\Thumbnails\airbnb.com.png" />
 	  <Content Include="Assets\Thumbnails\apple.com.png" />
 	  <Content Include="Assets\Thumbnails\google.com.png" />

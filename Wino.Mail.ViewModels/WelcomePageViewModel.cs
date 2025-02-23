@@ -8,7 +8,7 @@ namespace Wino.Mail.ViewModels;
 
 public partial class WelcomePageViewModel : MailBaseViewModel
 {
-    public const string VersionFile = "190.md";
+    public const string VersionFile = "1102.md";
     private readonly IMailDialogService _dialogService;
     private readonly IFileService _fileService;
 

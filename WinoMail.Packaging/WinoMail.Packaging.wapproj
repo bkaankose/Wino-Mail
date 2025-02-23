@@ -49,7 +49,7 @@
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
@@ -141,7 +141,7 @@
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
-	<SDKReference Include="Microsoft.VCLibs, Version=14.0" />
+    <SDKReference Include="Microsoft.VCLibs, Version=14.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" VersionOverride="10.0.22621.3233" PrivateAssets="all" />
     <PackageReference Include="System.Private.Uri" />
   </ItemGroup>
