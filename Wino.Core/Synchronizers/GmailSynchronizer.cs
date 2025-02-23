@@ -963,7 +963,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         do
         {
-            if (folders?.Any() ?? false)
+            if (queryText.StartsWith("label:") || queryText.StartsWith("in:"))
+            {
+                // Ignore the folders if the query starts with these keywords.
+                // User is trying to list everything.
+            }
+            else if (folders?.Any() ?? false)
             {
                 request.LabelIds = folders.Select(a => a.RemoteFolderId).ToList();
             }
