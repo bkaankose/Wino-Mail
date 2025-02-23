@@ -16,6 +16,7 @@ public static class ServiceConstants
     public const string SPAM_LABEL_ID = "SPAM";
     public const string CHAT_LABEL_ID = "CHAT";
     public const string TRASH_LABEL_ID = "TRASH";
+    public const string ARCHIVE_LABEL_ID = "ARCHIVE";
 
     // Category labels.
     public const string FORUMS_LABEL_ID = "FORUMS";

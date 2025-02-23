@@ -53,9 +53,19 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                               _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
                                           });
         }
-        catch (InvalidMoveTargetException)
+        catch (InvalidMoveTargetException invalidMoveTargetException)
         {
-            _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_InvalidMoveTargetMessage, InfoBarMessageType.Warning);
+            switch (invalidMoveTargetException.Reason)
+            {
+                case InvalidMoveTargetReason.NonMoveTarget:
+                    _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Info_InvalidMoveTargetMessage, InfoBarMessageType.Warning);
+                    break;
+                case InvalidMoveTargetReason.MultipleAccounts:
+                    _dialogService.InfoBarMessage(Translator.Info_InvalidMoveTargetTitle, Translator.Exception_InvalidMultiAccountMoveTarget, InfoBarMessageType.Warning);
+                    break;
+                default:
+                    break;
+            }
         }
         catch (NotImplementedException)
         {

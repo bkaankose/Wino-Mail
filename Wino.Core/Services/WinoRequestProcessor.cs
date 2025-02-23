@@ -75,8 +75,13 @@ public class WinoRequestProcessor : IWinoRequestProcessor
 
         if (action == MailOperation.Move && moveTargetStructure == null)
         {
-            // TODO: Handle multiple accounts for move operation.
-            // What happens if we move 2 different mails from 2 different accounts?
+            // Handle the case when user is trying to move multiple mails that belong to different accounts.
+            // We can't handle this with only 1 picker dialog.
+
+            bool isInvalidMoveTarget = preperationRequest.MailItems.Select(a => a.AssignedAccount.Id).Distinct().Count() > 1;
+
+            if (isInvalidMoveTarget)
+                throw new InvalidMoveTargetException(InvalidMoveTargetReason.MultipleAccounts);
 
             var accountId = preperationRequest.MailItems.FirstOrDefault().AssignedAccount.Id;
 
@@ -142,7 +147,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         else if (action == MailOperation.Move)
         {
             if (moveTargetStructure == null)
-                throw new InvalidMoveTargetException();
+                throw new InvalidMoveTargetException(InvalidMoveTargetReason.NonMoveTarget);
 
             // TODO
             // Rule: You can't move items to non-move target folders;

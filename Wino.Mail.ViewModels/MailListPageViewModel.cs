@@ -711,7 +711,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             if (isDeletedMailSelected && PreferencesService.AutoSelectNextItem)
             {
-                nextItem = MailCollection.GetNextItem(removedMail);
+                await ExecuteUIThread(() =>
+                {
+                    nextItem = MailCollection.GetNextItem(removedMail);
+                });
             }
 
             // Remove the deleted item from the list.
