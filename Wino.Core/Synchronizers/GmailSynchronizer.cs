@@ -475,7 +475,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Handling of Gmail special virtual Archive folder.
         // We will generate a new virtual folder if doesn't exist.
 
-        if (!localFolders.Any(a => a.SpecialFolderType == SpecialFolderType.Archive))
+        if (!localFolders.Any(a => a.SpecialFolderType == SpecialFolderType.Archive && a.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID))
         {
             archiveFolderId = Guid.NewGuid();
 
