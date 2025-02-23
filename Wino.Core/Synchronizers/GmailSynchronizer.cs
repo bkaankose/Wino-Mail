@@ -494,10 +494,22 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             };
 
             await _gmailChangeProcessor.InsertFolderAsync(archiveFolder).ConfigureAwait(false);
+
+            // Migration-> User might've already have another special folder for Archive.
+            // We must remove that type assignment.
+            // This code can be removed after sometime.
+
+            var otherArchiveFolders = localFolders.Where(a => a.SpecialFolderType == SpecialFolderType.Archive && a.Id != archiveFolderId.Value).ToList();
+
+            foreach (var otherArchiveFolder in otherArchiveFolders)
+            {
+                otherArchiveFolder.SpecialFolderType = SpecialFolderType.Other;
+                await _gmailChangeProcessor.UpdateFolderAsync(otherArchiveFolder).ConfigureAwait(false);
+            }
         }
         else
         {
-            archiveFolderId = localFolders.First(a => a.SpecialFolderType == SpecialFolderType.Archive).Id;
+            archiveFolderId = localFolders.First(a => a.SpecialFolderType == SpecialFolderType.Archive && a.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID).Id;
         }
     }
 
