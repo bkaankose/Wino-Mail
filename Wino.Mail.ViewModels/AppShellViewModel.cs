@@ -976,7 +976,12 @@ public partial class AppShellViewModel : MailBaseViewModel,
     {
         await RecreateMenuItemsAsync();
 
-        if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
+        // Try to restore latest selected account.
+        if (latestSelectedAccountMenuItem != null)
+        {
+            await ChangeLoadedAccountAsync(latestSelectedAccountMenuItem, navigateInbox: true);
+        }
+        else if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
         {
             await ChangeLoadedAccountAsync(firstAccount, message.AutomaticallyNavigateFirstItem);
         }
