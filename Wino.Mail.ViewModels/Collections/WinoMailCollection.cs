@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Collections;
+using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -363,53 +364,62 @@ public class WinoMailCollection
 
     public MailItemViewModel GetNextItem(MailCopy mailCopy)
     {
-        var groupCount = _mailItemSource.Count;
-
-        for (int i = 0; i < groupCount; i++)
+        try
         {
-            var group = _mailItemSource[i];
+            var groupCount = _mailItemSource.Count;
 
-            for (int k = 0; k < group.Count; k++)
+            for (int i = 0; i < groupCount; i++)
             {
-                var item = group[k];
+                var group = _mailItemSource[i];
 
-                if (item is MailItemViewModel singleMailItemViewModel && singleMailItemViewModel.UniqueId == mailCopy.UniqueId)
+                for (int k = 0; k < group.Count; k++)
                 {
-                    if (k + 1 < group.Count)
-                    {
-                        return group[k + 1] as MailItemViewModel;
-                    }
-                    else if (i + 1 < groupCount)
-                    {
-                        return _mailItemSource[i + 1][0] as MailItemViewModel;
-                    }
-                    else
-                    {
-                        return null;
-                    }
-                }
-                else if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(mailCopy.UniqueId))
-                {
-                    var singleItemViewModel = threadMailItemViewModel.GetItemById(mailCopy.UniqueId) as MailItemViewModel;
+                    var item = group[k];
 
-                    if (singleItemViewModel == null) return null;
-
-                    var singleItemIndex = threadMailItemViewModel.ThreadItems.IndexOf(singleItemViewModel);
-
-                    if (singleItemIndex + 1 < threadMailItemViewModel.ThreadItems.Count)
+                    if (item is MailItemViewModel singleMailItemViewModel && singleMailItemViewModel.UniqueId == mailCopy.UniqueId)
                     {
-                        return threadMailItemViewModel.ThreadItems[singleItemIndex + 1] as MailItemViewModel;
+                        if (k + 1 < group.Count)
+                        {
+                            return group[k + 1] as MailItemViewModel;
+                        }
+                        else if (i + 1 < groupCount)
+                        {
+                            return _mailItemSource[i + 1][0] as MailItemViewModel;
+                        }
+                        else
+                        {
+                            return null;
+                        }
                     }
-                    else if (i + 1 < groupCount)
+                    else if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(mailCopy.UniqueId))
                     {
-                        return _mailItemSource[i + 1][0] as MailItemViewModel;
-                    }
-                    else
-                    {
-                        return null;
+                        var singleItemViewModel = threadMailItemViewModel.GetItemById(mailCopy.UniqueId) as MailItemViewModel;
+
+                        if (singleItemViewModel == null) return null;
+
+                        var singleItemIndex = threadMailItemViewModel.ThreadItems.IndexOf(singleItemViewModel);
+
+                        if (singleItemIndex + 1 < threadMailItemViewModel.ThreadItems.Count)
+                        {
+                            return threadMailItemViewModel.ThreadItems[singleItemIndex + 1] as MailItemViewModel;
+                        }
+                        else if (i + 1 < groupCount)
+                        {
+                            return _mailItemSource[i + 1][0] as MailItemViewModel;
+                        }
+                        else
+                        {
+                            return null;
+                        }
                     }
                 }
             }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to find the next item to select.");
         }
 
         return null;

@@ -63,6 +63,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
+    // Keeping a reference for quick access to the virtual archive folder.
+    private Guid? archiveFolderId;
+
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
                              IGmailChangeProcessor gmailChangeProcessor) : base(account)
@@ -119,6 +122,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         _logger.Information("Internal mail synchronization started for {Name}", Account.Name);
+
+        // Make sure that virtual archive folder exists before all.
+        if (!archiveFolderId.HasValue)
+            await InitializeArchiveFolderAsync().ConfigureAwait(false);
 
         // Gmail must always synchronize folders before because it doesn't have a per-folder sync.
         bool shouldSynchronizeFolders = true;
@@ -266,37 +273,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             missingMessageIds.AddRange(addedMessageIds);
         }
 
-        // Consolidate added/deleted elements.
-        // For example: History change might report downloading a mail first, then deleting it in another history change.
-        // In that case, downloading mail will return entity not found error.
-        // Plus, it's a redundant download the mail.
-        // Purge missing message ids from potentially deleted mails to prevent this.
-
-        var messageDeletedHistoryChanges = deltaChanges
-            .Where(a => a.History != null)
-            .SelectMany(a => a.History)
-            .Where(a => a.MessagesDeleted != null)
-            .SelectMany(a => a.MessagesDeleted);
-
-        var deletedMailIdsInHistory = messageDeletedHistoryChanges.Select(a => a.Message.Id);
-
-        if (deletedMailIdsInHistory.Any())
-        {
-            var mailIdsToConsolidate = missingMessageIds.Where(a => deletedMailIdsInHistory.Contains(a)).ToList();
-
-            int consolidatedMessageCount = missingMessageIds.RemoveAll(a => deletedMailIdsInHistory.Contains(a));
-
-            if (consolidatedMessageCount > 0)
-            {
-                // TODO: Also delete the history changes that are related to these mails.
-                // This will prevent unwanted logs and additional queries to look for them in processing.
-
-                _logger.Information($"Purged {consolidatedMessageCount} missing mail downloads. ({string.Join(",", mailIdsToConsolidate)})");
-            }
-        }
-
         // Start downloading missing messages.
         await BatchDownloadMessagesAsync(missingMessageIds, cancellationToken).ConfigureAwait(false);
+
+        // Map archive assignments if there are any changes reported.
+        if (listChanges.Any() || deltaChanges.Any())
+        {
+            await MapArchivedMailsAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         // Map remote drafts to local drafts.
         await MapDraftIdsAsync(cancellationToken).ConfigureAwait(false);
@@ -484,6 +468,51 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
+    private async Task InitializeArchiveFolderAsync()
+    {
+        var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+
+        // Handling of Gmail special virtual Archive folder.
+        // We will generate a new virtual folder if doesn't exist.
+
+        if (!localFolders.Any(a => a.SpecialFolderType == SpecialFolderType.Archive))
+        {
+            archiveFolderId = Guid.NewGuid();
+
+            var archiveFolder = new MailItemFolder()
+            {
+                FolderName = "Archive", // will be localized. N/A
+                RemoteFolderId = ServiceConstants.ARCHIVE_LABEL_ID,
+                Id = archiveFolderId.Value,
+                MailAccountId = Account.Id,
+                SpecialFolderType = SpecialFolderType.Archive,
+                IsSynchronizationEnabled = true,
+                IsSystemFolder = true,
+                IsSticky = true,
+                IsHidden = false,
+                ShowUnreadCount = true
+            };
+
+            await _gmailChangeProcessor.InsertFolderAsync(archiveFolder).ConfigureAwait(false);
+
+            // Migration-> User might've already have another special folder for Archive.
+            // We must remove that type assignment.
+            // This code can be removed after sometime.
+
+            var otherArchiveFolders = localFolders.Where(a => a.SpecialFolderType == SpecialFolderType.Archive && a.Id != archiveFolderId.Value).ToList();
+
+            foreach (var otherArchiveFolder in otherArchiveFolders)
+            {
+                otherArchiveFolder.SpecialFolderType = SpecialFolderType.Other;
+                await _gmailChangeProcessor.UpdateFolderAsync(otherArchiveFolder).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            archiveFolderId = localFolders.First(a => a.SpecialFolderType == SpecialFolderType.Archive && a.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID).Id;
+        }
+    }
+
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
     {
         var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
@@ -502,11 +531,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         List<MailItemFolder> deletedFolders = new();
 
         // 1. Handle deleted labels.
-
         foreach (var localFolder in localFolders)
         {
             // Category folder is virtual folder for Wino. Skip it.
             if (localFolder.SpecialFolderType == SpecialFolderType.Category) continue;
+
+            // Gmail's Archive folder is virtual older for Wino. Skip it.
+            if (localFolder.SpecialFolderType == SpecialFolderType.Archive) continue;
 
             var remoteFolder = labelsResponse.Labels.FirstOrDefault(a => a.Id == localFolder.RemoteFolderId);
 
@@ -558,7 +589,6 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
-
         foreach (var folder in insertedFolders)
         {
             await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
@@ -731,6 +761,29 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
+    private async Task HandleArchiveAssignmentAsync(string archivedMessageId)
+    {
+        // Ignore if the message is already in the archive.
+        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(archivedMessageId, archiveFolderId.Value);
+
+        if (archived) return;
+
+        _logger.Debug("Processing archive assignment for message {Id}", archivedMessageId);
+
+        await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, archivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
+    }
+
+    private async Task HandleUnarchiveAssignmentAsync(string unarchivedMessageId)
+    {
+        // Ignore if the message is not in the archive.
+        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(unarchivedMessageId, archiveFolderId.Value);
+        if (!archived) return;
+
+        _logger.Debug("Processing un-archive assignment for message {Id}", unarchivedMessageId);
+
+        await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, unarchivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
+    }
+
     private async Task HandleLabelAssignmentAsync(HistoryLabelAdded addedLabel)
     {
         var messageId = addedLabel.Message.Id;
@@ -824,9 +877,18 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             AddLabelIds = [toFolder.RemoteFolderId]
         };
 
-        // Only add remove label ids if the source folder is not sent folder.
-        if (fromFolder.SpecialFolderType != SpecialFolderType.Sent)
+        // Archived item is being moved to different folder.
+        // Unarchive will move it to Inbox, so this is a different case.
+        // We can't remove ARCHIVE label because it's a virtual folder and does not exist in Gmail.
+        // We will just add the target label and Gmail will handle the rest.
+
+        if (fromFolder.SpecialFolderType == SpecialFolderType.Archive)
         {
+            batchModifyRequest.AddLabelIds = [toFolder.RemoteFolderId];
+        }
+        else if (fromFolder.SpecialFolderType != SpecialFolderType.Sent)
+        {
+            // Only add remove label ids if the source folder is not sent folder.
             batchModifyRequest.RemoveLabelIds = [fromFolder.RemoteFolderId];
         }
 
@@ -1248,6 +1310,51 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             };
 
             await SynchronizeMailsInternalAsync(options, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Gmail Archive is a special folder that is not visible in the Gmail web interface.
+    /// We need to handle it separately.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task MapArchivedMailsAsync(CancellationToken cancellationToken)
+    {
+        var request = _gmailService.Users.Messages.List("me");
+        request.Q = "in:archive";
+        request.MaxResults = InitialMessageDownloadCountPerFolder;
+
+        string pageToken = null;
+
+        var archivedMessageIds = new List<string>();
+
+        do
+        {
+            if (!string.IsNullOrEmpty(pageToken)) request.PageToken = pageToken;
+
+            var response = await request.ExecuteAsync(cancellationToken);
+            if (response.Messages == null) break;
+
+            foreach (var message in response.Messages)
+            {
+                if (archivedMessageIds.Contains(message.Id)) continue;
+
+                archivedMessageIds.Add(message.Id);
+            }
+
+            pageToken = response.NextPageToken;
+        } while (!string.IsNullOrEmpty(pageToken));
+
+        var result = await _gmailChangeProcessor.GetGmailArchiveComparisonResultAsync(archiveFolderId.Value, archivedMessageIds).ConfigureAwait(false);
+
+        foreach (var archiveAddedItem in result.Added)
+        {
+            await HandleArchiveAssignmentAsync(archiveAddedItem);
+        }
+
+        foreach (var unAarchivedRemovedItem in result.Removed)
+        {
+            await HandleUnarchiveAssignmentAsync(unAarchivedRemovedItem);
         }
     }
 

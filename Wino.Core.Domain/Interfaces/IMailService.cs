@@ -141,4 +141,12 @@ public interface IMailService
     /// </summary>
     /// <param name="accountId">Account id.</param>
     Task<bool> HasAccountAnyDraftAsync(Guid accountId);
+
+    /// <summary>
+    /// Compares the ids returned from online search result for Archive folder against the local database.
+    /// </summary>
+    /// <param name="archiveFolderId">Archive folder id.</param>
+    /// <param name="onlineArchiveMailIds">Retrieved MailCopy ids from search result.</param>
+    /// <returns>Result model that contains added and removed mail copy ids.</returns>
+    Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
 }

@@ -1059,4 +1059,16 @@ public class MailService : BaseDatabaseService, IMailService
 
     public Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
         => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ? AND FolderId = ?)", mailCopyId, folderId);
+
+    public async Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds)
+    {
+        var localArchiveMails = await Connection.Table<MailCopy>()
+                                            .Where(a => a.FolderId == archiveFolderId)
+                                            .ToListAsync().ConfigureAwait(false);
+
+        var removedMails = localArchiveMails.Where(a => !onlineArchiveMailIds.Contains(a.Id)).Select(a => a.Id).Distinct().ToArray();
+        var addedMails = onlineArchiveMailIds.Where(a => !localArchiveMails.Select(b => b.Id).Contains(a)).Distinct().ToArray();
+
+        return new GmailArchiveComparisonResult(addedMails, removedMails);
+    }
 }

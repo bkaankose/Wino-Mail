@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
 using Wino.Services;
 using CalendarEventAttendee = Wino.Core.Domain.Entities.Calendar.CalendarEventAttendee;
@@ -310,4 +311,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
     public Task<bool> HasAccountAnyDraftAsync(Guid accountId)
         => MailService.HasAccountAnyDraftAsync(accountId);
+
+    public Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds)
+        => MailService.GetGmailArchiveComparisonResultAsync(archiveFolderId, onlineArchiveMailIds);
 }

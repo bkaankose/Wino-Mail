@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -32,6 +31,8 @@ public partial class FolderMenuItem : MenuItemBase<IMailItemFolder, FolderMenuIt
                 return Translator.MoreFolderNameOverride;
             else if (Parameter.SpecialFolderType == SpecialFolderType.Category)
                 return Translator.CategoriesFolderNameOverride;
+            else if (Parameter.SpecialFolderType == SpecialFolderType.Archive && ParentAccount.ProviderType == MailProviderType.Gmail)
+                return Translator.GmailArchiveFolderNameOverride;
             else
                 return Parameter.FolderName;
         }
