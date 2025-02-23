@@ -184,6 +184,7 @@
     "Exception_ImapClientPoolFailed": "IMAP Client Pool failed.",
     "Exception_InboxNotAvailable": "Couldn't setup account folders.",
     "Exception_InvalidSystemFolderConfiguration": "System folder configuration is not valid. Check configuration and try again.",
+    "Exception_InvalidMultiAccountMoveTarget": "You can't move multiple items that belong to different accounts in linked account.",
     "Exception_MailProcessing": "This mail is still being processed. Please try again after few seconds.",
     "Exception_MissingAlias": "Primary alias does not exist for this account. Creating draft failed.",
     "Exception_NullAssignedAccount": "Assigned account is null",

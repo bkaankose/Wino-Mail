@@ -21,9 +21,6 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
     , IOutlookChangeProcessor
 {
 
-    public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
-        => MailService.IsMailExistsAsync(messageId, folderId);
-
     public Task<string> ResetAccountDeltaTokenAsync(Guid accountId)
         => AccountService.UpdateSynchronizationIdentifierAsync(accountId, null);
 
