@@ -639,52 +639,48 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             client = await _clientPool.GetClientAsync().ConfigureAwait(false);
 
-            var searchResults = new List<MailCopy>();
-            List<string> searchResultFolderMailUids = new();
+            List<MailCopy> searchResults = [];
+            List<string> searchResultFolderMailUids = [];
 
             foreach (var folder in folders)
             {
-                var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+                var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
                 await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
                 // Look for subject and body.
                 var query = SearchQuery.BodyContains(queryText).Or(SearchQuery.SubjectContains(queryText));
 
                 var searchResultsInFolder = await remoteFolder.SearchAsync(query, cancellationToken).ConfigureAwait(false);
-                var nonExisttingUniqueIds = new List<UniqueId>();
+                Dictionary<string, UniqueId> searchResultsIdsInFolder = [];
 
                 foreach (var searchResultId in searchResultsInFolder)
                 {
                     var folderMailUid = MailkitClientExtensions.CreateUid(folder.Id, searchResultId.Id);
                     searchResultFolderMailUids.Add(folderMailUid);
-
-                    bool exists = await _imapChangeProcessor.IsMailExistsAsync(folderMailUid);
-
-                    if (!exists)
-                    {
-                        nonExisttingUniqueIds.Add(searchResultId);
-                    }
+                    searchResultsIdsInFolder.Add(folderMailUid, searchResultId);
                 }
 
-                if (nonExisttingUniqueIds.Any())
+                // Populate no foundIds
+                var foundIds = await _imapChangeProcessor.AreMailsExistsAsync(searchResultsIdsInFolder.Select(a => a.Key));
+                var notFoundIds = searchResultsIdsInFolder.Keys.Except(foundIds);
+
+                List<UniqueId> nonExistingUniqueIds = [];
+                foreach (var nonExistingId in notFoundIds)
+                {
+                    nonExistingUniqueIds.Add(searchResultsIdsInFolder[nonExistingId]);
+                }
+
+                if (nonExistingUniqueIds.Count != 0)
                 {
                     var syncStrategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(client);
-                    await syncStrategy.DownloadMessagesAsync(this, remoteFolder, new UniqueIdSet(nonExisttingUniqueIds, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
+
+                    await syncStrategy.DownloadMessagesAsync(this, remoteFolder, folder as MailItemFolder, new UniqueIdSet(nonExistingUniqueIds, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
                 }
 
-                await remoteFolder.CloseAsync().ConfigureAwait(false);
+                await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
-            foreach (var messageId in searchResultFolderMailUids)
-            {
-                var copy = await _imapChangeProcessor.GetMailCopyAsync(messageId).ConfigureAwait(false);
-
-                if (copy == null) continue;
-
-                searchResults.Add(copy);
-            }
-
-            return searchResults;
+            return await _imapChangeProcessor.GetMailCopiesAsync(searchResultFolderMailUids);
         }
         catch (Exception ex)
         {
@@ -700,8 +696,6 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             _clientPool.Release(client);
         }
-
-        return new List<MailCopy>();
     }
 
     private async Task<IEnumerable<string>> SynchronizeFolderInternalAsync(MailItemFolder folder, CancellationToken cancellationToken = default)

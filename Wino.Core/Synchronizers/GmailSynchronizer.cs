@@ -1021,7 +1021,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         string pageToken = null;
 
-        var messagesToDownload = new List<Message>();
+        List<Message> messagesToDownload = [];
 
         do
         {
@@ -1030,7 +1030,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 // Ignore the folders if the query starts with these keywords.
                 // User is trying to list everything.
             }
-            else if (folders?.Any() ?? false)
+            else if (folders?.Count > 0)
             {
                 request.LabelIds = folders.Select(a => a.RemoteFolderId).ToList();
             }
@@ -1044,49 +1044,23 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             if (response.Messages == null) break;
 
             // Handle skipping manually
-            foreach (var message in response.Messages)
-            {
-                messagesToDownload.Add(message);
-            }
+            messagesToDownload.AddRange(response.Messages);
 
             pageToken = response.NextPageToken;
         } while (!string.IsNullOrEmpty(pageToken));
 
         // Do not download messages that exists, but return them for listing.
 
-        var messageIds = messagesToDownload.Select(a => a.Id).ToList();
+        var messageIds = messagesToDownload.Select(a => a.Id);
 
-        List<string> downloadRequireMessageIds = new();
-
-        foreach (var messageId in messageIds)
-        {
-            var exists = await _gmailChangeProcessor.IsMailExistsAsync(messageId).ConfigureAwait(false);
-
-            if (!exists)
-            {
-                downloadRequireMessageIds.Add(messageId);
-            }
-        }
+        var downloadRequireMessageIds = messageIds.Except(await _gmailChangeProcessor.AreMailsExistsAsync(messageIds));
 
         // Download missing messages.
         await BatchDownloadMessagesAsync(downloadRequireMessageIds, cancellationToken);
 
         // Get results from database and return.
 
-        var searchResults = new List<MailCopy>();
-
-        foreach (var messageId in messageIds)
-        {
-            var copy = await _gmailChangeProcessor.GetMailCopyAsync(messageId).ConfigureAwait(false);
-
-            if (copy == null) continue;
-
-            searchResults.Add(copy);
-        }
-
-        return searchResults;
-
-        // TODO: Return the search result ids.
+        return await _gmailChangeProcessor.GetMailCopiesAsync(messageIds);
     }
 
     public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,

@@ -143,7 +143,7 @@ public class MailService : BaseDatabaseService, IMailService
         return unreadMails;
     }
 
-    private string BuildMailFetchQuery(MailListInitializationOptions options)
+    private static string BuildMailFetchQuery(MailListInitializationOptions options)
     {
         // If the search query is there, we should ignore some properties and trim it.
         //if (!string.IsNullOrEmpty(options.SearchQuery))
@@ -231,7 +231,7 @@ public class MailService : BaseDatabaseService, IMailService
         // Avoid DBs calls as possible, storing info in a dictionary.
         foreach (var mail in mails)
         {
-            await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache).ConfigureAwait(false);
+            await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
         }
 
         // Remove items that has no assigned account or folder.
@@ -244,12 +244,12 @@ public class MailService : BaseDatabaseService, IMailService
             // Threading is disabled. Just return everything as it is.
             mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
 
-            return new List<IMailItem>(mails);
+            return [.. mails];
         }
 
         // Populate threaded items.
 
-        var threadedItems = new List<IMailItem>();
+        List<IMailItem> threadedItems = [];
 
         // Each account items must be threaded separately.
         foreach (var group in mails.GroupBy(a => a.AssignedAccount.Id))
@@ -270,7 +270,7 @@ public class MailService : BaseDatabaseService, IMailService
             foreach (var mail in accountThreadedItems)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache).ConfigureAwait(false);
+                await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
             }
 
             if (accountThreadedItems != null)
@@ -283,76 +283,65 @@ public class MailService : BaseDatabaseService, IMailService
         cancellationToken.ThrowIfCancellationRequested();
 
         return threadedItems;
+    }
 
-        // Recursive function to populate folder and account assignments for each mail item.
-        async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail,
-                                                        Dictionary<Guid, MailItemFolder> folderCache,
-                                                        Dictionary<Guid, MailAccount> accountCache)
+    /// <summary>
+    /// This method should used for operations with multiple mailItems. Don't use this for single mail items.
+    /// Called method should provide own instances for caches.
+    /// </summary>
+    private async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache, Dictionary<string, AccountContact> contactCache)
+    {
+        if (mail is ThreadMailItem threadMailItem)
         {
-            if (mail is ThreadMailItem threadMailItem)
+            foreach (var childMail in threadMailItem.ThreadItems)
             {
-                foreach (var childMail in threadMailItem.ThreadItems)
+                await LoadAssignedPropertiesWithCacheAsync(childMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
+            }
+        }
+
+        if (mail is MailCopy mailCopy)
+        {
+            var isFolderCached = folderCache.TryGetValue(mailCopy.FolderId, out MailItemFolder folderAssignment);
+            MailAccount accountAssignment = null;
+            if (!isFolderCached)
+            {
+                folderAssignment = await _folderService.GetFolderAsync(mailCopy.FolderId).ConfigureAwait(false);
+                folderCache.TryAdd(mailCopy.FolderId, folderAssignment);
+            }
+
+            if (folderAssignment != null)
+            {
+                var isAccountCached = accountCache.TryGetValue(folderAssignment.MailAccountId, out accountAssignment);
+                if (!isAccountCached)
                 {
-                    await LoadAssignedPropertiesWithCacheAsync(childMail, folderCache, accountCache).ConfigureAwait(false);
+                    accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
+
+                    accountCache.TryAdd(folderAssignment.MailAccountId, accountAssignment);
                 }
             }
 
-            if (mail is MailCopy mailCopy)
+            AccountContact contactAssignment = null;
+
+            bool isContactCached = !string.IsNullOrEmpty(mailCopy.FromAddress) &&
+                contactCache.TryGetValue(mailCopy.FromAddress, out contactAssignment);
+
+            if (!isContactCached && accountAssignment != null)
             {
-                MailAccount accountAssignment = null;
+                contactAssignment = await GetSenderContactForAccountAsync(accountAssignment, mailCopy.FromAddress).ConfigureAwait(false);
 
-                var isFolderCached = folderCache.TryGetValue(mailCopy.FolderId, out MailItemFolder folderAssignment);
-                accountAssignment = null;
-                if (!isFolderCached)
+                if (contactAssignment != null)
                 {
-                    folderAssignment = await _folderService.GetFolderAsync(mailCopy.FolderId).ConfigureAwait(false);
-                    if (!folderCache.ContainsKey(mailCopy.FolderId))
-                    {
-                        folderCache.Add(mailCopy.FolderId, folderAssignment);
-                    }
+                    contactCache.TryAdd(mailCopy.FromAddress, contactAssignment);
                 }
-
-                if (folderAssignment != null)
-                {
-                    var isAccountCached = accountCache.TryGetValue(folderAssignment.MailAccountId, out accountAssignment);
-                    if (!isAccountCached)
-                    {
-                        accountAssignment = await _accountService.GetAccountAsync(folderAssignment.MailAccountId).ConfigureAwait(false);
-
-                        if (!accountCache.ContainsKey(folderAssignment.MailAccountId))
-                        {
-                            accountCache.Add(folderAssignment.MailAccountId, accountAssignment);
-                        }
-                    }
-                }
-
-                AccountContact contactAssignment = null;
-
-                bool isContactCached = !string.IsNullOrEmpty(mailCopy.FromAddress) ?
-                    contactCache.TryGetValue(mailCopy.FromAddress, out contactAssignment) :
-                    false;
-
-                if (!isContactCached && accountAssignment != null)
-                {
-                    contactAssignment = await GetSenderContactForAccountAsync(accountAssignment, mailCopy.FromAddress).ConfigureAwait(false);
-
-                    if (contactAssignment != null)
-                    {
-                        if (!contactCache.ContainsKey(mailCopy.FromAddress))
-                        {
-                            contactCache.Add(mailCopy.FromAddress, contactAssignment);
-                        }
-                    }
-                }
-
-                mailCopy.AssignedFolder = folderAssignment;
-                mailCopy.AssignedAccount = accountAssignment;
-                mailCopy.SenderContact = contactAssignment ?? CreateUnknownContact(mailCopy.FromName, mailCopy.FromAddress);
             }
+
+            mailCopy.AssignedFolder = folderAssignment;
+            mailCopy.AssignedAccount = accountAssignment;
+            mailCopy.SenderContact = contactAssignment ?? CreateUnknownContact(mailCopy.FromName, mailCopy.FromAddress);
         }
     }
 
-    private AccountContact CreateUnknownContact(string fromName, string fromAddress)
+    private static AccountContact CreateUnknownContact(string fromName, string fromAddress)
     {
         if (string.IsNullOrEmpty(fromName) && string.IsNullOrEmpty(fromAddress))
         {
@@ -1070,5 +1059,39 @@ public class MailService : BaseDatabaseService, IMailService
         var addedMails = onlineArchiveMailIds.Where(a => !localArchiveMails.Select(b => b.Id).Contains(a)).Distinct().ToArray();
 
         return new GmailArchiveComparisonResult(addedMails, removedMails);
+    }
+
+    public async Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds)
+    {
+        if (!mailCopyIds.Any()) return [];
+
+        var query = new Query("MailCopy")
+                       .WhereIn("MailCopy.Id", mailCopyIds)
+                       .SelectRaw("MailCopy.*")
+                       .GetRawQuery();
+
+        var mailCopies = await Connection.QueryAsync<MailCopy>(query);
+        if (mailCopies?.Count == 0) return [];
+
+        Dictionary<Guid, MailItemFolder> folderCache = [];
+        Dictionary<Guid, MailAccount> accountCache = [];
+        Dictionary<string, AccountContact> contactCache = [];
+
+        foreach (var mail in mailCopies)
+        {
+            await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
+        }
+
+        return mailCopies;
+    }
+
+    public async Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
+    {
+        var query = new Query(nameof(MailCopy))
+                        .WhereIn("Id", mailCopyIds)
+                        .Select("Id")
+                        .GetRawQuery();
+
+        return await Connection.QueryScalarsAsync<string>(query);
     }
 }
