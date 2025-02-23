@@ -86,7 +86,8 @@ public class ServerContext :
 
     private async void SynchronizationTimerTriggered(object sender, System.Timers.ElapsedEventArgs e)
     {
-#if !DEBUG
+        if (Debugger.IsAttached) return;
+
         // Send sync request for all accounts.
 
         var accounts = await _accountService.GetAccountsAsync();
@@ -103,7 +104,6 @@ public class ServerContext :
 
             await ExecuteServerMessageSafeAsync(null, request);
         }
-#endif
     }
 
     #region Message Handlers

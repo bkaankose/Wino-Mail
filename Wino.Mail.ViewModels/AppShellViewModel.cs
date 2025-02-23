@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -241,9 +242,11 @@ public partial class AppShellViewModel : MailBaseViewModel,
         await RecreateMenuItemsAsync();
         await ProcessLaunchOptionsAsync();
 
-#if !DEBUG
-        await ForceAllAccountSynchronizationsAsync();
-#endif
+        if (!Debugger.IsAttached)
+        {
+            await ForceAllAccountSynchronizationsAsync();
+        }
+
         await MakeSureEnableStartupLaunchAsync();
         await ConfigureBackgroundTasksAsync();
     }
