@@ -673,7 +673,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 if (nonExistingUniqueIds.Count != 0)
                 {
                     var syncStrategy = _imapSynchronizationStrategyProvider.GetSynchronizationStrategy(client);
-                    await syncStrategy.DownloadMessagesAsync(this, remoteFolder, new UniqueIdSet(nonExistingUniqueIds, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
+
+                    await syncStrategy.DownloadMessagesAsync(this, remoteFolder, folder as MailItemFolder, new UniqueIdSet(nonExistingUniqueIds, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
                 }
 
                 await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);

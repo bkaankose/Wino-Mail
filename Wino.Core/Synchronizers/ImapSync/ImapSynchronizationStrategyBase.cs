@@ -84,18 +84,12 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
         // Fetch the new mails in batch.
 
         var batchedMessageIds = newMessageIds.Batch(50).ToList();
-        var downloadTasks = new List<Task>();
-
         // Create tasks for each batch.
         foreach (var group in batchedMessageIds)
         {
             downloadedMessageIds.AddRange(group.Select(a => MailkitClientExtensions.CreateUid(Folder.Id, a.Id)));
-            var task = DownloadMessagesAsync(synchronizer, remoteFolder, new UniqueIdSet(group), cancellationToken);
-            downloadTasks.Add(task);
+            await DownloadMessagesAsync(synchronizer, remoteFolder, Folder, new UniqueIdSet(group), cancellationToken).ConfigureAwait(false);
         }
-
-        // Wait for all batches to complete.
-        await Task.WhenAll(downloadTasks).ConfigureAwait(false);
 
         return downloadedMessageIds;
     }
@@ -167,6 +161,7 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
 
     public async Task DownloadMessagesAsync(IImapSynchronizer synchronizer,
                                             IMailFolder folder,
+                                            MailItemFolder localFolder,
                                             UniqueIdSet uniqueIdSet,
                                             CancellationToken cancellationToken = default)
     {
@@ -178,7 +173,7 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
 
             var creationPackage = new ImapMessageCreationPackage(summary, mimeMessage);
 
-            var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, Folder, cancellationToken).ConfigureAwait(false);
+            var mailPackages = await synchronizer.CreateNewMailPackagesAsync(creationPackage, localFolder, cancellationToken).ConfigureAwait(false);
 
             if (mailPackages != null)
             {
@@ -187,7 +182,7 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
                     // Local draft is mapped. We don't need to create a new mail copy.
                     if (package == null) continue;
 
-                    await MailService.CreateMailAsync(Folder.MailAccountId, package).ConfigureAwait(false);
+                    await MailService.CreateMailAsync(localFolder.MailAccountId, package).ConfigureAwait(false);
                 }
             }
         }
