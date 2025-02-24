@@ -967,12 +967,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
-        bool isFoldersIncluded = folders?.Any() ?? false;
-
-        var messagesToDownload = new List<Message>();
+        List<Message> messagesReturnedByApi = [];
 
         // Perform search for each folder separately.
-        if (isFoldersIncluded)
+        if (folders?.Count > 0)
         {
             var folderIds = folders.Select(a => a.RemoteFolderId);
 
@@ -990,9 +988,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 if (result?.Value != null)
                 {
-                    lock (messagesToDownload)
+                    lock (messagesReturnedByApi)
                     {
-                        messagesToDownload.AddRange(result.Value);
+                        messagesReturnedByApi.AddRange(result.Value);
                     }
                 }
             });
@@ -1008,59 +1006,60 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     requestConfig.QueryParameters.Search = $"\"{queryText}\"";
                     requestConfig.QueryParameters.Select = ["Id, ParentFolderId"];
                     requestConfig.QueryParameters.Top = 1000;
-                });
+                }, cancellationToken);
 
             var result = await mailQuery;
 
             if (result?.Value != null)
             {
-                lock (messagesToDownload)
-                {
-                    messagesToDownload.AddRange(result.Value);
-                }
+                messagesReturnedByApi.AddRange(result.Value);
             }
         }
 
-        // Do not download messages that exists, but return them for listing.
+        if (messagesReturnedByApi.Count == 0) return [];
 
-        var localFolders = await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var localFolders = (await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false))
+            .ToDictionary(x => x.RemoteFolderId);
 
-        var existingMessageIds = new List<string>();
+        var messagesDictionary = messagesReturnedByApi.ToDictionary(a => a.Id);
 
-        //Download missing messages.
-        foreach (var message in messagesToDownload)
+        // Contains a list of message ids that potentially can be downloaded.
+        List<string> messageIdsWithKnownFolder = [];
+
+        // Validate that all messages are in a known folder.
+        foreach (var message in messagesReturnedByApi)
         {
-            var messageId = message.Id;
-            var parentFolderId = message.ParentFolderId;
-
-            if (!localFolders.Any(a => a.RemoteFolderId == parentFolderId))
+            if (!localFolders.ContainsKey(message.ParentFolderId))
             {
-                Log.Warning($"Search result returned a message from a folder that is not synchronized.");
+                Log.Warning("Search result returned a message from a folder that is not synchronized.");
                 continue;
             }
 
-            existingMessageIds.Add(messageId);
+            messageIdsWithKnownFolder.Add(message.Id);
+        }
 
-            var exists = await _outlookChangeProcessor.IsMailExistsAsync(messageId).ConfigureAwait(false);
+        var locallyExistingMails = await _outlookChangeProcessor.AreMailsExistsAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
 
-            if (!exists)
-            {
-                // Check if folder exists. We can't download a mail without existing folder.
+        // Find messages that are not downloaded yet.
+        List<Message> messagesToDownload = [];
+        foreach (var id in messagesDictionary.Keys.Except(locallyExistingMails))
+        {
+            messagesToDownload.Add(messagesDictionary[id]);
+        }
 
-                var localFolder = localFolders.Find(a => a.RemoteFolderId == parentFolderId);
-
-                await DownloadSearchResultMessageAsync(messageId, localFolder, cancellationToken).ConfigureAwait(false);
-            }
+        foreach (var message in messagesToDownload)
+        {
+            await DownloadSearchResultMessageAsync(message.Id, localFolders[message.ParentFolderId], cancellationToken).ConfigureAwait(false);
         }
 
         // Get results from database and return.
-        return await _outlookChangeProcessor.GetMailCopiesAsync(existingMessageIds);
+        return await _outlookChangeProcessor.GetMailCopiesAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
     }
 
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
     {
         var mimeContentStream = await _graphClient.Me.Messages[messageId].Content.GetAsync(null, cancellationToken).ConfigureAwait(false);
-        return await MimeMessage.LoadAsync(mimeContentStream).ConfigureAwait(false);
+        return await MimeMessage.LoadAsync(mimeContentStream, cancellationToken).ConfigureAwait(false);
     }
 
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)

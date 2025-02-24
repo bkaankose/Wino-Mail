@@ -40,16 +40,6 @@ public interface IDefaultChangeProcessor
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
     Task UpdateFolderLastSyncDateAsync(Guid folderId);
     Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases);
-
-    /// <summary>
-    /// Interrupted initial synchronization may cause downloaded mails to be saved in the database twice.
-    /// Since downloading mime is costly in Outlook, we need to check if the actual copy of the message has been saved before.
-    /// This is also used in online search to prevent duplicate mails.
-    /// </summary>
-    /// <param name="messageId">MailCopyId of the message.</param>
-    /// <returns>Whether mail exists or not.</returns>
-    Task<bool> IsMailExistsAsync(string messageId);
-
     // Calendar
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
 
@@ -60,7 +50,6 @@ public interface IDefaultChangeProcessor
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
-    Task<MailCopy> GetMailCopyAsync(string mailCopyId);
     Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
     Task DeleteUserMailCacheAsync(Guid accountId);
@@ -138,14 +127,8 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
         => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);
 
-    public Task<bool> IsMailExistsAsync(string messageId)
-        => MailService.IsMailExistsAsync(messageId);
-
     public Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
         => MailService.AreMailsExistsAsync(mailCopyIds);
-
-    public Task<MailCopy> GetMailCopyAsync(string mailCopyId)
-        => MailService.GetSingleMailItemAsync(mailCopyId);
 
     public Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds)
         => MailService.GetMailItemsAsync(mailCopyIds);
