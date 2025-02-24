@@ -708,7 +708,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         await Task.WhenAll(batchProcessCallbacks).ConfigureAwait(false);
 
         // Try to update max history id.
-        var maxHistoryId = batchProcessCallbacks.Select(a => a.Result).Where(a => a.HistoryId != null).Max(a => a.HistoryId.Value);
+        var maxHistoryId = batchProcessCallbacks.Select(a => a.Result).Where(a => a?.HistoryId != null).Max(a => a.HistoryId.Value);
 
         if (maxHistoryId != 0)
         {
