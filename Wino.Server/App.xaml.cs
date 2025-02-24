@@ -31,10 +31,10 @@ namespace Wino.Server;
 /// </summary>
 public partial class App : Application
 {
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
 
-    [DllImport("user32.dll", SetLastError = true)]
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     private const string FRAME_WINDOW = "ApplicationFrameWindow";
@@ -54,13 +54,13 @@ public partial class App : Application
 
     public WinoAppType WinoServerType { get; private set; }
 
-    private TaskbarIcon? notifyIcon;
+    private TaskbarIcon? _notifyIcon;
     private static Mutex _mutex = null;
     private EventWaitHandle _eventWaitHandle;
 
     public IServiceProvider Services { get; private set; }
 
-    private IServiceProvider ConfigureServices()
+    private ServiceProvider ConfigureServices()
     {
         var services = new ServiceCollection();
 
@@ -150,8 +150,6 @@ public partial class App : Application
     {
         string processName = WinoServerType == WinoAppType.Mail ? "Wino.Mail" : "Wino.Calendar";
 
-        var processs = Process.GetProcesses();
-
         var proc = Process.GetProcessesByName(processName).FirstOrDefault() ?? throw new Exception($"{processName} client is not running.");
 
         for (IntPtr appWindow = FindWindowEx(IntPtr.Zero, IntPtr.Zero, FRAME_WINDOW, null); appWindow != IntPtr.Zero;
@@ -160,7 +158,10 @@ public partial class App : Application
             IntPtr coreWindow = FindWindowEx(appWindow, IntPtr.Zero, "Windows.UI.Core.CoreWindow", null);
             if (coreWindow != IntPtr.Zero)
             {
-                GetWindowThreadProcessId(coreWindow, out var corePid);
+                if (GetWindowThreadProcessId(coreWindow, out var corePid) == 0)
+                {
+                    throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                }
                 if (corePid == proc.Id)
                 {
                     return appWindow;
@@ -175,7 +176,7 @@ public partial class App : Application
     {
         // Same server code runs for both Mail and Calendar.
 
-        string winoAppTypeParameter = e.Args.Length > 0 ? e.Args[e.Args.Length - 1] : "Mail";
+        string winoAppTypeParameter = e.Args.Length > 0 ? e.Args[^1] : "Mail";
 
         WinoServerType = winoAppTypeParameter == "Mail" ? WinoAppType.Mail : WinoAppType.Calendar;
 
@@ -201,20 +202,21 @@ public partial class App : Application
             {
                 while (_eventWaitHandle.WaitOne())
                 {
-                    if (notifyIcon == null) return;
+                    if (_notifyIcon == null) return;
 
                     Current.Dispatcher.BeginInvoke(async () =>
                     {
-                        if (notifyIcon.DataContext is ServerViewModel trayIconViewModel)
+                        if (_notifyIcon.DataContext is ServerViewModel trayIconViewModel)
                         {
                             await trayIconViewModel.ReconnectAsync();
                         }
                     });
                 }
-            });
-
-            // It is important mark it as background otherwise it will prevent app from exiting.
-            thread.IsBackground = true;
+            })
+            {
+                // It is important mark it as background otherwise it will prevent app from exiting.
+                IsBackground = true
+            };
             thread.Start();
 
             Services = ConfigureServices();
@@ -224,9 +226,9 @@ public partial class App : Application
             var serverViewModel = await InitializeNewServerAsync();
 
             // Create taskbar icon for the new server.
-            notifyIcon = (TaskbarIcon)FindResource(NotifyIconResourceKey);
-            notifyIcon.DataContext = serverViewModel;
-            notifyIcon.ForceCreate(enablesEfficiencyMode: true);
+            _notifyIcon = (TaskbarIcon)FindResource(NotifyIconResourceKey);
+            _notifyIcon.DataContext = serverViewModel;
+            _notifyIcon.ForceCreate(enablesEfficiencyMode: true);
 
             // Hide the icon if user has set it to invisible.
             var preferencesService = Services.GetService<IPreferencesService>();
@@ -250,17 +252,17 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        notifyIcon?.Dispose();
+        _notifyIcon?.Dispose();
         base.OnExit(e);
     }
 
     public void ChangeNotifyIconVisiblity(bool isVisible)
     {
-        if (notifyIcon == null) return;
+        if (_notifyIcon == null) return;
 
         Current.Dispatcher.BeginInvoke(() =>
         {
-            notifyIcon.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+            _notifyIcon.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
         });
     }
 }
