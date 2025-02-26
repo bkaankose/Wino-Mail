@@ -59,6 +59,9 @@ public class MailService : BaseDatabaseService, IMailService
 
         var draftFolder = await _folderService.GetSpecialFolderByAccountIdAsync(composerAccount.Id, SpecialFolderType.Draft);
 
+        if (draftFolder == null)
+            throw new UnavailableSpecialFolderException(SpecialFolderType.Draft, accountId);
+
         // Get locally created unique id from the mime headers.
         // This header will be used to map the local draft copy with the remote draft copy.
         var mimeUniqueId = createdDraftMimeMessage.Headers[Constants.WinoLocalDraftHeader];
