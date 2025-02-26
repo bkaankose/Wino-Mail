@@ -58,7 +58,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private IObservable<System.Reactive.EventPattern<NotifyCollectionChangedEventArgs>> selectionChangedObservable = null;
 
-    public WinoMailCollection MailCollection { get; } = new WinoMailCollection();
+    public WinoMailCollection MailCollection { get; }
 
     public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
     public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
@@ -163,6 +163,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoLogger winoLogger,
                                  IWinoServerConnectionManager winoServerConnectionManager)
     {
+        MailCollection = new WinoMailCollection(threadingStrategyProvider);
         PreferencesService = preferencesService;
         ThemeService = themeService;
         _winoLogger = winoLogger;

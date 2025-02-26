@@ -49,8 +49,11 @@ public class WinoMailCollection
 
     public IDispatcher CoreDispatcher { get; set; }
 
-    public WinoMailCollection()
+    private readonly ThreadingManager _threadingManager;
+
+    public WinoMailCollection(IThreadingStrategyProvider threadingStrategyProvider)
     {
+        _threadingManager = new ThreadingManager(threadingStrategyProvider);
         MailItems = new ReadOnlyObservableGroupedCollection<object, IMailItem>(_mailItemSource);
     }
 
@@ -111,143 +114,109 @@ public class WinoMailCollection
         }
     }
 
+    private async Task HandleThreadingAsync(ObservableGroup<object, IMailItem> group, IMailItem item, MailCopy addedItem)
+    {
+        if (item is ThreadMailItemViewModel threadViewModel)
+        {
+            await HandleExistingThreadAsync(group, threadViewModel, addedItem);
+        }
+        else
+        {
+            await HandleNewThreadAsync(group, item, addedItem);
+        }
+    }
+
+    private async Task HandleExistingThreadAsync(ObservableGroup<object, IMailItem> group, ThreadMailItemViewModel threadViewModel, MailCopy addedItem)
+    {
+        var existingGroupKey = GetGroupingKey(threadViewModel);
+        
+        await ExecuteUIThread(() => { threadViewModel.AddMailItemViewModel(addedItem); });
+
+        var newGroupKey = GetGroupingKey(threadViewModel);
+        
+        if (!existingGroupKey.Equals(newGroupKey))
+        {
+            await MoveThreadToNewGroupAsync(group, threadViewModel, newGroupKey);
+        }
+        else
+        {
+            await ExecuteUIThread(() => { threadViewModel.NotifyPropertyChanges(); });
+        }
+
+        UpdateUniqueIdHashes(addedItem, true);
+    }
+
+    private async Task HandleNewThreadAsync(ObservableGroup<object, IMailItem> group, IMailItem item, MailCopy addedItem)
+    {
+        if (item.Id == addedItem.Id)
+        {
+            await UpdateExistingItemAsync(item, addedItem);
+        }
+        else
+        {
+            await CreateNewThreadAsync(group, item, addedItem);
+        }
+    }
+
+    private async Task MoveThreadToNewGroupAsync(ObservableGroup<object, IMailItem> currentGroup, ThreadMailItemViewModel threadViewModel, object newGroupKey)
+    {
+        var mailThreadItems = threadViewModel.GetThreadMailItem();
+
+        await ExecuteUIThread(() =>
+        {
+            RemoveItemInternal(currentGroup, threadViewModel);
+            InsertItemInternal(newGroupKey, new ThreadMailItemViewModel(mailThreadItems));
+        });
+    }
+
+    private async Task CreateNewThreadAsync(ObservableGroup<object, IMailItem> group, IMailItem item, MailCopy addedItem)
+    {
+        var threadMailItem = _threadingManager.CreateNewThread(item, addedItem);
+        var newGroupKey = GetGroupingKey(threadMailItem);
+
+        await ExecuteUIThread(() =>
+        {
+            RemoveItemInternal(group, item);
+            InsertItemInternal(newGroupKey, threadMailItem);
+        });
+    }
+
     public async Task AddAsync(MailCopy addedItem)
     {
-        // Check all items for whether this item should be threaded with them.
-        bool shouldExit = false;
-
-        var groupCount = _mailItemSource.Count;
-
-        var addedAccountProviderType = addedItem.AssignedAccount.ProviderType;
-        var threadingStrategy = ThreadingStrategyProvider?.GetStrategy(addedAccountProviderType);
-
-        for (int i = 0; i < groupCount; i++)
+        foreach (var group in _mailItemSource)
         {
-            if (shouldExit) break;
-
-            var group = _mailItemSource[i];
-
-            for (int k = 0; k < group.Count; k++)
+            foreach (var item in group)
             {
-                var item = group[k];
-
-                if (threadingStrategy?.ShouldThreadWithItem(addedItem, item) ?? false)
+                if (_threadingManager.ShouldThread(addedItem, item))
                 {
-                    shouldExit = true;
-
-                    if (item is ThreadMailItemViewModel threadMailItemViewModel)
-                    {
-                        // Item belongs to existing thread.
-
-                        /* Add original item to the thread.
-                         * If new group key is not the same as existing thread:
-                         * -> Remove the whole thread from list
-                         * -> Add the thread to the list again for sorting.
-                         * Update thread properties.
-                         */
-
-                        var existingGroupKey = GetGroupingKey(threadMailItemViewModel);
-
-                        await ExecuteUIThread(() => { threadMailItemViewModel.AddMailItemViewModel(addedItem); });
-
-                        var newGroupKey = GetGroupingKey(threadMailItemViewModel);
-
-                        if (!existingGroupKey.Equals(newGroupKey))
-                        {
-                            var mailThreadItems = threadMailItemViewModel.GetThreadMailItem();
-
-                            await ExecuteUIThread(() =>
-                            {
-                                // Group must be changed for this thread.
-                                // Remove the thread first.
-
-                                RemoveItemInternal(group, threadMailItemViewModel);
-
-                                // Insert new view model because the previous one might've been deleted with the group.
-                                InsertItemInternal(newGroupKey, new ThreadMailItemViewModel(mailThreadItems));
-                            });
-                        }
-                        else
-                        {
-                            await ExecuteUIThread(() => { threadMailItemViewModel.NotifyPropertyChanges(); });
-                        }
-
-                        UpdateUniqueIdHashes(addedItem, true);
-
-                        break;
-                    }
-                    else
-                    {
-                        // Item belongs to a single mail item that is not threaded yet.
-                        // Same item might've been tried to added as well.
-                        // In that case we must just update the item but not thread it.
-
-                        /* Remove target item.
-                         * Create a new thread with both items.
-                         * Add new thread to the list.
-                         */
-
-                        if (item.Id == addedItem.Id)
-                        {
-                            // Item is already added to the list.
-                            // We need to update the copy it holds.
-
-                            if (item is MailItemViewModel itemViewModel)
-                            {
-                                await ExecuteUIThread(() => { itemViewModel.MailCopy = addedItem; });
-
-                                UpdateUniqueIdHashes(itemViewModel, false);
-                                UpdateUniqueIdHashes(addedItem, true);
-                            }
-                        }
-                        else
-                        {
-                            // Single item that must be threaded together with added item.
-
-                            var threadMailItem = new ThreadMailItem();
-
-                            await ExecuteUIThread(() =>
-                            {
-                                threadMailItem.AddThreadItem(item);
-                                threadMailItem.AddThreadItem(addedItem);
-
-                                if (threadMailItem.ThreadItems.Count == 1) return;
-
-                                var newGroupKey = GetGroupingKey(threadMailItem);
-
-                                RemoveItemInternal(group, item);
-                                InsertItemInternal(newGroupKey, threadMailItem);
-                            });
-                        }
-
-                        break;
-                    }
+                    await HandleThreadingAsync(group, item, addedItem);
+                    return;
                 }
-                else
+                else if (item.Id == addedItem.Id && item is MailItemViewModel itemViewModel)
                 {
-                    // Update properties.
-                    if (item.Id == addedItem.Id && item is MailItemViewModel itemViewModel)
-                    {
-                        UpdateUniqueIdHashes(itemViewModel, false);
-                        UpdateUniqueIdHashes(addedItem, true);
-
-                        await ExecuteUIThread(() => { itemViewModel.MailCopy = addedItem; });
-
-                        shouldExit = true;
-                    }
+                    await UpdateExistingItemAsync(itemViewModel, addedItem);
+                    return;
                 }
             }
         }
 
-        if (!shouldExit)
+        await AddNewItemAsync(addedItem);
+    }
+
+    private async Task AddNewItemAsync(MailCopy addedItem)
+    {
+        var groupKey = GetGroupingKey(addedItem);
+        await ExecuteUIThread(() => { InsertItemInternal(groupKey, addedItem); });
+    }
+
+    private async Task UpdateExistingItemAsync(IMailItem existingItem, MailCopy updatedItem)
+    {
+        if (existingItem is MailItemViewModel itemViewModel)
         {
-            // At this point all items are already checked and not suitable option was available.
-            // Item doesn't belong to any thread.
-            // Just add it to the collection.
+            UpdateUniqueIdHashes(itemViewModel, false);
+            UpdateUniqueIdHashes(updatedItem, true);
 
-            var groupKey = GetGroupingKey(addedItem);
-
-            await ExecuteUIThread(() => { InsertItemInternal(groupKey, addedItem); });
+            await ExecuteUIThread(() => { itemViewModel.MailCopy = updatedItem; });
         }
     }
 
