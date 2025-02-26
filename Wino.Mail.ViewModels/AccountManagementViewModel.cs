@@ -115,6 +115,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 };
 
                 await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
+                await Task.Delay(500);
 
                 creationDialog.State = AccountCreationDialogState.SigningIn;
 
@@ -240,7 +241,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 var folderSynchronizationResult = folderSynchronizationResponse.Data;
 
                 if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                    throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
+                    throw new Exception($"{Translator.Exception_FailedToSynchronizeFolders}\n{folderSynchronizationResponse.Message}");
 
                 // Sync aliases if supported.
                 if (createdAccount.IsAliasSyncSupported)
@@ -274,7 +275,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success);
             }
         }
-        catch (GmailServiceDisabledException)
+        catch (Exception ex) when (ex.Message.Contains(nameof(GmailServiceDisabledException)))
         {
             // For Google Workspace accounts, Gmail API might be disabled by the admin.
             // Wino can't continue synchronization in this case.
