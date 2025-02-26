@@ -42,7 +42,10 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
     public abstract Task<List<string>> HandleSynchronizationAsync(IImapClient client, MailItemFolder folder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default);
     internal abstract Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default);
 
-    protected async Task<List<string>> HandleChangedUIdsAsync(IImapSynchronizer synchronizer, IMailFolder remoteFolder, IList<UniqueId> changedUids, CancellationToken cancellationToken)
+    protected async Task<List<string>> HandleChangedUIdsAsync(IImapSynchronizer synchronizer,
+                                                              IMailFolder remoteFolder,
+                                                              IList<UniqueId> changedUids,
+                                                              CancellationToken cancellationToken)
     {
         List<string> downloadedMessageIds = new();
 
@@ -88,7 +91,8 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
         foreach (var group in batchedMessageIds)
         {
             downloadedMessageIds.AddRange(group.Select(a => MailkitClientExtensions.CreateUid(Folder.Id, a.Id)));
-            await DownloadMessagesAsync(synchronizer, remoteFolder, Folder, new UniqueIdSet(group), cancellationToken).ConfigureAwait(false);
+
+            await DownloadMessagesAsync(synchronizer, remoteFolder, Folder, new UniqueIdSet(group, SortOrder.Ascending), cancellationToken).ConfigureAwait(false);
         }
 
         return downloadedMessageIds;
