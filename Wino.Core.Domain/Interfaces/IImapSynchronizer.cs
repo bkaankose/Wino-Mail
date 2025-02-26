@@ -13,4 +13,5 @@ public interface IImapSynchronizer
     Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(ImapMessageCreationPackage message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default);
     Task StartIdleClientAsync();
     Task StopIdleClientAsync();
+    Task PreWarmClientPoolAsync();
 }
