@@ -89,6 +89,9 @@ public class SynchronizerFactory : ISynchronizerFactory
         {
             // Start the idle client for IMAP synchronizer.
             _ = imapSynchronizer.StartIdleClientAsync();
+
+            // Pre-warm the client pool for IMAP synchronizer.
+            _ = imapSynchronizer.PreWarmClientPoolAsync();
         }
 
         synchronizerCache.Add(synchronizer);
