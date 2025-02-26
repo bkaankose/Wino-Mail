@@ -518,6 +518,12 @@ public class AccountService : BaseDatabaseService, IAccountService
             ShouldAppendMessagesToSentFolder = false
         };
 
+        // iCloud does not appends sent messages to sent folder automatically.
+        if (account.SpecialImapProvider == SpecialImapProvider.iCloud || account.SpecialImapProvider == SpecialImapProvider.Yahoo)
+        {
+            preferences.ShouldAppendMessagesToSentFolder = true;
+        }
+
         account.Preferences = preferences;
 
         // Outlook & Office 365 supports Focused inbox. Enabled by default.
