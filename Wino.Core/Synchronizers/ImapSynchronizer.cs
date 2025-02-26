@@ -125,7 +125,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
 
             await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
-            await remoteFolder.StoreAsync(GetUniqueId(request.Item.Id), new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true }).ConfigureAwait(false);
+            await remoteFolder.AddFlagsAsync(GetUniqueId(request.Item.Id), MessageFlags.Deleted, true);
             await remoteFolder.ExpungeAsync().ConfigureAwait(false);
             await remoteFolder.CloseAsync().ConfigureAwait(false);
         }, requests);
@@ -197,9 +197,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var folder = await client.GetFolderAsync(draftFolder.RemoteFolderId);
 
             await folder.OpenAsync(FolderAccess.ReadWrite);
-
-            var notUpdatedIds = await folder.StoreAsync(new UniqueId(MailkitClientExtensions.ResolveUid(singleRequest.MailItem.Id)), new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true });
-
+            await folder.AddFlagsAsync(new UniqueId(MailkitClientExtensions.ResolveUid(singleRequest.MailItem.Id)), MessageFlags.Deleted, true);
             await folder.ExpungeAsync();
             await folder.CloseAsync();
 
@@ -881,4 +879,6 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         // Make sure the client pool safely disconnects all ImapClients.
         _clientPool.Dispose();
     }
+
+    public Task PreWarmClientPoolAsync() => _clientPool.PreWarmPoolAsync();
 }
