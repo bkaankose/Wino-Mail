@@ -7,7 +7,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MailKit;
+using System.Timers;
 using MailKit.Net.Imap;
 using MailKit.Net.Proxy;
 using MailKit.Security;
@@ -20,7 +20,6 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Models.Connectivity;
 
 namespace Wino.Core.Integration;
-
 /// <summary>
 /// Provides a pooling mechanism for ImapClient.
 /// Makes sure that we don't have too many connections to the server.
@@ -34,7 +33,6 @@ public class ImapClientPool : IDisposable
     // We don't expose any customer data here. Therefore it's safe for now.
     // Later on maybe we can make it configurable and leave it to the user with passing
     // real implementation details.
-
     private readonly ImapImplementation _implementation = new()
     {
         Version = "1.8.0",
@@ -46,16 +44,19 @@ public class ImapClientPool : IDisposable
 
     public bool ThrowOnSSLHandshakeCallback { get; set; }
     public ImapClientPoolOptions ImapClientPoolOptions { get; }
-    internal WinoImapClient IdleClient { get; set; }
 
+    private bool _disposedValue;
     private readonly int MinimumPoolSize = 5;
-
-    private readonly ConcurrentStack<IImapClient> _clients = [];
+    private readonly ConcurrentStack<IImapClient> _clients = new();
     private readonly SemaphoreSlim _semaphore;
     private readonly CustomServerInformation _customServerInformation;
     private readonly Stream _protocolLogStream;
     private readonly ILogger _logger = Log.ForContext<ImapClientPool>();
-    private bool _disposedValue;
+    private readonly System.Timers.Timer _keepAliveTimer;
+    private readonly System.Timers.Timer _connectionMonitorTimer;
+
+    private const int KeepAliveInterval = 4 * 60 * 1000; // 4 minutes
+    private const int ConnectionMonitorInterval = 30 * 1000; // 30 seconds
 
     public ImapClientPool(ImapClientPoolOptions imapClientPoolOptions)
     {
@@ -67,19 +68,93 @@ public class ImapClientPool : IDisposable
 
         CryptographyContext.Register(typeof(WindowsSecureMimeContext));
         ImapClientPoolOptions = imapClientPoolOptions;
+
+        _keepAliveTimer = new System.Timers.Timer(KeepAliveInterval);
+        _connectionMonitorTimer = new System.Timers.Timer(ConnectionMonitorInterval);
+
+        _keepAliveTimer.Elapsed += KeepAliveTimerElapsed;
+        _connectionMonitorTimer.Elapsed += ConnectionMonitorTimerElapsed;
+    }
+
+    public async Task PreWarmPoolAsync()
+    {
+        try
+        {
+            for (int i = 0; i < MinimumPoolSize; i++)
+            {
+                var client = CreateNewClient();
+                await EnsureCapabilitiesAsync(client, true);
+                _clients.Push(client);
+            }
+
+            // Start monitoring timers after pool is warmed
+            _keepAliveTimer.Start();
+            _connectionMonitorTimer.Start();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to pre-warm client pool");
+        }
+    }
+
+    private async void KeepAliveTimerElapsed(object sender, ElapsedEventArgs e)
+    {
+        foreach (var client in _clients)
+        {
+            try
+            {
+                if (client.IsConnected && !((WinoImapClient)client).IsBusy())
+                {
+                    await SendNoOpAsync(client);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to send NOOP to client");
+            }
+        }
+    }
+
+    private async void ConnectionMonitorTimerElapsed(object sender, ElapsedEventArgs e)
+    {
+        foreach (var client in _clients)
+        {
+            try
+            {
+                if (!client.IsConnected && !((WinoImapClient)client).IsBusy())
+                {
+                    await EnsureCapabilitiesAsync(client, false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to reconnect client");
+            }
+        }
+    }
+
+    private async Task SendNoOpAsync(IImapClient client)
+    {
+        try
+        {
+            await client.NoOpAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "NOOP command failed");
+        }
     }
 
     /// <summary>
     /// Ensures all supported capabilities are enabled in this connection.
     /// Reconnects and reauthenticates if necessary.
-    /// </summary>
+    /// </summary>            
     /// <param name="isCreatedNew">Whether the client has been newly created.</param>
     private async Task EnsureCapabilitiesAsync(IImapClient client, bool isCreatedNew)
     {
         try
         {
             bool isReconnected = await EnsureConnectedAsync(client);
-
             bool mustDoPostAuthIdentification = false;
 
             if ((isCreatedNew || isReconnected) && client.IsConnected)
@@ -118,7 +193,6 @@ public class ImapClientPool : IDisposable
                 if (client.Capabilities.HasFlag(ImapCapabilities.QuickResync))
                 {
                     await client.EnableQuickResyncAsync().ConfigureAwait(false);
-
                     if (client is WinoImapClient winoImapClient) winoImapClient.IsQResyncEnabled = true;
                 }
             }
@@ -180,8 +254,6 @@ public class ImapClientPool : IDisposable
                         item.Disconnect(quit: true);
                     }
                 }
-
-                _clients.TryPop(out _);
                 item.Dispose();
             }
             else if (!_disposedValue)
@@ -197,11 +269,7 @@ public class ImapClientPool : IDisposable
     {
         WinoImapClient client = null;
 
-        // Make sure to create a ImapClient with a protocol logger if enabled.
-
-        client = _protocolLogStream != null
-            ? new WinoImapClient(new ProtocolLogger(_protocolLogStream))
-            : new WinoImapClient();
+        client = new WinoImapClient();
 
         HttpProxyClient proxyClient = null;
 
@@ -209,9 +277,8 @@ public class ImapClientPool : IDisposable
         if (!string.IsNullOrEmpty(_customServerInformation.ProxyServer))
         {
             proxyClient = new HttpProxyClient(_customServerInformation.ProxyServer, int.Parse(_customServerInformation.ProxyServerPort));
+            client.ProxyClient = proxyClient;
         }
-
-        client.ProxyClient = proxyClient;
 
         _logger.Debug("Creating new ImapClient. Current clients: {Count}", _clients.Count);
 
@@ -256,13 +323,43 @@ public class ImapClientPool : IDisposable
         }
 
         return true;
-
     }
+
+    public async Task EnsureAuthenticatedAsync(IImapClient client)
+    {
+        if (client.IsAuthenticated) return;
+
+        var cred = new NetworkCredential(_customServerInformation.IncomingServerUsername, _customServerInformation.IncomingServerPassword);
+        var prefferedAuthenticationMethod = _customServerInformation.IncomingAuthenticationMethod;
+
+        if (prefferedAuthenticationMethod != ImapAuthenticationMethod.Auto)
+        {
+            // Anything beside Auto must be explicitly set for the client.
+            client.AuthenticationMechanisms.Clear();
+            var saslMechanism = GetSASLAuthenticationMethodName(prefferedAuthenticationMethod);
+            client.AuthenticationMechanisms.Add(saslMechanism);
+            await client.AuthenticateAsync(SaslMechanism.Create(saslMechanism, cred));
+        }
+        else
+        {
+            await client.AuthenticateAsync(cred);
+        }
+    }
+
+    private string GetSASLAuthenticationMethodName(ImapAuthenticationMethod method)
+        => method switch
+        {
+            ImapAuthenticationMethod.NormalPassword => "PLAIN",
+            ImapAuthenticationMethod.EncryptedPassword => "LOGIN",
+            ImapAuthenticationMethod.Ntlm => "NTLM",
+            ImapAuthenticationMethod.CramMd5 => "CRAM-MD5",
+            ImapAuthenticationMethod.DigestMd5 => "DIGEST-MD5",
+            _ => "PLAIN"
+        };
 
     private void WriteToProtocolLog(string message)
     {
         if (_protocolLogStream == null) return;
-
         try
         {
             var messageBytes = Encoding.UTF8.GetBytes($"W: {message}\n");
@@ -274,7 +371,6 @@ public class ImapClientPool : IDisposable
         }
         catch (Exception)
         {
-
             throw;
         }
     }
@@ -293,66 +389,28 @@ public class ImapClientPool : IDisposable
         return true;
     }
 
-    public async Task EnsureAuthenticatedAsync(IImapClient client)
-    {
-        if (client.IsAuthenticated) return;
-
-        var cred = new NetworkCredential(_customServerInformation.IncomingServerUsername, _customServerInformation.IncomingServerPassword);
-        var prefferedAuthenticationMethod = _customServerInformation.IncomingAuthenticationMethod;
-
-        if (prefferedAuthenticationMethod != ImapAuthenticationMethod.Auto)
-        {
-            // Anything beside Auto must be explicitly set for the client.
-            client.AuthenticationMechanisms.Clear();
-
-            var saslMechanism = GetSASLAuthenticationMethodName(prefferedAuthenticationMethod);
-
-            client.AuthenticationMechanisms.Add(saslMechanism);
-            var mechanism = SaslMechanism.Create(saslMechanism, cred);
-
-            await client.AuthenticateAsync(SaslMechanism.Create(saslMechanism, cred));
-        }
-        else
-        {
-            await client.AuthenticateAsync(cred);
-        }
-    }
-
-    private string GetSASLAuthenticationMethodName(ImapAuthenticationMethod method)
-    {
-        return method switch
-        {
-            ImapAuthenticationMethod.NormalPassword => "PLAIN",
-            ImapAuthenticationMethod.EncryptedPassword => "LOGIN",
-            ImapAuthenticationMethod.Ntlm => "NTLM",
-            ImapAuthenticationMethod.CramMd5 => "CRAM-MD5",
-            ImapAuthenticationMethod.DigestMd5 => "DIGEST-MD5",
-            _ => "PLAIN"
-        };
-    }
-
     protected virtual void Dispose(bool disposing)
     {
         if (!_disposedValue)
         {
             if (disposing)
             {
+                _keepAliveTimer.Stop();
+                _connectionMonitorTimer.Stop();
+
+                _keepAliveTimer.Dispose();
+                _connectionMonitorTimer.Dispose();
+
                 _clients.ForEach(client =>
                 {
                     lock (client.SyncRoot)
                     {
                         client.Disconnect(true);
                     }
-                });
-
-                _clients.ForEach(client =>
-                {
                     client.Dispose();
                 });
 
                 _clients.Clear();
-
-                _protocolLogStream?.Dispose();
             }
 
             _disposedValue = true;
