@@ -25,7 +25,7 @@ public enum WinoPage
     AppPreferencesPage,
     SettingOptionsPage,
     AliasManagementPage,
-
+    EditAccountDetailsPage,
     // Calendar
     CalendarPage,
     CalendarSettingsPage,

@@ -106,4 +106,7 @@
 	  <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Converters\" />
+	</ItemGroup>
 </Project>

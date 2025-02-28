@@ -112,6 +112,7 @@ public sealed partial class App : WinoApplication,
         services.AddTransient(typeof(ComposePageViewModel));
         services.AddTransient(typeof(IdlePageViewModel));
 
+        services.AddTransient(typeof(EditAccountDetailsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
         services.AddTransient(typeof(SignatureManagementPageViewModel));
         services.AddTransient(typeof(MessageListPageViewModel));

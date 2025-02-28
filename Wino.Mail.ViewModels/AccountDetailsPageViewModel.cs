@@ -13,7 +13,6 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -78,20 +77,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
 
     [RelayCommand]
-    private async Task RenameAccount()
-    {
-        if (Account == null)
-            return;
-
-        var updatedAccount = await _dialogService.ShowEditAccountDialogAsync(Account);
-
-        if (updatedAccount != null)
-        {
-            await _accountService.UpdateAccountAsync(updatedAccount);
-
-            ReportUIChange(new AccountUpdatedMessage(updatedAccount));
-        }
-    }
+    private void EditAccountDetails()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsEditAccountDetails_Title, WinoPage.EditAccountDetailsPage, Account));
 
     [RelayCommand]
     private async Task DeleteAccount()
