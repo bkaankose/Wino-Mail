@@ -50,7 +50,12 @@
         Square44x44Logo="Images\Square44x44Logo.png"
         Description="Native mail client for Windows."
         BackgroundColor="transparent">
-        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"/>
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" ShortName="Wino Mail">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo"/>
+            <uap:ShowOn Tile="wide310x150Logo"/>
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile >
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
       <Extensions>
