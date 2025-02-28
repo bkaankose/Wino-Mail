@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
@@ -10,12 +9,11 @@ using Microsoft.Web.WebView2.Core;
 using Windows.UI.ViewManagement.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Markup;
-using Windows.UI.Xaml.Media;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.UWP;
 using Wino.Core.UWP.Extensions;
 
 namespace Wino.Mail.Controls;
@@ -24,7 +22,6 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
     private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
-    private readonly IUnderlyingThemeService _underlyingThemeService = App.Current.Services.GetService<IUnderlyingThemeService>();
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorDarkMode { get; set; }
@@ -99,7 +96,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         }
     }
 
-    [GeneratedDependencyProperty]
+    [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsEditorIndentEnabled { get; private set; }
 
     [GeneratedDependencyProperty]
@@ -142,9 +139,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     {
         this.DefaultStyleKey = typeof(WebViewEditorControl);
 
-        IsEditorIndentEnabled = true;
-
-        IsEditorDarkMode = _underlyingThemeService.IsUnderlyingThemeDark();
+        IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
     }
 
     protected override async void OnApplyTemplate()
