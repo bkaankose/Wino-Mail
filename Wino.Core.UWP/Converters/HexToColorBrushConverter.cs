@@ -72,6 +72,9 @@ public partial class HexToColorBrushConverter : IValueConverter
         // Bug: This should be ThemeResource to react to theme changes, but it's not.
         // So if user changes the dark/light theme, this won't update.
 
-        return (SolidColorBrush)Application.Current.Resources["NavigationViewItemForeground"];
+        if (WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark())
+            return new SolidColorBrush(Colors.White);
+        else
+            return new SolidColorBrush(Colors.Black);
     }
 }

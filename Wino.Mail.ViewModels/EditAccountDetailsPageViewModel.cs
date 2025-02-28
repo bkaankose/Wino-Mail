@@ -17,7 +17,7 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
 
     [ObservableProperty]
-    private MailAccount _account;
+    public partial MailAccount Account { get; set; }
 
     [ObservableProperty]
     public partial string AccountName { get; set; }
@@ -93,13 +93,27 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
     [RelayCommand]
     private async Task SaveChangesAsync()
     {
+        await UpdateAccountAsync();
+
+        Messenger.Send(new BackBreadcrumNavigationRequested());
+    }
+
+    private Task UpdateAccountAsync()
+    {
         Account.Name = AccountName;
         Account.SenderName = SenderName;
         Account.AccountColorHex = SelectedColor == null ? string.Empty : SelectedColor.Hex;
 
-        await _accountService.UpdateAccountAsync(Account);
+        return _accountService.UpdateAccountAsync(Account);
+    }
 
-        Messenger.Send(new BackBreadcrumNavigationRequested());
+    [RelayCommand]
+    private void ResetColor()
+        => SelectedColor = null;
+
+    partial void OnSelectedColorChanged(AppColorViewModel oldValue, AppColorViewModel newValue)
+    {
+        _ = UpdateAccountAsync();
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
