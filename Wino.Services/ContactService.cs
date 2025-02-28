@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MimeKit;
+using Serilog;
 using SqlKata;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -51,13 +53,20 @@ public class ContactService : BaseDatabaseService, IContactService
         {
             var currentContact = await GetAddressInformationByAddressAsync(info.Address).ConfigureAwait(false);
 
-            if (currentContact == null)
+            try
             {
-                await Connection.InsertAsync(info).ConfigureAwait(false);
+                if (currentContact == null)
+                {
+                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                }
+                else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+                {
+                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                }
             }
-            else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+            catch (Exception ex)
             {
-                await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                Log.Error("Failed to add contact information to the database.", ex);
             }
         }
     }
