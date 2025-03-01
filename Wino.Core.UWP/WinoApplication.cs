@@ -38,7 +38,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     protected IWinoLogger LogInitializer { get; }
     protected IApplicationConfiguration AppConfiguration { get; }
     protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
-    protected IThemeService ThemeService { get; }
+    public IThemeService ThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
     protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }

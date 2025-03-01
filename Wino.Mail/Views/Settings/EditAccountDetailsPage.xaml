@@ -59,17 +59,11 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <GridView ItemsSource="{x:Bind ViewModel.AvailableColors}" SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}">
-                        <GridView.ItemTemplate>
-                            <DataTemplate x:DataType="data:AppColorViewModel">
-                                <Grid
-                                    Width="45"
-                                    Height="45"
-                                    Background="{x:Bind Hex, Mode=OneWay}"
-                                    CornerRadius="6" />
-                            </DataTemplate>
-                        </GridView.ItemTemplate>
-                    </GridView>
+
+                    <GridView
+                        ItemTemplate="{StaticResource AccountColorTemplate}"
+                        ItemsSource="{x:Bind ViewModel.AvailableColors}"
+                        SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
 
                     <Button
                         Grid.Row="1"

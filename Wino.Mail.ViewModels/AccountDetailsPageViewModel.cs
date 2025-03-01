@@ -22,6 +22,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IWinoServerConnectionManager _serverConnectionManager;
     private readonly IFolderService _folderService;
+    private bool isLoaded = false;
 
     public MailAccount Account { get; set; }
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
@@ -106,6 +107,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         }
     }
 
+
+
+
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -130,12 +134,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             {
                 CurrentFolders.Add(folder);
             }
+
+            isLoaded = true;
         }
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+
+        if (!IsActive || !isLoaded) return;
 
         switch (e.PropertyName)
         {

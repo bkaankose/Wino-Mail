@@ -458,4 +458,59 @@ public class ThemeService : IThemeService
 
     public string GetSystemAccentColorHex()
         => uiSettings.GetColorValue(UIColorType.Accent).ToHex();
+
+    public List<string> GetAvailableAccountColors()
+    {
+        return new List<string>()
+        {
+            "#e74c3c",
+            "#c0392b",
+            "#e53935",
+            "#d81b60",
+            
+            // Pinks
+            "#e91e63",
+            "#ec407a",
+            "#ff4081",
+
+            // Purples
+            "#9b59b6",
+            "#8e44ad",
+            "#673ab7",
+
+            // Blues
+            "#3498db",
+            "#2980b9",
+            "#2196f3",
+            "#03a9f4",
+            "#00bcd4",
+
+            // Teals
+            "#009688",
+            "#1abc9c",
+            "#16a085",
+
+            // Greens
+            "#2ecc71",
+            "#27ae60",
+            "#4caf50",
+            "#8bc34a",
+
+            // Yellows & Oranges
+            "#f1c40f",
+            "#f39c12",
+            "#ff9800",
+            "#ff5722",
+
+            // Browns
+            "#795548",
+            "#a0522d",
+
+            // Grays
+            "#9e9e9e",
+            "#607d8b",
+            "#34495e",
+            "#2c3e50",
+        };
+    }
 }

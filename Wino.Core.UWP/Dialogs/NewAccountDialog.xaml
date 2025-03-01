@@ -5,6 +5,7 @@
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     Title="{x:Bind domain:Translator.NewAccountDialog_Title}"
@@ -46,29 +47,46 @@
         <Grid Visibility="{x:Bind IsProviderSelectionVisible, Mode=OneWay}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <!--  Account Name  -->
-            <TextBox
-                x:Name="AccountNameTextbox"
-                Header="{x:Bind domain:Translator.NewAccountDialog_AccountName}"
-                PlaceholderText="{x:Bind domain:Translator.NewAccountDialog_AccountNamePlaceholder}"
-                TextChanged="InputChanged" />
 
-            <!--
-                TODO: Move Name, Sender Name and Color Picker to another Frame.
-                Provider selection should be first, then account details.
-            -->
-            <!--<Grid Grid.Row="1">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="Auto" />
-        <ColumnDefinition Width="*" />
-    </Grid.ColumnDefinitions>
-    <TextBlock Text="Color" />
-    <muxc:ColorPicker x:Name="AccountColorPicker" Grid.Column="1" />
-</Grid>-->
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox
+                    x:Name="AccountNameTextbox"
+                    Header="{x:Bind domain:Translator.NewAccountDialog_AccountName}"
+                    PlaceholderText="{x:Bind domain:Translator.NewAccountDialog_AccountNamePlaceholder}"
+                    TextChanged="InputChanged" />
+
+                <Button Grid.Column="1" VerticalAlignment="Bottom">
+                    <Grid>
+                        <Ellipse
+                            x:Name="SelectedColorEllipse"
+                            Width="16"
+                            Height="16" />
+
+                        <TextBlock x:Name="PickColorTextblock" Text="{x:Bind domain:Translator.CalendarDisplayOptions_Color}" />
+                    </Grid>
+
+                    <Button.Flyout>
+                        <Flyout Placement="TopEdgeAlignedLeft">
+                            <GridView
+                                Width="150"
+                                ItemTemplate="{StaticResource AccountColorTemplate}"
+                                ItemsSource="{x:Bind AvailableColors, Mode=OneWay}"
+                                SelectedItem="{x:Bind SelectedColor, Mode=TwoWay}" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
+            </Grid>
+
 
             <ListView
                 Grid.Row="2"

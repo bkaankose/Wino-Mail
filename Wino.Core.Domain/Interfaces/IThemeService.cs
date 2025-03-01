@@ -14,7 +14,7 @@ public interface IThemeService : IInitializeAsync
     Task<List<AppThemeBase>> GetAvailableThemesAsync();
     Task<CustomThemeMetadata> CreateNewCustomThemeAsync(string themeName, string accentColor, byte[] wallpaperData);
     Task<List<CustomThemeMetadata>> GetCurrentCustomThemesAsync();
-
+    List<string> GetAvailableAccountColors();
     Task ApplyCustomThemeAsync(bool isInitializing);
 
     // Settings

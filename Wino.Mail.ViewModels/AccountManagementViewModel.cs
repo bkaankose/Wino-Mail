@@ -111,7 +111,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                     ProviderType = accountCreationDialogResult.ProviderType,
                     Name = accountCreationDialogResult.AccountName,
                     SpecialImapProvider = accountCreationDialogResult.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None,
-                    Id = Guid.NewGuid()
+                    Id = Guid.NewGuid(),
+                    AccountColorHex = accountCreationDialogResult.AccountColorHex
                 };
 
                 await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);

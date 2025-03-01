@@ -83,8 +83,7 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
 
     public async void Receive(AccountUpdatedMessage message)
     {
-        // TODO: Find better way to retrieve page history from the stack for the account.
-        var activePage = PageHistory.LastOrDefault();
+        var activePage = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.AccountDetailsPage);
 
         if (activePage == null) return;
 
