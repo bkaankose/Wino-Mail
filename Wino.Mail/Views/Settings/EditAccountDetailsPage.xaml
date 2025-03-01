@@ -9,6 +9,7 @@
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:imapsetup="using:Wino.Views.ImapSetup"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:picker="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
@@ -72,6 +73,158 @@
                         Content="{x:Bind domain:Translator.Buttons_Reset}" />
                 </Grid>
             </controls:SettingsCard>
+
+            <!--  IMAP Details  -->
+            <controls:SettingsExpander Description="{x:Bind domain:Translator.SettingsEditAccountDetails_IMAPConfiguration_Title}" Header="{x:Bind domain:Translator.SettingsEditAccountDetails_IMAPConfiguration_Description}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <PathIcon Data="F1 M 20 10 C 20 10.768229 19.913736 11.518555 19.741211 12.250977 C 19.568684 12.983398 19.322916 13.680014 19.003906 14.34082 C 18.684895 15.001628 18.295898 15.621745 17.836914 16.201172 C 17.37793 16.7806 16.863605 17.303061 16.293945 17.768555 C 15.724283 18.234049 15.102538 18.634439 14.428711 18.969727 C 13.754882 19.305014 13.043619 19.560547 12.294922 19.736328 C 12.431641 19.423828 12.5 19.095053 12.5 18.75 L 12.5 16.396484 C 12.695312 15.973308 12.864583 15.540365 13.007812 15.097656 C 13.151041 14.654948 13.271484 14.205729 13.369141 13.75 L 12.5 13.75 L 12.5 12.5 L 13.583984 12.5 C 13.636067 12.083334 13.676758 11.668295 13.706055 11.254883 C 13.735352 10.841472 13.75 10.423178 13.75 10 C 13.75 9.576823 13.735352 9.158529 13.706055 8.745117 C 13.676758 8.331706 13.636067 7.916667 13.583984 7.5 L 6.40625 7.5 C 6.354166 7.929688 6.315104 8.346354 6.289062 8.75 L 5.039062 8.75 C 5.052083 8.541667 5.066731 8.333334 5.083008 8.125 C 5.099284 7.916668 5.123698 7.708334 5.15625 7.5 L 1.611328 7.5 C 1.552734 7.708334 1.499023 7.916668 1.450195 8.125 C 1.401367 8.333334 1.363932 8.541667 1.337891 8.75 C 1.103516 8.75 0.882161 8.774414 0.673828 8.823242 C 0.465495 8.87207 0.257161 8.951823 0.048828 9.0625 C 0.126953 8.209637 0.307617 7.392579 0.59082 6.611328 C 0.874023 5.830079 1.241862 5.104168 1.694336 4.433594 C 2.14681 3.763021 2.672526 3.154297 3.271484 2.607422 C 3.870443 2.060547 4.524739 1.595053 5.234375 1.210938 C 5.94401 0.826824 6.700846 0.528973 7.504883 0.317383 C 8.308919 0.105795 9.140625 0 10 0 C 10.917969 0 11.803385 0.118816 12.65625 0.356445 C 13.509114 0.594076 14.305013 0.93099 15.043945 1.367188 C 15.782877 1.803387 16.456705 2.325848 17.06543 2.93457 C 17.674152 3.543295 18.196613 4.217123 18.632812 4.956055 C 19.06901 5.694987 19.405924 6.490886 19.643555 7.34375 C 19.881184 8.196615 20 9.082031 20 10 Z M 13.369141 6.25 C 13.317057 6.009115 13.242188 5.717773 13.144531 5.375977 C 13.046875 5.03418 12.926432 4.679362 12.783203 4.311523 C 12.639973 3.943686 12.473957 3.575848 12.285156 3.208008 C 12.096354 2.84017 11.884766 2.511395 11.650391 2.22168 C 11.416016 1.931967 11.162109 1.697592 10.888672 1.518555 C 10.615234 1.33952 10.31901 1.25 10 1.25 C 9.680989 1.25 9.384766 1.33952 9.111328 1.518555 C 8.837891 1.697592 8.583984 1.931967 8.349609 2.22168 C 8.115234 2.511395 7.903646 2.84017 7.714844 3.208008 C 7.526042 3.575848 7.360026 3.943686 7.216797 4.311523 C 7.073567 4.679362 6.953125 5.03418 6.855469 5.375977 C 6.757812 5.717773 6.682942 6.009115 6.630859 6.25 Z M 5.351562 6.25 C 5.429688 5.859375 5.522461 5.463867 5.629883 5.063477 C 5.737305 4.663086 5.864258 4.269206 6.010742 3.881836 C 6.157227 3.494467 6.326497 3.116863 6.518555 2.749023 C 6.710612 2.381186 6.923828 2.037762 7.158203 1.71875 C 6.598307 1.907553 6.067708 2.151693 5.566406 2.451172 C 5.065104 2.750652 4.597981 3.092449 4.165039 3.476562 C 3.732096 3.860678 3.341471 4.287109 2.993164 4.755859 C 2.644857 5.224609 2.34375 5.722656 2.089844 6.25 Z M 17.900391 6.25 C 17.652994 5.722656 17.353516 5.226237 17.001953 4.760742 C 16.650391 4.295248 16.258137 3.868816 15.825195 3.481445 C 15.392252 3.094076 14.925129 2.752279 14.423828 2.456055 C 13.922525 2.159832 13.395182 1.917318 12.841797 1.728516 C 13.082682 2.047527 13.297525 2.389324 13.486328 2.753906 C 13.675129 3.11849 13.842772 3.496094 13.989258 3.886719 C 14.135741 4.277345 14.262694 4.672853 14.370117 5.073242 C 14.477538 5.473634 14.570312 5.865887 14.648438 6.25 Z M 14.84375 7.5 C 14.902344 7.916667 14.943033 8.331706 14.96582 8.745117 C 14.988605 9.158529 14.999999 9.576823 15 10 C 14.999999 10.423178 14.988605 10.841472 14.96582 11.254883 C 14.943033 11.668295 14.902344 12.083334 14.84375 12.5 L 18.388672 12.5 C 18.629557 11.699219 18.75 10.865886 18.75 10 C 18.75 9.134115 18.629557 8.300781 18.388672 7.5 Z M 10 10 C 10.169271 10 10.330403 10.032553 10.483398 10.097656 C 10.636393 10.162761 10.769856 10.252279 10.883789 10.366211 C 10.997721 10.480144 11.087239 10.613607 11.152344 10.766602 C 11.217447 10.919597 11.25 11.080729 11.25 11.25 L 11.25 16.25 C 11.25 16.419271 11.217447 16.580404 11.152344 16.733398 C 11.087239 16.886393 10.997721 17.019857 10.883789 17.133789 C 10.769856 17.247721 10.636393 17.33724 10.483398 17.402344 C 10.330403 17.467447 10.169271 17.5 10 17.5 L 7.5 17.5 L 7.5 18.75 L 7.841797 18.75 C 7.952474 18.75 8.061523 18.75651 8.168945 18.769531 C 8.276367 18.782553 8.374023 18.810221 8.461914 18.852539 C 8.549805 18.894857 8.619791 18.956705 8.671875 19.038086 C 8.723958 19.119467 8.75 19.231771 8.75 19.375 C 8.75 19.544271 8.68815 19.690756 8.564453 19.814453 C 8.440755 19.93815 8.294271 20 8.125 20 L 3.125 20 C 2.955729 20 2.809245 19.93815 2.685547 19.814453 C 2.561849 19.690756 2.5 19.544271 2.5 19.375 C 2.5 19.231771 2.526042 19.119467 2.578125 19.038086 C 2.630208 18.956705 2.700195 18.894857 2.788086 18.852539 C 2.875977 18.810221 2.973633 18.782553 3.081055 18.769531 C 3.188477 18.75651 3.297526 18.75 3.408203 18.75 L 3.75 18.75 L 3.75 17.5 L 1.25 17.5 C 1.080729 17.5 0.919596 17.467447 0.766602 17.402344 C 0.613607 17.33724 0.480143 17.247721 0.366211 17.133789 C 0.252279 17.019857 0.16276 16.886393 0.097656 16.733398 C 0.032552 16.580404 0 16.419271 0 16.25 L 0 11.25 C 0 11.080729 0.032552 10.919597 0.097656 10.766602 C 0.16276 10.613607 0.252279 10.480144 0.366211 10.366211 C 0.480143 10.252279 0.613607 10.162761 0.766602 10.097656 C 0.919596 10.032553 1.080729 10 1.25 10 Z M 17.900391 13.75 L 14.648438 13.75 C 14.570312 14.140625 14.477538 14.536133 14.370117 14.936523 C 14.262694 15.336914 14.135741 15.730795 13.989258 16.118164 C 13.842772 16.505533 13.673502 16.883139 13.481445 17.250977 C 13.289388 17.618814 13.076172 17.96224 12.841797 18.28125 C 13.395182 18.092447 13.922525 17.848307 14.423828 17.548828 C 14.925129 17.24935 15.392252 16.907553 15.825195 16.523438 C 16.258137 16.139322 16.648762 15.712891 16.99707 15.244141 C 17.345377 14.775391 17.646484 14.277344 17.900391 13.75 Z " />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        ContentAlignment="Vertical"
+                        Visibility="{x:Bind ViewModel.IsImapServer, Mode=OneWay}">
+
+                        <Grid ColumnSpacing="6" RowSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.IMAPSetupDialog_IMAPSettings}" />
+
+                            <TextBox
+                                Grid.Row="1"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer}"
+                                Text="{x:Bind ViewModel.ServerInformation.IncomingServer, Mode=TwoWay}" />
+
+                            <picker:NumberBox
+                                Grid.Row="2"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort}"
+                                Maximum="65535"
+                                Minimum="1"
+                                Value="{x:Bind ViewModel.ServerInformation.IncomingServerPort, Mode=TwoWay}" />
+
+                            <TextBox
+                                Grid.Row="3"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_Username}"
+                                Text="{x:Bind ViewModel.ServerInformation.IncomingServerUsername, Mode=TwoWay}" />
+
+                            <PasswordBox
+                                Grid.Row="4"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_Password}"
+                                Password="{x:Bind ViewModel.ServerInformation.IncomingServerPassword, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Row="5"
+                                HorizontalAlignment="Stretch"
+                                DisplayMemberPath="DisplayName"
+                                Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}"
+                                ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurities}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Row="6"
+                                HorizontalAlignment="Stretch"
+                                DisplayMemberPath="DisplayName"
+                                Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}"
+                                ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethods}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+
+                            <Border
+                                Grid.RowSpan="6"
+                                Grid.Column="1"
+                                Width="0"
+                                VerticalAlignment="Stretch"
+                                Background="{ThemeResource SystemAccentColor}" />
+
+                            <TextBlock
+                                Grid.Column="2"
+                                Style="{StaticResource SubtitleTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.IMAPSetupDialog_SMTPSettings}" />
+
+                            <TextBox
+                                Grid.Row="1"
+                                Grid.Column="2"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer}"
+                                Text="{x:Bind ViewModel.ServerInformation.OutgoingServer, Mode=TwoWay}" />
+
+                            <picker:NumberBox
+                                Grid.Row="2"
+                                Grid.Column="2"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort}"
+                                Maximum="65535"
+                                Minimum="1"
+                                Value="{x:Bind ViewModel.ServerInformation.OutgoingServerPort, Mode=TwoWay}" />
+
+                            <TextBox
+                                Grid.Row="3"
+                                Grid.Column="2"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerUsername}"
+                                Text="{x:Bind ViewModel.ServerInformation.OutgoingServerUsername, Mode=TwoWay}" />
+
+                            <PasswordBox
+                                Grid.Row="4"
+                                Grid.Column="2"
+                                Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPassword}"
+                                Password="{x:Bind ViewModel.ServerInformation.OutgoingServerPassword, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Row="5"
+                                Grid.Column="2"
+                                HorizontalAlignment="Stretch"
+                                DisplayMemberPath="DisplayName"
+                                Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}"
+                                ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurities}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
+
+                            <ComboBox
+                                Grid.Row="6"
+                                Grid.Column="2"
+                                HorizontalAlignment="Stretch"
+                                DisplayMemberPath="DisplayName"
+                                Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}"
+                                ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethods}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+
+                            <StackPanel
+                                Grid.Row="7"
+                                Grid.Column="2"
+                                Margin="0,12"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="12">
+
+                                <ProgressRing
+                                    Width="5"
+                                    Height="5"
+                                    IsActive="{x:Bind ViewModel.ValidateImapSettingsCommand.IsRunning, Mode=OneWay}" />
+                                <Button Command="{x:Bind ViewModel.ValidateImapSettingsCommand}" Content="Test" />
+                                <Button
+                                    Command="{x:Bind ViewModel.SaveWithoutGoBackCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_Save}"
+                                    Style="{ThemeResource AccentButtonStyle}" />
+                            </StackPanel>
+                        </Grid>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+
         </StackPanel>
     </ScrollViewer>
 </abstract:EditAccountDetailsPageAbstract>
+
+
