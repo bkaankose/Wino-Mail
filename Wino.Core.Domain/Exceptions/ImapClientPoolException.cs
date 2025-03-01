@@ -20,7 +20,7 @@ public class ImapClientPoolException : Exception
         ProtocolLog = protocolLog;
     }
 
-    public ImapClientPoolException(Exception innerException, string protocolLog) : base(Translator.Exception_ImapClientPoolFailed, innerException)
+    public ImapClientPoolException(Exception innerException, string protocolLog) : base(innerException.Message, innerException)
     {
         ProtocolLog = protocolLog;
     }
