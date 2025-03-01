@@ -6,6 +6,7 @@
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
+    xmlns:coreViewModelData="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Core.UWP.Styles"
@@ -199,6 +200,19 @@
                     HorizontalAlignment="Center"
                     Text="{x:Bind ThemeName}" />
             </Grid>
+        </Grid>
+    </DataTemplate>
+
+    <!--  Account Color Picker Template  -->
+    <DataTemplate x:Key="AccountColorTemplate" x:DataType="coreViewModelData:AppColorViewModel">
+        <Grid
+            Width="32"
+            Height="32"
+            Margin="2">
+            <Rectangle
+                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Hex)}"
+                RadiusX="4"
+                RadiusY="4" />
         </Grid>
     </DataTemplate>
 

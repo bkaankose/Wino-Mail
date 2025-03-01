@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
@@ -16,7 +17,8 @@ namespace Wino.Views;
 public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
     IRecipient<BackBreadcrumNavigationRequested>,
     IRecipient<BreadcrumbNavigationRequested>,
-    IRecipient<MergedInboxRenamed>
+    IRecipient<MergedInboxRenamed>,
+    IRecipient<AccountUpdatedMessage>
 {
     public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = new ObservableCollection<BreadcrumbNavigationItemViewModel>();
 
@@ -79,14 +81,16 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         GoBackFrame();
     }
 
-    public void Receive(AccountUpdatedMessage message)
+    public async void Receive(AccountUpdatedMessage message)
     {
-        // TODO: Find better way to retrieve page history from the stack for the account.
-        var activePage = PageHistory.LastOrDefault();
+        var activePage = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.AccountDetailsPage);
 
         if (activePage == null) return;
 
-        activePage.Title = message.Account.Name;
+        await Dispatcher.TryRunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+        {
+            activePage.Title = message.Account.Name;
+        });
     }
 
     public void Receive(MergedInboxRenamed message)

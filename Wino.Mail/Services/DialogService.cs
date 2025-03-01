@@ -55,17 +55,6 @@ public class DialogService : DialogServiceBase, IMailDialogService
         }
     }
 
-    public async Task<MailAccount> ShowEditAccountDialogAsync(MailAccount account)
-    {
-        var editAccountDialog = new AccountEditDialog(account)
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        await HandleDialogPresentationAsync(editAccountDialog);
-
-        return editAccountDialog.IsSaved ? editAccountDialog.Account : null;
-    }
 
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
     {
@@ -190,7 +179,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         await HandleDialogPresentationAsync(dialog);
 
-        if(dialog.Copied)
+        if (dialog.Copied)
             InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, Translator.MessageSourceDialog_Title), InfoBarMessageType.Information);
     }
 

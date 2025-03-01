@@ -56,6 +56,12 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
         set => SetProperty(Parameter.Base64ProfilePictureData, value, Parameter, (u, n) => u.Base64ProfilePictureData = n);
     }
 
+    public string AccountColorHex
+    {
+        get => Parameter.AccountColorHex;
+        set => SetProperty(Parameter.AccountColorHex, value, Parameter, (u, n) => u.AccountColorHex = n);
+    }
+
     public IEnumerable<MailAccount> HoldingAccounts => new List<MailAccount> { Parameter };
 
     public AccountMenuItem(MailAccount account, IMenuItem parent = null) : base(account, account.Id, parent)
@@ -66,9 +72,11 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     public void UpdateAccount(MailAccount account)
     {
         Parameter = account;
-        AccountName = account.Name;
-        AttentionReason = account.AttentionReason;
-        Base64ProfilePicture = account.Base64ProfilePictureData;
+
+        OnPropertyChanged(nameof(AccountName));
+        OnPropertyChanged(nameof(Base64ProfilePicture));
+        OnPropertyChanged(nameof(AccountColorHex));
+        OnPropertyChanged(nameof(IsAttentionRequired));
 
         if (SubMenuItems == null) return;
 

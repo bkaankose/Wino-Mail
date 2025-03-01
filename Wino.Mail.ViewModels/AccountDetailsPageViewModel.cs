@@ -13,7 +13,6 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
-using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -23,6 +22,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IWinoServerConnectionManager _serverConnectionManager;
     private readonly IFolderService _folderService;
+    private bool isLoaded = false;
 
     public MailAccount Account { get; set; }
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
@@ -78,20 +78,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         => _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
 
     [RelayCommand]
-    private async Task RenameAccount()
-    {
-        if (Account == null)
-            return;
-
-        var updatedAccount = await _dialogService.ShowEditAccountDialogAsync(Account);
-
-        if (updatedAccount != null)
-        {
-            await _accountService.UpdateAccountAsync(updatedAccount);
-
-            ReportUIChange(new AccountUpdatedMessage(updatedAccount));
-        }
-    }
+    private void EditAccountDetails()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsEditAccountDetails_Title, WinoPage.EditAccountDetailsPage, Account));
 
     [RelayCommand]
     private async Task DeleteAccount()
@@ -119,6 +107,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         }
     }
 
+
+
+
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -143,12 +134,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             {
                 CurrentFolders.Add(folder);
             }
+
+            isLoaded = true;
         }
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+
+        if (!IsActive || !isLoaded) return;
 
         switch (e.PropertyName)
         {

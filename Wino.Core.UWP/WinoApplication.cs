@@ -38,7 +38,8 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     protected IWinoLogger LogInitializer { get; }
     protected IApplicationConfiguration AppConfiguration { get; }
     protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
-    protected IThemeService ThemeService { get; }
+    public IThemeService ThemeService { get; }
+    public IUnderlyingThemeService UnderlyingThemeService { get; }
     protected IDatabaseService DatabaseService { get; }
     protected ITranslationService TranslationService { get; }
 
@@ -62,6 +63,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         ThemeService = Services.GetService<IThemeService>();
         DatabaseService = Services.GetService<IDatabaseService>();
         TranslationService = Services.GetService<ITranslationService>();
+        UnderlyingThemeService = Services.GetService<IUnderlyingThemeService>();
 
         // Make sure the paths are setup on app start.
         AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;

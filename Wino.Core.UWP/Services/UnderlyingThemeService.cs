@@ -16,9 +16,6 @@ public class UnderlyingThemeService : IUnderlyingThemeService
         _configurationService = configurationService;
     }
 
-    // This should not rely on application window to be present.
-    // Check theme from the settings, rely on UISettings background color if Default.
-
     public bool IsUnderlyingThemeDark()
     {
         var currentTheme = _configurationService.Get(SelectedAppThemeKey, ApplicationElementTheme.Default);
