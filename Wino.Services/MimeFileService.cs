@@ -161,8 +161,8 @@ public class MimeFileService : IMimeFileService
         {
             var unsubscribeLinks = message.Headers[HeaderId.ListUnsubscribe]
                 .Normalize()
-                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(x => x.Trim([' ', '<', '>']));
+                .Split([','], StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim().Trim(['<', '>']));
 
             // Only two types of unsubscribe links are possible.
             // So each has it's own property to simplify the usage.
