@@ -32,7 +32,7 @@
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageVersion Include="Microsoft.UI.Xaml" Version="2.8.7" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.Uwp.Managed" Version="3.0.0" />
-    <PackageVersion Include="MimeKit" Version="4.10.0" />
+    <PackageVersion Include="MimeKit" Version="4.11.0" />
     <PackageVersion Include="morelinq" Version="4.4.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
