@@ -708,13 +708,17 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         await Task.WhenAll(batchProcessCallbacks).ConfigureAwait(false);
 
         // Try to update max history id.
-        var maxHistoryId = batchProcessCallbacks.Select(a => a.Result).Where(a => a?.HistoryId != null).Max(a => a.HistoryId.Value);
+        var historyIdMessages = batchProcessCallbacks.Select(a => a.Result).Where(a => a?.HistoryId != null);
 
-        if (maxHistoryId != 0)
+        if (historyIdMessages.Any())
         {
-            Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, maxHistoryId.ToString()).ConfigureAwait(false);
-        }
+            var maxHistoryId = batchProcessCallbacks.Select(a => a.Result).Where(a => a?.HistoryId != null).Max(a => a.HistoryId.Value);
 
+            if (maxHistoryId != 0)
+            {
+                Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, maxHistoryId.ToString()).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>
