@@ -17,6 +17,7 @@
     <PackageVersion Include="CommunityToolkit.Uwp.Controls.TabbedCommandBar" Version="8.2.250129-preview2" />
     <PackageVersion Include="CommunityToolkit.Uwp.Controls.TokenizingTextBox" Version="8.2.250129-preview2" />
     <PackageVersion Include="CommunityToolkit.Uwp.Extensions" Version="8.2.250129-preview2" />
+    <PackageVersion Include="CommunityToolkit.Uwp.Controls.Primitives" Version="8.2.250129-preview2" />
     <PackageVersion Include="EmailValidation" Version="1.2.0" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.11.72" />
     <PackageVersion Include="Ical.Net" Version="4.3.1" />

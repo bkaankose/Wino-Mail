@@ -24,141 +24,136 @@ using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Server;
 using Wino.Services;
 
-namespace Wino.Calendar
+namespace Wino.Calendar;
+
+public sealed partial class App : WinoApplication, IRecipient<NewCalendarSynchronizationRequested>
 {
-    public sealed partial class App : WinoApplication, IRecipient<NewCalendarSynchronizationRequested>
+    private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
+
+    public App()
     {
-        public override string AppCenterKey => "dfdad6ab-95f9-44cc-9112-45ec6730c49e";
+        InitializeComponent();
+        WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
+    }
 
-        private BackgroundTaskDeferral connectionBackgroundTaskDeferral;
-        private BackgroundTaskDeferral toastActionBackgroundTaskDeferral;
+    public override IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
 
-        public App()
+        services.RegisterSharedServices();
+        services.RegisterCalendarViewModelServices();
+        services.RegisterCoreUWPServices();
+        services.RegisterCoreViewModels();
+
+        RegisterUWPServices(services);
+        RegisterViewModels(services);
+        RegisterActivationHandlers(services);
+
+        return services.BuildServiceProvider();
+    }
+
+    #region Dependency Injection
+
+    private void RegisterActivationHandlers(IServiceCollection services)
+    {
+        //services.AddTransient<ProtocolActivationHandler>();
+        //services.AddTransient<ToastNotificationActivationHandler>();
+        //services.AddTransient<FileActivationHandler>();
+    }
+
+    private void RegisterUWPServices(IServiceCollection services)
+    {
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ICalendarDialogService, DialogService>();
+        services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
+        services.AddTransient<IProviderService, ProviderService>();
+        services.AddSingleton<IAuthenticatorConfig, CalendarAuthenticatorConfig>();
+        services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
+    }
+
+    private void RegisterViewModels(IServiceCollection services)
+    {
+        services.AddSingleton(typeof(AppShellViewModel));
+        services.AddSingleton(typeof(CalendarPageViewModel));
+        services.AddTransient(typeof(CalendarSettingsPageViewModel));
+        services.AddTransient(typeof(AccountManagementViewModel));
+        services.AddTransient(typeof(PersonalizationPageViewModel));
+        services.AddTransient(typeof(AccountDetailsPageViewModel));
+        services.AddTransient(typeof(EventDetailsPageViewModel));
+    }
+
+    #endregion
+
+    protected override void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
+    {
+        // TODO: Check server running.
+    }
+
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        LogActivation($"OnLaunched -> {args.GetType().Name}, Kind -> {args.Kind}, PreviousExecutionState -> {args.PreviousExecutionState}, IsPrelaunch -> {args.PrelaunchActivated}");
+
+        if (!args.PrelaunchActivated)
         {
-            InitializeComponent();
-
-            WeakReferenceMessenger.Default.Register(this);
+            await ActivateWinoAsync(args);
         }
+    }
 
-        public override IServiceProvider ConfigureServices()
+    protected override IEnumerable<ActivationHandler> GetActivationHandlers()
+    {
+        return null;
+    }
+
+    protected override ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler()
+        => new DefaultActivationHandler();
+
+    protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
+    {
+        base.OnBackgroundActivated(args);
+
+        if (args.TaskInstance.TriggerDetails is AppServiceTriggerDetails appServiceTriggerDetails)
         {
-            var services = new ServiceCollection();
+            LogActivation("OnBackgroundActivated -> AppServiceTriggerDetails received.");
 
-            services.RegisterSharedServices();
-            services.RegisterCalendarViewModelServices();
-            services.RegisterCoreUWPServices();
-            services.RegisterCoreViewModels();
-
-            RegisterUWPServices(services);
-            RegisterViewModels(services);
-            RegisterActivationHandlers(services);
-
-            return services.BuildServiceProvider();
-        }
-
-        #region Dependency Injection
-
-        private void RegisterActivationHandlers(IServiceCollection services)
-        {
-            //services.AddTransient<ProtocolActivationHandler>();
-            //services.AddTransient<ToastNotificationActivationHandler>();
-            //services.AddTransient<FileActivationHandler>();
-        }
-
-        private void RegisterUWPServices(IServiceCollection services)
-        {
-            services.AddSingleton<INavigationService, NavigationService>();
-            services.AddSingleton<ICalendarDialogService, DialogService>();
-            services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
-            services.AddTransient<IProviderService, ProviderService>();
-            services.AddSingleton<IAuthenticatorConfig, CalendarAuthenticatorConfig>();
-            services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
-        }
-
-        private void RegisterViewModels(IServiceCollection services)
-        {
-            services.AddSingleton(typeof(AppShellViewModel));
-            services.AddSingleton(typeof(CalendarPageViewModel));
-            services.AddTransient(typeof(CalendarSettingsPageViewModel));
-            services.AddTransient(typeof(AccountManagementViewModel));
-            services.AddTransient(typeof(PersonalizationPageViewModel));
-            services.AddTransient(typeof(AccountDetailsPageViewModel));
-            services.AddTransient(typeof(EventDetailsPageViewModel));
-        }
-
-        #endregion
-
-        protected override void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
-        {
-            // TODO: Check server running.
-        }
-
-        protected override async void OnLaunched(LaunchActivatedEventArgs args)
-        {
-            LogActivation($"OnLaunched -> {args.GetType().Name}, Kind -> {args.Kind}, PreviousExecutionState -> {args.PreviousExecutionState}, IsPrelaunch -> {args.PrelaunchActivated}");
-
-            if (!args.PrelaunchActivated)
+            // Only accept connections from callers in the same package
+            if (appServiceTriggerDetails.CallerPackageFamilyName == Package.Current.Id.FamilyName)
             {
-                await ActivateWinoAsync(args);
+                // Connection established from the fulltrust process
+
+                connectionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
+                args.TaskInstance.Canceled += OnConnectionBackgroundTaskCanceled;
+
+                AppServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
+
+                WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstablished());
             }
         }
+    }
 
-        protected override IEnumerable<ActivationHandler> GetActivationHandlers()
+    public void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
+    {
+        sender.Canceled -= OnConnectionBackgroundTaskCanceled;
+
+        Log.Information($"Server connection background task was canceled. Reason: {reason}");
+
+        connectionBackgroundTaskDeferral?.Complete();
+        connectionBackgroundTaskDeferral = null;
+
+        AppServiceConnectionManager.Connection = null;
+    }
+
+    public async void Receive(NewCalendarSynchronizationRequested message)
+    {
+        try
         {
-            return null;
+            var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(message);
+            synchronizationResultResponse.ThrowIfFailed();
         }
-
-        protected override ActivationHandler<IActivatedEventArgs> GetDefaultActivationHandler()
-            => new DefaultActivationHandler();
-
-        protected override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
+        catch (WinoServerException serverException)
         {
-            base.OnBackgroundActivated(args);
+            var dialogService = Services.GetService<ICalendarDialogService>();
 
-            if (args.TaskInstance.TriggerDetails is AppServiceTriggerDetails appServiceTriggerDetails)
-            {
-                LogActivation("OnBackgroundActivated -> AppServiceTriggerDetails received.");
-
-                // Only accept connections from callers in the same package
-                if (appServiceTriggerDetails.CallerPackageFamilyName == Package.Current.Id.FamilyName)
-                {
-                    // Connection established from the fulltrust process
-
-                    connectionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
-                    args.TaskInstance.Canceled += OnConnectionBackgroundTaskCanceled;
-
-                    AppServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
-
-                    WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstablished());
-                }
-            }
-        }
-
-        public void OnConnectionBackgroundTaskCanceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
-        {
-            sender.Canceled -= OnConnectionBackgroundTaskCanceled;
-
-            Log.Information($"Server connection background task was canceled. Reason: {reason}");
-
-            connectionBackgroundTaskDeferral?.Complete();
-            connectionBackgroundTaskDeferral = null;
-
-            AppServiceConnectionManager.Connection = null;
-        }
-
-        public async void Receive(NewCalendarSynchronizationRequested message)
-        {
-            try
-            {
-                var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(message);
-                synchronizationResultResponse.ThrowIfFailed();
-            }
-            catch (WinoServerException serverException)
-            {
-                var dialogService = Services.GetService<ICalendarDialogService>();
-
-                dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
-            }
+            dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
         }
     }
 }

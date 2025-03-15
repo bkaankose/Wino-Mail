@@ -1,0 +1,86 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="arm64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/" Id="8ec462fd-d22e-90a8-e5ce-7e832ba40c5d">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.Props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="nuget.config" />
+    <File Path="Settings.XamlStyler" />
+  </Folder>
+  <Folder Name="/lib/">
+    <Project Path="Wino.Authentication/Wino.Authentication.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Calendar.ViewModels/Wino.Calendar.ViewModels.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Core.Domain/Wino.Core.Domain.csproj">
+      <BuildDependency Project="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Core.UWP/Wino.Core.UWP.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Core.ViewModels/Wino.Core.ViewModels.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Core/Wino.Core.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Messages/Wino.Messaging.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.Services/Wino.Services.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+  </Folder>
+  <Project Path="Wino.Calendar/Wino.Calendar.csproj">
+    <Platform Solution="*|Any CPU" Project="x64" />
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+    <Deploy Solution="*|arm64" />
+    <Deploy Solution="*|x64" />
+    <Deploy Solution="*|x86" />
+  </Project>
+  <Project Path="Wino.Server/Wino.Server.csproj">
+    <Platform Solution="*|Any CPU" Project="x64" />
+    <Platform Solution="*|arm64" Project="ARM64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+  <Project Path="WinoCalendar.Packaging/WinoCalendar.Packaging.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="52c4d001-f64b-43d5-8b78-3be45aea63e9">
+    <Platform Solution="*|Any CPU" Project="x64" />
+    <Platform Solution="*|arm64" Project="ARM64" />
+    <Deploy />
+  </Project>
+</Solution>

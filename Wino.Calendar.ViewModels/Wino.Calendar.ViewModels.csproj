@@ -1,15 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
 	<PropertyGroup>
-		<TargetFramework>netstandard2.0</TargetFramework>
-		<LangVersion>12</LangVersion>
-		<Platforms>AnyCPU;x64;x86</Platforms>
+		<TargetFramework>net9.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
-
 	<ItemGroup>
-	  <PackageReference Include="TimePeriodLibrary.NET" Version="2.1.5" />
+	  <PackageReference Include="TimePeriodLibrary.NET" />
 	</ItemGroup>
 
 	<ItemGroup>
