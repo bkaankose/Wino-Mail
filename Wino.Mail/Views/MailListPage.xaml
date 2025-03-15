@@ -25,6 +25,7 @@
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:wino="using:Wino.Core.UWP"
     x:Name="root"
+    KeyboardAcceleratorPlacementMode="Hidden"
     SizeChanged="PageSizeChanged"
     mc:Ignorable="d">
 
@@ -197,6 +198,12 @@
         <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
     </Page.Resources>
 
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator
+            Key="A"
+            Invoked="SelectAllInvoked"
+            Modifiers="Control" />
+    </Page.KeyboardAccelerators>
     <wino:BasePage.ShellContent>
         <Grid>
             <!--  Hidden focus receiver...  -->

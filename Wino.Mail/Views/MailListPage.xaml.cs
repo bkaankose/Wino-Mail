@@ -492,4 +492,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
         }
     }
+
+    private void SelectAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+        => MailListView.SelectAllWino();
 }
