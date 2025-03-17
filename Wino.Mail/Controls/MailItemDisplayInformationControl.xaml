@@ -75,7 +75,6 @@
                     FontSize="14"
                     FromAddress="{x:Bind MailItem.FromAddress, Mode=OneWay}"
                     FromName="{x:Bind MailItem.FromName, Mode=OneWay}"
-                    IsUnread="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(MailItem.IsRead), Mode=OneWay}"
                     SenderContactPicture="{x:Bind MailItem.SenderContact.Base64ContactPicture}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
