@@ -40,16 +40,18 @@
             VerticalAlignment="Stretch"
             x:DefaultBindMode="OneWay">
 
-            <!--  Custom Interaction Focus Indicator  -->
-            <Ellipse
-                Width="8"
-                Height="8"
-                Margin="0,12,8,0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Canvas.ZIndex="9999"
-                Fill="{ThemeResource SystemAccentColor}"
-                Visibility="{x:Bind IsCustomFocused, Mode=OneWay}" />
+            <Grid x:Name="UnreadContainer">
+                <Ellipse
+                    Width="8"
+                    Height="8"
+                    Margin="0,12,8,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Canvas.ZIndex="0"
+                    Fill="{ThemeResource SystemAccentColor}"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(MailItem.IsRead), Mode=OneWay}" />
+            </Grid>
+
 
             <Border
                 x:Name="RootContainerVisualWrapper"
@@ -73,6 +75,7 @@
                     FontSize="14"
                     FromAddress="{x:Bind MailItem.FromAddress, Mode=OneWay}"
                     FromName="{x:Bind MailItem.FromName, Mode=OneWay}"
+                    IsUnread="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(MailItem.IsRead), Mode=OneWay}"
                     SenderContactPicture="{x:Bind MailItem.SenderContact.Base64ContactPicture}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
@@ -129,15 +132,11 @@
                                 Grid.Column="2"
                                 HorizontalAlignment="Right"
                                 Background="Transparent"
-                                Canvas.ZIndex="10"
+                                Canvas.ZIndex="999"
+                                ChildrenTransitions="{x:Null}"
                                 Orientation="Horizontal"
                                 Spacing="12"
                                 Visibility="Collapsed">
-                                <StackPanel.ChildrenTransitions>
-                                    <TransitionCollection>
-                                        <EdgeUIThemeTransition Edge="Right" />
-                                    </TransitionCollection>
-                                </StackPanel.ChildrenTransitions>
                                 <Button Click="FirstActionClicked" Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
                                         <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
@@ -262,8 +261,8 @@
                     <VisualState.Setters>
                         <Setter Target="TitleText.Foreground" Value="{ThemeResource SystemAccentColor}" />
                         <Setter Target="TitleText.FontWeight" Value="Semibold" />
-                        <Setter Target="SenderTextFromName.FontWeight" Value="Semibold" />
-                        <Setter Target="SenderTextFromAddress.FontWeight" Value="Semibold" />
+                        <Setter Target="SenderTextFromName.FontWeight" Value="Bold" />
+                        <Setter Target="SenderTextFromAddress.FontWeight" Value="Bold" />
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Read" />

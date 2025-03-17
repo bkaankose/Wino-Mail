@@ -162,6 +162,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         if (IsHoverActionsEnabled)
         {
             HoverActionButtons.Visibility = Visibility.Visible;
+            UnreadContainer.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -170,6 +171,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         if (IsHoverActionsEnabled)
         {
             HoverActionButtons.Visibility = Visibility.Collapsed;
+            UnreadContainer.Visibility = Visibility.Visible;
         }
     }
 
