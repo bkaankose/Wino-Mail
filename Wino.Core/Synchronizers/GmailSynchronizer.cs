@@ -645,7 +645,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     /// </summary>
     /// <param name="messageIds">Gmail message ids to download.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task BatchDownloadMessagesAsync(IEnumerable<string> messageIds, CancellationToken cancellationToken = default)
+    private async Task BatchDownloadMessagesAsync(List<string> messageIds, CancellationToken cancellationToken = default)
     {
         var totalDownloadCount = messageIds.Count();
 
@@ -660,7 +660,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Respect the batch size limit for batch requests.
         var batchedDownloadRequests = allDownloadRequests.Batch((int)MaximumAllowedBatchRequestSize);
 
-        _logger.Debug("Total items to download: {TotalDownloadCount}. Created {Count} batch download requests for {Name}.", batchedDownloadRequests.Count(), Account.Name, totalDownloadCount);
+        _logger.Information("Total items to download: {TotalDownloadCount}. Created {Count} batch download requests for {Name}.", batchedDownloadRequests.Count(), Account.Name, totalDownloadCount);
 
         // Gmail SDK's BatchRequest has Action delegate for callback, not Task.
         // Therefore it's not possible to make sure that downloaded item is processed in the database before this
@@ -712,9 +712,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (historyIdMessages.Any())
         {
-            var maxHistoryId = batchProcessCallbacks.Select(a => a.Result).Where(a => a?.HistoryId != null).Max(a => a.HistoryId.Value);
+            var maxHistoryId = historyIdMessages.Max(a => a.HistoryId.Value);
 
-            if (maxHistoryId != 0)
+            if (maxHistoryId > 0)
             {
                 Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, maxHistoryId.ToString()).ConfigureAwait(false);
             }
@@ -1060,7 +1060,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var downloadRequireMessageIds = messageIds.Except(await _gmailChangeProcessor.AreMailsExistsAsync(messageIds));
 
         // Download missing messages.
-        await BatchDownloadMessagesAsync(downloadRequireMessageIds, cancellationToken);
+        await BatchDownloadMessagesAsync(downloadRequireMessageIds.ToList(), cancellationToken);
 
         // Get results from database and return.
 
