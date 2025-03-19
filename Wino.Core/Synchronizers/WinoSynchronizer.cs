@@ -97,10 +97,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             PendingSynchronizationRequest.Add(options, newCancellationTokenSource);
             activeSynchronizationCancellationToken = newCancellationTokenSource.Token;
 
-            await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
-
-            PublishSynchronizationProgress(1);
-
             // ImapSynchronizer will send this type when an Idle client receives a notification of changes.
             // We should not execute requests in this case.
             bool shouldExecuteRequests = options.Type != MailSynchronizationType.IMAPIdle;
@@ -206,6 +202,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 // In terms of flag/read changes, there is no point of synchronizing must have folders.
                 options.ExcludeMustHaveFolders = requestCopies.All(a => a is ICustomFolderSynchronizationRequest request && request.ExcludeMustHaveFolders);
             }
+
+            await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
+
+            PublishSynchronizationProgress(1);
 
             State = AccountSynchronizerState.Synchronizing;
 
