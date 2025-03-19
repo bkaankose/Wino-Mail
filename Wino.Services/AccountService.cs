@@ -67,6 +67,12 @@ public class AccountService : BaseDatabaseService, IAccountService
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
 
+    public async Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier)
+    {
+        await Connection.ExecuteAsync("UPDATE MailAccount SET SynchronizationDeltaIdentifier = ? WHERE Id = ?", syncIdentifier, accountId);
+        return syncIdentifier;
+    }
+
     public async Task UnlinkMergedInboxAsync(Guid mergedInboxId)
     {
         var mergedInbox = await Connection.Table<MergedInbox>().FirstOrDefaultAsync(a => a.Id == mergedInboxId).ConfigureAwait(false);
@@ -547,33 +553,33 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.InsertAsync(customServerInformation);
     }
 
-    public async Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier)
-    {
-        var account = await GetAccountAsync(accountId);
+    //public async Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier)
+    //{
+    //    var account = await GetAccountAsync(accountId);
 
-        if (account == null)
-        {
-            _logger.Error("Could not find account with id {AccountId}", accountId);
-            return string.Empty;
-        }
+    //    if (account == null)
+    //    {
+    //        _logger.Error("Could not find account with id {AccountId}", accountId);
+    //        return string.Empty;
+    //    }
 
-        var currentIdentifier = account.SynchronizationDeltaIdentifier;
+    //    var currentIdentifier = account.SynchronizationDeltaIdentifier;
 
-        bool shouldUpdateIdentifier = account.ProviderType == MailProviderType.Gmail ?
-                string.IsNullOrEmpty(currentIdentifier) ? true : !string.IsNullOrEmpty(currentIdentifier)
-                && ulong.TryParse(currentIdentifier, out ulong currentIdentifierValue)
-                && ulong.TryParse(newIdentifier, out ulong newIdentifierValue)
-                && newIdentifierValue > currentIdentifierValue : true;
+    //    bool shouldUpdateIdentifier = account.ProviderType == MailProviderType.Gmail ?
+    //            string.IsNullOrEmpty(currentIdentifier) ? true : !string.IsNullOrEmpty(currentIdentifier)
+    //            && ulong.TryParse(currentIdentifier, out ulong currentIdentifierValue)
+    //            && ulong.TryParse(newIdentifier, out ulong newIdentifierValue)
+    //            && newIdentifierValue > currentIdentifierValue : true;
 
-        if (shouldUpdateIdentifier)
-        {
-            account.SynchronizationDeltaIdentifier = newIdentifier;
+    //    if (shouldUpdateIdentifier)
+    //    {
+    //        account.SynchronizationDeltaIdentifier = newIdentifier;
 
-            await UpdateAccountAsync(account);
-        }
+    //        await UpdateAccountAsync(account);
+    //    }
 
-        return account.SynchronizationDeltaIdentifier;
-    }
+    //    return account.SynchronizationDeltaIdentifier;
+    //}
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)
     {

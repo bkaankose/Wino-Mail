@@ -63,15 +63,6 @@ public interface IAccountService
     Task ClearAccountAttentionAsync(Guid accountId);
 
     /// <summary>
-    /// Updates the account synchronization identifier.
-    /// For example: Gmail uses this identifier to keep track of the last synchronization.
-    /// Update is ignored for Gmail if the new identifier is older than the current one.
-    /// </summary>
-    /// <param name="newIdentifier">Identifier to update</param>
-    /// <returns>Current account synchronization modifier.</returns>
-    Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier);
-
-    /// <summary>
     /// Renames the merged inbox with the given id.
     /// </summary>
     /// <param name="mergedInboxId">Merged Inbox id</param>
@@ -164,4 +155,11 @@ public interface IAccountService
     /// <param name="accountId">Account id.</param>
     /// <param name="AccountCacheResetReason">Reason for the cache reset.</param>
     Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason);
+
+    /// <summary>
+    /// Updates the synchronization identifier for a specific account asynchronously.
+    /// </summary>
+    /// <param name="accountId">Identifies the account for which the synchronization identifier is being updated.</param>
+    /// <param name="syncIdentifier">Represents the new synchronization identifier to be set for the specified account.</param>
+    Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier);
 }

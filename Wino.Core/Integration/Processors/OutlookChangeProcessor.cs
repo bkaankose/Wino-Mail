@@ -22,7 +22,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
 {
 
     public Task<string> ResetAccountDeltaTokenAsync(Guid accountId)
-        => AccountService.UpdateSynchronizationIdentifierAsync(accountId, null);
+        => AccountService.UpdateSyncIdentifierRawAsync(accountId, string.Empty);
 
     public async Task<string> ResetFolderDeltaTokenAsync(Guid folderId)
     {

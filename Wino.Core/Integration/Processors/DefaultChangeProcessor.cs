@@ -24,7 +24,7 @@ namespace Wino.Core.Integration.Processors;
 public interface IDefaultChangeProcessor
 {
     Task UpdateAccountAsync(MailAccount account);
-    Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
+    // Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
     Task DeleteAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     Task ChangeMailReadStatusAsync(string mailCopyId, bool isRead);
     Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged);
@@ -64,6 +64,7 @@ public interface IDefaultChangeProcessor
     /// <returns>Whether mail exists in the folder or not.</returns>
     Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId);
     Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds);
+    Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -122,7 +123,7 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     private readonly IMimeFileService _mimeFileService = mimeFileService;
 
     public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
-        => AccountService.UpdateSynchronizationIdentifierAsync(accountId, synchronizationDeltaIdentifier);
+        => AccountService.UpdateSyncIdentifierRawAsync(accountId, synchronizationDeltaIdentifier);
 
     public Task ChangeFlagStatusAsync(string mailCopyId, bool isFlagged)
         => MailService.ChangeFlagStatusAsync(mailCopyId, isFlagged);
