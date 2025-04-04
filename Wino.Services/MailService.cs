@@ -726,7 +726,7 @@ public class MailService : BaseDatabaseService, IMailService
         // but only single MIME to represent all.
 
         // Save mime file to disk.
-        var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId);
+        var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
 
         if (!isMimeExists)
         {
@@ -757,6 +757,14 @@ public class MailService : BaseDatabaseService, IMailService
         }
         else
         {
+            if (account.ProviderType != MailProviderType.Gmail)
+            {
+                // Make sure there is only 1 instance left of this mail copy id.
+                var allMails = await GetMailItemsAsync(mailCopy.Id).ConfigureAwait(false);
+
+                await DeleteMailAsync(accountId, mailCopy.Id).ConfigureAwait(false);
+            }
+
             await InsertMailAsync(mailCopy).ConfigureAwait(false);
 
             return true;
