@@ -44,12 +44,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 {
     public override uint BatchModificationSize => 1000;
 
-    /// <summary>
-    /// This is NOT the initial message download count per folder.
-    /// Gmail doesn't have per-folder sync. Therefore this represents to total amount that 1 page query returns until
-    /// there are no pages to get. Max allowed is 500.
-    /// </summary>
-    public override uint InitialMessageDownloadCountPerFolder => 500;
+    /// This now represents actual per-folder download count for initial sync
+    public override uint InitialMessageDownloadCountPerFolder => 1500;
 
     // It's actually 100. But Gmail SDK has internal bug for Out of Memory exception.
     // https://github.com/googleapis/google-api-dotnet-client/issues/2603
@@ -178,36 +174,50 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (isInitialSync)
         {
-            // Initial synchronization.
-            // Google sends message id and thread id in this query.
-            // We'll collect them and send a Batch request to get details of the messages.
+            // Get all folders that need synchronization
+            var folders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+            var syncFolders = folders.Where(f =>
+                f.IsSynchronizationEnabled &&
+                f.SpecialFolderType != SpecialFolderType.Category &&
+                f.SpecialFolderType != SpecialFolderType.Archive).ToList();
 
-            var messageRequest = _gmailService.Users.Messages.List("me");
-
-            // Gmail doesn't do per-folder sync. So our per-folder count is the same as total message count.
-            messageRequest.MaxResults = InitialMessageDownloadCountPerFolder;
-            messageRequest.IncludeSpamTrash = true;
-
-            ListMessagesResponse result = null;
-
-            string nextPageToken = string.Empty;
-
-            while (true)
+            // Download messages for each folder separately
+            foreach (var folder in syncFolders)
             {
-                if (!string.IsNullOrEmpty(nextPageToken))
+                var messageRequest = _gmailService.Users.Messages.List("me");
+                messageRequest.MaxResults = InitialMessageDownloadCountPerFolder;
+                messageRequest.LabelIds = new[] { folder.RemoteFolderId };
+                // messageRequest.OrderBy = "internalDate desc"; // Get latest messages first
+                messageRequest.IncludeSpamTrash = true;
+
+                string nextPageToken = null;
+                uint downloadedCount = 0;
+
+                do
                 {
-                    messageRequest.PageToken = nextPageToken;
-                }
+                    if (!string.IsNullOrEmpty(nextPageToken))
+                    {
+                        messageRequest.PageToken = nextPageToken;
+                    }
 
-                result = await messageRequest.ExecuteAsync(cancellationToken);
+                    var result = await messageRequest.ExecuteAsync(cancellationToken);
+                    nextPageToken = result.NextPageToken;
 
-                nextPageToken = result.NextPageToken;
+                    if (result.Messages != null)
+                    {
+                        downloadedCount += (uint)result.Messages.Count;
+                        listChanges.Add(result);
+                    }
 
-                listChanges.Add(result);
+                    // Stop if we've downloaded enough messages for this folder
+                    if (downloadedCount >= InitialMessageDownloadCountPerFolder)
+                    {
+                        break;
+                    }
 
-                // Nothing to fetch anymore. Break the loop.
-                if (nextPageToken == null)
-                    break;
+                } while (!string.IsNullOrEmpty(nextPageToken));
+
+                _logger.Information("Downloaded {Count} messages for folder {Folder}", downloadedCount, folder.FolderName);
             }
         }
         else
