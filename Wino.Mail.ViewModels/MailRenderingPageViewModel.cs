@@ -700,7 +700,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             {
                 _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
             }
-            else
+            else if (result != PrintingResult.Canceled)
             {
                 var message = string.Format(Translator.DialogMessage_PrintingFailedMessage, result);
                 _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, message, InfoBarMessageType.Warning);
