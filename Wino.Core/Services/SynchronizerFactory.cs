@@ -15,6 +15,8 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IAccountService _accountService;
     private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IOutlookSynchronizerErrorHandlerFactory _outlookSynchronizerErrorHandlerFactory;
+    private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
@@ -30,7 +32,9 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IGmailAuthenticator gmailAuthenticator,
                                IAccountService accountService,
                                IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
-                               IApplicationConfiguration applicationConfiguration)
+                               IApplicationConfiguration applicationConfiguration,
+                               IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
+                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -40,6 +44,8 @@ public class SynchronizerFactory : ISynchronizerFactory
         _accountService = accountService;
         _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
+        _outlookSynchronizerErrorHandlerFactory = outlookSynchronizerErrorHandlerFactory;
+        _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -69,9 +75,9 @@ public class SynchronizerFactory : ISynchronizerFactory
         switch (providerType)
         {
             case Domain.Enums.MailProviderType.Outlook:
-                return new OutlookSynchronizer(mailAccount, _outlookAuthenticator, _outlookChangeProcessor);
+                return new OutlookSynchronizer(mailAccount, _outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.Gmail:
-                return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor);
+                return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
                 return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration);
             default:

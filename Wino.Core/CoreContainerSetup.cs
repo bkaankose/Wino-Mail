@@ -34,5 +34,8 @@ public static class CoreContainerSetup
         services.AddTransient<CondstoreSynchronizer>();
         services.AddTransient<QResyncSynchronizer>();
         services.AddTransient<UidBasedSynchronizer>();
+
+        services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
     }
 }
