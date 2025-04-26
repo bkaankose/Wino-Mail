@@ -23,14 +23,17 @@ public class MailSynchronizationRequestHandler : ServerMessageHandler<NewMailSyn
 
     private readonly ISynchronizerFactory _synchronizerFactory;
     private readonly INotificationBuilder _notificationBuilder;
+    private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
 
     public MailSynchronizationRequestHandler(ISynchronizerFactory synchronizerFactory,
                                          INotificationBuilder notificationBuilder,
+                                         IAccountService accountService,
                                          IFolderService folderService)
     {
         _synchronizerFactory = synchronizerFactory;
         _notificationBuilder = notificationBuilder;
+        _accountService = accountService;
         _folderService = folderService;
     }
 
@@ -53,7 +56,9 @@ public class MailSynchronizationRequestHandler : ServerMessageHandler<NewMailSyn
         {
             var synchronizationResult = await synchronizer.SynchronizeMailsAsync(message.Options, cancellationToken).ConfigureAwait(false);
 
-            if (synchronizationResult.DownloadedMessages?.Any() ?? false || !synchronizer.Account.Preferences.IsNotificationsEnabled)
+            bool isNotificationsEnabled = await _accountService.IsNotificationsEnabled(synchronizer.Account.Id).ConfigureAwait(false);
+
+            if (isNotificationsEnabled && (synchronizationResult.DownloadedMessages?.Any() ?? false))
             {
                 var accountInboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(message.Options.AccountId, SpecialFolderType.Inbox);
 

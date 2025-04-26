@@ -162,4 +162,12 @@ public interface IAccountService
     /// <param name="accountId">Identifies the account for which the synchronization identifier is being updated.</param>
     /// <param name="syncIdentifier">Represents the new synchronization identifier to be set for the specified account.</param>
     Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier);
+
+
+    /// <summary>
+    /// Gets whether the notifications are enabled for the given account id.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    /// <returns>Whether the notifications should be created after sync or not.</returns>
+    Task<bool> IsNotificationsEnabled(Guid accountId);
 }

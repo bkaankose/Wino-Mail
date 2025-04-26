@@ -615,4 +615,11 @@ public class AccountService : BaseDatabaseService, IAccountService
         var account = await GetAccountAsync(accountId);
         return account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
     }
+
+    public async Task<bool> IsNotificationsEnabled(Guid accountId)
+    {
+        var account = await GetAccountAsync(accountId);
+
+        return account?.Preferences?.IsNotificationsEnabled ?? false;
+    }
 }
