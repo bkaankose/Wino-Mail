@@ -4,6 +4,7 @@ using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
+using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 
 namespace Wino.Core;
@@ -34,5 +35,11 @@ public static class CoreContainerSetup
         services.AddTransient<CondstoreSynchronizer>();
         services.AddTransient<QResyncSynchronizer>();
         services.AddTransient<UidBasedSynchronizer>();
+
+        // Register error factory handlers
+        services.AddTransient<ObjectCannotBeDeletedHandler>();
+
+        services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
     }
 }

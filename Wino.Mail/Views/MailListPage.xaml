@@ -203,6 +203,8 @@
             Key="A"
             Invoked="SelectAllInvoked"
             Modifiers="Control" />
+
+        <KeyboardAccelerator Key="Delete" Invoked="DeleteAllInvoked" />
     </Page.KeyboardAccelerators>
     <wino:BasePage.ShellContent>
         <Grid>

@@ -25,6 +25,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -57,6 +58,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private readonly PeopleServiceService _peopleService;
 
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
+    private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
     private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
     // Keeping a reference for quick access to the virtual archive folder.
@@ -64,7 +66,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
-                             IGmailChangeProcessor gmailChangeProcessor) : base(account)
+                             IGmailChangeProcessor gmailChangeProcessor,
+                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory) : base(account)
     {
         var messageHandler = new GmailClientMessageHandler(authenticator, account);
 
@@ -79,6 +82,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         _calendarService = new CalendarService(initializer);
 
         _gmailChangeProcessor = gmailChangeProcessor;
+        _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
     }
 
     public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args) => _googleHttpClient;
@@ -1106,30 +1110,50 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    private void ProcessGmailRequestError(RequestError error, IRequestBundle<IClientServiceRequest> bundle)
+    private async Task ProcessGmailRequestErrorAsync(RequestError error, IRequestBundle<IClientServiceRequest> bundle)
     {
         if (error == null) return;
 
-        // OutOfMemoryException is a known bug in Gmail SDK.
-        if (error.Code == 0)
+        // Create error context
+        var errorContext = new SynchronizerErrorContext
         {
-            bundle?.UIChangeRequest?.RevertUIChanges();
-            throw new OutOfMemoryException(error.Message);
-        }
+            ErrorCode = error.Code,
+            ErrorMessage = error.Message,
+            RequestBundle = bundle,
+            AdditionalData = new Dictionary<string, object>
+            {
+                { "Account", Account },
+                { "Error", error }
+            }
+        };
 
-        // Entity not found.
-        if (error.Code == 404)
+        // Try to handle the error with registered handlers
+        var handled = await _gmailSynchronizerErrorHandlerFactory.HandleErrorAsync(errorContext);
+
+        // If not handled by any specific handler, apply default error handling
+        if (!handled)
         {
-            bundle?.UIChangeRequest?.RevertUIChanges();
-            throw new SynchronizerEntityNotFoundException(error.Message);
-        }
+            // OutOfMemoryException is a known bug in Gmail SDK.
+            if (error.Code == 0)
+            {
+                bundle?.UIChangeRequest?.RevertUIChanges();
+                throw new OutOfMemoryException(error.Message);
+            }
 
-        if (!string.IsNullOrEmpty(error.Message))
-        {
-            bundle?.UIChangeRequest?.RevertUIChanges();
-            error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
+            // Entity not found.
+            if (error.Code == 404)
+            {
+                bundle?.UIChangeRequest?.RevertUIChanges();
+                throw new SynchronizerEntityNotFoundException(error.Message);
+            }
 
-            throw new SynchronizerException(error.Message);
+            if (!string.IsNullOrEmpty(error.Message))
+            {
+                bundle?.UIChangeRequest?.RevertUIChanges();
+                error.Errors?.ForEach(error => _logger.Error("Unknown Gmail SDK error for {Name}\n{Error}", Account.Name, error));
+
+                throw new SynchronizerException(error.Message);
+            }
         }
     }
 
@@ -1148,7 +1172,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         try
         {
-            ProcessGmailRequestError(error, null);
+            await ProcessGmailRequestErrorAsync(error, null);
         }
         catch (OutOfMemoryException)
         {
@@ -1209,7 +1233,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                                                HttpResponseMessage httpResponseMessage,
                                                                CancellationToken cancellationToken = default)
     {
-        ProcessGmailRequestError(error, bundle);
+        await ProcessGmailRequestErrorAsync(error, bundle);
 
         if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
         {

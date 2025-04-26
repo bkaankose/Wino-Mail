@@ -30,6 +30,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -83,9 +84,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly GraphServiceClient _graphClient;
+    private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
+
     public OutlookSynchronizer(MailAccount account,
                                IAuthenticator authenticator,
-                               IOutlookChangeProcessor outlookChangeProcessor) : base(account)
+                               IOutlookChangeProcessor outlookChangeProcessor,
+                               IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory) : base(account)
     {
         var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
@@ -106,6 +110,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
 
         _outlookChangeProcessor = outlookChangeProcessor;
+        _errorHandlingFactory = errorHandlingFactory;
     }
 
     #region MS Graph Handlers
@@ -990,14 +995,37 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         HttpResponseMessage response,
         List<string> errors)
     {
-        bundle.UIChangeRequest?.RevertUIChanges();
-
         var content = await response.Content.ReadAsStringAsync();
         var errorJson = JsonNode.Parse(content);
-        var errorString = $"[{response.StatusCode}] {errorJson["error"]["code"]} - {errorJson["error"]["message"]}\n";
+        var errorCode = errorJson["error"]["code"].GetValue<string>();
+        var errorMessage = errorJson["error"]["message"].GetValue<string>();
+        var errorString = $"[{response.StatusCode}] {errorCode} - {errorMessage}\n";
 
-        Debug.WriteLine(errorString);
-        errors.Add(errorString);
+        // Create error context
+        var errorContext = new SynchronizerErrorContext
+        {
+            Account = Account,
+            ErrorCode = (int)response.StatusCode,
+            ErrorMessage = errorMessage,
+            RequestBundle = bundle,
+            AdditionalData = new Dictionary<string, object>
+            {
+                { "ErrorCode", errorCode },
+                { "HttpResponse", response },
+                { "Content", content }
+            }
+        };
+
+        // Try to handle the error with registered handlers
+        var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext);
+
+        // If not handled by any specific handler, revert UI changes and add to error list
+        if (!handled)
+        {
+            bundle.UIChangeRequest?.RevertUIChanges();
+            Debug.WriteLine(errorString);
+            errors.Add(errorString);
+        }
     }
 
     private void ThrowBatchExecutionException(List<string> errors)
