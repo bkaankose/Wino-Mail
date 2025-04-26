@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Models.Errors;
@@ -9,6 +10,11 @@ namespace Wino.Core.Domain.Models.Errors;
 /// </summary>
 public class SynchronizerErrorContext
 {
+    /// <summary>
+    /// Account associated with the error
+    /// </summary>
+    public MailAccount Account { get; set; }
+
     /// <summary>
     /// Gets or sets the error code
     /// </summary>

@@ -34,17 +34,16 @@ public class SynchronizerErrorHandlingFactory
         {
             if (handler.CanHandle(error))
             {
-                _logger.Debug("Found handler {HandlerType} for error code {ErrorCode} message {ErrorMessage}", 
+                _logger.Debug("Found handler {HandlerType} for error code {ErrorCode} message {ErrorMessage}",
                     handler.GetType().Name, error.ErrorCode, error.ErrorMessage);
-                
-                await handler.HandleAsync(error);
-                return true;
+
+                return await handler.HandleAsync(error);
             }
         }
-        
-        _logger.Debug("No handler found for error code {ErrorCode} message {ErrorMessage}", 
+
+        _logger.Debug("No handler found for error code {ErrorCode} message {ErrorMessage}",
             error.ErrorCode, error.ErrorMessage);
-        
+
         return false;
     }
 }

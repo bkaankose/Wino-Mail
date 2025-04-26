@@ -20,7 +20,7 @@ public interface ISynchronizerErrorHandler
     /// </summary>
     /// <param name="error">The error to handle</param>
     /// <returns>A task that completes when the error is handled</returns>
-    Task HandleAsync(SynchronizerErrorContext error);
+    Task<bool> HandleAsync(SynchronizerErrorContext error);
 }
 
 public interface ISynchronizerErrorHandlerFactory
