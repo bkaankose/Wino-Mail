@@ -25,7 +25,7 @@
     "AccountDetailsPage_Title": "Account info",
     "AccountDetailsPage_Description": "Change the name of the account in Wino and set desired sender name.",
     "AccountDetailsPage_ColorPicker_Title": "Account color",
-    "AccountDetailsPage_ColorPicker_Description": "Assign a new account color to colorize its symbol in the list.",
+    "AccountDetailsPage_ColorPicker_Description": "Wijs een nieuwe account kleur toe om het bijbehorende symbool in de lijst te kleuren.",
     "AddHyperlink": "Toevoegen",
     "AppCloseBackgroundSynchronizationWarningTitle": "Achtergrond synchronisatie",
     "AppCloseStartupLaunchDisabledWarningMessageFirstLine": "Applicatie is niet ingesteld om te starten bij het opstarten van Windows.",
