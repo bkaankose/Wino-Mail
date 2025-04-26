@@ -692,7 +692,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         return ForEachRequest(request, (item) =>
         {
-            return _graphClient.Me.Messages["123123123"].ToDeleteRequestInformation();
+            return _graphClient.Me.Messages[item.Item.Id].ToDeleteRequestInformation();
         });
     }
 
