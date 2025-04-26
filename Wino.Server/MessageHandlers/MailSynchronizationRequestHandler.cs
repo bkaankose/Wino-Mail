@@ -51,14 +51,6 @@ public class MailSynchronizationRequestHandler : ServerMessageHandler<NewMailSyn
 
         try
         {
-            // test
-            //if (synchronizer.Account.ProviderType == MailProviderType.Gmail)
-            //{
-
-            //    await synchronizer.OnlineSearchAsync("label:unread", null, cancellationToken);
-            //    return WinoServerResponse<MailSynchronizationResult>.CreateSuccessResponse(MailSynchronizationResult.Canceled);
-            //}
-
             var synchronizationResult = await synchronizer.SynchronizeMailsAsync(message.Options, cancellationToken).ConfigureAwait(false);
 
             if (synchronizationResult.DownloadedMessages?.Any() ?? false || !synchronizer.Account.Preferences.IsNotificationsEnabled)
