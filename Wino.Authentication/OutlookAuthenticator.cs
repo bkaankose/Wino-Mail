@@ -107,7 +107,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
             if (account?.Address != null && !account.Address.Equals(authResult.Account.Username, StringComparison.OrdinalIgnoreCase))
             {
-                throw new AuthenticationException("Authenticated address does not match with your account address.");
+                throw new AuthenticationException("Authenticated address does not match with your account address. If you are signing with a Office365, it is not officially supported yet.");
             }
 
             return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
