@@ -67,7 +67,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     {
         await EnsureTokenCacheAttachedAsync();
 
-        var storedAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(a => a.Username == account.Address);
+        var storedAccount = (await _publicClientApplication.GetAccountsAsync()).FirstOrDefault(
+            a => string.Equals(a.Username?.Trim(), account.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
 
         if (storedAccount == null)
             return await GenerateTokenInformationAsync(account);
