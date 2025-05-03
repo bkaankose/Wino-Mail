@@ -4,6 +4,8 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap mp">
 
   <Identity
@@ -27,13 +29,14 @@
     <Resource Language="x-generate"/>
   </Resources>
 
-	<Extensions>
-		<Extension Category="windows.publisherCacheFolders">
-			<PublisherCacheFolders>
-				<Folder Name="WinoShared" />
-			</PublisherCacheFolders>
-		</Extension>
-	</Extensions>
+	<!-- Publisher cache folder -->
+    <Extensions>
+	    <Extension Category="windows.publisherCacheFolders">
+		    <PublisherCacheFolders>
+			    <Folder Name="WinoShared" />
+		    </PublisherCacheFolders>
+	    </Extension>
+    </Extensions>
 	
   <Applications>
     <Application Id="App"
@@ -48,10 +51,25 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+
+		<Extensions>
+			<!-- App Service-->
+			<uap:Extension Category="windows.appService">
+				<uap:AppService Name="WinoInteropService"/>
+			</uap:Extension>
+
+			<!-- Full trust process -->
+			<desktop:Extension Category="windows.fullTrustProcess" Executable="Wino.Server\Wino.Server.exe">
+				<desktop:FullTrustProcess>
+					<desktop:ParameterGroup GroupId="WinoServer" Parameters="Calendar" />
+				</desktop:FullTrustProcess>
+			</desktop:Extension>
+		</Extensions>
     </Application>
   </Applications>
 
   <Capabilities>
     <Capability Name="internetClient" />
+	<rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>
