@@ -8,6 +8,11 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   IgnorableNamespaces="uap mp">
 
+  <Identity
+    Name="58272BurakKSE.WinoCalendar"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
+    Version="1.0.15.0" />
+
 	<!-- Publisher Cache Folders -->
 	<Extensions>
 		<Extension Category="windows.publisherCacheFolders">
@@ -16,13 +21,8 @@
 			</PublisherCacheFolders>
 		</Extension>
 	</Extensions>
-	
-  <Identity
-    Name="58272BurakKSE.WinoCalendar"
-    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="1.0.15.0" />
 
-  <mp:PhoneIdentity PhoneProductId="f047b7dd-96ec-4d54-a862-9321e271e449" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+	<mp:PhoneIdentity PhoneProductId="f047b7dd-96ec-4d54-a862-9321e271e449" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Wino Calendar</DisplayName>

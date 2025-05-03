@@ -7,15 +7,15 @@
   IgnorableNamespaces="uap mp">
 
   <Identity
-    Name="912d061d-2a5a-4afa-abc8-0e9f6aae783d"
-    Publisher="CN=bkaan"
+    Name="58272BurakKSE.WinoCalendar"
+    Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="912d061d-2a5a-4afa-abc8-0e9f6aae783d" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>Wino.Calendar.Packaging.Package</DisplayName>
-    <PublisherDisplayName>bkaan</PublisherDisplayName>
+    <DisplayName>Wino Calendar</DisplayName>
+    <PublisherDisplayName>Burak KÖSE</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -27,6 +27,14 @@
     <Resource Language="x-generate"/>
   </Resources>
 
+	<Extensions>
+		<Extension Category="windows.publisherCacheFolders">
+			<PublisherCacheFolders>
+				<Folder Name="WinoShared" />
+			</PublisherCacheFolders>
+		</Extension>
+	</Extensions>
+	
   <Applications>
     <Application Id="App"
       Executable="$targetnametoken$.exe"
