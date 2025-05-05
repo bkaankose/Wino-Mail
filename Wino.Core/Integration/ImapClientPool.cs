@@ -159,9 +159,6 @@ public class ImapClientPool : IDisposable
 
             if ((isCreatedNew || isReconnected) && client.IsConnected)
             {
-                if (client.Capabilities.HasFlag(ImapCapabilities.Compress))
-                    await client.CompressAsync();
-
                 // Identify if the server supports ID extension.
                 // Some servers require it pre-authentication, some post-authentication.
                 // We'll observe the response here and do it after authentication if needed.
