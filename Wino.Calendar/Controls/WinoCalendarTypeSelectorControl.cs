@@ -4,89 +4,88 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Calendar.Controls
+namespace Wino.Calendar.Controls;
+
+public partial class WinoCalendarTypeSelectorControl : Control
 {
-    public class WinoCalendarTypeSelectorControl : Control
+    private const string PART_TodayButton = nameof(PART_TodayButton);
+    private const string PART_DayToggle = nameof(PART_DayToggle);
+    private const string PART_WeekToggle = nameof(PART_WeekToggle);
+    private const string PART_MonthToggle = nameof(PART_MonthToggle);
+    private const string PART_YearToggle = nameof(PART_YearToggle);
+
+    public static readonly DependencyProperty SelectedTypeProperty = DependencyProperty.Register(nameof(SelectedType), typeof(CalendarDisplayType), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(CalendarDisplayType.Week));
+    public static readonly DependencyProperty DisplayDayCountProperty = DependencyProperty.Register(nameof(DisplayDayCount), typeof(int), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(0));
+    public static readonly DependencyProperty TodayClickedCommandProperty = DependencyProperty.Register(nameof(TodayClickedCommand), typeof(ICommand), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(null));
+
+    public ICommand TodayClickedCommand
     {
-        private const string PART_TodayButton = nameof(PART_TodayButton);
-        private const string PART_DayToggle = nameof(PART_DayToggle);
-        private const string PART_WeekToggle = nameof(PART_WeekToggle);
-        private const string PART_MonthToggle = nameof(PART_MonthToggle);
-        private const string PART_YearToggle = nameof(PART_YearToggle);
+        get { return (ICommand)GetValue(TodayClickedCommandProperty); }
+        set { SetValue(TodayClickedCommandProperty, value); }
+    }
 
-        public static readonly DependencyProperty SelectedTypeProperty = DependencyProperty.Register(nameof(SelectedType), typeof(CalendarDisplayType), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(CalendarDisplayType.Week));
-        public static readonly DependencyProperty DisplayDayCountProperty = DependencyProperty.Register(nameof(DisplayDayCount), typeof(int), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(0));
-        public static readonly DependencyProperty TodayClickedCommandProperty = DependencyProperty.Register(nameof(TodayClickedCommand), typeof(ICommand), typeof(WinoCalendarTypeSelectorControl), new PropertyMetadata(null));
+    public CalendarDisplayType SelectedType
+    {
+        get { return (CalendarDisplayType)GetValue(SelectedTypeProperty); }
+        set { SetValue(SelectedTypeProperty, value); }
+    }
 
-        public ICommand TodayClickedCommand
-        {
-            get { return (ICommand)GetValue(TodayClickedCommandProperty); }
-            set { SetValue(TodayClickedCommandProperty, value); }
-        }
+    public int DisplayDayCount
+    {
+        get { return (int)GetValue(DisplayDayCountProperty); }
+        set { SetValue(DisplayDayCountProperty, value); }
+    }
 
-        public CalendarDisplayType SelectedType
-        {
-            get { return (CalendarDisplayType)GetValue(SelectedTypeProperty); }
-            set { SetValue(SelectedTypeProperty, value); }
-        }
+    private AppBarButton _todayButton;
+    private AppBarToggleButton _dayToggle;
+    private AppBarToggleButton _weekToggle;
+    private AppBarToggleButton _monthToggle;
+    private AppBarToggleButton _yearToggle;
 
-        public int DisplayDayCount
-        {
-            get { return (int)GetValue(DisplayDayCountProperty); }
-            set { SetValue(DisplayDayCountProperty, value); }
-        }
+    public WinoCalendarTypeSelectorControl()
+    {
+        DefaultStyleKey = typeof(WinoCalendarTypeSelectorControl);
+    }
 
-        private AppBarButton _todayButton;
-        private AppBarToggleButton _dayToggle;
-        private AppBarToggleButton _weekToggle;
-        private AppBarToggleButton _monthToggle;
-        private AppBarToggleButton _yearToggle;
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
 
-        public WinoCalendarTypeSelectorControl()
-        {
-            DefaultStyleKey = typeof(WinoCalendarTypeSelectorControl);
-        }
+        _todayButton = GetTemplateChild(PART_TodayButton) as AppBarButton;
+        _dayToggle = GetTemplateChild(PART_DayToggle) as AppBarToggleButton;
+        _weekToggle = GetTemplateChild(PART_WeekToggle) as AppBarToggleButton;
+        _monthToggle = GetTemplateChild(PART_MonthToggle) as AppBarToggleButton;
+        _yearToggle = GetTemplateChild(PART_YearToggle) as AppBarToggleButton;
 
-        protected override void OnApplyTemplate()
-        {
-            base.OnApplyTemplate();
+        Guard.IsNotNull(_todayButton, nameof(_todayButton));
+        Guard.IsNotNull(_dayToggle, nameof(_dayToggle));
+        Guard.IsNotNull(_weekToggle, nameof(_weekToggle));
+        Guard.IsNotNull(_monthToggle, nameof(_monthToggle));
+        Guard.IsNotNull(_yearToggle, nameof(_yearToggle));
 
-            _todayButton = GetTemplateChild(PART_TodayButton) as AppBarButton;
-            _dayToggle = GetTemplateChild(PART_DayToggle) as AppBarToggleButton;
-            _weekToggle = GetTemplateChild(PART_WeekToggle) as AppBarToggleButton;
-            _monthToggle = GetTemplateChild(PART_MonthToggle) as AppBarToggleButton;
-            _yearToggle = GetTemplateChild(PART_YearToggle) as AppBarToggleButton;
+        _todayButton.Click += TodayClicked;
 
-            Guard.IsNotNull(_todayButton, nameof(_todayButton));
-            Guard.IsNotNull(_dayToggle, nameof(_dayToggle));
-            Guard.IsNotNull(_weekToggle, nameof(_weekToggle));
-            Guard.IsNotNull(_monthToggle, nameof(_monthToggle));
-            Guard.IsNotNull(_yearToggle, nameof(_yearToggle));
+        _dayToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Day); };
+        _weekToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Week); };
+        _monthToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Month); };
+        _yearToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Year); };
 
-            _todayButton.Click += TodayClicked;
+        UpdateToggleButtonStates();
+    }
 
-            _dayToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Day); };
-            _weekToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Week); };
-            _monthToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Month); };
-            _yearToggle.Click += (s, e) => { SetSelectedType(CalendarDisplayType.Year); };
+    private void TodayClicked(object sender, RoutedEventArgs e) => TodayClickedCommand?.Execute(null);
 
-            UpdateToggleButtonStates();
-        }
+    private void SetSelectedType(CalendarDisplayType type)
+    {
+        SelectedType = type;
+        UpdateToggleButtonStates();
+    }
 
-        private void TodayClicked(object sender, RoutedEventArgs e) => TodayClickedCommand?.Execute(null);
-
-        private void SetSelectedType(CalendarDisplayType type)
-        {
-            SelectedType = type;
-            UpdateToggleButtonStates();
-        }
-
-        private void UpdateToggleButtonStates()
-        {
-            _dayToggle.IsChecked = SelectedType == CalendarDisplayType.Day;
-            _weekToggle.IsChecked = SelectedType == CalendarDisplayType.Week;
-            _monthToggle.IsChecked = SelectedType == CalendarDisplayType.Month;
-            _yearToggle.IsChecked = SelectedType == CalendarDisplayType.Year;
-        }
+    private void UpdateToggleButtonStates()
+    {
+        _dayToggle.IsChecked = SelectedType == CalendarDisplayType.Day;
+        _weekToggle.IsChecked = SelectedType == CalendarDisplayType.Week;
+        _monthToggle.IsChecked = SelectedType == CalendarDisplayType.Month;
+        _yearToggle.IsChecked = SelectedType == CalendarDisplayType.Year;
     }
 }

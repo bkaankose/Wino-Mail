@@ -1,7 +1,6 @@
 ﻿using Wino.Calendar.ViewModels;
 using Wino.Core.UWP;
 
-namespace Wino.Calendar.Views.Abstract
-{
-    public abstract class EventDetailsPageAbstract : BasePage<EventDetailsPageViewModel> { }
-}
+namespace Wino.Calendar.Views.Abstract;
+
+public abstract class EventDetailsPageAbstract : BasePage<EventDetailsPageViewModel> { }

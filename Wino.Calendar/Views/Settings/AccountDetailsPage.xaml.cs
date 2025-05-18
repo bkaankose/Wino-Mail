@@ -1,12 +1,11 @@
 ﻿using Wino.Calendar.Views.Abstract;
 
-namespace Wino.Calendar.Views.Settings
+namespace Wino.Calendar.Views.Settings;
+
+public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
 {
-    public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
+    public AccountDetailsPage()
     {
-        public AccountDetailsPage()
-        {
-            this.InitializeComponent();
-        }
+        this.InitializeComponent();
     }
 }

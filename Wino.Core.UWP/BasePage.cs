@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Windows.UI.Xaml;
@@ -53,6 +54,8 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         Debug.WriteLine($"Disposed {GetType().Name}");
     }
 
+    [RequiresDynamicCode("AOT")]
+    [RequiresUnreferencedCode("AOT")]
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);

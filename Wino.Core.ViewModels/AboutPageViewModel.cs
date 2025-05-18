@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
@@ -46,6 +47,8 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         PreferencesService = preferencesService;
     }
 
+    [RequiresDynamicCode("AOT")]
+    [RequiresUnreferencedCode("AOT")]
     protected override void OnActivated()
     {
         base.OnActivated();

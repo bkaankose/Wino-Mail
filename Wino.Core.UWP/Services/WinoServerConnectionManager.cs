@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -288,6 +289,8 @@ public class WinoServerConnectionManager :
     public Task<WinoServerResponse<TResponse>> GetResponseAsync<TResponse, TRequestType>(TRequestType message, CancellationToken cancellationToken = default) where TRequestType : IClientMessage
         => GetResponseInternalAsync<TResponse, TRequestType>(message, cancellationToken: cancellationToken);
 
+    [RequiresDynamicCode("Calls System.Text.Json.JsonSerializer.Serialize<TValue>(TValue, JsonSerializerOptions)")]
+    [RequiresUnreferencedCode("Calls System.Text.Json.JsonSerializer.Serialize<TValue>(TValue, JsonSerializerOptions)")]
     private async Task<WinoServerResponse<TResponse>> GetResponseInternalAsync<TResponse, TRequestType>(TRequestType message,
                                                                                                         Dictionary<string, object> parameters = null,
                                                                                                         CancellationToken cancellationToken = default)

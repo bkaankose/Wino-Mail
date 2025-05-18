@@ -12,105 +12,104 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 
-namespace Wino.Calendar.ViewModels
+namespace Wino.Calendar.ViewModels;
+
+public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 {
-    public partial class EventDetailsPageViewModel : CalendarBaseViewModel
+    private readonly ICalendarService _calendarService;
+    private readonly INativeAppService _nativeAppService;
+    private readonly IPreferencesService _preferencesService;
+
+    public CalendarSettings CurrentSettings { get; }
+
+    #region Details
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanViewSeries))]
+    private CalendarItemViewModel _currentEvent;
+
+    [ObservableProperty]
+    private CalendarItemViewModel _seriesParent;
+
+    public bool CanViewSeries => CurrentEvent?.IsRecurringChild ?? false;
+
+    #endregion
+
+    public EventDetailsPageViewModel(ICalendarService calendarService, INativeAppService nativeAppService, IPreferencesService preferencesService)
     {
-        private readonly ICalendarService _calendarService;
-        private readonly INativeAppService _nativeAppService;
-        private readonly IPreferencesService _preferencesService;
+        _calendarService = calendarService;
+        _nativeAppService = nativeAppService;
+        _preferencesService = preferencesService;
 
-        public CalendarSettings CurrentSettings { get; }
+        CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
+    }
 
-        #region Details
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
 
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CanViewSeries))]
-        private CalendarItemViewModel _currentEvent;
+        Messenger.Send(new DetailsPageStateChangedMessage(true));
 
-        [ObservableProperty]
-        private CalendarItemViewModel _seriesParent;
+        if (parameters == null || parameters is not CalendarItemTarget args)
+            return;
 
-        public bool CanViewSeries => CurrentEvent?.IsRecurringChild ?? false;
+        await LoadCalendarItemTargetAsync(args);
+    }
 
-        #endregion
-
-        public EventDetailsPageViewModel(ICalendarService calendarService, INativeAppService nativeAppService, IPreferencesService preferencesService)
+    private async Task LoadCalendarItemTargetAsync(CalendarItemTarget target)
+    {
+        try
         {
-            _calendarService = calendarService;
-            _nativeAppService = nativeAppService;
-            _preferencesService = preferencesService;
+            var currentEventItem = await _calendarService.GetCalendarItemTargetAsync(target);
 
-            CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
-        }
-
-        public override async void OnNavigatedTo(NavigationMode mode, object parameters)
-        {
-            base.OnNavigatedTo(mode, parameters);
-
-            Messenger.Send(new DetailsPageStateChangedMessage(true));
-
-            if (parameters == null || parameters is not CalendarItemTarget args)
+            if (currentEventItem == null)
                 return;
 
-            await LoadCalendarItemTargetAsync(args);
-        }
+            CurrentEvent = new CalendarItemViewModel(currentEventItem);
 
-        private async Task LoadCalendarItemTargetAsync(CalendarItemTarget target)
-        {
-            try
+            var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.EventTrackingId);
+
+            foreach (var item in attendees)
             {
-                var currentEventItem = await _calendarService.GetCalendarItemTargetAsync(target);
-
-                if (currentEventItem == null)
-                    return;
-
-                CurrentEvent = new CalendarItemViewModel(currentEventItem);
-
-                var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.EventTrackingId);
-
-                foreach (var item in attendees)
-                {
-                    CurrentEvent.Attendees.Add(item);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.Message);
+                CurrentEvent.Attendees.Add(item);
             }
         }
-
-        public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+        catch (Exception ex)
         {
-            base.OnNavigatedFrom(mode, parameters);
-
-            Messenger.Send(new DetailsPageStateChangedMessage(false));
+            Debug.WriteLine(ex.Message);
         }
+    }
 
-        [RelayCommand]
-        private async Task SaveAsync()
-        {
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
 
-        }
+        Messenger.Send(new DetailsPageStateChangedMessage(false));
+    }
 
-        [RelayCommand]
-        private async Task DeleteAsync()
-        {
+    [RelayCommand]
+    private async Task SaveAsync()
+    {
 
-        }
+    }
 
-        [RelayCommand]
-        private Task JoinOnline()
-        {
-            if (CurrentEvent == null || string.IsNullOrEmpty(CurrentEvent.CalendarItem.HtmlLink)) return Task.CompletedTask;
+    [RelayCommand]
+    private async Task DeleteAsync()
+    {
 
-            return _nativeAppService.LaunchUriAsync(new Uri(CurrentEvent.CalendarItem.HtmlLink));
-        }
+    }
 
-        [RelayCommand]
-        private async Task Respond(CalendarItemStatus status)
-        {
-            if (CurrentEvent == null) return;
-        }
+    [RelayCommand]
+    private Task JoinOnline()
+    {
+        if (CurrentEvent == null || string.IsNullOrEmpty(CurrentEvent.CalendarItem.HtmlLink)) return Task.CompletedTask;
+
+        return _nativeAppService.LaunchUriAsync(new Uri(CurrentEvent.CalendarItem.HtmlLink));
+    }
+
+    [RelayCommand]
+    private async Task Respond(CalendarItemStatus status)
+    {
+        if (CurrentEvent == null) return;
     }
 }

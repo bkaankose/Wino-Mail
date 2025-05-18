@@ -1,13 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core;
 
-namespace Wino.Calendar.ViewModels
+namespace Wino.Calendar.ViewModels;
+
+public static class CalendarViewModelContainerSetup
 {
-    public static class CalendarViewModelContainerSetup
+    public static void RegisterCalendarViewModelServices(this IServiceCollection services)
     {
-        public static void RegisterCalendarViewModelServices(this IServiceCollection services)
-        {
-            services.RegisterCoreServices();
-        }
+        services.RegisterCoreServices();
     }
 }

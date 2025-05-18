@@ -10,54 +10,53 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.UWP.Services;
 using Wino.Views;
 
-namespace Wino.Calendar.Services
+namespace Wino.Calendar.Services;
+
+public class NavigationService : NavigationServiceBase, INavigationService
 {
-    public class NavigationService : NavigationServiceBase, INavigationService
+    public Type GetPageType(WinoPage winoPage)
     {
-        public Type GetPageType(WinoPage winoPage)
+        return winoPage switch
         {
-            return winoPage switch
-            {
-                WinoPage.CalendarPage => typeof(CalendarPage),
-                WinoPage.SettingsPage => typeof(SettingsPage),
-                WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
-                WinoPage.AccountManagementPage => typeof(AccountManagementPage),
-                WinoPage.ManageAccountsPage => typeof(ManageAccountsPage),
-                WinoPage.PersonalizationPage => typeof(PersonalizationPage),
-                WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
-                WinoPage.EventDetailsPage => typeof(EventDetailsPage),
-                _ => throw new Exception("Page is not implemented yet."),
-            };
-        }
+            WinoPage.CalendarPage => typeof(CalendarPage),
+            WinoPage.SettingsPage => typeof(SettingsPage),
+            WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
+            WinoPage.AccountManagementPage => typeof(AccountManagementPage),
+            WinoPage.ManageAccountsPage => typeof(ManageAccountsPage),
+            WinoPage.PersonalizationPage => typeof(PersonalizationPage),
+            WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
+            WinoPage.EventDetailsPage => typeof(EventDetailsPage),
+            _ => throw new Exception("Page is not implemented yet."),
+        };
+    }
 
-        public void GoBack()
+    public void GoBack()
+    {
+        if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
         {
-            if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
-            {
-                var shellFrame = shellPage.GetShellFrame();
+            var shellFrame = shellPage.GetShellFrame();
 
-                if (shellFrame.CanGoBack)
-                {
-                    shellFrame.GoBack();
-                }
+            if (shellFrame.CanGoBack)
+            {
+                shellFrame.GoBack();
             }
         }
+    }
 
-        public bool Navigate(WinoPage page, object parameter = null, NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame, NavigationTransitionType transition = NavigationTransitionType.None)
+    public bool Navigate(WinoPage page, object parameter = null, NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame, NavigationTransitionType transition = NavigationTransitionType.None)
+    {
+        // All navigations are performed on shell frame for calendar.
+
+        if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
         {
-            // All navigations are performed on shell frame for calendar.
+            var shellFrame = shellPage.GetShellFrame();
 
-            if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
-            {
-                var shellFrame = shellPage.GetShellFrame();
+            var pageType = GetPageType(page);
 
-                var pageType = GetPageType(page);
-
-                shellFrame.Navigate(pageType, parameter);
-                return true;
-            }
-
-            return false;
+            shellFrame.Navigate(pageType, parameter);
+            return true;
         }
+
+        return false;
     }
 }

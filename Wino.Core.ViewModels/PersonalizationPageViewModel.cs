@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -200,6 +201,8 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         SelectedAppTheme = AppThemes.Find(a => a.Id == _themeService.CurrentApplicationThemeId);
     }
 
+    [RequiresDynamicCode("AOT")]
+    [RequiresUnreferencedCode("AOT")]
     protected override async void OnActivated()
     {
         base.OnActivated();

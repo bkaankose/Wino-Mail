@@ -1,43 +1,42 @@
 ﻿using Windows.UI.Xaml.Automation.Peers;
 using Windows.UI.Xaml.Controls;
 
-namespace Wino.Calendar.Controls
+namespace Wino.Calendar.Controls;
+
+/// <summary>
+/// FlipView that hides the navigation buttons and exposes methods to navigate to the next and previous items with animations.
+/// </summary>
+public partial class CustomCalendarFlipView : FlipView
 {
-    /// <summary>
-    /// FlipView that hides the navigation buttons and exposes methods to navigate to the next and previous items with animations.
-    /// </summary>
-    public class CustomCalendarFlipView : FlipView
+    private const string PART_PreviousButton = "PreviousButtonHorizontal";
+    private const string PART_NextButton = "NextButtonHorizontal";
+
+    private Button PreviousButton;
+    private Button NextButton;
+
+    protected override void OnApplyTemplate()
     {
-        private const string PART_PreviousButton = "PreviousButtonHorizontal";
-        private const string PART_NextButton = "NextButtonHorizontal";
+        base.OnApplyTemplate();
 
-        private Button PreviousButton;
-        private Button NextButton;
+        PreviousButton = GetTemplateChild(PART_PreviousButton) as Button;
+        NextButton = GetTemplateChild(PART_NextButton) as Button;
 
-        protected override void OnApplyTemplate()
-        {
-            base.OnApplyTemplate();
+        // Hide navigation buttons
+        PreviousButton.Opacity = NextButton.Opacity = 0;
+        PreviousButton.IsHitTestVisible = NextButton.IsHitTestVisible = false;
 
-            PreviousButton = GetTemplateChild(PART_PreviousButton) as Button;
-            NextButton = GetTemplateChild(PART_NextButton) as Button;
+        var t = FindName("ScrollingHost");
+    }
 
-            // Hide navigation buttons
-            PreviousButton.Opacity = NextButton.Opacity = 0;
-            PreviousButton.IsHitTestVisible = NextButton.IsHitTestVisible = false;
+    public void GoPreviousFlip()
+    {
+        var backPeer = new ButtonAutomationPeer(PreviousButton);
+        backPeer.Invoke();
+    }
 
-            var t = FindName("ScrollingHost");
-        }
-
-        public void GoPreviousFlip()
-        {
-            var backPeer = new ButtonAutomationPeer(PreviousButton);
-            backPeer.Invoke();
-        }
-
-        public void GoNextFlip()
-        {
-            var nextPeer = new ButtonAutomationPeer(NextButton);
-            nextPeer.Invoke();
-        }
+    public void GoNextFlip()
+    {
+        var nextPeer = new ButtonAutomationPeer(NextButton);
+        nextPeer.Invoke();
     }
 }

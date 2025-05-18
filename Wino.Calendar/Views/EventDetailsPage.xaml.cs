@@ -1,13 +1,12 @@
 
 using Wino.Calendar.Views.Abstract;
 
-namespace Wino.Calendar.Views
+namespace Wino.Calendar.Views;
+
+public sealed partial class EventDetailsPage : EventDetailsPageAbstract
 {
-    public sealed partial class EventDetailsPage : EventDetailsPageAbstract
+    public EventDetailsPage()
     {
-        public EventDetailsPage()
-        {
-            this.InitializeComponent();
-        }
+        this.InitializeComponent();
     }
 }

@@ -9,190 +9,189 @@ using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Controls
+namespace Wino.Calendar.Controls;
+
+public sealed partial class CalendarItemControl : UserControl
 {
-    public sealed partial class CalendarItemControl : UserControl
+    // Single tap has a delay to report double taps properly.
+    private bool isSingleTap = false;
+
+    public static readonly DependencyProperty CalendarItemProperty = DependencyProperty.Register(nameof(CalendarItem), typeof(CalendarItemViewModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarItemChanged)));
+    public static readonly DependencyProperty IsDraggingProperty = DependencyProperty.Register(nameof(IsDragging), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
+    public static readonly DependencyProperty IsCustomEventAreaProperty = DependencyProperty.Register(nameof(IsCustomEventArea), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
+    public static readonly DependencyProperty CalendarItemTitleProperty = DependencyProperty.Register(nameof(CalendarItemTitle), typeof(string), typeof(CalendarItemControl), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty DisplayingDateProperty = DependencyProperty.Register(nameof(DisplayingDate), typeof(CalendarDayModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnDisplayDateChanged)));
+
+    /// <summary>
+    /// Whether the control is displaying as regular event or all-multi day area in the day control.
+    /// </summary>
+    public bool IsCustomEventArea
     {
-        // Single tap has a delay to report double taps properly.
-        private bool isSingleTap = false;
+        get { return (bool)GetValue(IsCustomEventAreaProperty); }
+        set { SetValue(IsCustomEventAreaProperty, value); }
+    }
 
-        public static readonly DependencyProperty CalendarItemProperty = DependencyProperty.Register(nameof(CalendarItem), typeof(CalendarItemViewModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarItemChanged)));
-        public static readonly DependencyProperty IsDraggingProperty = DependencyProperty.Register(nameof(IsDragging), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
-        public static readonly DependencyProperty IsCustomEventAreaProperty = DependencyProperty.Register(nameof(IsCustomEventArea), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
-        public static readonly DependencyProperty CalendarItemTitleProperty = DependencyProperty.Register(nameof(CalendarItemTitle), typeof(string), typeof(CalendarItemControl), new PropertyMetadata(string.Empty));
-        public static readonly DependencyProperty DisplayingDateProperty = DependencyProperty.Register(nameof(DisplayingDate), typeof(CalendarDayModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnDisplayDateChanged)));
+    /// <summary>
+    /// Day that the calendar item is rendered at.
+    /// It's needed for title manipulation and some other adjustments later on.
+    /// </summary>
+    public CalendarDayModel DisplayingDate
+    {
+        get { return (CalendarDayModel)GetValue(DisplayingDateProperty); }
+        set { SetValue(DisplayingDateProperty, value); }
+    }
 
-        /// <summary>
-        /// Whether the control is displaying as regular event or all-multi day area in the day control.
-        /// </summary>
-        public bool IsCustomEventArea
+    public string CalendarItemTitle
+    {
+        get { return (string)GetValue(CalendarItemTitleProperty); }
+        set { SetValue(CalendarItemTitleProperty, value); }
+    }
+
+    public CalendarItemViewModel CalendarItem
+    {
+        get { return (CalendarItemViewModel)GetValue(CalendarItemProperty); }
+        set { SetValue(CalendarItemProperty, value); }
+    }
+
+    public bool IsDragging
+    {
+        get { return (bool)GetValue(IsDraggingProperty); }
+        set { SetValue(IsDraggingProperty, value); }
+    }
+
+    public CalendarItemControl()
+    {
+        InitializeComponent();
+    }
+
+    private static void OnDisplayDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is CalendarItemControl control)
         {
-            get { return (bool)GetValue(IsCustomEventAreaProperty); }
-            set { SetValue(IsCustomEventAreaProperty, value); }
+            control.UpdateControlVisuals();
         }
+    }
 
-        /// <summary>
-        /// Day that the calendar item is rendered at.
-        /// It's needed for title manipulation and some other adjustments later on.
-        /// </summary>
-        public CalendarDayModel DisplayingDate
+    private static void OnCalendarItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is CalendarItemControl control)
         {
-            get { return (CalendarDayModel)GetValue(DisplayingDateProperty); }
-            set { SetValue(DisplayingDateProperty, value); }
+            control.UpdateControlVisuals();
         }
+    }
 
-        public string CalendarItemTitle
-        {
-            get { return (string)GetValue(CalendarItemTitleProperty); }
-            set { SetValue(CalendarItemTitleProperty, value); }
-        }
+    private void UpdateControlVisuals()
+    {
+        // Depending on the calendar item's duration and attributes, we might need to change the display title.
+        // 1. Multi-Day events should display the start date and end date.
+        // 2. Multi-Day events that occupy the whole day just shows 'all day'.
+        // 3. Other events should display the title.
 
-        public CalendarItemViewModel CalendarItem
-        {
-            get { return (CalendarItemViewModel)GetValue(CalendarItemProperty); }
-            set { SetValue(CalendarItemProperty, value); }
-        }
+        if (CalendarItem == null) return;
+        if (DisplayingDate == null) return;
 
-        public bool IsDragging
+        if (CalendarItem.IsMultiDayEvent)
         {
-            get { return (bool)GetValue(IsDraggingProperty); }
-            set { SetValue(IsDraggingProperty, value); }
-        }
+            // Multi day events are divided into 3 categories:
+            // 1. All day events
+            // 2. Events that started after the period.
+            // 3. Events that started before the period and finishes within the period.
 
-        public CalendarItemControl()
-        {
-            InitializeComponent();
-        }
+            var periodRelation = CalendarItem.Period.GetRelation(DisplayingDate.Period);
 
-        private static void OnDisplayDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is CalendarItemControl control)
+            if (periodRelation == Itenso.TimePeriod.PeriodRelation.StartInside ||
+                periodRelation == PeriodRelation.EnclosingStartTouching)
             {
-                control.UpdateControlVisuals();
+                // hour -> title
+                CalendarItemTitle = $"{DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.StartDate.TimeOfDay)} -> {CalendarItem.Title}";
             }
-        }
-
-        private static void OnCalendarItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is CalendarItemControl control)
+            else if (
+                periodRelation == PeriodRelation.EndInside ||
+                periodRelation == PeriodRelation.EnclosingEndTouching)
             {
-                control.UpdateControlVisuals();
+                // title <- hour
+                CalendarItemTitle = $"{CalendarItem.Title} <- {DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.EndDate.TimeOfDay)}";
             }
-        }
-
-        private void UpdateControlVisuals()
-        {
-            // Depending on the calendar item's duration and attributes, we might need to change the display title.
-            // 1. Multi-Day events should display the start date and end date.
-            // 2. Multi-Day events that occupy the whole day just shows 'all day'.
-            // 3. Other events should display the title.
-
-            if (CalendarItem == null) return;
-            if (DisplayingDate == null) return;
-
-            if (CalendarItem.IsMultiDayEvent)
+            else if (periodRelation == PeriodRelation.Enclosing)
             {
-                // Multi day events are divided into 3 categories:
-                // 1. All day events
-                // 2. Events that started after the period.
-                // 3. Events that started before the period and finishes within the period.
+                // This event goes all day and it's multi-day.
+                // Item must be hidden in the calendar but displayed on the custom area at the top.
 
-                var periodRelation = CalendarItem.Period.GetRelation(DisplayingDate.Period);
-
-                if (periodRelation == Itenso.TimePeriod.PeriodRelation.StartInside ||
-                    periodRelation == PeriodRelation.EnclosingStartTouching)
-                {
-                    // hour -> title
-                    CalendarItemTitle = $"{DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.StartDate.TimeOfDay)} -> {CalendarItem.Title}";
-                }
-                else if (
-                    periodRelation == PeriodRelation.EndInside ||
-                    periodRelation == PeriodRelation.EnclosingEndTouching)
-                {
-                    // title <- hour
-                    CalendarItemTitle = $"{CalendarItem.Title} <- {DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.EndDate.TimeOfDay)}";
-                }
-                else if (periodRelation == PeriodRelation.Enclosing)
-                {
-                    // This event goes all day and it's multi-day.
-                    // Item must be hidden in the calendar but displayed on the custom area at the top.
-
-                    CalendarItemTitle = $"{Translator.CalendarItemAllDay} {CalendarItem.Title}";
-                }
-                else
-                {
-                    // Not expected, but there it is.
-                    CalendarItemTitle = CalendarItem.Title;
-                }
-
-                // Debug.WriteLine($"{CalendarItem.Title} Period relation with {DisplayingDate.Period.ToString()}: {periodRelation}");
+                CalendarItemTitle = $"{Translator.CalendarItemAllDay} {CalendarItem.Title}";
             }
             else
             {
+                // Not expected, but there it is.
                 CalendarItemTitle = CalendarItem.Title;
             }
 
-            UpdateVisualStates();
+            // Debug.WriteLine($"{CalendarItem.Title} Period relation with {DisplayingDate.Period.ToString()}: {periodRelation}");
+        }
+        else
+        {
+            CalendarItemTitle = CalendarItem.Title;
         }
 
-        private void UpdateVisualStates()
-        {
-            if (CalendarItem == null) return;
+        UpdateVisualStates();
+    }
 
-            if (CalendarItem.IsAllDayEvent)
+    private void UpdateVisualStates()
+    {
+        if (CalendarItem == null) return;
+
+        if (CalendarItem.IsAllDayEvent)
+        {
+            VisualStateManager.GoToState(this, "AllDayEvent", true);
+        }
+        else if (CalendarItem.IsMultiDayEvent)
+        {
+            if (IsCustomEventArea)
             {
-                VisualStateManager.GoToState(this, "AllDayEvent", true);
-            }
-            else if (CalendarItem.IsMultiDayEvent)
-            {
-                if (IsCustomEventArea)
-                {
-                    VisualStateManager.GoToState(this, "CustomAreaMultiDayEvent", true);
-                }
-                else
-                {
-                    // Hide it.
-                    VisualStateManager.GoToState(this, "MultiDayEvent", true);
-                }
+                VisualStateManager.GoToState(this, "CustomAreaMultiDayEvent", true);
             }
             else
             {
-                VisualStateManager.GoToState(this, "RegularEvent", true);
+                // Hide it.
+                VisualStateManager.GoToState(this, "MultiDayEvent", true);
             }
         }
-
-        private void ControlDragStarting(UIElement sender, DragStartingEventArgs args) => IsDragging = true;
-
-        private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;
-
-        private async void ControlTapped(object sender, TappedRoutedEventArgs e)
+        else
         {
-            if (CalendarItem == null) return;
-
-            isSingleTap = true;
-
-            await Task.Delay(100);
-
-            if (isSingleTap)
-            {
-                WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem, DisplayingDate));
-            }
+            VisualStateManager.GoToState(this, "RegularEvent", true);
         }
+    }
 
-        private void ControlDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    private void ControlDragStarting(UIElement sender, DragStartingEventArgs args) => IsDragging = true;
+
+    private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;
+
+    private async void ControlTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (CalendarItem == null) return;
+
+        isSingleTap = true;
+
+        await Task.Delay(100);
+
+        if (isSingleTap)
         {
-            if (CalendarItem == null) return;
-
-            isSingleTap = false;
-
-            WeakReferenceMessenger.Default.Send(new CalendarItemDoubleTappedMessage(CalendarItem));
+            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem, DisplayingDate));
         }
+    }
 
-        private void ControlRightTapped(object sender, RightTappedRoutedEventArgs e)
-        {
-            if (CalendarItem == null) return;
+    private void ControlDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (CalendarItem == null) return;
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemRightTappedMessage(CalendarItem));
-        }
+        isSingleTap = false;
+
+        WeakReferenceMessenger.Default.Send(new CalendarItemDoubleTappedMessage(CalendarItem));
+    }
+
+    private void ControlRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (CalendarItem == null) return;
+
+        WeakReferenceMessenger.Default.Send(new CalendarItemRightTappedMessage(CalendarItem));
     }
 }

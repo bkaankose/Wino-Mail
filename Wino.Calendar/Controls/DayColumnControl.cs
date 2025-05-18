@@ -3,76 +3,75 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.Calendar;
 
-namespace Wino.Calendar.Controls
+namespace Wino.Calendar.Controls;
+
+public partial class DayColumnControl : Control
 {
-    public class DayColumnControl : Control
+    private const string PART_HeaderDateDayText = nameof(PART_HeaderDateDayText);
+    private const string PART_IsTodayBorder = nameof(PART_IsTodayBorder);
+    private const string PART_ColumnHeaderText = nameof(PART_ColumnHeaderText);
+
+    private const string PART_AllDayItemsControl = nameof(PART_AllDayItemsControl);
+
+    private const string TodayState = nameof(TodayState);
+    private const string NotTodayState = nameof(NotTodayState);
+
+    private TextBlock HeaderDateDayText;
+    private TextBlock ColumnHeaderText;
+    private Border IsTodayBorder;
+    private ItemsControl AllDayItemsControl;
+
+    public CalendarDayModel DayModel
     {
-        private const string PART_HeaderDateDayText = nameof(PART_HeaderDateDayText);
-        private const string PART_IsTodayBorder = nameof(PART_IsTodayBorder);
-        private const string PART_ColumnHeaderText = nameof(PART_ColumnHeaderText);
+        get { return (CalendarDayModel)GetValue(DayModelProperty); }
+        set { SetValue(DayModelProperty, value); }
+    }
 
-        private const string PART_AllDayItemsControl = nameof(PART_AllDayItemsControl);
+    public static readonly DependencyProperty DayModelProperty = DependencyProperty.Register(nameof(DayModel), typeof(CalendarDayModel), typeof(DayColumnControl), new PropertyMetadata(null, new PropertyChangedCallback(OnRenderingPropertiesChanged)));
 
-        private const string TodayState = nameof(TodayState);
-        private const string NotTodayState = nameof(NotTodayState);
+    public DayColumnControl()
+    {
+        DefaultStyleKey = typeof(DayColumnControl);
+    }
 
-        private TextBlock HeaderDateDayText;
-        private TextBlock ColumnHeaderText;
-        private Border IsTodayBorder;
-        private ItemsControl AllDayItemsControl;
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
 
-        public CalendarDayModel DayModel
+        HeaderDateDayText = GetTemplateChild(PART_HeaderDateDayText) as TextBlock;
+        ColumnHeaderText = GetTemplateChild(PART_ColumnHeaderText) as TextBlock;
+        IsTodayBorder = GetTemplateChild(PART_IsTodayBorder) as Border;
+        AllDayItemsControl = GetTemplateChild(PART_AllDayItemsControl) as ItemsControl;
+
+        UpdateValues();
+    }
+
+    private static void OnRenderingPropertiesChanged(DependencyObject control, DependencyPropertyChangedEventArgs e)
+    {
+        if (control is DayColumnControl columnControl)
         {
-            get { return (CalendarDayModel)GetValue(DayModelProperty); }
-            set { SetValue(DayModelProperty, value); }
+            columnControl.UpdateValues();
+        }
+    }
+
+    private void UpdateValues()
+    {
+        if (HeaderDateDayText == null || IsTodayBorder == null || DayModel == null) return;
+
+        HeaderDateDayText.Text = DayModel.RepresentingDate.Day.ToString();
+
+        // Monthly template does not use it.
+        if (ColumnHeaderText != null)
+        {
+            ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CalendarSettings.CultureInfo);
         }
 
-        public static readonly DependencyProperty DayModelProperty = DependencyProperty.Register(nameof(DayModel), typeof(CalendarDayModel), typeof(DayColumnControl), new PropertyMetadata(null, new PropertyChangedCallback(OnRenderingPropertiesChanged)));
+        AllDayItemsControl.ItemsSource = DayModel.EventsCollection.AllDayEvents;
 
-        public DayColumnControl()
-        {
-            DefaultStyleKey = typeof(DayColumnControl);
-        }
+        bool isToday = DayModel.RepresentingDate.Date == DateTime.Now.Date;
 
-        protected override void OnApplyTemplate()
-        {
-            base.OnApplyTemplate();
+        VisualStateManager.GoToState(this, isToday ? TodayState : NotTodayState, false);
 
-            HeaderDateDayText = GetTemplateChild(PART_HeaderDateDayText) as TextBlock;
-            ColumnHeaderText = GetTemplateChild(PART_ColumnHeaderText) as TextBlock;
-            IsTodayBorder = GetTemplateChild(PART_IsTodayBorder) as Border;
-            AllDayItemsControl = GetTemplateChild(PART_AllDayItemsControl) as ItemsControl;
-
-            UpdateValues();
-        }
-
-        private static void OnRenderingPropertiesChanged(DependencyObject control, DependencyPropertyChangedEventArgs e)
-        {
-            if (control is DayColumnControl columnControl)
-            {
-                columnControl.UpdateValues();
-            }
-        }
-
-        private void UpdateValues()
-        {
-            if (HeaderDateDayText == null || IsTodayBorder == null || DayModel == null) return;
-
-            HeaderDateDayText.Text = DayModel.RepresentingDate.Day.ToString();
-
-            // Monthly template does not use it.
-            if (ColumnHeaderText != null)
-            {
-                ColumnHeaderText.Text = DayModel.RepresentingDate.ToString("dddd", DayModel.CalendarRenderOptions.CalendarSettings.CultureInfo);
-            }
-
-            AllDayItemsControl.ItemsSource = DayModel.EventsCollection.AllDayEvents;
-
-            bool isToday = DayModel.RepresentingDate.Date == DateTime.Now.Date;
-
-            VisualStateManager.GoToState(this, isToday ? TodayState : NotTodayState, false);
-
-            UpdateLayout();
-        }
+        UpdateLayout();
     }
 }

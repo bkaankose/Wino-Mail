@@ -10,4 +10,4 @@ namespace Wino.Core.Domain.Models;
 [JsonSerializable(typeof(CustomThemeMetadata))]
 [JsonSerializable(typeof(WebViewMessage))]
 [JsonSerializable(typeof(List<ImageInfo>))]
-public partial class DomainModelsJsonContext: JsonSerializerContext;
+public partial class DomainModelsJsonContext : JsonSerializerContext;
