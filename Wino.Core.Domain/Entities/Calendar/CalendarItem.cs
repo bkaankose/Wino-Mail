@@ -17,24 +17,23 @@ public class CalendarItem : ICalendarItem
     public string Description { get; set; }
     public string Location { get; set; }
 
-    public DateTime StartDate { get; set; }
+    public string StartTimeOffset { get; set; }
+    public string EndTimeOffset { get; set; }
 
-    public DateTime EndDate
-    {
-        get
-        {
-            return StartDate.AddSeconds(DurationInSeconds);
-        }
-    }
+    public DateTimeOffset StartDateTimeOffset => DateTimeOffset.Parse(StartTimeOffset);
+    public DateTimeOffset EndDateTimeOffsete => DateTimeOffset.Parse(EndTimeOffset);
 
-    public TimeSpan StartDateOffset { get; set; }
-    public TimeSpan EndDateOffset { get; set; }
+    public DateTime StartDate => StartDateTimeOffset.DateTime;//TimeZoneInfo.ConvertTime(StartDateTimeOffset, TimeZoneInfo.Local).DateTime;
+    public DateTime EndDate => EndDateTimeOffsete.DateTime;// TimeZoneInfo.ConvertTime(, TimeZoneInfo.Local).DateTime;
 
     private ITimePeriod _period;
     public ITimePeriod Period
     {
         get
         {
+            // Period must be loaded by user's current UI culture based on StartDateTimeOffset and EndDateTimeOffset
+            // Get the time zone corresponding to the current culture
+
             _period ??= new TimeRange(StartDate, EndDate);
 
             return _period;
@@ -94,7 +93,7 @@ public class CalendarItem : ICalendarItem
         }
     }
 
-    public double DurationInSeconds { get; set; }
+    public double DurationInSeconds => Period.Duration.TotalSeconds;
     public string Recurrence { get; set; }
 
     public string OrganizerDisplayName { get; set; }
@@ -144,7 +143,7 @@ public class CalendarItem : ICalendarItem
     /// </summary>
     public Guid EventTrackingId => IsOccurrence ? RecurringCalendarItemId.Value : Id;
 
-    public CalendarItem CreateRecurrence(DateTime startDate, double durationInSeconds)
+    public CalendarItem CreateRecurrence(DateTimeOffset startDateOffset, DateTimeOffset endDateOffset)
     {
         // Create a copy with the new start date and duration
 
@@ -154,8 +153,8 @@ public class CalendarItem : ICalendarItem
             Title = Title,
             Description = Description,
             Location = Location,
-            StartDate = startDate,
-            DurationInSeconds = durationInSeconds,
+            StartTimeOffset = startDateOffset.ToString("o"),
+            EndTimeOffset = endDateOffset.ToString("o"),
             Recurrence = Recurrence,
             OrganizerDisplayName = OrganizerDisplayName,
             OrganizerEmail = OrganizerEmail,
@@ -168,8 +167,6 @@ public class CalendarItem : ICalendarItem
             Status = Status,
             CustomEventColorHex = CustomEventColorHex,
             HtmlLink = HtmlLink,
-            StartDateOffset = StartDateOffset,
-            EndDateOffset = EndDateOffset,
             RemoteEventId = RemoteEventId,
             IsHidden = IsHidden,
             IsLocked = IsLocked,

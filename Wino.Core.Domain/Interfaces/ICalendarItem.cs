@@ -8,9 +8,9 @@ public interface ICalendarItem
     string Title { get; }
     Guid Id { get; }
     IAccountCalendar AssignedCalendar { get; }
-    DateTime StartDate { get; set; }
+    DateTime StartDate { get; }
     DateTime EndDate { get; }
-    double DurationInSeconds { get; set; }
+    double DurationInSeconds { get; }
     ITimePeriod Period { get; }
 
     bool IsAllDayEvent { get; }

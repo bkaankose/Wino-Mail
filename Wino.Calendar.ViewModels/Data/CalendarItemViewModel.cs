@@ -17,11 +17,11 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
     public IAccountCalendar AssignedCalendar => CalendarItem.AssignedCalendar;
 
-    public DateTime StartDate { get => CalendarItem.StartDate; set => CalendarItem.StartDate = value; }
+    public DateTime StartDate => CalendarItem.StartDate;
 
     public DateTime EndDate => CalendarItem.EndDate;
 
-    public double DurationInSeconds { get => CalendarItem.DurationInSeconds; set => CalendarItem.DurationInSeconds = value; }
+    public double DurationInSeconds => CalendarItem.DurationInSeconds;
 
     public ITimePeriod Period => CalendarItem.Period;
 

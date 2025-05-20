@@ -61,17 +61,20 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         DateTimeOffset eventStartDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.Start);
         DateTimeOffset eventEndDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.End);
 
-        var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
+
 
         savingItem.RemoteEventId = calendarEvent.Id;
-        savingItem.StartDate = eventStartDateTimeOffset.DateTime;
-        savingItem.StartDateOffset = eventStartDateTimeOffset.Offset;
-        savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
-        savingItem.DurationInSeconds = durationInSeconds;
+        savingItem.StartTimeOffset = eventStartDateTimeOffset.ToString("O");
+        savingItem.EndTimeOffset = eventEndDateTimeOffset.ToString("O");
 
         savingItem.Title = calendarEvent.Subject;
         savingItem.Description = calendarEvent.Body?.Content;
         savingItem.Location = calendarEvent.Location?.DisplayName;
+
+        if (savingItem.Title.Contains("Atatürk"))
+        {
+
+        }
 
         if (calendarEvent.Type == EventType.Exception && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
         {

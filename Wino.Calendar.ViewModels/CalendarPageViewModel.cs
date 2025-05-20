@@ -237,20 +237,20 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         var durationSeconds = (QuickEventEndTime - QuickEventStartTime).TotalSeconds;
 
-        var testCalendarItem = new CalendarItem
-        {
-            CalendarId = SelectedQuickEventAccountCalendar.Id,
-            StartDate = QuickEventStartTime,
-            DurationInSeconds = durationSeconds,
-            CreatedAt = DateTime.UtcNow,
-            Description = string.Empty,
-            Location = Location,
-            Title = EventName,
-            Id = Guid.NewGuid()
-        };
+        //var testCalendarItem = new CalendarItem
+        //{
+        //    CalendarId = SelectedQuickEventAccountCalendar.Id,
+        //    StartDate = QuickEventStartTime,
+        //    DurationInSeconds = durationSeconds,
+        //    CreatedAt = DateTime.UtcNow,
+        //    Description = string.Empty,
+        //    Location = Location,
+        //    Title = EventName,
+        //    Id = Guid.NewGuid()
+        //};
 
-        IsQuickEventDialogOpen = false;
-        await _calendarService.CreateNewCalendarItemAsync(testCalendarItem, null);
+        //IsQuickEventDialogOpen = false;
+        //await _calendarService.CreateNewCalendarItemAsync(testCalendarItem, null);
 
         // TODO: Create the request with the synchronizer.
     }

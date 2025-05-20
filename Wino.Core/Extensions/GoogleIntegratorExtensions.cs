@@ -190,7 +190,7 @@ public static class GoogleIntegratorExtensions
         return calendar;
     }
 
-    public static DateTimeOffset? GetEventDateTimeOffset(EventDateTime calendarEvent)
+    public static DateTimeOffset GetEventDateTimeOffset(EventDateTime calendarEvent)
     {
         if (calendarEvent != null)
         {
@@ -212,7 +212,7 @@ public static class GoogleIntegratorExtensions
             }
         }
 
-        return null;
+        throw new Exception("Invalid date format in Google Calendar event date.");
     }
 
     /// <summary>

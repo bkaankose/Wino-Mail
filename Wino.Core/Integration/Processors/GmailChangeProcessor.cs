@@ -66,12 +66,6 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
             var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
 
-            double totalDurationInSeconds = 0;
-
-            if (eventStartDateTimeOffset != null && eventEndDateTimeOffset != null)
-            {
-                totalDurationInSeconds = (eventEndDateTimeOffset.Value - eventStartDateTimeOffset.Value).TotalSeconds;
-            }
 
             CalendarItem calendarItem = null;
 
@@ -79,12 +73,6 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             {
                 // Exceptions of parent events might not have all the fields populated.
                 // We must use the parent event's data for fields that don't exists.
-
-                // Update duration if it's not populated.
-                if (totalDurationInSeconds == 0)
-                {
-                    totalDurationInSeconds = parentRecurringEvent.DurationInSeconds;
-                }
 
                 var organizerMail = GetOrganizerEmail(calendarEvent, organizerAccount);
                 var organizerName = GetOrganizerName(calendarEvent, organizerAccount);
@@ -96,10 +84,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description ?? parentRecurringEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.DateTime,
-                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
-                    EndDateOffset = eventEndDateTimeOffset?.Offset ?? parentRecurringEvent.EndDateOffset,
-                    DurationInSeconds = totalDurationInSeconds,
+                    StartTimeOffset = eventStartDateTimeOffset.ToString("o"),
+                    EndTimeOffset = eventEndDateTimeOffset.ToString("o"),
                     Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
 
                     // Leave it empty if it's not populated.
@@ -120,22 +106,14 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 // This is a parent event creation.
                 // Start-End dates are guaranteed to be populated.
 
-                if (eventStartDateTimeOffset == null || eventEndDateTimeOffset == null)
-                {
-                    Log.Error("Failed to create parent event because either start or end date is not specified.");
-                    return;
-                }
-
                 calendarItem = new CalendarItem()
                 {
                     CalendarId = assignedCalendar.Id,
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.DateTime,
-                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
-                    EndDateOffset = eventEndDateTimeOffset.Value.Offset,
-                    DurationInSeconds = totalDurationInSeconds,
+                    StartTimeOffset = eventStartDateTimeOffset.ToString("o"),
+                    EndTimeOffset = eventEndDateTimeOffset.ToString("o"),
                     Location = calendarEvent.Location,
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
                     Status = GetStatus(calendarEvent.Status),

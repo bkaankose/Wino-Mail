@@ -142,5 +142,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         };
 
         var synchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(new NewCalendarSynchronizationRequested(synchronizationOptions, SynchronizationSource.Client));
+        accountCreationDialog.Complete(cancel: false);
+
     }
 }

@@ -160,7 +160,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                         // There is no exception for the period.
                         // Change the instance StartDate and Duration.
 
-                        var recurrence = ev.CreateRecurrence(occurrence.Period.StartTime.Value, occurrence.Period.Duration.TotalSeconds);
+                        var recurrence = ev.CreateRecurrence(occurrence.Period.StartTime.Value, occurrence.Period.EndTime.Value);
 
                         result.Add(recurrence);
                     }
