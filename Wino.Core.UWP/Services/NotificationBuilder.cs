@@ -114,9 +114,9 @@ public class NotificationBuilder : INotificationBuilder
                     builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
                     builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
 
-                    builder.AddButton(GetMarkedAsRead(mailItem.UniqueId));
+                    builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
                     builder.AddButton(GetDeleteButton(mailItem.UniqueId));
-                    builder.AddButton(GetDismissButton());
+                    builder.AddButton(GetArchiveButton(mailItem.UniqueId));
                     builder.AddAudio(new ToastAudio()
                     {
                         Src = new Uri("ms-winsoundevent:Notification.Mail")
@@ -139,6 +139,14 @@ public class NotificationBuilder : INotificationBuilder
         .SetDismissActivation()
         .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/dismiss.png"));
 
+    private static ToastButton GetArchiveButton(Guid mailUniqueId)
+        => new ToastButton()
+        .SetContent(Translator.MailOperation_Archive)
+        .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/archive.png"))
+        .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
+        .AddArgument(Constants.ToastActionKey, MailOperation.Archive)
+        .SetBackgroundActivation();
+
     private ToastButton GetDeleteButton(Guid mailUniqueId)
         => new ToastButton()
         .SetContent(Translator.MailOperation_Delete)
@@ -147,7 +155,7 @@ public class NotificationBuilder : INotificationBuilder
         .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
         .SetBackgroundActivation();
 
-    private ToastButton GetMarkedAsRead(Guid mailUniqueId)
+    private static ToastButton GetMarkAsReadButton(Guid mailUniqueId)
         => new ToastButton()
         .SetContent(Translator.MailOperation_MarkAsRead)
         .SetImageUri(new System.Uri("ms-appx:///Assets/NotificationIcons/markread.png"))
