@@ -1217,15 +1217,30 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var newHistoryId = historyId.Value;
 
         return Account.SynchronizationDeltaIdentifier == null ||
-            (ulong.TryParse(Account.SynchronizationDeltaIdentifier, out ulong currentIdentifier) && newHistoryId > currentIdentifier);
+            (ulong.TryParse(Unprotect(Account.SynchronizationDeltaIdentifier), out ulong currentIdentifier) && newHistoryId > currentIdentifier);
     }
 
     private async Task UpdateAccountSyncIdentifierAsync(ulong? historyId)
     {
         if (ShouldUpdateSyncIdentifier(historyId))
         {
-            Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, historyId.Value.ToString());
+            var identifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, historyId.Value.ToString());
+            Account.SynchronizationDeltaIdentifier = Protect(identifier);
         }
+    }
+
+    private string Protect(string value)
+    {
+        var data = System.Text.Encoding.UTF8.GetBytes(value);
+        var protectedData = System.Security.Cryptography.ProtectedData.Protect(data, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+        return Convert.ToBase64String(protectedData);
+    }
+
+    private string Unprotect(string protectedValue)
+    {
+        var data = Convert.FromBase64String(protectedValue);
+        var unprotectedData = System.Security.Cryptography.ProtectedData.Unprotect(data, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+        return System.Text.Encoding.UTF8.GetString(unprotectedData);
     }
 
     private async Task ProcessSingleNativeRequestResponseAsync(IRequestBundle<IClientServiceRequest> bundle,
