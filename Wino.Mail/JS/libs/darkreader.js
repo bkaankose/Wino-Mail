@@ -1545,7 +1545,7 @@
             return null;
         }
     }
-    var gradientRegex = /[\-a-z]+gradient\(([^\(\)]*(\(([^\(\)]*(\(.*?\)))*[^\(\)]*\))){0,15}[^\(\)]*\)/g;
+    var gradientRegex = /[\-a-z]+gradient\(([^()]*\([^()]*\))*[^()]*\)/g;
     var imageDetailsCache = new Map();
     var awaitingForImageLoading = new Map();
     function getBgImageModifier(prop, value, rule, isCancelled) {
