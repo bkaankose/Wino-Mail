@@ -600,7 +600,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             if (account == null)
             {
-                _logger.Information("Could not find account with id {Key} for reordering. It may be a linked account.", pair.Key);
+                _logger.Information("Could not find account with id {Key} for reordering. It may be a linked account.", pair.Key.ToString().Substring(0, 8));
                 continue;
             }
 
