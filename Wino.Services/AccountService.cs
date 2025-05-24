@@ -17,6 +17,8 @@ using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
+using System.Security.Cryptography;
+using System.Text;
 public class AccountService : BaseDatabaseService, IAccountService
 {
     public IAuthenticator ExternalAuthenticationAuthenticator { get; set; }
@@ -382,7 +384,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account == null)
         {
-            _logger.Error("Could not find account with id {AccountId}", accountId);
+            _logger.Error("Could not find account with id {AccountId}", SanitizeGuid(accountId));
         }
         else
         {
@@ -406,6 +408,15 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.UpdateAsync(account).ConfigureAwait(false);
 
         ReportUIChange(new AccountUpdatedMessage(account));
+        private string SanitizeGuid(Guid guid)
+        {
+            // Hash the GUID using SHA256 and return the first 8 characters as a sanitized version.
+            using (var sha256 = SHA256.Create())
+            {
+                var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(guid.ToString()));
+                return BitConverter.ToString(hash).Replace("-", "").Substring(0, 8);
+            }
+        }
     }
 
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
