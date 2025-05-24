@@ -2165,7 +2165,7 @@
                             return [3, 7];
                         case 6:
                             if (containsCSSImport()) {
-                                cssText = element.textContent.trim();
+                                cssText = sanitizeTextContent(element.textContent.trim());
                                 cssBasePath = getCSSBaseBath(location.href);
                             }
                             else {
@@ -3184,4 +3184,12 @@
 
     Object.defineProperty(exports, '__esModule', { value: true });
 
+function sanitizeTextContent(text) {
+    // Basic sanitization to escape potentially dangerous characters
+    return text.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;')
+               .replace(/'/g, '&#39;');
+}
 })));
