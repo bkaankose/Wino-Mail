@@ -12,6 +12,11 @@
 
     <ScrollViewer>
         <StackPanel Spacing="4">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
             <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsReader_Title}" />
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsReaderFontFamily_Description}"
@@ -71,7 +76,7 @@
                     </controls:SettingsCard>
                     <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsLoadPlaintextLinks_Title}">
                         <controls:SettingsCard.HeaderIcon>
-                           <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                            <PathIcon Data="{StaticResource AddLinkPathIcon}" />
                         </controls:SettingsCard.HeaderIcon>
                         <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.RenderPlaintextLinks, Mode=TwoWay}" />
                     </controls:SettingsCard>
