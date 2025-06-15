@@ -1,5 +1,4 @@
 ﻿using System;
-using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
@@ -11,18 +10,11 @@ namespace Wino.MenuFlyouts;
 
 public partial class WinoOperationFlyoutItem<TOperationMenuItem> : MenuFlyoutItem, IDisposable where TOperationMenuItem : IMenuOperation
 {
-    private const double CustomHeight = 35;
-
     public TOperationMenuItem Operation { get; set; }
     Action<TOperationMenuItem> Clicked { get; set; }
 
     public WinoOperationFlyoutItem(TOperationMenuItem operationMenuItem, Action<TOperationMenuItem> clicked)
     {
-        Margin = new Thickness(4, 2, 4, 2);
-        CornerRadius = new CornerRadius(6, 6, 6, 6);
-
-        MinHeight = CustomHeight;
-
         Operation = operationMenuItem;
         IsEnabled = operationMenuItem.IsEnabled;
 
