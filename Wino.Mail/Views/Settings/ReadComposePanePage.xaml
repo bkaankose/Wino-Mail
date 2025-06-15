@@ -12,11 +12,6 @@
 
     <ScrollViewer>
         <StackPanel Spacing="4">
-            <StackPanel.ChildrenTransitions>
-                <TransitionCollection>
-                    <RepositionThemeTransition IsStaggeringEnabled="False" />
-                </TransitionCollection>
-            </StackPanel.ChildrenTransitions>
             <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsReader_Title}" />
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsReaderFontFamily_Description}"

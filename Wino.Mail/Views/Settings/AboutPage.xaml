@@ -11,11 +11,6 @@
 
     <ScrollViewer>
         <StackPanel Spacing="3">
-            <StackPanel.ChildrenTransitions>
-                <TransitionCollection>
-                    <RepositionThemeTransition IsStaggeringEnabled="False" />
-                </TransitionCollection>
-            </StackPanel.ChildrenTransitions>
             <Image
                 Width="50"
                 Height="50"

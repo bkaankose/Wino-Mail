@@ -52,11 +52,6 @@
 
     <ScrollViewer>
         <StackPanel Spacing="3">
-            <StackPanel.ChildrenTransitions>
-                <TransitionCollection>
-                    <RepositionThemeTransition IsStaggeringEnabled="False" />
-                </TransitionCollection>
-            </StackPanel.ChildrenTransitions>
             <!--  Accent Color  -->
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsAccentColor_Description}"
