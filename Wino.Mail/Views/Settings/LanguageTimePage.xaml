@@ -10,7 +10,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer>
-        <StackPanel>
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsCard
                 CommandParameter="Language"
                 Description="{x:Bind domain:Translator.SettingsLanguage_Description}"

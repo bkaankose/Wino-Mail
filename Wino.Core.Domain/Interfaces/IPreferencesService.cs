@@ -188,6 +188,11 @@ public interface IPreferencesService
     /// </summary>
     bool IsMailListActionBarEnabled { get; set; }
 
+    /// <summary>
+    /// Setting: Whether the mail rendering page will show the action labels
+    /// </summary>
+    bool IsShowActionLabelsEnabled { get; set; }
+
     #endregion
 
     #region Calendar

@@ -10,7 +10,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer>
-        <StackPanel>
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_StartupBehavior_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_StartupBehavior_Title}">
                 <ToggleButton
                     x:Name="StartupEnabledToggleButton"

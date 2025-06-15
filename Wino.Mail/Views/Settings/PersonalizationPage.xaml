@@ -51,7 +51,7 @@
     </Page.Resources>
 
     <ScrollViewer>
-        <StackPanel Spacing="3">
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <!--  Accent Color  -->
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsAccentColor_Description}"

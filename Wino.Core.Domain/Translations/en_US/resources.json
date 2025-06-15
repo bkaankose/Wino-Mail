@@ -644,6 +644,8 @@
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsUnlinkAccounts_Description": "Remove the link between accounts. his will not delete your accounts.",
     "SettingsUnlinkAccounts_Title": "Unlink Accounts",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Are you sure you want to delete \"{0}\" signature?",
     "SignatureDeleteDialog_Title": "Delete signature",
     "SignatureEditorDialog_SignatureName_Placeholder": "Name your signature",

@@ -79,6 +79,12 @@ public class PreferencesService : ObservableObject, IPreferencesService
         set => SetPropertyAndSave(nameof(IsMailListActionBarEnabled), value);
     }
 
+    public bool IsShowActionLabelsEnabled
+    {
+        get => _configurationService.Get(nameof(IsShowActionLabelsEnabled), true);
+        set => SetPropertyAndSave(nameof(IsShowActionLabelsEnabled), value);
+    }
+
     public bool IsShowSenderPicturesEnabled
     {
         get => _configurationService.Get(nameof(IsShowSenderPicturesEnabled), true);
