@@ -1,30 +1,28 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Windows.Input;
+using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Xaml.Interactivity;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
-using Wino.Controls;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.UWP.Controls;
 using Wino.Helpers;
 
 namespace Wino.Behaviors;
 
-public class BindableCommandBarBehavior : Behavior<CommandBar>
+public partial class BindableCommandBarBehavior : Behavior<CommandBar>
 {
+    private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
     public static readonly DependencyProperty PrimaryCommandsProperty = DependencyProperty.Register(
         "PrimaryCommands", typeof(object), typeof(BindableCommandBarBehavior),
         new PropertyMetadata(null, UpdateCommands));
 
-    public ICommand ItemClickedCommand
-    {
-        get { return (ICommand)GetValue(ItemClickedCommandProperty); }
-        set { SetValue(ItemClickedCommandProperty, value); }
-    }
-
-    public static readonly DependencyProperty ItemClickedCommandProperty = DependencyProperty.Register(nameof(ItemClickedCommand), typeof(ICommand), typeof(BindableCommandBarBehavior), new PropertyMetadata(null));
+    [GeneratedDependencyProperty]
+    public partial ICommand ItemClickedCommand { get; set; }
 
     public object PrimaryCommands
     {
@@ -83,7 +81,7 @@ public class BindableCommandBarBehavior : Behavior<CommandBar>
         AssociatedObject.PrimaryCommands.Clear();
         AssociatedObject.SecondaryCommands.Clear();
 
-        if (!(PrimaryCommands is IEnumerable enumerable)) return;
+        if (PrimaryCommands is not IEnumerable enumerable) return;
 
         foreach (var command in enumerable)
         {
@@ -98,19 +96,26 @@ public class BindableCommandBarBehavior : Behavior<CommandBar>
                 else
                 {
                     var label = XamlHelpers.GetOperationString(mailOperationMenuItem.Operation);
+                    var labelPosition = string.IsNullOrWhiteSpace(label) || !_preferencesService.IsShowActionLabelsEnabled ?
+                        CommandBarLabelPosition.Collapsed : CommandBarLabelPosition.Default;
                     menuItem = new AppBarButton
                     {
+                        Width = double.NaN,
+                        MinWidth = 40,
                         Icon = new WinoFontIcon() { Glyph = ControlConstants.WinoIconFontDictionary[XamlHelpers.GetWinoIconGlyph(mailOperationMenuItem.Operation)] },
                         Label = label,
-                        LabelPosition = string.IsNullOrWhiteSpace(label) ? CommandBarLabelPosition.Collapsed : CommandBarLabelPosition.Default,
+                        LabelPosition = labelPosition,
                         DataContext = mailOperationMenuItem,
                     };
 
-                    ToolTip toolTip = new ToolTip
+                    if (!string.IsNullOrWhiteSpace(label))
                     {
-                        Content = label
-                    };
-                    ToolTipService.SetToolTip((DependencyObject)menuItem, toolTip);
+                        var toolTip = new ToolTip
+                        {
+                            Content = label
+                        };
+                        ToolTipService.SetToolTip((DependencyObject)menuItem, toolTip);
+                    }
 
                     ((AppBarButton)menuItem).Click -= Button_Click;
                     ((AppBarButton)menuItem).Click += Button_Click;
@@ -164,7 +169,7 @@ public class BindableCommandBarBehavior : Behavior<CommandBar>
     private static void UpdateCommands(DependencyObject dependencyObject,
         DependencyPropertyChangedEventArgs dependencyPropertyChangedEventArgs)
     {
-        if (!(dependencyObject is BindableCommandBarBehavior behavior)) return;
+        if (dependencyObject is not BindableCommandBarBehavior behavior) return;
 
         if (dependencyPropertyChangedEventArgs.OldValue is INotifyCollectionChanged oldList)
         {
