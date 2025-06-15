@@ -53,7 +53,7 @@
     </Page.Resources>
 
     <ScrollViewer>
-        <Grid RowSpacing="41">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -69,8 +69,8 @@
                 <ToggleSwitch IsOn="{x:Bind ViewModel.IsSignatureEnabled, Mode=TwoWay}" />
             </controls1:SettingsCard>
 
-            <StackPanel Grid.Row="1" Spacing="4">
-                <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_SignatureDefaults}" />
+            <StackPanel Grid.Row="1" Spacing="{StaticResource SettingsCardSpacing}">
+                <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsSignature_SignatureDefaults}" />
                 <controls1:SettingsCard
                     Header="{x:Bind domain:Translator.SettingsSignature_ForNewMessages_Title}"
                     IsActionIconVisible="False"
@@ -100,8 +100,8 @@
                 </controls1:SettingsCard>
             </StackPanel>
 
-            <StackPanel Grid.Row="2" Spacing="3">
-                <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsSignature_Signatures}" />
+            <StackPanel Grid.Row="2" Spacing="{StaticResource SettingsCardSpacing}">
+                <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsSignature_Signatures}" />
                 <controls1:SettingsCard
                     Header="{x:Bind domain:Translator.SettingsSignature_AddCustomSignature_Title}"
                     IsActionIconVisible="False"

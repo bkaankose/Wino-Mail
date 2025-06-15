@@ -10,7 +10,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer>
-        <StackPanel Spacing="3">
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <Image
                 Width="50"
                 Height="50"

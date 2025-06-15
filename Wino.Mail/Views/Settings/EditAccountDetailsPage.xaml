@@ -15,7 +15,7 @@
     mc:Ignorable="d">
 
     <ScrollViewer>
-        <StackPanel Spacing="3">
+        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <controls:SettingsExpander Description="{x:Bind domain:Translator.AccountDetailsPage_Description}" Header="{x:Bind domain:Translator.AccountDetailsPage_Title}">
                 <controls:SettingsExpander.HeaderIcon>
                     <SymbolIcon Symbol="Contact" />
