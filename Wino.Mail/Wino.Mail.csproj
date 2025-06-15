@@ -26,6 +26,7 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <None Remove="Assets\EML\eml.png" />
+	  <None Remove="Assets\NotificationIcons\archive.png" />
 	  <None Remove="Assets\NotificationIcons\delete.png" />
 	  <None Remove="Assets\NotificationIcons\dismiss.png" />
 	  <None Remove="Assets\NotificationIcons\markread.png" />
@@ -51,6 +52,7 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="Assets\EML\eml.png" />
+	  <Content Include="Assets\NotificationIcons\archive.png" />
 	  <Content Include="Assets\NotificationIcons\delete.png" />
 	  <Content Include="Assets\NotificationIcons\dismiss.png" />
 	  <Content Include="Assets\NotificationIcons\markread.png" />
