@@ -156,6 +156,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+        <Grid.ChildrenTransitions>
+            <TransitionCollection>
+                <RepositionThemeTransition IsStaggeringEnabled="False" />
+            </TransitionCollection>
+        </Grid.ChildrenTransitions>
 
         <Border
             Background="{ThemeResource WinoContentZoneBackgroud}"

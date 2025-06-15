@@ -59,7 +59,8 @@
                 <Setter Property="ChildrenTransitions">
                     <Setter.Value>
                         <TransitionCollection>
-                            <EntranceThemeTransition IsStaggeringEnabled="True" />
+                            <EntranceThemeTransition IsStaggeringEnabled="False" />
+                            <RepositionThemeTransition IsStaggeringEnabled="False" />
                         </TransitionCollection>
                     </Setter.Value>
                 </Setter>

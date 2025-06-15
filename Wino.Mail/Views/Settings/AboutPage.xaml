@@ -14,7 +14,7 @@
             <Image
                 Width="50"
                 Height="50"
-                Source="ms-appx:///Assets/StoreLogo.png" />
+                Source="ms-appx:///Images/StoreLogo.png" />
             <TextBlock
                 Margin="0,6,0,4"
                 HorizontalAlignment="Center"
@@ -167,9 +167,14 @@
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
-            <TextBlock Margin="0,0,4,0" HorizontalAlignment="Right">
-                <Run Text="{x:Bind domain:Translator.SettingsAboutVersion}" /><Run Text="{x:Bind ViewModel.VersionName}" />
-            </TextBlock>
+            <controls:SettingsCard Header="Wino Mail">
+                <controls:SettingsCard.HeaderIcon>
+                    <BitmapIcon ShowAsMonochrome="False" UriSource="ms-appx:///Images/StoreLogo.png" />
+                </controls:SettingsCard.HeaderIcon>
+                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" IsTextSelectionEnabled="True">
+                    <Run Text="{x:Bind domain:Translator.SettingsAboutVersion}" /><Run Text="{x:Bind ViewModel.VersionName}" />
+                </TextBlock>
+            </controls:SettingsCard>
         </StackPanel>
     </ScrollViewer>
 </abstract:AboutPageAbstract>
