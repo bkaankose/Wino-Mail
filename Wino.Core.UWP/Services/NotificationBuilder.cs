@@ -11,7 +11,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Services;
+using System.IO;
 
 namespace Wino.Core.UWP.Services;
 
@@ -23,16 +23,22 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
+    private readonly IPreferencesService _preferencesService;
 
     public NotificationBuilder(IUnderlyingThemeService underlyingThemeService,
                                IAccountService accountService,
                                IFolderService folderService,
-                               IMailService mailService)
+                               IMailService mailService,
+                               INativeAppService nativeAppService,
+                               IPreferencesService preferencesService)
     {
         _underlyingThemeService = underlyingThemeService;
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
+        _preferencesService = preferencesService;
+
+        ThumbnailService.Initialize(nativeAppService);
     }
 
     public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
@@ -85,22 +91,39 @@ public class NotificationBuilder : INotificationBuilder
 
                     var host = ThumbnailService.GetHost(mailItem.FromAddress);
 
-                    var knownTuple = ThumbnailService.CheckIsKnown(host);
-
-                    bool isKnown = knownTuple.Item1;
-                    host = knownTuple.Item2;
-
-                    if (isKnown)
-                        builder.AddAppLogoOverride(new System.Uri(ThumbnailService.GetKnownHostImage(host)), hintCrop: ToastGenericAppLogoCrop.Default);
+                    // Try Gravatar first
+                    string gravatarBase64 = _preferencesService.IsGravatarEnabled ? await ThumbnailService.TryGetGravatarBase64Async(mailItem.FromAddress) : null;
+                    if (!string.IsNullOrEmpty(gravatarBase64))
+                    {
+                        var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
+                        using (var stream = await tempFile.OpenStreamForWriteAsync())
+                        {
+                            var bytes = Convert.FromBase64String(gravatarBase64);
+                            await stream.WriteAsync(bytes, 0, bytes.Length);
+                        }
+                        builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
+                    }
                     else
                     {
-                        // TODO: https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/adaptive-interactive-toasts?tabs=toolkit
-                        // Follow official guides for icons/theme.
-
-                        bool isOSDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
-                        string profileLogoName = isOSDarkTheme ? "profile-dark.png" : "profile-light.png";
-
-                        builder.AddAppLogoOverride(new System.Uri($"ms-appx:///Assets/NotificationIcons/{profileLogoName}"), hintCrop: ToastGenericAppLogoCrop.Circle);
+                        // Fallback: Try favicon
+                        string faviconBase64 = _preferencesService.IsFaviconEnabled ? await ThumbnailService.TryGetFaviconBase64Async(host) : null;
+                        if (!string.IsNullOrEmpty(faviconBase64))
+                        {
+                            var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.ico", Windows.Storage.CreationCollisionOption.ReplaceExisting);
+                            using (var stream = await tempFile.OpenStreamForWriteAsync())
+                            {
+                                var bytes = Convert.FromBase64String(faviconBase64);
+                                await stream.WriteAsync(bytes, 0, bytes.Length);
+                            }
+                            builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
+                        }
+                        else
+                        {
+                            // Fallback: Use default profile icon
+                            bool isOSDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
+                            string profileLogoName = isOSDarkTheme ? "profile-dark.png" : "profile-light.png";
+                            builder.AddAppLogoOverride(new Uri($"ms-appx:///Assets/NotificationIcons/{profileLogoName}"), hintCrop: ToastGenericAppLogoCrop.Circle);
+                        }
                     }
 
                     // Override system notification timetamp with received date of the mail.

@@ -181,6 +181,18 @@ public class PreferencesService : ObservableObject, IPreferencesService
         set => SetPropertyAndSave(nameof(IsMailkitProtocolLoggerEnabled), value);
     }
 
+    public bool IsGravatarEnabled
+    {
+        get => _configurationService.Get(nameof(IsGravatarEnabled), true);
+        set => SetPropertyAndSave(nameof(IsGravatarEnabled), value);
+    }
+
+    public bool IsFaviconEnabled
+    {
+        get => _configurationService.Get(nameof(IsFaviconEnabled), true);
+        set => SetPropertyAndSave(nameof(IsFaviconEnabled), value);
+    }
+
     public Guid? StartupEntityId
     {
         get => _configurationService.Get<Guid?>(nameof(StartupEntityId), null);

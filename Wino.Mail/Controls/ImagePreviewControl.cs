@@ -1,16 +1,22 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Fernandezja.ColorHashSharp;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Shapes;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.UWP;
 using Wino.Core.UWP.Services;
 
 namespace Wino.Controls;
@@ -56,10 +62,13 @@ public partial class ImagePreviewControl : Control
     private TextBlock InitialsTextblock;
     private Image KnownHostImage;
     private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
+    private IPreferencesService _preferencesService;
 
     public ImagePreviewControl()
     {
         DefaultStyleKey = nameof(ImagePreviewControl);
+        ThumbnailService.Initialize(WinoApplication.Current.Services.GetService<INativeAppService>());
+        _preferencesService = WinoApplication.Current.Services.GetService<IPreferencesService>();
     }
 
     protected override void OnApplyTemplate()
@@ -91,75 +100,60 @@ public partial class ImagePreviewControl : Control
             contactPictureLoadingCancellationTokenSource.Cancel();
         }
 
-        var host = ThumbnailService.GetHost(FromAddress);
-
-        bool isKnownHost = false;
-
-        if (!string.IsNullOrEmpty(host))
+        string contactPicture = SenderContactPicture;
+        if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
         {
-            var tuple = ThumbnailService.CheckIsKnown(host);
-
-            isKnownHost = tuple.Item1;
-            host = tuple.Item2;
+            if (_preferencesService.IsGravatarEnabled)
+            {
+                contactPicture = await ThumbnailService.TryGetGravatarBase64Async(FromAddress);
+            }
+            if (string.IsNullOrEmpty(contactPicture) && _preferencesService.IsFaviconEnabled)
+            {
+                var host = ThumbnailService.GetHost(FromAddress);
+                contactPicture = await ThumbnailService.TryGetFaviconBase64Async(host);
+            }
         }
 
-        if (isKnownHost)
+        if (!string.IsNullOrEmpty(contactPicture))
         {
-            // Unrealize others.
-
-            KnownHostImage.Visibility = Visibility.Visible;
-            InitialsGrid.Visibility = Visibility.Collapsed;
-
-            // Apply company logo.
-            KnownHostImage.Source = new BitmapImage(new Uri(ThumbnailService.GetKnownHostImage(host)));
+            KnownHostImage.Visibility = Visibility.Collapsed;
+            InitialsGrid.Visibility = Visibility.Visible;
+            contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
+            try
+            {
+                var brush = await GetContactImageBrushAsync(contactPicture);
+                if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
+                {
+                    Ellipse.Fill = brush;
+                    InitialsTextblock.Text = string.Empty;
+                }
+            }
+            catch (Exception)
+            {
+                Debugger.Break();
+            }
         }
         else
         {
             KnownHostImage.Visibility = Visibility.Collapsed;
             InitialsGrid.Visibility = Visibility.Visible;
-
-            if (!string.IsNullOrEmpty(SenderContactPicture))
-            {
-                contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
-
-                try
-                {
-                    var brush = await GetContactImageBrushAsync();
-
-                    if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
-                    {
-                        Ellipse.Fill = brush;
-                        InitialsTextblock.Text = string.Empty;
-                    }
-                }
-                catch (Exception)
-                {
-                    // Log exception.
-                    Debugger.Break();
-                }
-            }
-            else
-            {
-                var colorHash = new ColorHash();
-                var rgb = colorHash.Rgb(FromAddress);
-
-                Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
-                InitialsTextblock.Text = ExtractInitialsFromName(FromName);
-            }
+            var colorHash = new ColorHash();
+            var rgb = colorHash.Rgb(FromAddress);
+            Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
+            InitialsTextblock.Text = ExtractInitialsFromName(FromName);
         }
     }
 
-    private async Task<ImageBrush> GetContactImageBrushAsync()
+    private async Task<ImageBrush> GetContactImageBrushAsync(string base64)
     {
         // Load the image from base64 string.
         var bitmapImage = new BitmapImage();
 
-        var imageArray = Convert.FromBase64String(SenderContactPicture);
+        var imageArray = Convert.FromBase64String(base64);
         var imageStream = new MemoryStream(imageArray);
         var randomAccessImageStream = imageStream.AsRandomAccessStream();
 
         randomAccessImageStream.Seek(0);
-
 
         await bitmapImage.SetSourceAsync(randomAccessImageStream);
 

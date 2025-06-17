@@ -19,6 +19,7 @@ namespace Wino.Services;
 public class NativeAppService : INativeAppService
 {
     private string _mimeMessagesFolder;
+    private string _thumbnailFolder;
     private string _editorBundlePath;
 
     public Func<IntPtr> GetCoreWindowHwnd { get; set; }
@@ -43,6 +44,19 @@ public class NativeAppService : INativeAppService
         _mimeMessagesFolder = mimeFolder.Path;
 
         return _mimeMessagesFolder;
+    }
+
+    public async Task<string> GetThumbnailStoragePath()
+    {
+        if (!string.IsNullOrEmpty(_thumbnailFolder))
+            return _thumbnailFolder;
+
+        var localFolder = ApplicationData.Current.LocalFolder;
+        var thumbnailFolder = await localFolder.CreateFolderAsync("Thumbnails", CreationCollisionOption.OpenIfExists);
+
+        _thumbnailFolder = thumbnailFolder.Path;
+
+        return _thumbnailFolder;
     }
 
 

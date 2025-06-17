@@ -7,6 +7,7 @@ public interface INativeAppService
 {
     string GetWebAuthenticationBrokerUri();
     Task<string> GetMimeMessageStoragePath();
+    Task<string> GetThumbnailStoragePath();
     Task<string> GetEditorBundlePathAsync();
     Task LaunchFileAsync(string filePath);
     Task<bool> LaunchUriAsync(Uri uri);

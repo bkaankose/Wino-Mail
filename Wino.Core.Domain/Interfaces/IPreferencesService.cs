@@ -193,6 +193,16 @@ public interface IPreferencesService
     /// </summary>
     bool IsShowActionLabelsEnabled { get; set; }
 
+    /// <summary>
+    /// Setting: Enable/disable Gravatar for sender avatars.
+    /// </summary>
+    bool IsGravatarEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Enable/disable Favicon for sender avatars.
+    /// </summary>
+    bool IsFaviconEnabled { get; set; }
+
     #endregion
 
     #region Calendar

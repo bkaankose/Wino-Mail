@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,7 +18,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     private List<string> _appTerminationBehavior;
-
 
     [ObservableProperty]
     public partial List<string> SearchModes { get; set; }
