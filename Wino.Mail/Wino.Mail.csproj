@@ -33,13 +33,6 @@
 	  <None Remove="Assets\NotificationIcons\profile-dark.png" />
 	  <None Remove="Assets\NotificationIcons\profile-light.png" />
 	  <None Remove="Assets\ReleaseNotes\1102.md" />
-	  <None Remove="Assets\Thumbnails\airbnb.com.png" />
-	  <None Remove="Assets\Thumbnails\apple.com.png" />
-	  <None Remove="Assets\Thumbnails\google.com.png" />
-	  <None Remove="Assets\Thumbnails\microsoft.com.png" />
-	  <None Remove="Assets\Thumbnails\steampowered.com.png" />
-	  <None Remove="Assets\Thumbnails\uber.com.png" />
-	  <None Remove="Assets\Thumbnails\youtube.com.png" />
 	  <None Remove="JS\editor.html" />
 	  <None Remove="JS\editor.js" />
 	  <None Remove="JS\global.css" />
@@ -59,13 +52,6 @@
 	  <Content Include="Assets\NotificationIcons\profile-dark.png" />
 	  <Content Include="Assets\NotificationIcons\profile-light.png" />
 	  <Content Include="Assets\ReleaseNotes\1102.md" />
-	  <Content Include="Assets\Thumbnails\airbnb.com.png" />
-	  <Content Include="Assets\Thumbnails\apple.com.png" />
-	  <Content Include="Assets\Thumbnails\google.com.png" />
-	  <Content Include="Assets\Thumbnails\microsoft.com.png" />
-	  <Content Include="Assets\Thumbnails\steampowered.com.png" />
-	  <Content Include="Assets\Thumbnails\uber.com.png" />
-	  <Content Include="Assets\Thumbnails\youtube.com.png" />
 	  <Content Include="JS\editor.html" />
 	  <Content Include="JS\editor.js" />
 	  <Content Include="JS\global.css" />
