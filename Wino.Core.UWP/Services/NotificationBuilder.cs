@@ -24,21 +24,22 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IThumbnailService _thumbnailService;
 
     public NotificationBuilder(IUnderlyingThemeService underlyingThemeService,
                                IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
                                INativeAppService nativeAppService,
-                               IPreferencesService preferencesService)
+                               IPreferencesService preferencesService,
+                               IThumbnailService thumbnailService)
     {
         _underlyingThemeService = underlyingThemeService;
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
         _preferencesService = preferencesService;
-
-        ThumbnailService.Initialize(nativeAppService);
+        _thumbnailService = thumbnailService;
     }
 
     public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
@@ -89,10 +90,10 @@ public class NotificationBuilder : INotificationBuilder
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
 
-                    var host = ThumbnailService.GetHost(mailItem.FromAddress);
+                    var host = _thumbnailService.GetHost(mailItem.FromAddress);
 
                     // Try Gravatar first
-                    string gravatarBase64 = _preferencesService.IsGravatarEnabled ? await ThumbnailService.TryGetGravatarBase64Async(mailItem.FromAddress) : null;
+                    string gravatarBase64 = _preferencesService.IsGravatarEnabled ? await _thumbnailService.TryGetGravatarBase64Async(mailItem.FromAddress) : null;
                     if (!string.IsNullOrEmpty(gravatarBase64))
                     {
                         var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
@@ -106,7 +107,7 @@ public class NotificationBuilder : INotificationBuilder
                     else
                     {
                         // Fallback: Try favicon
-                        string faviconBase64 = _preferencesService.IsFaviconEnabled ? await ThumbnailService.TryGetFaviconBase64Async(host) : null;
+                        string faviconBase64 = _preferencesService.IsFaviconEnabled ? await _thumbnailService.TryGetFaviconBase64Async(host) : null;
                         if (!string.IsNullOrEmpty(faviconBase64))
                         {
                             var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.ico", Windows.Storage.CreationCollisionOption.ReplaceExisting);

@@ -12,22 +12,19 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.UWP.Services;
 
-public static class ThumbnailService
+public class ThumbnailService : IThumbnailService
 {
-    private static INativeAppService _nativeAppService;
-    // Locks per file path
-    private static readonly ConcurrentDictionary<string, object> _fileLocks = new();
-    // In-memory cache for base64 images
-    private static readonly ConcurrentDictionary<string, string> _memoryCache = new();
-    // Static HttpClient for all requests
-    private static readonly HttpClient _httpClient = new();
+    private readonly INativeAppService _nativeAppService;
+    private readonly ConcurrentDictionary<string, object> _fileLocks = new();
+    private readonly ConcurrentDictionary<string, string> _memoryCache = new();
+    private readonly HttpClient _httpClient = new();
 
-    public static void Initialize(INativeAppService nativeAppService)
+    public ThumbnailService(INativeAppService nativeAppService)
     {
         _nativeAppService = nativeAppService ?? throw new ArgumentNullException(nameof(nativeAppService), "Native app service cannot be null.");
     }
 
-    public static string GetHost(string address)
+    public string GetHost(string address)
     {
         if (!string.IsNullOrEmpty(address) && address.Contains('@'))
         {
@@ -40,16 +37,12 @@ public static class ThumbnailService
         return string.Empty;
     }
 
-    public static async Task<string> TryGetThumbnailsCacheDirectory()
+    public async Task<string> TryGetThumbnailsCacheDirectory()
     {
-        if (_nativeAppService == null)
-        {
-            throw new ArgumentNullException(nameof(_nativeAppService), "Native app service cannot be null.");
-        }
         return await _nativeAppService.GetThumbnailStoragePath();
     }
 
-    private static async Task<string> GetGravatarCacheFile(string email)
+    private async Task<string> GetGravatarCacheFile(string email)
     {
         using var md5 = MD5.Create();
         var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(email.Trim().ToLowerInvariant()));
@@ -57,18 +50,17 @@ public static class ThumbnailService
         return Path.Combine(await TryGetThumbnailsCacheDirectory(), $"{hashString}.gravatar");
     }
 
-    private static async Task<string> GetFaviconCacheFile(string domain)
+    private async Task<string> GetFaviconCacheFile(string domain)
     {
         return Path.Combine(await TryGetThumbnailsCacheDirectory(), $"{domain.ToLowerInvariant()}.favicon");
     }
 
-    public static async Task<string> TryGetGravatarBase64Async(string email)
+    public async Task<string> TryGetGravatarBase64Async(string email)
     {
         if (string.IsNullOrWhiteSpace(email)) return null;
         if (_memoryCache.TryGetValue($"gravatar:{email}", out var cached))
             return cached;
         var file = await GetGravatarCacheFile(email);
-        // Fast path: file exists, read async, cache and return
         if (File.Exists(file))
         {
             var base64 = await File.ReadAllTextAsync(file);
@@ -110,7 +102,7 @@ public static class ThumbnailService
         return null;
     }
 
-    public static async Task<string> TryGetFaviconBase64Async(string domain)
+    public async Task<string> TryGetFaviconBase64Async(string domain)
     {
         if (string.IsNullOrWhiteSpace(domain)) return null;
         if (_memoryCache.TryGetValue($"favicon:{domain}", out var cached))

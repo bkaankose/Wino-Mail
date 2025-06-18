@@ -63,11 +63,12 @@ public partial class ImagePreviewControl : Control
     private Image KnownHostImage;
     private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
     private IPreferencesService _preferencesService;
+    private readonly IThumbnailService _thumbnailService;
 
     public ImagePreviewControl()
     {
         DefaultStyleKey = nameof(ImagePreviewControl);
-        ThumbnailService.Initialize(WinoApplication.Current.Services.GetService<INativeAppService>());
+        _thumbnailService = WinoApplication.Current.Services.GetService<IThumbnailService>();
         _preferencesService = WinoApplication.Current.Services.GetService<IPreferencesService>();
     }
 
@@ -105,12 +106,12 @@ public partial class ImagePreviewControl : Control
         {
             if (_preferencesService.IsGravatarEnabled)
             {
-                contactPicture = await ThumbnailService.TryGetGravatarBase64Async(FromAddress);
+                contactPicture = await _thumbnailService.TryGetGravatarBase64Async(FromAddress);
             }
             if (string.IsNullOrEmpty(contactPicture) && _preferencesService.IsFaviconEnabled)
             {
-                var host = ThumbnailService.GetHost(FromAddress);
-                contactPicture = await ThumbnailService.TryGetFaviconBase64Async(host);
+                var host = _thumbnailService.GetHost(FromAddress);
+                contactPicture = await _thumbnailService.TryGetFaviconBase64Async(host);
             }
         }
 
