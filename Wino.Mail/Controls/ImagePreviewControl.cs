@@ -61,6 +61,9 @@ public partial class ImagePreviewControl : Control
     private Grid InitialsGrid;
     private TextBlock InitialsTextblock;
     private Image KnownHostImage;
+    private Border FaviconSquircle;
+    private Image FaviconImage;
+    private bool isFavicon;
     private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
     private IPreferencesService _preferencesService;
     private readonly IThumbnailService _thumbnailService;
@@ -80,6 +83,8 @@ public partial class ImagePreviewControl : Control
         InitialsTextblock = GetTemplateChild(PART_InitialsTextBlock) as TextBlock;
         KnownHostImage = GetTemplateChild(PART_KnownHostImage) as Image;
         Ellipse = GetTemplateChild(PART_Ellipse) as Ellipse;
+        FaviconSquircle = GetTemplateChild("FaviconSquircle") as Border;
+        FaviconImage = GetTemplateChild("FaviconImage") as Image;
 
         UpdateInformation();
     }
@@ -92,7 +97,7 @@ public partial class ImagePreviewControl : Control
 
     private async void UpdateInformation()
     {
-        if (KnownHostImage == null || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
+        if ((KnownHostImage == null && FaviconSquircle == null) || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
             return;
 
         // Cancel active image loading if exists.
@@ -102,6 +107,7 @@ public partial class ImagePreviewControl : Control
         }
 
         string contactPicture = SenderContactPicture;
+        isFavicon = false;
         if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
         {
             if (_preferencesService.IsGravatarEnabled)
@@ -112,30 +118,46 @@ public partial class ImagePreviewControl : Control
             {
                 var host = _thumbnailService.GetHost(FromAddress);
                 contactPicture = await _thumbnailService.TryGetFaviconBase64Async(host);
+                if (!string.IsNullOrEmpty(contactPicture))
+                    isFavicon = true;
             }
         }
 
         if (!string.IsNullOrEmpty(contactPicture))
         {
-            KnownHostImage.Visibility = Visibility.Collapsed;
-            InitialsGrid.Visibility = Visibility.Visible;
-            contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
-            try
+            if (isFavicon && FaviconSquircle != null && FaviconImage != null)
             {
-                var brush = await GetContactImageBrushAsync(contactPicture);
-                if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
-                {
-                    Ellipse.Fill = brush;
-                    InitialsTextblock.Text = string.Empty;
-                }
+                // Show favicon in squircle
+                FaviconSquircle.Visibility = Visibility.Visible;
+                InitialsGrid.Visibility = Visibility.Collapsed;
+                KnownHostImage.Visibility = Visibility.Collapsed;
+                FaviconImage.Source = await GetBitmapImageAsync(contactPicture);
             }
-            catch (Exception)
+            else
             {
-                Debugger.Break();
+                // Show normal avatar (tondo)
+                FaviconSquircle.Visibility = Visibility.Collapsed;
+                KnownHostImage.Visibility = Visibility.Collapsed;
+                InitialsGrid.Visibility = Visibility.Visible;
+                contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
+                try
+                {
+                    var brush = await GetContactImageBrushAsync(contactPicture);
+                    if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
+                    {
+                        Ellipse.Fill = brush;
+                        InitialsTextblock.Text = string.Empty;
+                    }
+                }
+                catch (Exception)
+                {
+                    Debugger.Break();
+                }
             }
         }
         else
         {
+            FaviconSquircle.Visibility = Visibility.Collapsed;
             KnownHostImage.Visibility = Visibility.Collapsed;
             InitialsGrid.Visibility = Visibility.Visible;
             var colorHash = new ColorHash();
@@ -159,6 +181,17 @@ public partial class ImagePreviewControl : Control
         await bitmapImage.SetSourceAsync(randomAccessImageStream);
 
         return new ImageBrush() { ImageSource = bitmapImage };
+    }
+
+    private async Task<BitmapImage> GetBitmapImageAsync(string base64)
+    {
+        var bitmapImage = new BitmapImage();
+        var imageArray = Convert.FromBase64String(base64);
+        var imageStream = new MemoryStream(imageArray);
+        var randomAccessImageStream = imageStream.AsRandomAccessStream();
+        randomAccessImageStream.Seek(0);
+        await bitmapImage.SetSourceAsync(randomAccessImageStream);
+        return bitmapImage;
     }
 
     public string ExtractInitialsFromName(string name)

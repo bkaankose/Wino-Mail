@@ -116,7 +116,7 @@ public class NotificationBuilder : INotificationBuilder
                                 var bytes = Convert.FromBase64String(faviconBase64);
                                 await stream.WriteAsync(bytes, 0, bytes.Length);
                             }
-                            builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
+                            builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.None);
                         }
                         else
                         {
