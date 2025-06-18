@@ -60,7 +60,6 @@
                     <Setter.Value>
                         <TransitionCollection>
                             <EntranceThemeTransition IsStaggeringEnabled="False" />
-                            <RepositionThemeTransition IsStaggeringEnabled="False" />
                         </TransitionCollection>
                     </Setter.Value>
                 </Setter>

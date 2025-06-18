@@ -12,6 +12,12 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
+
             <TextBlock Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsReader_Title}" />
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsReaderFontFamily_Description}"
