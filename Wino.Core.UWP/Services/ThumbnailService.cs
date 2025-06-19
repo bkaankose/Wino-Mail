@@ -1,26 +1,28 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Mail;
-using System.Threading;
 using System.Threading.Tasks;
 using Gravatar;
 using Windows.Networking.Connectivity;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 
 namespace Wino.Core.UWP.Services;
 
-public class ThumbnailService(INativeAppService nativeAppService, IPreferencesService preferencesService) : IThumbnailService
+public class ThumbnailService(IPreferencesService preferencesService, IDatabaseService databaseService) : IThumbnailService
 {
-    private readonly INativeAppService _nativeAppService = nativeAppService;
     private readonly IPreferencesService _preferencesService = preferencesService;
+    private readonly IDatabaseService _databaseService = databaseService;
     private static readonly HttpClient _httpClient = new();
+    private bool _isInitialized = false;
 
-    private static readonly ConcurrentDictionary<string, Lock> _fileLocks = [];
-    private static readonly ConcurrentDictionary<string, string> _memoryCache = [];
+    private ConcurrentDictionary<string, (string graviton, string favicon)> _cache;
+    private readonly ConcurrentDictionary<string, Task> _requests = [];
 
-    public async Task<string> GetAvatarThumbnail(string email)
+    public async ValueTask<string> GetAvatarThumbnail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
             return null;
@@ -28,94 +30,59 @@ public class ThumbnailService(INativeAppService nativeAppService, IPreferencesSe
         if (!_preferencesService.IsShowSenderPicturesEnabled)
             return null;
 
-        var sanitizedEmail = email.Trim().ToLowerInvariant();
-
-        if (_preferencesService.IsGravatarEnabled)
+        if (!_isInitialized)
         {
-            var gravatar = await GetThumbnailInternal(sanitizedEmail, "gravatar", static x => GravatarHelper.GetAvatarUrl(
-                x,
-                size: 128,
-                defaultValue: GravatarAvatarDefault.Blank,
-                withFileExtension: false).ToString().Replace("d=blank", "d=404"));
+            var thumbnailsList = await _databaseService.Connection.Table<Thumbnail>().ToListAsync();
 
-            if (!string.IsNullOrEmpty(gravatar))
-                return gravatar;
+            _cache = new ConcurrentDictionary<string, (string graviton, string favicon)>(
+                thumbnailsList.ToDictionary(x => x.Domain, x => (x.Gravatar, x.Favicon)));
+            _isInitialized = true;
         }
 
-        if (_preferencesService.IsFaviconEnabled)
+        var sanitizedEmail = email.Trim().ToLowerInvariant();
+
+        var (gravatar, favicon) = GetThumbnailInternal(email);
+
+        if (_preferencesService.IsGravatarEnabled && !string.IsNullOrEmpty(gravatar))
         {
-            var favicon = await GetThumbnailInternal(sanitizedEmail, "favicon", static x =>
-            {
-                var host = GetHost(x);
-                if (string.IsNullOrEmpty(host))
-                    return null;
+            return gravatar;
+        }
 
-                var primaryDomain = string.Join('.', host.Split('.')[^2..]);
-
-                return $"https://icons.duckduckgo.com/ip3/{primaryDomain}.ico";
-            });
-
-            if (!string.IsNullOrEmpty(favicon))
-                return favicon;
+        if (_preferencesService.IsFaviconEnabled && !string.IsNullOrEmpty(favicon))
+        {
+            return favicon;
         }
 
         return null;
     }
 
-    private async Task<string> GetThumbnailInternal(string email, string type, Func<string, string> getUrl)
+    public async Task ClearCache()
+    {
+        _cache?.Clear();
+        _requests.Clear();
+        await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
+    }
+
+    private (string gravatar, string favicon) GetThumbnailInternal(string email)
     {
         var host = GetHost(email);
-        if (_memoryCache.TryGetValue($"{type}:{host}", out var cached))
+        if (_cache.TryGetValue($"{host}", out var cached))
             return cached;
 
-        var filePath = Path.Combine(await _nativeAppService.GetThumbnailStoragePath(), $"{host}.{type}");
+        // No network available, skip fetching Gravatar
+        // Do not cache it, since network can be available later
+        bool isInternetAvailable = GetIsInternetAvailable();
 
-        if (File.Exists(filePath))
+        if (!isInternetAvailable)
+            return default;
+
+        // Initialize thumbnail in a background, avoiding multiple requests for the same domain
+        if (!_requests.TryGetValue(email, out var request))
         {
-            var base64 = await File.ReadAllTextAsync(filePath);
-            _ = _memoryCache.TryAdd($"{type}:{host}", base64);
-            return base64;
+            _ = Task.Run(() => RequestNewThumbnail(email));
         }
 
-        var fileLock = _fileLocks.GetOrAdd(filePath, _ => new Lock());
-        try
-        {
-            // No network available, skip fetching Gravatar
-            // Do not cache it, since network can be available later
-            bool isInternetAvailable = GetIsInternetAvailable();
-
-            if (!isInternetAvailable)
-                return null;
-
-            var url = getUrl(email);
-            if (string.IsNullOrEmpty(url))
-                return null;
-
-            var response = await _httpClient.GetAsync(url);
-            if (response.IsSuccessStatusCode)
-            {
-                var bytes = await response.Content.ReadAsByteArrayAsync();
-                var base64 = Convert.ToBase64String(bytes);
-                lock (fileLock)
-                {
-                    File.WriteAllText(filePath, base64);
-                }
-                _memoryCache.TryAdd($"{type}:{host}", base64);
-                return base64;
-            }
-            // Cache null to avoid repeated requests for this email during the session
-            _memoryCache.TryAdd($"{type}:{host}", string.Empty);
-            lock (fileLock)
-            {
-                // Ensure we create the file to prevent future requests
-                if (!File.Exists(filePath))
-                {
-                    File.WriteAllText(filePath, string.Empty);
-                }
-            }
-        }
-        catch { }
-        return null;
+        return default;
 
         static bool GetIsInternetAvailable()
         {
@@ -124,14 +91,73 @@ public class ThumbnailService(INativeAppService nativeAppService, IPreferencesSe
         }
     }
 
-    private static string GetHost(string address)
+    private async Task RequestNewThumbnail(string email)
     {
-        if (!string.IsNullOrEmpty(address) && address.Contains('@'))
+        var host = GetHost(email);
+        try
         {
-            var split = address.Split('@');
+            var gravatarBase64 = await GetGravatarBase64(email);
+            var faviconBase64 = await GetFaviconBase64(email);
+
+            await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
+            {
+                Domain = host,
+                Gravatar = gravatarBase64,
+                Favicon = faviconBase64
+            });
+            _ = _cache.TryAdd($"{host}", (gravatarBase64, faviconBase64));
+        }
+        catch { }
+    }
+
+    private static async Task<string> GetGravatarBase64(string email)
+    {
+        try
+        {
+            var gravatarUrl = GravatarHelper.GetAvatarUrl(
+                email,
+                size: 128,
+                defaultValue: GravatarAvatarDefault.Blank,
+                withFileExtension: false).ToString().Replace("d=blank", "d=404");
+            var response = await _httpClient.GetAsync(gravatarUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var bytes = response.Content.ReadAsByteArrayAsync().Result;
+                return Convert.ToBase64String(bytes);
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static async Task<string> GetFaviconBase64(string email)
+    {
+        try
+        {
+            var host = GetHost(email);
+            if (string.IsNullOrEmpty(host))
+                return null;
+            var primaryDomain = string.Join('.', host.Split('.')[^2..]);
+            var faviconUrl = $"https://icons.duckduckgo.com/ip3/{primaryDomain}.ico";
+            var response = await _httpClient.GetAsync(faviconUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var bytes = response.Content.ReadAsByteArrayAsync().Result;
+                return Convert.ToBase64String(bytes);
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static string GetHost(string email)
+    {
+        if (!string.IsNullOrEmpty(email) && email.Contains('@'))
+        {
+            var split = email.Split('@');
             if (split.Length >= 2 && !string.IsNullOrEmpty(split[1]))
             {
-                try { return new MailAddress(address).Host; } catch { }
+                try { return new MailAddress(email).Host; } catch { }
             }
         }
         return string.Empty;

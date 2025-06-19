@@ -57,7 +57,8 @@ public class DatabaseService : IDatabaseService
             typeof(AccountCalendar),
             typeof(CalendarEventAttendee),
             typeof(CalendarItem),
-            typeof(Reminder)
+            typeof(Reminder),
+            typeof(Thumbnail)
             );
     }
 }

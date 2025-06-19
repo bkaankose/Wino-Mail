@@ -4,5 +4,6 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IThumbnailService
 {
-    Task<string> GetAvatarThumbnail(string email);
+    Task ClearCache();
+    ValueTask<string> GetAvatarThumbnail(string email);
 }
