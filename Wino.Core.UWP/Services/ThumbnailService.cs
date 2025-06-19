@@ -75,8 +75,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
     private (string gravatar, string favicon) GetThumbnailInternal(string email)
     {
-        var host = GetHost(email);
-        if (_cache.TryGetValue($"{host}", out var cached))
+        if (_cache.TryGetValue(email, out var cached))
             return cached;
 
         // No network available, skip fetching Gravatar
@@ -103,22 +102,17 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
     private async Task RequestNewThumbnail(string email)
     {
-        var host = GetHost(email);
-        try
-        {
-            var gravatarBase64 = await GetGravatarBase64(email);
-            var faviconBase64 = await GetFaviconBase64(email);
+        var gravatarBase64 = await GetGravatarBase64(email);
+        var faviconBase64 = await GetFaviconBase64(email);
 
-            await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
-            {
-                Domain = host,
-                Gravatar = gravatarBase64,
-                Favicon = faviconBase64,
-                LastUpdated = DateTime.UtcNow
-            });
-            _ = _cache.TryAdd($"{host}", (gravatarBase64, faviconBase64));
-        }
-        catch { }
+        var result = await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
+        {
+            Domain = email,
+            Gravatar = gravatarBase64,
+            Favicon = faviconBase64,
+            LastUpdated = DateTime.UtcNow
+        });
+        _ = _cache.TryAdd(email, (gravatarBase64, faviconBase64));
     }
 
     private static async Task<string> GetGravatarBase64(string email)
