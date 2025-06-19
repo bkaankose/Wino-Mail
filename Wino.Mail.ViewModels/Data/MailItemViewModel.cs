@@ -1,19 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
+public partial class MailItemViewModel : ObservableRecipient, IMailItem, IRecipient<ThumbnailAdded>
 {
     [ObservableProperty]
-    private MailCopy mailCopy = mailCopy;
+    private MailCopy mailCopy;
 
     public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
     public string ThreadId => ((IMailItem)MailCopy).ThreadId;
@@ -23,10 +25,19 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
 
     [ObservableProperty]
+    public partial bool ThumbnailUpdatedEvent { get; set; } = false;
+
+    [ObservableProperty]
     private bool isCustomFocused;
 
     [ObservableProperty]
     private bool isSelected;
+
+    public MailItemViewModel(MailCopy mailCopy)
+    {
+        this.mailCopy = mailCopy;
+        WeakReferenceMessenger.Default.Register<ThumbnailAdded>(this);
+    }
 
     public bool IsFlagged
     {
@@ -103,4 +114,16 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
 
     public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
+
+    public void Receive(ThumbnailAdded message)
+    {
+        ThumbnailUpdatedEvent = !ThumbnailUpdatedEvent;
+        //if (string.IsNullOrEmpty(message.Email) || string.IsNullOrEmpty(MailCopy.FromAddress))
+        //    return;
+
+        //if (message.Email.Equals(MailCopy.FromAddress, StringComparison.OrdinalIgnoreCase))
+        //{
+        //    ThumbnailUpdatedEvent = true;
+        //}
+    }
 }

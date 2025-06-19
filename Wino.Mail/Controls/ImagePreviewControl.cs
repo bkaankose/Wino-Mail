@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,8 +13,6 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Shapes;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP;
-using Wino.Core.UWP.Services;
 
 namespace Wino.Controls;
 
@@ -35,6 +30,13 @@ public partial class ImagePreviewControl : Control
     public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
     public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
     public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnAddressInformationChanged)));
+    public static readonly DependencyProperty ThumbnailUpdatedEventProperty = DependencyProperty.Register(nameof(ThumbnailUpdatedEvent), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(true, new PropertyChangedCallback(OnAddressInformationChanged)));
+
+    public bool ThumbnailUpdatedEvent
+    {
+        get { return (bool)GetValue(ThumbnailUpdatedEventProperty); }
+        set { SetValue(ThumbnailUpdatedEventProperty, value); }
+    }
 
     /// <summary>
     /// Gets or sets base64 string of the sender contact picture.

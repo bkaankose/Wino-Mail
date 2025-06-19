@@ -33,6 +33,13 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+    public static readonly DependencyProperty ThumbnailUpdatedEventProperty = DependencyProperty.Register(nameof(ThumbnailUpdatedEvent), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+
+    public bool ThumbnailUpdatedEvent
+    {
+        get { return (bool)GetValue(ThumbnailUpdatedEventProperty); }
+        set { SetValue(ThumbnailUpdatedEventProperty, value); }
+    }
 
     public bool IsThreadExpanded
     {

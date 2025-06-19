@@ -117,7 +117,8 @@
                 MailItem="{x:Bind MailCopy, Mode=OneWay}"
                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
+                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                ThumbnailUpdatedEvent="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}" />
         </DataTemplate>
 
         <!--  Single Mail Item Template for Threads  -->
@@ -140,7 +141,8 @@
                 MailItem="{x:Bind MailCopy, Mode=OneWay}"
                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
+                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                ThumbnailUpdatedEvent="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}" />
         </DataTemplate>
 
         <!--  Mail Item Content Selector  -->

@@ -4,10 +4,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Mail;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Gravatar;
 using Windows.Networking.Connectivity;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Messaging.UI;
 using Wino.Services;
 
 namespace Wino.Core.UWP.Services;
@@ -113,6 +115,8 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
             LastUpdated = DateTime.UtcNow
         });
         _ = _cache.TryAdd(email, (gravatarBase64, faviconBase64));
+
+        WeakReferenceMessenger.Default.Send(new ThumbnailAdded(email));
     }
 
     private static async Task<string> GetGravatarBase64(string email)
