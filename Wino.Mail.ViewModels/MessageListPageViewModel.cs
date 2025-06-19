@@ -14,7 +14,7 @@ namespace Wino.Mail.ViewModels;
 public partial class MessageListPageViewModel : MailBaseViewModel
 {
     public IPreferencesService PreferencesService { get; }
-    private readonly INativeAppService _nativeAppService;
+    private readonly IThumbnailService _thumbnailService;
 
     public IRelayCommand ClearGravatarCacheAsync { get; }
     public IRelayCommand ClearFaviconCacheAsync { get; }
@@ -99,12 +99,10 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     }
     #endregion
 
-    public MessageListPageViewModel(IMailDialogService dialogService,
-                                    IPreferencesService preferencesService,
-                                    INativeAppService nativeAppService)
+    public MessageListPageViewModel(IPreferencesService preferencesService, IThumbnailService thumbnailService)
     {
         PreferencesService = preferencesService;
-        _nativeAppService = nativeAppService;
+        _thumbnailService = thumbnailService;
         leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
         centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
@@ -126,19 +124,11 @@ public partial class MessageListPageViewModel : MailBaseViewModel
 
     private async Task ClearGravatarCacheAsyncImpl()
     {
-        var cacheDir = await _nativeAppService.GetThumbnailStoragePath();
-        foreach (var file in Directory.GetFiles(cacheDir, "*.gravatar", SearchOption.TopDirectoryOnly))
-        {
-            File.Delete(file);
-        }
+        await _thumbnailService.ClearCache();
     }
 
     private async Task ClearFaviconCacheAsyncImpl()
     {
-        var cacheDir = await _nativeAppService.GetThumbnailStoragePath();
-        foreach (var file in Directory.GetFiles(cacheDir, "*.favicon", SearchOption.TopDirectoryOnly))
-        {
-            File.Delete(file);
-        }
+        await _thumbnailService.ClearCache();
     }
 }

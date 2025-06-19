@@ -105,7 +105,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         var gravatarBase64 = await GetGravatarBase64(email);
         var faviconBase64 = await GetFaviconBase64(email);
 
-        var result = await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
+        await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
         {
             Domain = email,
             Gravatar = gravatarBase64,
