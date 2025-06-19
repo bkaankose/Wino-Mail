@@ -27,6 +27,8 @@ public partial class ImagePreviewControl : Control
     private const string PART_InitialsTextBlock = "InitialsTextBlock";
     private const string PART_KnownHostImage = "KnownHostImage";
     private const string PART_Ellipse = "Ellipse";
+    private const string PART_FaviconSquircle = "FaviconSquircle";
+    private const string PART_FaviconImage = "FaviconImage";
 
     #region Dependency Properties
 
@@ -63,16 +65,12 @@ public partial class ImagePreviewControl : Control
     private Image KnownHostImage;
     private Border FaviconSquircle;
     private Image FaviconImage;
-    private bool isFavicon;
     private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
-    private IPreferencesService _preferencesService;
-    private readonly IThumbnailService _thumbnailService;
+    private readonly IThumbnailService _thumbnailService = App.Current.Services.GetService<IThumbnailService>();
 
     public ImagePreviewControl()
     {
         DefaultStyleKey = nameof(ImagePreviewControl);
-        _thumbnailService = WinoApplication.Current.Services.GetService<IThumbnailService>();
-        _preferencesService = WinoApplication.Current.Services.GetService<IPreferencesService>();
     }
 
     protected override void OnApplyTemplate()
@@ -83,8 +81,8 @@ public partial class ImagePreviewControl : Control
         InitialsTextblock = GetTemplateChild(PART_InitialsTextBlock) as TextBlock;
         KnownHostImage = GetTemplateChild(PART_KnownHostImage) as Image;
         Ellipse = GetTemplateChild(PART_Ellipse) as Ellipse;
-        FaviconSquircle = GetTemplateChild("FaviconSquircle") as Border;
-        FaviconImage = GetTemplateChild("FaviconImage") as Image;
+        FaviconSquircle = GetTemplateChild(PART_FaviconSquircle) as Border;
+        FaviconImage = GetTemplateChild(PART_FaviconImage) as Image;
 
         UpdateInformation();
     }
@@ -107,25 +105,18 @@ public partial class ImagePreviewControl : Control
         }
 
         string contactPicture = SenderContactPicture;
-        isFavicon = false;
+
+        var isAvatarThumbnail = false;
+
         if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
         {
-            if (_preferencesService.IsGravatarEnabled)
-            {
-                contactPicture = await _thumbnailService.TryGetGravatarBase64Async(FromAddress);
-            }
-            if (string.IsNullOrEmpty(contactPicture) && _preferencesService.IsFaviconEnabled)
-            {
-                var host = _thumbnailService.GetHost(FromAddress);
-                contactPicture = await _thumbnailService.TryGetFaviconBase64Async(host);
-                if (!string.IsNullOrEmpty(contactPicture))
-                    isFavicon = true;
-            }
+            contactPicture = await _thumbnailService.GetAvatarThumbnail(FromAddress);
+            isAvatarThumbnail = true;
         }
 
         if (!string.IsNullOrEmpty(contactPicture))
         {
-            if (isFavicon && FaviconSquircle != null && FaviconImage != null)
+            if (isAvatarThumbnail && FaviconSquircle != null && FaviconImage != null)
             {
                 // Show favicon in squircle
                 FaviconSquircle.Visibility = Visibility.Visible;
@@ -167,7 +158,7 @@ public partial class ImagePreviewControl : Control
         }
     }
 
-    private async Task<ImageBrush> GetContactImageBrushAsync(string base64)
+    private static async Task<ImageBrush> GetContactImageBrushAsync(string base64)
     {
         // Load the image from base64 string.
         var bitmapImage = new BitmapImage();
@@ -183,7 +174,7 @@ public partial class ImagePreviewControl : Control
         return new ImageBrush() { ImageSource = bitmapImage };
     }
 
-    private async Task<BitmapImage> GetBitmapImageAsync(string base64)
+    private static async Task<BitmapImage> GetBitmapImageAsync(string base64)
     {
         var bitmapImage = new BitmapImage();
         var imageArray = Convert.FromBase64String(base64);
