@@ -41,7 +41,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
         var sanitizedEmail = email.Trim().ToLowerInvariant();
 
-        var (gravatar, favicon) = GetThumbnailInternal(email);
+        var (gravatar, favicon) = GetThumbnailInternal(sanitizedEmail);
 
         if (_preferencesService.IsGravatarEnabled && !string.IsNullOrEmpty(gravatar))
         {
@@ -61,6 +61,16 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         _cache?.Clear();
         _requests.Clear();
         await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
+    }
+
+    public async Task PrefetchThumbnail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return;
+
+        var sanitizedEmail = email.Trim().ToLowerInvariant();
+
+        await RequestNewThumbnail(sanitizedEmail);
     }
 
     private (string gravatar, string favicon) GetThumbnailInternal(string email)
@@ -103,7 +113,8 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
             {
                 Domain = host,
                 Gravatar = gravatarBase64,
-                Favicon = faviconBase64
+                Favicon = faviconBase64,
+                LastUpdated = DateTime.UtcNow
             });
             _ = _cache.TryAdd($"{host}", (gravatarBase64, faviconBase64));
         }

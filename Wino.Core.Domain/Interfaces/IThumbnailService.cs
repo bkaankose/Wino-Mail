@@ -6,4 +6,5 @@ public interface IThumbnailService
 {
     Task ClearCache();
     ValueTask<string> GetAvatarThumbnail(string email);
+    Task PrefetchThumbnail(string email);
 }
