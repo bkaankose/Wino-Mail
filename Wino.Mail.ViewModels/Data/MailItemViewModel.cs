@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel : ObservableRecipient, IMailItem
+public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
 {
     [ObservableProperty]
-    private MailCopy mailCopy;
+    public partial MailCopy MailCopy { get; set; } = mailCopy;
 
     public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
     public string ThreadId => ((IMailItem)MailCopy).ThreadId;
@@ -28,15 +26,10 @@ public partial class MailItemViewModel : ObservableRecipient, IMailItem
     public partial bool ThumbnailUpdatedEvent { get; set; } = false;
 
     [ObservableProperty]
-    private bool isCustomFocused;
+    public partial bool IsCustomFocused { get; set; }
 
     [ObservableProperty]
-    private bool isSelected;
-
-    public MailItemViewModel(MailCopy mailCopy)
-    {
-        this.mailCopy = mailCopy;
-    }
+    public partial bool IsSelected { get; set; }
 
     public bool IsFlagged
     {
