@@ -5,13 +5,14 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Fernandezja.ColorHashSharp;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Shapes;
-using Wino.Core.UWP.Services;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Controls;
 
@@ -21,12 +22,21 @@ public partial class ImagePreviewControl : Control
     private const string PART_InitialsTextBlock = "InitialsTextBlock";
     private const string PART_KnownHostImage = "KnownHostImage";
     private const string PART_Ellipse = "Ellipse";
+    private const string PART_FaviconSquircle = "FaviconSquircle";
+    private const string PART_FaviconImage = "FaviconImage";
 
     #region Dependency Properties
 
-    public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
-    public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
-    public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnAddressInformationChanged)));
+    public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnInformationChanged));
+    public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnInformationChanged));
+    public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnInformationChanged)));
+    public static readonly DependencyProperty ThumbnailUpdatedEventProperty = DependencyProperty.Register(nameof(ThumbnailUpdatedEvent), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(false, new PropertyChangedCallback(OnInformationChanged)));
+
+    public bool ThumbnailUpdatedEvent
+    {
+        get { return (bool)GetValue(ThumbnailUpdatedEventProperty); }
+        set { SetValue(ThumbnailUpdatedEventProperty, value); }
+    }
 
     /// <summary>
     /// Gets or sets base64 string of the sender contact picture.
@@ -55,6 +65,8 @@ public partial class ImagePreviewControl : Control
     private Grid InitialsGrid;
     private TextBlock InitialsTextblock;
     private Image KnownHostImage;
+    private Border FaviconSquircle;
+    private Image FaviconImage;
     private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
 
     public ImagePreviewControl()
@@ -70,11 +82,13 @@ public partial class ImagePreviewControl : Control
         InitialsTextblock = GetTemplateChild(PART_InitialsTextBlock) as TextBlock;
         KnownHostImage = GetTemplateChild(PART_KnownHostImage) as Image;
         Ellipse = GetTemplateChild(PART_Ellipse) as Ellipse;
+        FaviconSquircle = GetTemplateChild(PART_FaviconSquircle) as Border;
+        FaviconImage = GetTemplateChild(PART_FaviconImage) as Image;
 
         UpdateInformation();
     }
 
-    private static void OnAddressInformationChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    private static void OnInformationChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
     {
         if (obj is ImagePreviewControl control)
             control.UpdateInformation();
@@ -82,7 +96,7 @@ public partial class ImagePreviewControl : Control
 
     private async void UpdateInformation()
     {
-        if (KnownHostImage == null || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
+        if ((KnownHostImage == null && FaviconSquircle == null) || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
             return;
 
         // Cancel active image loading if exists.
@@ -91,79 +105,98 @@ public partial class ImagePreviewControl : Control
             contactPictureLoadingCancellationTokenSource.Cancel();
         }
 
-        var host = ThumbnailService.GetHost(FromAddress);
+        string contactPicture = SenderContactPicture;
 
-        bool isKnownHost = false;
+        var isAvatarThumbnail = false;
 
-        if (!string.IsNullOrEmpty(host))
+        if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
         {
-            var tuple = ThumbnailService.CheckIsKnown(host);
-
-            isKnownHost = tuple.Item1;
-            host = tuple.Item2;
+            contactPicture = await App.Current.ThumbnailService.GetThumbnailAsync(FromAddress);
+            isAvatarThumbnail = true;
         }
 
-        if (isKnownHost)
+        if (!string.IsNullOrEmpty(contactPicture))
         {
-            // Unrealize others.
-
-            KnownHostImage.Visibility = Visibility.Visible;
-            InitialsGrid.Visibility = Visibility.Collapsed;
-
-            // Apply company logo.
-            KnownHostImage.Source = new BitmapImage(new Uri(ThumbnailService.GetKnownHostImage(host)));
-        }
-        else
-        {
-            KnownHostImage.Visibility = Visibility.Collapsed;
-            InitialsGrid.Visibility = Visibility.Visible;
-
-            if (!string.IsNullOrEmpty(SenderContactPicture))
+            if (isAvatarThumbnail && FaviconSquircle != null && FaviconImage != null)
             {
-                contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
+                // Show favicon in squircle
+                FaviconSquircle.Visibility = Visibility.Visible;
+                InitialsGrid.Visibility = Visibility.Collapsed;
+                KnownHostImage.Visibility = Visibility.Collapsed;
 
-                try
-                {
-                    var brush = await GetContactImageBrushAsync();
+                var bitmapImage = await GetBitmapImageAsync(contactPicture);
 
-                    if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
-                    {
-                        Ellipse.Fill = brush;
-                        InitialsTextblock.Text = string.Empty;
-                    }
-                }
-                catch (Exception)
+                if (bitmapImage != null)
                 {
-                    // Log exception.
-                    Debugger.Break();
+                    FaviconImage.Source = bitmapImage;
                 }
             }
             else
             {
-                var colorHash = new ColorHash();
-                var rgb = colorHash.Rgb(FromAddress);
+                // Show normal avatar (tondo)
+                FaviconSquircle.Visibility = Visibility.Collapsed;
+                KnownHostImage.Visibility = Visibility.Collapsed;
+                InitialsGrid.Visibility = Visibility.Visible;
+                contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
+                try
+                {
+                    var brush = await GetContactImageBrushAsync(contactPicture);
 
-                Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
-                InitialsTextblock.Text = ExtractInitialsFromName(FromName);
+                    if (brush != null)
+                    {
+                        if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
+                        {
+                            Ellipse.Fill = brush;
+                            InitialsTextblock.Text = string.Empty;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    Debugger.Break();
+                }
             }
+        }
+        else
+        {
+            FaviconSquircle.Visibility = Visibility.Collapsed;
+            KnownHostImage.Visibility = Visibility.Collapsed;
+            InitialsGrid.Visibility = Visibility.Visible;
+
+            var colorHash = new ColorHash();
+            var rgb = colorHash.Rgb(FromAddress);
+
+            Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
+            InitialsTextblock.Text = ExtractInitialsFromName(FromName);
         }
     }
 
-    private async Task<ImageBrush> GetContactImageBrushAsync()
+    private static async Task<ImageBrush> GetContactImageBrushAsync(string base64)
     {
         // Load the image from base64 string.
-        var bitmapImage = new BitmapImage();
+        
+        var bitmapImage = await GetBitmapImageAsync(base64);
 
-        var imageArray = Convert.FromBase64String(SenderContactPicture);
-        var imageStream = new MemoryStream(imageArray);
-        var randomAccessImageStream = imageStream.AsRandomAccessStream();
-
-        randomAccessImageStream.Seek(0);
-
-
-        await bitmapImage.SetSourceAsync(randomAccessImageStream);
+        if (bitmapImage == null) return null;
 
         return new ImageBrush() { ImageSource = bitmapImage };
+    }
+
+    private static async Task<BitmapImage> GetBitmapImageAsync(string base64)
+    {
+        try
+        {
+            var bitmapImage = new BitmapImage();
+            var imageArray = Convert.FromBase64String(base64);
+            var imageStream = new MemoryStream(imageArray);
+            var randomAccessImageStream = imageStream.AsRandomAccessStream();
+            randomAccessImageStream.Seek(0);
+            await bitmapImage.SetSourceAsync(randomAccessImageStream);
+            return bitmapImage;
+        }
+        catch (Exception) { }
+
+        return null;
     }
 
     public string ExtractInitialsFromName(string name)

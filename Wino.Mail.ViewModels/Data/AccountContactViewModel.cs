@@ -1,10 +1,17 @@
-﻿using Wino.Core.Domain;
+﻿using System;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Mail.ViewModels.Data;
 
-public class AccountContactViewModel : AccountContact
+public partial class AccountContactViewModel : ObservableObject
 {
+    public string Address { get; set; }
+    public string Name { get; set; }
+    public string Base64ContactPicture { get; set; }
+    public bool IsRootContact { get; set; }
+
     public AccountContactViewModel(AccountContact contact)
     {
         Address = contact.Address;
@@ -39,4 +46,7 @@ public class AccountContactViewModel : AccountContact
     /// Display name of the contact in a format: Name <Address>.
     /// </summary>
     public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address.ToLowerInvariant() : $"{Name} <{Address.ToLowerInvariant()}>";
+
+    [ObservableProperty]
+    public partial bool ThumbnailUpdatedEvent { get; set; }
 }

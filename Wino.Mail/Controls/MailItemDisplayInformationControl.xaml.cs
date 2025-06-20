@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Numerics;
 using System.Windows.Input;
+using CommunityToolkit.WinUI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Core.Domain;
@@ -33,6 +34,13 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+    public static readonly DependencyProperty IsThumbnailUpdatedProperty = DependencyProperty.Register(nameof(IsThumbnailUpdated), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+
+    public bool IsThumbnailUpdated
+    {
+        get { return (bool)GetValue(IsThumbnailUpdatedProperty); }
+        set { SetValue(IsThumbnailUpdatedProperty, value); }
+    }
 
     public bool IsThreadExpanded
     {

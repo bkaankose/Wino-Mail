@@ -41,7 +41,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<AccountSynchronizationCompleted>,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<AccountSynchronizerStateChanged>,
-    IRecipient<AccountCacheResetMessage>
+    IRecipient<AccountCacheResetMessage>,
+    IRecipient<ThumbnailAdded>
 {
     private bool isChangingFolder = false;
 
@@ -1140,4 +1141,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             });
         }
     }
+
+    public void Receive(ThumbnailAdded message) => MailCollection.UpdateThumbnails(message.Email);
 }

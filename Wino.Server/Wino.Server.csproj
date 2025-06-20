@@ -34,11 +34,12 @@
     </Resource>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm"  />
-    <PackageReference Include="H.NotifyIcon.Wpf"  />
-    <PackageReference Include="CommunityToolkit.WinUI.Notifications"  />
-    <PackageReference Include="Microsoft.Identity.Client"  />
-    <PackageReference Include="System.Text.Encoding.CodePages"  />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="gravatar-dotnet" />
+    <PackageReference Include="H.NotifyIcon.Wpf" />
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications" />
+    <PackageReference Include="Microsoft.Identity.Client" />
+    <PackageReference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />

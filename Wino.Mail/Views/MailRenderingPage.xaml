@@ -46,7 +46,8 @@
                                 Height="36"
                                 FromAddress="{x:Bind Address}"
                                 FromName="{x:Bind Name}"
-                                SenderContactPicture="{x:Bind Base64ContactPicture}" />
+                                SenderContactPicture="{x:Bind Base64ContactPicture}"
+                                ThumbnailUpdatedEvent="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}" />
 
                             <TextBlock Grid.Column="1" Text="{x:Bind Name}" />
 
