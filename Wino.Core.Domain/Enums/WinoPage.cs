@@ -29,5 +29,6 @@ public enum WinoPage
     // Calendar
     CalendarPage,
     CalendarSettingsPage,
-    EventDetailsPage
+    EventDetailsPage,
+    SignatureAndEncryptionPage
 }
