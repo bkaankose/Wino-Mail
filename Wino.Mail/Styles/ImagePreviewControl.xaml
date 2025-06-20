@@ -28,19 +28,17 @@
                                     Foreground="White" />
                             </Grid>
 
-                            <!-- Squircle for favicon -->
+                            <!--  Squircle for favicon  -->
                             <Border
                                 x:Name="FaviconSquircle"
                                 Width="{TemplateBinding Width}"
                                 Height="{TemplateBinding Height}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                CornerRadius="6"
                                 Background="Transparent"
+                                CornerRadius="6"
                                 Visibility="Collapsed">
-                                <Image
-                                    x:Name="FaviconImage"
-                                    Stretch="UniformToFill"/>
+                                <Image x:Name="FaviconImage" Stretch="Fill" />
                             </Border>
 
                             <Image
