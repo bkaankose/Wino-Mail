@@ -4,6 +4,9 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IThumbnailService
 {
+    /// <summary>
+    /// Clears the thumbnail cache.
+    /// </summary>
     Task ClearCache();
 
     /// <summary>
@@ -13,5 +16,5 @@ public interface IThumbnailService
     /// <param name="awaitLoad">Force to wait for thumbnail loading.
     /// Should be used in non-UI threads or where delay is acceptable
     /// </param>
-    ValueTask<string> GetThumbnail(string email, bool awaitLoad = false);
+    ValueTask<string> GetThumbnailAsync(string email, bool awaitLoad = false);
 }

@@ -47,11 +47,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionOption_MoveJunk
     ];
 
-    public bool IsShowSenderPicturesEnabledBindable
-    {
-        get => PreferencesService.IsShowSenderPicturesEnabled;
-    }
-
     #region Properties
     private int leftHoverActionIndex;
     public int LeftHoverActionIndex

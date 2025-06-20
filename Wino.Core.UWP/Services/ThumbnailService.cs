@@ -44,7 +44,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         "rediffmail.com"
         ];
 
-    public async ValueTask<string> GetThumbnail(string email, bool awaitLoad = false)
+    public async ValueTask<string> GetThumbnailAsync(string email, bool awaitLoad = false)
     {
         if (string.IsNullOrWhiteSpace(email))
             return null;

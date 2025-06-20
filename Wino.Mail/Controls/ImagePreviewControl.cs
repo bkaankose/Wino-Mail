@@ -68,7 +68,6 @@ public partial class ImagePreviewControl : Control
     private Border FaviconSquircle;
     private Image FaviconImage;
     private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
-    private readonly IThumbnailService _thumbnailService = App.Current.Services.GetService<IThumbnailService>();
 
     public ImagePreviewControl()
     {
@@ -112,7 +111,7 @@ public partial class ImagePreviewControl : Control
 
         if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
         {
-            contactPicture = await _thumbnailService.GetThumbnail(FromAddress);
+            contactPicture = await App.Current.ThumbnailService.GetThumbnailAsync(FromAddress);
             isAvatarThumbnail = true;
         }
 
@@ -124,7 +123,13 @@ public partial class ImagePreviewControl : Control
                 FaviconSquircle.Visibility = Visibility.Visible;
                 InitialsGrid.Visibility = Visibility.Collapsed;
                 KnownHostImage.Visibility = Visibility.Collapsed;
-                FaviconImage.Source = await GetBitmapImageAsync(contactPicture);
+
+                var bitmapImage = await GetBitmapImageAsync(contactPicture);
+
+                if (bitmapImage != null)
+                {
+                    FaviconImage.Source = bitmapImage;
+                }
             }
             else
             {
@@ -136,10 +141,14 @@ public partial class ImagePreviewControl : Control
                 try
                 {
                     var brush = await GetContactImageBrushAsync(contactPicture);
-                    if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
+
+                    if (brush != null)
                     {
-                        Ellipse.Fill = brush;
-                        InitialsTextblock.Text = string.Empty;
+                        if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
+                        {
+                            Ellipse.Fill = brush;
+                            InitialsTextblock.Text = string.Empty;
+                        }
                     }
                 }
                 catch (Exception)
@@ -153,8 +162,10 @@ public partial class ImagePreviewControl : Control
             FaviconSquircle.Visibility = Visibility.Collapsed;
             KnownHostImage.Visibility = Visibility.Collapsed;
             InitialsGrid.Visibility = Visibility.Visible;
+
             var colorHash = new ColorHash();
             var rgb = colorHash.Rgb(FromAddress);
+
             Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
             InitialsTextblock.Text = ExtractInitialsFromName(FromName);
         }
@@ -163,28 +174,29 @@ public partial class ImagePreviewControl : Control
     private static async Task<ImageBrush> GetContactImageBrushAsync(string base64)
     {
         // Load the image from base64 string.
-        var bitmapImage = new BitmapImage();
+        
+        var bitmapImage = await GetBitmapImageAsync(base64);
 
-        var imageArray = Convert.FromBase64String(base64);
-        var imageStream = new MemoryStream(imageArray);
-        var randomAccessImageStream = imageStream.AsRandomAccessStream();
-
-        randomAccessImageStream.Seek(0);
-
-        await bitmapImage.SetSourceAsync(randomAccessImageStream);
+        if (bitmapImage == null) return null;
 
         return new ImageBrush() { ImageSource = bitmapImage };
     }
 
     private static async Task<BitmapImage> GetBitmapImageAsync(string base64)
     {
-        var bitmapImage = new BitmapImage();
-        var imageArray = Convert.FromBase64String(base64);
-        var imageStream = new MemoryStream(imageArray);
-        var randomAccessImageStream = imageStream.AsRandomAccessStream();
-        randomAccessImageStream.Seek(0);
-        await bitmapImage.SetSourceAsync(randomAccessImageStream);
-        return bitmapImage;
+        try
+        {
+            var bitmapImage = new BitmapImage();
+            var imageArray = Convert.FromBase64String(base64);
+            var imageStream = new MemoryStream(imageArray);
+            var randomAccessImageStream = imageStream.AsRandomAccessStream();
+            randomAccessImageStream.Seek(0);
+            await bitmapImage.SetSourceAsync(randomAccessImageStream);
+            return bitmapImage;
+        }
+        catch (Exception) { }
+
+        return null;
     }
 
     public string ExtractInitialsFromName(string name)
