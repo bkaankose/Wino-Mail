@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Mail;
@@ -23,6 +24,25 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
     private ConcurrentDictionary<string, (string graviton, string favicon)> _cache;
     private readonly ConcurrentDictionary<string, Task> _requests = [];
+
+    private static readonly List<string> _excludedFaviconDomains = [
+    "gmail.com",
+    "outlook.com",
+    "hotmail.com",
+    "live.com",
+    "yahoo.com",
+    "icloud.com",
+    "aol.com",
+    "protonmail.com",
+    "zoho.com",
+    "mail.com",
+    "gmx.com",
+    "yandex.com",
+    "tutanota.com",
+    "mail.ru",
+    "rediffmail.com"
+    ];
+
 
     public async ValueTask<string> GetAvatarThumbnail(string email)
     {
@@ -139,13 +159,19 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         return null;
     }
 
-    private static async Task<string> GetFaviconBase64(string email)
+    private async Task<string> GetFaviconBase64(string email)
     {
         try
         {
             var host = GetHost(email);
+
             if (string.IsNullOrEmpty(host))
                 return null;
+
+            // Do not fetch favicon for specific default domains of major platforms
+            if (_excludedFaviconDomains.Contains(host, StringComparer.OrdinalIgnoreCase))
+                return null;
+
             var primaryDomain = string.Join('.', host.Split('.')[^2..]);
             var faviconUrl = $"https://icons.duckduckgo.com/ip3/{primaryDomain}.ico";
             var response = await _httpClient.GetAsync(faviconUrl);
