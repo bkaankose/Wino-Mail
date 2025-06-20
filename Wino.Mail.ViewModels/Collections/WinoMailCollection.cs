@@ -129,11 +129,11 @@ public class WinoMailCollection
     private async Task HandleExistingThreadAsync(ObservableGroup<object, IMailItem> group, ThreadMailItemViewModel threadViewModel, MailCopy addedItem)
     {
         var existingGroupKey = GetGroupingKey(threadViewModel);
-        
+
         await ExecuteUIThread(() => { threadViewModel.AddMailItemViewModel(addedItem); });
 
         var newGroupKey = GetGroupingKey(threadViewModel);
-        
+
         if (!existingGroupKey.Equals(newGroupKey))
         {
             await MoveThreadToNewGroupAsync(group, threadViewModel, newGroupKey);
@@ -294,7 +294,7 @@ public class WinoMailCollection
         return null;
     }
 
-    public void UpdatThumbnail(string address)
+    public void UpdateThumbnails(string address)
     {
         if (CoreDispatcher == null) return;
 
@@ -308,7 +308,7 @@ public class WinoMailCollection
                     {
                         mailItemViewModel.ThumbnailUpdatedEvent = !mailItemViewModel.ThumbnailUpdatedEvent;
                     }
-                } 
+                }
             }
         });
     }

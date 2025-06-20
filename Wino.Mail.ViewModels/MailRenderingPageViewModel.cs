@@ -25,12 +25,14 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class MailRenderingPageViewModel : MailBaseViewModel,
     IRecipient<NewMailItemRenderingRequestedEvent>,
+    IRecipient<ThumbnailAdded>,
     ITransferProgress // For listening IMAP message download progress.
 {
     private readonly IMailDialogService _dialogService;
@@ -787,5 +789,28 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             Log.Error(ex, "Failed to render mail.");
         }
+    }
+
+    public void Receive(ThumbnailAdded message)
+    {
+        UpdateThumbnails(ToItems, message.Email);
+        UpdateThumbnails(CcItems, message.Email);
+        UpdateThumbnails(BccItems, message.Email);
+    }
+
+    private void UpdateThumbnails(ObservableCollection<AccountContactViewModel> items, string email)
+    {
+        if (Dispatcher == null || items.Count == 0) return;
+
+        Dispatcher.ExecuteOnUIThread(() =>
+        {
+            foreach (var item in items)
+            {
+                if (item.Address.Equals(email, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.ThumbnailUpdatedEvent = !item.ThumbnailUpdatedEvent;
+                }
+            }
+        });
     }
 }

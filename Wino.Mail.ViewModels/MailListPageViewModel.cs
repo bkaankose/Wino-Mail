@@ -1142,5 +1142,5 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    public void Receive(ThumbnailAdded message) => MailCollection.UpdatThumbnail(message.Email);
+    public void Receive(ThumbnailAdded message) => MailCollection.UpdateThumbnails(message.Email);
 }
