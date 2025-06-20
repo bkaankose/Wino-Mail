@@ -70,6 +70,12 @@
 
     <ScrollViewer>
         <StackPanel Spacing="4">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
+
             <controls:SettingsCard
                 Command="{x:Bind ViewModel.EditAccountDetailsCommand}"
                 Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description}"
