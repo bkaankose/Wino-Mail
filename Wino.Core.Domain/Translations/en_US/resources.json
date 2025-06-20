@@ -519,7 +519,7 @@
     "SettingsCustomTheme_Title": "Custom Theme",
     "SettingsDeleteAccount_Description": "Delete all e-mails and credentials associated with this account.",
     "SettingsDeleteAccount_Title": "Delete this account",
-    "SettingsDeleteProtection_Description": "Should Wino ask you for comfirmation every time you try to permanently delete a mail using Shift + Del keys?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Permanent Delete Protection",
     "SettingsDiagnostics_Description": "For developers",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
