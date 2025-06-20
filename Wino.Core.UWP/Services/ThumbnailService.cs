@@ -26,23 +26,23 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
     private readonly ConcurrentDictionary<string, Task> _requests = [];
 
     private static readonly List<string> _excludedFaviconDomains = [
-    "gmail.com",
-    "outlook.com",
-    "hotmail.com",
-    "live.com",
-    "yahoo.com",
-    "icloud.com",
-    "aol.com",
-    "protonmail.com",
-    "zoho.com",
-    "mail.com",
-    "gmx.com",
-    "yandex.com",
-    "yandex.ru",
-    "tutanota.com",
-    "mail.ru",
-    "rediffmail.com"
-    ];
+        "gmail.com",
+        "outlook.com",
+        "hotmail.com",
+        "live.com",
+        "yahoo.com",
+        "icloud.com",
+        "aol.com",
+        "protonmail.com",
+        "zoho.com",
+        "mail.com",
+        "gmx.com",
+        "yandex.com",
+        "yandex.ru",
+        "tutanota.com",
+        "mail.ru",
+        "rediffmail.com"
+        ];
 
     public async ValueTask<string> GetThumbnail(string email, bool awaitLoad = false)
     {
