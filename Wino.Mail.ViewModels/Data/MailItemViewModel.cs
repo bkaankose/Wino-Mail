@@ -12,7 +12,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel : ObservableRecipient, IMailItem, IRecipient<ThumbnailAdded>
+public partial class MailItemViewModel : ObservableRecipient, IMailItem
 {
     [ObservableProperty]
     private MailCopy mailCopy;
@@ -36,7 +36,6 @@ public partial class MailItemViewModel : ObservableRecipient, IMailItem, IRecipi
     public MailItemViewModel(MailCopy mailCopy)
     {
         this.mailCopy = mailCopy;
-        WeakReferenceMessenger.Default.Register<ThumbnailAdded>(this);
     }
 
     public bool IsFlagged
@@ -114,16 +113,4 @@ public partial class MailItemViewModel : ObservableRecipient, IMailItem, IRecipi
     public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
 
     public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
-
-    public void Receive(ThumbnailAdded message)
-    {
-        ThumbnailUpdatedEvent = !ThumbnailUpdatedEvent;
-        //if (string.IsNullOrEmpty(message.Email) || string.IsNullOrEmpty(MailCopy.FromAddress))
-        //    return;
-
-        //if (message.Email.Equals(MailCopy.FromAddress, StringComparison.OrdinalIgnoreCase))
-        //{
-        //    ThumbnailUpdatedEvent = true;
-        //}
-    }
 }

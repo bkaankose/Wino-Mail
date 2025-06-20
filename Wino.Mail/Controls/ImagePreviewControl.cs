@@ -27,10 +27,10 @@ public partial class ImagePreviewControl : Control
 
     #region Dependency Properties
 
-    public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
-    public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnAddressInformationChanged));
-    public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnAddressInformationChanged)));
-    public static readonly DependencyProperty ThumbnailUpdatedEventProperty = DependencyProperty.Register(nameof(ThumbnailUpdatedEvent), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(true, new PropertyChangedCallback(OnAddressInformationChanged)));
+    public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnInformationChanged));
+    public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnInformationChanged));
+    public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnInformationChanged)));
+    public static readonly DependencyProperty ThumbnailUpdatedEventProperty = DependencyProperty.Register(nameof(ThumbnailUpdatedEvent), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(false, new PropertyChangedCallback(OnInformationChanged)));
 
     public bool ThumbnailUpdatedEvent
     {
@@ -89,7 +89,7 @@ public partial class ImagePreviewControl : Control
         UpdateInformation();
     }
 
-    private static void OnAddressInformationChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    private static void OnInformationChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
     {
         if (obj is ImagePreviewControl control)
             control.UpdateInformation();

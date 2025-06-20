@@ -294,6 +294,25 @@ public class WinoMailCollection
         return null;
     }
 
+    public void UpdatThumbnail(string address)
+    {
+        if (CoreDispatcher == null) return;
+
+        CoreDispatcher.ExecuteOnUIThread(() =>
+        {
+            foreach (var group in _mailItemSource)
+            {
+                foreach (var item in group)
+                {
+                    if (item is MailItemViewModel mailItemViewModel && mailItemViewModel.MailCopy.FromAddress == address)
+                    {
+                        mailItemViewModel.ThumbnailUpdatedEvent = !mailItemViewModel.ThumbnailUpdatedEvent;
+                    }
+                } 
+            }
+        });
+    }
+
     /// <summary>
     /// Fins the item container that updated mail copy belongs to and updates it.
     /// </summary>
