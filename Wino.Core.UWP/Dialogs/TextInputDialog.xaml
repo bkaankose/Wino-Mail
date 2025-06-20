@@ -23,6 +23,6 @@
 
     <StackPanel Spacing="12">
         <TextBlock x:Name="DialogDescription" TextWrapping="Wrap" />
-        <TextBox x:Name="FolderTextBox" Text="{x:Bind CurrentInput, Mode=TwoWay}" />
+        <TextBox x:Name="FolderTextBox" Text="{x:Bind CurrentInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
     </StackPanel>
 </ContentDialog>
