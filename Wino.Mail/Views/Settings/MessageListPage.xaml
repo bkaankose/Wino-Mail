@@ -74,23 +74,20 @@
                 </controls:SettingsExpander.HeaderIcon>
                 <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=TwoWay}" />
                 <controls:SettingsExpander.Items>
-                    <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title}" Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description}">
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description}" Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title}">
                         <controls:SettingsCard.Content>
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.IsShowSenderPicturesEnabledBindable, Mode=OneWay}" />
+                            <ToggleSwitch IsEnabled="{x:Bind ViewModel.IsShowSenderPicturesEnabledBindable, Mode=OneWay}" IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title}" Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description}">
+                    <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description}" Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title}">
                         <controls:SettingsCard.Content>
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.IsShowSenderPicturesEnabledBindable, Mode=OneWay}" />
+                            <ToggleSwitch IsEnabled="{x:Bind ViewModel.IsShowSenderPicturesEnabledBindable, Mode=OneWay}" IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
                     <controls:SettingsCard>
                         <controls:SettingsCard.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="{x:Bind domain:Translator.SettingsClearGravatarCacheButton}" Command="{x:Bind ViewModel.ClearGravatarCacheAsync}" />
-                                <Button Content="{x:Bind domain:Translator.SettingsClearFaviconCacheButton}" Command="{x:Bind ViewModel.ClearFaviconCacheAsync}" />
-                            </StackPanel>
+                            <Button Command="{x:Bind ViewModel.ClearAvatarsCacheCommand}" Content="{x:Bind domain:Translator.SettingsMailList_ClearAvatarsCache_Button}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>

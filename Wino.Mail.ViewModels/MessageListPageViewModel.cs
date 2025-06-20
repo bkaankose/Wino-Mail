@@ -16,9 +16,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     public IPreferencesService PreferencesService { get; }
     private readonly IThumbnailService _thumbnailService;
 
-    public IRelayCommand ClearGravatarCacheAsync { get; }
-    public IRelayCommand ClearFaviconCacheAsync { get; }
-
     private int selectedMarkAsOptionIndex;
     public int SelectedMarkAsOptionIndex
     {
@@ -107,8 +104,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
-        ClearGravatarCacheAsync = new AsyncRelayCommand(ClearGravatarCacheAsyncImpl);
-        ClearFaviconCacheAsync = new AsyncRelayCommand(ClearFaviconCacheAsyncImpl);
 
         if (PreferencesService is INotifyPropertyChanged npc)
         {
@@ -122,12 +117,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         }
     }
 
-    private async Task ClearGravatarCacheAsyncImpl()
-    {
-        await _thumbnailService.ClearCache();
-    }
-
-    private async Task ClearFaviconCacheAsyncImpl()
+    [RelayCommand]
+    private async Task ClearAvatarsCacheAsync()
     {
         await _thumbnailService.ClearCache();
     }
