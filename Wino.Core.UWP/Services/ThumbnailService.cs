@@ -44,8 +44,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
     "rediffmail.com"
     ];
 
-
-    public async ValueTask<string> GetThumbnail(string email)
+    public async ValueTask<string> GetThumbnail(string email, bool awaitLoad = false)
     {
         if (string.IsNullOrWhiteSpace(email))
             return null;
@@ -64,7 +63,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
         var sanitizedEmail = email.Trim().ToLowerInvariant();
 
-        var (gravatar, favicon) = GetThumbnailInternal(sanitizedEmail);
+        var (gravatar, favicon) = await GetThumbnailInternal(sanitizedEmail, awaitLoad);
 
         if (_preferencesService.IsGravatarEnabled && !string.IsNullOrEmpty(gravatar))
         {
@@ -86,7 +85,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
     }
 
-    private (string gravatar, string favicon) GetThumbnailInternal(string email)
+    private async ValueTask<(string gravatar, string favicon)> GetThumbnailInternal(string email, bool awaitLoad)
     {
         if (_cache.TryGetValue(email, out var cached))
             return cached;
@@ -98,10 +97,17 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         if (!isInternetAvailable)
             return default;
 
-        // Initialize thumbnail in a background, avoiding multiple requests for the same domain
         if (!_requests.TryGetValue(email, out var request))
         {
-            _ = Task.Run(() => RequestNewThumbnail(email));
+            request = Task.Run(() => RequestNewThumbnail(email));
+            _requests[email] = request;
+        }
+
+        if (awaitLoad)
+        {
+            await request;
+            _cache.TryGetValue(email, out cached);
+            return cached;
         }
 
         return default;
