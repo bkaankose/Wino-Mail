@@ -304,7 +304,7 @@ public class WinoMailCollection
             {
                 foreach (var item in group)
                 {
-                    if (item is MailItemViewModel mailItemViewModel && mailItemViewModel.MailCopy.FromAddress == address)
+                    if (item is MailItemViewModel mailItemViewModel && mailItemViewModel.MailCopy.FromAddress.Equals(address, StringComparison.OrdinalIgnoreCase))
                     {
                         mailItemViewModel.ThumbnailUpdatedEvent = !mailItemViewModel.ThumbnailUpdatedEvent;
                     }
