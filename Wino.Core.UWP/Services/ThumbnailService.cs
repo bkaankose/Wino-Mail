@@ -38,6 +38,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
     "mail.com",
     "gmx.com",
     "yandex.com",
+    "yandex.ru",
     "tutanota.com",
     "mail.ru",
     "rediffmail.com"
