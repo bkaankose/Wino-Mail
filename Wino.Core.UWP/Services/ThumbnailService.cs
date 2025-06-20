@@ -170,8 +170,9 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
                 return null;
 
             var primaryDomain = string.Join('.', host.Split('.')[^2..]);
-            var faviconUrl = $"https://icons.duckduckgo.com/ip3/{primaryDomain}.ico";
-            var response = await _httpClient.GetAsync(faviconUrl);
+
+            var googleFaviconUrl = $"https://www.google.com/s2/favicons?sz=128&domain_url={primaryDomain}";
+            var response = await _httpClient.GetAsync(googleFaviconUrl);
             if (response.IsSuccessStatusCode)
             {
                 var bytes = response.Content.ReadAsByteArrayAsync().Result;
