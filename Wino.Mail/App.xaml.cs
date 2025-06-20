@@ -121,6 +121,7 @@ public sealed partial class App : WinoApplication,
         services.AddTransient(typeof(LanguageTimePageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
+        services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
     }
 
     #endregion

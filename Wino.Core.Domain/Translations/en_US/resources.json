@@ -691,7 +691,30 @@
     "WinoUpgradeDescription": "Wino offers 3 accounts to start with for free. If you need more than 3 accounts, please upgrade",
     "WinoUpgradeMessage": "Upgrade to Unlimited Accounts",
     "WinoUpgradeRemainingAccountsMessage": "{0} out of {1} free accounts used.",
-    "Yesterday": "Yesterday"
+    "Yesterday": "Yesterday",
+    "Smime_ImportCertificates_Success": "Certificates imported successfully.",
+    "Smime_ImportCertificates_Error": "Error importing certificates: {0}",
+    "Smime_RemoveCertificates_Confirm": "Do you really want to remove the certificates {0}?",
+    "Smime_RemoveCertificates_Success": "Certificates removed.",
+    "Smime_ExportCertificates_Success": "Certificates exported.",
+    "Smime_ExportCertificates_Error": "Error exporting certificates.",
+    "Smime_CertificateDetails": "Subject: {0}\nIssuer: {1}\nValid from: {2}\nValid to: {3}\nThumbprint: {4}",
+    "Smime_CertificatePassword_Title": "Certificate password required",
+    "Smime_CertificatePassword_Placeholder": "Certificate password for {0} (optional)",
+    "Smime_Confirm_Title": "Confirm",
+    "Buttons_OK": "OK",
+    "SettingsSignatureAndEncryption_Title": "Signature and Encryption",
+    "SettingsSignatureAndEncryption_Description": "Manage S/MIME certificates for signing and encrypting emails.",
+    "SettingsSignatureAndEncryption_MyCertificatesHeader": "My certificates",
+    "SettingsSignatureAndEncryption_MyCertificatesDescription": "Personal certificates for signing and encryption",
+    "SettingsSignatureAndEncryption_RecipientCertificatesHeader": "Recipient certificates",
+    "SettingsSignatureAndEncryption_RecipientCertificatesDescription": "Recipient certificates for decryption",
+    "SettingsSignatureAndEncryption_NameColumn": "Name",
+    "SettingsSignatureAndEncryption_ExpiresColumn": "Expires on",
+    "SettingsSignatureAndEncryption_ThumbprintColumn": "Thumbprint",
+    "Buttons_Remove": "Remove",
+    "Buttons_Export": "Export",
+    "Buttons_Import": "Import"
 }
 
 
