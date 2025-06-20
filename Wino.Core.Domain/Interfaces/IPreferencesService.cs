@@ -1,11 +1,12 @@
 ﻿using System;
+using System.ComponentModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IPreferencesService
+public interface IPreferencesService: INotifyPropertyChanged
 {
     /// <summary>
     /// When any of the preferences are changed.

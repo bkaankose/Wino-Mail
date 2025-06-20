@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
-using System.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -104,17 +101,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
-
-        if (PreferencesService is INotifyPropertyChanged npc)
-        {
-            npc.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(PreferencesService.IsShowSenderPicturesEnabled))
-                {
-                    OnPropertyChanged(nameof(IsShowSenderPicturesEnabledBindable));
-                }
-            };
-        }
     }
 
     [RelayCommand]

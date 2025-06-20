@@ -76,13 +76,13 @@
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description}" Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title}">
                         <controls:SettingsCard.Content>
-                            <ToggleSwitch IsEnabled="{x:Bind ViewModel.IsShowSenderPicturesEnabledBindable, Mode=OneWay}" IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
+                            <ToggleSwitch IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
 
                     <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description}" Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title}">
                         <controls:SettingsCard.Content>
-                            <ToggleSwitch IsEnabled="{x:Bind ViewModel.IsShowSenderPicturesEnabledBindable, Mode=OneWay}" IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
+                            <ToggleSwitch IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}" IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
                     <controls:SettingsCard>

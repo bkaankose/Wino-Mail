@@ -13,16 +13,11 @@ using Wino.Services;
 
 namespace Wino.Core.UWP.Services;
 
-public class PreferencesService : ObservableObject, IPreferencesService
+public class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
-    private readonly IConfigurationService _configurationService;
+    private readonly IConfigurationService _configurationService = configurationService;
 
     public event EventHandler<string> PreferenceChanged;
-
-    public PreferencesService(IConfigurationService configurationService)
-    {
-        _configurationService = configurationService;
-    }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
