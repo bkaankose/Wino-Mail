@@ -45,7 +45,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
     ];
 
 
-    public async ValueTask<string> GetAvatarThumbnail(string email)
+    public async ValueTask<string> GetThumbnail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
             return null;
@@ -84,16 +84,6 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         _cache?.Clear();
         _requests.Clear();
         await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
-    }
-
-    public async Task PrefetchThumbnail(string email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-            return;
-
-        var sanitizedEmail = email.Trim().ToLowerInvariant();
-
-        await RequestNewThumbnail(sanitizedEmail);
     }
 
     private (string gravatar, string favicon) GetThumbnailInternal(string email)
@@ -160,7 +150,7 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         return null;
     }
 
-    private async Task<string> GetFaviconBase64(string email)
+    private static async Task<string> GetFaviconBase64(string email)
     {
         try
         {

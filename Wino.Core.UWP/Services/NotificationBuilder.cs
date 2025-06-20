@@ -86,7 +86,7 @@ public class NotificationBuilder : INotificationBuilder
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
 
-                    var avatarThumbnail = await _thumbnailService.GetAvatarThumbnail(mailItem.FromAddress);
+                    var avatarThumbnail = await _thumbnailService.GetThumbnail(mailItem.FromAddress);
                     if(!string.IsNullOrEmpty(avatarThumbnail))
                     {
                         var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);

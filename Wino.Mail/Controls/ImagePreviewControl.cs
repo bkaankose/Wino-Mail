@@ -112,7 +112,7 @@ public partial class ImagePreviewControl : Control
 
         if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
         {
-            contactPicture = await _thumbnailService.GetAvatarThumbnail(FromAddress);
+            contactPicture = await _thumbnailService.GetThumbnail(FromAddress);
             isAvatarThumbnail = true;
         }
 
