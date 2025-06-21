@@ -52,7 +52,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         if (e.NewFocusedElement == WebViewEditor)
         {
-            await WebViewEditor.FocusEditorAsync(false);
+            await WebViewEditor.FocusEditorAsync(true);
         }
     }
 
