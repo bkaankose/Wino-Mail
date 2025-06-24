@@ -8,6 +8,8 @@ namespace Wino.Core.UWP.Services;
 
 public class SmimeCertificateService : ISmimeCertificateService
 {
+    private const string CertificateFriendlyName = "Wino Mail Certificate";
+
     /// <summary>
     /// Retrieves all personal certificates from the current user's certificate store.
     /// </summary>
@@ -19,7 +21,7 @@ public class SmimeCertificateService : ISmimeCertificateService
     {
         using var store = new X509Store(storeName, storeLocation);
         store.Open(OpenFlags.ReadOnly);
-        var certs = store.Certificates.Where(cert => cert.FriendlyName == "Wino Mail Certificate");
+        var certs = store.Certificates.Where(cert => cert.FriendlyName == CertificateFriendlyName);
         return emailAddress != null ? certs.Where(cert => cert.Subject.Contains(emailAddress, StringComparison.OrdinalIgnoreCase)) : certs;
     }
 
@@ -36,7 +38,7 @@ public class SmimeCertificateService : ISmimeCertificateService
             cert = X509CertificateLoader.LoadCertificate(rawData);
         }
 
-        cert.FriendlyName = "Wino Mail Certificate";
+        cert.FriendlyName = CertificateFriendlyName;
 
         using var store = new X509Store(storeName, storeLocation);
         store.Open(OpenFlags.ReadWrite);
