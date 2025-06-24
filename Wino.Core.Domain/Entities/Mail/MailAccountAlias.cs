@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.ObjectModel;
+using System.Security.Cryptography.X509Certificates;
 using SQLite;
 
 namespace Wino.Core.Domain.Entities.Mail;
@@ -59,4 +61,16 @@ public class MailAccountAlias : RemoteAccountAlias
     /// Root aliases can't be deleted.
     /// </summary>
     public bool CanDelete => !IsRootAlias;
+
+    public string SelectedSigningCertificateThumbprint { get; set; }
+    public string SelectedEncryptionCertificateThumbprint { get; set; }
+
+    [Ignore]
+    public X509Certificate2 SelectedSigningCertificate { get; set; }
+
+    [Ignore]
+    public X509Certificate2 SelectedEncryptionCertificate { get; set; }
+
+    [Ignore]
+    public ObservableCollection<X509Certificate2> Certificates { get; set; } = [];
 }

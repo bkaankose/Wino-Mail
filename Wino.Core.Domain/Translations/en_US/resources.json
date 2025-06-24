@@ -714,7 +714,11 @@
     "SettingsSignatureAndEncryption_ThumbprintColumn": "Thumbprint",
     "Buttons_Remove": "Remove",
     "Buttons_Export": "Export",
-    "Buttons_Import": "Import"
+    "Buttons_Import": "Import",
+    "SettingsSignatureAndEncryption_SigningCertificate": "S/Mime Signing Certificate",
+    "SettingsSignatureAndEncryption_EncryptionCertificate": "S/Mime Encryption Certificate",
+    "SettingsSignatureAndEncryption_SigningCertificatePlaceholder": "None",
+    "SettingsSignatureAndEncryption_EncryptionCertificatePlaceholder": "None"
 }
 
 
