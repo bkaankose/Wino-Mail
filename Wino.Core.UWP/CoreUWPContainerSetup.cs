@@ -27,6 +27,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
 
+        services.AddSingleton<IThumbnailService, ThumbnailService>();
         services.AddSingleton<IDialogServiceBase, DialogServiceBase>();
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();

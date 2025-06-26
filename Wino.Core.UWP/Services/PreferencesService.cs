@@ -13,16 +13,11 @@ using Wino.Services;
 
 namespace Wino.Core.UWP.Services;
 
-public class PreferencesService : ObservableObject, IPreferencesService
+public class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {
-    private readonly IConfigurationService _configurationService;
+    private readonly IConfigurationService _configurationService = configurationService;
 
     public event EventHandler<string> PreferenceChanged;
-
-    public PreferencesService(IConfigurationService configurationService)
-    {
-        _configurationService = configurationService;
-    }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
@@ -179,6 +174,18 @@ public class PreferencesService : ObservableObject, IPreferencesService
     {
         get => _configurationService.Get(nameof(IsMailkitProtocolLoggerEnabled), false);
         set => SetPropertyAndSave(nameof(IsMailkitProtocolLoggerEnabled), value);
+    }
+
+    public bool IsGravatarEnabled
+    {
+        get => _configurationService.Get(nameof(IsGravatarEnabled), true);
+        set => SetPropertyAndSave(nameof(IsGravatarEnabled), value);
+    }
+
+    public bool IsFaviconEnabled
+    {
+        get => _configurationService.Get(nameof(IsFaviconEnabled), true);
+        set => SetPropertyAndSave(nameof(IsFaviconEnabled), value);
     }
 
     public Guid? StartupEntityId

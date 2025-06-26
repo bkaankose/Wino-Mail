@@ -11,7 +11,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Services;
+using System.IO;
 
 namespace Wino.Core.UWP.Services;
 
@@ -23,16 +23,19 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
+    private readonly IThumbnailService _thumbnailService;
 
     public NotificationBuilder(IUnderlyingThemeService underlyingThemeService,
                                IAccountService accountService,
                                IFolderService folderService,
-                               IMailService mailService)
+                               IMailService mailService,
+                               IThumbnailService thumbnailService)
     {
         _underlyingThemeService = underlyingThemeService;
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
+        _thumbnailService = thumbnailService;
     }
 
     public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
@@ -83,24 +86,16 @@ public class NotificationBuilder : INotificationBuilder
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
 
-                    var host = ThumbnailService.GetHost(mailItem.FromAddress);
-
-                    var knownTuple = ThumbnailService.CheckIsKnown(host);
-
-                    bool isKnown = knownTuple.Item1;
-                    host = knownTuple.Item2;
-
-                    if (isKnown)
-                        builder.AddAppLogoOverride(new System.Uri(ThumbnailService.GetKnownHostImage(host)), hintCrop: ToastGenericAppLogoCrop.Default);
-                    else
+                    var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+                    if (!string.IsNullOrEmpty(avatarThumbnail))
                     {
-                        // TODO: https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/adaptive-interactive-toasts?tabs=toolkit
-                        // Follow official guides for icons/theme.
-
-                        bool isOSDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
-                        string profileLogoName = isOSDarkTheme ? "profile-dark.png" : "profile-light.png";
-
-                        builder.AddAppLogoOverride(new System.Uri($"ms-appx:///Assets/NotificationIcons/{profileLogoName}"), hintCrop: ToastGenericAppLogoCrop.Circle);
+                        var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
+                        await using (var stream = await tempFile.OpenStreamForWriteAsync())
+                        {
+                            var bytes = Convert.FromBase64String(avatarThumbnail);
+                            await stream.WriteAsync(bytes);
+                        }
+                        builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
                     }
 
                     // Override system notification timetamp with received date of the mail.

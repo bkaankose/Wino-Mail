@@ -11,6 +11,11 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
             <Image
                 Width="50"
                 Height="50"

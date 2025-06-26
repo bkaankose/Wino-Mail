@@ -52,6 +52,12 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
+
             <!--  Accent Color  -->
             <controls:SettingsExpander
                 Description="{x:Bind domain:Translator.SettingsAccentColor_Description}"

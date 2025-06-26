@@ -45,7 +45,6 @@ public class NativeAppService : INativeAppService
         return _mimeMessagesFolder;
     }
 
-
     public async Task<string> GetEditorBundlePathAsync()
     {
         if (string.IsNullOrEmpty(_editorBundlePath))

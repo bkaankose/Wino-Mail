@@ -18,7 +18,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     [ObservableProperty]
     private List<string> _appTerminationBehavior;
 
-
     [ObservableProperty]
     public partial List<string> SearchModes { get; set; }
 

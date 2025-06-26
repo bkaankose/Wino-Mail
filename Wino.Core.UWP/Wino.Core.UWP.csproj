@@ -85,6 +85,7 @@
 	  <Content Include="BackgroundImages\Snowflake.jpg" />
 	</ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="gravatar-dotnet" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Microsoft.UI.Xaml" />
 		<PackageReference Include="CommunityToolkit.Common" />

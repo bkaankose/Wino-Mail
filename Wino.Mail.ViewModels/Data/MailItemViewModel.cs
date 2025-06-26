@@ -13,7 +13,7 @@ namespace Wino.Mail.ViewModels.Data;
 public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
 {
     [ObservableProperty]
-    private MailCopy mailCopy = mailCopy;
+    public partial MailCopy MailCopy { get; set; } = mailCopy;
 
     public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
     public string ThreadId => ((IMailItem)MailCopy).ThreadId;
@@ -23,10 +23,13 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
 
     [ObservableProperty]
-    private bool isCustomFocused;
+    public partial bool ThumbnailUpdatedEvent { get; set; } = false;
 
     [ObservableProperty]
-    private bool isSelected;
+    public partial bool IsCustomFocused { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
 
     public bool IsFlagged
     {

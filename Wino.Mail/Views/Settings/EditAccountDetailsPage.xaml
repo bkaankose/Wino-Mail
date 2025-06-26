@@ -16,6 +16,12 @@
 
     <ScrollViewer>
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+            <StackPanel.ChildrenTransitions>
+                <TransitionCollection>
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </TransitionCollection>
+            </StackPanel.ChildrenTransitions>
+
             <controls:SettingsExpander Description="{x:Bind domain:Translator.AccountDetailsPage_Description}" Header="{x:Bind domain:Translator.AccountDetailsPage_Title}">
                 <controls:SettingsExpander.HeaderIcon>
                     <SymbolIcon Symbol="Contact" />

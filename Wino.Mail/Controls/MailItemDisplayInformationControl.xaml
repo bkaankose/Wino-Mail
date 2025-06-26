@@ -76,6 +76,7 @@
                     FromAddress="{x:Bind MailItem.FromAddress, Mode=OneWay}"
                     FromName="{x:Bind MailItem.FromName, Mode=OneWay}"
                     SenderContactPicture="{x:Bind MailItem.SenderContact.Base64ContactPicture}"
+                    ThumbnailUpdatedEvent="{x:Bind IsThumbnailUpdated, Mode=OneWay}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
                 <Grid

@@ -79,6 +79,7 @@ public partial class App : Application
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
         services.AddTransient<IUnderlyingThemeService, UnderlyingThemeService>();
         services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
+        services.AddSingleton<IThumbnailService, ThumbnailService>();
 
         // Register server message handler factory.
         var serverMessageHandlerFactory = new ServerMessageHandlerFactory();

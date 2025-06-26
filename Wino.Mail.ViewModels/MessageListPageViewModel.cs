@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels;
 
-public class MessageListPageViewModel : MailBaseViewModel
+public partial class MessageListPageViewModel : MailBaseViewModel
 {
     public IPreferencesService PreferencesService { get; }
+    private readonly IThumbnailService _thumbnailService;
 
     private int selectedMarkAsOptionIndex;
-
     public int SelectedMarkAsOptionIndex
     {
         get => selectedMarkAsOptionIndex;
@@ -46,9 +48,7 @@ public class MessageListPageViewModel : MailBaseViewModel
     ];
 
     #region Properties
-
     private int leftHoverActionIndex;
-
     public int LeftHoverActionIndex
     {
         get => leftHoverActionIndex;
@@ -61,9 +61,7 @@ public class MessageListPageViewModel : MailBaseViewModel
         }
     }
 
-
     private int centerHoverActionIndex;
-
     public int CenterHoverActionIndex
     {
         get => centerHoverActionIndex;
@@ -77,7 +75,6 @@ public class MessageListPageViewModel : MailBaseViewModel
     }
 
     private int rightHoverActionIndex;
-
     public int RightHoverActionIndex
     {
         get => rightHoverActionIndex;
@@ -89,18 +86,21 @@ public class MessageListPageViewModel : MailBaseViewModel
             }
         }
     }
-
     #endregion
 
-    public MessageListPageViewModel(IMailDialogService dialogService,
-                                    IPreferencesService preferencesService) 
+    public MessageListPageViewModel(IPreferencesService preferencesService, IThumbnailService thumbnailService)
     {
         PreferencesService = preferencesService;
-
+        _thumbnailService = thumbnailService;
         leftHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.LeftHoverAction);
         centerHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.CenterHoverAction);
         rightHoverActionIndex = availableHoverActions.IndexOf(PreferencesService.RightHoverAction);
-
         SelectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
+    }
+
+    [RelayCommand]
+    private async Task ClearAvatarsCacheAsync()
+    {
+        await _thumbnailService.ClearCache();
     }
 }
