@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MimeKit;
+using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -147,12 +148,20 @@ public class MimeFileService : IMimeFileService
 
         var renderingModel = new MailRenderModel(finalRenderHtml, options);
 
-        // Create attachments.
+        // S/MIME detection: if the body is MultipartSigned and protocol is pkcs7-signature
+        renderingModel.IsSmimeSigned = message.Body is MultipartSigned signed &&
+            signed.ContentType?.Parameters["protocol"]?.Contains("pkcs7-signature", System.StringComparison.OrdinalIgnoreCase) == true;
 
+        // Create attachments.
         foreach (var attachment in visitor.Attachments)
         {
             if (attachment.IsAttachment && attachment is MimePart attachmentPart)
             {
+                // Exclude S/MIME signature parts (application/pkcs7-signature, smime.p7s)
+                var contentType = attachmentPart.ContentType?.MimeType?.ToLowerInvariant();
+                var fileName = attachmentPart.FileName?.ToLowerInvariant();
+                if (contentType == "application/pkcs7-signature" || contentType == "application/x-pkcs7-signature" || fileName == "smime.p7s")
+                    continue;
                 renderingModel.Attachments.Add(attachmentPart);
             }
         }

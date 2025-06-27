@@ -15,6 +15,9 @@ public class MailRenderModel
 
     public UnsubscribeInfo UnsubscribeInfo { get; set; }
 
+    // Indicates if the mail is S/MIME signed
+    public bool IsSmimeSigned { get; set; }
+
     public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null)
     {
         RenderHtml = renderHtml;
