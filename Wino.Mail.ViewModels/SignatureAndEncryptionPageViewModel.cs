@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Common;
 
@@ -94,10 +95,10 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         LoadAllCertificates();
         if (successCount > 0)
         {
-            await _dialogService.ShowMessageAsync(
+            _dialogService.InfoBarMessage(
                 string.Format(Translator.Smime_ImportCertificates_Success),
                 Translator.GeneralTitle_Info,
-                Core.Domain.Enums.WinoCustomMessageDialogIcon.Information);
+                InfoBarMessageType.Success);
         }
         if (failedImports.Count > 0)
         {
@@ -134,8 +135,11 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
                 }
 
                 LoadAllCertificates();
-                await _dialogService.ShowMessageAsync(Translator.Smime_RemoveCertificates_Success, Translator.GeneralTitle_Info,
-                    Core.Domain.Enums.WinoCustomMessageDialogIcon.Information);
+                _dialogService.InfoBarMessage(
+                    Translator.Smime_RemoveCertificates_Success,
+                    Translator.GeneralTitle_Info,
+                    InfoBarMessageType.Success
+                );
             }
         }
     }
@@ -185,10 +189,11 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
         if (successCount > 0)
         {
-            await _dialogService.ShowMessageAsync(
+            _dialogService.InfoBarMessage(
                 Translator.Smime_ExportCertificates_Success,
                 Translator.GeneralTitle_Info,
-                Core.Domain.Enums.WinoCustomMessageDialogIcon.Information);
+                InfoBarMessageType.Success
+            );
         }
         if (failedExports.Count > 0)
         {
