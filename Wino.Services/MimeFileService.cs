@@ -152,15 +152,23 @@ public class MimeFileService : IMimeFileService
         renderingModel.IsSmimeSigned = message.Body is MultipartSigned signed &&
             signed.ContentType?.Parameters["protocol"]?.Contains("pkcs7-signature", System.StringComparison.OrdinalIgnoreCase) == true;
 
+        // S/MIME encryption detection: if the body is ApplicationPkcs7Mime and SecureMimeType is EnvelopedData
+        renderingModel.IsSmimeEncrypted = message.Body is ApplicationPkcs7Mime encrypted &&
+            encrypted.SecureMimeType == SecureMimeType.EnvelopedData;
+
         // Create attachments.
         foreach (var attachment in visitor.Attachments)
         {
             if (attachment.IsAttachment && attachment is MimePart attachmentPart)
             {
-                // Exclude S/MIME signature parts (application/pkcs7-signature, smime.p7s)
+                // Exclude S/MIME encryption/decryption certificates
                 var contentType = attachmentPart.ContentType?.MimeType?.ToLowerInvariant();
                 var fileName = attachmentPart.FileName?.ToLowerInvariant();
-                if (contentType == "application/pkcs7-signature" || contentType == "application/x-pkcs7-signature" || fileName == "smime.p7s")
+                if ((contentType == "application/pkcs7-signature"
+                    || contentType == "application/x-pkcs7-signature"
+                    && fileName == "smime.p7s") || (contentType == "application/pkcs7-mime"
+                                                    || contentType == "application/x-pkcs7-mime"
+                                                    && fileName == "smime.p7m"))
                     continue;
                 renderingModel.Attachments.Add(attachmentPart);
             }

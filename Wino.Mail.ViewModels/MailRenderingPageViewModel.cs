@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 
 using MimeKit;
+using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -61,6 +62,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
     public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
     public bool IsSmimeSigned => CurrentRenderModel?.IsSmimeSigned ?? false;
+    public bool IsSmimeEncrypted => CurrentRenderModel?.IsSmimeEncrypted ?? false;
     public bool IsJunkMail => initializedMailItemViewModel?.AssignedFolder != null && initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
 
     public bool IsImageRenderingDisabled
@@ -102,6 +104,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanUnsubscribe))]
     [NotifyPropertyChangedFor(nameof(IsSmimeSigned))]
+    [NotifyPropertyChangedFor(nameof(IsSmimeEncrypted))]
     public partial MailRenderModel CurrentRenderModel { get; set; }
 
     [ObservableProperty]
@@ -132,20 +135,20 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public IPrintService PrintService { get; }
 
     public MailRenderingPageViewModel(IMailDialogService dialogService,
-                                      INativeAppService nativeAppService,
-                                      IUnderlyingThemeService underlyingThemeService,
-                                      IMimeFileService mimeFileService,
-                                      IMailService mailService,
-                                      IFileService fileService,
-                                      IWinoRequestDelegator requestDelegator,
-                                      IStatePersistanceService statePersistenceService,
-                                      IContactService contactService,
-                                      IClipboardService clipboardService,
-                                      IUnsubscriptionService unsubscriptionService,
-                                      IPreferencesService preferencesService,
-                                      IPrintService printService,
-                                      IApplicationConfiguration applicationConfiguration,
-                                      IWinoServerConnectionManager winoServerConnectionManager)
+        INativeAppService nativeAppService,
+        IUnderlyingThemeService underlyingThemeService,
+        IMimeFileService mimeFileService,
+        IMailService mailService,
+        IFileService fileService,
+        IWinoRequestDelegator requestDelegator,
+        IStatePersistanceService statePersistenceService,
+        IContactService contactService,
+        IClipboardService clipboardService,
+        IUnsubscriptionService unsubscriptionService,
+        IPreferencesService preferencesService,
+        IPrintService printService,
+        IApplicationConfiguration applicationConfiguration,
+        IWinoServerConnectionManager winoServerConnectionManager)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -386,8 +389,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         // Find the MIME for this item and render it.
         var mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(mailItemViewModel.MailCopy.FileId,
-                                                                                           mailItemViewModel.AssignedAccount.Id,
-                                                                                           cancellationToken).ConfigureAwait(false);
+            mailItemViewModel.AssignedAccount.Id,
+            cancellationToken).ConfigureAwait(false);
 
         if (mimeMessageInformation == null)
         {
@@ -732,8 +735,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             if (isSaved)
             {
                 _dialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
-                                              string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
-                                              InfoBarMessageType.Success);
+                    string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
+                    InfoBarMessageType.Success);
             }
         }
         catch (Exception ex)
@@ -817,36 +820,48 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task ShowSmimeCertificateInfoAsync()
+    private async Task ShowSmimeSigningCertificateInfoAsync()
     {
-        if (initializedMimeMessageInformation?.MimeMessage?.Body is MimeKit.Cryptography.MultipartSigned signed)
+        if (initializedMimeMessageInformation?.MimeMessage?.Body is MultipartSigned signed && signed[1] is MimePart signaturePart)
         {
-            var signaturePart = signed[1] as MimeKit.MimePart;
-            if (signaturePart != null)
-            {
-                var fileName = signaturePart.FileName ?? "smime.p7s";
-                var contentType = signaturePart.ContentType?.MimeType ?? "application/pkcs7-signature";
-                var size = signaturePart.Content?.Stream?.Length ?? 0;
-                var info = $"File: {fileName}\nType: {contentType}\nSize: {size:N0} bytes";
+            await ShowSmimeCertificateInfoAsync(signaturePart);
+        }
+    }
 
-                var result = await _dialogService.ShowConfirmationDialogAsync(
-                    $"{info}\n",
-                    "S/MIME Certificate Info",
-                    "Certificate details...");
-                if (result)
+    [RelayCommand]
+    private async Task ShowSmimeEncryptionCertificateInfoAsync()
+    {
+        if (initializedMimeMessageInformation?.MimeMessage?.Body is ApplicationPkcs7Mime encrypted)
+        {
+            await ShowSmimeCertificateInfoAsync(encrypted);
+        }
+    }
+
+    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment)
+    {
+        var fileName = certificateAttachment.FileName ?? "smime.p7s";
+        var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
+        var size = certificateAttachment.Content?.Stream?.Length ?? 0;
+        var info = $"File: {fileName}\nType: {contentType}\nSize: {size:N0} bytes";
+
+        var result = await _dialogService.ShowConfirmationDialogAsync(
+            $"{info}\n",
+            "S/MIME Certificate Info",
+            "Save certificate...");
+        if (result)
+        {
+            var pickedPath = await _dialogService.PickFilePathAsync(fileName);
+            if (!string.IsNullOrEmpty(pickedPath))
+            {
+                var pickedDirectory = Path.GetDirectoryName(pickedPath);
+                var pickedFileName = Path.GetFileName(pickedPath);
+                await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
                 {
-                    var pickedPath = await _dialogService.PickFilePathAsync(fileName);
-                    if (!string.IsNullOrEmpty(pickedPath))
-                    {
-                        var pickedDirectory = Path.GetDirectoryName(pickedPath);
-                        var pickedFileName = Path.GetFileName(pickedPath);
-                        await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
-                        {
-                            await signaturePart.Content!.DecodeToAsync(stream);
-                        }
-                        _dialogService.InfoBarMessage("S/MIME Certificate", $"Certificate saved to {pickedPath}", InfoBarMessageType.Success);
-                    }
+                    await certificateAttachment.Content!.DecodeToAsync(stream);
                 }
+
+                _dialogService.InfoBarMessage("S/MIME Certificate", $"Certificate saved to {pickedPath}",
+                    InfoBarMessageType.Success);
             }
         }
     }

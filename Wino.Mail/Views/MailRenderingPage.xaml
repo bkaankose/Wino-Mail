@@ -181,6 +181,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <TextBlock
@@ -209,17 +210,31 @@
                     </HyperlinkButton>
 
 
-                    <!-- S/MIME Indicator -->
+                    <!-- S/MIME Signed Email Indicator -->
                     <HyperlinkButton
                         Grid.Column="2"
                         VerticalAlignment="Center"
                         Margin="0,0,0,4"
                         ToolTipService.ToolTip="This message is signed with an S/Mime certificate. Click for more details"
                         Visibility="{x:Bind ViewModel.IsSmimeSigned, Mode=OneWay}"
-                        Command="{x:Bind ViewModel.ShowSmimeCertificateInfoCommand}">
+                        Command="{x:Bind ViewModel.ShowSmimeSigningCertificateInfoCommand}">
                         <Viewbox Width="16" Height="16" Margin="0,0,4,0">
                             <PathIcon
                                 Data="M15 18c.835.629 1.875 1.001 3 1.001a4.978 4.978 0 0 0 3-.999v3.246a.75.75 0 0 1-1.09.67l-.09-.055L18 20.591l-1.82 1.272a.75.75 0 0 1-1.172-.51l-.007-.105L15 18.001Zm4.25-14.996a2.75 2.75 0 0 1 2.745 2.582l.005.168.001 5.246a5.027 5.027 0 0 0-1.5-1.331L20.5 5.754a1.25 1.25 0 0 0-1.122-1.244l-.128-.006H4.75a1.25 1.25 0 0 0-1.244 1.122l-.006.128v9.5c0 .647.492 1.18 1.122 1.243l.128.007h8.92c.1.172.21.338.33.496v1.004H4.75a2.75 2.75 0 0 1-2.745-2.583L2 15.254v-9.5a2.75 2.75 0 0 1 2.582-2.745l.168-.005h14.5ZM18 10A4 4 0 1 1 18 18 4 4 0 0 1 18 10Zm-6.75 2.5a.75.75 0 0 1 .102 1.493L11.25 14h-4.5a.75.75 0 0 1-.102-1.493l.102-.007h4.5Zm6-5.5a.75.75 0 0 1 .102 1.493l-.102.007H6.75a.75.75 0 0 1-.102-1.493L6.75 7h10.5Z" />
+                        </Viewbox>
+                    </HyperlinkButton>
+
+                    <!-- S/MIME Encrypted Email Indicator -->
+                    <HyperlinkButton
+                        Grid.Column="3"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,4"
+                        ToolTipService.ToolTip="This message is encrypted with an S/Mime certificate. Click for more details"
+                        Visibility="{x:Bind ViewModel.IsSmimeEncrypted, Mode=OneWay}"
+                        Command="{x:Bind ViewModel.ShowSmimeEncryptionCertificateInfoCommand}">
+                        <Viewbox Width="16" Height="16" Margin="0,0,4,0">
+                            <PathIcon
+                                Data="M12 2a4 4 0 0 1 4 4v2h1.75A2.25 2.25 0 0 1 20 10.25v9.5A2.25 2.25 0 0 1 17.75 22H6.25A2.25 2.25 0 0 1 4 19.75v-9.5A2.25 2.25 0 0 1 6.25 8H8V6a4 4 0 0 1 4-4Zm5.75 7.5H6.25a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75Zm-5.75 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0-10A2.5 2.5 0 0 0 9.5 6v2h5V6A2.5 2.5 0 0 0 12 3.5Z" />
                         </Viewbox>
                     </HyperlinkButton>
                 </Grid>
