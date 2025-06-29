@@ -142,7 +142,7 @@
         <!--  New Mail  -->
         <DataTemplate x:Key="CreateNewMailTemplate" x:DataType="menu:NewMailMenuItem">
             <coreControls:WinoNavigationViewItem
-                Height="50"
+                Height="52"
                 DataContext="{x:Bind}"
                 SelectsOnInvoked="False">
                 <muxc:NavigationViewItem.Icon>
