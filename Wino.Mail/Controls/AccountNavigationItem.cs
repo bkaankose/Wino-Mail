@@ -43,10 +43,6 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         _itemsRepeater = GetTemplateChild(PART_NavigationViewItemMenuItemsHost) as ItemsRepeater;
         _selectionIndicator = GetTemplateChild(PART_SelectionIndicator) as Windows.UI.Xaml.Shapes.Rectangle;
 
-        if (_itemsRepeater == null) return;
-
-        (_itemsRepeater.Layout as StackLayout).Spacing = 0;
-
         UpdateSelectionBorder();
     }
 
@@ -60,12 +56,6 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
     {
         if (_selectionIndicator == null) return;
 
-        // Adjsuting Margin in the styles are not possible due to the fact that we use the same tempalte for different types of menu items.
-        // Account templates listed under merged accounts will have Padding of 44. We must adopt to that.
-
-        bool hasParentMenuItem = BindingData is IAccountMenuItem accountMenuItem && accountMenuItem.ParentMenuItem != null;
-
-        _selectionIndicator.Margin = !hasParentMenuItem ? new Thickness(-44, 12, 0, 12) : new Thickness(-60, 12, -60, 12);
         _selectionIndicator.Scale = IsActiveAccount ? new Vector3(1, 1, 1) : new Vector3(0, 0, 0);
         _selectionIndicator.Visibility = IsActiveAccount ? Visibility.Visible : Visibility.Collapsed;
     }

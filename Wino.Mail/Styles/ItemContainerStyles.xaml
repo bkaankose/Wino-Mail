@@ -90,6 +90,7 @@
                                 <Rectangle
                                     x:Name="CustomSelectionIndicator"
                                     Width="3"
+                                    Margin="-44,12,0,12"
                                     HorizontalAlignment="Left"
                                     Fill="{ThemeResource NavigationViewSelectionIndicatorForeground}"
                                     Opacity="1"
@@ -111,7 +112,7 @@
                             x:Load="False"
                             Visibility="Collapsed">
                             <muxc:ItemsRepeater.Layout>
-                                <muxc:StackLayout Orientation="Vertical" />
+                                <muxc:StackLayout Orientation="Vertical" Spacing="0" />
                             </muxc:ItemsRepeater.Layout>
                         </muxc:ItemsRepeater>
 
