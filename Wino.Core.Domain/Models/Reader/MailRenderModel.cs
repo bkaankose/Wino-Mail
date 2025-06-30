@@ -18,6 +18,9 @@ public class MailRenderModel
     // Indicates if the mail is S/MIME signed
     public bool IsSmimeSigned { get; set; }
 
+    // Indicates if the mail is S/MIME encrypted
+    public bool IsSmimeEncrypted { get; set; }
+
     public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null)
     {
         RenderHtml = renderHtml;
