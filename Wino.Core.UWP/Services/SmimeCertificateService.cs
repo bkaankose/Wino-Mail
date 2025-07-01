@@ -28,21 +28,24 @@ public class SmimeCertificateService : ISmimeCertificateService
 
     public void ImportCertificate(string fileExtension, byte[] rawData, string password = null, StoreName storeName = StoreName.My, StoreLocation storeLocation = StoreLocation.CurrentUser)
     {
-        X509Certificate2 cert;
+        X509Certificate2Collection collection = [];
 
-        if (fileExtension == ".p12" || fileExtension == ".pfx")
+        if (fileExtension is ".p12" or ".pfx")
         {
-            cert = X509CertificateLoader.LoadPkcs12(rawData, password);
+            collection.AddRange(X509CertificateLoader.LoadPkcs12Collection(rawData, password, X509KeyStorageFlags.PersistKeySet));
         } else
         {
-            cert = X509CertificateLoader.LoadCertificate(rawData);
+            collection.Add(X509CertificateLoader.LoadCertificate(rawData));
         }
 
-        cert.FriendlyName = CertificateFriendlyName;
+        foreach (var cert in collection)
+        {
+            cert.FriendlyName = CertificateFriendlyName;
+        }
 
         using var store = new X509Store(storeName, storeLocation);
         store.Open(OpenFlags.ReadWrite);
-        store.Add(cert);
+        store.AddRange(collection);
         store.Close();
     }
 

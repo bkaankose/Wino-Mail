@@ -148,9 +148,7 @@ public class MimeFileService : IMimeFileService
 
         var renderingModel = new MailRenderModel(finalRenderHtml, options);
 
-        // S/MIME detection: if the body is MultipartSigned and protocol is pkcs7-signature
-        renderingModel.IsSmimeSigned = message.Body is MultipartSigned signed &&
-            signed.ContentType?.Parameters["protocol"]?.Contains("pkcs7-signature", System.StringComparison.OrdinalIgnoreCase) == true;
+        renderingModel.Signatures = visitor.Signatures;
 
         // S/MIME encryption detection: if the body is ApplicationPkcs7Mime and SecureMimeType is EnvelopedData
         renderingModel.IsSmimeEncrypted = message.Body is ApplicationPkcs7Mime encrypted &&

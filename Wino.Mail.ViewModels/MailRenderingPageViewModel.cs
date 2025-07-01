@@ -61,9 +61,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
     public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
-    public bool IsSmimeSigned => CurrentRenderModel?.IsSmimeSigned ?? false;
+    public bool IsSmimeSigned => (CurrentRenderModel?.Signatures?.Count ?? 0) > 0;
     public bool IsSmimeEncrypted => CurrentRenderModel?.IsSmimeEncrypted ?? false;
     public bool IsJunkMail => initializedMailItemViewModel?.AssignedFolder != null && initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
+    public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
+    public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
 
     public bool IsImageRenderingDisabled
     {
@@ -105,6 +107,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(CanUnsubscribe))]
     [NotifyPropertyChangedFor(nameof(IsSmimeSigned))]
     [NotifyPropertyChangedFor(nameof(IsSmimeEncrypted))]
+    [NotifyPropertyChangedFor(nameof(SmimeSignaturesValid))]
+    [NotifyPropertyChangedFor(nameof(SmimeSignaturesInvalid))]
     public partial MailRenderModel CurrentRenderModel { get; set; }
 
     [ObservableProperty]
@@ -822,46 +826,65 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task ShowSmimeSigningCertificateInfoAsync()
     {
-        if (initializedMimeMessageInformation?.MimeMessage?.Body is MultipartSigned signed && signed[1] is MimePart signaturePart)
+        if (IsSmimeSigned)
         {
-            await ShowSmimeCertificateInfoAsync(signaturePart);
-        }
-    }
-
-    [RelayCommand]
-    private async Task ShowSmimeEncryptionCertificateInfoAsync()
-    {
-        if (initializedMimeMessageInformation?.MimeMessage?.Body is ApplicationPkcs7Mime encrypted)
-        {
-            await ShowSmimeCertificateInfoAsync(encrypted);
-        }
-    }
-
-    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment)
-    {
-        var fileName = certificateAttachment.FileName ?? "smime.p7s";
-        var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
-        var size = certificateAttachment.Content?.Stream?.Length ?? 0;
-        var info = $"File: {fileName}\nType: {contentType}\nSize: {size:N0} bytes";
-
-        var result = await _dialogService.ShowConfirmationDialogAsync(
-            $"{info}\n",
-            "S/MIME Certificate Info",
-            "Save certificate...");
-        if (result)
-        {
-            var pickedPath = await _dialogService.PickFilePathAsync(fileName);
-            if (!string.IsNullOrEmpty(pickedPath))
+            MimePart signaturePart;
+            if (initializedMimeMessageInformation?.MimeMessage?.Body is MultipartSigned signed && signed[1] is MimePart signaturePart1)
             {
-                var pickedDirectory = Path.GetDirectoryName(pickedPath);
-                var pickedFileName = Path.GetFileName(pickedPath);
-                await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
-                {
-                    await certificateAttachment.Content!.DecodeToAsync(stream);
-                }
+                signaturePart = signaturePart1;
+            }
+            else if (initializedMimeMessageInformation?.MimeMessage?.Body is ApplicationPkcs7Mime pkcs7)
+            {
+                signaturePart = null;
+            }
+            else
+            {
+                //_dialogService.InfoBarMessage(Translator.Info_SmimeSignatureNotFoundTitle, Translator.Info_SmimeSignatureNotFoundMessage, InfoBarMessageType.Error);
+                return;
+            }
 
-                _dialogService.InfoBarMessage("S/MIME Certificate", $"Certificate saved to {pickedPath}",
-                    InfoBarMessageType.Success);
+            string info = "Signatures in this message:\n";
+            foreach (var (signature, valid) in CurrentRenderModel.Signatures)
+            {
+                info += $"• {(valid ? "✅" : "❌")} {signature.SignerCertificate.Name} ({signature.SignerCertificate.Fingerprint}, valid through {signature.SignerCertificate.CreationDate} - {signature.SignerCertificate.ExpirationDate})\n";
+            }
+            await ShowSmimeCertificateInfoAsync(signaturePart, info, "S/MIME Signing Certificate Info");
+        }
+
+    }
+
+    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = "S/MIME Certificate Info")
+    {
+        {
+            if (certificateAttachment == null)
+            {
+                await _dialogService.ShowConfirmationDialogAsync(
+                    $"{additionalInfo}\nNo certificate file found", title, Translator.Buttons_OK);
+                return;
+            }
+            var fileName = certificateAttachment.FileName ?? "smime.p7s";
+            var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
+            var size = certificateAttachment.Content?.Stream?.Length ?? 0;
+            var info = $"File: {fileName}\nType: {contentType}\nSize: {size:N0} bytes";
+
+            var result = await _dialogService.ShowConfirmationDialogAsync(
+                $"{additionalInfo}\n{info}", title,
+                "Save certificate...");
+            if (result)
+            {
+                var pickedPath = await _dialogService.PickFilePathAsync(fileName);
+                if (!string.IsNullOrEmpty(pickedPath))
+                {
+                    var pickedDirectory = Path.GetDirectoryName(pickedPath);
+                    var pickedFileName = Path.GetFileName(pickedPath);
+                    await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
+                    {
+                        await certificateAttachment.Content!.DecodeToAsync(stream);
+                    }
+
+                    _dialogService.InfoBarMessage("S/MIME Certificate", $"Certificate saved to {pickedPath}",
+                        InfoBarMessageType.Success);
+                }
             }
         }
     }

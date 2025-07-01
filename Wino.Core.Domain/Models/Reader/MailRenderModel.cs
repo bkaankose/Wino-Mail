@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using MimeKit;
+using MimeKit.Cryptography;
 
 namespace Wino.Core.Domain.Models.Reader;
 
@@ -15,8 +16,7 @@ public class MailRenderModel
 
     public UnsubscribeInfo UnsubscribeInfo { get; set; }
 
-    // Indicates if the mail is S/MIME signed
-    public bool IsSmimeSigned { get; set; }
+    public Dictionary<IDigitalSignature, bool> Signatures = [];
 
     // Indicates if the mail is S/MIME encrypted
     public bool IsSmimeEncrypted { get; set; }
