@@ -843,33 +843,33 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 return;
             }
 
-            string info = "Signatures in this message:\n";
+            string info = $"{Translator.SmimeSignaturesInMessage}:\n";
             foreach (var (signature, valid) in CurrentRenderModel.Signatures)
             {
-                info += $"• {(valid ? "✅" : "❌")} {signature.SignerCertificate.Name} ({signature.SignerCertificate.Fingerprint}, valid through {signature.SignerCertificate.CreationDate} - {signature.SignerCertificate.ExpirationDate})\n";
+                info += string.Format(Translator.SmimeSignatureEntry, valid ? "✅" : "❌", signature.SignerCertificate.Name, signature.SignerCertificate.Fingerprint, signature.SignerCertificate.CreationDate, signature.SignerCertificate.ExpirationDate);
             }
-            await ShowSmimeCertificateInfoAsync(signaturePart, info, "S/MIME Signing Certificate Info");
+            await ShowSmimeCertificateInfoAsync(signaturePart, info, Translator.SmimeSigningCertificateInfoTitle);
         }
 
     }
 
-    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = "S/MIME Certificate Info")
+    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = null)
     {
         {
             if (certificateAttachment == null)
             {
                 await _dialogService.ShowConfirmationDialogAsync(
-                    $"{additionalInfo}\nNo certificate file found", title, Translator.Buttons_OK);
+                    $"{additionalInfo}\n{Translator.SmimeNoCertificateFileFound}", title ?? Translator.SmimeCertificateInfoTitle, Translator.Buttons_OK);
                 return;
             }
             var fileName = certificateAttachment.FileName ?? "smime.p7s";
             var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
             var size = certificateAttachment.Content?.Stream?.Length ?? 0;
-            var info = $"File: {fileName}\nType: {contentType}\nSize: {size:N0} bytes";
+            var info = string.Format(Translator.SmimeCertificateFileInfo, fileName, contentType, size);
 
             var result = await _dialogService.ShowConfirmationDialogAsync(
-                $"{additionalInfo}\n{info}", title,
-                "Save certificate...");
+                $"{additionalInfo}\n{info}", title ?? Translator.SmimeCertificateInfoTitle,
+                Translator.SmimeSaveCertificate);
             if (result)
             {
                 var pickedPath = await _dialogService.PickFilePathAsync(fileName);
@@ -882,7 +882,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                         await certificateAttachment.Content!.DecodeToAsync(stream);
                     }
 
-                    _dialogService.InfoBarMessage("S/MIME Certificate", $"Certificate saved to {pickedPath}",
+                    _dialogService.InfoBarMessage(Translator.SmimeCertificate, string.Format(Translator.SmimeCertificateSavedTo, pickedPath),
                         InfoBarMessageType.Success);
                 }
             }

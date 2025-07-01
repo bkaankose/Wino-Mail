@@ -723,7 +723,18 @@
     "SettingsSignatureAndEncryption_SigningCertificate": "S/Mime Signing Certificate",
     "SettingsSignatureAndEncryption_EncryptionCertificate": "S/Mime Encryption Certificate",
     "SettingsSignatureAndEncryption_SigningCertificatePlaceholder": "None",
-    "SettingsSignatureAndEncryption_EncryptionCertificatePlaceholder": "None"
+    "SettingsSignatureAndEncryption_EncryptionCertificatePlaceholder": "None",
+    "SmimeSignaturesInMessage": "Signatures in this message:",
+    "SmimeSignatureEntry": "• {0} {1} ({2}, valid through {3} - {4})",
+    "SmimeSigningCertificateInfoTitle": "S/MIME Signing Certificate Info",
+    "SmimeCertificateInfoTitle": "S/MIME Certificate Info",
+    "SmimeNoCertificateFileFound": "No certificate file found",
+    "SmimeSaveCertificate": "Save certificate...",
+    "SmimeCertificate": "S/MIME Certificate",
+    "SmimeCertificateSavedTo": "Certificate saved to {0}",
+    "SmimeSignedTooltip": "This message is signed with an S/Mime certificate. Click for more details",
+    "SmimeEncryptedTooltip": "This message is encrypted with an S/Mime certificate.",
+    "SmimeCertificateFileInfo": "File: {0}\nType: {1}\nSize: {2:N0} bytes"
 }
 
 
