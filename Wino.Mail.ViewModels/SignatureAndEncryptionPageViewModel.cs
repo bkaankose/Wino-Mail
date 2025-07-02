@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -109,10 +110,10 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
     }
 
-    // Remove a personal certificate with confirmation
-    public void RemovePersonalCertificatesCommand()
+    [RelayCommand]
+    public async Task RemovePersonalCertificatesAsync()
     {
-        RemoveCertificates(SelectedPersonalCertificates, StoreName.My);
+        await RemoveCertificatesAsync(SelectedPersonalCertificates, StoreName.My);
     }
 
     // Remove a recipient certificate with confirmation
@@ -121,7 +122,7 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         // RemoveCertificates
     }
 
-    private async void RemoveCertificates(List<X509Certificate2> certificates, StoreName storeName)
+    private async Task RemoveCertificatesAsync(List<X509Certificate2> certificates, StoreName storeName)
     {
         if (certificates.Any())
         {

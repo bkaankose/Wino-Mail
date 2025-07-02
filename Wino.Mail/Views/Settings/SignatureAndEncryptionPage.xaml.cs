@@ -42,11 +42,6 @@ public sealed partial class SignatureAndEncryptionPage : SignatureAndEncryptionP
         ViewModel.ImportRecipientCertificateCommand();
     }
 
-    private void RemovePersonalCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        ViewModel.RemovePersonalCertificatesCommand();
-    }
-
     private void RemoveRecipientCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
     {
         ViewModel.RemoveRecipientCertificateCommand();
