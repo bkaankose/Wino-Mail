@@ -70,6 +70,7 @@ public class HtmlPreviewVisitor : MimeVisitor
     protected override void VisitMultipartSigned(MultipartSigned signed)
     {
         VerifySignatures(signed.Verify());
+        VisitMultipart(signed);
     }
 
     // look up the image based on the img src url within our multipart/related stack
