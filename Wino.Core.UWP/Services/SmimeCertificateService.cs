@@ -32,7 +32,7 @@ public class SmimeCertificateService : ISmimeCertificateService
 
         if (fileExtension is ".p12" or ".pfx")
         {
-            collection.AddRange(X509CertificateLoader.LoadPkcs12Collection(rawData, password, X509KeyStorageFlags.PersistKeySet));
+            collection.AddRange(X509CertificateLoader.LoadPkcs12Collection(rawData, password, X509KeyStorageFlags.DefaultKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable));
         } else
         {
             collection.Add(X509CertificateLoader.LoadCertificate(rawData));

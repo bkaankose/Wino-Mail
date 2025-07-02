@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
+using MimeKit.Cryptography;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -104,6 +106,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
     public readonly IPreferencesService PreferencesService;
     private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     public readonly IContactService ContactService;
+    public readonly ISmimeCertificateService _smimeCertificateService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -116,7 +119,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
                                 IContactService contactService,
                                 IFontService fontService,
                                 IPreferencesService preferencesService,
-                                IWinoServerConnectionManager winoServerConnectionManager)
+                                IWinoServerConnectionManager winoServerConnectionManager,
+                                ISmimeCertificateService smimeCertificateService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -131,6 +135,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
         _accountService = accountService;
         _worker = worker;
         _winoServerConnectionManager = winoServerConnectionManager;
+        _smimeCertificateService = smimeCertificateService;
     }
 
     [RelayCommand]
@@ -216,6 +221,48 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         var assignedAccount = CurrentMailDraftItem.AssignedAccount;
         var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
+
+
+        // Load alias certs
+        var certs = _smimeCertificateService.GetCertificates()
+            .Where(cert => cert.Subject.Contains(SelectedAlias.AliasAddress, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        
+        if (SelectedAlias.SelectedSigningCertificateThumbprint != null)
+        {
+            var signingCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedSigningCertificateThumbprint)
+                ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint)
+                : null;
+        
+            var signer = new CmsSigner(signingCertificate);
+            signer.DigestAlgorithm = DigestAlgorithm.Sha1;
+
+            if (SelectedAlias.SelectedEncryptionCertificateThumbprint != null)
+            {
+                var recipients = new CmsRecipientCollection();
+                var cmsRecipients = CurrentMimeMessage.To.Mailboxes
+                    .Select(mailbox => new CmsRecipient(
+                        _smimeCertificateService.GetCertificates(emailAddress: mailbox.Address).FirstOrDefault() ?? _smimeCertificateService.GetCertificates(StoreName.AddressBook, emailAddress: mailbox.Address).FirstOrDefault()
+                    ));
+                foreach (var recipient in cmsRecipients) {
+                    recipients.Add(recipient);
+                }
+
+                CurrentMimeMessage.Body = ApplicationPkcs7Mime.SignAndEncrypt(signer, recipients, CurrentMimeMessage.Body);
+            }
+            else
+            {
+                // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
+                CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(signer, CurrentMimeMessage.Body);
+            }
+        } else if (SelectedAlias.SelectedEncryptionCertificateThumbprint != null)
+        {
+            // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
+            //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
+            //     : null;
+            // Encrypt the message if encryption certificate is selected.
+            CurrentMimeMessage.Body = ApplicationPkcs7Mime.Encrypt(CurrentMimeMessage.To.Mailboxes, CurrentMimeMessage.Body);
+        }
 
         using MemoryStream memoryStream = new();
         CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);
