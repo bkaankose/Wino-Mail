@@ -79,14 +79,13 @@
                     DropDownClosed="SigningCertificateDropDownClosed"
                     />
 
-                <ComboBox
+                <CheckBox
                     Grid.Column="4"
                     HorizontalAlignment="Center"
-                    ItemsSource="{x:Bind Certificates, Mode=OneWay}"
-                    SelectedItem="{Binding SelectedEncryptionCertificate, Mode=TwoWay}"
-                    DisplayMemberPath="Subject"
-                    DropDownClosed="EncryptionCertificateDropDownClosed"
-                    PlaceholderText="{x:Bind domain:Translator.SettingsSignatureAndEncryption_EncryptionCertificatePlaceholder}" />
+                    VerticalAlignment="Center"
+                    Checked="SmimeEncryptionChecked"
+                    Unchecked="SmimeEncryptionChecked"
+                    IsChecked="{Binding IsSmimeEncryptionEnabled, Mode=OneWay}" />
 
                 <Button
                     Grid.Column="5"

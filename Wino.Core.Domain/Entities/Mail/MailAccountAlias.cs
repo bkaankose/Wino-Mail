@@ -63,13 +63,10 @@ public class MailAccountAlias : RemoteAccountAlias
     public bool CanDelete => !IsRootAlias;
 
     public string SelectedSigningCertificateThumbprint { get; set; }
-    public string SelectedEncryptionCertificateThumbprint { get; set; }
+    public bool IsSmimeEncryptionEnabled { get; set; }
 
     [Ignore]
     public X509Certificate2 SelectedSigningCertificate { get; set; }
-
-    [Ignore]
-    public X509Certificate2 SelectedEncryptionCertificate { get; set; }
 
     [Ignore]
     public ObservableCollection<X509Certificate2> Certificates { get; set; } = [];

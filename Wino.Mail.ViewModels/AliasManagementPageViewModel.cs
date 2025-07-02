@@ -72,9 +72,6 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
             alias.SelectedSigningCertificate = !string.IsNullOrEmpty(alias.SelectedSigningCertificateThumbprint)
                 ? alias.Certificates.FirstOrDefault(c => c?.Thumbprint == alias.SelectedSigningCertificateThumbprint)
                 : null;
-            alias.SelectedEncryptionCertificate = !string.IsNullOrEmpty(alias.SelectedEncryptionCertificateThumbprint)
-                ? alias.Certificates.FirstOrDefault(c => c?.Thumbprint == alias.SelectedEncryptionCertificateThumbprint)
-                : null;
         }
         AccountAliases = aliases;
     }
@@ -174,19 +171,17 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         await LoadAliasesAsync();
     }
 
-    public async Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
+    public async Task SetAliasSmimeEncryption(MailAccountAlias alias, bool value)
     {
-        alias.SelectedSigningCertificate = cert;
-        alias.SelectedSigningCertificateThumbprint = cert?.Thumbprint;
-
+        alias.IsSmimeEncryptionEnabled = value;
         await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
         await LoadAliasesAsync();
     }
 
-    public async Task SetSelectedEncryptionCertificate(MailAccountAlias alias, X509Certificate2 cert)
+    public async Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
     {
-        alias.SelectedEncryptionCertificate = cert;
-        alias.SelectedEncryptionCertificateThumbprint = cert?.Thumbprint;
+        alias.SelectedSigningCertificate = cert;
+        alias.SelectedSigningCertificateThumbprint = cert?.Thumbprint;
 
         await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
         await LoadAliasesAsync();

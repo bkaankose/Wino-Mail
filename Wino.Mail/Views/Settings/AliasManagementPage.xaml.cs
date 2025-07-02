@@ -21,12 +21,12 @@ public sealed partial class AliasManagementPage : AliasManagementPageAbstract
       }
     }
 
-    private async void EncryptionCertificateDropDownClosed(object sender, object e)
+    private async void SmimeEncryptionChecked(object sender, object e)
     {
-        var (alias, cert) = GetAliasAndSelectedCertificateForCombobox(sender);
-        if (alias is not null)
+        var checkBox = sender as CheckBox;
+        if (checkBox?.DataContext is MailAccountAlias alias)
         {
-            await ViewModel.SetSelectedEncryptionCertificate(alias, cert);
+            await ViewModel.SetAliasSmimeEncryption(alias, checkBox.IsChecked ?? false);
         }
     }
 

@@ -237,7 +237,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
             var signer = new CmsSigner(signingCertificate);
             signer.DigestAlgorithm = DigestAlgorithm.Sha1;
 
-            if (SelectedAlias.SelectedEncryptionCertificateThumbprint != null)
+            if (SelectedAlias.IsSmimeEncryptionEnabled)
             {
                 var recipients = new CmsRecipientCollection();
                 var cmsRecipients = CurrentMimeMessage.To.Mailboxes
@@ -255,7 +255,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
                 // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
                 CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(signer, CurrentMimeMessage.Body);
             }
-        } else if (SelectedAlias.SelectedEncryptionCertificateThumbprint != null)
+        } else if (SelectedAlias.IsSmimeEncryptionEnabled)
         {
             // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
             //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
