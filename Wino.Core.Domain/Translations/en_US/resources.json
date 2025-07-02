@@ -733,7 +733,23 @@
     "SmimeCertificateSavedTo": "Certificate saved to {0}",
     "SmimeSignedTooltip": "This message is signed with an S/Mime certificate. Click for more details",
     "SmimeEncryptedTooltip": "This message is encrypted with an S/Mime certificate.",
-    "SmimeCertificateFileInfo": "File: {0}\nType: {1}\nSize: {2:N0} bytes"
+    "SmimeCertificateFileInfo": "File: {0}\nType: {1}\nSize: {2:N0} bytes",
+    "Composer_LightTheme": "Light Theme",
+    "Composer_DarkTheme": "Dark Theme",
+    "Composer_Outdent": "Outdent",
+    "Composer_Indent": "Indent",
+    "Composer_BulletList": "Bullet List",
+    "Composer_OrderedList": "Ordered List",
+    "Composer_Stroke": "Stroke",
+    "Composer_Bold": "Bold",
+    "Composer_Italic": "Italic",
+    "Composer_Underline": "Underline",
+    "Composer_CcBcc": "Cc & Bcc",
+    "Composer_EnableSmimeSignature": "Enable/disable S/MIME signature",
+    "Composer_EnableSmimeEncryption": "Enable/disable S/MIME encryption",
+    "Composer_CertificateExpires": "Expires on: ",
+    "Composer_SmimeSignature": "S/MIME Signature",
+    "Composer_SmimeEncryption": "S/MIME Encryption"
 }
 
 
