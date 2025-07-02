@@ -85,6 +85,19 @@ public partial class ComposePageViewModel : MailBaseViewModel
     [ObservableProperty]
     private bool isDraggingOverImagesDropZone;
 
+    [ObservableProperty]
+    private bool isSmimeSignatureEnabled;
+
+    [ObservableProperty]
+    private bool isSmimeEncryptionEnabled;
+
+    [ObservableProperty]
+    private X509Certificate2 selectedSigningCertificate;
+
+    public ObservableCollection<X509Certificate2> AvailableCertificates = [];
+
+    public bool AreCertificatesAvailable => AvailableCertificates.Count > 0;
+
     public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
     public ObservableCollection<MailAccount> Accounts { get; set; } = [];
     public ObservableCollection<AccountContact> ToItems { get; set; } = [];
@@ -136,7 +149,40 @@ public partial class ComposePageViewModel : MailBaseViewModel
         _worker = worker;
         _winoServerConnectionManager = winoServerConnectionManager;
         _smimeCertificateService = smimeCertificateService;
+
+        foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
+        {
+            if (cert != null)
+            {
+                AvailableCertificates.Add(cert);
+            }
+        }
     }
+
+    partial void OnSelectedAliasChanged(MailAccountAlias value)
+    {
+        if (value != null)
+        {
+            IsSmimeSignatureEnabled = value.SelectedSigningCertificateThumbprint != null;
+            IsSmimeEncryptionEnabled = value.IsSmimeEncryptionEnabled;
+
+            AvailableCertificates.Clear();
+            var certs = _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias.AliasAddress);
+            foreach (var cert in certs)
+            {
+                AvailableCertificates.Add(cert);
+            }
+            SelectedSigningCertificate = AvailableCertificates
+                .Where(c => c.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint).FirstOrDefault() ?? AvailableCertificates.FirstOrDefault();
+        }
+    }
+
+    partial void OnSelectedSigningCertificateChanged(X509Certificate2 value)
+    {
+        IsSmimeSignatureEnabled = value != null;
+    }
+
+
 
     [RelayCommand]
     private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
@@ -224,27 +270,25 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
 
         // Load alias certs
-        var certs = _smimeCertificateService.GetCertificates()
-            .Where(cert => cert.Subject.Contains(SelectedAlias.AliasAddress, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        
-        if (SelectedAlias.SelectedSigningCertificateThumbprint != null)
+        var certs = _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias.AliasAddress);
+
+        if (isSmimeSignatureEnabled)
         {
             var signingCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedSigningCertificateThumbprint)
                 ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint)
                 : null;
-        
-            var signer = new CmsSigner(signingCertificate);
-            signer.DigestAlgorithm = DigestAlgorithm.Sha1;
 
-            if (SelectedAlias.IsSmimeEncryptionEnabled)
+            var signer = new CmsSigner(signingCertificate) { DigestAlgorithm = DigestAlgorithm.Sha1 };
+
+            if (isSmimeEncryptionEnabled)
             {
                 var recipients = new CmsRecipientCollection();
                 var cmsRecipients = CurrentMimeMessage.To.Mailboxes
                     .Select(mailbox => new CmsRecipient(
                         _smimeCertificateService.GetCertificates(emailAddress: mailbox.Address).FirstOrDefault() ?? _smimeCertificateService.GetCertificates(StoreName.AddressBook, emailAddress: mailbox.Address).FirstOrDefault()
                     ));
-                foreach (var recipient in cmsRecipients) {
+                foreach (var recipient in cmsRecipients)
+                {
                     recipients.Add(recipient);
                 }
 
@@ -255,7 +299,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
                 // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
                 CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(signer, CurrentMimeMessage.Body);
             }
-        } else if (SelectedAlias.IsSmimeEncryptionEnabled)
+        }
+        else if (isSmimeEncryptionEnabled)
         {
             // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
             //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
