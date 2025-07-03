@@ -168,7 +168,8 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
             var path = await _dialogService.PickFilePathAsync(fileName);
             if (path != null)
             {
-                await using var stream = await _fileService.GetFileStreamAsync(path, fileName);
+                var folderPath = System.IO.Path.GetDirectoryName(path);
+                await using var stream = await _fileService.GetFileStreamAsync(folderPath, fileName);
                 if (stream != null)
                 {
                     try
