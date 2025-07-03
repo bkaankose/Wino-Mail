@@ -11,7 +11,7 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:imapsetup="using:Wino.Views.ImapSetup"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:picker="using:Microsoft.UI.Xaml.Controls"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
     <ScrollViewer>
@@ -118,7 +118,7 @@
                                 Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServer}"
                                 Text="{x:Bind ViewModel.ServerInformation.IncomingServer, Mode=TwoWay}" />
 
-                            <picker:NumberBox
+                            <muxc:NumberBox
                                 Grid.Row="2"
                                 Header="{x:Bind domain:Translator.IMAPSetupDialog_IncomingMailServerPort}"
                                 Maximum="65535"
@@ -169,7 +169,7 @@
                                 Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServer}"
                                 Text="{x:Bind ViewModel.ServerInformation.OutgoingServer, Mode=TwoWay}" />
 
-                            <picker:NumberBox
+                            <muxc:NumberBox
                                 Grid.Row="2"
                                 Grid.Column="2"
                                 Header="{x:Bind domain:Translator.IMAPSetupDialog_OutgoingMailServerPort}"
@@ -215,13 +215,13 @@
                                 Orientation="Horizontal"
                                 Spacing="12">
 
-                                <ProgressRing
-                                    Width="5"
-                                    Height="5"
+                                <muxc:ProgressRing
+                                    Width="20"
+                                    Height="20"
                                     IsActive="{x:Bind ViewModel.ValidateImapSettingsCommand.IsRunning, Mode=OneWay}" />
                                 <Button Command="{x:Bind ViewModel.ValidateImapSettingsCommand}" Content="Test" />
                                 <Button
-                                    Command="{x:Bind ViewModel.SaveWithoutGoBackCommand}"
+                                    Command="{x:Bind ViewModel.UpdateCustomServerInformationCommand}"
                                     Content="{x:Bind domain:Translator.Buttons_Save}"
                                     Style="{ThemeResource AccentButtonStyle}" />
                             </StackPanel>

@@ -408,6 +408,11 @@ public class AccountService : BaseDatabaseService, IAccountService
         ReportUIChange(new AccountUpdatedMessage(account));
     }
 
+    public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
+    {
+        await Connection.UpdateAsync(customServerInformation).ConfigureAwait(false);
+    }
+
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
     {
         // Delete existing ones.
