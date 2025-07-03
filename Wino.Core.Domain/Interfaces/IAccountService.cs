@@ -170,4 +170,5 @@ public interface IAccountService
     /// <param name="accountId">Account id.</param>
     /// <returns>Whether the notifications should be created after sync or not.</returns>
     Task<bool> IsNotificationsEnabled(Guid accountId);
+    Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation);
 }

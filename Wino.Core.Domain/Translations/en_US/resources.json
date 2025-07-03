@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Account type",
     "IMAPSetupDialog_ValidationSuccess_Title": "Success",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validation successful",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP Server validation failed.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "This server is requesting a SSL handshake to continue. Please confirm the certificate details below.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Allow the handshake to continue setting up your account.",
