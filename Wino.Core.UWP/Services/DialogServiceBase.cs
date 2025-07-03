@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -39,34 +40,36 @@ public class DialogServiceBase : IDialogServiceBase
 
     public async Task<string> PickFilePathAsync(string saveFileName)
     {
-        var picker = new FolderPicker()
+        // var picker = new FolderPicker()
+        // {
+        //     SuggestedStartLocation = PickerLocationId.Desktop
+        // };
+        //
+        // picker.FileTypeFilter.Add("*");
+        //
+        // var folder = await picker.PickSingleFolderAsync();
+        // if (folder == null) return string.Empty;
+        //
+        // StorageApplicationPermissions.FutureAccessList.Add(folder);
+        //
+        // return folder.Path;
+
+        var picker = new FileSavePicker
         {
-            SuggestedStartLocation = PickerLocationId.Desktop
+            SuggestedStartLocation = PickerLocationId.Desktop,
+            SuggestedFileName = saveFileName
         };
 
-        picker.FileTypeFilter.Add("*");
+        var extension = Path.GetExtension(saveFileName);
 
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder == null) return string.Empty;
+        picker.FileTypeChoices.Add(Translator.FilteringOption_All, new List<string>() { extension });
 
-        StorageApplicationPermissions.FutureAccessList.Add(folder);
+        var file = await picker.PickSaveFileAsync();
+        if (file == null) return string.Empty;
 
-        return folder.Path;
+        StorageApplicationPermissions.FutureAccessList.Add(file);
 
-        //var picker = new FileSavePicker
-        //{
-        //    SuggestedStartLocation = PickerLocationId.Desktop,
-        //    SuggestedFileName = saveFileName
-        //};
-
-        //picker.FileTypeChoices.Add(Translator.FilteringOption_All, [".*"]);
-
-        //var file = await picker.PickSaveFileAsync();
-        //if (file == null) return string.Empty;
-
-        //StorageApplicationPermissions.FutureAccessList.Add(file);
-
-        //return file.Path;
+        return file.Path;
     }
 
     public async Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters)

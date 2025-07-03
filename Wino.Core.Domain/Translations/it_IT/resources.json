@@ -689,7 +689,18 @@
     "WinoUpgradeDescription": "Wino offre 3 account per iniziare gratuitamente. Se hai bisogno di più di 3 account, per favore aggiorna",
     "WinoUpgradeMessage": "Aggiorna ad account illimitati",
     "WinoUpgradeRemainingAccountsMessage": "{0} di {1} account gratuiti usati.",
-    "Yesterday": "Ieri"
+    "Yesterday": "Ieri",
+    "SmimeSignaturesInMessage": "Firme in questo messaggio:",
+    "SmimeSignatureEntry": "• {0} {1} ({2}, valido dal {3} al {4})",
+    "SmimeSigningCertificateInfoTitle": "Info certificato di firma S/MIME",
+    "SmimeCertificateInfoTitle": "Info certificato S/MIME",
+    "SmimeNoCertificateFileFound": "Nessun file certificato trovato",
+    "SmimeSaveCertificate": "Salva certificato...",
+    "SmimeCertificate": "Certificato S/MIME",
+    "SmimeCertificateSavedTo": "Certificato salvato in {0}",
+    "SmimeSignedTooltip": "Questo messaggio è firmato con un certificato S/Mime. Clicca per dettagli",
+    "SmimeEncryptedTooltip": "Questo messaggio è cifrato con un certificato S/Mime.",
+    "SmimeCertificateFileInfo": "File: {0}\nTipo: {1}\nDimensione: {2:N0} byte"
 }
 
 
