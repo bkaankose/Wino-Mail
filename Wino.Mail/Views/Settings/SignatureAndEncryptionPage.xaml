@@ -89,8 +89,8 @@
                     <controls:SettingsCard>
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Button Command="{x:Bind ViewModel.RemovePersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Remove}" />
-                            <Button Click="ExportPersonalCertificates_Click" Content="{x:Bind domain:Translator.Buttons_Export}" />
-                            <Button Click="ImportPersonalCertificates_Click" Content="{x:Bind domain:Translator.Buttons_Import}" />
+                            <Button Command="{x:Bind ViewModel.ExportPersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                            <Button Command="{x:Bind ViewModel.ImportPersonalCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
                         </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
@@ -172,24 +172,9 @@
                             HorizontalAlignment="Right"
                             Orientation="Horizontal"
                             Spacing="12">
-                            <Button Click="RemoveRecipientCertificates_Click">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <SymbolIcon Symbol="Delete" />
-                                    <TextBlock Text="{x:Bind domain:Translator.Buttons_Remove, Mode=OneWay}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Click="ExportRecipientCertificates_Click">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <SymbolIcon Symbol="SaveLocal" />
-                                    <TextBlock Text="{x:Bind domain:Translator.Buttons_Export, Mode=OneWay}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Click="ImportRecipientCertificates_Click">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <SymbolIcon Symbol="Import" />
-                                    <TextBlock Text="{x:Bind domain:Translator.Buttons_Import, Mode=OneWay}" />
-                                </StackPanel>
-                            </Button>
+                            <Button Command="{x:Bind ViewModel.RemoveRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Remove}" />
+                            <Button Command="{x:Bind ViewModel.ExportRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Export}" />
+                            <Button Command="{x:Bind ViewModel.ImportRecipientCertificatesCommand}" Content="{x:Bind domain:Translator.Buttons_Import}" />
                         </StackPanel>
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>

@@ -31,29 +31,4 @@ public sealed partial class SignatureAndEncryptionPage : SignatureAndEncryptionP
 
         ViewModel.SelectedRecipientCertificates.AddRange(e.AddedItems.OfType<X509Certificate2>());
     }
-
-    private void ImportPersonalCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        ViewModel.ImportPersonalCertificatesCommand();
-    }
-
-    private void ImportRecipientCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        ViewModel.ImportRecipientCertificateCommand();
-    }
-
-    private void RemoveRecipientCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        ViewModel.RemoveRecipientCertificateCommand();
-    }
-
-    private void ExportPersonalCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        ViewModel.ExportPersonalCertificatesCommand();
-    }
-    
-    private void ExportRecipientCertificates_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-    {
-        ViewModel.ExportRecipientCertificateCommand();
-    }
 }

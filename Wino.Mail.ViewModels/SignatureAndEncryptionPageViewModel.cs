@@ -57,19 +57,19 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
     }
 
-    // Import a personal certificate, ask for password if needed
-    public async void ImportPersonalCertificatesCommand()
+    [RelayCommand]
+    public async Task ImportPersonalCertificatesAsync()
     {
-        ImportCertificates(StoreName.My);
+        await ImportCertificates(StoreName.My);
     }
 
-    // Import a recipient certificate
-    public async void ImportRecipientCertificateCommand()
+    [RelayCommand]
+    public async Task ImportRecipientCertificatesAsync()
     {
-        ImportCertificates(StoreName.AddressBook);
+        await ImportCertificates(StoreName.AddressBook);
     }
 
-    private async void ImportCertificates(StoreName storeName)
+    private async Task ImportCertificates(StoreName storeName)
     {
         var files = await PickCertificateFilesAsync();
         var failedImports = new List<string>();
@@ -116,10 +116,10 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         await RemoveCertificatesAsync(SelectedPersonalCertificates, StoreName.My);
     }
 
-    // Remove a recipient certificate with confirmation
-    public async void RemoveRecipientCertificateCommand()
+    [RelayCommand]
+    public async Task RemoveRecipientCertificatesAsync()
     {
-        // RemoveCertificates
+        await RemoveCertificatesAsync(SelectedRecipientCertificates, StoreName.AddressBook);
     }
 
     private async Task RemoveCertificatesAsync(List<X509Certificate2> certificates, StoreName storeName)
@@ -145,13 +145,14 @@ public partial class SignatureAndEncryptionPageViewModel : MailBaseViewModel
         }
     }
 
-    // Export a certificate to file
-    public async void ExportPersonalCertificatesCommand()
+    [RelayCommand]
+    public async Task ExportPersonalCertificatesAsync()
     {
         await ExportCertificatesAsync(SelectedPersonalCertificates);
     }
 
-    public async void ExportRecipientCertificateCommand()
+    [RelayCommand]
+    public async Task ExportRecipientCertificatesAsync()
     {
         await ExportCertificatesAsync(SelectedRecipientCertificates);
     }
