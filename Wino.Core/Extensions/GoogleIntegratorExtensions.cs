@@ -5,7 +5,6 @@ using System.Web;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1.Data;
 using MimeKit;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -179,6 +178,11 @@ public static class GoogleIntegratorExtensions
             Id = Guid.NewGuid(),
             TimeZone = calendarListEntry.TimeZone,
             IsPrimary = calendarListEntry.Primary.GetValueOrDefault(),
+            Description = calendarListEntry.Description,
+            AccessRole = calendarListEntry.AccessRole,
+            CreatedDate = DateTime.UtcNow,
+            LastSyncTime = DateTime.UtcNow,
+            Location = calendarListEntry.Location,
         };
 
         // Bg color must present. Generate one if doesnt exists.
@@ -190,42 +194,121 @@ public static class GoogleIntegratorExtensions
         return calendar;
     }
 
-    public static DateTimeOffset? GetEventDateTimeOffset(EventDateTime calendarEvent)
+    public static CalendarItem MapGoogleEventToCalendarEvent(this Event googleEvent, AccountCalendar calendar)
     {
-        if (calendarEvent != null)
+        var calendarEvent = new CalendarItem
         {
-            if (calendarEvent.DateTimeDateTimeOffset != null)
+            RemoteEventId = googleEvent.Id,
+            CalendarId = calendar.Id, // Use internal Guid
+            Title = googleEvent.Summary ?? string.Empty,
+            Description = googleEvent.Description,
+            Location = googleEvent.Location,
+            Status = googleEvent.Status,
+            RecurringEventId = googleEvent.RecurringEventId
+        };
+
+        // Handle start and end times
+        if (googleEvent.Start != null)
+        {
+            if (googleEvent.Start.Date != null)
             {
-                return calendarEvent.DateTimeDateTimeOffset.Value;
+                calendarEvent.IsAllDay = true;
+                calendarEvent.StartDateTime = DateTime.Parse(googleEvent.Start.Date);
             }
-            else if (calendarEvent.Date != null)
+            else if (googleEvent.Start.DateTimeDateTimeOffset.HasValue)
             {
-                if (DateTime.TryParse(calendarEvent.Date, out DateTime eventDateTime))
-                {
-                    // Date-only events are treated as UTC midnight
-                    return new DateTimeOffset(eventDateTime, TimeSpan.Zero);
-                }
-                else
-                {
-                    throw new Exception("Invalid date format in Google Calendar event date.");
-                }
+                calendarEvent.IsAllDay = false;
+                calendarEvent.StartDateTime = googleEvent.Start.DateTimeDateTimeOffset.Value.DateTime;
+                calendarEvent.TimeZone = googleEvent.Start.TimeZone;
             }
         }
 
-        return null;
+        if (googleEvent.End != null)
+        {
+            if (googleEvent.End.Date != null)
+            {
+                calendarEvent.EndDateTime = DateTime.Parse(googleEvent.End.Date);
+            }
+            else if (googleEvent.End.DateTimeDateTimeOffset.HasValue)
+            {
+                calendarEvent.EndDateTime = googleEvent.End.DateTimeDateTimeOffset.Value.DateTime;
+            }
+        }
+
+        // Handle recurrence rules
+        if (googleEvent.Recurrence != null && googleEvent.Recurrence.Count > 0)
+        {
+            calendarEvent.RecurrenceRules = string.Join(";", googleEvent.Recurrence);
+        }
+
+        // Handle organizer
+        if (googleEvent.Organizer != null)
+        {
+            calendarEvent.OrganizerDisplayName = googleEvent.Organizer.DisplayName;
+            calendarEvent.OrganizerEmail = googleEvent.Organizer.Email;
+        }
+
+        // Handle timestamps
+        if (googleEvent.CreatedDateTimeOffset.HasValue)
+        {
+            calendarEvent.CreatedDate = googleEvent.CreatedDateTimeOffset.Value.DateTime;
+        }
+
+        if (googleEvent.UpdatedDateTimeOffset.HasValue)
+        {
+            calendarEvent.LastModified = googleEvent.UpdatedDateTimeOffset.Value.DateTime;
+        }
+
+        // Handle original start time for recurring event instances
+        if (googleEvent.OriginalStartTime != null)
+        {
+            if (googleEvent.OriginalStartTime.Date != null)
+            {
+                calendarEvent.OriginalStartTime = googleEvent.OriginalStartTime.Date;
+            }
+            else if (googleEvent.OriginalStartTime.DateTimeDateTimeOffset.HasValue)
+            {
+                calendarEvent.OriginalStartTime = googleEvent.OriginalStartTime.DateTimeDateTimeOffset.Value.ToString("O");
+            }
+        }
+
+        // Automatically determine the calendar item type based on event properties
+        calendarEvent.DetermineItemType();
+
+        return calendarEvent;
     }
 
     /// <summary>
-    /// RRULE, EXRULE, RDATE and EXDATE lines for a recurring event, as specified in RFC5545.
+    /// Converts a Google Calendar API response status string to AttendeeResponseStatus enum
     /// </summary>
-    /// <returns>___ separated lines.</returns>
-    public static string GetRecurrenceString(this Event calendarEvent)
+    /// <param name="googleStatus">The status string from Google Calendar API</param>
+    /// <returns>Corresponding AttendeeResponseStatus enum value</returns>
+    public static AttendeeResponseStatus FromGoogleStatus(string? googleStatus)
     {
-        if (calendarEvent == null || calendarEvent.Recurrence == null || !calendarEvent.Recurrence.Any())
+        return googleStatus?.ToLowerInvariant() switch
         {
-            return null;
-        }
+            "accepted" => AttendeeResponseStatus.Accepted,
+            "declined" => AttendeeResponseStatus.Declined,
+            "tentative" => AttendeeResponseStatus.Tentative,
+            "needsaction" => AttendeeResponseStatus.NeedsAction,
+            _ => AttendeeResponseStatus.NeedsAction
+        };
+    }
 
-        return string.Join(Constants.CalendarEventRecurrenceRuleSeperator, calendarEvent.Recurrence);
+    /// <summary>
+    /// Converts an AttendeeResponseStatus enum to Google Calendar API response status string
+    /// </summary>
+    /// <param name="status">The AttendeeResponseStatus enum value</param>
+    /// <returns>Corresponding Google Calendar API status string</returns>
+    public static string ToGoogleStatus(AttendeeResponseStatus status)
+    {
+        return status switch
+        {
+            AttendeeResponseStatus.Accepted => "accepted",
+            AttendeeResponseStatus.Declined => "declined",
+            AttendeeResponseStatus.Tentative => "tentative",
+            AttendeeResponseStatus.NeedsAction => "needsAction",
+            _ => "needsAction"
+        };
     }
 }

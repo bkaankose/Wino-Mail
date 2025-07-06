@@ -17,6 +17,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IMimeFileService, MimeFileService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
+        services.AddTransient<ICalendarServiceEx, CalendarServiceEx>();
         services.AddTransient<IMailService, MailService>();
         services.AddTransient<IFolderService, FolderService>();
         services.AddTransient<IAccountService, AccountService>();
@@ -29,7 +30,5 @@ public static class ServicesContainerSetup
         services.AddTransient<IOutlookThreadingStrategy, OutlookThreadingStrategy>();
         services.AddTransient<IGmailThreadingStrategy, GmailThreadingStrategy>();
         services.AddTransient<IImapThreadingStrategy, ImapThreadingStrategy>();
-
-
     }
 }

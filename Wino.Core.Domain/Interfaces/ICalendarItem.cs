@@ -1,5 +1,6 @@
 ﻿using System;
 using Itenso.TimePeriod;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -8,15 +9,8 @@ public interface ICalendarItem
     string Title { get; }
     Guid Id { get; }
     IAccountCalendar AssignedCalendar { get; }
-    DateTime StartDate { get; set; }
-    DateTime EndDate { get; }
-    double DurationInSeconds { get; set; }
+    DateTime StartDateTime { get; set; }
+    DateTime EndDateTime { get; }
     ITimePeriod Period { get; }
-
-    bool IsAllDayEvent { get; }
-    bool IsMultiDayEvent { get; }
-
-    bool IsRecurringChild { get; }
-    bool IsRecurringParent { get; }
-    bool IsRecurringEvent { get; }
+    CalendarItemType ItemType { get; }
 }

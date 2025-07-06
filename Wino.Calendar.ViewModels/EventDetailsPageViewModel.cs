@@ -31,7 +31,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     [ObservableProperty]
     private CalendarItemViewModel _seriesParent;
 
-    public bool CanViewSeries => CurrentEvent?.IsRecurringChild ?? false;
+    public bool CanViewSeries => false; //CurrentEvent?.IsRecurringChild ?? false; // TODO: Implement this properly
 
     #endregion
 
@@ -67,7 +67,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             CurrentEvent = new CalendarItemViewModel(currentEventItem);
 
-            var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.EventTrackingId);
+            var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.Id);
 
             foreach (var item in attendees)
             {

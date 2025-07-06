@@ -1170,118 +1170,980 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
-        Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse eventsDeltaResponse = null;
-
-        // TODO: Maybe we can batch each calendar?
-
         foreach (var calendar in localCalendars)
         {
             bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
 
             if (isInitialSync)
             {
-                _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
-
-                var startDate = DateTime.UtcNow.AddYears(-2).ToString("u");
-                var endDate = DateTime.UtcNow.ToString("u");
-
-                eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
-                {
-                    requestConfiguration.QueryParameters.StartDateTime = startDate;
-                    requestConfiguration.QueryParameters.EndDateTime = endDate;
-                }, cancellationToken: cancellationToken);
-
-                // No delta link. Performing initial sync.
-                //eventsDeltaResponse = await _graphClient.Me.CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
-                //{
-                //    requestConfiguration.QueryParameters.StartDateTime = startDate;
-                //    requestConfiguration.QueryParameters.EndDateTime = endDate;
-
-                //    // TODO: Expand does not work.
-                //    // https://github.com/microsoftgraph/msgraph-sdk-dotnet/issues/2358
-
-                //    requestConfiguration.QueryParameters.Expand = new string[] { "calendar($select=name,id)" }; // Expand the calendar and select name and id. Customize as needed.
-                //}, cancellationToken: cancellationToken);
+                await FullSynchronizeCalendarEventsAsync(calendar);
             }
             else
             {
-                var currentDeltaToken = calendar.SynchronizationDeltaToken;
-
-                _logger.Information("Performing delta sync for calendar {Name}.", calendar.Name);
-
-                var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation((requestConfiguration) =>
-                {
-
-                    //requestConfiguration.QueryParameters.StartDateTime = startDate;
-                    //requestConfiguration.QueryParameters.EndDateTime = endDate;
-                });
-
-                //var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation((config) =>
-                //{
-                //    config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
-                //    config.QueryParameters.Select = outlookMessageSelectParameters;
-                //    config.QueryParameters.Orderby = ["receivedDateTime desc"];
-                //});
-
-
-                requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
-                requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
-
-                eventsDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
-            }
-
-            List<Event> events = new();
-
-            // We must first save the parent recurring events to not lose exceptions.
-            // Therefore, order the existing items by their type and save the parent recurring events first.
-
-            var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
-            {
-                events.Add(item);
-
-                return true;
-            });
-
-            await messageIteratorAsync
-                .IterateAsync(cancellationToken)
-                .ConfigureAwait(false);
-
-            // Desc-order will move parent recurring events to the top.
-            events = events.OrderByDescending(a => a.Type).ToList();
-
-            _logger.Information("Found {Count} events in total.", events.Count);
-
-            foreach (var item in events)
-            {
-                try
-                {
-                    await _handleItemRetrievalSemaphore.WaitAsync();
-                    await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
-                }
-                catch (Exception)
-                {
-                    // _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
-                }
-                finally
-                {
-                    _handleItemRetrievalSemaphore.Release();
-                }
-            }
-
-            var latestDeltaLink = messageIteratorAsync.Deltalink;
-
-            //Store delta link for tracking new changes.
-            if (!string.IsNullOrEmpty(latestDeltaLink))
-            {
-                // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
-
-                var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
-
-                await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                await DeltaSynchronizeCalendarAsync(calendar);
             }
         }
 
         return default;
+    }
+
+    /// <summary>
+    /// Checks if the token is a time-based token (old format) rather than a delta token
+    /// </summary>
+    /// <param name="token">The token to check</param>
+    /// <returns>True if it's a time-based token</returns>
+    private bool IsTimeBasedToken(string token)
+    {
+        // Time-based tokens are ISO 8601 datetime strings
+        return DateTime.TryParse(token, out _);
+    }
+
+    /// <summary>
+    /// Executes a delta query using the provided delta URL
+    /// </summary>
+    /// <param name="deltaUrl">The delta URL from previous sync</param>
+    /// <returns>Event collection response</returns>
+    private async Task<EventCollectionResponse?> ExecuteDeltaQueryAsync(string deltaUrl)
+    {
+        try
+        {
+            // Create a custom request using the delta URL
+            var requestInfo = new RequestInformation
+            {
+                HttpMethod = Method.GET,
+                URI = new Uri(deltaUrl)
+            };
+
+            // Add required headers
+            requestInfo.Headers.Add("Accept", "application/json");
+
+            var response = await _graphClient.RequestAdapter.SendAsync(requestInfo, EventCollectionResponse.CreateFromDiscriminatorValue);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error executing delta query: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Extracts the delta token from the @odata.deltaLink property in the response
+    /// </summary>
+    /// <param name="response">The event collection response</param>
+    /// <returns>The delta token URL or null if not found</returns>
+    private string? ExtractDeltaTokenFromResponse(EventCollectionResponse? response)
+    {
+        try
+        {
+            if (response?.AdditionalData?.ContainsKey("@odata.deltaLink") == true)
+            {
+                return response.AdditionalData["@odata.deltaLink"]?.ToString();
+            }
+
+            // Check for nextLink first, then deltaLink
+            if (response?.OdataNextLink != null)
+            {
+                return response.OdataNextLink;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error extracting delta token: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Processes pagination for delta events and continues until deltaLink is reached
+    /// </summary>
+    /// <param name="calendarId">The database calendar ID</param>
+    /// <param name="initialResponse">The initial delta response</param>
+    private async Task ProcessDeltaEventsPaginationAsync(Guid calendarId, EventCollectionResponse? initialResponse, string? outlookCalendarId = null)
+    {
+        try
+        {
+            var currentResponse = initialResponse;
+
+            while (!string.IsNullOrEmpty(currentResponse?.OdataNextLink))
+            {
+                Console.WriteLine($"   📃 Processing next page of delta events...");
+
+                // Get next page
+                currentResponse = await ExecuteDeltaQueryAsync(currentResponse.OdataNextLink);
+
+                var events = currentResponse?.Value ?? new List<Microsoft.Graph.Models.Event>();
+
+                foreach (var outlookEvent in events)
+                {
+                    await ProcessOutlookDeltaEventAsync(calendarId, outlookEvent, outlookCalendarId);
+                }
+            }
+
+            Console.WriteLine($"   ✅ Completed processing all delta event pages");
+
+            // Update the delta token from the final response
+            if (currentResponse != null)
+            {
+                var finalDeltaToken = ExtractDeltaTokenFromResponse(currentResponse);
+                if (!string.IsNullOrEmpty(finalDeltaToken) && !string.IsNullOrEmpty(outlookCalendarId))
+                {
+                    var calendarRemoteId = $"{outlookCalendarId}";
+                    await _outlookChangeProcessor.UpdateCalendarSyncTokenAsync(calendarRemoteId, finalDeltaToken);
+                    Console.WriteLine($"   🔄 Updated delta token for next sync");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"   ❌ Error processing delta events pagination: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Extracts delta token from delta initialization response
+    /// </summary>
+    /// <param name="response">The delta response</param>
+    /// <returns>The delta token or null</returns>
+    private string? ExtractDeltaTokenFromInitResponse(Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse? response)
+    {
+        try
+        {
+            Console.WriteLine($"   🔍 Extracting delta token from init response...");
+
+            if (!string.IsNullOrEmpty(response?.OdataDeltaLink))
+            {
+                return response?.OdataDeltaLink;
+            }
+
+            if (response?.AdditionalData?.ContainsKey("@odata.deltaLink") == true)
+            {
+                var deltaLink = response.AdditionalData["@odata.deltaLink"]?.ToString();
+                Console.WriteLine($"   📄 Found @odata.deltaLink: {deltaLink}");
+                return deltaLink;
+            }
+
+            if (response?.OdataNextLink != null)
+            {
+                Console.WriteLine($"   📄 Found @odata.nextLink: {response.OdataNextLink}");
+                return response.OdataNextLink;
+            }
+
+            Console.WriteLine($"   ⚠️ No delta or next link found in response");
+            if (response?.AdditionalData != null)
+            {
+                Console.WriteLine($"   📋 Available additional data keys: {string.Join(", ", response.AdditionalData.Keys)}");
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error extracting delta token from init response: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Processes pagination during delta initialization
+    /// </summary>
+    /// <param name="calendarId">The database calendar ID</param>
+    /// <param name="initialResponse">The initial delta response</param>
+    /// <param name="outlookCalendarId">The Outlook calendar ID</param>
+    private async Task ProcessDeltaInitializationPaginationAsync(Guid calendarId, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse? initialResponse, string outlookCalendarId)
+    {
+        try
+        {
+            if (initialResponse == null)
+            {
+                Console.WriteLine($"   ⚠️ No initial response for pagination");
+                return;
+            }
+
+            Console.WriteLine($"   🔄 Processing pagination for delta initialization...");
+
+            // Process all events through pagination
+            var currentResponse = initialResponse;
+
+            // Process initial page events
+            if (currentResponse.Value != null)
+            {
+                foreach (var outlookEvent in currentResponse.Value)
+                {
+                    await SynchronizeEventAsync(calendarId, outlookEvent);
+                }
+            }
+
+            // Continue pagination if there are more pages
+            while (!string.IsNullOrEmpty(currentResponse?.OdataNextLink))
+            {
+                Console.WriteLine($"   📃 Processing next page of initialization events...");
+
+                // Create a request for the next page URL
+                var requestInfo = new RequestInformation
+                {
+                    HttpMethod = Method.GET,
+                    URI = new Uri(currentResponse.OdataNextLink)
+                };
+                requestInfo.Headers.Add("Accept", "application/json");
+
+                // Get next page as DeltaGetResponse
+                currentResponse = await _graphClient.RequestAdapter.SendAsync(requestInfo, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+
+                // Process events from this page
+                if (currentResponse?.Value != null)
+                {
+                    foreach (var outlookEvent in currentResponse.Value)
+                    {
+                        await SynchronizeEventAsync(calendarId, outlookEvent);
+                    }
+                }
+            }
+
+            // Now extract delta token from the FINAL response (after all pagination)
+            var deltaToken = ExtractDeltaTokenFromInitResponse(currentResponse);
+            if (!string.IsNullOrEmpty(deltaToken))
+            {
+                await _outlookChangeProcessor.UpdateCalendarSyncTokenAsync($"{outlookCalendarId}", deltaToken);
+                Console.WriteLine($"   🎯 Delta token established for future incremental syncs: {deltaToken?.Substring(0, Math.Min(50, deltaToken.Length))}...");
+            }
+            else
+            {
+                Console.WriteLine($"   ⚠️ No delta token received - will retry on next sync");
+            }
+
+            Console.WriteLine("   ✅ Completed processing all initialization pages");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"   ❌ Error processing delta initialization pagination: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Initializes an Outlook calendar with full sync and establishes delta token
+    /// </summary>
+    /// <param name="outlookCalendarId">The Outlook calendar ID to initialize</param>
+    private async Task InitializeOutlookCalendarWithDeltaTokenAsync(string outlookCalendarId)
+    {
+        try
+        {
+            Console.WriteLine($"   🔄 Initializing delta sync for calendar: {outlookCalendarId}");
+
+            // Get the database calendar
+            var dbCalendar = await _outlookChangeProcessor.GetCalendarByRemoteIdAsync($"{outlookCalendarId}");
+            if (dbCalendar == null)
+            {
+                Console.WriteLine($"   ❌ Database calendar not found: {outlookCalendarId}");
+                return;
+            }
+
+            // Perform initial delta query to get baseline and delta token
+            // Use custom request to avoid problematic query parameters
+            Console.WriteLine($"   🔍 Making clean delta request...");
+
+            // Build a clean delta URL without problematic query parameters
+            var deltaUrl = $"https://graph.microsoft.com/v1.0/me/calendars/{outlookCalendarId}/events/delta";
+            Console.WriteLine($"   🔍 Clean delta request URL: {deltaUrl}");
+
+            // Execute clean delta request
+            var requestInfo = new RequestInformation
+            {
+                HttpMethod = Method.GET,
+                URI = new Uri(deltaUrl)
+            };
+            requestInfo.Headers.Add("Accept", "application/json");
+
+            var initialDeltaResponse = await _graphClient.RequestAdapter.SendAsync(requestInfo, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+
+            var allEvents = initialDeltaResponse?.Value ?? new List<Microsoft.Graph.Models.Event>();
+
+            if (allEvents.Count > 0)
+            {
+                Console.WriteLine($"   📥 Processing {allEvents.Count} events during initialization...");
+
+                foreach (var outlookEvent in allEvents)
+                {
+                    await SynchronizeEventAsync(dbCalendar.Id, outlookEvent);
+                }
+            }
+
+            // Process all pages to get to the deltaLink
+            await ProcessDeltaInitializationPaginationAsync(dbCalendar.Id, initialDeltaResponse, outlookCalendarId);
+
+            Console.WriteLine($"   🎯 Delta token initialization completed");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"   ❌ Failed to initialize delta sync for calendar {outlookCalendarId}: {ex.Message}");
+            throw;
+        }
+    }
+
+    private async Task FullSynchronizeCalendarEventsAsync(AccountCalendar calendar)
+    {
+        var outlookCalendarId = calendar.RemoteCalendarId;
+        try
+        {
+            Console.WriteLine($"   🔄 Full sync for calendar: {outlookCalendarId}");
+
+            // Get the database calendar
+            var dbCalendar = await _outlookChangeProcessor.GetCalendarByRemoteIdAsync($"{outlookCalendarId}");
+            if (dbCalendar == null)
+            {
+                Console.WriteLine($"   ❌ Database calendar not found: {outlookCalendarId}");
+                return;
+            }
+
+            // Step 1: Perform initial delta query to get all events and establish baseline
+            Console.WriteLine($"   📥 Fetching all events using delta endpoint...");
+
+            // Use the delta endpoint to get all events - this establishes the initial state
+            // IMPORTANT: We must include includeDeletedEvents=true even in the initial query
+            // to ensure the delta token supports deleted events in subsequent calls
+            var requestUrl = $"https://graph.microsoft.com/v1.0/me/calendars/{outlookCalendarId}/events/delta?includeDeletedEvents=true";
+            var requestInfo = new RequestInformation
+            {
+                HttpMethod = Method.GET,
+                URI = new Uri(requestUrl)
+            };
+            requestInfo.Headers.Add("Accept", "application/json");
+
+            var deltaRequest = await _graphClient.RequestAdapter.SendAsync(requestInfo, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+
+            var allEvents = deltaRequest?.Value ?? new List<Microsoft.Graph.Models.Event>();
+            Console.WriteLine($"   📋 Processing {allEvents.Count} events from initial delta response...");
+
+            // Process all events from the initial response
+            foreach (var outlookEvent in allEvents)
+            {
+                await ProcessOutlookDeltaEventAsync(calendar.Id, outlookEvent, outlookCalendarId);
+            }
+
+            // Step 2: Process pagination until we reach the deltaLink
+            var currentResponse = deltaRequest;
+            while (!string.IsNullOrEmpty(currentResponse?.OdataNextLink))
+            {
+                Console.WriteLine($"   📄 Processing next page of events...");
+
+                // Get next page using the nextLink
+                var pageRequestInfo = new RequestInformation
+                {
+                    HttpMethod = Method.GET,
+                    URI = new Uri(currentResponse.OdataNextLink)
+                };
+                pageRequestInfo.Headers.Add("Accept", "application/json");
+
+                currentResponse = await _graphClient.RequestAdapter.SendAsync(pageRequestInfo, Microsoft.Graph.Me.Calendars.Item.Events.Delta.DeltaGetResponse.CreateFromDiscriminatorValue);
+
+                var pageEvents = currentResponse?.Value ?? new List<Microsoft.Graph.Models.Event>();
+                Console.WriteLine($"   📋 Processing {pageEvents.Count} events from page...");
+
+                foreach (var outlookEvent in pageEvents)
+                {
+                    await SynchronizeEventAsync(dbCalendar.Id, outlookEvent);
+                }
+            }
+
+            // Step 3: Extract and save the delta token for future incremental syncs
+            var deltaToken = ExtractDeltaTokenFromInitResponse(currentResponse);
+            if (!string.IsNullOrEmpty(deltaToken))
+            {
+                await _outlookChangeProcessor.UpdateCalendarSyncTokenAsync($"{outlookCalendarId}", deltaToken);
+                Console.WriteLine($"   🎯 Delta token saved for future incremental syncs");
+                Console.WriteLine($"   📄 Token: {deltaToken.Substring(0, Math.Min(80, deltaToken.Length))}...");
+            }
+            else
+            {
+                Console.WriteLine($"   ⚠️ Warning: No delta token received - will retry on next sync");
+            }
+
+            Console.WriteLine($"   ✅ Full synchronization completed for calendar: {outlookCalendarId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"   ❌ Error during full sync for calendar {outlookCalendarId}: {ex.Message}");
+            throw;
+        }
+    }
+
+    public async Task<bool> DeltaSynchronizeCalendarAsync(AccountCalendar calendar)
+    {
+        var outlookCalendarId = calendar.RemoteCalendarId;
+
+        try
+        {
+            Console.WriteLine($"   🔍 Starting delta sync for calendar: {outlookCalendarId}");
+
+            var dbCalendarId = $"{outlookCalendarId}";
+            var deltaToken = await _outlookChangeProcessor.GetCalendarSyncTokenAsync(dbCalendarId);
+
+            // Check if we have a valid delta token
+            if (string.IsNullOrEmpty(deltaToken))
+            {
+                Console.WriteLine($"   ❌ No delta token found. Please run Initialize Sync Tokens first (Option 18).");
+                return false;
+            }
+
+            Console.WriteLine($"   ✅ Using stored delta token for incremental sync");
+
+            // Get the database calendar
+            var dbCalendar = await _outlookChangeProcessor.GetCalendarByRemoteIdAsync(dbCalendarId);
+            if (dbCalendar == null)
+            {
+                Console.WriteLine($"   ❌ Calendar not found in database: {dbCalendarId}");
+                return false;
+            }
+
+            try
+            {
+                // Execute delta query using the stored delta URL
+                var eventsResponse = await ExecuteDeltaQueryAsync(deltaToken);
+
+                if (eventsResponse?.Value != null && eventsResponse.Value.Count > 0)
+                {
+                    Console.WriteLine($"   📥 Processing {eventsResponse.Value.Count} delta changes...");
+
+                    // Process each changed event
+                    foreach (var outlookEvent in eventsResponse.Value)
+                    {
+                        await ProcessOutlookDeltaEventAsync(dbCalendar.Id, outlookEvent, outlookCalendarId);
+                    }
+
+                    // Process any additional pages
+                    await ProcessDeltaEventsPaginationAsync(dbCalendar.Id, eventsResponse, outlookCalendarId);
+                }
+                else
+                {
+                    Console.WriteLine($"   📭 No changes found for calendar");
+                }
+
+                // Extract and store the new delta token from @odata.deltaLink
+                var newDeltaToken = ExtractDeltaTokenFromResponse(eventsResponse);
+                if (!string.IsNullOrEmpty(newDeltaToken))
+                {
+                    await _outlookChangeProcessor.UpdateCalendarSyncTokenAsync(dbCalendarId, newDeltaToken);
+                    Console.WriteLine($"   🔄 Updated delta token for future syncs");
+                }
+                else
+                {
+                    Console.WriteLine($"   ⚠️ Warning: No new delta token received");
+                }
+
+                return true;
+            }
+            catch (Microsoft.Graph.Models.ODataErrors.ODataError odataError) when (odataError.ResponseStatusCode == 410)
+            {
+                // Delta token expired (HTTP 410 Gone) - recommend full sync
+                Console.WriteLine($"   ⚠️ Delta token expired. Run Initialize Sync Tokens (Option 18) to reinitialize.");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"   ❌ Error during delta sync: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Processes a single Outlook event change from delta synchronization
+    /// </summary>
+    /// <param name="calendarId">The database calendar ID</param>
+    /// <param name="outlookEvent">The Outlook event</param>
+    private async Task ProcessOutlookDeltaEventAsync(Guid calendarId, Microsoft.Graph.Models.Event outlookEvent, string? outlookCalendarId = null)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(outlookEvent.Id))
+            {
+                return;
+            }
+
+            // Check if this is a deleted event using various Microsoft Graph deletion indicators
+            bool isDeleted = false;
+            string deletionReason = "";
+
+            // Method 1: Check for @removed annotation in additional data (Microsoft Graph way of indicating deleted items)
+            if (outlookEvent.AdditionalData?.ContainsKey("@removed") == true)
+            {
+                isDeleted = true;
+                deletionReason = "Microsoft Graph @removed annotation";
+                var removedInfo = outlookEvent.AdditionalData["@removed"];
+                Console.WriteLine($"🗑️ Detected deleted event via @removed annotation: {outlookEvent.Id}");
+                Console.WriteLine($"   📋 Removal info: {removedInfo}");
+            }
+            // Method 2: Check for removal reason in additional data
+            else if (outlookEvent.AdditionalData?.ContainsKey("reason") == true)
+            {
+                var reason = outlookEvent.AdditionalData["reason"]?.ToString();
+                if (reason == "deleted")
+                {
+                    isDeleted = true;
+                    deletionReason = "Microsoft Graph reason=deleted";
+                    Console.WriteLine($"🗑️ Detected deleted event via reason field: {outlookEvent.Id}");
+                }
+            }
+            // Method 3: Check for @odata.context indicating a deleted item
+            else if (outlookEvent.AdditionalData?.ContainsKey("@odata.context") == true)
+            {
+                var context = outlookEvent.AdditionalData["@odata.context"]?.ToString();
+                if (context?.Contains("$entity") == true || context?.Contains("deleted") == true)
+                {
+                    isDeleted = true;
+                    deletionReason = "Microsoft Graph @odata.context indicates deletion";
+                    Console.WriteLine($"🗑️ Detected deleted event via @odata.context: {outlookEvent.Id}");
+                }
+            }
+            // Method 4: Check if the event is marked as cancelled
+            else if (outlookEvent.IsCancelled == true)
+            {
+                isDeleted = true;
+                deletionReason = "Event marked as cancelled";
+                Console.WriteLine($"🗑️ Detected cancelled event: {outlookEvent.Subject ?? outlookEvent.Id}");
+            }
+            // Method 5: Check if all important properties are null/empty (indicating a minimal deleted event response)
+            else if (string.IsNullOrEmpty(outlookEvent.Subject) &&
+                     outlookEvent.Start == null &&
+                     outlookEvent.End == null &&
+                     outlookEvent.Organizer == null &&
+                     outlookEvent.Body?.Content == null)
+            {
+                // This might be a deleted event with minimal data - but be cautious
+                Console.WriteLine($"🔍 Possible deleted event (minimal data): {outlookEvent.Id}");
+                Console.WriteLine($"   📋 Event has only ID, no other properties - investigating...");
+
+                // Try to fetch the event directly to confirm if it's deleted
+                try
+                {
+                    // Get the Outlook calendar ID if not provided
+                    if (string.IsNullOrEmpty(outlookCalendarId))
+                    {
+                        var allCalendars = await _outlookChangeProcessor.GetAllCalendarsAsync();
+                        var dbCalendar2 = allCalendars.FirstOrDefault(c => c.Id == calendarId);
+                        outlookCalendarId = dbCalendar2?.RemoteCalendarId.Replace("", "");
+                    }
+
+                    if (!string.IsNullOrEmpty(outlookCalendarId))
+                    {
+                        await _graphClient.Me.Calendars[outlookCalendarId].Events[outlookEvent.Id].GetAsync();
+                        Console.WriteLine($"   ✅ Event exists, not deleted - will process normally");
+                    }
+                }
+                catch (Microsoft.Graph.Models.ODataErrors.ODataError ex) when (ex.ResponseStatusCode == 404)
+                {
+                    // 404 confirms it's deleted
+                    isDeleted = true;
+                    deletionReason = "404 Not Found when fetching event details";
+                    Console.WriteLine($"🗑️ Confirmed deleted event (404 when fetching): {outlookEvent.Id}");
+                }
+                catch (Exception)
+                {
+                    // Other errors - treat as non-deleted but log
+                    Console.WriteLine($"   ⚠️ Could not verify deletion status, will process as normal event");
+                }
+            }
+
+            if (isDeleted)
+            {
+                // Handle deleted/canceled events
+                var eventId = $"{outlookEvent.Id}";
+                await _outlookChangeProcessor.MarkEventAsDeletedAsync(eventId, $"{calendarId}");
+                Console.WriteLine($"🗑️ Marked Outlook event as deleted: {outlookEvent.Subject ?? outlookEvent.Id}");
+                Console.WriteLine($"   📋 Deletion reason: {deletionReason}");
+                return;
+            }
+
+            // For active events, fetch full event details from API to ensure we have all properties
+            try
+            {
+                // Get the Outlook calendar ID if not provided
+                if (string.IsNullOrEmpty(outlookCalendarId))
+                {
+                    var allCalendars = await _outlookChangeProcessor.GetAllCalendarsAsync();
+                    var dbCalendar = allCalendars.FirstOrDefault(c => c.Id == calendarId);
+
+                    if (dbCalendar == null)
+                    {
+                        Console.WriteLine($"❌ Database calendar not found for ID: {calendarId}");
+                        return;
+                    }
+
+                    outlookCalendarId = dbCalendar.RemoteCalendarId.Replace("", "");
+                }
+
+                // Fetch the complete event with all properties
+                var fullEvent = await _graphClient.Me.Calendars[outlookCalendarId].Events[outlookEvent.Id].GetAsync(requestConfiguration =>
+                {
+                    requestConfiguration.QueryParameters.Select = new string[] {
+                            "id", "subject", "start", "end", "location", "body", "attendees",
+                            "organizer", "recurrence", "isAllDay", "isCancelled",
+                            "createdDateTime", "lastModifiedDateTime"
+                        };
+                });
+
+                if (fullEvent != null)
+                {
+                    // Process the full event data
+                    await SynchronizeEventAsync(calendarId, fullEvent);
+
+                    var existingEvent = await _outlookChangeProcessor.GetEventByRemoteIdAsync($"{fullEvent.Id}");
+                    var action = existingEvent != null ? "Updated" : "Created";
+                    Console.WriteLine($"✅ {action} Outlook event: {fullEvent.Subject ?? "No Subject"} ({fullEvent.Id})");
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ Could not fetch full event details for {outlookEvent.Id}");
+                    // Fallback to processing the delta event as-is
+                    await SynchronizeEventAsync(calendarId, outlookEvent);
+                    var existingEvent = await _outlookChangeProcessor.GetEventByRemoteIdAsync($"{outlookEvent.Id}");
+                    var action = existingEvent != null ? "Updated" : "Created";
+                    Console.WriteLine($"✅ {action} Outlook event (partial): {outlookEvent.Subject ?? "No Subject"} ({outlookEvent.Id})");
+                }
+            }
+            catch (Microsoft.Graph.Models.ODataErrors.ODataError odataError) when (odataError.ResponseStatusCode == 404)
+            {
+                // If we get a 404 when trying to fetch the event, it means it was deleted
+                Console.WriteLine($"🗑️ Event {outlookEvent.Id} was deleted (404 Not Found)");
+                var eventId = $"{outlookEvent.Id}";
+                await _outlookChangeProcessor.MarkEventAsDeletedAsync(eventId, $"{calendarId}");
+                Console.WriteLine($"🗑️ Marked Outlook event as deleted: {outlookEvent.Subject ?? outlookEvent.Id}");
+            }
+            catch (Exception fetchEx)
+            {
+                Console.WriteLine($"⚠️ Failed to fetch full event details for {outlookEvent.Id}: {fetchEx.Message}");
+                // Fallback to processing the delta event as-is
+                await SynchronizeEventAsync(calendarId, outlookEvent);
+                var existingEvent = await _outlookChangeProcessor.GetEventByRemoteIdAsync($"{outlookEvent.Id}");
+                var action = existingEvent != null ? "Updated" : "Created";
+                Console.WriteLine($"✅ {action} Outlook event (fallback): {outlookEvent.Subject ?? "No Subject"} ({outlookEvent.Id})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to process Outlook delta event {outlookEvent.Id}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Synchronizes a single Outlook event
+    /// </summary>
+    /// <param name="calendarId">The database calendar ID</param>
+    /// <param name="outlookEvent">The Outlook event to synchronize</param>
+    private async Task SynchronizeEventAsync(Guid calendarId, Microsoft.Graph.Models.Event outlookEvent)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(outlookEvent.Id))
+            {
+                return;
+            }
+
+            // Check if event already exists
+            var existingEvent = await _outlookChangeProcessor.GetEventByRemoteIdAsync($"{outlookEvent.Id}");
+
+            var eventData = new CalendarItem
+            {
+                CalendarId = calendarId,
+                RemoteEventId = outlookEvent.Id,
+                Title = outlookEvent.Subject ?? "No Subject",
+                Description = outlookEvent.Body?.Content ?? "",
+                Location = outlookEvent.Location?.DisplayName ?? "",
+                StartDateTime = ParseEventDateTime(outlookEvent.Start),
+                EndDateTime = ParseEventDateTime(outlookEvent.End),
+                IsAllDay = outlookEvent.IsAllDay ?? false,
+                OrganizerDisplayName = outlookEvent.Organizer?.EmailAddress?.Name,
+                OrganizerEmail = outlookEvent.Organizer?.EmailAddress?.Address,
+                RecurrenceRules = FormatRecurrence(outlookEvent.Recurrence),
+                Status = outlookEvent.IsCancelled == true ? "cancelled" : "confirmed",
+                IsDeleted = outlookEvent.IsCancelled == true,
+                LastModified = DateTime.UtcNow
+            };
+
+            // Automatically determine the calendar item type based on event properties
+            eventData.DetermineItemType();
+
+            if (existingEvent != null)
+            {
+                // Update existing event
+                eventData.Id = existingEvent.Id;
+                eventData.CreatedDate = existingEvent.CreatedDate;
+                await _outlookChangeProcessor.UpdateEventAsync(eventData);
+            }
+            else
+            {
+                // Create new event
+                eventData.Id = Guid.NewGuid();
+                eventData.CreatedDate = DateTime.UtcNow;
+                await _outlookChangeProcessor.InsertEventAsync(eventData);
+            }
+
+            // Synchronize attendees for this event
+            Console.WriteLine($"Synchronizing attendees for event: {outlookEvent.Subject}");
+            await SynchronizeEventAttendeesAsync(eventData.Id, outlookEvent.Attendees);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error synchronizing event {outlookEvent.Subject}: {ex.Message}");
+            // Continue with other events
+        }
+    }
+
+    /// <summary>
+    /// Formats Outlook recurrence information with enhanced BYDAY and BYMONTHDAY support
+    /// </summary>
+    /// <param name="recurrence">Outlook recurrence pattern</param>
+    /// <returns>Formatted recurrence string in RRULE format</returns>
+    private string FormatRecurrence(Microsoft.Graph.Models.PatternedRecurrence? recurrence)
+    {
+        if (recurrence?.Pattern == null)
+        {
+            return "";
+        }
+
+        var pattern = recurrence.Pattern;
+        var parts = new List<string>();
+
+        // Basic frequency mapping
+        var freq = pattern.Type switch
+        {
+            Microsoft.Graph.Models.RecurrencePatternType.Daily => "DAILY",
+            Microsoft.Graph.Models.RecurrencePatternType.Weekly => "WEEKLY",
+            Microsoft.Graph.Models.RecurrencePatternType.AbsoluteMonthly => "MONTHLY",
+            Microsoft.Graph.Models.RecurrencePatternType.RelativeMonthly => "MONTHLY",
+            Microsoft.Graph.Models.RecurrencePatternType.AbsoluteYearly => "YEARLY",
+            Microsoft.Graph.Models.RecurrencePatternType.RelativeYearly => "YEARLY",
+            _ => "DAILY"
+        };
+        parts.Add($"FREQ={freq}");
+
+        // Interval
+        if (pattern.Interval > 1)
+        {
+            parts.Add($"INTERVAL={pattern.Interval}");
+        }
+
+        // Handle BYDAY for weekly and monthly patterns
+        if (pattern.DaysOfWeek != null && pattern.DaysOfWeek.Any())
+        {
+            var byDayValues = new List<string>();
+
+            foreach (var dayOfWeekObj in pattern.DaysOfWeek)
+            {
+                // Convert DayOfWeekObject to string representation
+                string? dayCode = null;
+                try
+                {
+                    // Use ToString() to get the day of week representation
+                    var dayString = dayOfWeekObj?.ToString()?.ToLowerInvariant();
+                    dayCode = dayString switch
+                    {
+                        "sunday" => "SU",
+                        "monday" => "MO",
+                        "tuesday" => "TU",
+                        "wednesday" => "WE",
+                        "thursday" => "TH",
+                        "friday" => "FR",
+                        "saturday" => "SA",
+                        _ => null
+                    };
+                }
+                catch
+                {
+                    // If conversion fails, skip this day
+                    continue;
+                }
+
+                if (dayCode != null)
+                {
+                    // For relative monthly patterns (e.g., first Monday, last Friday)
+                    if (pattern.Type == Microsoft.Graph.Models.RecurrencePatternType.RelativeMonthly && pattern.Index != null)
+                    {
+                        var indexCode = pattern.Index switch
+                        {
+                            Microsoft.Graph.Models.WeekIndex.First => "1",
+                            Microsoft.Graph.Models.WeekIndex.Second => "2",
+                            Microsoft.Graph.Models.WeekIndex.Third => "3",
+                            Microsoft.Graph.Models.WeekIndex.Fourth => "4",
+                            Microsoft.Graph.Models.WeekIndex.Last => "-1",
+                            _ => ""
+                        };
+                        if (!string.IsNullOrEmpty(indexCode))
+                        {
+                            byDayValues.Add($"{indexCode}{dayCode}");
+                        }
+                    }
+                    else
+                    {
+                        byDayValues.Add(dayCode);
+                    }
+                }
+            }
+
+            if (byDayValues.Any())
+            {
+                parts.Add($"BYDAY={string.Join(",", byDayValues)}");
+            }
+        }
+
+        // Handle BYMONTHDAY for absolute monthly patterns
+        if (pattern.Type == Microsoft.Graph.Models.RecurrencePatternType.AbsoluteMonthly && pattern.DayOfMonth > 0)
+        {
+            parts.Add($"BYMONTHDAY={pattern.DayOfMonth}");
+        }
+
+        // Handle BYMONTH for yearly patterns
+        if ((pattern.Type == Microsoft.Graph.Models.RecurrencePatternType.AbsoluteYearly ||
+             pattern.Type == Microsoft.Graph.Models.RecurrencePatternType.RelativeYearly) &&
+            pattern.Month > 0)
+        {
+            parts.Add($"BYMONTH={pattern.Month}");
+        }
+
+        // Handle COUNT and UNTIL from recurrence range
+        if (recurrence.Range != null)
+        {
+            switch (recurrence.Range.Type)
+            {
+                case Microsoft.Graph.Models.RecurrenceRangeType.Numbered:
+                    if (recurrence.Range.NumberOfOccurrences > 0)
+                    {
+                        parts.Add($"COUNT={recurrence.Range.NumberOfOccurrences}");
+                    }
+                    break;
+
+                case Microsoft.Graph.Models.RecurrenceRangeType.EndDate:
+                    if (recurrence.Range.EndDate != null)
+                    {
+                        // Convert Microsoft.Kiota.Abstractions.Date to DateTime
+                        try
+                        {
+                            var endDateString = recurrence.Range.EndDate.ToString();
+                            if (DateTime.TryParse(endDateString, out var endDate))
+                            {
+                                // Convert to RRULE UNTIL format (YYYYMMDDTHHMMSSZ)
+                                var utcEndDate = endDate.ToUniversalTime();
+                                parts.Add($"UNTIL={utcEndDate:yyyyMMddTHHmmss}Z");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Warning: Could not parse end date for recurrence: {ex.Message}");
+                        }
+                    }
+                    break;
+            }
+        }
+
+        // Return empty string if no parts were added
+        if (parts.Count == 0)
+        {
+            return "";
+        }
+
+        // Join the parts and add the RRULE: prefix for compatibility with ExpandRecurringEvent
+        return $"RRULE:{string.Join(";", parts)}";
+    }
+
+    /// <summary>
+    /// Parses Outlook event date/time
+    /// </summary>
+    /// <param name="dateTime">Outlook DateTimeTimeZone</param>
+    /// <returns>Parsed DateTime</returns>
+    private DateTime ParseEventDateTime(Microsoft.Graph.Models.DateTimeTimeZone? dateTime)
+    {
+        if (dateTime?.DateTime == null)
+        {
+            return DateTime.UtcNow;
+        }
+
+        if (DateTime.TryParse(dateTime.DateTime, out var parsed))
+        {
+            // Convert to UTC if timezone info is available
+            if (!string.IsNullOrEmpty(dateTime.TimeZone) && dateTime.TimeZone != "UTC")
+            {
+                try
+                {
+                    var timeZone = TimeZoneInfo.FindSystemTimeZoneById(dateTime.TimeZone);
+                    return TimeZoneInfo.ConvertTimeToUtc(parsed, timeZone);
+                }
+                catch
+                {
+                    // If timezone conversion fails, assume the time is already in the correct zone
+                    return parsed;
+                }
+            }
+            return parsed;
+        }
+
+        return DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Synchronizes attendees for an event
+    /// </summary>
+    /// <param name="eventId">The database event ID</param>
+    /// <param name="outlookAttendees">The Outlook attendees</param>
+    private async Task SynchronizeEventAttendeesAsync(Guid eventId, IList<Microsoft.Graph.Models.Attendee>? outlookAttendees)
+    {
+        try
+        {
+            // Clear existing attendees for this event
+            await _outlookChangeProcessor.DeleteCalendarEventAttendeesForEventAsync(eventId);
+
+            if (outlookAttendees == null || !outlookAttendees.Any())
+            {
+                Console.WriteLine($"No attendees found for event {eventId}");
+                return;
+            }
+
+            Console.WriteLine($"Synchronizing {outlookAttendees.Count} attendees for event {eventId}");
+            var attendees = new List<CalendarEventAttendee>();
+
+            foreach (var outlookAttendee in outlookAttendees)
+            {
+                if (outlookAttendee.EmailAddress?.Address == null)
+                {
+                    Console.WriteLine($"Skipping attendee with no email address");
+                    continue;
+                }
+
+                var attendee = new CalendarEventAttendee
+                {
+                    Id = Guid.NewGuid(),
+                    EventId = eventId,
+                    Email = outlookAttendee.EmailAddress.Address,
+                    DisplayName = outlookAttendee.EmailAddress.Name,
+                    ResponseStatus = OutlookIntegratorExtensions.ConvertOutlookResponseStatus(outlookAttendee.Status?.Response),
+                    IsOptional = outlookAttendee.Type == Microsoft.Graph.Models.AttendeeType.Optional,
+                    IsOrganizer = outlookAttendee.Status?.Response == Microsoft.Graph.Models.ResponseType.Organizer,
+                    IsSelf = false, // Outlook doesn't provide this directly
+                    Comment = "", // Outlook doesn't provide attendee comments
+                    AdditionalGuests = 0, // Outlook doesn't provide this
+                    CreatedDate = DateTime.UtcNow,
+                    LastModified = DateTime.UtcNow
+                };
+
+                Console.WriteLine($"Adding attendee: {attendee.Email} ({attendee.ResponseStatus})");
+                attendees.Add(attendee);
+            }
+
+            // Add all attendees
+            foreach (var attendee in attendees)
+            {
+                await _outlookChangeProcessor.InsertCalendarEventAttendeeAsync(attendee);
+            }
+
+            Console.WriteLine($"Successfully synchronized {attendees.Count} attendees");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error synchronizing attendees for event: {ex.Message}");
+        }
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)

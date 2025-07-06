@@ -127,6 +127,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly ICalendarService _calendarService;
     private readonly INavigationService _navigationService;
     private readonly IKeyPressService _keyPressService;
+    private readonly ICalendarServiceEx _calendarServiceEx;
     private readonly IPreferencesService _preferencesService;
 
     // Store latest rendered options.
@@ -146,6 +147,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                                  ICalendarService calendarService,
                                  INavigationService navigationService,
                                  IKeyPressService keyPressService,
+                                 ICalendarServiceEx calendarServiceEx,
                                  IAccountCalendarStateService accountCalendarStateService,
                                  IPreferencesService preferencesService)
     {
@@ -155,6 +157,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _calendarService = calendarService;
         _navigationService = navigationService;
         _keyPressService = keyPressService;
+        _calendarServiceEx = calendarServiceEx;
         _preferencesService = preferencesService;
 
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
@@ -235,23 +238,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]
     private async Task SaveQuickEventAsync()
     {
-        var durationSeconds = (QuickEventEndTime - QuickEventStartTime).TotalSeconds;
-
-        var testCalendarItem = new CalendarItem
-        {
-            CalendarId = SelectedQuickEventAccountCalendar.Id,
-            StartDate = QuickEventStartTime,
-            DurationInSeconds = durationSeconds,
-            CreatedAt = DateTime.UtcNow,
-            Description = string.Empty,
-            Location = Location,
-            Title = EventName,
-            Id = Guid.NewGuid()
-        };
-
-        IsQuickEventDialogOpen = false;
-        await _calendarService.CreateNewCalendarItemAsync(testCalendarItem, null);
-
         // TODO: Create the request with the synchronizer.
     }
 
@@ -635,10 +621,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             // Check all the events for the given date range and calendar.
             // Then find the day representation for all the events returned, and add to the collection.
 
-            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, dayRangeRenderModel).ConfigureAwait(false);
+            var events = await _calendarServiceEx.GetExpandedEventsInDateRangeWithExceptionsAsync(dayRangeRenderModel.Period.Start, dayRangeRenderModel.Period.End, calendarViewModel.AccountCalendar).ConfigureAwait(false);
 
             foreach (var @event in events)
             {
+                // TODO: Do it in the service.
+                @event.AssignedCalendar = calendarViewModel.AccountCalendar;
+
                 // Find the days that the event falls into.
                 var allDaysForEvent = dayRangeRenderModel.CalendarDays.Where(a => a.Period.OverlapsWith(@event.Period));
 
@@ -800,19 +789,22 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         // Recurring events must be selected as a single instance.
         // We need to find the day that the event is in, and then select the event.
 
-        if (!calendarItemViewModel.IsRecurringEvent)
-        {
-            return [calendarItemViewModel];
-        }
-        else
-        {
-            return DayRanges
-                .SelectMany(a => a.CalendarDays)
-                .Select(b => b.EventsCollection.GetCalendarItem(calendarItemViewModel.Id))
-                .Where(c => c != null)
-                .Cast<CalendarItemViewModel>()
-                .Distinct();
-        }
+        // TODO: Implement below logic.
+        return default;
+
+        //if (!calendarItemViewModel.IsRecurringEvent)
+        //{
+        //    return [calendarItemViewModel];
+        //}
+        //else
+        //{
+        //    return DayRanges
+        //        .SelectMany(a => a.CalendarDays)
+        //        .Select(b => b.EventsCollection.GetCalendarItem(calendarItemViewModel.Id))
+        //        .Where(c => c != null)
+        //        .Cast<CalendarItemViewModel>()
+        //        .Distinct();
+        //}
     }
 
     private void UnselectCalendarItem(CalendarItemViewModel calendarItemViewModel, CalendarDayModel calendarDay = null)

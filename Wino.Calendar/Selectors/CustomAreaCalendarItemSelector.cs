@@ -13,7 +13,8 @@ public partial class CustomAreaCalendarItemSelector : DataTemplateSelector
     {
         if (item is CalendarItemViewModel calendarItemViewModel)
         {
-            return calendarItemViewModel.IsMultiDayEvent ? MultiDayTemplate : AllDayTemplate;
+            return calendarItemViewModel.CalendarItem.ItemType == Core.Domain.Enums.CalendarItemType.MultiDay ||
+                calendarItemViewModel.CalendarItem.ItemType == Core.Domain.Enums.CalendarItemType.MultiDayAllDay ? MultiDayTemplate : AllDayTemplate;
         }
 
         return base.SelectTemplateCore(item, container);

@@ -80,11 +80,11 @@ public class CalendarEventCollection
         // Multi-day events go to both.
         // Anything else goes to regular.
 
-        if (calendarItem.IsAllDayEvent)
+        if (calendarItem.ItemType == Enums.CalendarItemType.AllDay)
         {
             return [_internalAllDayEvents];
         }
-        else if (calendarItem.IsMultiDayEvent)
+        else if (calendarItem.ItemType == Enums.CalendarItemType.MultiDay || calendarItem.ItemType == Enums.CalendarItemType.MultiDayAllDay)
         {
             return [_internalRegularEvents, _internalAllDayEvents];
         }

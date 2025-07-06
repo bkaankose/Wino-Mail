@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.ViewModels.Data;
@@ -17,24 +18,20 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
     public IAccountCalendar AssignedCalendar => CalendarItem.AssignedCalendar;
 
-    public DateTime StartDate { get => CalendarItem.StartDate; set => CalendarItem.StartDate = value; }
+    public DateTime StartDateTime { get => CalendarItem.StartDateTime; set => CalendarItem.StartDateTime = value; }
 
-    public DateTime EndDate => CalendarItem.EndDate;
-
-    public double DurationInSeconds { get => CalendarItem.DurationInSeconds; set => CalendarItem.DurationInSeconds = value; }
+    public DateTime EndDateTime => CalendarItem.EndDateTime;
 
     public ITimePeriod Period => CalendarItem.Period;
 
-    public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
-    public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
-    public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
-    public bool IsRecurringChild => CalendarItem.IsRecurringChild;
-    public bool IsRecurringParent => CalendarItem.IsRecurringParent;
+    public bool IsRecurringEvent => !string.IsNullOrEmpty(CalendarItem.RecurrenceRules) || !string.IsNullOrEmpty(CalendarItem.RecurringEventId);
 
     [ObservableProperty]
     private bool _isSelected;
 
     public ObservableCollection<CalendarEventAttendee> Attendees { get; } = new ObservableCollection<CalendarEventAttendee>();
+
+    public CalendarItemType ItemType => ((ICalendarItem)CalendarItem).ItemType;
 
     public CalendarItemViewModel(CalendarItem calendarItem)
     {

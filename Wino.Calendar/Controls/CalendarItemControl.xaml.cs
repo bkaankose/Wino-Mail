@@ -7,6 +7,7 @@ using Windows.UI.Xaml.Input;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls;
@@ -90,7 +91,9 @@ public sealed partial class CalendarItemControl : UserControl
         if (CalendarItem == null) return;
         if (DisplayingDate == null) return;
 
-        if (CalendarItem.IsMultiDayEvent)
+        bool isMultiDayEvent = CalendarItem.CalendarItem.ItemType == CalendarItemType.MultiDay || CalendarItem.CalendarItem.ItemType == CalendarItemType.MultiDayAllDay;
+
+        if (isMultiDayEvent)
         {
             // Multi day events are divided into 3 categories:
             // 1. All day events
@@ -103,14 +106,14 @@ public sealed partial class CalendarItemControl : UserControl
                 periodRelation == PeriodRelation.EnclosingStartTouching)
             {
                 // hour -> title
-                CalendarItemTitle = $"{DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.StartDate.TimeOfDay)} -> {CalendarItem.Title}";
+                CalendarItemTitle = $"{DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.StartDateTime.TimeOfDay)} -> {CalendarItem.Title}";
             }
             else if (
                 periodRelation == PeriodRelation.EndInside ||
                 periodRelation == PeriodRelation.EnclosingEndTouching)
             {
                 // title <- hour
-                CalendarItemTitle = $"{CalendarItem.Title} <- {DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.EndDate.TimeOfDay)}";
+                CalendarItemTitle = $"{CalendarItem.Title} <- {DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.EndDateTime.TimeOfDay)}";
             }
             else if (periodRelation == PeriodRelation.Enclosing)
             {
@@ -139,11 +142,11 @@ public sealed partial class CalendarItemControl : UserControl
     {
         if (CalendarItem == null) return;
 
-        if (CalendarItem.IsAllDayEvent)
+        if (CalendarItem.CalendarItem.ItemType == CalendarItemType.AllDay)
         {
             VisualStateManager.GoToState(this, "AllDayEvent", true);
         }
-        else if (CalendarItem.IsMultiDayEvent)
+        else if (CalendarItem.CalendarItem.ItemType == CalendarItemType.MultiDayAllDay || CalendarItem.CalendarItem.ItemType == CalendarItemType.MultiDay)
         {
             if (IsCustomEventArea)
             {

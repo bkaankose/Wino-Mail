@@ -9,6 +9,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Wino.Calendar.Models;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.Controls;
@@ -46,7 +47,7 @@ public partial class WinoCalendarPanel : Panel
 
     private double GetChildTopMargin(ICalendarItem calendarItemViewModel, double availableHeight)
     {
-        var childStart = calendarItemViewModel.StartDate;
+        var childStart = calendarItemViewModel.StartDateTime;
 
         if (childStart <= Period.Start)
         {
@@ -71,7 +72,7 @@ public partial class WinoCalendarPanel : Panel
     private double GetChildHeight(ICalendarItem child)
     {
         // All day events are not measured.
-        if (child.IsAllDayEvent) return 0;
+        if (child.ItemType == CalendarItemType.AllDay) return 0;
 
         double childDurationInMinutes = 0d;
         double availableHeight = HourHeight * 24;
@@ -80,7 +81,7 @@ public partial class WinoCalendarPanel : Panel
 
         // Debug.WriteLine($"Render relation of {child.Title} ({child.Period.Start} - {child.Period.End}) is {periodRelation} with {Period.Start.Day}");
 
-        if (!child.IsMultiDayEvent)
+        if (child.ItemType != CalendarItemType.MultiDay || child.ItemType != CalendarItemType.MultiDayAllDay)
         {
             childDurationInMinutes = child.Period.Duration.TotalMinutes;
         }
@@ -160,7 +161,7 @@ public partial class WinoCalendarPanel : Panel
             double extraRightMargin = 0;
 
             // Multi-day events don't have any margin and their hit test is disabled.
-            if (!child.IsMultiDayEvent)
+            if (child.ItemType != CalendarItemType.MultiDay || child.ItemType != CalendarItemType.MultiDayAllDay)
             {
                 // Max of 5% of the width or 20px max.
                 extraRightMargin = isHorizontallyLastItem ? Math.Max(LastItemRightExtraMargin, finalSize.Width * 5 / 100) : 0;
@@ -168,8 +169,10 @@ public partial class WinoCalendarPanel : Panel
 
             if (childWidth < 0) childWidth = 1;
 
+            bool isAllOrMultiDayEvent = child.ItemType == CalendarItemType.AllDay || child.ItemType == CalendarItemType.MultiDay || child.ItemType == CalendarItemType.MultiDayAllDay;
+
             // Regular events must have 2px margin
-            if (!child.IsMultiDayEvent && !child.IsAllDayEvent)
+            if (!isAllOrMultiDayEvent)
             {
                 childLeft += 2;
                 childTop += 2;
@@ -211,10 +214,12 @@ public partial class WinoCalendarPanel : Panel
         var columns = new List<List<ICalendarItem>>();
         DateTime? lastEventEnding = null;
 
-        foreach (var ev in events.OrderBy(ev => ev.StartDate).ThenBy(ev => ev.EndDate))
+        foreach (var ev in events.OrderBy(ev => ev.StartDateTime).ThenBy(ev => ev.EndDateTime))
         {
             // Multi-day events are not measured.
-            if (ev.IsMultiDayEvent) continue;
+            bool isMultiDayEvent = ev.ItemType == CalendarItemType.MultiDay || ev.ItemType == CalendarItemType.MultiDayAllDay;
+
+            if (isMultiDayEvent) continue;
 
             if (ev.Period.Start >= lastEventEnding)
             {

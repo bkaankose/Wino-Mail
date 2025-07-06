@@ -361,75 +361,207 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
-        bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
-
-        _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
-
         var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
-        // TODO: Better logging and exception handling.
         foreach (var calendar in localCalendars)
         {
-            var request = _calendarService.Events.List(calendar.RemoteCalendarId);
+            // We can do just delta sync. It will fallback to full sync if there are no sync tokens or if the token is expired.
+            await DeltaSynchronizeCalendarAsync(calendar).ConfigureAwait(false);
+        }
 
-            request.SingleEvents = false;
-            request.ShowDeleted = true;
+        // TODO: Return proper result from delta or full sync.
+        return new CalendarSynchronizationResult()
+        {
+            CompletedState = SynchronizationCompletedState.Success,
+            DownloadedEvents = new List<ICalendarItem>(),
+        };
+    }
 
-            if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
+    private async Task FullSynchronizeCalendarAsync(AccountCalendar calendar)
+    {
+        var calendarId = calendar.RemoteCalendarId;
+
+        try
+        {
+            // Get events from the last 30 days to 1 year in the future
+            var timeMin = DateTime.Now.AddYears(-3);
+            var timeMax = DateTime.Now.AddYears(2);
+
+            var request = _calendarService.Events.List(calendarId);
+            request.TimeMinDateTimeOffset = timeMin;
+            request.TimeMaxDateTimeOffset = timeMax;
+            request.SingleEvents = false; // Include recurring events
+            request.ShowDeleted = true; // Include deleted events for synchronization
+            request.MaxResults = 2500; // Maximum allowed by Google Calendar API
+
+            var events = await request.ExecuteAsync();
+
+            if (events.Items != null && events.Items.Count > 0)
             {
-                // If a sync token is available, perform an incremental sync
-                request.SyncToken = calendar.SynchronizationDeltaToken;
+                Console.WriteLine($"Processing {events.Items.Count} events from calendar: {calendarId}");
+
+                foreach (var googleEvent in events.Items)
+                {
+                    await ProcessGoogleEventAsync(googleEvent, calendar);
+                }
             }
             else
             {
-                // If no sync token, perform an initial sync
-                // Fetch events from the past year
-
-                request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
+                Console.WriteLine($"No events found in calendar: {calendarId}");
             }
 
-            string nextPageToken;
-            string syncToken;
-
-            var allEvents = new List<Event>();
-
-            do
+            // Store the sync token for future delta syncs
+            if (!string.IsNullOrEmpty(events.NextSyncToken))
             {
-                // Execute the request
-                var events = await request.ExecuteAsync();
+                await _gmailChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, events.NextSyncToken).ConfigureAwait(false);
 
-                // Process the fetched events
-                if (events.Items != null)
-                {
-                    allEvents.AddRange(events.Items);
-                }
-
-                // Get the next page token and sync token
-                nextPageToken = events.NextPageToken;
-                syncToken = events.NextSyncToken;
-
-                // Set the next page token for subsequent requests
-                request.PageToken = nextPageToken;
-
-            } while (!string.IsNullOrEmpty(nextPageToken));
-
-            calendar.SynchronizationDeltaToken = syncToken;
-
-            // allEvents contains new or updated events.
-            // Process them and create/update local calendar items.
-
-            foreach (var @event in allEvents)
-            {
-                // TODO: Exception handling for event processing.
-                // TODO: Also update attendees and other properties.
-
-                await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
+                Console.WriteLine($"Stored sync token for calendar {calendarId} to enable delta sync");
             }
-
-            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to synchronize calendar {calendarId}: {ex.Message}", ex);
+        }
+    }
 
-        return default;
+    private async Task<bool> DeltaSynchronizeCalendarAsync(AccountCalendar calendar)
+    {
+        var calendarId = calendar.RemoteCalendarId;
+
+        try
+        {
+            Console.WriteLine($"Starting delta sync for calendar: {calendarId}");
+
+            // Get the stored sync token for this calendar
+            var syncToken = calendar.SynchronizationDeltaToken;
+
+            if (string.IsNullOrEmpty(syncToken))
+            {
+                Console.WriteLine($"No sync token found for calendar {calendarId}. Performing full sync...");
+                await FullSynchronizeCalendarAsync(calendar);
+                return true;
+            }
+
+            // Create the events list request with sync token
+            var request = _calendarService.Events.List(calendarId);
+            request.SyncToken = syncToken;
+            request.ShowDeleted = true; // Important: include deleted events for delta sync
+            request.SingleEvents = false; // Include recurring events
+
+            Console.WriteLine($"Requesting delta changes with sync token: {syncToken.Substring(0, Math.Min(20, syncToken.Length))}...");
+
+            Events events;
+            try
+            {
+                events = await request.ExecuteAsync();
+            }
+            catch (Google.GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.Gone)
+            {
+                // Sync token has expired, need to do full sync
+                Console.WriteLine($"Sync token expired for calendar {calendarId}. Performing full sync...");
+                await FullSynchronizeCalendarAsync(calendar);
+                return true;
+            }
+
+            if (events.Items != null && events.Items.Count > 0)
+            {
+                Console.WriteLine($"Processing {events.Items.Count} delta changes for calendar: {calendarId}");
+
+                foreach (var googleEvent in events.Items)
+                {
+                    await ProcessDeltaCalendarEventAsync(googleEvent, calendar);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"No changes found for calendar: {calendarId}");
+            }
+
+            // Store the new sync token
+            if (!string.IsNullOrEmpty(events.NextSyncToken))
+            {
+                await _gmailChangeProcessor.UpdateCalendarSyncTokenAsync(calendarId, events.NextSyncToken).ConfigureAwait(false);
+
+                calendar.SynchronizationDeltaToken = events.NextSyncToken;
+                Console.WriteLine($"Updated sync token for calendar {calendarId}");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during delta sync for calendar {calendarId}: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Processes a single event change from delta synchronization
+    /// </summary>
+    /// <param name="googleEvent">The Google Calendar event</param>
+    /// <param name="calendarId">The ID of the calendar containing the event</param>
+    private async Task ProcessDeltaCalendarEventAsync(Event googleEvent, AccountCalendar calendar)
+    {
+        var calendarId = calendar.RemoteCalendarId;
+
+        try
+        {
+            if (googleEvent.Status == "cancelled")
+            {
+                // Handle deleted/canceled events
+                await _gmailChangeProcessor.MarkEventAsDeletedAsync(googleEvent.Id, calendarId);
+                Console.WriteLine($"🗑️ Marked event as deleted: {googleEvent.Summary ?? googleEvent.Id}");
+                return;
+            }
+
+            // For active events (confirmed, tentative), process normally
+            var calendarEvent = GoogleIntegratorExtensions.MapGoogleEventToCalendarEvent(googleEvent, calendar);
+            var result = await _gmailChangeProcessor.UpsertEventAsync(calendarEvent);
+
+            // Sync attendees for delta events too
+            await SyncEventAttendeesAsync(googleEvent, calendarEvent.Id);
+
+            if (result > 0)
+            {
+                var action = await _gmailChangeProcessor.GetEventByRemoteIdAsync(googleEvent.Id) != null ? "Updated" : "Created";
+                Console.WriteLine($"✅ {action} event: {calendarEvent.Title} ({calendarEvent.RemoteEventId})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to process delta event {googleEvent.Id}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Processes a single Google Calendar event and updates the local database
+    /// </summary>
+    /// <param name="googleEvent">The Google Calendar event</param>
+    /// <param name="calendarId">The ID of the calendar containing the event</param>
+    private async Task ProcessGoogleEventAsync(Event googleEvent, AccountCalendar calendar)
+    {
+        try
+        {
+            if (googleEvent.Status == "cancelled")
+            {
+                // Handle deleted events
+                await _gmailChangeProcessor.DeleteEventAsync(googleEvent.Id);
+                Console.WriteLine($"Marked event as deleted: {googleEvent.Summary ?? googleEvent.Id}");
+                return;
+            }
+
+            var calendarEvent = googleEvent.MapGoogleEventToCalendarEvent(calendar);
+            await _gmailChangeProcessor.UpsertEventAsync(calendarEvent);
+
+            // Sync attendees separately
+            await SyncEventAttendeesAsync(googleEvent, calendarEvent.Id);
+
+            Console.WriteLine($"Processed event: {calendarEvent.Title} ({calendarEvent.RemoteEventId})");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to process event {googleEvent.Id}: {ex.Message}");
+        }
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
@@ -509,6 +641,40 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // TODO: Notify calendar updates.
             // WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
         }
+    }
+
+    /// <summary>
+    /// Syncs attendees for an event from Google Calendar data
+    /// </summary>
+    /// <param name="googleEvent">The Google Calendar event</param>
+    /// <param name="eventId">The internal event Guid</param>
+    private async Task SyncEventAttendeesAsync(Event googleEvent, Guid eventId)
+    {
+        var attendees = new List<CalendarEventAttendee>();
+
+        if (googleEvent.Attendees != null && googleEvent.Attendees.Count > 0)
+        {
+            foreach (var googleAttendee in googleEvent.Attendees)
+            {
+                var attendee = new CalendarEventAttendee
+                {
+                    EventId = eventId,
+                    Email = googleAttendee.Email ?? string.Empty,
+                    DisplayName = googleAttendee.DisplayName,
+                    ResponseStatus = GoogleIntegratorExtensions.FromGoogleStatus(googleAttendee.ResponseStatus),
+                    IsOptional = googleAttendee.Optional ?? false,
+                    IsOrganizer = googleAttendee.Organizer ?? false,
+                    IsSelf = googleAttendee.Self ?? false,
+                    Comment = googleAttendee.Comment,
+                    AdditionalGuests = googleAttendee.AdditionalGuests
+                };
+
+                attendees.Add(attendee);
+            }
+        }
+
+        // Sync attendees (replaces existing)
+        await _gmailChangeProcessor.SyncAttendeesForEventAsync(eventId, attendees).ConfigureAwait(false);
     }
 
     private async Task InitializeArchiveFolderAsync()

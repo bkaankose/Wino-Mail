@@ -22,6 +22,7 @@ public static class CalendarXamlHelpers
     /// </summary>
     public static string GetEventDetailsDateString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
     {
+        // TODO: This is not correct.
         if (calendarItemViewModel == null || settings == null) return string.Empty;
 
         var start = calendarItemViewModel.Period.Start;
@@ -30,7 +31,7 @@ public static class CalendarXamlHelpers
         string timeFormat = settings.DayHeaderDisplayType == DayHeaderDisplayType.TwelveHour ? "h:mm tt" : "HH:mm";
         string dateFormat = settings.DayHeaderDisplayType == DayHeaderDisplayType.TwelveHour ? "dddd, dd MMMM h:mm tt" : "dddd, dd MMMM HH:mm";
 
-        if (calendarItemViewModel.IsMultiDayEvent)
+        if (calendarItemViewModel.CalendarItem.ItemType == CalendarItemType.MultiDay || calendarItemViewModel.CalendarItem.ItemType == CalendarItemType.MultiDayAllDay)
         {
             return $"{start.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)} - {end.ToString($"dd MMMM ddd {timeFormat}", settings.CultureInfo)}";
         }
@@ -42,54 +43,14 @@ public static class CalendarXamlHelpers
 
     public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel)
     {
-        if (calendarItemViewModel == null || !calendarItemViewModel.IsRecurringChild) return string.Empty;
-
-        // Parse recurrence rules
-        var calendarEvent = new CalendarEvent
-        {
-            Start = new CalDateTime(calendarItemViewModel.StartDate),
-            End = new CalDateTime(calendarItemViewModel.EndDate),
-        };
-
-        var recurrenceLines = Regex.Split(calendarItemViewModel.CalendarItem.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
-
-        foreach (var line in recurrenceLines)
-        {
-            calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
-        }
-
-        if (calendarEvent.RecurrenceRules == null || !calendarEvent.RecurrenceRules.Any())
-        {
-            return "No recurrence pattern.";
-        }
-
-        var recurrenceRule = calendarEvent.RecurrenceRules.First();
-        var daysOfWeek = string.Join(", ", recurrenceRule.ByDay.Select(day => day.DayOfWeek.ToString()));
-        string timeZone = calendarEvent.DtStart.TzId ?? "UTC";
-
-        return $"Every {daysOfWeek}, effective {calendarEvent.DtStart.Value.ToShortDateString()} " +
-               $"from {calendarEvent.DtStart.Value.ToShortTimeString()} to {calendarEvent.DtEnd.Value.ToShortTimeString()} " +
-               $"{timeZone}.";
+        // TODO
+        return string.Empty;
     }
 
     public static string GetDetailsPopupDurationString(CalendarItemViewModel calendarItemViewModel, CalendarSettings settings)
     {
-        if (calendarItemViewModel == null || settings == null) return string.Empty;
-
-        // Single event in a day.
-        if (!calendarItemViewModel.IsAllDayEvent && !calendarItemViewModel.IsMultiDayEvent)
-        {
-            return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} {settings.GetTimeString(calendarItemViewModel.Period.Duration)}";
-        }
-        else if (calendarItemViewModel.IsMultiDayEvent)
-        {
-            return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} - {calendarItemViewModel.Period.End.ToString("d", settings.CultureInfo)}";
-        }
-        else
-        {
-            // All day event.
-            return $"{calendarItemViewModel.Period.Start.ToString("d", settings.CultureInfo)} ({Translator.CalendarItemAllDay})";
-        }
+        // TODO
+        return string.Empty;
     }
 
     public static PopupPlacementMode GetDesiredPlacementModeForEventsDetailsPopup(
@@ -98,8 +59,12 @@ public static class CalendarXamlHelpers
     {
         if (calendarItemViewModel == null) return PopupPlacementMode.Auto;
 
+        bool isAllDayOrMultiDay = calendarItemViewModel.CalendarItem.ItemType == CalendarItemType.MultiDay ||
+            calendarItemViewModel.CalendarItem.ItemType == CalendarItemType.AllDay ||
+            calendarItemViewModel.CalendarItem.ItemType == CalendarItemType.MultiDayAllDay;
+
         // All and/or multi day events always go to the top of the screen.
-        if (calendarItemViewModel.IsAllDayEvent || calendarItemViewModel.IsMultiDayEvent) return PopupPlacementMode.Bottom;
+        if (isAllDayOrMultiDay) return PopupPlacementMode.Bottom;
 
         return XamlHelpers.GetPlaccementModeForCalendarType(calendarDisplayType);
     }

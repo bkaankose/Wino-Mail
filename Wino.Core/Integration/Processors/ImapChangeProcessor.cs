@@ -13,7 +13,8 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
                                IMailService mailService,
                                IAccountService accountService,
                                ICalendarService calendarService,
-                               IMimeFileService mimeFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+                               ICalendarServiceEx calendarServiceEx,
+                               IMimeFileService mimeFileService) : base(databaseService, folderService, mailService, calendarService, accountService, calendarServiceEx, mimeFileService)
     {
     }
 

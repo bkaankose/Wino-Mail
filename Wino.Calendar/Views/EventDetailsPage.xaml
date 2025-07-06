@@ -256,7 +256,7 @@
                                         <PersonPicture
                                             Width="40"
                                             Height="40"
-                                            DisplayName="{x:Bind Name}" />
+                                            DisplayName="{x:Bind DisplayName}" />
 
                                         <!--  TODO: Organizer  -->
                                         <Grid Grid.Column="1">
@@ -265,7 +265,7 @@
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
 
-                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
+                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
                                             <TextBlock
                                                 Grid.Row="1"
                                                 FontSize="13"

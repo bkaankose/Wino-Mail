@@ -21,7 +21,7 @@ namespace Wino.Core.Integration.Processors;
 /// <see cref="IGmailChangeProcessor"/>,  <see cref="IOutlookChangeProcessor"/> and  <see cref="IImapChangeProcessor"/>
 /// None of the synchronizers can directly change anything in the database.
 /// </summary>
-public interface IDefaultChangeProcessor
+public interface IDefaultChangeProcessor : ICalendarServiceEx
 {
     Task UpdateAccountAsync(MailAccount account);
     // Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string deltaSynchronizationIdentifier);
@@ -113,13 +113,14 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
                               IMailService mailService,
                               ICalendarService calendarService,
                               IAccountService accountService,
-                              IMimeFileService mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
+                              ICalendarServiceEx calendarServiceEx,
+                              IMimeFileService mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor, ICalendarServiceEx
 {
     protected IMailService MailService = mailService;
     protected ICalendarService CalendarService = calendarService;
     protected IFolderService FolderService = folderService;
     protected IAccountService AccountService = accountService;
-
+    private readonly ICalendarServiceEx _calendarServiceEx = calendarServiceEx;
     private readonly IMimeFileService _mimeFileService = mimeFileService;
 
     public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
@@ -208,4 +209,234 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
             => MailService.IsMailExistsAsync(messageId, folderId);
+
+    // TODO: Normalize this shit. Not everything needs to be exposed for processor.
+    #region ICalendarServiceEx
+
+    public Task<int> ClearAllCalendarEventAttendeesAsync()
+    {
+        return _calendarServiceEx.ClearAllCalendarEventAttendeesAsync();
+    }
+
+    public Task<int> ClearAllCalendarsAsync()
+    {
+        return _calendarServiceEx.ClearAllCalendarsAsync();
+    }
+
+    public Task<int> ClearAllDataAsync()
+    {
+        return _calendarServiceEx.ClearAllDataAsync();
+    }
+
+    public Task<int> ClearAllEventsAsync()
+    {
+        return _calendarServiceEx.ClearAllEventsAsync();
+    }
+
+    public Task<int> DeleteCalendarAsync(string remoteCalendarId)
+    {
+        return _calendarServiceEx.DeleteCalendarAsync(remoteCalendarId);
+    }
+
+    public Task<int> DeleteCalendarEventAttendeesForEventAsync(Guid eventId)
+    {
+        return _calendarServiceEx.DeleteCalendarEventAttendeesForEventAsync(eventId);
+    }
+
+    public Task<int> DeleteEventAsync(string remoteEventId)
+    {
+        return _calendarServiceEx.DeleteEventAsync(remoteEventId);
+    }
+
+    public Task<List<CalendarEventAttendee>> GetAllCalendarEventAttendeesAsync()
+    {
+        return _calendarServiceEx.GetAllCalendarEventAttendeesAsync();
+    }
+
+    public Task<List<AccountCalendar>> GetAllCalendarsAsync()
+    {
+        return _calendarServiceEx.GetAllCalendarsAsync();
+    }
+
+    public Task<List<CalendarItem>> GetAllDayEventsAsync()
+    {
+        return _calendarServiceEx.GetAllDayEventsAsync();
+    }
+
+    public Task<List<CalendarItem>> GetAllEventsAsync()
+    {
+        return _calendarServiceEx.GetAllEventsAsync();
+    }
+
+    public Task<List<CalendarItem>> GetAllEventsIncludingDeletedAsync()
+    {
+        return _calendarServiceEx.GetAllEventsIncludingDeletedAsync();
+    }
+
+    public Task<List<CalendarItem>> GetAllRecurringEventsByTypeAsync()
+    {
+        return _calendarServiceEx.GetAllRecurringEventsByTypeAsync();
+    }
+
+    public Task<AccountCalendar> GetCalendarByRemoteIdAsync(string remoteCalendarId)
+    {
+        return _calendarServiceEx.GetCalendarByRemoteIdAsync(remoteCalendarId);
+    }
+
+    public Task<Dictionary<AttendeeResponseStatus, int>> GetCalendarEventAttendeeResponseCountsAsync(Guid eventId)
+    {
+        return _calendarServiceEx.GetCalendarEventAttendeeResponseCountsAsync(eventId);
+    }
+
+    public Task<List<CalendarEventAttendee>> GetCalendarEventAttendeesForEventAsync(Guid eventId)
+    {
+        return _calendarServiceEx.GetCalendarEventAttendeesForEventAsync(eventId);
+    }
+
+    public Task<List<CalendarEventAttendee>> GetCalendarEventAttendeesForEventByRemoteIdAsync(string remoteEventId)
+    {
+        return _calendarServiceEx.GetCalendarEventAttendeesForEventByRemoteIdAsync(remoteEventId);
+    }
+
+    public Task<string> GetCalendarSyncTokenAsync(string calendarId)
+    {
+        return _calendarServiceEx.GetCalendarSyncTokenAsync(calendarId);
+    }
+
+    public Task<CalendarItem> GetEventByRemoteIdAsync(string remoteEventId)
+    {
+        return _calendarServiceEx.GetEventByRemoteIdAsync(remoteEventId);
+    }
+
+    public Task<List<CalendarItem>> GetEventsByItemTypeAsync(CalendarItemType itemType)
+    {
+        return _calendarServiceEx.GetEventsByItemTypeAsync(itemType);
+    }
+
+    public Task<List<CalendarItem>> GetEventsByItemTypesAsync(params CalendarItemType[] itemTypes)
+    {
+        return _calendarServiceEx.GetEventsByItemTypesAsync(itemTypes);
+    }
+
+    public Task<List<CalendarItem>> GetEventsByremoteCalendarIdAsync(string remoteCalendarId)
+    {
+        return _calendarServiceEx.GetEventsByremoteCalendarIdAsync(remoteCalendarId);
+    }
+
+    public Task<List<CalendarItem>> GetEventsForCalendarAsync(Guid calendarId)
+    {
+        return _calendarServiceEx.GetEventsForCalendarAsync(calendarId);
+    }
+
+    public Task<List<CalendarItem>> GetEventsInDateRangeAsync(DateTime startDate, DateTime endDate)
+    {
+        return _calendarServiceEx.GetEventsInDateRangeAsync(startDate, endDate);
+    }
+
+    public Task<List<CalendarItem>> GetEventsSinceLastSyncAsync(DateTime? lastSyncTime)
+    {
+        return _calendarServiceEx.GetEventsSinceLastSyncAsync(lastSyncTime);
+    }
+
+    public Task<Dictionary<CalendarItemType, int>> GetEventStatsByItemTypeAsync()
+    {
+        return _calendarServiceEx.GetEventStatsByItemTypeAsync();
+    }
+
+    public Task<List<CalendarItem>> GetExpandedEventsInDateRangeAsync(DateTime startDate, DateTime endDate)
+    {
+        return _calendarServiceEx.GetExpandedEventsInDateRangeAsync(startDate, endDate);
+    }
+
+    public Task<List<CalendarItem>> GetExpandedEventsInDateRangeWithExceptionsAsync(DateTime startDate, DateTime endDate, AccountCalendar calendar)
+    {
+        return _calendarServiceEx.GetExpandedEventsInDateRangeWithExceptionsAsync(startDate, endDate, calendar);
+    }
+
+    public Task<DateTime?> GetLastSyncTimeAsync(string calendarId)
+    {
+        return _calendarServiceEx.GetLastSyncTimeAsync(calendarId);
+    }
+
+    public Task<List<CalendarItem>> GetMultiDayEventsAsync()
+    {
+        return _calendarServiceEx.GetMultiDayEventsAsync();
+    }
+
+    public Task<List<CalendarItem>> GetRecurringEventsAsync()
+    {
+        return _calendarServiceEx.GetRecurringEventsAsync();
+    }
+
+    public Task<int> HardDeleteEventAsync(string remoteEventId)
+    {
+        return _calendarServiceEx.HardDeleteEventAsync(remoteEventId);
+    }
+
+    public Task<int> InsertCalendarAsync(AccountCalendar calendar)
+    {
+        return _calendarServiceEx.InsertCalendarAsync(calendar);
+    }
+
+    public Task<int> InsertCalendarEventAttendeeAsync(CalendarEventAttendee calendareventattendee)
+    {
+        return _calendarServiceEx.InsertCalendarEventAttendeeAsync(calendareventattendee);
+    }
+
+    public Task<int> InsertEventAsync(CalendarItem calendarItem)
+    {
+        return _calendarServiceEx.InsertEventAsync(calendarItem);
+    }
+
+    public Task<int> MarkEventAsDeletedAsync(string remoteEventId, string remoteCalendarId)
+    {
+        return _calendarServiceEx.MarkEventAsDeletedAsync(remoteEventId, remoteCalendarId);
+    }
+
+    public Task<int> SyncCalendarEventAttendeesForEventAsync(Guid eventId, List<CalendarEventAttendee> calendareventattendees)
+    {
+        return _calendarServiceEx.SyncCalendarEventAttendeesForEventAsync(eventId, calendareventattendees);
+    }
+
+    public Task<int> UpdateAllEventItemTypesAsync()
+    {
+        return _calendarServiceEx.UpdateAllEventItemTypesAsync();
+    }
+
+    public Task<int> UpdateCalendarAsync(AccountCalendar calendar)
+    {
+        return _calendarServiceEx.UpdateCalendarAsync(calendar);
+    }
+
+    public Task<int> UpdateCalendarEventAttendeeAsync(CalendarEventAttendee calendareventattendee)
+    {
+        return _calendarServiceEx.UpdateCalendarEventAttendeeAsync(calendareventattendee);
+    }
+
+    public Task<int> UpdateCalendarSyncTokenAsync(string calendarId, string syncToken)
+    {
+        return _calendarServiceEx.UpdateCalendarSyncTokenAsync(calendarId, syncToken);
+    }
+
+    public Task<int> UpdateEventAsync(CalendarItem calendarItem)
+    {
+        return _calendarServiceEx.UpdateEventAsync(calendarItem);
+    }
+
+    public Task<int> UpsertCalendarAsync(AccountCalendar calendar)
+    {
+        return _calendarServiceEx.UpsertCalendarAsync(calendar);
+    }
+
+    public Task<int> UpsertEventAsync(CalendarItem calendarItem)
+    {
+        return _calendarServiceEx.UpsertEventAsync(calendarItem);
+    }
+
+    public Task<int> SyncAttendeesForEventAsync(Guid eventId, List<CalendarEventAttendee> attendees)
+    {
+        return _calendarServiceEx.SyncAttendeesForEventAsync(eventId, attendees);
+    }
+
+    #endregion
 }

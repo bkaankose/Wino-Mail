@@ -8,12 +8,29 @@ namespace Wino.Core.Domain.Entities.Calendar;
 public class CalendarEventAttendee
 {
     [PrimaryKey]
-    public Guid Id { get; set; }
-    public Guid CalendarItemId { get; set; }
-    public string Name { get; set; }
-    public string Email { get; set; }
-    public AttendeeStatus AttendenceStatus { get; set; }
-    public bool IsOrganizer { get; set; }
-    public bool IsOptionalAttendee { get; set; }
-    public string Comment { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [NotNull]
+    public Guid EventId { get; set; }
+
+    [NotNull]
+    public string Email { get; set; } = string.Empty;
+
+    public string? DisplayName { get; set; }
+
+    public AttendeeResponseStatus ResponseStatus { get; set; } = AttendeeResponseStatus.NeedsAction;
+
+    public bool IsOptional { get; set; } = false;
+
+    public bool IsOrganizer { get; set; } = false;
+
+    public bool IsSelf { get; set; } = false;
+
+    public string? Comment { get; set; }
+
+    public int? AdditionalGuests { get; set; }
+
+    public DateTime CreatedDate { get; set; }
+
+    public DateTime LastModified { get; set; }
 }

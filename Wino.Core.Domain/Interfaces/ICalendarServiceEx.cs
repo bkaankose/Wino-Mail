@@ -1,0 +1,55 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Enums;
+
+namespace Wino.Core.Domain.Interfaces;
+public interface ICalendarServiceEx
+{
+    Task<int> ClearAllCalendarEventAttendeesAsync();
+    Task<int> ClearAllCalendarsAsync();
+    Task<int> ClearAllDataAsync();
+    Task<int> ClearAllEventsAsync();
+    Task<int> DeleteCalendarAsync(string remoteCalendarId);
+    Task<int> DeleteCalendarEventAttendeesForEventAsync(Guid eventId);
+    Task<int> DeleteEventAsync(string remoteEventId);
+    Task<List<CalendarEventAttendee>> GetAllCalendarEventAttendeesAsync();
+    Task<List<AccountCalendar>> GetAllCalendarsAsync();
+    Task<List<CalendarItem>> GetAllDayEventsAsync();
+    Task<List<CalendarItem>> GetAllEventsAsync();
+    Task<List<CalendarItem>> GetAllEventsIncludingDeletedAsync();
+    Task<List<CalendarItem>> GetAllRecurringEventsByTypeAsync();
+    Task<AccountCalendar> GetCalendarByRemoteIdAsync(string remoteCalendarId);
+    Task<Dictionary<AttendeeResponseStatus, int>> GetCalendarEventAttendeeResponseCountsAsync(Guid eventId);
+    Task<List<CalendarEventAttendee>> GetCalendarEventAttendeesForEventAsync(Guid eventId);
+    Task<List<CalendarEventAttendee>> GetCalendarEventAttendeesForEventByRemoteIdAsync(string remoteEventId);
+    Task<string> GetCalendarSyncTokenAsync(string calendarId);
+    Task<CalendarItem> GetEventByRemoteIdAsync(string remoteEventId);
+    Task<List<CalendarItem>> GetEventsByItemTypeAsync(CalendarItemType itemType);
+    Task<List<CalendarItem>> GetEventsByItemTypesAsync(params CalendarItemType[] itemTypes);
+    Task<List<CalendarItem>> GetEventsByremoteCalendarIdAsync(string remoteCalendarId);
+    Task<List<CalendarItem>> GetEventsForCalendarAsync(Guid calendarId);
+    Task<List<CalendarItem>> GetEventsInDateRangeAsync(DateTime startDate, DateTime endDate);
+    Task<List<CalendarItem>> GetEventsSinceLastSyncAsync(DateTime? lastSyncTime);
+    Task<Dictionary<CalendarItemType, int>> GetEventStatsByItemTypeAsync();
+    Task<List<CalendarItem>> GetExpandedEventsInDateRangeAsync(DateTime startDate, DateTime endDate);
+    Task<List<CalendarItem>> GetExpandedEventsInDateRangeWithExceptionsAsync(DateTime startDate, DateTime endDate, AccountCalendar calendar);
+    Task<DateTime?> GetLastSyncTimeAsync(string calendarId);
+    Task<List<CalendarItem>> GetMultiDayEventsAsync();
+    Task<List<CalendarItem>> GetRecurringEventsAsync();
+    Task<int> HardDeleteEventAsync(string remoteEventId);
+    Task<int> InsertCalendarAsync(AccountCalendar calendar);
+    Task<int> InsertCalendarEventAttendeeAsync(CalendarEventAttendee calendareventattendee);
+    Task<int> InsertEventAsync(CalendarItem calendarItem);
+    Task<int> MarkEventAsDeletedAsync(string remoteEventId, string remoteCalendarId);
+    Task<int> SyncAttendeesForEventAsync(Guid eventId, List<CalendarEventAttendee> attendees);
+    Task<int> SyncCalendarEventAttendeesForEventAsync(Guid eventId, List<CalendarEventAttendee> calendareventattendees);
+    Task<int> UpdateAllEventItemTypesAsync();
+    Task<int> UpdateCalendarAsync(AccountCalendar calendar);
+    Task<int> UpdateCalendarEventAttendeeAsync(CalendarEventAttendee calendareventattendee);
+    Task<int> UpdateCalendarSyncTokenAsync(string calendarId, string syncToken);
+    Task<int> UpdateEventAsync(CalendarItem calendarItem);
+    Task<int> UpsertCalendarAsync(AccountCalendar calendar);
+    Task<int> UpsertEventAsync(CalendarItem calendarItem);
+}

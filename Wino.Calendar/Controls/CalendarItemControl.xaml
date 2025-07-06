@@ -69,7 +69,7 @@
             VerticalAlignment="Top"
             Orientation="Horizontal"
             Spacing="6">
-            <controls:WinoFontIcon
+            <!--<controls:WinoFontIcon
                 FontSize="12"
                 Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                 Icon="CalendarEventRepeat"
@@ -79,7 +79,7 @@
                 FontSize="12"
                 Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
                 Icon="CalendarEventMuiltiDay"
-                Visibility="{x:Bind CalendarItem.IsMultiDayEvent, Mode=OneWay}" />
+                Visibility="{x:Bind CalendarItem.IsMultiDayEvent, Mode=OneWay}" />-->
         </StackPanel>
 
         <VisualStateManager.VisualStateGroups>
