@@ -793,25 +793,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         // If the calendar item is not recurring, we can just return it.
 
-        if (calendarItemViewModel.ItemType == CalendarItemType.Timed) return new[] { calendarItemViewModel };
+        if (calendarItemViewModel.ItemType == CalendarItemType.Timed || calendarItemViewModel.ItemType == CalendarItemType.RecurringException) return new[] { calendarItemViewModel };
 
-
-        // TODO: Implement below logic.
-        return default;
-
-        //if (!calendarItemViewModel.IsRecurringEvent)
-        //{
-        //    return [calendarItemViewModel];
-        //}
-        //else
-        //{
-        //    return DayRanges
-        //        .SelectMany(a => a.CalendarDays)
-        //        .Select(b => b.EventsCollection.GetCalendarItem(calendarItemViewModel.Id))
-        //        .Where(c => c != null)
-        //        .Cast<CalendarItemViewModel>()
-        //        .Distinct();
-        //}
+        return DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .Select(b => b.EventsCollection.GetCalendarItem(calendarItemViewModel.Id))
+            .Where(c => c != null)
+            .Cast<CalendarItemViewModel>()
+            .Distinct();
     }
 
     private void UnselectCalendarItem(CalendarItemViewModel calendarItemViewModel, CalendarDayModel calendarDay = null)
@@ -819,6 +808,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         if (calendarItemViewModel == null) return;
 
         var itemsToUnselect = GetCalendarItems(calendarItemViewModel, calendarDay);
+
+        if (itemsToUnselect == null) return;
 
         foreach (var item in itemsToUnselect)
         {
