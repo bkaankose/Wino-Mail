@@ -57,6 +57,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.AliasManagementPage => typeof(AliasManagementPage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
             WinoPage.EditAccountDetailsPage => typeof(EditAccountDetailsPage),
+            WinoPage.SignatureAndEncryptionPage => typeof(Wino.Views.Settings.SignatureAndEncryptionPage),
             _ => null,
         };
     }
