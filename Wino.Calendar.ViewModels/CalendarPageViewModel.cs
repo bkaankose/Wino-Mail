@@ -789,6 +789,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         // Recurring events must be selected as a single instance.
         // We need to find the day that the event is in, and then select the event.
 
+        if (calendarItemViewModel == null) return Enumerable.Empty<CalendarItemViewModel>();
+
+        // If the calendar item is not recurring, we can just return it.
+
+        if (calendarItemViewModel.ItemType == CalendarItemType.Timed) return new[] { calendarItemViewModel };
+
+
         // TODO: Implement below logic.
         return default;
 
@@ -824,6 +831,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         if (calendarItemViewModel == null) return;
 
         var itemsToSelect = GetCalendarItems(calendarItemViewModel, calendarDay);
+
+        if (itemsToSelect == null) return;
 
         foreach (var item in itemsToSelect)
         {

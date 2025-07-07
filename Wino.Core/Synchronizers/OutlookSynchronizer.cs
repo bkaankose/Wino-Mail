@@ -1861,7 +1861,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 RecurrenceRules = FormatRecurrence(outlookEvent.Recurrence),
                 Status = outlookEvent.IsCancelled == true ? "cancelled" : "confirmed",
                 IsDeleted = outlookEvent.IsCancelled == true,
-                LastModified = DateTime.UtcNow
+                LastModified = DateTime.UtcNow,
+                TimeZone = outlookEvent.Start.TimeZone
             };
 
             // Automatically determine the calendar item type based on event properties

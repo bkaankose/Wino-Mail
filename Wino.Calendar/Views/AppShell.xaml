@@ -89,6 +89,7 @@
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Center"
                             BorderBrush="Transparent"
+                            IsTabStop="False"
                             PlaceholderText="Search" />
 
                         <StackPanel

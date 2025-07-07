@@ -71,7 +71,7 @@ public class CalendarItem : ICalendarItem
     /// <summary>
     /// The type of calendar item (Timed, AllDay, MultiDay, etc.)
     /// </summary>
-    public CalendarItemType ItemType { get; set; } = CalendarItemType.Timed;
+    public CalendarItemType ItemType { get; set; }
 
     /// <summary>
     /// Automatically determines and sets the ItemType based on event properties

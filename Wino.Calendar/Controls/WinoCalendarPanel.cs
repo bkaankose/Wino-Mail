@@ -45,9 +45,9 @@ public partial class WinoCalendarPanel : Panel
 
     private void ResetMeasurements() => _measurements.Clear();
 
-    private double GetChildTopMargin(ICalendarItem calendarItemViewModel, double availableHeight)
+    private double GetChildTopMargin(ICalendarItemViewModel calendarItemViewModel, double availableHeight)
     {
-        var childStart = calendarItemViewModel.StartDateTime;
+        var childStart = calendarItemViewModel.LocalStartDateTime;
 
         if (childStart <= Period.Start)
         {
@@ -69,7 +69,7 @@ public partial class WinoCalendarPanel : Panel
     private double GetChildLeftMargin(CalendarItemMeasurement calendarItemMeasurement, double availableWidth)
         => availableWidth * calendarItemMeasurement.Left;
 
-    private double GetChildHeight(ICalendarItem child)
+    private double GetChildHeight(ICalendarItemViewModel child)
     {
         // All day events are not measured.
         if (child.ItemType == CalendarItemType.AllDay) return 0;
@@ -128,7 +128,7 @@ public partial class WinoCalendarPanel : Panel
         foreach (var control in calendarControls)
         {
             // We can't arrange this child.
-            if (!(control.Content is ICalendarItem child)) continue;
+            if (!(control.Content is ICalendarItemViewModel child)) continue;
 
             bool isHorizontallyLastItem = false;
 

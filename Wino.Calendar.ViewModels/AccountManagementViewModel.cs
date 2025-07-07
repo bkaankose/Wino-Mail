@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -141,6 +142,16 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             Type = CalendarSynchronizationType.CalendarMetadata
         };
 
+        var timer = new Stopwatch();
+
         var synchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(new NewCalendarSynchronizationRequested(synchronizationOptions, SynchronizationSource.Client));
+
+        timer.Stop();
+
+        Debug.WriteLine("Synchronization completed in {timer.ElapsedMilliseconds} ms");
+
+        // TODO: Properly handle synchronization errors.
+
+        accountCreationDialog.Complete(false);
     }
 }

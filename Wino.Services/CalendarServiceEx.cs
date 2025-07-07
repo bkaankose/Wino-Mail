@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SqlKata;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
@@ -28,7 +30,7 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
         return await Connection.Table<CalendarItem>().ToListAsync();
     }
 
-    public async Task<CalendarItem?> GetEventByRemoteIdAsync(string remoteEventId)
+    public async Task<CalendarItem> GetEventByRemoteIdAsync(string remoteEventId)
     {
         return await Connection.Table<CalendarItem>()
             .Where(e => e.RemoteEventId == remoteEventId && !e.IsDeleted)
@@ -121,7 +123,7 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
             .ToListAsync();
     }
 
-    public async Task<AccountCalendar?> GetCalendarByRemoteIdAsync(string remoteCalendarId)
+    public async Task<AccountCalendar> GetCalendarByRemoteIdAsync(string remoteCalendarId)
     {
         return await Connection.Table<AccountCalendar>()
             .Where(c => c.RemoteCalendarId == remoteCalendarId && !c.IsDeleted)
@@ -324,7 +326,7 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
     /// </summary>
     /// <param name="rrule">The RRULE string (without RRULE: prefix)</param>
     /// <returns>Dictionary of rule parameters</returns>
-    private Dictionary<string, string>? ParseRRule(string rrule)
+    private Dictionary<string, string> ParseRRule(string rrule)
     {
         try
         {
@@ -408,7 +410,9 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
             LastModified = originalEvent.LastModified,
             IsDeleted = false,
             RecurringEventId = originalEvent.RemoteEventId,
-            OriginalStartTime = instanceStart.ToString("O")
+            OriginalStartTime = instanceStart.ToString("O"),
+            HtmlLink = originalEvent.HtmlLink,
+            ItemType = originalEvent.ItemType
         };
     }
 
@@ -522,42 +526,56 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
     public async Task<List<CalendarItem>> GetExpandedEventsInDateRangeWithExceptionsAsync(DateTime startDate, DateTime endDate, AccountCalendar calendar)
     {
         var allEvents = new List<CalendarItem>();
-
+        var gg = Guid.Parse("c10b83b0-9423-4d26-82d3-34b63d2e1297");
+        var tt = await Connection.Table<CalendarItem>().Where(a => a.Id == gg).FirstOrDefaultAsync();
+        var type = tt.ItemType;
         // Get all non-recurring events in the date range
-        var oneTimeEvents = await Connection.Table<CalendarItem>()
-            .Where(e => !e.IsDeleted &&
-                       (string.IsNullOrEmpty(e.RecurrenceRules) || e.RecurrenceRules == "") &&
-                       string.IsNullOrEmpty(e.RecurringEventId) && // Ensure it's not a modified instance
-                       e.StartDateTime >= startDate && e.StartDateTime <= endDate
-                       && e.CalendarId == calendar.Id)
-            .ToListAsync();
+        var oneTimeEventsQuery = new Query()
+            .From(nameof(CalendarItem))
+            .Where(nameof(CalendarItem.IsDeleted), false)
+            .Where(q => q.WhereNull(nameof(CalendarItem.RecurrenceRules)).OrWhere(nameof(CalendarItem.RecurrenceRules), ""))
+            .Where(q => q.WhereNull(nameof(CalendarItem.RecurringEventId)).OrWhere(nameof(CalendarItem.RecurringEventId), ""))
+            .Where(nameof(CalendarItem.StartDateTime), ">=", startDate)
+            .Where(nameof(CalendarItem.StartDateTime), "<=", endDate)
+            .Where(nameof(CalendarItem.CalendarId), calendar.Id);
 
+        var oneTimeEvents = await Connection.QueryAsync<CalendarItem>(oneTimeEventsQuery.GetRawQuery());
         allEvents.AddRange(oneTimeEvents);
 
         // Get all recurring events (master events only)
-        var recurringEvents = await Connection.Table<CalendarItem>()
-            .Where(e => !e.IsDeleted &&
-                       !string.IsNullOrEmpty(e.RecurrenceRules) &&
-                       e.RecurrenceRules != "" &&
-                       string.IsNullOrEmpty(e.RecurringEventId) &&
-                       e.CalendarId == calendar.Id) // Master events, not instances
-            .ToListAsync();
+        var recurringEventsQuery = new Query()
+            .From(nameof(CalendarItem))
+            .Where(nameof(CalendarItem.IsDeleted), false)
+            .WhereNotNull(nameof(CalendarItem.RecurrenceRules))
+            .Where(nameof(CalendarItem.RecurrenceRules), "!=", "")
+            .Where(q => q.WhereNull(nameof(CalendarItem.RecurringEventId)).OrWhere(nameof(CalendarItem.RecurringEventId), ""))
+            .Where(nameof(CalendarItem.CalendarId), calendar.Id);
+
+        var recurringEvents = await Connection.QueryAsync<CalendarItem>(recurringEventsQuery.GetRawQuery());
 
         // Get all exception instances (modified or moved instances)
-        var exceptionInstances = await Connection.Table<CalendarItem>()
-            .Where(e => !e.IsDeleted &&
-             e.CalendarId == calendar.Id &&
-                       !string.IsNullOrEmpty(e.RecurringEventId) &&
-                       e.StartDateTime >= startDate && e.StartDateTime <= endDate)
-            .ToListAsync();
+        var exceptionInstancesQuery = new Query()
+            .From(nameof(CalendarItem))
+            .Where(nameof(CalendarItem.IsDeleted), false)
+            .Where(nameof(CalendarItem.CalendarId), calendar.Id)
+            .WhereNotNull(nameof(CalendarItem.RecurringEventId))
+            .Where(nameof(CalendarItem.RecurringEventId), "!=", "")
+            .Where(nameof(CalendarItem.StartDateTime), ">=", startDate)
+            .Where(nameof(CalendarItem.StartDateTime), "<=", endDate);
+
+        var exceptionInstances = await Connection.QueryAsync<CalendarItem>(exceptionInstancesQuery.GetRawQuery());
 
         // Get all canceled instances (marked as deleted but with RecurringEventId)
-        var canceledInstances = await Connection.Table<CalendarItem>()
-            .Where(e => e.IsDeleted &&
-            e.CalendarId == calendar.Id &&
-                       !string.IsNullOrEmpty(e.RecurringEventId) &&
-                       !string.IsNullOrEmpty(e.OriginalStartTime))
-            .ToListAsync();
+        var canceledInstancesQuery = new Query()
+            .From(nameof(CalendarItem))
+            .Where(nameof(CalendarItem.IsDeleted), true)
+            .Where(nameof(CalendarItem.CalendarId), calendar.Id)
+            .WhereNotNull(nameof(CalendarItem.RecurringEventId))
+            .Where(nameof(CalendarItem.RecurringEventId), "!=", "")
+            .WhereNotNull(nameof(CalendarItem.OriginalStartTime))
+            .Where(nameof(CalendarItem.OriginalStartTime), "!=", "");
+
+        var canceledInstances = await Connection.QueryAsync<CalendarItem>(canceledInstancesQuery.GetRawQuery());
 
         // Group exceptions and cancellations by their parent recurring event
         var exceptionsByParent = exceptionInstances
@@ -583,6 +601,7 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
         // Add the exception instances (modified/moved instances) to the final list
         allEvents.AddRange(exceptionInstances);
 
+        // allEvents[0].DetermineItemType();
         // Sort by start date and return
         return allEvents.OrderBy(e => e.StartDateTime).ToList();
     }
@@ -765,7 +784,7 @@ public class CalendarServiceEx : BaseDatabaseService, ICalendarServiceEx
     /// </summary>
     /// <param name="calendarId">The calendar ID</param>
     /// <returns>The sync token or null if not found</returns>
-    public async Task<string?> GetCalendarSyncTokenAsync(string calendarId)
+    public async Task<string> GetCalendarSyncTokenAsync(string calendarId)
     {
         var calendar = await GetCalendarByRemoteIdAsync(calendarId);
         return calendar?.SynchronizationDeltaToken;
