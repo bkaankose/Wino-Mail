@@ -12,6 +12,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using System.IO;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services;
 
@@ -36,6 +38,11 @@ public class NotificationBuilder : INotificationBuilder
         _folderService = folderService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
+
+        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, async (r, msg) =>
+        {
+            await RemoveNotificationAsync(msg.UniqueId);
+        });
     }
 
     public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
@@ -81,7 +88,11 @@ public class NotificationBuilder : INotificationBuilder
                 foreach (var mailItem in validItems)
                 {
                     if (mailItem.IsRead)
+                    {
+                        // Remove the notification for a specific mail if it exists
+                        ToastNotificationManager.History.Remove(mailItem.UniqueId.ToString());
                         continue;
+                    }
 
                     var builder = new ToastContentBuilder();
                     builder.SetToastScenario(ToastScenario.Default);
@@ -117,7 +128,8 @@ public class NotificationBuilder : INotificationBuilder
                         Src = new Uri("ms-winsoundevent:Notification.Mail")
                     });
 
-                    builder.Show();
+                    // Use UniqueId as tag to allow removal
+                    builder.Show(toast => toast.Tag = mailItem.UniqueId.ToString());
                 }
 
                 await UpdateTaskbarIconBadgeAsync();
@@ -229,5 +241,18 @@ public class NotificationBuilder : INotificationBuilder
         //builder.Show();
 
         //await Task.CompletedTask;
+    }
+
+    public async Task RemoveNotificationAsync(Guid mailUniqueId)
+    {
+        try
+        {
+            ToastNotificationManager.History.Remove(mailUniqueId.ToString());
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, $"Failed to remove notification for mail {mailUniqueId}");
+        }
+        await Task.CompletedTask;
     }
 }
