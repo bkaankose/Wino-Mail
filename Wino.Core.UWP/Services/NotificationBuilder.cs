@@ -12,6 +12,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using System.IO;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services;
 
@@ -36,6 +38,12 @@ public class NotificationBuilder : INotificationBuilder
         _folderService = folderService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
+
+        // Listener per evento MailReadStatusChanged
+        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, async (r, msg) =>
+        {
+            await RemoveNotificationAsync(msg.UniqueId);
+        });
     }
 
     public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)

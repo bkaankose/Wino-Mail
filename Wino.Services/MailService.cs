@@ -17,6 +17,8 @@ using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.UI; // Per MailReadStatusChanged
 
 namespace Wino.Services;
 
@@ -584,6 +586,11 @@ public class MailService : BaseDatabaseService, IMailService
             if (item.IsRead == isRead) return false;
 
             item.IsRead = isRead;
+            if (isRead && item.UniqueId != Guid.Empty)
+            {
+                // Invia evento tramite Messenger
+                WeakReferenceMessenger.Default.Send(new MailReadStatusChanged(item.UniqueId));
+            }
 
             return true;
         });

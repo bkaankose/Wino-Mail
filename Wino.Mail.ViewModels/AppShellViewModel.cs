@@ -1076,14 +1076,4 @@ public partial class AppShellViewModel : MailBaseViewModel,
     {
         await MenuItemInvokedOrSelectedAsync(SettingsItem, WinoPage.AppPreferencesPage);
     }
-
-    protected override async void OnMailUpdated(MailCopy updatedMail)
-    {
-        base.OnMailUpdated(updatedMail);
-
-        if (updatedMail.IsRead && updatedMail.UniqueId != Guid.Empty)
-        {
-            await _notificationBuilder.RemoveNotificationAsync(updatedMail.UniqueId);
-        }
-    }
 }
