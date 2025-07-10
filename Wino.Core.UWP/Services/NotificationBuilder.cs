@@ -39,7 +39,6 @@ public class NotificationBuilder : INotificationBuilder
         _mailService = mailService;
         _thumbnailService = thumbnailService;
 
-        // Listener per evento MailReadStatusChanged
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, async (r, msg) =>
         {
             await RemoveNotificationAsync(msg.UniqueId);

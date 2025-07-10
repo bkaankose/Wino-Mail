@@ -588,7 +588,6 @@ public class MailService : BaseDatabaseService, IMailService
             item.IsRead = isRead;
             if (isRead && item.UniqueId != Guid.Empty)
             {
-                // Invia evento tramite Messenger
                 WeakReferenceMessenger.Default.Send(new MailReadStatusChanged(item.UniqueId));
             }
 
