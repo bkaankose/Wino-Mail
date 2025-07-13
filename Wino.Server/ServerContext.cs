@@ -57,6 +57,7 @@ public class ServerContext :
     private readonly ISynchronizerFactory _synchronizerFactory;
     private readonly IServerMessageHandlerFactory _serverMessageHandlerFactory;
     private readonly IAccountService _accountService;
+    private readonly IPreferencesService _preferencesService;
     private readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
     {
         TypeInfoResolver = new ServerRequestTypeInfoResolver()
@@ -66,12 +67,14 @@ public class ServerContext :
                          IApplicationConfiguration applicationFolderConfiguration,
                          ISynchronizerFactory synchronizerFactory,
                          IServerMessageHandlerFactory serverMessageHandlerFactory,
-                         IAccountService accountService)
+                         IAccountService accountService,
+                         IPreferencesService preferencesService)
     {
+        _preferencesService = preferencesService;
         // Setup timer for synchronization.
-
-        _timer = new System.Timers.Timer(1000 * 60 * 3); // 1 minute
+        _timer = new System.Timers.Timer(1000 * 60 * _preferencesService.EmailSyncIntervalMinutes);
         _timer.Elapsed += SynchronizationTimerTriggered;
+        _preferencesService.PropertyChanged += PreferencesService_PropertyChanged;
 
         _databaseService = databaseService;
         _applicationFolderConfiguration = applicationFolderConfiguration;
@@ -82,6 +85,16 @@ public class ServerContext :
         WeakReferenceMessenger.Default.RegisterAll(this);
 
         _timer.Start();
+    }
+
+    private void PreferencesService_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
+        {
+            _timer.Stop();
+            _timer.Interval = 1000 * 60 * _preferencesService.EmailSyncIntervalMinutes;
+            _timer.Start();
+        }
     }
 
     private async void SynchronizationTimerTriggered(object sender, System.Timers.ElapsedEventArgs e)

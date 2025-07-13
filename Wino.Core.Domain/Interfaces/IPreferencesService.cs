@@ -51,6 +51,12 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Local search will still offer online search at the end of local search results.
     /// </summary>
     SearchMode DefaultSearchMode { get; set; }
+
+    /// <summary>
+    /// Setting: Interval in minutes for background email synchronization.
+    /// </summary>
+    int EmailSyncIntervalMinutes { get; set; }
+
     #endregion
 
     #region Mail
