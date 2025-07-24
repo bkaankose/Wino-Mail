@@ -47,6 +47,8 @@ public class ServerContext :
     IRecipient<OnlineSearchRequested>,
     IRecipient<AccountCacheResetMessage>
 {
+    private const double MinimumSynchronizationIntervalMinutes = 1;
+
     private readonly System.Timers.Timer _timer;
     private static object connectionLock = new object();
 
@@ -71,10 +73,12 @@ public class ServerContext :
                          IPreferencesService preferencesService)
     {
         _preferencesService = preferencesService;
+
         // Setup timer for synchronization.
         _timer = new System.Timers.Timer(1000 * 60 * _preferencesService.EmailSyncIntervalMinutes);
+
         _timer.Elapsed += SynchronizationTimerTriggered;
-        _preferencesService.PropertyChanged += PreferencesService_PropertyChanged;
+        _preferencesService.PropertyChanged += PreferencesUpdated;
 
         _databaseService = databaseService;
         _applicationFolderConfiguration = applicationFolderConfiguration;
@@ -87,12 +91,14 @@ public class ServerContext :
         _timer.Start();
     }
 
-    private void PreferencesService_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void PreferencesUpdated(object sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
         {
             _timer.Stop();
-            _timer.Interval = 1000 * 60 * _preferencesService.EmailSyncIntervalMinutes;
+
+            // Ensure that the interval is at least 1 minute.
+            _timer.Interval = 1000 * 60 * Math.Max(MinimumSynchronizationIntervalMinutes, _preferencesService.EmailSyncIntervalMinutes);
             _timer.Start();
         }
     }
