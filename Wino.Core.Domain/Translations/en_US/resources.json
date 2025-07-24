@@ -698,7 +698,9 @@
     "WinoUpgradeDescription": "Wino offers 3 accounts to start with for free. If you need more than 3 accounts, please upgrade",
     "WinoUpgradeMessage": "Upgrade to Unlimited Accounts",
     "WinoUpgradeRemainingAccountsMessage": "{0} out of {1} free accounts used.",
-    "Yesterday": "Yesterday"
+    "Yesterday": "Yesterday",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 
