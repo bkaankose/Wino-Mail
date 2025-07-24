@@ -32,12 +32,9 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         get => _emailSyncIntervalMinutes;
         set
         {
-            if (_emailSyncIntervalMinutes != value)
-            {
-                _emailSyncIntervalMinutes = value;
-                PreferencesService.EmailSyncIntervalMinutes = value;
-                OnPropertyChanged(nameof(EmailSyncIntervalMinutes));
-            }
+            SetProperty(ref _emailSyncIntervalMinutes, value);
+
+            PreferencesService.EmailSyncIntervalMinutes = value;
         }
     }
 
