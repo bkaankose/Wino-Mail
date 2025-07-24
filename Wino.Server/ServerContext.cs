@@ -74,9 +74,6 @@ public class ServerContext :
     {
         _preferencesService = preferencesService;
 
-        // Setup timer for synchronization.
-        _timer = new System.Timers.Timer(1000 * 60 * _preferencesService.EmailSyncIntervalMinutes);
-
         _timer.Elapsed += SynchronizationTimerTriggered;
         _preferencesService.PropertyChanged += PreferencesUpdated;
 
@@ -88,19 +85,23 @@ public class ServerContext :
 
         WeakReferenceMessenger.Default.RegisterAll(this);
 
-        _timer.Start();
+        // Setup timer for synchronization.
+        RestartSynchronizationTimer();
     }
 
     private void PreferencesUpdated(object sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
-        {
-            _timer.Stop();
+            RestartSynchronizationTimer();
+    }
 
-            // Ensure that the interval is at least 1 minute.
-            _timer.Interval = 1000 * 60 * Math.Max(MinimumSynchronizationIntervalMinutes, _preferencesService.EmailSyncIntervalMinutes);
-            _timer.Start();
-        }
+    private void RestartSynchronizationTimer()
+    {
+        _timer.Stop();
+
+        // Ensure that the interval is at least 1 minute.
+        _timer.Interval = 1000 * 60 * Math.Max(MinimumSynchronizationIntervalMinutes, _preferencesService.EmailSyncIntervalMinutes);
+        _timer.Start();
     }
 
     private async void SynchronizationTimerTriggered(object sender, System.Timers.ElapsedEventArgs e)
