@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Notifications;
 using Serilog;
 using Windows.Data.Xml.Dom;
@@ -11,8 +13,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
-using System.IO;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.UWP.Services;
@@ -39,9 +39,9 @@ public class NotificationBuilder : INotificationBuilder
         _mailService = mailService;
         _thumbnailService = thumbnailService;
 
-        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, async (r, msg) =>
+        WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
-            await RemoveNotificationAsync(msg.UniqueId);
+            RemoveNotification(msg.UniqueId);
         });
     }
 
@@ -243,7 +243,7 @@ public class NotificationBuilder : INotificationBuilder
         //await Task.CompletedTask;
     }
 
-    public async Task RemoveNotificationAsync(Guid mailUniqueId)
+    public void RemoveNotification(Guid mailUniqueId)
     {
         try
         {
@@ -253,6 +253,5 @@ public class NotificationBuilder : INotificationBuilder
         {
             Log.Error(ex, $"Failed to remove notification for mail {mailUniqueId}");
         }
-        await Task.CompletedTask;
     }
 }

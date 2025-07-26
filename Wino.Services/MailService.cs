@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
 using Serilog;
 using SqlKata;
@@ -17,8 +18,6 @@ using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
-using CommunityToolkit.Mvvm.Messaging;
-using Wino.Messaging.UI; // Per MailReadStatusChanged
 
 namespace Wino.Services;
 

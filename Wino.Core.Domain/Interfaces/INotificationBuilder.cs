@@ -26,5 +26,5 @@ public interface INotificationBuilder
     /// <summary>
     /// Removes the toast notification for a specific mail by unique id.
     /// </summary>
-    Task RemoveNotificationAsync(Guid mailUniqueId);
+    void RemoveNotification(Guid mailUniqueId);
 }
