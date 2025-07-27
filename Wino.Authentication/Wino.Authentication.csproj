@@ -9,11 +9,12 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
-		<PackageReference Include="CommunityToolkit.Mvvm"  />
-		<PackageReference Include="Google.Apis.Auth"  />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Google.Apis.Auth" />
 		<PackageReference Include="Microsoft.Identity.Client" />
-		<PackageReference Include="Microsoft.Identity.Client.Broker"  />
-		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal"  />
+		<PackageReference Include="Microsoft.Identity.Client.Broker" />
+		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
+		<PackageReference Include="Sentry.Serilog" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
