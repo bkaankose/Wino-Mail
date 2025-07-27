@@ -306,8 +306,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
-        throw new Exception("Test exception for Sentry.io");
-
         renderCancellationTokenSource.Cancel();
 
         initializedMailItemViewModel = null;
