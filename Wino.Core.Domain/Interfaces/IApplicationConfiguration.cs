@@ -27,5 +27,5 @@ public interface IApplicationConfiguration
     /// <summary>
     /// Application insights instrumentation key.
     /// </summary>
-    string ApplicationInsightsInstrumentationKey { get; }
+    string SentryDNS { get; }
 }

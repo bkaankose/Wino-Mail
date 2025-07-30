@@ -49,14 +49,11 @@ public class ServerContext :
 {
     private const double MinimumSynchronizationIntervalMinutes = 1;
 
-    private readonly System.Timers.Timer _timer;
+    private readonly System.Timers.Timer _timer = new System.Timers.Timer();
     private static object connectionLock = new object();
 
     private AppServiceConnection connection = null;
 
-    private readonly IDatabaseService _databaseService;
-    private readonly IApplicationConfiguration _applicationFolderConfiguration;
-    private readonly ISynchronizerFactory _synchronizerFactory;
     private readonly IServerMessageHandlerFactory _serverMessageHandlerFactory;
     private readonly IAccountService _accountService;
     private readonly IPreferencesService _preferencesService;
@@ -77,9 +74,6 @@ public class ServerContext :
         _timer.Elapsed += SynchronizationTimerTriggered;
         _preferencesService.PropertyChanged += PreferencesUpdated;
 
-        _databaseService = databaseService;
-        _applicationFolderConfiguration = applicationFolderConfiguration;
-        _synchronizerFactory = synchronizerFactory;
         _serverMessageHandlerFactory = serverMessageHandlerFactory;
         _accountService = accountService;
 

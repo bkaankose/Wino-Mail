@@ -9,15 +9,18 @@
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="Serilog" />
 		<PackageReference Include="Serilog.Sinks.Debug" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Exceptions" />
-		<PackageReference Include="Serilog.Sinks.ApplicationInsights" />
 		<PackageReference Include="SqlKata" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Misc\" />
 	</ItemGroup>
 </Project>
