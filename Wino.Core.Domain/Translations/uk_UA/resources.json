@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Тип облікового запису",
     "IMAPSetupDialog_ValidationSuccess_Title": "Виконано",
     "IMAPSetupDialog_ValidationSuccess_Message": "Перевірка успішна",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "Не вдалося перевірити сервер IMAP.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Цей сервер запитує SSL-рукостискання для продовження. Будь ласка, підтвердьте деталі сертифіката нижче.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Дозвольте рукостискання для продовження налаштування вашого облікового запису.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Користувацька тема",
     "SettingsDeleteAccount_Description": "Видалити всі листи та облікові дані, пов'язані з цим обліковим записом.",
     "SettingsDeleteAccount_Title": "Видалити цей обліковий запис",
-    "SettingsDeleteProtection_Description": "Чи повинен Wino перепитувати Вас щоразу, коли Ви намагаєтесь назавжди видалити лист через комбінацію клавіш Shift + Del?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Захист від остаточного видалення",
     "SettingsDiagnostics_Description": "Для розробників",
     "SettingsDiagnostics_DiagnosticId_Description": "Поділіться цим ID з розробниками, коли попросять, щоб отримати допомогу щодо проблем, з якими Ви зіткнулися у Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Попередній перегляд тексту",
     "SettingsShowSenderPictures_Description": "Приховувати/показувати аватарки відправників.",
     "SettingsShowSenderPictures_Title": "Аватарки відправників",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Додати підпис",
     "SettingsSignature_AddCustomSignature_Title": "Додати користувацький підпис",
     "SettingsSignature_DeleteSignature_Title": "Видалити підпис",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Ланцюжки розмов",
     "SettingsUnlinkAccounts_Description": "Видалити зв'язку між обліковими записами. Це не видалить самі облікові записи.",
     "SettingsUnlinkAccounts_Title": "Відв'язати облікові записи",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Ви дійсно бажаєте видалити підпис \"{0}\"?",
     "SignatureDeleteDialog_Title": "Видалити підпис",
     "SignatureEditorDialog_SignatureName_Placeholder": "Назвіть свій підпис",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino пропонує 3 облікові записи для початку безкоштовно. Якщо Вам потрібно більше 3 облікових записів, будь ласка, оновіться",
     "WinoUpgradeMessage": "Оновити до необмеженої кількості облікових записів",
     "WinoUpgradeRemainingAccountsMessage": "{0} з {1} безкоштовних облікових записів використано.",
-    "Yesterday": "Вчора"
+    "Yesterday": "Вчора",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

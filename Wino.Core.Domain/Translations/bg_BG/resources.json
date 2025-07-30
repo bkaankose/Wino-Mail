@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Тип на акаунта",
     "IMAPSetupDialog_ValidationSuccess_Title": "Успешно",
     "IMAPSetupDialog_ValidationSuccess_Message": "Успешно валидиране",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "Неуспешно валидиране на IMAP сървъра.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Този сървър изисква установяване на защитена SSL връзка, за да продължи. Моля, потвърдете данните за сертификата по-долу.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Разрешете защитената връзка, за да продължите да настройвате акаунта си.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Потребителска тема",
     "SettingsDeleteAccount_Description": "Изтриване на всички имейли и идентификационни данни, свързани с този акаунт.",
     "SettingsDeleteAccount_Title": "Изтриване на този акаунт",
-    "SettingsDeleteProtection_Description": "Трябва ли Wino да ви пита за потвърждение всеки път, когато се опитвате да изтриете окончателно имейл с клавишите Shift + Del?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Защита от окончателно изтриване",
     "SettingsDiagnostics_Description": "За разработчици",
     "SettingsDiagnostics_DiagnosticId_Description": "Споделете този идентификационен номер с разработчиците, когато ви помолят, за да получите помощ за проблемите, с които се сблъсквате в Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Показване визуализация на текста",
     "SettingsShowSenderPictures_Description": "Скриване/показване на миниатюрите на снимките на изпращача.",
     "SettingsShowSenderPictures_Title": "Показване на аватарите на подателите",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Добавяне на подпис",
     "SettingsSignature_AddCustomSignature_Title": "Добавяне на персонализиран подпис",
     "SettingsSignature_DeleteSignature_Title": "Изтриване на подписа",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Групиране в разговори",
     "SettingsUnlinkAccounts_Description": "Премахване на връзката между акаунтите. Това няма да доведе до изтриване на акаунтите ви.",
     "SettingsUnlinkAccounts_Title": "Премахване на връзката между акаунтите",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Наистина ли искате да изтриете подписа „{0}“?",
     "SignatureDeleteDialog_Title": "Изтриване на подписа",
     "SignatureEditorDialog_SignatureName_Placeholder": "Име на вашия подпис",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino предлага 3 безплатни акаунта за начало. Ако имате нужда от повече от 3 акаунта, моля, надстройте",
     "WinoUpgradeMessage": "Надграждане до неограничен брой акаунти",
     "WinoUpgradeRemainingAccountsMessage": "Използвани са {0} от {1} безплатни акаунта.",
-    "Yesterday": "Вчера"
+    "Yesterday": "Вчера",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

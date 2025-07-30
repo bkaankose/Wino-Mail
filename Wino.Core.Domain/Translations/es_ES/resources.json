@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Tipo de cuenta",
     "IMAPSetupDialog_ValidationSuccess_Title": "Correcto",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validación correcta",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Correcto",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "Ajustes IMAP guardados con éxito.",
     "IMAPSetupDialog_ValidationFailed_Title": "La validación del servidor IMAP falló.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "El servidor requiere un protocolo de enlace SSL para continuar. Confirma los detalles del certificado a continuación.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Permite el protocolo de enlace para continuar configurando tu cuenta.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Mostrar texto de vista previa",
     "SettingsShowSenderPictures_Description": "Ocultar/mostrar imágenes del remitente en miniatura.",
     "SettingsShowSenderPictures_Title": "Mostrar Avatares de Remitente",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Usar gravatar (si está disponible) como imagen del remitente",
+    "SettingsEnableFavicons_Title": "Iconos de dominio (Faviconos)",
+    "SettingsEnableFavicons_Description": "Usar favicons de dominio (si está disponible) como imagen del remitente",
+    "SettingsMailList_ClearAvatarsCache_Button": "Limpiar avatares en caché",
     "SettingsSignature_AddCustomSignature_Button": "Añadir firma",
     "SettingsSignature_AddCustomSignature_Title": "Añadir firma personalizada",
     "SettingsSignature_DeleteSignature_Title": "Eliminar firma",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Hilos de conversación",
     "SettingsUnlinkAccounts_Description": "Eliminar el enlace entre cuentas. No eliminará sus cuentas.",
     "SettingsUnlinkAccounts_Title": "Desvincular Cuentas",
+    "SettingsMailRendering_ActionLabels_Title": "Etiquetas de acción",
+    "SettingsMailRendering_ActionLabels_Description": "Mostrar etiquetas de acción.",
     "SignatureDeleteDialog_Message": "¿Seguro que quieres eliminar la firma \"{0}\"?",
     "SignatureDeleteDialog_Title": "Eliminar firma",
     "SignatureEditorDialog_SignatureName_Placeholder": "Ponle un nombre a tu firma",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino ofrece 3 cuentas para empezar gratis. Si necesitas más de 3 cuentas por favor actualiza",
     "WinoUpgradeMessage": "Actualizar a Cuentas Ilimitadas",
     "WinoUpgradeRemainingAccountsMessage": "{0} de {1} cuentas gratuitas usadas.",
-    "Yesterday": "Ayer"
+    "Yesterday": "Ayer",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 
