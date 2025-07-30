@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Account type",
     "IMAPSetupDialog_ValidationSuccess_Title": "Success",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validation successful",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP Server validation failed.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "This server is requesting a SSL handshake to continue. Please confirm the certificate details below.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Allow the handshake to continue setting up your account.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Custom Theme",
     "SettingsDeleteAccount_Description": "Delete all e-mails and credentials associated with this account.",
     "SettingsDeleteAccount_Title": "Delete this account",
-    "SettingsDeleteProtection_Description": "Should Wino ask you for comfirmation every time you try to permanently delete a mail using Shift + Del keys?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Permanent Delete Protection",
     "SettingsDiagnostics_Description": "For developers",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Show Preview Text",
     "SettingsShowSenderPictures_Description": "Hide/show the thumbnail sender pictures.",
     "SettingsShowSenderPictures_Title": "Show Sender Avatars",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Add signature",
     "SettingsSignature_AddCustomSignature_Title": "Add custom signature",
     "SettingsSignature_DeleteSignature_Title": "Delete signature",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Conversation Threading",
     "SettingsUnlinkAccounts_Description": "Remove the link between accounts. his will not delete your accounts.",
     "SettingsUnlinkAccounts_Title": "Unlink Accounts",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Are you sure you want to delete \"{0}\" signature?",
     "SignatureDeleteDialog_Title": "Delete signature",
     "SignatureEditorDialog_SignatureName_Placeholder": "Name your signature",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino offers 3 accounts to start with for free. If you need more than 3 accounts, please upgrade",
     "WinoUpgradeMessage": "Upgrade to Unlimited Accounts",
     "WinoUpgradeRemainingAccountsMessage": "{0} out of {1} free accounts used.",
-    "Yesterday": "Yesterday"
+    "Yesterday": "Yesterday",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 
