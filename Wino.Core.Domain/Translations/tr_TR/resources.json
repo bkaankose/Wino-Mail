@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Hesap türü",
     "IMAPSetupDialog_ValidationSuccess_Title": "Başarılı",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validasyon başarılı",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP sunucusuna bağlanılamadı.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Bu sunucu SSL doğrulaması gerektiriyor. Lütfen aşağıdaki detayları onaylayınız.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Devam etmek için doğrulamayı kabul edin.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Özel Tema",
     "SettingsDeleteAccount_Description": "Bu hesapa bağlı bütün bilgi ve e-postaları sil.",
     "SettingsDeleteAccount_Title": "Bu hesabı sil",
-    "SettingsDeleteProtection_Description": "Wino her seferinde Shift + Del tuşlarıyla kalıcı olarak silmek istediğiniz e-postalar için uyarı mesajı göstersin mi?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Kalıcı Silme Koruması",
     "SettingsDiagnostics_Description": "Geliştiriciler için",
     "SettingsDiagnostics_DiagnosticId_Description": "Bu ID'yi geliştiriciler ile paylaşarak Wino Mail ile yaşadığınız sorunlar hakkında çözümlere ulaşabilirsiniz.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Önizleme",
     "SettingsShowSenderPictures_Description": "Gönderen resmini göster/gösterme.",
     "SettingsShowSenderPictures_Title": "Gönderen Resimleri",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "İmza ekle",
     "SettingsSignature_AddCustomSignature_Title": "Yeni bir imza ekleyin",
     "SettingsSignature_DeleteSignature_Title": "İmzayı siil",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Mesaj Gruplama",
     "SettingsUnlinkAccounts_Description": "Hesap bağlantısını koparın. Bu işlem hesaplarınızı silmez.",
     "SettingsUnlinkAccounts_Title": "Hesap Bağlantısını Kopar",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "{0} imzasını silmek istediğinizden emin misiniz?",
     "SignatureDeleteDialog_Title": "İmzayı sil",
     "SignatureEditorDialog_SignatureName_Placeholder": "İmzaya bir isim verin",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino başlangıç için ücretsiz olarak 3 adet hesap verir. Eğer 3'ten fazla hesap kullanmak istiyorsanız lütfen satın alarak projeye destek olun",
     "WinoUpgradeMessage": "Sınırsız Hesaba Yükselt",
     "WinoUpgradeRemainingAccountsMessage": "{1} hesabın {0} tanesi kullanıldı.",
-    "Yesterday": "Dün"
+    "Yesterday": "Dün",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 
