@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Jenis akun",
     "IMAPSetupDialog_ValidationSuccess_Title": "Success",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validation successful",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP Server validation failed.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Peladen ini meminta pertukaran SSL untuk melanjutkan. Mohon pastikan rincian sertifikat di bawah ini.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Izinkan pertukaran untuk melanjutkan mengatur akun Anda.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Tema Khusus",
     "SettingsDeleteAccount_Description": "Hapus semua surel dan informasi tentang akun ini.",
     "SettingsDeleteAccount_Title": "Hapus akun ini",
-    "SettingsDeleteProtection_Description": "Haruskan Wino meminta persetujuan Anda setiap kali Anda menghapus permanen surel dengan tombol Shift + Del?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Perlindungan Hapus Permanen",
     "SettingsDiagnostics_Description": "Untuk pengembang",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Tampilkan Teks Pratinjau",
     "SettingsShowSenderPictures_Description": "Sembunyikan/tampilkan foto pengirim.",
     "SettingsShowSenderPictures_Title": "Tampilkan Foto Pengirim",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Tambah tanda tangan",
     "SettingsSignature_AddCustomSignature_Title": "Tambahkan tanda tangan khusus",
     "SettingsSignature_DeleteSignature_Title": "Hapus tanda tangan",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Utas Percakapan",
     "SettingsUnlinkAccounts_Description": "Hapus tautan antara akun. Ini tidak akan menghapus akun Anda.",
     "SettingsUnlinkAccounts_Title": "Lepaskan Tautan Akun",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Apakah Anda yakin ingin menghapus tanda tangan \"{0}\"?",
     "SignatureDeleteDialog_Title": "Hapus tanda tangan",
     "SignatureEditorDialog_SignatureName_Placeholder": "Beri nama tanda tangan",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino menawarkan 3 akun secara gratis. Jika Anda membutuhkan lebih dari 3 akun, mohon tingkatkan.",
     "WinoUpgradeMessage": "Tingkatkan ke Akun Tak Terbatas",
     "WinoUpgradeRemainingAccountsMessage": "{0} dari {1} akun gratis digunakan.",
-    "Yesterday": "Kemarin"
+    "Yesterday": "Kemarin",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 
