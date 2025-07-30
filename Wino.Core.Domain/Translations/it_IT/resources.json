@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Tipo di account",
     "IMAPSetupDialog_ValidationSuccess_Title": "Riuscito",
     "IMAPSetupDialog_ValidationSuccess_Message": "Convalida riuscita",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Riuscito",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "Impostazioni IMAP salvate correttamente.",
     "IMAPSetupDialog_ValidationFailed_Title": "Convalida server IMAP non riuscita.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Questo server richiede un handshake SSL per continuare. Confermare i dettagli del certificato qui sotto.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Permetti all'handshake di continuare a configurare il tuo account.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Mostra testo di anteprima",
     "SettingsShowSenderPictures_Description": "Mostra/nascondi le miniature delle immagini del mittente.",
     "SettingsShowSenderPictures_Title": "Mostra avatar mittente",
+    "SettingsEnableGravatarAvatars_Title": "Personificatore",
+    "SettingsEnableGravatarAvatars_Description": "Usa il personificatore (se disponibile) come immagine del mittente",
+    "SettingsEnableFavicons_Title": "Icone del dominio (Favicons)",
+    "SettingsEnableFavicons_Description": "Usa le icone di dominio (se disponibili) come immagine del mittente",
+    "SettingsMailList_ClearAvatarsCache_Button": "Cancella personificatori nella cache",
     "SettingsSignature_AddCustomSignature_Button": "Aggiungi firma",
     "SettingsSignature_AddCustomSignature_Title": "Aggiungi firma personalizzata",
     "SettingsSignature_DeleteSignature_Title": "Elimina firma",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Raggruppamento conversazioni",
     "SettingsUnlinkAccounts_Description": "Rimuovi il collegamento tra gli account. Questo non eliminerà i tuoi account.",
     "SettingsUnlinkAccounts_Title": "Scollega account",
+    "SettingsMailRendering_ActionLabels_Title": "Etichette azioni",
+    "SettingsMailRendering_ActionLabels_Description": "Mostra le etichette delle azioni.",
     "SignatureDeleteDialog_Message": "Sei sicuro di voler eliminare la firma \"{0}\"?",
     "SignatureDeleteDialog_Title": "Elimina firma",
     "SignatureEditorDialog_SignatureName_Placeholder": "Nomina la tua firma",
@@ -690,8 +699,8 @@
     "WinoUpgradeMessage": "Aggiorna ad account illimitati",
     "WinoUpgradeRemainingAccountsMessage": "{0} di {1} account gratuiti usati.",
     "Yesterday": "Ieri",
-    "SettingsAppPreferences_EmailSyncInterval_Title": "Intervallo sincronizzazione email",
-    "SettingsAppPreferences_EmailSyncInterval_Description": "Intervallo di sincronizzazione automatica delle email (minuti). Questa impostazione verrà applicata solo dopo il riavvio di Wino Mail."
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Intervallo sincronizzazione e-mail",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Intervallo di sincronizzazione automatica delle e-mail (minuti). Questa impostazione sarà applicata solo dopo il riavvio di Wino Mail."
 }
 
 
