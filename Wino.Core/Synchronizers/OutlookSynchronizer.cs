@@ -246,7 +246,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
            {
-               config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
                config.QueryParameters.Select = outlookMessageSelectParameters;
                config.QueryParameters.Orderby = ["receivedDateTime desc"];
            }, cancellationToken).ConfigureAwait(false);
@@ -257,7 +256,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
             {
-                config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
                 config.QueryParameters.Select = outlookMessageSelectParameters;
                 config.QueryParameters.Orderby = ["receivedDateTime desc"];
             });
