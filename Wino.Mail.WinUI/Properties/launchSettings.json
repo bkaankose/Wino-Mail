@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Wino.Mail.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Wino.Mail.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

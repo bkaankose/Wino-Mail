@@ -80,17 +80,14 @@
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 
-		<PackageReference Include="Microsoft.UI.Xaml" />
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Uwp.Managed" />
 		<PackageReference Include="Nito.AsyncEx" />
 		<PackageReference Include="Sentry.Serilog" />
 
 		<PackageReference Include="sqlite-net-pcl" />
-		<PackageReference Include="Win2D.uwp" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
-	  <ProjectReference Include="..\Wino.Core.UWP\Wino.Core.UWP.csproj" />
 	  <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	  <ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />

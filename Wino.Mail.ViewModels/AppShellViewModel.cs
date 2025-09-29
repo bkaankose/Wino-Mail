@@ -74,7 +74,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
-    private readonly IBackgroundTaskService _backgroundTaskService;
     private readonly IMimeFileService _mimeFileService;
 
     private readonly INativeAppService _nativeAppService;
@@ -87,7 +86,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
     public AppShellViewModel(IMailDialogService dialogService,
                              INavigationService navigationService,
-                             IBackgroundTaskService backgroundTaskService,
                              IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
                              IMailService mailService,
@@ -122,7 +120,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
         _configurationService = configurationService;
         _startupBehaviorService = startupBehaviorService;
-        _backgroundTaskService = backgroundTaskService;
         _mimeFileService = mimeFileService;
         _nativeAppService = nativeAppService;
         _mailService = mailService;
@@ -248,7 +245,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
         }
 
         await MakeSureEnableStartupLaunchAsync();
-        await ConfigureBackgroundTasksAsync();
     }
 
     private async Task MakeSureEnableStartupLaunchAsync()
@@ -291,22 +287,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task ConfigureBackgroundTasksAsync()
-    {
-        try
-        {
-            // This will only unregister once. Safe to execute multiple times.
-            _backgroundTaskService.UnregisterAllBackgroundTask();
-
-            await _backgroundTaskService.RegisterBackgroundTasksAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to configure background tasks.");
-
-            _dialogService.InfoBarMessage(Translator.Info_BackgroundExecutionUnknownErrorTitle, Translator.Info_BackgroundExecutionUnknownErrorMessage, InfoBarMessageType.Error);
-        }
-    }
 
     private async Task ForceAllAccountSynchronizationsAsync()
     {
