@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary
-    x:Class="Wino.Core.UWP.Styles.CustomMessageDialogStyles"
+    x:Class="Wino.Core.WinUI.Styles.CustomMessageDialogStyles"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dialogs="using:Wino.Dialogs"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:local="using:Wino.Styles"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:selectors="using:Wino.Core.UWP.Selectors">
+    xmlns:selectors="using:Wino.Core.WinUI.Selectors">
 
     <!--  Icon templates  -->
     <DataTemplate x:Key="WinoCustomMessageDialogInformationIconTemplate">

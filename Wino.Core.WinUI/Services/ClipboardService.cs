@@ -2,7 +2,7 @@
 using Windows.ApplicationModel.DataTransfer;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class ClipboardService : IClipboardService
 {

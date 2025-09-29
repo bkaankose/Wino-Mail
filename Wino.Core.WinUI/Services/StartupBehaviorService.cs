@@ -4,9 +4,9 @@ using Serilog;
 using Windows.ApplicationModel;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP.Extensions;
+using Wino.Core.WinUI.Extensions;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class StartupBehaviorService : IStartupBehaviorService
 {

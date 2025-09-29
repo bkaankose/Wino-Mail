@@ -21,10 +21,10 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Personalization;
-using Wino.Core.UWP;
-using Wino.Core.UWP.Extensions;
-using Wino.Core.UWP.Models.Personalization;
-using Wino.Core.UWP.Services;
+using Wino.Core.WinUI;
+using Wino.Core.WinUI.Extensions;
+using Wino.Core.WinUI.Models.Personalization;
+using Wino.Core.WinUI.Services;
 using Wino.Messaging.Client.Shell;
 
 namespace Wino.Services;

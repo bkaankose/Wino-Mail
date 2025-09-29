@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Models.Navigation;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class NavigationServiceBase
 {

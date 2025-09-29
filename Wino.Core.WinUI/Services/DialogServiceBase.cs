@@ -14,12 +14,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
-using Wino.Core.UWP.Dialogs;
-using Wino.Core.UWP.Extensions;
+using Wino.Core.WinUI.Dialogs;
+using Wino.Core.WinUI.Extensions;
 using Wino.Dialogs;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class DialogServiceBase : IDialogServiceBase
 {

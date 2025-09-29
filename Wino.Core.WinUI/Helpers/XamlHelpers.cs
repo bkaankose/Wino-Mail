@@ -15,7 +15,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.UWP.Controls;
+using Wino.Core.WinUI.Controls;
 
 namespace Wino.Helpers;
 

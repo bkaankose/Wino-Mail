@@ -1,5 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
-using Wino.Core.UWP.Controls;
+using Wino.Core.WinUI.Controls;
 
 namespace Wino.Controls;
 

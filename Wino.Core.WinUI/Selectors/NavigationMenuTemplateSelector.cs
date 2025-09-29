@@ -2,7 +2,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.MenuItems;
 
-namespace Wino.Core.UWP.Selectors;
+namespace Wino.Core.WinUI.Selectors;
 
 public partial class NavigationMenuTemplateSelector : DataTemplateSelector
 {

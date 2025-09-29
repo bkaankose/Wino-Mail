@@ -3,7 +3,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP;
+using Wino.Core.WinUI;
 using Wino.Core.WinUI.Interfaces;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;

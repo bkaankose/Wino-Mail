@@ -7,7 +7,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.UWP.Views.Abstract;
+using Wino.Core.WinUI.Views.Abstract;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;

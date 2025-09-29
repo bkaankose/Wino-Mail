@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 
-namespace Wino.Core.UWP.Styles;
+namespace Wino.Core.WinUI.Styles;
 
 partial class CustomMessageDialogStyles : ResourceDictionary
 {

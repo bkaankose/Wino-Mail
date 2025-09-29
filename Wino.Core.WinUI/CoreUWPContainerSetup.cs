@@ -2,11 +2,11 @@
 using Microsoft.UI.Xaml;
 using Windows.ApplicationModel.AppService;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP.Services;
+using Wino.Core.WinUI.Services;
 using Wino.Core.ViewModels;
 using Wino.Services;
 
-namespace Wino.Core.UWP;
+namespace Wino.Core.WinUI;
 
 public static class CoreUWPContainerSetup
 {

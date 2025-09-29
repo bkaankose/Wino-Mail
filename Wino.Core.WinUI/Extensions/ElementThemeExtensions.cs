@@ -1,7 +1,7 @@
 ﻿using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.UWP.Extensions;
+namespace Wino.Core.WinUI.Extensions;
 
 public static class ElementThemeExtensions
 {

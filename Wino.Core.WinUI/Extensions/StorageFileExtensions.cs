@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Windows.Storage;
 using Wino.Core.Domain.Models.Common;
 
-namespace Wino.Core.UWP.Extensions;
+namespace Wino.Core.WinUI.Extensions;
 
 public static class StorageFileExtensions
 {

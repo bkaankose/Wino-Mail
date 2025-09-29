@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
-using Wino.Core.UWP.Controls;
+using Wino.Core.WinUI.Controls;
 using Wino.Helpers;
 
 namespace Wino.MenuFlyouts;

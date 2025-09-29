@@ -2,7 +2,7 @@
 using Microsoft.Xaml.Interactivity;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP.Controls;
+using Wino.Core.WinUI.Controls;
 
 namespace Wino.Behaviors;
 

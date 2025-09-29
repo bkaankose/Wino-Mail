@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:styles="using:Wino.Styles"
-    xmlns:uwp="using:Wino.Core.UWP">
+    xmlns:uwp="using:Wino.Core.WinUI">
     <uwp:WinoApplication.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

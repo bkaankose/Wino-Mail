@@ -7,7 +7,7 @@ using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class StoreRatingService : IStoreRatingService
 {

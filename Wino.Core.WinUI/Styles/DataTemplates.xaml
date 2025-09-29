@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary
-    x:Class="Wino.Core.UWP.Styles.DataTemplates"
+    x:Class="Wino.Core.WinUI.Styles.DataTemplates"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
-    xmlns:coreControls="using:Wino.Core.UWP.Controls"
-    xmlns:coreSelectors="using:Wino.Core.UWP.Selectors"
+    xmlns:coreControls="using:Wino.Core.WinUI.Controls"
+    xmlns:coreSelectors="using:Wino.Core.WinUI.Selectors"
     xmlns:coreViewModelData="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:local="using:Wino.Core.UWP.Styles"
+    xmlns:local="using:Wino.Core.WinUI.Styles"
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:personalization="using:Wino.Core.UWP.Models.Personalization"
+    xmlns:personalization="using:Wino.Core.WinUI.Models.Personalization"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:winuiControls="using:CommunityToolkit.WinUI.Controls">
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Wino.Core.UWP.Extensions;
+namespace Wino.Core.WinUI.Extensions;
 
 public static class WebViewExtensions
 {

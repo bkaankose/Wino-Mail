@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.UWP.Controls;
+namespace Wino.Core.WinUI.Controls;
 
 public sealed partial class WinoAppTitleBar : UserControl
 {

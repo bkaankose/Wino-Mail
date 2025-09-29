@@ -5,7 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:controls1="using:Wino.Controls"
-    xmlns:coreControls="using:Wino.Core.UWP.Controls"
+    xmlns:coreControls="using:Wino.Core.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"

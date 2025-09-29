@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino.Core.UWP;
+namespace Wino.Core.WinUI;
 
 public partial class BasePage : Page, IRecipient<LanguageChanged>
 {

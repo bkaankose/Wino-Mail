@@ -19,7 +19,7 @@ using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.UWP.Extensions;
+using Wino.Core.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;

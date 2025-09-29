@@ -11,7 +11,7 @@ using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
 using Wino.Services;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class PreferencesService(IConfigurationService configurationService) : ObservableObject, IPreferencesService
 {

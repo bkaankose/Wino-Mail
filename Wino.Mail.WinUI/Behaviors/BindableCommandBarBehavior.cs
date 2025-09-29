@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.Xaml.Interactivity;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Menus;
-using Wino.Core.UWP.Controls;
+using Wino.Core.WinUI.Controls;
 using Wino.Helpers;
 using Wino.Mail.WinUI;
 

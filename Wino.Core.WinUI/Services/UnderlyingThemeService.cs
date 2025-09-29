@@ -2,7 +2,7 @@
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class UnderlyingThemeService : IUnderlyingThemeService
 {

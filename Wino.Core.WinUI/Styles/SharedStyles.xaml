@@ -2,7 +2,7 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Wino.Core.UWP.Styles">
+    xmlns:local="using:Wino.Core.WinUI.Styles">
 
     <!--  Horizontally Stretched List View Item Container Style  -->
     <Style x:Key="StretchedItemContainerStyle" TargetType="ListViewItem">

@@ -22,7 +22,7 @@ using Wino.Messaging.Enums;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class WinoServerConnectionManager :
     IWinoServerConnectionManager<AppServiceConnection>,

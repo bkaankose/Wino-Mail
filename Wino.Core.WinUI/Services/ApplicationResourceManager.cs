@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP;
+using Wino.Core.WinUI;
 
 namespace Wino.Services;
 

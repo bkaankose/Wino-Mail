@@ -10,7 +10,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.ViewModels.Data;
 using Wino.Helpers;
 
-namespace Wino.Core.UWP.Dialogs;
+namespace Wino.Core.WinUI.Dialogs;
 
 public sealed partial class NewAccountDialog : ContentDialog
 {

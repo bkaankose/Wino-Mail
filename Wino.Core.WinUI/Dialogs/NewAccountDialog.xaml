@@ -1,5 +1,5 @@
 ﻿<ContentDialog
-    x:Class="Wino.Core.UWP.Dialogs.NewAccountDialog"
+    x:Class="Wino.Core.WinUI.Dialogs.NewAccountDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"

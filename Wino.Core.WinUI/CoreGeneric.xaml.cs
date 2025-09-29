@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 
-namespace Wino.Core.UWP;
+namespace Wino.Core.WinUI;
 
 public partial class CoreGeneric : ResourceDictionary
 {

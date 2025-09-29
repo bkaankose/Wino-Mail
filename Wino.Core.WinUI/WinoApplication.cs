@@ -22,7 +22,7 @@ using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using WinUIEx;
 
-namespace Wino.Core.UWP;
+namespace Wino.Core.WinUI;
 
 public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 {

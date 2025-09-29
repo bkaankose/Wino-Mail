@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 
-namespace Wino.Core.UWP.Converters;
+namespace Wino.Core.WinUI.Converters;
 
 public partial class HexToColorBrushConverter : IValueConverter
 {

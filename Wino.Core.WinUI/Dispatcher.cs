@@ -4,7 +4,7 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Dispatching;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP;
+namespace Wino.Core.WinUI;
 
 public class WinUIDispatcher : IDispatcher
 {

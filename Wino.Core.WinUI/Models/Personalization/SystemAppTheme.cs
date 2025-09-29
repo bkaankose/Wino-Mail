@@ -1,7 +1,7 @@
 ﻿using System;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.UWP.Models.Personalization;
+namespace Wino.Core.WinUI.Models.Personalization;
 
 // Mica - Acrylic.
 public class SystemAppTheme : PreDefinedAppTheme

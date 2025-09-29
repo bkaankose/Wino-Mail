@@ -1,5 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
-using Wino.Core.UWP;
+using Wino.Core.WinUI;
 using Wino.Core.ViewModels;
 
 namespace Wino.Views.Abstract;

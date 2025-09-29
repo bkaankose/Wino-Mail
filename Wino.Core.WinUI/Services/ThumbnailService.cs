@@ -13,7 +13,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
 using Wino.Services;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class ThumbnailService(IPreferencesService preferencesService, IDatabaseService databaseService) : IThumbnailService
 {

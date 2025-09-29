@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Hosting;
 
-namespace Wino.Core.UWP.Controls;
+namespace Wino.Core.WinUI.Controls;
 
 public partial class WinoNavigationViewItem : NavigationViewItem
 {

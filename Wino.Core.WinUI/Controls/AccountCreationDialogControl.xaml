@@ -1,10 +1,10 @@
 ﻿<UserControl
-    x:Class="Wino.Core.UWP.Controls.AccountCreationDialogControl"
+    x:Class="Wino.Core.WinUI.Controls.AccountCreationDialogControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:local="using:Wino.Core.UWP.Controls"
+    xmlns:local="using:Wino.Core.WinUI.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     d:DesignHeight="300"

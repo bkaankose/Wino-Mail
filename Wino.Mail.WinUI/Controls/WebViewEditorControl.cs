@@ -12,8 +12,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.UWP;
-using Wino.Core.UWP.Extensions;
+using Wino.Core.WinUI;
+using Wino.Core.WinUI.Extensions;
 using Wino.Mail.WinUI;
 
 namespace Wino.Mail.Controls;

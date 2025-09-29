@@ -2,7 +2,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-namespace Wino.Core.UWP.Controls;
+namespace Wino.Core.WinUI.Controls;
 
 public partial class EqualGridPanel : Panel
 {

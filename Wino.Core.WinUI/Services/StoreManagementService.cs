@@ -5,7 +5,7 @@ using Windows.Services.Store;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Store;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class StoreManagementService : IStoreManagementService
 {

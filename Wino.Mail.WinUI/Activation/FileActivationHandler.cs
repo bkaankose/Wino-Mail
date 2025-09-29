@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP.Extensions;
+using Wino.Core.WinUI.Extensions;
 using Wino.Views;
 
 namespace Wino.Activation;

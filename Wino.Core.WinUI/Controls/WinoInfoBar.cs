@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Enums;
 
-namespace Wino.Core.UWP.Controls;
+namespace Wino.Core.WinUI.Controls;
 
 public partial class WinoInfoBar : InfoBar
 {

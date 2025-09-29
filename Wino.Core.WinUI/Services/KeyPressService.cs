@@ -3,7 +3,7 @@ using Windows.UI.Core;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class KeyPressService : IKeyPressService
 {

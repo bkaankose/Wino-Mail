@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 
-namespace Wino.Core.UWP.Styles;
+namespace Wino.Core.WinUI.Styles;
 
 public partial class DataTemplates : ResourceDictionary
 {

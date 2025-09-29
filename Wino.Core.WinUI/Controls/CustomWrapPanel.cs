@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Wino.Core.UWP.Controls
+namespace Wino.Core.WinUI.Controls
 {
     using Windows.Foundation;
     using Microsoft.UI.Xaml;

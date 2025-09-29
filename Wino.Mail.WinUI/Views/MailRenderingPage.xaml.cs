@@ -12,7 +12,7 @@ using Microsoft.Web.WebView2.Core;
 using Windows.System;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP.Extensions;
+using Wino.Core.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Messaging.Client.Mails;

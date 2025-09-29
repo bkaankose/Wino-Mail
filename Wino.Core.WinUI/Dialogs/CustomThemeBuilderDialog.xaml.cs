@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.UWP;
+using Wino.Core.WinUI;
 
 namespace Wino.Dialogs;
 

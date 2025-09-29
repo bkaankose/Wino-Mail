@@ -9,7 +9,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
 
 
-namespace Wino.Core.UWP.Controls;
+namespace Wino.Core.WinUI.Controls;
 
 public sealed partial class AccountCreationDialogControl : UserControl, IRecipient<CopyAuthURLRequested>
 {
