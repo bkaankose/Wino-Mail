@@ -356,22 +356,9 @@
     <Grid
         x:Name="RootGrid"
         Padding="0"
+        Background="{ThemeResource WinoApplicationBackgroundColor}"
         ColumnSpacing="0"
         RowSpacing="0">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="48" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="48" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <Grid
-            Grid.RowSpan="2"
-            Grid.ColumnSpan="2"
-            Background="{ThemeResource WinoApplicationBackgroundColor}"
-            IsHitTestVisible="False" />
 
         <muxc:NavigationView
             x:Name="navigationView"
@@ -452,21 +439,5 @@
             </Grid>
         </muxc:NavigationView>
 
-        <!--<coreControls:WinoAppTitleBar
-            x:Name="RealAppBar"
-            Grid.ColumnSpan="2"
-            BackButtonClicked="BackButtonClicked"
-            Canvas.ZIndex="150"
-            ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
-            CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"
-            IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
-            IsDragArea="True"
-            IsNavigationPaneOpen="{x:Bind navigationView.IsPaneOpen, Mode=TwoWay}"
-            IsReaderNarrowed="{x:Bind ViewModel.StatePersistenceService.IsReaderNarrowed, Mode=OneWay}"
-            NavigationViewDisplayMode="{x:Bind navigationView.DisplayMode, Mode=OneWay}"
-            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
-            ReadingPaneLength="{x:Bind ViewModel.StatePersistenceService.MailListPaneLength, Mode=OneWay}"
-            ReconnectCommand="{x:Bind ViewModel.ReconnectServerCommand}"
-            SystemReserved="180" />-->
     </Grid>
 </abstract:AppShellAbstract>

@@ -11,6 +11,7 @@
     mc:Ignorable="d">
 
     <winuiex:WindowEx.SystemBackdrop>
+        <!--  TODO: Reach to ThemeService changes.  -->
         <MicaBackdrop />
     </winuiex:WindowEx.SystemBackdrop>
 
@@ -20,8 +21,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="ShellTitleBar" IsBackButtonVisible="True" />
+        <TitleBar
+            x:Name="ShellTitleBar"
+            Title="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}"
+            BackRequested="BackButtonClicked"
+            IsBackButtonVisible="{x:Bind StatePersistanceService.IsBackButtonVisible, Mode=OneWay}"
+            IsPaneToggleButtonVisible="True"
+            PaneToggleRequested="PaneButtonClicked" />
 
-        <Frame x:Name="MainShellFrame" Grid.Row="1" />
+        <Frame
+            x:Name="MainShellFrame"
+            Grid.Row="1"
+            Navigated="MainFrameNavigated" />
     </Grid>
 </winuiex:WindowEx>

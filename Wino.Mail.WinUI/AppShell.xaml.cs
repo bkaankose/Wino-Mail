@@ -130,7 +130,7 @@ public sealed partial class AppShell : AppShellAbstract,
 
     public async void Receive(AccountMenuItemExtended message)
     {
-        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, async () =>
+        await DispatcherQueue.EnqueueAsync(async () =>
         {
             if (message.FolderId == default) return;
 

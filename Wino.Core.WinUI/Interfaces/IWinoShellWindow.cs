@@ -6,6 +6,7 @@ namespace Wino.Core.WinUI.Interfaces;
 public interface IWinoShellWindow
 {
     void HandleAppActivation(LaunchActivatedEventArgs args);
-    Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar();
+    TitleBar GetTitleBar();
     Frame GetMainFrame();
+    FrameworkElement GetRootContent();
 }

@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IPreferencesService: INotifyPropertyChanged
+public interface IPreferencesService : INotifyPropertyChanged
 {
     /// <summary>
     /// When any of the preferences are changed.

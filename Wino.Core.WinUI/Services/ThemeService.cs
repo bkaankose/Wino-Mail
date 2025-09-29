@@ -7,10 +7,9 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using CommunityToolkit.WinUI.Helpers;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
 using Windows.Storage;
@@ -23,6 +22,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Extensions;
+using Wino.Core.WinUI.Interfaces;
 using Wino.Core.WinUI.Models.Personalization;
 using Wino.Core.WinUI.Services;
 using Wino.Messaging.Client.Shell;
@@ -43,8 +43,6 @@ public class ThemeService : IThemeService
     private static string _nightyThemeId = "5b65e04e-fd7e-4c2d-8221-068d3e02d23a";
     private static string _snowflakeThemeId = "e143ddde-2e28-4846-9d98-dad63d6505f1";
     private static string _gardenThemeId = "698e4466-f88c-4799-9c61-f0ea1308ed49";
-
-    private Frame mainApplicationFrame = null;
 
     public event EventHandler<ApplicationElementTheme> ElementThemeChanged;
     public event EventHandler<string> AccentColorChanged;
@@ -89,16 +87,15 @@ public class ThemeService : IThemeService
     {
         get
         {
-            if (mainApplicationFrame == null) return ApplicationElementTheme.Default;
+            return GetShellRootContent().RequestedTheme.ToWinoElementTheme();
+            //if (mainApplicationFrame == null) return ApplicationElementTheme.Default;
 
-            return mainApplicationFrame.RequestedTheme.ToWinoElementTheme();
+            //return mainApplicationFrame.RequestedTheme.ToWinoElementTheme();
         }
         set
         {
-            if (mainApplicationFrame == null)
-                return;
-
-            mainApplicationFrame.RequestedTheme = value.ToWindowsElementTheme();
+            GetShellRootContent().RequestedTheme = value.ToWindowsElementTheme();
+            // mainApplicationFrame.RequestedTheme = value.ToWindowsElementTheme();
 
             _configurationService.Set(UnderlyingThemeService.SelectedAppThemeKey, value);
 
@@ -121,10 +118,13 @@ public class ThemeService : IThemeService
 
             _configurationService.Set(CurrentApplicationThemeKey, value);
 
-            _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, async () =>
+            if (WinoApplication.MainWindow != null)
             {
-                await ApplyCustomThemeAsync(false);
-            });
+                WinoApplication.MainWindow.DispatcherQueue.TryEnqueue(async () =>
+                {
+                    await ApplyCustomThemeAsync(false);
+                });
+            }
         }
     }
 
@@ -154,17 +154,14 @@ public class ThemeService : IThemeService
         }
     }
 
+    public FrameworkElement GetShellRootContent() => (WinoApplication.MainWindow as IWinoShellWindow)?.GetRootContent() ?? throw new Exception("No root content found");
+
+    private bool isInitialized = false;
+
     public async Task InitializeAsync()
     {
         // Already initialized. There is no need.
-        if (mainApplicationFrame != null)
-            return;
-
-        // Save reference as this might be null when the user is in another app
-
-        mainApplicationFrame = WinoApplication.MainWindow.Content as Frame;
-
-        if (mainApplicationFrame == null) return;
+        if (isInitialized) return;
 
         RootTheme = _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
         AccentColor = _configurationService.Get(AccentColorKey, string.Empty);
@@ -177,56 +174,48 @@ public class ThemeService : IThemeService
         // Registering to color changes, thus we notice when user changes theme system wide
         uiSettings.ColorValuesChanged -= UISettingsColorChanged;
         uiSettings.ColorValuesChanged += UISettingsColorChanged;
+
+        isInitialized = true;
     }
 
     private void NotifyThemeUpdate()
     {
-        if (mainApplicationFrame == null || mainApplicationFrame.Dispatcher == null) return;
+        if (GetShellRootContent() is not UIElement rootContent) return;
 
-        _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
+        _ = rootContent.DispatcherQueue.EnqueueAsync(() =>
         {
             ElementThemeChanged?.Invoke(this, RootTheme);
             WeakReferenceMessenger.Default.Send(new ApplicationThemeChanged(_underlyingThemeService.IsUnderlyingThemeDark()));
-        });
+        }, Microsoft.UI.Dispatching.DispatcherQueuePriority.High);
     }
 
     private void UISettingsColorChanged(UISettings sender, object args)
     {
-        // Make sure we have a reference to our window so we dispatch a UI change
-        if (mainApplicationFrame != null)
-        {
-            // Dispatch on UI thread so that we have a current appbar to access and change
-
-            _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
-            {
-                UpdateSystemCaptionButtonColors();
-
-                var accentColor = sender.GetColorValue(UIColorType.Accent);
-                //AccentColorChangedBySystem?.Invoke(this, accentColor.ToHex());
-            });
-        }
+        // TODO: Buggy.
+        //GetShellRootContent().DispatcherQueue.TryEnqueue(() =>
+        //{
+        //    UpdateSystemCaptionButtonColors();
+        //});
 
         NotifyThemeUpdate();
     }
 
     public void UpdateSystemCaptionButtonColors()
     {
-        if (mainApplicationFrame == null) return;
-
-        _ = mainApplicationFrame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+        GetShellRootContent().DispatcherQueue.TryEnqueue(() =>
         {
-            ApplicationViewTitleBar titleBar = ApplicationView.GetForCurrentView().TitleBar;
+            Debug.WriteLine("TODO: Updating caption button colors");
 
-            if (titleBar == null) return;
+            // var titleBar = (WinoApplication.MainWindow as IWinoShellWindow).GetTitleBar();
 
-            if (_underlyingThemeService.IsUnderlyingThemeDark())
-            {
-                titleBar.ButtonForegroundColor = Colors.White;
-            }
-            else
-            {
-                titleBar.ButtonForegroundColor = Colors.Black;
-            }
+            //if (_underlyingThemeService.IsUnderlyingThemeDark())
+            //{
+            //    titleBar.ButtonForegroundColor = Colors.White;
+            //}
+            //else
+            //{
+            //    titleBar.ButtonForegroundColor = Colors.Black;
+            //}
         });
     }
 
@@ -257,6 +246,8 @@ public class ThemeService : IThemeService
 
     private void RefreshThemeResource()
     {
+        var mainApplicationFrame = GetShellRootContent();
+
         if (mainApplicationFrame == null) return;
 
         if (mainApplicationFrame.RequestedTheme == ElementTheme.Dark)
