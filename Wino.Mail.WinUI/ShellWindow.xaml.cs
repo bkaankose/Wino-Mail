@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Interfaces;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.UI;
 using Wino.Views;
 using WinUIEx;
 
@@ -19,6 +20,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow
 
     public ShellWindow()
     {
+        WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
+
         InitializeComponent();
 
         MinWidth = 420;
@@ -55,5 +58,13 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow
     private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {
         PreferencesService.IsNavigationPaneOpened = !PreferencesService.IsNavigationPaneOpened;
+    }
+
+    public void Receive(TitleBarShellContentUpdated message)
+    {
+        if (MainShellFrame.Content is AppShell shellPage)
+        {
+            ShellTitleBar.Content = shellPage.TopShellContent;
+        }
     }
 }

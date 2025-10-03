@@ -209,7 +209,7 @@
         <KeyboardAccelerator Key="Delete" Invoked="DeleteAllInvoked" />
     </Page.KeyboardAccelerators>
     <wino:BasePage.ShellContent>
-        <Grid>
+        <Grid HorizontalAlignment="Stretch" Background="Red">
             <!--  Hidden focus receiver...  -->
             <TextBox
                 Grid.Column="1"

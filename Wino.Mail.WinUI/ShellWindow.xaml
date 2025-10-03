@@ -21,6 +21,8 @@
         <TitleBar
             x:Name="ShellTitleBar"
             Title="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"
             IsBackButtonVisible="{x:Bind StatePersistanceService.IsBackButtonVisible, Mode=OneWay}"
             IsPaneToggleButtonVisible="True"

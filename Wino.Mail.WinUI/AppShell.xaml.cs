@@ -17,6 +17,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.WinUI;
 using Wino.Core.WinUI.Controls;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
@@ -25,6 +26,7 @@ using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
+using Wino.Messaging.UI;
 using Wino.Views.Abstract;
 
 namespace Wino.Views;
@@ -35,10 +37,14 @@ public sealed partial class AppShell : AppShellAbstract,
     IRecipient<CreateNewMailWithMultipleAccountsRequested>,
     IRecipient<InfoBarMessageRequested>
 {
+    [GeneratedDependencyProperty]
+    public partial UIElement TopShellContent { get; set; }
+
     public AppShell() : base()
     {
         InitializeComponent();
     }
+    public Frame GetShellFrame() => ShellFrame;
 
     private async void ItemDroppedOnFolder(object sender, DragEventArgs e)
     {
@@ -212,18 +218,9 @@ public sealed partial class AppShell : AppShellAbstract,
         }
     }
 
-    private void ShellFrameContentNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
-    {
-        // => RealAppBar.ShellFrameContent = (e.Content as BasePage).ShellContent;
+    private void ShellFrameContentNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) => TopShellContent = ((BasePage)e.Content).ShellContent;
 
-        // TODO: WinUI3: Update shell content. Just remove it.
-    }
-
-    private void BackButtonClicked(WinoAppTitleBar sender, RoutedEventArgs args)
-    {
-        WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
-        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
-    }
+    partial void OnTopShellContentChanged(UIElement newValue) => WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
 
     private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {

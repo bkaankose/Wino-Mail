@@ -1,9 +1,11 @@
-﻿using Microsoft.UI.Xaml;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.WinUI.Interfaces;
 
-public interface IWinoShellWindow
+public interface IWinoShellWindow : IRecipient<TitleBarShellContentUpdated>
 {
     void HandleAppActivation(LaunchActivatedEventArgs args);
     TitleBar GetTitleBar();
