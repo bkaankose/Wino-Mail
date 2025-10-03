@@ -5,7 +5,6 @@
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Acrylic</x:String>
-    <x:Boolean x:Key="UseMica">False</x:Boolean>
 
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
 

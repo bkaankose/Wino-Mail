@@ -34,6 +34,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     protected IApplicationConfiguration AppConfiguration { get; }
     protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
     public IThemeService ThemeService { get; }
+    public INewThemeService NewThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
     public IThumbnailService ThumbnailService { get; }
     protected IDatabaseService DatabaseService { get; }
@@ -56,6 +57,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
         AppServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
         ThemeService = Services.GetService<IThemeService>();
+        NewThemeService = Services.GetService<INewThemeService>();
         DatabaseService = Services.GetService<IDatabaseService>();
         TranslationService = Services.GetService<ITranslationService>();
         UnderlyingThemeService = Services.GetService<IUnderlyingThemeService>();
@@ -85,7 +87,8 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     {
         yield return DatabaseService;
         yield return TranslationService;
-        yield return ThemeService;
+        yield return NewThemeService;  // Initialize NewThemeService instead of old ThemeService
+        // yield return ThemeService;  // Keep old service for backward compatibility but don't initialize
     }
 
     public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();

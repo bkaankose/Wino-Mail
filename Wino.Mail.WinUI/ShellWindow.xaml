@@ -10,10 +10,7 @@
     Title="ShellWindow"
     mc:Ignorable="d">
 
-    <winuiex:WindowEx.SystemBackdrop>
-        <!--  TODO: Reach to ThemeService changes.  -->
-        <MicaBackdrop />
-    </winuiex:WindowEx.SystemBackdrop>
+    <!--  SystemBackdrop will be set by NewThemeService  -->
 
     <Grid>
         <Grid.RowDefinitions>

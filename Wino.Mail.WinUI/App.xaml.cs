@@ -2,6 +2,7 @@
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Interfaces;
@@ -78,6 +79,13 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         // TODO: Check app relaunch mutex before loading anything.
+
+        // Initialize NewThemeService first to get backdrop settings before creating window
+        var newThemeService = Services.GetService<INewThemeService>();
+        var configService = Services.GetService<IConfigurationService>();
+
+        // Load saved backdrop type before creating window
+        var savedBackdropType = (WindowBackdropType)configService.Get("WindowBackdropTypeKey", (int)WindowBackdropType.Mica);
 
         MainWindow = new ShellWindow();
 

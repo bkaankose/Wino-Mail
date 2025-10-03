@@ -23,6 +23,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IStoreManagementService, StoreManagementService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<IThemeService, ThemeService>();
+        services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<IThumbnailService, ThumbnailService>();
         services.AddSingleton<IDialogServiceBase, DialogServiceBase>();

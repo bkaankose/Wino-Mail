@@ -5,7 +5,6 @@
 
     <x:String x:Key="ThemeName">Forest</x:String>
     <x:String x:Key="ThemeBackgroundImage">ms-appx:///Wino.Core.WinUI/BackgroundImages/Forest.jpg</x:String>
-    <x:Boolean x:Key="UseMica">False</x:Boolean>
 
     <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>

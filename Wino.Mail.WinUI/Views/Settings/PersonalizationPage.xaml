@@ -14,6 +14,7 @@
     xmlns:mailSelectors="using:Wino.Selectors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.WinUI.Models.Personalization"
+    xmlns:personalization1="using:Wino.Core.Domain.Models.Personalization"
     xmlns:selectors="using:Wino.Selectors"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
@@ -146,6 +147,26 @@
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
+
+            <!--  Backdrop Selection  -->
+            <controls:SettingsCard Description="Choose the backdrop effect for your app window" Header="Window Backdrop">
+                <controls:SettingsCard.HeaderIcon>
+                    <PathIcon Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+                </controls:SettingsCard.HeaderIcon>
+
+                <controls:SettingsCard.Content>
+                    <ComboBox
+                        Width="150"
+                        ItemsSource="{x:Bind ViewModel.AvailableBackdropTypes, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedBackdropType, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="personalization1:BackdropTypeWrapper">
+                                <TextBlock Text="{x:Bind DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </controls:SettingsCard.Content>
+            </controls:SettingsCard>
 
             <!--  Mail spacing.  -->
             <controls:SettingsExpander Description="{x:Bind domain:Translator.SettingsMailSpacing_Description}" Header="{x:Bind domain:Translator.SettingsMailSpacing_Title}">

@@ -4,7 +4,6 @@
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Mica</x:String>
-    <x:Boolean x:Key="UseMica">True</x:Boolean>
 
     <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>

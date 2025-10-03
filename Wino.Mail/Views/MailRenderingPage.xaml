@@ -16,7 +16,6 @@
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
-    muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     IsDarkEditor="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
     mc:Ignorable="d">
 
