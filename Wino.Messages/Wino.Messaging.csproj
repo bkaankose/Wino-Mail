@@ -10,9 +10,6 @@
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="System.Text.Json" />
-	</ItemGroup>
-	<ItemGroup>
 	  <Folder Include="Client\Authorization\" />
 	</ItemGroup>
 </Project>

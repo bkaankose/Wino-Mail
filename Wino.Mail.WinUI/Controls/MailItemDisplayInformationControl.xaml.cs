@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
@@ -9,7 +8,6 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
-using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Controls;
 
@@ -21,7 +19,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(nameof(DisplayMode), typeof(MailListDisplayMode), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailListDisplayMode.Spacious));
     public static readonly DependencyProperty ShowPreviewTextProperty = DependencyProperty.Register(nameof(ShowPreviewText), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-    public static readonly DependencyProperty IsCustomFocusedProperty = DependencyProperty.Register(nameof(IsCustomFocused), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsAvatarVisibleProperty = DependencyProperty.Register(nameof(IsAvatarVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
     public static readonly DependencyProperty IsSubjectVisibleProperty = DependencyProperty.Register(nameof(IsSubjectVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
     public static readonly DependencyProperty ConnectedExpanderProperty = DependencyProperty.Register(nameof(ConnectedExpander), typeof(WinoExpander), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
@@ -29,7 +26,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     public static readonly DependencyProperty CenterHoverActionProperty = DependencyProperty.Register(nameof(CenterHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
     public static readonly DependencyProperty RightHoverActionProperty = DependencyProperty.Register(nameof(RightHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
     public static readonly DependencyProperty HoverActionExecutedCommandProperty = DependencyProperty.Register(nameof(HoverActionExecutedCommand), typeof(ICommand), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
-    public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(IMailItem), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null, new PropertyChangedCallback(OnMailItemChanged)));
+    public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(MailCopy), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null, new PropertyChangedCallback(OnMailItemChanged)));
     public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
     public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
@@ -66,9 +63,9 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         set { SetValue(IsHoverActionsEnabledProperty, value); }
     }
 
-    public IMailItem MailItem
+    public MailCopy MailItem
     {
-        get { return (IMailItem)GetValue(MailItemProperty); }
+        get { return (MailCopy)GetValue(MailItemProperty); }
         set { SetValue(MailItemProperty, value); }
     }
 
@@ -114,11 +111,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         set { SetValue(IsAvatarVisibleProperty, value); }
     }
 
-    public bool IsCustomFocused
-    {
-        get { return (bool)GetValue(IsCustomFocusedProperty); }
-        set { SetValue(IsCustomFocusedProperty, value); }
-    }
 
     public bool ShowPreviewText
     {
@@ -189,12 +181,12 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
         MailOperationPreperationRequest package = null;
 
-        if (MailItem is MailCopy mailCopy)
-            package = new MailOperationPreperationRequest(operation, mailCopy, toggleExecution: true);
-        else if (MailItem is ThreadMailItemViewModel threadMailItemViewModel)
-            package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.GetMailCopies(), toggleExecution: true);
-        else if (MailItem is ThreadMailItem threadMailItem)
-            package = new MailOperationPreperationRequest(operation, threadMailItem.ThreadItems.Cast<MailItemViewModel>().Select(a => a.MailCopy), toggleExecution: true);
+        //if (MailItem is MailCopy mailCopy)
+        //    package = new MailOperationPreperationRequest(operation, mailCopy, toggleExecution: true);
+        //else if (MailItem is ThreadMailItemViewModel threadMailItemViewModel)
+        //    package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.GetMailCopies(), toggleExecution: true);
+        //else if (MailItem is ThreadMailItem threadMailItem)
+        //    package = new MailOperationPreperationRequest(operation, threadMailItem.ThreadItems.Cast<MailItemViewModel>().Select(a => a.MailCopy), toggleExecution: true);
 
         if (package == null) return;
 

@@ -6,6 +6,11 @@
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 	<ItemGroup>
+	  <Compile Remove="Misc\**" />
+	  <EmbeddedResource Remove="Misc\**" />
+	  <None Remove="Misc\**" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
@@ -19,8 +24,5 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Misc\" />
 	</ItemGroup>
 </Project>

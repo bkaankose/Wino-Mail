@@ -15,7 +15,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Server;
-using Wino.Core.Integration.Json;
 using Wino.Messaging;
 using Wino.Messaging.Client.Connection;
 using Wino.Messaging.Enums;
@@ -76,11 +75,6 @@ public class WinoServerConnectionManager :
             }
         }
     }
-
-    private readonly JsonSerializerOptions _jsonSerializerOptions = new()
-    {
-        TypeInfoResolver = new ServerRequestTypeInfoResolver()
-    };
 
     public WinoServerConnectionManager()
     {
@@ -304,7 +298,7 @@ public class WinoServerConnectionManager :
 
         try
         {
-            serializedMessage = JsonSerializer.Serialize(message, _jsonSerializerOptions);
+            serializedMessage = JsonSerializer.Serialize(message);
         }
         catch (Exception serializationException)
         {

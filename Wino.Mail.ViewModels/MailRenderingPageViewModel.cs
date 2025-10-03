@@ -60,7 +60,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
     public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
-    public bool IsJunkMail => initializedMailItemViewModel?.AssignedFolder != null && initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
+    public bool IsJunkMail => initializedMailItemViewModel?.MailCopy.AssignedFolder != null && initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
 
     public bool IsImageRenderingDisabled
     {
@@ -285,9 +285,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 }
             };
 
-            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
 
-            var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
+            var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
 
             await _requestDelegator.ExecuteAsync(draftPreparationRequest);
 
@@ -355,7 +355,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // To show the progress on the UI.
             CurrentDownloadPercentage = 1;
 
-            var package = new DownloadMissingMessageRequested(mailItemViewModel.AssignedAccount.Id, mailItemViewModel.MailCopy);
+            var package = new DownloadMissingMessageRequested(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy);
             await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
         }
         catch (OperationCanceledException)
@@ -375,7 +375,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private async Task RenderAsync(MailItemViewModel mailItemViewModel, CancellationToken cancellationToken = default)
     {
         ResetProgress();
-        var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
+        var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
 
         if (!isMimeExists)
         {
@@ -384,7 +384,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         // Find the MIME for this item and render it.
         var mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(mailItemViewModel.MailCopy.FileId,
-                                                                                           mailItemViewModel.AssignedAccount.Id,
+                                                                                           mailItemViewModel.MailCopy.AssignedAccount.Id,
                                                                                            cancellationToken).ConfigureAwait(false);
 
         if (mimeMessageInformation == null)
@@ -436,12 +436,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
             FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
             CreationDate = message.Date.DateTime;
-            ContactPicture = initializedMailItemViewModel?.SenderContact?.Base64ContactPicture;
+            ContactPicture = initializedMailItemViewModel?.MailCopy.SenderContact?.Base64ContactPicture;
 
             // Automatically disable images for Junk folder to prevent pixel tracking.
             // This can only work for selected mail item rendering, not for EML file rendering.
             if (initializedMailItemViewModel != null &&
-                initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+                initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
             {
                 renderingOptions.LoadImages = false;
             }
@@ -480,7 +480,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 var contactViewModel = new AccountContactViewModel(foundContact);
 
                 // Make sure that user account first in the list.
-                if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.MailCopy.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))
                 {
                     contactViewModel.IsMe = true;
                     accounts.Insert(0, contactViewModel);
@@ -563,7 +563,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
 
         // Archive - Unarchive
-        if (initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive)
+        if (initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive)
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
         else
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.Archive));
@@ -594,7 +594,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         // Check if the updated mail is the same mail item we are rendering.
         // This is done with UniqueId to include FolderId into calculations.
-        if (initializedMailItemViewModel.UniqueId != updatedMail.UniqueId) return;
+        if (initializedMailItemViewModel.MailCopy.UniqueId != updatedMail.UniqueId) return;
 
         // Mail operation might change the mail item like mark read/unread or change flag.
         // So we need to update the mail item view model when this happens.

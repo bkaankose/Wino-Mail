@@ -14,7 +14,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -29,7 +28,6 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISignatureService _signatureService;
-    private readonly IThreadingStrategyProvider _threadingStrategyProvider;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
 
@@ -40,7 +38,6 @@ public class MailService : BaseDatabaseService, IMailService
                        IContactService contactService,
                        IAccountService accountService,
                        ISignatureService signatureService,
-                       IThreadingStrategyProvider threadingStrategyProvider,
                        IMimeFileService mimeFileService,
                        IPreferencesService preferencesService) : base(databaseService)
     {
@@ -48,7 +45,6 @@ public class MailService : BaseDatabaseService, IMailService
         _contactService = contactService;
         _accountService = accountService;
         _signatureService = signatureService;
-        _threadingStrategyProvider = threadingStrategyProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
     }
@@ -209,7 +205,7 @@ public class MailService : BaseDatabaseService, IMailService
         return query.GetRawQuery();
     }
 
-    public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
+    public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
         List<MailCopy> mails = null;
 
@@ -241,68 +237,20 @@ public class MailService : BaseDatabaseService, IMailService
         // Remove items that has no assigned account or folder.
         mails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
 
-        if (!options.CreateThreads)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Threading is disabled. Just return everything as it is.
-            mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
-
-            return [.. mails];
-        }
-
-        // Populate threaded items.
-
-        List<IMailItem> threadedItems = [];
-
-        // Each account items must be threaded separately.
-        foreach (var group in mails.GroupBy(a => a.AssignedAccount.Id))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var accountId = group.Key;
-            var groupAccount = mails.First(a => a.AssignedAccount.Id == accountId).AssignedAccount;
-
-            var threadingStrategy = _threadingStrategyProvider.GetStrategy(groupAccount.ProviderType);
-
-            // Only thread items from Draft and Sent folders must present here.
-            // Otherwise this strategy will fetch the items that are in Deleted folder as well.
-            var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group], options.Folders.First());
-
-            // Populate threaded items with folder and account assignments.
-            // Almost everything already should be in cache from initial population.
-            foreach (var mail in accountThreadedItems)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-            }
-
-            if (accountThreadedItems != null)
-            {
-                threadedItems.AddRange(accountThreadedItems);
-            }
-        }
-
-        threadedItems.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
         cancellationToken.ThrowIfCancellationRequested();
 
-        return threadedItems;
+        // Threading is disabled. Just return everything as it is.
+        // mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
+
+        return [.. mails];
     }
 
     /// <summary>
     /// This method should used for operations with multiple mailItems. Don't use this for single mail items.
     /// Called method should provide own instances for caches.
     /// </summary>
-    private async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache, Dictionary<string, AccountContact> contactCache)
+    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache, Dictionary<string, AccountContact> contactCache)
     {
-        if (mail is ThreadMailItem threadMailItem)
-        {
-            foreach (var childMail in threadMailItem.ThreadItems)
-            {
-                await LoadAssignedPropertiesWithCacheAsync(childMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-            }
-        }
-
         if (mail is MailCopy mailCopy)
         {
             var isFolderCached = folderCache.TryGetValue(mailCopy.FolderId, out MailItemFolder folderAssignment);

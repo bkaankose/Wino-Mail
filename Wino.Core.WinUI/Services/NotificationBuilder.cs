@@ -12,7 +12,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.WinUI.Services;
@@ -45,7 +44,7 @@ public class NotificationBuilder : INotificationBuilder
         });
     }
 
-    public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> downloadedMailItems)
+    public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<MailCopy> downloadedMailItems)
     {
         var mailCount = downloadedMailItems.Count();
 
@@ -70,7 +69,7 @@ public class NotificationBuilder : INotificationBuilder
             }
             else
             {
-                var validItems = new List<IMailItem>();
+                var validItems = new List<MailCopy>();
 
                 // Fetch mails again to fill up assigned folder data and latest statuses.
                 // They've been marked as read by executing synchronizer tasks until inital sync finishes.
@@ -220,17 +219,17 @@ public class NotificationBuilder : INotificationBuilder
     public async Task CreateTestNotificationAsync(string title, string message)
     {
         // with args test.
-        await CreateNotificationsAsync(Guid.Parse("28c3c39b-7147-4de3-b209-949bd19eede6"), new List<IMailItem>()
-        {
-            new MailCopy()
-            {
-                Subject = "test subject",
-                PreviewText = "preview html",
-                CreationDate = DateTime.UtcNow,
-                FromAddress = "bkaankose@outlook.com",
-                Id = "AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0AnMdP0zg8wkS_Ib2Eeh80LAAGq91I3QAA",
-            }
-        });
+        //await CreateNotificationsAsync(Guid.Parse("28c3c39b-7147-4de3-b209-949bd19eede6"), new List<IMailItem>()
+        //{
+        //    new MailCopy()
+        //    {
+        //        Subject = "test subject",
+        //        PreviewText = "preview html",
+        //        CreationDate = DateTime.UtcNow,
+        //        FromAddress = "bkaankose@outlook.com",
+        //        Id = "AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0AnMdP0zg8wkS_Ib2Eeh80LAAGq91I3QAA",
+        //    }
+        //});
 
         //var builder = new ToastContentBuilder();
         //builder.SetToastScenario(ToastScenario.Default);

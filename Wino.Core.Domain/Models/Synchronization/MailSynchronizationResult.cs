@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Models.Synchronization;
 
@@ -16,7 +16,7 @@ public class MailSynchronizationResult
     /// It's ignored in serialization. Client should not react to this.
     /// </summary>
     [JsonIgnore]
-    public IEnumerable<IMailItem> DownloadedMessages { get; set; } = [];
+    public IEnumerable<MailCopy> DownloadedMessages { get; set; } = [];
 
     public ProfileInformation ProfileInformation { get; set; }
 
@@ -25,7 +25,7 @@ public class MailSynchronizationResult
     public static MailSynchronizationResult Empty => new() { CompletedState = SynchronizationCompletedState.Success };
 
     // Mail synchronization
-    public static MailSynchronizationResult Completed(IEnumerable<IMailItem> downloadedMessages)
+    public static MailSynchronizationResult Completed(IEnumerable<MailCopy> downloadedMessages)
         => new()
         {
             DownloadedMessages = downloadedMessages,

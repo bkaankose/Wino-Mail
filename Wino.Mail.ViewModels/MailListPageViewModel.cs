@@ -59,8 +59,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private IObservable<System.Reactive.EventPattern<NotifyCollectionChangedEventArgs>> selectionChangedObservable = null;
 
-    public WinoMailCollection MailCollection { get; }
+    public GroupedEmailCollection MailCollection { get; set; } = new GroupedEmailCollection();
 
+    //public IEnumerable<MailItemViewModel> SelectedItems
+    //{
+    //    get
+    //    {
+
+    //    }
+    //}
     public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
     public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
     public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = [];
@@ -77,7 +84,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
     private readonly IFolderService _folderService;
-    private readonly IThreadingStrategyProvider _threadingStrategyProvider;
     private readonly IContextMenuItemService _contextMenuItemService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IKeyPressService _keyPressService;
@@ -155,7 +161,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IMailService mailService,
                                  IStatePersistanceService statePersistenceService,
                                  IFolderService folderService,
-                                 IThreadingStrategyProvider threadingStrategyProvider,
                                  IContextMenuItemService contextMenuItemService,
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IKeyPressService keyPressService,
@@ -164,7 +169,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoLogger winoLogger,
                                  IWinoServerConnectionManager winoServerConnectionManager)
     {
-        MailCollection = new WinoMailCollection(threadingStrategyProvider);
         PreferencesService = preferencesService;
         ThemeService = themeService;
         _winoLogger = winoLogger;
@@ -175,7 +179,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _mailDialogService = mailDialogService;
         _mailService = mailService;
         _folderService = folderService;
-        _threadingStrategyProvider = threadingStrategyProvider;
         _contextMenuItemService = contextMenuItemService;
         _winoRequestDelegator = winoRequestDelegator;
         _keyPressService = keyPressService;
@@ -193,23 +196,23 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 await ExecuteUIThread(() => { SelectedItemCollectionUpdated(a.EventArgs); });
             });
 
-        MailCollection.MailItemRemoved += (c, removedItem) =>
-        {
-            if (removedItem is ThreadMailItemViewModel removedThreadViewModelItem)
-            {
-                foreach (var viewModel in removedThreadViewModelItem.ThreadItems.Cast<MailItemViewModel>())
-                {
-                    if (SelectedItems.Contains(viewModel))
-                    {
-                        SelectedItems.Remove(viewModel);
-                    }
-                }
-            }
-            else if (removedItem is MailItemViewModel removedMailItemViewModel && SelectedItems.Contains(removedMailItemViewModel))
-            {
-                SelectedItems.Remove(removedMailItemViewModel);
-            }
-        };
+        //MailCollection.MailItemRemoved += (c, removedItem) =>
+        //{
+        //    if (removedItem is ThreadMailItemViewModel removedThreadViewModelItem)
+        //    {
+        //        foreach (var viewModel in removedThreadViewModelItem.ThreadItems.Cast<MailItemViewModel>())
+        //        {
+        //            if (SelectedItems.Contains(viewModel))
+        //            {
+        //                SelectedItems.Remove(viewModel);
+        //            }
+        //        }
+        //    }
+        //    else if (removedItem is MailItemViewModel removedMailItemViewModel && SelectedItems.Contains(removedMailItemViewModel))
+        //    {
+        //        SelectedItems.Remove(removedMailItemViewModel);
+        //    }
+        //};
     }
 
     private void SetupTopBarActions()
@@ -246,10 +249,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref _selectedSortingOption, value))
             {
-                if (value != null && MailCollection != null)
-                {
-                    MailCollection.SortingType = value.Type;
-                }
+                // TODO: Update sorting in mail collection.
+                //if (value != null && MailCollection != null)
+                //{
+                //    MailCollection.SortingType = value.Type;
+                //}
             }
         }
     }
@@ -321,16 +325,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         if (markAsPreference == MailMarkAsOption.WhenSelected)
         {
-            var operation = MailOperation.MarkAsRead;
-            var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
+            //var operation = MailOperation.MarkAsRead;
+            //var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
 
-            if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
-                !gmailUnreadFolderMarkedAsReadUniqueIds.Contains(_activeMailItem.UniqueId))
-            {
-                gmailUnreadFolderMarkedAsReadUniqueIds.Add(_activeMailItem.UniqueId);
-            }
+            //if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
+            //    !gmailUnreadFolderMarkedAsReadUniqueIds.Contains(_activeMailItem.UniqueId))
+            //{
+            //    gmailUnreadFolderMarkedAsReadUniqueIds.Add(_activeMailItem.UniqueId);
+            //}
 
-            await ExecuteMailOperationAsync(package);
+            //await ExecuteMailOperationAsync(package);
         }
         else if (markAsPreference == MailMarkAsOption.AfterDelay && PreferencesService.MarkAsDelay >= 0)
         {
@@ -354,13 +358,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(IsFolderEmpty));
-    }
-
-    protected override void OnDispatcherAssigned()
-    {
-        base.OnDispatcherAssigned();
-
-        MailCollection.CoreDispatcher = Dispatcher;
     }
 
     private async void UpdateBarMessage(InfoBarMessageType severity, string title, string message)
@@ -568,67 +565,35 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task LoadMoreItemsAsync()
     {
-        if (IsInitializingFolder || IsOnlineSearchEnabled) return;
+        //if (IsInitializingFolder || IsOnlineSearchEnabled) return;
 
-        await ExecuteUIThread(() => { IsInitializingFolder = true; });
+        //await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
-        var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
-                                                                      SelectedFilterOption.Type,
-                                                                      SelectedSortingOption.Type,
-                                                                      PreferencesService.IsThreadingEnabled,
-                                                                      SelectedFolderPivot.IsFocused,
-                                                                      IsInSearchMode ? SearchQuery : string.Empty,
-                                                                      MailCollection.MailCopyIdHashSet);
+        //var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
+        //                                                              SelectedFilterOption.Type,
+        //                                                              SelectedSortingOption.Type,
+        //                                                              PreferencesService.IsThreadingEnabled,
+        //                                                              SelectedFolderPivot.IsFocused,
+        //                                                              IsInSearchMode ? SearchQuery : string.Empty,
+        //                                                              MailCollection.MailCopyIdHashSet);
 
-        var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
+        //var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
 
-        var viewModels = PrepareMailViewModels(items);
+        //var viewModels = PrepareMailViewModels(items);
 
-        await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, clearIdCache: false); });
-        await ExecuteUIThread(() => { IsInitializingFolder = false; });
+        //await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, clearIdCache: false); });
+        //await ExecuteUIThread(() => { IsInitializingFolder = false; });
     }
 
     #endregion
 
     public Task ExecuteMailOperationAsync(MailOperationPreperationRequest package) => _winoRequestDelegator.ExecuteAsync(package);
 
-    public IEnumerable<MailItemViewModel> GetTargetMailItemViewModels(IMailItem clickedItem)
-    {
-        // Threat threads as a whole and include everything in the group. Except single selections outside of the thread.
-        IEnumerable<MailItemViewModel> contextMailItems = null;
+    public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<MailItemViewModel> contextMailItems)
+        => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems.Select(a => a.MailCopy));
 
-        if (clickedItem is ThreadMailItemViewModel clickedThreadItem)
-        {
-            // Clicked item is a thread.
 
-            clickedThreadItem.IsThreadExpanded = true;
-            contextMailItems = clickedThreadItem.ThreadItems.Cast<MailItemViewModel>();
-
-            // contextMailItems = clickedThreadItem.GetMailCopies();
-        }
-        else if (clickedItem is MailItemViewModel clickedMailItemViewModel)
-        {
-            // If the clicked item is included in SelectedItems, then we need to thing them as whole.
-            // If there are selected items, but clicked item is not one of them, then it's a single context menu.
-
-            bool includedInSelectedItems = SelectedItems.Contains(clickedItem);
-
-            if (includedInSelectedItems)
-                contextMailItems = SelectedItems;
-            else
-                contextMailItems = [clickedMailItemViewModel];
-        }
-
-        return contextMailItems;
-    }
-
-    public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<IMailItem> contextMailItems)
-        => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems);
-
-    public void ChangeCustomFocusedState(IEnumerable<IMailItem> mailItems, bool isFocused)
-        => mailItems.OfType<MailItemViewModel>().ForEach(a => a.IsCustomFocused = isFocused);
-
-    private bool ShouldPreventItemAdd(IMailItem mailItem)
+    private bool ShouldPreventItemAdd(MailCopy mailItem)
     {
         bool condition = mailItem.IsRead
                           && SelectedFilterOption.Type == FilterOptionType.Unread
@@ -663,7 +628,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             await listManipulationSemepahore.WaitAsync();
 
-            await MailCollection.AddAsync(addedMail);
+            // await MailCollection.AddAsync(addedMail);
 
             await ExecuteUIThread(() => { NotifyItemFoundState(); });
         }
@@ -680,7 +645,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         Debug.WriteLine($"Updating {updatedMail.Id}-> {updatedMail.UniqueId}");
 
-        await MailCollection.UpdateMailCopy(updatedMail);
+        // await MailCollection.UpdateMailCopy(updatedMail);
 
         await ExecuteUIThread(() => { SetupTopBarActions(); });
     }
@@ -715,12 +680,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             {
                 await ExecuteUIThread(() =>
                 {
-                    nextItem = MailCollection.GetNextItem(removedMail);
+                    // nextItem = MailCollection.GetNextItem(removedMail);
                 });
             }
 
             // Remove the deleted item from the list.
-            await MailCollection.RemoveAsync(removedMail);
+            // await MailCollection.RemoveAsync(removedMail);
 
             if (nextItem != null)
                 WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem, ScrollToItem: true));
@@ -751,11 +716,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Otherwise the draft mail item will be duplicated on the next add execution.
             await listManipulationSemepahore.WaitAsync();
 
-            // Create the item. Draft folder navigation is already done at this point.
-            await MailCollection.AddAsync(draftMail);
-
             await ExecuteUIThread(() =>
             {
+                // Create the item. Draft folder navigation is already done at this point.
+                MailCollection.AddEmail(new MailItemViewModel(draftMail));
+
                 // New draft is created by user. Select the item.
                 Messenger.Send(new MailItemNavigationRequested(draftMail.UniqueId, ScrollToItem: true));
 
@@ -768,15 +733,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    private IEnumerable<IMailItem> PrepareMailViewModels(IEnumerable<IMailItem> mailItems)
+    private IEnumerable<MailItemViewModel> PrepareMailViewModels(IEnumerable<MailCopy> mailItems)
     {
-        foreach (var item in mailItems)
-        {
-            if (item is MailCopy singleMailItem)
-                yield return new MailItemViewModel(singleMailItem);
-            else if (item is ThreadMailItem threadMailItem)
-                yield return new ThreadMailItemViewModel(threadMailItem);
-        }
+        return mailItems.Select(a => new MailItemViewModel(a));
+        //foreach (var item in mailItems)
+        //{
+        //    if (item is MailCopy singleMailItem)
+        //        yield return new MailItemViewModel(singleMailItem);
+        //    else if (item is ThreadMailItem threadMailItem)
+        //        yield return new ThreadMailItemViewModel(threadMailItem);
+        //}
     }
 
     [RelayCommand]
@@ -796,7 +762,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         try
         {
             MailCollection.Clear();
-            MailCollection.MailCopyIdHashSet.Clear();
 
             SelectedItems.Clear();
 
@@ -819,17 +784,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             await listManipulationSemepahore.WaitAsync(cancellationToken);
 
-            // Setup MailCollection configuration.
-
-            // Don't pass any threading strategy if disabled in settings.
-            MailCollection.ThreadingStrategyProvider = PreferencesService.IsThreadingEnabled ? _threadingStrategyProvider : null;
-
-            // TODO: This should go inside 
-            MailCollection.PruneSingleNonDraftItems = ActiveFolder.SpecialFolderType == SpecialFolderType.Draft;
-
             // Here items are sorted and filtered.
 
-            List<IMailItem> items = null;
+            List<MailCopy> items = null;
             List<MailCopy> onlineSearchItems = null;
 
             bool isDoingSearch = !string.IsNullOrEmpty(SearchQuery);
@@ -896,7 +853,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                                           PreferencesService.IsThreadingEnabled,
                                                                           SelectedFolderPivot.IsFocused,
                                                                           SearchQuery,
-                                                                          MailCollection.MailCopyIdHashSet,
+                                                                          default,
                                                                           onlineSearchItems);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
@@ -911,7 +868,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
                 await ExecuteUIThread(() =>
                 {
-                    MailCollection.AddRange(viewModels, true);
+                    MailCollection.AddEmails(viewModels);
 
                     if (isDoingSearch && !isDoingOnlineSearch)
                     {
@@ -1057,15 +1014,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         for (int i = 0; i < 3; i++)
         {
-            var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
+            // TODO: Get container.
+            //var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
 
-            if (mailContainer != null)
-            {
-                navigatingMailItem = mailContainer.ItemViewModel;
-                threadMailItemViewModel = mailContainer.ThreadViewModel;
+            //if (mailContainer != null)
+            //{
+            //    navigatingMailItem = mailContainer.ItemViewModel;
+            //    threadMailItemViewModel = mailContainer.ThreadViewModel;
 
-                break;
-            }
+            //    break;
+            //}
         }
 
         if (threadMailItemViewModel != null)
@@ -1142,5 +1100,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    public void Receive(ThumbnailAdded message) => MailCollection.UpdateThumbnails(message.Email);
+    public void Receive(ThumbnailAdded message)
+    {
+        // MailCollection.UpdateThumbnails(message.Email);
+    }
 }

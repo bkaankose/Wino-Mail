@@ -197,7 +197,7 @@ public class ThemeService : IThemeService
         //    UpdateSystemCaptionButtonColors();
         //});
 
-        NotifyThemeUpdate();
+        // NotifyThemeUpdate();
     }
 
     public void UpdateSystemCaptionButtonColors()
