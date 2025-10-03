@@ -1,10 +1,55 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Server;
 
 namespace Wino.Core.Domain.Interfaces;
+
+/// <summary>
+/// Simple wrapper class to maintain compatibility with the original WinoServerResponse structure.
+/// </summary>
+/// <typeparam name="T">Type of the expected response.</typeparam>
+public class WinoServerResponse<T>
+{
+    public bool IsSuccess { get; set; }
+    public string Message { get; set; }
+    public T Data { get; set; }
+
+    public static WinoServerResponse<T> CreateSuccessResponse(T data)
+    {
+        return new WinoServerResponse<T>
+        {
+            IsSuccess = true,
+            Data = data
+        };
+    }
+
+    public static WinoServerResponse<T> CreateErrorResponse(string message)
+    {
+        return new WinoServerResponse<T>
+        {
+            IsSuccess = false,
+            Message = message
+        };
+    }
+
+    public void ThrowIfFailed()
+    {
+        if (!IsSuccess)
+            throw new InvalidOperationException(Message);
+    }
+}
+
+/// <summary>
+/// Connection status enum to maintain compatibility.
+/// </summary>
+public enum WinoServerConnectionStatus
+{
+    None,
+    Connecting,
+    Connected,
+    Disconnected,
+    Failed
+}
 
 public interface IWinoServerConnectionManager
 {

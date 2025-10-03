@@ -60,7 +60,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
     private const string IsActivateStartupLaunchAskedKey = nameof(IsActivateStartupLaunchAskedKey);
 
     public IStatePersistanceService StatePersistenceService { get; }
-    public IWinoServerConnectionManager ServerConnectionManager { get; }
     public IPreferencesService PreferencesService { get; }
     public INavigationService NavigationService { get; }
 
@@ -81,9 +80,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
-    [ObservableProperty]
-    private WinoServerConnectionStatus activeConnectionStatus;
-
     public AppShellViewModel(IMailDialogService dialogService,
                              INavigationService navigationService,
                              IMimeFileService mimeFileService,
@@ -98,21 +94,10 @@ public partial class AppShellViewModel : MailBaseViewModel,
                              IWinoRequestDelegator winoRequestDelegator,
                              IFolderService folderService,
                              IStatePersistanceService statePersistanceService,
-                             IWinoServerConnectionManager serverConnectionManager,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService)
     {
         StatePersistenceService = statePersistanceService;
-        ServerConnectionManager = serverConnectionManager;
-
-        ActiveConnectionStatus = serverConnectionManager.Status;
-        ServerConnectionManager.StatusChanged += async (sender, status) =>
-        {
-            await ExecuteUIThread(() =>
-            {
-                ActiveConnectionStatus = status;
-            });
-        };
 
         PreferencesService = preferencesService;
         _dialogService = dialogService;
@@ -131,9 +116,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
     }
-
-    [RelayCommand]
-    private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
     protected override void OnDispatcherAssigned()
     {

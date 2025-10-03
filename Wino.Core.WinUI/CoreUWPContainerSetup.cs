@@ -12,7 +12,7 @@ public static class CoreUWPContainerSetup
 {
     public static void RegisterCoreUWPServices(this IServiceCollection services)
     {
-        var serverConnectionManager = new WinoServerConnectionManager();
+        var serverConnectionManager = new EmptyWinoServerConnectionManager<AppServiceConnection>();
 
         services.AddSingleton<IWinoServerConnectionManager>(serverConnectionManager);
         services.AddSingleton<IWinoServerConnectionManager<AppServiceConnection>>(serverConnectionManager);

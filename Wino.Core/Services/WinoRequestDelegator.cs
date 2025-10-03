@@ -138,15 +138,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
-        try
-        {
-            await EnsureServerConnectedAsync();
-            await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
-        }
-        catch (WinoServerException serverException)
-        {
-            _dialogService.InfoBarMessage("Wino Server Exception", serverException.Message, InfoBarMessageType.Error);
-        }
+        await EnsureServerConnectedAsync();
+        await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
     }
 
     private async Task QueueSynchronizationAsync(Guid accountId)

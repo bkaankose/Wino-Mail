@@ -119,13 +119,10 @@ public sealed partial class App : WinoApplication, IRecipient<NewCalendarSynchro
             if (appServiceTriggerDetails.CallerPackageFamilyName == Package.Current.Id.FamilyName)
             {
                 // Connection established from the fulltrust process
+                // This is no longer needed with the empty connection manager implementation
 
                 connectionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
                 args.TaskInstance.Canceled += OnConnectionBackgroundTaskCanceled;
-
-                AppServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
-
-                WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstablished());
             }
         }
     }
@@ -138,22 +135,12 @@ public sealed partial class App : WinoApplication, IRecipient<NewCalendarSynchro
 
         connectionBackgroundTaskDeferral?.Complete();
         connectionBackgroundTaskDeferral = null;
-
-        AppServiceConnectionManager.Connection = null;
     }
 
     public async void Receive(NewCalendarSynchronizationRequested message)
     {
-        try
-        {
-            var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<CalendarSynchronizationResult, NewCalendarSynchronizationRequested>(message);
-            synchronizationResultResponse.ThrowIfFailed();
-        }
-        catch (WinoServerException serverException)
-        {
-            var dialogService = Services.GetService<ICalendarDialogService>();
-
-            dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
-        }
+        // Synchronization is no longer performed through the server connection manager
+        // This method is kept for compatibility but doesn't perform any actual work
+        await Task.CompletedTask;
     }
 }

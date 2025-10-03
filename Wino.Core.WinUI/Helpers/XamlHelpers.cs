@@ -161,7 +161,7 @@ public static class XamlHelpers
 
         return Translator.UnknownDateHeader;
     }
-    public static bool ConnectionStatusEquals(WinoServerConnectionStatus winoServerConnectionStatus, WinoServerConnectionStatus connectionStatus) => winoServerConnectionStatus == connectionStatus;
+
 
     #endregion
 

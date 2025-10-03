@@ -31,11 +31,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsNavigationPaneOpened { get; set; }
 
     /// <summary>
-    /// Setting: Gets or sets what should happen to server app when the client is terminated.
-    /// </summary>
-    ServerBackgroundMode ServerTerminationBehavior { get; set; }
-
-    /// <summary>
     /// Setting: Preferred time format for mail or calendar header display.
     /// </summary>
     bool Prefer24HourTimeFormat { get; set; }

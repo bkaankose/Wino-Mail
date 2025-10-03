@@ -236,12 +236,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(AutoSelectNextItem), value);
     }
 
-    public ServerBackgroundMode ServerTerminationBehavior
-    {
-        get => _configurationService.Get(nameof(ServerTerminationBehavior), ServerBackgroundMode.MinimizedTray);
-        set => SaveProperty(propertyName: nameof(ServerTerminationBehavior), value);
-    }
-
     public string DiagnosticId
     {
         get => _configurationService.Get(nameof(DiagnosticId), Guid.NewGuid().ToString());

@@ -57,13 +57,11 @@
             Grid.ColumnSpan="2"
             BackButtonClicked="AppBarBackButtonClicked"
             Canvas.ZIndex="150"
-            ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="Wino Calendar"
             IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
             IsNavigationPaneOpen="{x:Bind MainSplitView.IsPaneOpen, Mode=TwoWay}"
             NavigationViewDisplayMode="{x:Bind helpers:XamlHelpers.NavigationViewDisplayModeConverter(MainSplitView.DisplayMode), Mode=OneWay}"
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
-            ReconnectCommand="{x:Bind ViewModel.ReconnectServerCommand}"
             ShrinkShellContentOnExpansion="False"
             SystemReserved="180">
             <coreControls:WinoAppTitleBar.ShellFrameContent>

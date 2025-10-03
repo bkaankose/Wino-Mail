@@ -22,7 +22,6 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.Domain.Models.Server;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
