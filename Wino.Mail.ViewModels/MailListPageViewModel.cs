@@ -71,7 +71,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public INavigationService NavigationService { get; }
     public IStatePersistanceService StatePersistenceService { get; }
     public IPreferencesService PreferencesService { get; }
-    public IThemeService ThemeService { get; }
+    public INewThemeService ThemeService { get; }
 
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
@@ -160,7 +160,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoRequestDelegator winoRequestDelegator,
                                  IKeyPressService keyPressService,
                                  IPreferencesService preferencesService,
-                                 IThemeService themeService,
+                                 INewThemeService themeService,
                                  IWinoLogger winoLogger,
                                  IWinoServerConnectionManager winoServerConnectionManager)
     {

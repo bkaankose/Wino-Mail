@@ -33,7 +33,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     protected IWinoLogger LogInitializer { get; }
     protected IApplicationConfiguration AppConfiguration { get; }
     protected IWinoServerConnectionManager<AppServiceConnection> AppServiceConnectionManager { get; }
-    public IThemeService ThemeService { get; }
     public INewThemeService NewThemeService { get; }
     public IUnderlyingThemeService UnderlyingThemeService { get; }
     public IThumbnailService ThumbnailService { get; }
@@ -56,7 +55,6 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         AppConfiguration = Services.GetService<IApplicationConfiguration>();
 
         AppServiceConnectionManager = Services.GetService<IWinoServerConnectionManager<AppServiceConnection>>();
-        ThemeService = Services.GetService<IThemeService>();
         NewThemeService = Services.GetService<INewThemeService>();
         DatabaseService = Services.GetService<IDatabaseService>();
         TranslationService = Services.GetService<ITranslationService>();

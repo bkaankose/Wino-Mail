@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Serilog;
 using Windows.Storage;
 using Windows.Storage.AccessCache;
 using Windows.Storage.Pickers;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -25,12 +25,12 @@ public class DialogServiceBase : IDialogServiceBase
 {
     private SemaphoreSlim _presentationSemaphore = new SemaphoreSlim(1);
 
-    protected IThemeService ThemeService { get; }
+    protected INewThemeService ThemeService { get; }
     protected IConfigurationService ConfigurationService { get; }
 
     protected IApplicationResourceManager<ResourceDictionary> ApplicationResourceManager { get; }
 
-    public DialogServiceBase(IThemeService themeService, IConfigurationService configurationService, IApplicationResourceManager<ResourceDictionary> applicationResourceManager)
+    public DialogServiceBase(INewThemeService themeService, IConfigurationService configurationService, IApplicationResourceManager<ResourceDictionary> applicationResourceManager)
     {
         ThemeService = themeService;
         ConfigurationService = configurationService;

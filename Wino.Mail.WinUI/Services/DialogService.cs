@@ -24,7 +24,7 @@ namespace Wino.Services;
 
 public class DialogService : DialogServiceBase, IMailDialogService
 {
-    public DialogService(IThemeService themeService,
+    public DialogService(INewThemeService themeService,
                          IConfigurationService configurationService,
                          IApplicationResourceManager<ResourceDictionary> applicationResourceManager) : base(themeService, configurationService, applicationResourceManager)
     {

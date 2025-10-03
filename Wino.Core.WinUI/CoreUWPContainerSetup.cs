@@ -2,8 +2,8 @@
 using Microsoft.UI.Xaml;
 using Windows.ApplicationModel.AppService;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.WinUI.Services;
 using Wino.Core.ViewModels;
+using Wino.Core.WinUI.Services;
 using Wino.Services;
 
 namespace Wino.Core.WinUI;
@@ -22,7 +22,6 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<INativeAppService, NativeAppService>();
         services.AddSingleton<IStoreManagementService, StoreManagementService>();
         services.AddSingleton<IPreferencesService, PreferencesService>();
-        services.AddSingleton<IThemeService, ThemeService>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<IThumbnailService, ThumbnailService>();

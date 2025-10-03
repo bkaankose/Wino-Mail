@@ -20,7 +20,7 @@ public class CustomAppTheme : AppThemeBase
     public override AppThemeType AppThemeType => AppThemeType.Custom;
 
     public override string GetBackgroundPreviewImagePath()
-        => $"ms-appdata:///local/{ThemeService.CustomThemeFolderName}/{Id}_preview.jpg";
+        => $"ms-appdata:///local/{NewThemeService.CustomThemeFolderName}/{Id}_preview.jpg";
 
     public override async Task<string> GetThemeResourceDictionaryContentAsync()
     {

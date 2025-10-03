@@ -13,13 +13,13 @@ public sealed partial class CustomThemeBuilderDialog : ContentDialog
     public byte[] WallpaperData { get; private set; }
     public string AccentColor { get; private set; }
 
-    private IThemeService _themeService;
+    private INewThemeService _themeService;
 
     public CustomThemeBuilderDialog()
     {
         InitializeComponent();
 
-        _themeService = WinoApplication.Current.Services.GetService<IThemeService>();
+        _themeService = WinoApplication.Current.Services.GetService<INewThemeService>();
     }
 
     private async void ApplyClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)

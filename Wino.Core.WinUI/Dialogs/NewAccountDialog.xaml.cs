@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Windows.System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.System;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -67,7 +67,7 @@ public sealed partial class NewAccountDialog : ContentDialog
     {
         InitializeComponent();
 
-        var themeService = WinoApplication.Current.ThemeService.GetAvailableAccountColors();
+        var themeService = WinoApplication.Current.NewThemeService.GetAvailableAccountColors();
         AvailableColors = themeService.Select(a => new AppColorViewModel(a)).ToList();
 
         UpdateSelectedColor();
