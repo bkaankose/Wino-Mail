@@ -253,7 +253,11 @@
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="7">
+            CornerRadius="{ThemeResource OverlayCornerRadius}"
+            Translation="0,0,10">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
             <Grid x:Name="MailListGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

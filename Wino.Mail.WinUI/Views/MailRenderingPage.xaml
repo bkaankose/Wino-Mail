@@ -166,7 +166,7 @@
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="7">
+            CornerRadius="{ThemeResource OverlayCornerRadius}">
             <Grid Margin="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -417,8 +417,8 @@
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="7">
-            <Grid Margin="1" CornerRadius="7">
+            CornerRadius="{ThemeResource OverlayCornerRadius}">
+            <Grid Margin="1" CornerRadius="{ThemeResource OverlayCornerRadius}">
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
                 <WebView2 x:Name="Chromium" NavigationStarting="WebViewNavigationStarting" />
