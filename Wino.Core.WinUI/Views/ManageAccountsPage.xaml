@@ -27,7 +27,7 @@
                 ItemClicked="BreadItemClicked"
                 ItemsSource="{x:Bind PageHistory, Mode=OneWay}">
                 <winuiControls:BreadcrumbBar.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
                         <winuiControls:BreadcrumbBarItem Margin="0,0,8,0">
                             <winuiControls:BreadcrumbBarItem.ContentTemplate>
                                 <DataTemplate x:DataType="viewModelData:BreadcrumbNavigationItemViewModel">
@@ -35,7 +35,7 @@
                                         Margin="0,0,8,10"
                                         FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsActive), Mode=OneWay}"
                                         Style="{StaticResource TitleTextBlockStyle}"
-                                        Text="{Binding Title, Mode=OneWay}" />
+                                        Text="{x:Bind Title, Mode=OneWay}" />
                                 </DataTemplate>
                             </winuiControls:BreadcrumbBarItem.ContentTemplate>
                         </winuiControls:BreadcrumbBarItem>

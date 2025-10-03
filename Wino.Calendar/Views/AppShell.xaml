@@ -124,12 +124,12 @@
                                 ItemsSource="{x:Bind ViewModel.DateNavigationHeaderItems}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedDateNavigationHeaderIndex, Mode=OneWay}">
                                 <FlipView.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="x:String">
                                         <TextBlock
                                             VerticalAlignment="Center"
                                             FontSize="18"
                                             Style="{StaticResource BodyTextBlockStyle}"
-                                            Text="{Binding}" />
+                                            Text="{x:Bind}" />
                                     </DataTemplate>
                                 </FlipView.ItemTemplate>
                             </calendarControls:CustomCalendarFlipView>

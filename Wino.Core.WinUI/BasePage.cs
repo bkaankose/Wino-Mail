@@ -54,8 +54,6 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         Debug.WriteLine($"Disposed {GetType().Name}");
     }
 
-    [RequiresDynamicCode("AOT")]
-    [RequiresUnreferencedCode("AOT")]
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
@@ -64,7 +62,7 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         var parameter = e.Parameter;
 
         WeakReferenceMessenger.Default.UnregisterAll(this);
-        WeakReferenceMessenger.Default.RegisterAll(this);
+        WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
 
         ViewModel.OnNavigatedTo(mode, parameter);
     }
