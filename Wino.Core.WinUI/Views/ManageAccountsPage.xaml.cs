@@ -32,6 +32,12 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
     {
         base.OnNavigatedTo(e);
 
+        // Re-register message handlers after base.OnNavigatedTo unregisters all handlers
+        WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<MergedInboxRenamed>(this);
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
+
         var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuManageAccounts, WinoPage.AccountManagementPage);
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
 
@@ -40,6 +46,16 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         AccountPagesFrame.Navigate(accountManagementPageType, null, new SuppressNavigationTransitionInfo());
     }
 
+    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    {
+        // Explicitly unregister our message handlers before base.OnNavigatingFrom calls UnregisterAll
+        WeakReferenceMessenger.Default.Unregister<BreadcrumbNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<BackBreadcrumNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<MergedInboxRenamed>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
+
+        base.OnNavigatingFrom(e);
+    }
 
     void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
     {

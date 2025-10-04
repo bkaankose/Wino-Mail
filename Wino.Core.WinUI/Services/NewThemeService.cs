@@ -146,6 +146,9 @@ public class NewThemeService : INewThemeService
         get { return currentBackdropType; }
         set
         {
+            // Only update if the backdrop type has actually changed
+            if (currentBackdropType == value) return;
+
             currentBackdropType = value;
             _configurationService.Set(WindowBackdropTypeKey, (int)value);
 
@@ -222,11 +225,14 @@ public class NewThemeService : INewThemeService
                 _ => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base }
             };
 
-            windowEx.SystemBackdrop = backdrop;
+            if (windowEx.SystemBackdrop != backdrop)
+            {
+                windowEx.SystemBackdrop = backdrop;
 
-            BackdropChanged?.Invoke(this, backdropType);
+                BackdropChanged?.Invoke(this, backdropType);
 
-            Debug.WriteLine($"Applied backdrop: {backdropType}");
+                Debug.WriteLine($"Applied backdrop: {backdropType}");
+            }
         }
         catch (Exception ex)
         {
@@ -284,11 +290,9 @@ public class NewThemeService : INewThemeService
             bool isDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
 
             // Set button colors based on theme
-            // Background is always transparent for all buttons
+            // Normal and inactive backgrounds are transparent, but hover/pressed have subtle backgrounds
             titleBar.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
             titleBar.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-            titleBar.ButtonHoverBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-            titleBar.ButtonPressedBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
 
             if (isDarkTheme)
             {
@@ -296,7 +300,11 @@ public class NewThemeService : INewThemeService
                 titleBar.ButtonForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
                 titleBar.ButtonInactiveForegroundColor = Color.FromArgb(128, 255, 255, 255); // Semi-transparent white
                 titleBar.ButtonHoverForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
-                titleBar.ButtonPressedForegroundColor = Color.FromArgb(200, 255, 255, 255); // Slightly dimmed white
+                titleBar.ButtonPressedForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
+
+                // Subtle hover and pressed backgrounds for dark theme
+                titleBar.ButtonHoverBackgroundColor = Color.FromArgb(20, 255, 255, 255); // Very subtle white overlay
+                titleBar.ButtonPressedBackgroundColor = Color.FromArgb(40, 255, 255, 255); // Slightly more visible white overlay
             }
             else
             {
@@ -304,7 +312,11 @@ public class NewThemeService : INewThemeService
                 titleBar.ButtonForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
                 titleBar.ButtonInactiveForegroundColor = Color.FromArgb(128, 0, 0, 0); // Semi-transparent black
                 titleBar.ButtonHoverForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
-                titleBar.ButtonPressedForegroundColor = Color.FromArgb(200, 0, 0, 0); // Slightly dimmed black
+                titleBar.ButtonPressedForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
+
+                // Subtle hover and pressed backgrounds for light theme
+                titleBar.ButtonHoverBackgroundColor = Color.FromArgb(20, 0, 0, 0); // Very subtle black overlay
+                titleBar.ButtonPressedBackgroundColor = Color.FromArgb(40, 0, 0, 0); // Slightly more visible black overlay
             }
 
             Debug.WriteLine($"Updated title bar button colors for {(isDarkTheme ? "dark" : "light")} theme");

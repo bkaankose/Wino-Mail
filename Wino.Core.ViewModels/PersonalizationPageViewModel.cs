@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -127,14 +126,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial BackdropTypeWrapper SelectedBackdropType { get; set; }
 
-    partial void OnSelectedBackdropTypeChanged(BackdropTypeWrapper value)
-    {
-        if (!isPropChangeDisabled && value != null)
-        {
-            _newThemeService.CurrentBackdropType = value.BackdropType;
-        }
-    }
-
     #endregion
 
     [RelayCommand]
@@ -218,12 +209,9 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         var currentThemeId = _newThemeService.CurrentApplicationThemeId;
         SelectedAppTheme = currentThemeId.HasValue ? AppThemes.Find(a => a.Id == currentThemeId.Value) : null;
 
-        // Set the current backdrop, default to Mica if theme selected, None if custom theme
-        var targetBackdropType = SelectedAppTheme != null && SelectedAppTheme.AppThemeType != AppThemeType.Custom
-            ? _newThemeService.CurrentBackdropType
-            : WindowBackdropType.None;
-
-        SelectedBackdropType = AvailableBackdropTypes?.FirstOrDefault(x => x.BackdropType == targetBackdropType);
+        // Set the current backdrop from service - backdrop should be independent of theme selection
+        var currentBackdropType = _newThemeService.CurrentBackdropType;
+        SelectedBackdropType = AvailableBackdropTypes?.FirstOrDefault(x => x.BackdropType == currentBackdropType);
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -310,14 +298,11 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
             // Set the theme ID, can be null if no theme is selected
             _newThemeService.CurrentApplicationThemeId = SelectedAppTheme?.Id;
 
-            // When a custom/predefined theme is selected, set backdrop to None
-            // When no theme is selected (system theme), keep current backdrop
-            if (SelectedAppTheme != null)
-            {
-                isPropChangeDisabled = true;
-                SelectedBackdropType = AvailableBackdropTypes?.FirstOrDefault(x => x.BackdropType == WindowBackdropType.None);
-                isPropChangeDisabled = false;
-            }
+            // Theme selection should not affect backdrop - they are independent settings
+        }
+        else if (e.PropertyName == nameof(SelectedBackdropType) && SelectedBackdropType != null)
+        {
+            _newThemeService.CurrentBackdropType = SelectedBackdropType.BackdropType;
         }
         else
         {
