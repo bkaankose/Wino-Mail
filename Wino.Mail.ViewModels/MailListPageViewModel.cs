@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -81,7 +82,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IKeyPressService _keyPressService;
     private readonly IWinoLogger _winoLogger;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private MailItemViewModel _activeMailItem;
 
     public List<SortingOption> SortingOptions { get; } =
@@ -160,14 +160,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IKeyPressService keyPressService,
                                  IPreferencesService preferencesService,
                                  INewThemeService themeService,
-                                 IWinoLogger winoLogger,
-                                 IWinoServerConnectionManager winoServerConnectionManager)
+                                 IWinoLogger winoLogger)
     {
         MailCollection = new WinoMailCollection(threadingStrategyProvider);
         PreferencesService = preferencesService;
         ThemeService = themeService;
         _winoLogger = winoLogger;
-        _winoServerConnectionManager = winoServerConnectionManager;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
         _accountService = accountService;
@@ -841,51 +839,52 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // Perform online search.
                 if (isDoingOnlineSearch)
                 {
-                    WinoServerResponse<OnlineSearchResult> onlineSearchResult = null;
-                    string onlineSearchFailedMessage = null;
+                    // TODO: Burak: Handle online search.
+                    //WinoServerResponse<OnlineSearchResult> onlineSearchResult = null;
+                    //string onlineSearchFailedMessage = null;
 
-                    try
-                    {
-                        var accountIds = ActiveFolder.HandlingFolders.Select(a => a.MailAccountId).ToList();
-                        var folders = ActiveFolder.HandlingFolders.ToList();
-                        var searchRequest = new OnlineSearchRequested(accountIds, SearchQuery, folders);
+                    //try
+                    //{
+                    //    var accountIds = ActiveFolder.HandlingFolders.Select(a => a.MailAccountId).ToList();
+                    //    var folders = ActiveFolder.HandlingFolders.ToList();
+                    //    var searchRequest = new OnlineSearchRequested(accountIds, SearchQuery, folders);
 
-                        onlineSearchResult = await _winoServerConnectionManager.GetResponseAsync<OnlineSearchResult, OnlineSearchRequested>(searchRequest, cancellationToken);
+                    //    onlineSearchResult = await _winoServerConnectionManager.GetResponseAsync<OnlineSearchResult, OnlineSearchRequested>(searchRequest, cancellationToken);
 
-                        if (onlineSearchResult.IsSuccess)
-                        {
-                            await ExecuteUIThread(() => { AreSearchResultsOnline = true; });
+                    //    if (onlineSearchResult.IsSuccess)
+                    //    {
+                    //        await ExecuteUIThread(() => { AreSearchResultsOnline = true; });
 
-                            onlineSearchItems = onlineSearchResult.Data.SearchResult;
-                        }
-                        else
-                        {
-                            onlineSearchFailedMessage = onlineSearchResult.Message;
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, "Failed to perform online search.");
-                        onlineSearchFailedMessage = ex.Message;
-                    }
+                    //        onlineSearchItems = onlineSearchResult.Data.SearchResult;
+                    //    }
+                    //    else
+                    //    {
+                    //        onlineSearchFailedMessage = onlineSearchResult.Message;
+                    //    }
+                    //}
+                    //catch (OperationCanceledException)
+                    //{
+                    //    throw;
+                    //}
+                    //catch (Exception ex)
+                    //{
+                    //    Log.Warning(ex, "Failed to perform online search.");
+                    //    onlineSearchFailedMessage = ex.Message;
+                    //}
 
-                    if (onlineSearchResult != null && !onlineSearchResult.IsSuccess)
-                    {
-                        // Query or server error.
-                        var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchResult.Message);
-                        _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
+                    //if (onlineSearchResult != null && !onlineSearchResult.IsSuccess)
+                    //{
+                    //    // Query or server error.
+                    //    var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchResult.Message);
+                    //    _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
 
-                    }
-                    else if (!string.IsNullOrEmpty(onlineSearchFailedMessage))
-                    {
-                        // Fatal error.
-                        var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchFailedMessage);
-                        _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
-                    }
+                    //}
+                    //else if (!string.IsNullOrEmpty(onlineSearchFailedMessage))
+                    //{
+                    //    // Fatal error.
+                    //    var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchFailedMessage);
+                    //    _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
+                    //}
                 }
             }
 
@@ -1110,9 +1109,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             foreach (var accountId in accountIds)
             {
-                var serverResponse = await _winoServerConnectionManager.GetResponseAsync<bool, SynchronizationExistenceCheckRequest>(new SynchronizationExistenceCheckRequest(accountId));
-
-                if (serverResponse.IsSuccess && serverResponse.Data == true)
+                if (SynchronizationManager.Instance.IsAccountSynchronizing(accountId))
                 {
                     isAnyAccountSynchronizing = true;
                     break;

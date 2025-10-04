@@ -1,25 +1,20 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.AutoDiscovery;
-using Wino.Core.Domain.Models.Connectivity;
-using Wino.Mail.WinUI;
+using Wino.Core.Services;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Server;
 
 
 namespace Wino.Views.ImapSetup;
 
 public sealed partial class TestingImapConnectionPage : Page
 {
-    private IWinoServerConnectionManager _winoServerConnectionManager = App.Current.Services.GetService<IWinoServerConnectionManager>();
     private AutoDiscoverySettings autoDiscoverySettings;
     private CustomServerInformation serverInformationToTest;
 
@@ -67,46 +62,34 @@ public sealed partial class TestingImapConnectionPage : Page
 
         await Task.Delay(1000);
 
-        var testResultResponse = await _winoServerConnectionManager
-            .GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(serverInformationToTest, allowSSLHandshake));
+        var testResultData = await SynchronizationManager.Instance.TestImapConnectivityAsync(serverInformationToTest, allowSSLHandshake);
 
-        if (!testResultResponse.IsSuccess)
+        if (testResultData.IsSuccess)
         {
-            // Wino Server is connection is failed.
-            ReturnWithError(testResultResponse.Message);
+            // All success. Finish setup with validated server information.
+            ReturnWithSuccess();
         }
         else
         {
-            var testResultData = testResultResponse.Data;
-
-            if (testResultData.IsSuccess)
+            // Check if certificate UI is required.
+            if (testResultData.IsCertificateUIRequired)
             {
-                // All success. Finish setup with validated server information.
-                ReturnWithSuccess();
+                // Certificate UI is required. Show certificate dialog.
+
+                CertIssuer.Text = testResultData.CertificateIssuer;
+                CertValidFrom.Text = testResultData.CertificateValidFromDateString;
+                CertValidTo.Text = testResultData.CertificateExpirationDateString;
+
+                TestingConnectionPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                CertificateDialog.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
             }
             else
             {
-                // Check if certificate UI is required.
+                // Connection test failed. Show error dialog.
 
-                if (testResultData.IsCertificateUIRequired)
-                {
-                    // Certificate UI is required. Show certificate dialog.
+                var protocolLog = testResultData.FailureProtocolLog;
 
-                    CertIssuer.Text = testResultData.CertificateIssuer;
-                    CertValidFrom.Text = testResultData.CertificateValidFromDateString;
-                    CertValidTo.Text = testResultData.CertificateExpirationDateString;
-
-                    TestingConnectionPanel.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-                    CertificateDialog.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-                }
-                else
-                {
-                    // Connection test failed. Show error dialog.
-
-                    var protocolLog = testResultData.FailureProtocolLog;
-
-                    ReturnWithError(testResultData.FailedReason, protocolLog);
-                }
+                ReturnWithError(testResultData.FailedReason, protocolLog);
             }
         }
     }

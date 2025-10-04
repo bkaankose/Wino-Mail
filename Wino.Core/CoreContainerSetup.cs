@@ -17,6 +17,8 @@ public static class CoreContainerSetup
 
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
+        services.AddSingleton<ISynchronizationManager>(provider => SynchronizationManager.Instance);
+        services.AddTransient<SynchronizationManagerInitializer>();
 
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();

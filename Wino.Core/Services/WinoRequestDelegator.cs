@@ -19,17 +19,14 @@ namespace Wino.Core.Services;
 public class WinoRequestDelegator : IWinoRequestDelegator
 {
     private readonly IWinoRequestProcessor _winoRequestProcessor;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private readonly IFolderService _folderService;
     private readonly IMailDialogService _dialogService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                IWinoServerConnectionManager winoServerConnectionManager,
                                 IFolderService folderService,
                                 IMailDialogService dialogService)
     {
         _winoRequestProcessor = winoRequestProcessor;
-        _winoServerConnectionManager = winoServerConnectionManager;
         _folderService = folderService;
         _dialogService = dialogService;
     }
@@ -138,14 +135,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
-        await EnsureServerConnectedAsync();
-        await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
+        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId);
     }
 
-    private async Task QueueSynchronizationAsync(Guid accountId)
+    private Task QueueSynchronizationAsync(Guid accountId)
     {
-        await EnsureServerConnectedAsync();
-
         var options = new MailSynchronizationOptions()
         {
             AccountId = accountId,
@@ -153,12 +147,6 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         };
 
         WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
-    }
-
-    private async Task EnsureServerConnectedAsync()
-    {
-        if (_winoServerConnectionManager.Status == WinoServerConnectionStatus.Connected) return;
-
-        await _winoServerConnectionManager.ConnectAsync();
+        return Task.CompletedTask;
     }
 }

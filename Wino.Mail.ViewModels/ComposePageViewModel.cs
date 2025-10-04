@@ -13,11 +13,11 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Services;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
-using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Server;
@@ -102,7 +102,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
     private readonly IWinoRequestDelegator _worker;
     public readonly IFontService FontService;
     public readonly IPreferencesService PreferencesService;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     public readonly IContactService ContactService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
@@ -115,8 +114,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
                                 IWinoRequestDelegator worker,
                                 IContactService contactService,
                                 IFontService fontService,
-                                IPreferencesService preferencesService,
-                                IWinoServerConnectionManager winoServerConnectionManager)
+                                IPreferencesService preferencesService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -130,7 +128,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
         _fileService = fileService;
         _accountService = accountService;
         _worker = worker;
-        _winoServerConnectionManager = winoServerConnectionManager;
     }
 
     [RelayCommand]
@@ -412,13 +409,12 @@ public partial class ComposePageViewModel : MailBaseViewModel
             {
                 downloadIfNeeded = false;
 
-                var package = new DownloadMissingMessageRequested(CurrentMailDraftItem.AssignedAccount.Id, CurrentMailDraftItem.MailCopy);
-                var downloadResponse = await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
+                // Download missing MIME message using SynchronizationManager
+                await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                    CurrentMailDraftItem.MailCopy, 
+                    CurrentMailDraftItem.AssignedAccount.Id);
 
-                if (downloadResponse.IsSuccess)
-                {
-                    goto retry;
-                }
+                goto retry;
             }
             else
                 _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);

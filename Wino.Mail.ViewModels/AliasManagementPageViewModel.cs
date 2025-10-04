@@ -12,7 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
+using Wino.Core.Services;
 
 namespace Wino.Mail.ViewModels;
 
@@ -20,7 +20,6 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
@@ -32,12 +31,10 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
-                                        IAccountService accountService,
-                                        IWinoServerConnectionManager winoServerConnectionManager)
+                                        IAccountService accountService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
-        _winoServerConnectionManager = winoServerConnectionManager;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -82,12 +79,12 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
             Type = MailSynchronizationType.Alias
         };
 
-        var aliasSyncResponse = await _winoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
+        var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
 
-        if (aliasSyncResponse.IsSuccess)
+        if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
             await LoadAliasesAsync();
         else
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, aliasSyncResponse.Message, InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, "Failed to synchronize aliases", InfoBarMessageType.Error);
     }
 
     [RelayCommand]

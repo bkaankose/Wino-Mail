@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
@@ -46,7 +47,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private bool forceImageLoading = false;
 
     private MailItemViewModel initializedMailItemViewModel = null;
@@ -142,8 +142,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                                       IUnsubscriptionService unsubscriptionService,
                                       IPreferencesService preferencesService,
                                       IPrintService printService,
-                                      IApplicationConfiguration applicationConfiguration,
-                                      IWinoServerConnectionManager winoServerConnectionManager)
+                                      IApplicationConfiguration applicationConfiguration)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -152,7 +151,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         PreferencesService = preferencesService;
         PrintService = printService;
         _applicationConfiguration = applicationConfiguration;
-        _winoServerConnectionManager = winoServerConnectionManager;
         _clipboardService = clipboardService;
         _unsubscriptionService = unsubscriptionService;
         _underlyingThemeService = underlyingThemeService;
@@ -355,8 +353,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // To show the progress on the UI.
             CurrentDownloadPercentage = 1;
 
-            var package = new DownloadMissingMessageRequested(mailItemViewModel.AssignedAccount.Id, mailItemViewModel.MailCopy);
-            await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
+            // Download missing MIME message using SynchronizationManager
+            await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                mailItemViewModel.MailCopy, 
+                mailItemViewModel.AssignedAccount.Id);
         }
         catch (OperationCanceledException)
         {

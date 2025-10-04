@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Windows.ApplicationModel.AppService;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
 using Wino.Core.WinUI.Services;
@@ -12,10 +11,6 @@ public static class CoreUWPContainerSetup
 {
     public static void RegisterCoreUWPServices(this IServiceCollection services)
     {
-        var serverConnectionManager = new EmptyWinoServerConnectionManager<AppServiceConnection>();
-
-        services.AddSingleton<IWinoServerConnectionManager>(serverConnectionManager);
-        services.AddSingleton<IWinoServerConnectionManager<AppServiceConnection>>(serverConnectionManager);
         services.AddSingleton<IApplicationResourceManager<ResourceDictionary>, ApplicationResourceManager>();
 
         services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();

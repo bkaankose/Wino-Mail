@@ -18,6 +18,7 @@ using Windows.Storage;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
+using Wino.Core.Services;
 using Wino.Messaging.Client.Shell;
 using Wino.Services;
 using WinUIEx;
@@ -84,6 +85,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         yield return DatabaseService;
         yield return TranslationService;
         yield return NewThemeService;  // Initialize NewThemeService instead of old ThemeService
+        yield return Services.GetService<SynchronizationManagerInitializer>();
         // yield return ThemeService;  // Keep old service for backward compatibility but don't initialize
     }
 

@@ -12,15 +12,13 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Authentication;
-using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
@@ -34,7 +32,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     public IMailDialogService MailDialogService { get; }
 
     public AccountManagementViewModel(IMailDialogService dialogService,
-                                      IWinoServerConnectionManager winoServerConnectionManager,
                                       INavigationService navigationService,
                                       IAccountService accountService,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
@@ -43,7 +40,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IStoreManagementService storeManagementService,
                                       IWinoLogger winoLogger,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, winoServerConnectionManager, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
@@ -154,37 +151,36 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                         createdAccount.Address = customServerInformation.Address;
 
                         // Let server validate the imap/smtp connection.
-                        var testResultResponse = await WinoServerConnectionManager.GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(customServerInformation, true));
+                        // TODO: Protocol log with detailed failure.
 
-                        if (!testResultResponse.IsSuccess)
-                        {
-                            throw new Exception($"{Translator.IMAPSetupDialog_ConnectionFailedTitle}\n{testResultResponse.Message}");
-                        }
-                        else if (!testResultResponse.Data.IsSuccess)
-                        {
-                            // Server connectivity might succeed, but result might be failed.
-                            throw new ImapClientPoolException(testResultResponse.Data.FailedReason, customServerInformation, testResultResponse.Data.FailureProtocolLog);
-                        }
+                        await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
+                        //var testResultResponse = await WinoServerConnectionManager.GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(customServerInformation, true));
+
+                        //if (!testResultResponse.IsSuccess)
+                        //{
+                        //    throw new Exception($"{Translator.IMAPSetupDialog_ConnectionFailedTitle}\n{testResultResponse.Message}");
+                        //}
+                        //else if (!testResultResponse.Data.IsSuccess)
+                        //{
+                        //    // Server connectivity might succeed, but result might be failed.
+                        //    throw new ImapClientPoolException(testResultResponse.Data.FailedReason, customServerInformation, testResultResponse.Data.FailureProtocolLog);
+                        //}
                     }
                     else
                     {
                         // OAuth authentication is handled here.
-                        // Server authenticates, returns the token info here.
+                        // Use SynchronizationManager to handle OAuth authentication.
 
-                        var tokenInformationResponse = await WinoServerConnectionManager
-                            .GetResponseAsync<TokenInformationEx, AuthorizationRequested>(new AuthorizationRequested(accountCreationDialogResult.ProviderType,
-                                                                                                                   createdAccount,
-                                                                                                                   createdAccount.ProviderType == MailProviderType.Gmail), accountCreationCancellationTokenSource.Token);
+                        var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                            accountCreationDialogResult.ProviderType,
+                            createdAccount,
+                            createdAccount.ProviderType == MailProviderType.Gmail);
 
                         if (creationDialog.State == AccountCreationDialogState.Canceled)
                             throw new AccountSetupCanceledException();
 
-                        if (!tokenInformationResponse.IsSuccess)
-                            throw new Exception(tokenInformationResponse.Message);
-
-                        createdAccount.Address = tokenInformationResponse.Data.AccountAddress;
-
-                        tokenInformationResponse.ThrowIfFailed();
+                        // Update account address with authenticated user information
+                        createdAccount.Address = authTokenInfo.AccountAddress;
                     }
                 }
 
@@ -207,22 +203,23 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                         Type = MailSynchronizationType.UpdateProfile
                     };
 
-                    var profileSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(profileSyncOptions, SynchronizationSource.Client));
-
-                    var profileSynchronizationResult = profileSynchronizationResponse.Data;
+                    var profileSynchronizationResult = await SynchronizationManager.Instance.SynchronizeProfileAsync(createdAccount.Id);
 
                     if (profileSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeProfileInformation);
 
-                    createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
-                    createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
-
-                    if (!string.IsNullOrEmpty(profileSynchronizationResult.ProfileInformation.AccountAddress))
+                    if (profileSynchronizationResult.ProfileInformation != null)
                     {
-                        createdAccount.Address = profileSynchronizationResult.ProfileInformation.AccountAddress;
-                    }
+                        createdAccount.SenderName = profileSynchronizationResult.ProfileInformation.SenderName;
+                        createdAccount.Base64ProfilePictureData = profileSynchronizationResult.ProfileInformation.Base64ProfilePictureData;
 
-                    await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
+                        if (!string.IsNullOrEmpty(profileSynchronizationResult.ProfileInformation.AccountAddress))
+                        {
+                            createdAccount.Address = profileSynchronizationResult.ProfileInformation.AccountAddress;
+                        }
+
+                        await AccountService.UpdateProfileInformationAsync(createdAccount.Id, profileSynchronizationResult.ProfileInformation);
+                    }
                 }
 
                 if (creationDialog is IImapAccountCreationDialog customServerAccountCreationDialog)
@@ -237,26 +234,16 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                     Type = MailSynchronizationType.FoldersOnly
                 };
 
-                var folderSynchronizationResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(folderSyncOptions, SynchronizationSource.Client));
-
-                var folderSynchronizationResult = folderSynchronizationResponse.Data;
+                var folderSynchronizationResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(createdAccount.Id);
 
                 if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
-                    throw new Exception($"{Translator.Exception_FailedToSynchronizeFolders}\n{folderSynchronizationResponse.Message}");
+                    throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
                 // Sync aliases if supported.
                 if (createdAccount.IsAliasSyncSupported)
                 {
                     // Try to synchronize aliases for the account.
-
-                    var aliasSyncOptions = new MailSynchronizationOptions()
-                    {
-                        AccountId = createdAccount.Id,
-                        Type = MailSynchronizationType.Alias
-                    };
-
-                    var aliasSyncResponse = await WinoServerConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(new NewMailSynchronizationRequested(aliasSyncOptions, SynchronizationSource.Client));
-                    var aliasSynchronizationResult = folderSynchronizationResponse.Data;
+                    var aliasSynchronizationResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(createdAccount.Id);
 
                     if (aliasSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
