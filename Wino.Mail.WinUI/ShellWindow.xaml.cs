@@ -19,6 +19,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 {
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
+    private readonly ISystemTrayService _systemTrayService;
 
     public ShellWindow()
     {
@@ -30,6 +31,17 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
         MinWidth = 420;
         MinHeight = 420;
         ConfigureTitleBar();
+
+        // Initialize system tray service
+        _systemTrayService = WinoApplication.Current.Services.GetService<ISystemTrayService>() ?? throw new Exception("SystemTrayService not registered in DI container.");
+        _systemTrayService.Initialize();
+        _systemTrayService.TrayIconDoubleClicked += OnTrayIconDoubleClicked;
+
+        // Handle window closing event to minimize to tray instead of closing
+        Closed += OnWindowClosed;
+
+        // Use the AppWindow.Closing event to handle the close request
+        AppWindow.Closing += OnAppWindowClosing;
     }
 
     private void ConfigureTitleBar()
@@ -118,5 +130,57 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
                 titleBar.ButtonPressedForegroundColor = Color.FromArgb(200, 0, 0, 0); // Slightly dimmed black
             }
         });
+    }
+
+    private void OnAppWindowClosing(object sender, Microsoft.UI.Windowing.AppWindowClosingEventArgs e)
+    {
+        // Cancel the close and minimize to tray instead
+        e.Cancel = true;
+        MinimizeToTray();
+    }
+
+    private void OnWindowClosed(object sender, WindowEventArgs e)
+    {
+        // Clean up tray icon when window is actually closed
+        _systemTrayService?.Dispose();
+    }
+
+    private void MinimizeToTray()
+    {
+        // Hide the window and show tray icon
+        this.Hide();
+        _systemTrayService.Show();
+    }
+
+    private void OnTrayIconDoubleClicked(object? sender, EventArgs e)
+    {
+        // Restore the window from tray
+        RestoreFromTray();
+    }
+
+    private void RestoreFromTray()
+    {
+        if (_systemTrayService.IsMinimizedToTray)
+        {
+            // Show the window and hide tray icon
+            this.Show();
+            this.Activate();
+            _systemTrayService.Hide();
+        }
+    }
+
+    public void ForceClose()
+    {
+        // Unsubscribe from the closing event to avoid infinite loop
+        AppWindow.Closing -= OnAppWindowClosing;
+        
+        // Clean up system tray
+        _systemTrayService?.Dispose();
+        
+        // Close the window
+        this.Close();
+        
+        // Exit the application
+        Application.Current.Exit();
     }
 }

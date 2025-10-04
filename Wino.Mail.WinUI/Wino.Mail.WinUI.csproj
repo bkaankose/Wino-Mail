@@ -72,6 +72,7 @@
   <ItemGroup>
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="JS\editor.html" />
     <Content Include="JS\editor.js" />
     <Content Include="JS\global.css" />
@@ -112,6 +113,7 @@
 	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
 	<PackageReference Include="WinUIEx" />
+	<PackageReference Include="H.NotifyIcon.WinUI" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wino.Core.WinUI\Wino.Core.WinUI.csproj" />
