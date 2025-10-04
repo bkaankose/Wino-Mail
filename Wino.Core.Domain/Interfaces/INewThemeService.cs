@@ -32,6 +32,9 @@ public interface INewThemeService : IInitializeAsync
     // Improved accent color management
     Task SetAccentColorAsync(string hexColor, bool preserveTheme = true);
 
+    // Title bar color management
+    void UpdateSystemCaptionButtonColors();
+
     // Backdrop management
     List<BackdropTypeWrapper> GetAvailableBackdropTypes();
 }
