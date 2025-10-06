@@ -135,7 +135,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
-        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId);
+        // Don't trigger synchronization for individual requests - we'll trigger it once for all requests
+        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId, triggerSynchronization: false);
     }
 
     private Task QueueSynchronizationAsync(Guid accountId)

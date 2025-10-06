@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
@@ -20,7 +21,7 @@ public interface IBaseFolderMenuItem : IMenuItem
     int UnreadItemCount { get; set; }
     SpecialFolderType SpecialFolderType { get; }
     IEnumerable<IMailItemFolder> HandlingFolders { get; }
-    IEnumerable<IMenuItem> SubMenuItems { get; }
+    ObservableCollection<IMenuItem> SubMenuItems { get; }
     bool IsMoveTarget { get; }
     bool IsSticky { get; }
     bool IsSystemFolder { get; }

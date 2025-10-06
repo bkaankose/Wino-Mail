@@ -37,9 +37,11 @@ public class DialogService : DialogServiceBase, IMailDialogService
         {
             if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
             {
+
                 return new NewImapSetupDialog
                 {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
+                    XamlRoot = GetXamlRoot()
                 };
             }
             else

@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
-using Windows.Foundation.Metadata;
 using Windows.Storage;
 using Windows.System;
-using Windows.UI.Shell;
 using Wino.Core.Domain.Interfaces;
 
 
@@ -88,20 +86,21 @@ public class NativeAppService : INativeAppService
         return string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
     }
 
+    [Obsolete("Not supported for Win SDK")]
     public async Task PinAppToTaskbarAsync()
     {
         // If Start screen manager API's aren't present
-        if (!ApiInformation.IsTypePresent("Windows.UI.Shell.TaskbarManager")) return;
+        //if (!ApiInformation.IsTypePresent("Windows.UI.Shell.TaskbarManager")) return;
 
-        // Get the taskbar manager
-        var taskbarManager = TaskbarManager.GetDefault();
+        //// Get the taskbar manager
+        //var taskbarManager = TaskbarManager.GetDefault();
 
-        // If Taskbar doesn't allow pinning, don't show the tip
-        if (!taskbarManager.IsPinningAllowed) return;
+        //// If Taskbar doesn't allow pinning, don't show the tip
+        //if (!taskbarManager.IsPinningAllowed) return;
 
-        // If already pinned, don't show the tip
-        if (await taskbarManager.IsCurrentAppPinnedAsync()) return;
+        //// If already pinned, don't show the tip
+        //if (await taskbarManager.IsCurrentAppPinnedAsync()) return;
 
-        await taskbarManager.RequestPinCurrentAppAsync();
+        //await taskbarManager.RequestPinCurrentAppAsync();
     }
 }

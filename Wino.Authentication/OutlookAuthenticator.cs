@@ -40,6 +40,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
             ListOperatingSystemAccounts = true,
         };
 
+
         var outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
             .WithParentActivityOrWindow(nativeAppService.GetCoreWindowHwnd)
             .WithBroker(options)

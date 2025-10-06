@@ -37,6 +37,11 @@ public class DialogServiceBase : IDialogServiceBase
         ApplicationResourceManager = applicationResourceManager;
     }
 
+    protected XamlRoot GetXamlRoot()
+    {
+        return WinoApplication.MainWindow?.Content?.XamlRoot;
+    }
+
     public async Task<string> PickFilePathAsync(string saveFileName)
     {
         var picker = new FolderPicker()
@@ -122,7 +127,8 @@ public class DialogServiceBase : IDialogServiceBase
     {
         return new AccountCreationDialog
         {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
+            XamlRoot = GetXamlRoot()
         };
     }
 
@@ -195,6 +201,8 @@ public class DialogServiceBase : IDialogServiceBase
 
         try
         {
+            dialog.XamlRoot = GetXamlRoot();
+
             return await dialog.ShowAsync();
         }
         catch (Exception ex)

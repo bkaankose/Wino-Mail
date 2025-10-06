@@ -198,8 +198,10 @@ public class NewThemeService : INewThemeService
         await ApplyCustomThemeAsync(true);
 
         // Registering to color changes, thus we notice when user changes theme system wide
-        uiSettings.ColorValuesChanged -= UISettingsColorChanged;
-        uiSettings.ColorValuesChanged += UISettingsColorChanged;
+
+        // TODO: WinUI: This event seems to be very unreliable. It causes a crash when the function runs under.
+        //uiSettings.ColorValuesChanged -= UISettingsColorChanged;
+        //uiSettings.ColorValuesChanged += UISettingsColorChanged;
 
         isInitialized = true;
     }

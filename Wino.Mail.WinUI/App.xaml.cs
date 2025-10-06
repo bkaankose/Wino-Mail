@@ -83,18 +83,21 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         // TODO: Check app relaunch mutex before loading anything.
 
         // Initialize NewThemeService first to get backdrop settings before creating window
-        var newThemeService = Services.GetService<INewThemeService>();
-        var configService = Services.GetService<IConfigurationService>();
+        var newThemeService = Services.GetRequiredService<INewThemeService>();
+        var configService = Services.GetRequiredService<IConfigurationService>();
+        var nativeAppService = Services.GetRequiredService<INativeAppService>();
 
         // Load saved backdrop type before creating window
         var savedBackdropType = (WindowBackdropType)configService.Get("WindowBackdropTypeKey", (int)WindowBackdropType.Mica);
 
         MainWindow = new ShellWindow();
 
+        nativeAppService.GetCoreWindowHwnd = () => WinRT.Interop.WindowNative.GetWindowHandle(MainWindow);
+
         await InitializeServicesAsync();
 
         // Initialize system tray
-        var systemTrayService = Services.GetService<ISystemTrayService>();
+        var systemTrayService = Services.GetRequiredService<ISystemTrayService>();
         if (systemTrayService != null)
         {
             systemTrayService.Initialize();

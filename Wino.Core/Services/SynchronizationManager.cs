@@ -195,6 +195,17 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="accountId">Account ID to queue the request for</param>
     public async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
+        await QueueRequestAsync(request, accountId, triggerSynchronization: true);
+    }
+
+    /// <summary>
+    /// Queues a mail action request to the corresponding account's synchronizer with optional synchronization triggering.
+    /// </summary>
+    /// <param name="request">Request to queue</param>
+    /// <param name="accountId">Account ID to queue the request for</param>
+    /// <param name="triggerSynchronization">Whether to automatically trigger synchronization after queuing the request</param>
+    public async Task QueueRequestAsync(IRequestBase request, Guid accountId, bool triggerSynchronization)
+    {
         EnsureInitialized();
 
         var synchronizer = await GetOrCreateSynchronizerAsync(accountId);
@@ -208,6 +219,32 @@ public class SynchronizationManager : ISynchronizationManager
                      request.GetType().Name, accountId);
 
         synchronizer.QueueRequest(request);
+
+        if (triggerSynchronization)
+        {
+            // Trigger synchronization to execute the queued request
+            _logger.Debug("Triggering synchronization to execute queued request for account {AccountId}", accountId);
+            
+            var synchronizationOptions = new MailSynchronizationOptions()
+            {
+                AccountId = accountId,
+                Type = MailSynchronizationType.ExecuteRequests
+            };
+
+            // Trigger synchronization asynchronously without waiting for completion
+            // This matches the pattern used in WinoRequestDelegator
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await SynchronizeMailAsync(synchronizationOptions);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to execute synchronization after queuing request for account {AccountId}", accountId);
+                }
+            });
+        }
     }
 
     /// <summary>

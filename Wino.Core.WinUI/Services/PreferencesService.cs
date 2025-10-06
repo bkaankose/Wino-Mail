@@ -227,7 +227,7 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
     public bool IsNavigationPaneOpened
     {
         get => _configurationService.Get(nameof(IsNavigationPaneOpened), true);
-        set => SaveProperty(propertyName: nameof(IsNavigationPaneOpened), value);
+        set => SetPropertyAndSave(propertyName: nameof(IsNavigationPaneOpened), value);
     }
 
     public bool AutoSelectNextItem
