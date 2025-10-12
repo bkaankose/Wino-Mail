@@ -20,7 +20,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Controls;
 using Wino.Extensions;
-using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
@@ -67,14 +66,14 @@ public sealed partial class AppShell : AppShellAbstract,
 
                     foreach (var item in dragPackage.DraggingMails)
                     {
-                        if (item is MailItemViewModel singleMailItemViewModel)
-                        {
-                            mailCopies.Add(singleMailItemViewModel.MailCopy);
-                        }
-                        else if (item is ThreadMailItemViewModel threadViewModel)
-                        {
-                            mailCopies.AddRange(threadViewModel.GetMailCopies());
-                        }
+                        //if (item is MailItemViewModel singleMailItemViewModel)
+                        //{
+                        //    mailCopies.Add(singleMailItemViewModel.MailCopy);
+                        //}
+                        //else if (item is ThreadMailItemViewModel threadViewModel)
+                        //{
+                        //    mailCopies.AddRange(threadViewModel.GetMailCopies());
+                        //}
                     }
 
                     await ViewModel.PerformMoveOperationAsync(mailCopies, draggingFolder);

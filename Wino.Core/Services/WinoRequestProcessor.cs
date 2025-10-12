@@ -31,10 +31,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     /// </summary>
     private readonly List<ToggleRequestRule> _toggleRequestRules =
     [
-        new ToggleRequestRule(MailOperation.MarkAsRead, MailOperation.MarkAsUnread, new System.Func<IMailItem, bool>((item) => item.IsRead)),
-        new ToggleRequestRule(MailOperation.MarkAsUnread, MailOperation.MarkAsRead, new System.Func<IMailItem, bool>((item) => !item.IsRead)),
-        new ToggleRequestRule(MailOperation.SetFlag, MailOperation.ClearFlag, new System.Func<IMailItem, bool>((item) => item.IsFlagged)),
-        new ToggleRequestRule(MailOperation.ClearFlag, MailOperation.SetFlag, new System.Func<IMailItem, bool>((item) => !item.IsFlagged)),
+        new ToggleRequestRule(MailOperation.MarkAsRead, MailOperation.MarkAsUnread, new System.Func<MailCopy, bool>((item) => item.IsRead)),
+        new ToggleRequestRule(MailOperation.MarkAsUnread, MailOperation.MarkAsRead, new System.Func<MailCopy, bool>((item) => !item.IsRead)),
+        new ToggleRequestRule(MailOperation.SetFlag, MailOperation.ClearFlag, new System.Func<MailCopy, bool>((item) => item.IsFlagged)),
+        new ToggleRequestRule(MailOperation.ClearFlag, MailOperation.SetFlag, new System.Func<MailCopy, bool>((item) => !item.IsFlagged)),
     ];
 
     public WinoRequestProcessor(IFolderService folderService,

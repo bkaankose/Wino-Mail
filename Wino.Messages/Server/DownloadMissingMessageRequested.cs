@@ -1,6 +1,6 @@
 ﻿using System;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Messaging.Server;
 
@@ -10,4 +10,4 @@ namespace Wino.Messaging.Server;
 /// </summary>
 /// <param name="AccountId">Account id for corresponding synchronizer.</param>
 /// <param name="MailCopyId">Mail copy id to download.</param>
-public record DownloadMissingMessageRequested(Guid AccountId, IMailItem MailItem) : IClientMessage;
+public record DownloadMissingMessageRequested(Guid AccountId, MailCopy MailItem) : IClientMessage;

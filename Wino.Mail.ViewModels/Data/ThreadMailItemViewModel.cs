@@ -1,126 +1,114 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Thread mail item (multiple IMailItem) view model representation.
 /// </summary>
-public partial class ThreadMailItemViewModel : ObservableObject, IMailItemThread, IComparable<string>, IComparable<DateTime>
+public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
 {
-    public ObservableCollection<IMailItem> ThreadItems => (MailItem as IMailItemThread)?.ThreadItems ?? [];
-    public AccountContact SenderContact => ((IMailItemThread)MailItem).SenderContact;
+    private readonly string _threadId;
+
+    private readonly List<MailItemViewModel> _threadEmails = [];
+    private bool _disposed;
 
     [ObservableProperty]
-    private ThreadMailItem mailItem;
+    [NotifyPropertyChangedRecipients]
+    public partial bool IsThreadExpanded { get; set; }
 
     [ObservableProperty]
-    private bool isThreadExpanded;
+    public partial bool IsSelected { get; set; }
 
-    public ThreadMailItemViewModel(ThreadMailItem threadMailItem)
+    /// <summary>
+    /// Gets the number of emails in this thread
+    /// </summary>
+    public int EmailCount => _threadEmails.Count;
+
+    /// <summary>
+    /// Gets the latest email's subject for display
+    /// </summary>
+    public string? Subject => _threadEmails
+        .OrderByDescending(e => e.MailCopy?.CreationDate)
+        .FirstOrDefault()?.MailCopy?.Subject;
+
+    /// <summary>
+    /// Gets the latest email's sender name for display
+    /// </summary>
+    public string? FromName => _threadEmails
+        .OrderByDescending(e => e.MailCopy?.CreationDate)
+        .FirstOrDefault()?.MailCopy?.SenderContact.Name;
+
+    /// <summary>
+    /// Gets the latest email's creation date for sorting
+    /// </summary>
+    public DateTime LatestEmailDate => _threadEmails
+        .OrderByDescending(e => e.MailCopy?.CreationDate)
+        .FirstOrDefault()?.MailCopy?.CreationDate ?? DateTime.MinValue;
+
+    /// <summary>
+    /// Gets all emails in this thread (read-only)
+    /// </summary>
+    public IReadOnlyList<MailItemViewModel> ThreadEmails => _threadEmails.AsReadOnly();
+
+    public ThreadMailItemViewModel(string threadId)
     {
-        MailItem = new ThreadMailItem();
+        _threadId = threadId;
+    }
 
-        // Local copies
-        foreach (var item in threadMailItem.ThreadItems)
+    partial void OnIsSelectedChanged(bool value)
+    {
+
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
         {
-            AddMailItemViewModel(item);
+            _threadEmails.Clear();
         }
+
+        _disposed = true;
     }
 
-    public ThreadMailItem GetThreadMailItem() => MailItem;
-
-    public IEnumerable<MailCopy> GetMailCopies()
-        => ThreadItems.OfType<MailItemViewModel>().Select(a => a.MailCopy);
-
-    public void AddMailItemViewModel(IMailItem mailItem)
+    public void Dispose()
     {
-        if (mailItem == null) return;
-
-        if (mailItem is MailCopy mailCopy)
-            MailItem.AddThreadItem(new MailItemViewModel(mailCopy));
-        else if (mailItem is MailItemViewModel mailItemViewModel)
-            MailItem.AddThreadItem(mailItemViewModel);
-        else
-            Debugger.Break();
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
-    public bool HasUniqueId(Guid uniqueMailId)
-        => ThreadItems.Any(a => a.UniqueId == uniqueMailId);
-
-    public IMailItem GetItemById(Guid uniqueMailId)
-        => ThreadItems.FirstOrDefault(a => a.UniqueId == uniqueMailId);
-
-    public void RemoveCopyItem(IMailItem item)
+    private void NotifyPropertyChanges()
     {
-        MailCopy copyToRemove = null;
+        OnPropertyChanged(nameof(Subject));
+        OnPropertyChanged(nameof(FromName));
+    }
 
-        if (item is MailItemViewModel mailItemViewModel)
-            copyToRemove = mailItemViewModel.MailCopy;
-        else if (item is MailCopy copyItem)
-            copyToRemove = copyItem;
 
-        var existedItem = ThreadItems.FirstOrDefault(a => a.Id == copyToRemove.Id);
+    /// <summary>
+    /// Adds an email to this thread
+    /// </summary>
+    public void AddEmail(MailItemViewModel email)
+    {
+        if (email.MailCopy.ThreadId != _threadId)
+            throw new ArgumentException($"Email ThreadId '{email.MailCopy.ThreadId}' does not match expander ThreadId '{_threadId}'");
 
-        if (existedItem == null) return;
-
-        ThreadItems.Remove(existedItem);
-
+        _threadEmails.Add(email);
         NotifyPropertyChanges();
     }
 
-    public void NotifyPropertyChanges()
+    /// <summary>
+    /// Removes an email from this thread
+    /// </summary>
+    public void RemoveEmail(MailItemViewModel email)
     {
-        // TODO
-        // Stupid temporary fix for not updating UI.
-        // This view model must be reworked with ThreadMailItem together.
-
-        var current = MailItem;
-
-        MailItem = null;
-        MailItem = current;
+        if (_threadEmails.Remove(email))
+        {
+            NotifyPropertyChanges();
+        }
     }
-
-    public IMailItem LatestMailItem => ((IMailItemThread)MailItem).LatestMailItem;
-    public IMailItem FirstMailItem => ((IMailItemThread)MailItem).FirstMailItem;
-
-    public string Id => ((IMailItem)MailItem).Id;
-    public string Subject => ((IMailItem)MailItem).Subject;
-    public string ThreadId => ((IMailItem)MailItem).ThreadId;
-    public string MessageId => ((IMailItem)MailItem).MessageId;
-    public string References => ((IMailItem)MailItem).References;
-    public string PreviewText => ((IMailItem)MailItem).PreviewText;
-    public string FromName => ((IMailItem)MailItem).FromName;
-    public DateTime CreationDate => ((IMailItem)MailItem).CreationDate;
-    public string FromAddress => ((IMailItem)MailItem).FromAddress;
-    public bool HasAttachments => ((IMailItem)MailItem).HasAttachments;
-    public bool IsFlagged => ((IMailItem)MailItem).IsFlagged;
-    public bool IsFocused => ((IMailItem)MailItem).IsFocused;
-    public bool IsRead => ((IMailItem)MailItem).IsRead;
-    public bool IsDraft => ((IMailItem)MailItem).IsDraft;
-    public string DraftId => string.Empty;
-    public string InReplyTo => ((IMailItem)MailItem).InReplyTo;
-
-    public MailItemFolder AssignedFolder => ((IMailItem)MailItem).AssignedFolder;
-
-    public MailAccount AssignedAccount => ((IMailItem)MailItem).AssignedAccount;
-
-    public Guid UniqueId => ((IMailItem)MailItem).UniqueId;
-
-    public Guid FileId => ((IMailItem)MailItem).FileId;
-
-    public int CompareTo(DateTime other) => CreationDate.CompareTo(other);
-    public int CompareTo(string other) => FromName.CompareTo(other);
-
-    // Get single mail item view model out of the only item in thread items.
-    public MailItemViewModel GetSingleItemViewModel() => ThreadItems.First() as MailItemViewModel;
-
-    public IEnumerable<Guid> GetContainingIds() => ((IMailItemThread)MailItem).GetContainingIds();
 }

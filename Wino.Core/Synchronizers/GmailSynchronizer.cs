@@ -1032,7 +1032,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return await _gmailChangeProcessor.GetMailCopiesAsync(messageIds);
     }
 
-    public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
+    public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {

@@ -1327,7 +1327,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return Move(batchMoveRequest);
     }
 
-    public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
+    public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {

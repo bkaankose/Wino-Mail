@@ -7,19 +7,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Windows.Foundation;
-using Wino.Controls;
-using Wino.Controls.Advanced;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
@@ -91,7 +91,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
         SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
 
-        SelectAllCheckbox.IsChecked = MailListView.Items.Count > 0 && MailListView.SelectedItems.Count == MailListView.Items.Count;
+        SelectAllCheckbox.IsChecked = MailListView.CastedItemsSource?.Count() > 0 && MailListView.SelectedItems.Count == MailListView.CastedItemsSource.Count();
 
         SelectAllCheckbox.Checked += SelectAllCheckboxChecked;
         SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
@@ -120,10 +120,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
         }
 
-        SelectAllCheckbox.IsChecked = false;
+        // SelectAllCheckbox.IsChecked = false;
         SelectionModeToggle.IsChecked = false;
 
-        MailListView.ClearSelections();
+        // MailListView.ClearSelections();
 
         UpdateSelectAllButtonStatus();
         ViewModel.SelectedPivotChangedCommand.Execute(null);
@@ -131,7 +131,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void ChangeSelectionMode(ListViewSelectionMode mode)
     {
-        MailListView.ChangeSelectionMode(mode);
+        // ItemsView doesn't have a ChangeSelectionMode method like ListView
+        // The selection mode is set in XAML and doesn't need to change dynamically for ItemsView
 
         if (ViewModel?.PivotFolders != null)
         {
@@ -146,44 +147,46 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
     {
-        MailListView.SelectAllWino();
+        // MailListView.SelectAllWino();
     }
 
     private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
     {
-        MailListView.ClearSelections();
+        // MailListView.ClearSelections();
     }
 
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
+        // TODO: New ItemsView implementation.
+
         // Context is requested from a single mail point, but we might have multiple selected items.
         // This menu should be calculated based on all selected items by providers.
 
-        if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
-        {
-            await FocusManager.TryFocusAsync(control, FocusState.Keyboard);
+        //if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
+        //{
+        //    await FocusManager.TryFocusAsync(control, FocusState.Keyboard);
 
-            if (control.DataContext is IMailItem clickedMailItemContext)
-            {
-                var targetItems = ViewModel.GetTargetMailItemViewModels(clickedMailItemContext);
-                var availableActions = ViewModel.GetAvailableMailActions(targetItems);
+        //    if (control.DataContext is IMailItem clickedMailItemContext)
+        //    {
+        //        var targetItems = ViewModel.GetTargetMailItemViewModels(clickedMailItemContext);
+        //        var availableActions = ViewModel.GetAvailableMailActions(targetItems);
 
-                if (!availableActions?.Any() ?? false) return;
-                var t = targetItems.ElementAt(0);
+        //        if (!availableActions?.Any() ?? false) return;
+        //        var t = targetItems.ElementAt(0);
 
-                ViewModel.ChangeCustomFocusedState(targetItems, true);
+        //        ViewModel.ChangeCustomFocusedState(targetItems, true);
 
-                var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
+        //        var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
 
-                ViewModel.ChangeCustomFocusedState(targetItems, false);
+        //        ViewModel.ChangeCustomFocusedState(targetItems, false);
 
-                if (clickedOperation == null) return;
+        //        if (clickedOperation == null) return;
 
-                var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
+        //        var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
 
-                await ViewModel.ExecuteMailOperationAsync(prepRequest);
-            }
-        }
+        //        await ViewModel.ExecuteMailOperationAsync(prepRequest);
+        //    }
+        //}
     }
 
     private async Task<MailOperationMenuItem> GetMailOperationFromFlyoutAsync(IEnumerable<MailOperationMenuItem> availableActions,
@@ -206,7 +209,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     void IRecipient<ClearMailSelectionsRequested>.Receive(ClearMailSelectionsRequested message)
     {
-        MailListView.ClearSelections(null, preserveThreadExpanding: true);
+        // MailListView.ClearSelections(null, preserveThreadExpanding: true);
     }
 
     void IRecipient<ActiveMailItemChangedEvent>.Receive(ActiveMailItemChangedEvent message)
@@ -309,46 +312,46 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (message.SelectedMailViewModel == null) return;
 
-        await ViewModel.ExecuteUIThread(async () =>
-        {
-            MailListView.ClearSelections(message.SelectedMailViewModel, true);
+        //await ViewModel.ExecuteUIThread(async () =>
+        //{
+        //    MailListView.ClearSelections(message.SelectedMailViewModel, true);
 
-            int retriedSelectionCount = 0;
-        trySelection:
+        //    int retriedSelectionCount = 0;
+        //trySelection:
 
-            bool isSelected = MailListView.SelectMailItemContainer(message.SelectedMailViewModel);
+        //    bool isSelected = MailListView.SelectMailItemContainer(message.SelectedMailViewModel);
 
-            if (!isSelected)
-            {
-                for (int i = retriedSelectionCount; i < 5;)
-                {
-                    // Retry with delay until the container is realized. Max 1 second.
-                    await Task.Delay(200);
+        //    if (!isSelected)
+        //    {
+        //        for (int i = retriedSelectionCount; i < 5;)
+        //        {
+        //            // Retry with delay until the container is realized. Max 1 second.
+        //            await Task.Delay(200);
 
-                    retriedSelectionCount++;
+        //            retriedSelectionCount++;
 
-                    goto trySelection;
-                }
-            }
+        //            goto trySelection;
+        //        }
+        //    }
 
-            // Automatically scroll to the selected item.
-            // This is useful when creating draft.
-            if (isSelected && message.ScrollToItem)
-            {
-                var collectionContainer = ViewModel.MailCollection.GetMailItemContainer(message.SelectedMailViewModel.UniqueId);
+        //    // Automatically scroll to the selected item.
+        //    // This is useful when creating draft.
+        //    if (isSelected && message.ScrollToItem)
+        //    {
+        //        var collectionContainer = ViewModel.MailCollection.GetMailItemContainer(message.SelectedMailViewModel.UniqueId);
 
-                // Scroll to thread if available.
-                if (collectionContainer.ThreadViewModel != null)
-                {
-                    MailListView.ScrollIntoView(collectionContainer.ThreadViewModel, ScrollIntoViewAlignment.Default);
-                }
-                else if (collectionContainer.ItemViewModel != null)
-                {
-                    MailListView.ScrollIntoView(collectionContainer.ItemViewModel, ScrollIntoViewAlignment.Default);
-                }
+        //        // Scroll to thread if available.
+        //        if (collectionContainer.ThreadViewModel != null)
+        //        {
+        //            MailListView.StartBringItemIntoView(collectionContainer.ThreadViewModel, new BringIntoViewOptions());
+        //        }
+        //        else if (collectionContainer.ItemViewModel != null)
+        //        {
+        //            MailListView.StartBringItemIntoView(collectionContainer.ItemViewModel, new BringIntoViewOptions());
+        //        }
 
-            }
-        });
+        //    }
+        //});
     }
 
     private void SearchBoxFocused(object sender, RoutedEventArgs e)
@@ -367,32 +370,29 @@ public sealed partial class MailListPage : MailListPageAbstract,
     /// </summary>
     private void ThreadHeaderDragStart(UIElement sender, DragStartingEventArgs args)
     {
-        if (sender is MailItemDisplayInformationControl control
-            && control.ConnectedExpander?.Content is WinoListView contentListView)
-        {
-            var allItems = contentListView.Items.Where(a => a is IMailItem);
+        //if (sender is MailItemDisplayInformationControl control
+        //    && control.ConnectedExpander?.Content is WinoListView contentListView)
+        //{
+        //    var allItems = contentListView.Items.Where(a => a is MailCopy);
 
-            // Highlight all items.
-            allItems.Cast<MailItemViewModel>().ForEach(a => a.IsCustomFocused = true);
+        //    // Highlight all items.
+        //    allItems.Cast<MailItemViewModel>().ForEach(a => a.IsCustomFocused = true);
 
-            // Set native drag arg properties.
-            args.AllowedOperations = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        //    // Set native drag arg properties.
+        //    args.AllowedOperations = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
 
-            var dragPackage = new MailDragPackage(allItems.Cast<IMailItem>());
+        //    var dragPackage = new MailDragPackage(allItems.Cast<MailCopy>());
 
-            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
-            args.DragUI.SetContentFromDataPackage();
+        //    args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
+        //    args.DragUI.SetContentFromDataPackage();
 
-            control.ConnectedExpander.IsExpanded = true;
-        }
+        //    control.ConnectedExpander.IsExpanded = true;
+        //}
     }
 
     private void ThreadHeaderDragFinished(UIElement sender, DropCompletedEventArgs args)
     {
-        if (sender is MailItemDisplayInformationControl control && control.ConnectedExpander != null && control.ConnectedExpander.Content is WinoListView contentListView)
-        {
-            contentListView.Items.Where(a => a is MailItemViewModel).Cast<MailItemViewModel>().ForEach(a => a.IsCustomFocused = false);
-        }
+
     }
 
     private async void LeftSwipeItemInvoked(Microsoft.UI.Xaml.Controls.SwipeItem sender, Microsoft.UI.Xaml.Controls.SwipeItemInvokedEventArgs args)
@@ -410,7 +410,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
         else if (swipeControl.Tag is ThreadMailItemViewModel threadMailItemViewModel)
         {
-            var package = new MailOperationPreperationRequest(MailOperation.SoftDelete, threadMailItemViewModel.GetMailCopies());
+            var package = new MailOperationPreperationRequest(MailOperation.SoftDelete, threadMailItemViewModel.ThreadEmails.Select(a => a.MailCopy));
             await ViewModel.ExecuteMailOperationAsync(package);
         }
     }
@@ -432,19 +432,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
         else if (swipeControl.Tag is ThreadMailItemViewModel threadMailItemViewModel)
         {
-            bool isAllRead = threadMailItemViewModel.ThreadItems.All(a => a.IsRead);
+            bool isAllRead = threadMailItemViewModel.ThreadEmails.All(a => a.IsRead);
 
             var operation = isAllRead ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead;
-            var package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.GetMailCopies());
+            var package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.ThreadEmails.Select(a => a.MailCopy));
 
             await ViewModel.ExecuteMailOperationAsync(package);
         }
     }
 
-    private void PullToRefreshRequested(Microsoft.UI.Xaml.Controls.RefreshContainer sender, Microsoft.UI.Xaml.Controls.RefreshRequestedEventArgs args)
-    {
-        ViewModel.SyncFolderCommand?.Execute(null);
-    }
 
     private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
@@ -504,8 +500,65 @@ public sealed partial class MailListPage : MailListPageAbstract,
     }
 
     private void SelectAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-        => MailListView.SelectAllWino();
+    {
+        // MailListView.SelectAllWino();
+    }
 
     private void DeleteAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
         => ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
+
+    private void ThreadContainerTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is ItemContainer container && container.Tag is ThreadMailItemViewModel expander)
+        {
+            // Toggle expansion state
+            expander.IsThreadExpanded = !expander.IsThreadExpanded;
+
+            // Find the expander icon and animate its rotation using Composition APIs
+            var expanderIcon = WinoVisualTreeHelper.GetChildObject<FontIcon>(container, "ExpanderIcon");
+            if (expanderIcon != null)
+            {
+                var targetAngle = expander.IsThreadExpanded ? 90f : 0f;
+                AnimateRotationWithComposition(expanderIcon, targetAngle);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Animates the rotation using high-performance Composition APIs
+    /// </summary>
+    private void AnimateRotationWithComposition(FrameworkElement element, float targetAngleInDegrees)
+    {
+        // Get the element's visual from the composition layer
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+        var compositor = visual.Compositor;
+
+        // Set the center point for rotation (center of the element)
+        visual.CenterPoint = new System.Numerics.Vector3(
+            (float)element.ActualWidth / 2f,
+            (float)element.ActualHeight / 2f,
+            0f);
+
+        // Create a rotation animation
+        var rotationAnimation = compositor.CreateScalarKeyFrameAnimation();
+        rotationAnimation.Target = "RotationAngleInDegrees";
+        rotationAnimation.Duration = TimeSpan.FromMilliseconds(200);
+
+        // Add easing function for smooth animation
+        var easingFunction = compositor.CreateCubicBezierEasingFunction(
+            new System.Numerics.Vector2(0.25f, 0.1f),  // Control point 1
+            new System.Numerics.Vector2(0.25f, 1f));   // Control point 2 (similar to CircleEase)
+
+        // Insert keyframe with the target angle and easing
+        rotationAnimation.InsertKeyFrame(1.0f, targetAngleInDegrees, easingFunction);
+
+        // Start the animation
+        visual.StartAnimation("RotationAngleInDegrees", rotationAnimation);
+    }
+
+    private void ListSelectionChanged(ItemsView sender, ItemsViewSelectionChangedEventArgs args)
+    {
+        UpdateSelectAllButtonStatus();
+        UpdateAdaptiveness();
+    }
 }

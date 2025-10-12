@@ -211,7 +211,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         isUpdatingMimeBlocked = true;
 
-        var assignedAccount = CurrentMailDraftItem.AssignedAccount;
+        var assignedAccount = CurrentMailDraftItem.MailCopy.AssignedAccount;
         var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
 
         using MemoryStream memoryStream = new();
@@ -223,8 +223,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
         var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
                                                                           SelectedAlias,
                                                                           sentFolder,
-                                                                          CurrentMailDraftItem.AssignedFolder,
-                                                                          CurrentMailDraftItem.AssignedAccount.Preferences,
+                                                                          CurrentMailDraftItem.MailCopy.AssignedFolder,
+                                                                          CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
                                                                           base64EncodedMessage);
 
         await _worker.ExecuteAsync(draftSendPreparationRequest);
@@ -355,7 +355,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         if (ComposingAccount != null) return true;
 
-        var composingAccount = await _accountService.GetAccountAsync(CurrentMailDraftItem.AssignedAccount.Id).ConfigureAwait(false);
+        var composingAccount = await _accountService.GetAccountAsync(CurrentMailDraftItem.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
         if (composingAccount == null) return false;
 
         var aliases = await _accountService.GetAccountAliasesAsync(composingAccount.Id).ConfigureAwait(false);
@@ -556,7 +556,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         if (CurrentMailDraftItem == null) return;
 
-        if (updatedMail.UniqueId == CurrentMailDraftItem.UniqueId)
+        if (updatedMail.UniqueId == CurrentMailDraftItem.MailCopy.UniqueId)
         {
             await ExecuteUIThread(() =>
             {

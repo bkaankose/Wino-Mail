@@ -12,9 +12,9 @@ using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Windows.UI.Text;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.WinUI.Controls;
 
 namespace Wino.Helpers;
@@ -104,9 +104,9 @@ public static class XamlHelpers
     public static Color GetWindowsColorFromHex(string hex) => hex.ToColor();
 
     public static SolidColorBrush GetSolidColorBrushFromHex(string colorHex) => string.IsNullOrEmpty(colorHex) ? new SolidColorBrush(Colors.Transparent) : new SolidColorBrush(colorHex.ToColor());
-    public static Visibility IsSelectionModeMultiple(ListViewSelectionMode mode) => mode == ListViewSelectionMode.Multiple ? Visibility.Visible : Visibility.Collapsed;
     public static FontWeight GetFontWeightBySyncState(bool isSyncing) => isSyncing ? FontWeights.SemiBold : FontWeights.Normal;
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
+    public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
     public static string GetMailItemDisplaySummaryForListing(bool isDraft, DateTime receivedDate, bool prefer24HourTime)
@@ -135,7 +135,7 @@ public static class XamlHelpers
         // From regular mail header template
         if (groupObject is DateTime groupedDate)
             dateObject = groupedDate;
-        else if (groupObject is IGrouping<object, IMailItem> groupKey)
+        else if (groupObject is IGrouping<object, MailCopy> groupKey)
         {
             // From semantic group header.
             dateObject = groupKey.Key;

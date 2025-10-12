@@ -1,35 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
+public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject
 {
     [ObservableProperty]
     public partial MailCopy MailCopy { get; set; } = mailCopy;
-
-    public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
-    public string ThreadId => ((IMailItem)MailCopy).ThreadId;
-    public string MessageId => ((IMailItem)MailCopy).MessageId;
-    public DateTime CreationDate => ((IMailItem)MailCopy).CreationDate;
-    public string References => ((IMailItem)MailCopy).References;
-    public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
 
     [ObservableProperty]
     public partial bool ThumbnailUpdatedEvent { get; set; } = false;
 
     [ObservableProperty]
-    public partial bool IsCustomFocused { get; set; }
+    public partial bool IsSelected { get; set; }
 
     [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    public partial bool IsDisplayedInThread { get; set; }
 
     public bool IsFlagged
     {
@@ -96,14 +85,4 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
         get => MailCopy.HasAttachments;
         set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
     }
-
-    public MailItemFolder AssignedFolder => ((IMailItem)MailCopy).AssignedFolder;
-
-    public MailAccount AssignedAccount => ((IMailItem)MailCopy).AssignedAccount;
-
-    public Guid FileId => ((IMailItem)MailCopy).FileId;
-
-    public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
-
-    public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
 }

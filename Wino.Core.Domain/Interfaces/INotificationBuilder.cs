@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -10,7 +10,7 @@ public interface INotificationBuilder
     /// <summary>
     /// Creates toast notifications for new mails.
     /// </summary>
-    Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<IMailItem> newMailItems);
+    Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<MailCopy> newMailItems);
 
     /// <summary>
     /// Gets the unread Inbox messages for each account and updates the taskbar icon.
