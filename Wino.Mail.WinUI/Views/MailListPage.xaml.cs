@@ -49,18 +49,28 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         base.OnNavigatedTo(e);
 
-        // Bindings.Update();
+        Bindings.Update();
 
         // Delegate to ViewModel.
         if (e.Parameter is NavigateMailFolderEventArgs folderNavigationArgs)
         {
             WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
         }
+
+        WeakReferenceMessenger.Default.Register<ClearMailSelectionsRequested>(this);
+        WeakReferenceMessenger.Default.Register<ActiveMailItemChangedEvent>(this);
+        WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
+        WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+
+        WeakReferenceMessenger.Default.Unregister<ClearMailSelectionsRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ActiveMailItemChangedEvent>(this);
+        WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
+        WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
 
         // Dispose all WinoListView items.
 

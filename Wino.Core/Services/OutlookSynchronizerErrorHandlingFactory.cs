@@ -7,9 +7,11 @@ namespace Wino.Core.Services;
 
 public class OutlookSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFactory, IOutlookSynchronizerErrorHandlerFactory
 {
-    public OutlookSynchronizerErrorHandlingFactory(ObjectCannotBeDeletedHandler objectCannotBeDeleted)
+    public OutlookSynchronizerErrorHandlingFactory(ObjectCannotBeDeletedHandler objectCannotBeDeleted,
+                                                 DeltaTokenExpiredHandler deltaTokenExpiredHandler)
     {
         RegisterHandler(objectCannotBeDeleted);
+        RegisterHandler(deltaTokenExpiredHandler);
     }
 
     public bool CanHandle(SynchronizerErrorContext error) => CanHandle(error);

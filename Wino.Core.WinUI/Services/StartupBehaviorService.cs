@@ -10,7 +10,7 @@ namespace Wino.Core.WinUI.Services;
 
 public class StartupBehaviorService : IStartupBehaviorService
 {
-    private const string WinoServerTaskId = "WinoServer";
+    private const string WinoServerTaskId = "WinoStartupId";
 
     public async Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled)
     {

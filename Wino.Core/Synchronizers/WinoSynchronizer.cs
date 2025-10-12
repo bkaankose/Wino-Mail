@@ -59,6 +59,36 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     protected virtual Task SynchronizeAliasesAsync() => Task.CompletedTask;
 
     /// <summary>
+    /// Queues all mail ids for initial synchronization for a specific folder.
+    /// Only overridden by synchronizers that support the new queue-based sync.
+    /// </summary>
+    /// <param name="folder">Folder to queue mail ids for</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task</returns>
+    protected virtual Task QueueMailIdsForInitialSyncAsync(MailItemFolder folder, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    /// <summary>
+    /// Downloads mail items from the queue in batches.
+    /// Only overridden by synchronizers that support the new queue-based sync.
+    /// </summary>
+    /// <param name="folder">Folder to download mails for</param>
+    /// <param name="batchSize">Number of items to download in each batch</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of downloaded mail ids</returns>
+    protected virtual Task<List<string>> DownloadMailsFromQueueAsync(MailItemFolder folder, int batchSize, CancellationToken cancellationToken = default) => Task.FromResult(new List<string>());
+
+    /// <summary>
+    /// Creates a MailCopy object with minimal properties from the native message type.
+    /// This is used for queue-based sync to avoid downloading full MIME messages.
+    /// Only overridden by synchronizers that support the new queue-based sync.
+    /// </summary>
+    /// <param name="message">Native message type</param>
+    /// <param name="assignedFolder">Folder this message belongs to</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>MailCopy with minimal properties</returns>
+    protected virtual Task<MailCopy> CreateMinimalMailCopyAsync(TMessageType message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default) => Task.FromResult<MailCopy>(null);
+
+    /// <summary>
     /// Internally synchronizes the account's mails with the given options.
     /// Not exposed and overriden for each synchronizer.
     /// </summary>

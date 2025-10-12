@@ -504,7 +504,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 GroupedSynchronizationTrackingId = trackingSynchronizationId
             };
 
-            Messenger.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+            Messenger.Send(new NewMailSynchronizationRequested(options));
         }
     }
 

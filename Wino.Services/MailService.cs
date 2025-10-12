@@ -730,21 +730,25 @@ public class MailService : BaseDatabaseService, IMailService
         // This is because 1 mail may have multiple copies in different folders.
         // but only single MIME to represent all.
 
-        // Save mime file to disk.
-        var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
+        // Save mime file to disk if provided.
 
-        if (!isMimeExists)
+        if (mimeMessage != null)
         {
-            bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
+            var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
 
-            if (!isMimeSaved)
+            if (!isMimeExists)
             {
-                _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
-            }
-        }
+                bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
 
-        // Save contact information.
-        await _contactService.SaveAddressInformationAsync(mimeMessage).ConfigureAwait(false);
+                if (!isMimeSaved)
+                {
+                    _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
+                }
+            }
+
+            // Save contact information.
+            await _contactService.SaveAddressInformationAsync(mimeMessage).ConfigureAwait(false);
+        }
 
         // Create mail copy in the database.
         // Update if exists.

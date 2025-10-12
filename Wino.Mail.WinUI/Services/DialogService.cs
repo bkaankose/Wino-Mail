@@ -99,7 +99,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
                     Type = MailSynchronizationType.FullFolders,
                 };
 
-                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
             }
         }
         catch (Exception ex)

@@ -88,6 +88,14 @@ public interface IOutlookChangeProcessor : IDefaultChangeProcessor
     Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string deltaSynchronizationIdentifier);
 
     /// <summary>
+    /// Updates the initial synchronization completion status for a folder.
+    /// Used to track whether mail ids have been queued for initial sync.
+    /// </summary>
+    /// <param name="folderId">Folder id</param>
+    /// <param name="isCompleted">Whether initial sync is completed</param>
+    Task UpdateFolderInitialSyncCompletedAsync(Guid folderId, bool isCompleted);
+
+    /// <summary>
     /// Outlook may expire folder's delta token after a while.
     /// Recommended action for this scenario is to reset token and do full sync.
     /// This method resets the token for the given folder.

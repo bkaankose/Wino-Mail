@@ -857,7 +857,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             Type = MailSynchronizationType.IMAPIdle
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
     }
 
     private void IdleNotificationTriggered(object sender, EventArgs e)

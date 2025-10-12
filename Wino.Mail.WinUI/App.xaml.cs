@@ -15,6 +15,8 @@ namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication, IRecipient<NewMailSynchronizationRequested>
 {
+    private ISynchronizationManager _synchronizationManager;
+
     public App()
     {
         InitializeComponent();
@@ -77,7 +79,6 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         return services.BuildServiceProvider();
     }
 
-
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         // TODO: Check app relaunch mutex before loading anything.
@@ -86,6 +87,8 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         var newThemeService = Services.GetRequiredService<INewThemeService>();
         var configService = Services.GetRequiredService<IConfigurationService>();
         var nativeAppService = Services.GetRequiredService<INativeAppService>();
+
+        _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
 
         // Load saved backdrop type before creating window
         var savedBackdropType = (WindowBackdropType)configService.Get("WindowBackdropTypeKey", (int)WindowBackdropType.Mica);
@@ -111,8 +114,8 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         MainWindow.Activate();
     }
 
-    public async void Receive(NewMailSynchronizationRequested message)
+    public void Receive(NewMailSynchronizationRequested message)
     {
-        // TODO: Trigger new sync.
+        _synchronizationManager.SynchronizeMailAsync(message.Options);
     }
 }

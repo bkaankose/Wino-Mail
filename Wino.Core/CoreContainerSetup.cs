@@ -40,6 +40,7 @@ public static class CoreContainerSetup
 
         // Register error factory handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();
+        services.AddTransient<DeltaTokenExpiredHandler>();
 
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();

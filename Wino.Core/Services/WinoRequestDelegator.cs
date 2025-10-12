@@ -147,7 +147,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             Type = MailSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 }
