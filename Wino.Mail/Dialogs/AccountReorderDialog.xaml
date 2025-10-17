@@ -11,7 +11,7 @@
     xmlns:local="using:Wino.Dialogs"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:selectors="using:Wino.Selectors"
-    Title="Reorder Accounnts"
+    Title="Reorder Accounts"
     Closed="DialogClosed"
     DefaultButton="Secondary"
     Opened="DialogOpened"
