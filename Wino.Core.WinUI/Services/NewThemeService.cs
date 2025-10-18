@@ -38,6 +38,7 @@ public class NewThemeService : INewThemeService
 {
     public const string CustomThemeFolderName = "CustomThemes";
 
+    private static string _defaultThemeId = "00000000-0000-0000-0000-000000000000";
     private static string _cloudsThemeId = "3b621cc2-e270-4a76-8477-737917cccda0";
     private static string _forestThemeId = "8bc89b37-a7c5-4049-86e2-de1ae8858dbd";
     private static string _nightyThemeId = "5b65e04e-fd7e-4c2d-8221-068d3e02d23a";
@@ -64,6 +65,7 @@ public class NewThemeService : INewThemeService
 
     private List<AppThemeBase> preDefinedThemes { get; set; } = new List<AppThemeBase>()
     {
+        new SystemAppTheme("Default", Guid.Parse(_defaultThemeId)),
         new PreDefinedAppTheme("Nighty", Guid.Parse(_nightyThemeId), "#e1b12c", ApplicationElementTheme.Dark),
         new PreDefinedAppTheme("Forest", Guid.Parse(_forestThemeId), "#16a085", ApplicationElementTheme.Dark),
         new PreDefinedAppTheme("Clouds", Guid.Parse(_cloudsThemeId), "#0984e3", ApplicationElementTheme.Light),

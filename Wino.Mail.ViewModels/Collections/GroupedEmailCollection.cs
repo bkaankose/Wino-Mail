@@ -636,6 +636,8 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         }
     }
 
+    public int IndexOf(object item) => Items.IndexOf(item);
+
     private void RefreshThreadInUI(ThreadMailItemViewModel expander)
     {
         // Remove thread completely from UI
@@ -644,6 +646,53 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         // Find correct position for thread expander based on latest email
         var groupKey = GetGroupKeyForItem(expander);
         AddThreadToUI(expander, groupKey);
+    }
+
+    public MailItemContainer GetMailItemContainer(Guid uniqueId)
+    {
+        // First, search in standalone mail items (not displayed in threads)
+        var standaloneMailItem = _sourceItems.FirstOrDefault(item =>
+            item.MailCopy.UniqueId == uniqueId && !item.IsDisplayedInThread);
+
+        if (standaloneMailItem != null)
+        {
+            // Check if the standalone item is visible in the UI
+            var isItemVisible = Items.Contains(standaloneMailItem);
+
+            return new MailItemContainer(standaloneMailItem)
+            {
+                IsItemVisible = isItemVisible,
+                IsThreadVisible = false // Not a threaded item
+            };
+        }
+
+        // Search in thread expanders for threaded mail items
+        foreach (var threadExpander in _threadExpanders.Values)
+        {
+            if (threadExpander.HasUniqueId(uniqueId))
+            {
+                // Find the specific mail item within the thread
+                var threadMailItem = threadExpander.ThreadEmails.FirstOrDefault(email =>
+                    email.MailCopy.UniqueId == uniqueId);
+
+                if (threadMailItem != null)
+                {
+                    // Check visibility: thread expander must be visible, and for individual item visibility,
+                    // the thread must be expanded and the item must be in the visible Items collection
+                    var isThreadVisible = Items.Contains(threadExpander);
+                    var isItemVisible = isThreadVisible && threadExpander.IsThreadExpanded && Items.Contains(threadMailItem);
+
+                    return new MailItemContainer(threadMailItem, threadExpander)
+                    {
+                        IsItemVisible = isItemVisible,
+                        IsThreadVisible = isThreadVisible
+                    };
+                }
+            }
+        }
+
+        // Item not found
+        return null;
     }
 
     private void AddThreadToUI(ThreadMailItemViewModel expander, string groupKey)

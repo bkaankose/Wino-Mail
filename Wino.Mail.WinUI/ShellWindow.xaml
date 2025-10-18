@@ -12,16 +12,17 @@
 
     <!--  SystemBackdrop will be set by NewThemeService  -->
 
-    <Grid Background="{ThemeResource WinoApplicationBackgroundColor}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <Grid Grid.RowSpan="2" Background="{ThemeResource WinoApplicationBackgroundColor}" />
         <TitleBar
             x:Name="ShellTitleBar"
             Title="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}"
-            Margin="-3,-3,0,0"
+            MinHeight="48"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"

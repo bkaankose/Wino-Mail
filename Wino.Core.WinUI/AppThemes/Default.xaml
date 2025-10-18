@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
-    <x:String x:Key="ThemeName">Mica</x:String>
+    <x:String x:Key="ThemeName">Default</x:String>
 
     <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>

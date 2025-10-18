@@ -17,7 +17,7 @@
                 <ResourceDictionary Source="Styles/WebViewEditorControl.xaml" />
 
                 <styles:WinoExpanderStyle />
-                <ResourceDictionary Source="/Wino.Core.WinUI/AppThemes/Mica.xaml" />
+                <ResourceDictionary Source="/Wino.Core.WinUI/AppThemes/Default.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </uwp:WinoApplication.Resources>

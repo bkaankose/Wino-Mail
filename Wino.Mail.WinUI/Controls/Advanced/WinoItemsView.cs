@@ -2,6 +2,7 @@
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls.Advanced;
 
@@ -42,5 +43,45 @@ public partial class WinoItemsView : ItemsView
 
         // Trigger when scrolled past 90% of total height
         if (progress >= 0.9) LoadMoreCommand?.Execute(null);
+    }
+
+    public bool SelectMailItemContainer(MailItemViewModel mailItemViewModel)
+    {
+        return true;
+    }
+
+    /// <summary>
+    /// Recursively clears all selections except the given mail.
+    /// </summary>
+    /// <param name="exceptViewModel">Exceptional mail item to be not unselected.</param>
+    /// <param name="preserveThreadExpanding">Whether expansion states of thread containers should stay as it is or not.</param>
+    public void ClearSelections(MailItemViewModel? exceptViewModel = null, bool preserveThreadExpanding = false)
+    {
+        if (CastedItemsSource == null) return;
+
+        foreach (var item in CastedItemsSource)
+        {
+            if (item is MailItemViewModel mailItemViewModel)
+            {
+                if (mailItemViewModel != exceptViewModel)
+                {
+                    mailItemViewModel.IsSelected = false;
+                }
+            }
+            else if (item is ThreadMailItemViewModel threadMailItemViewModel)
+            {
+                threadMailItemViewModel.IsSelected = false;
+
+                if (!preserveThreadExpanding) threadMailItemViewModel.IsThreadExpanded = false;
+
+                foreach (var childMail in threadMailItemViewModel.ThreadEmails)
+                {
+                    if (childMail != exceptViewModel)
+                    {
+                        childMail.IsSelected = false;
+                    }
+                }
+            }
+        }
     }
 }

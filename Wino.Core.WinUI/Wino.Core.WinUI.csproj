@@ -23,7 +23,7 @@
     <Content Include="AppThemes\Garden.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Content>
-    <Content Include="AppThemes\Mica.xaml">
+    <Content Include="AppThemes\Default.xaml">
       <Generator>MSBuild:Compile</Generator>
     </Content>
     <Content Include="AppThemes\Nighty.xaml">
@@ -78,6 +78,7 @@
 	<PackageReference Include="CommunityToolkit.Diagnostics" />
 	<PackageReference Include="CommunityToolkit.Mvvm" />
 	<PackageReference Include="EmailValidation" />
+	<PackageReference Include="System.Drawing.Common" />
 	<PackageReference Include="WinUIEx" />
   </ItemGroup>
 	

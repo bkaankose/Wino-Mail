@@ -110,4 +110,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
             NotifyPropertyChanges();
         }
     }
+
+    /// <summary>
+    /// Checks if this thread contains an email with the specified unique ID
+    /// </summary>
+    public bool HasUniqueId(Guid uniqueId) => _threadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);
 }

@@ -127,10 +127,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="DateGroupHeaderTemplate" x:DataType="data:DateGroupHeader">
-            <ItemContainer
-                CanUserSelect="UserCannotSelect"
-                IsEnabled="False"
-                IsHitTestVisible="False">
+            <ItemContainer CanUserSelect="UserCannotSelect" IsHitTestVisible="False">
                 <Grid Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                     <TextBlock
                         FontSize="14"
@@ -197,6 +194,7 @@
 
             <AutoSuggestBox
                 x:Name="SearchBar"
+                Width="400"
                 Margin="2,0,-2,0"
                 VerticalAlignment="Center"
                 BorderBrush="Transparent"

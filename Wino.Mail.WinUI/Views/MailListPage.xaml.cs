@@ -98,10 +98,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
     }
 
-    private void SelectionModeToggleChecked(object sender, RoutedEventArgs e)
-    {
-        ChangeSelectionMode(ListViewSelectionMode.Multiple);
-    }
+    private void SelectionModeToggleChecked(object sender, RoutedEventArgs e) => ChangeSelectionMode(ItemsViewSelectionMode.Multiple);
 
     private void FolderPivotChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -130,20 +127,19 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ViewModel.SelectedPivotChangedCommand.Execute(null);
     }
 
-    private void ChangeSelectionMode(ListViewSelectionMode mode)
+    private void ChangeSelectionMode(ItemsViewSelectionMode mode)
     {
-        // ItemsView doesn't have a ChangeSelectionMode method like ListView
-        // The selection mode is set in XAML and doesn't need to change dynamically for ItemsView
+        MailListView.SelectionMode = mode;
 
         if (ViewModel?.PivotFolders != null)
         {
-            ViewModel.PivotFolders.ForEach(a => a.IsExtendedMode = mode == ListViewSelectionMode.Extended);
+            ViewModel.PivotFolders.ForEach(a => a.IsExtendedMode = mode == ItemsViewSelectionMode.Extended);
         }
     }
 
     private void SelectionModeToggleUnchecked(object sender, RoutedEventArgs e)
     {
-        ChangeSelectionMode(ListViewSelectionMode.Extended);
+        ChangeSelectionMode(ItemsViewSelectionMode.Extended);
     }
 
     private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
@@ -306,46 +302,54 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (message.SelectedMailViewModel == null) return;
 
-        //await ViewModel.ExecuteUIThread(async () =>
-        //{
-        //    MailListView.ClearSelections(message.SelectedMailViewModel, true);
+        await ViewModel.ExecuteUIThread(async () =>
+        {
+            MailListView.ClearSelections(message.SelectedMailViewModel, true);
 
-        //    int retriedSelectionCount = 0;
-        //trySelection:
+            int retriedSelectionCount = 0;
+        trySelection:
 
-        //    bool isSelected = MailListView.SelectMailItemContainer(message.SelectedMailViewModel);
+            bool isSelected = MailListView.SelectMailItemContainer(message.SelectedMailViewModel);
 
-        //    if (!isSelected)
-        //    {
-        //        for (int i = retriedSelectionCount; i < 5;)
-        //        {
-        //            // Retry with delay until the container is realized. Max 1 second.
-        //            await Task.Delay(200);
+            if (!isSelected)
+            {
+                for (int i = retriedSelectionCount; i < 5;)
+                {
+                    // Retry with delay until the container is realized. Max 1 second.
+                    await Task.Delay(200);
 
-        //            retriedSelectionCount++;
+                    retriedSelectionCount++;
 
-        //            goto trySelection;
-        //        }
-        //    }
+                    goto trySelection;
+                }
+            }
 
-        //    // Automatically scroll to the selected item.
-        //    // This is useful when creating draft.
-        //    if (isSelected && message.ScrollToItem)
-        //    {
-        //        var collectionContainer = ViewModel.MailCollection.GetMailItemContainer(message.SelectedMailViewModel.UniqueId);
+            // Automatically scroll to the selected item.
+            // This is useful when creating draft.
 
-        //        // Scroll to thread if available.
-        //        if (collectionContainer.ThreadViewModel != null)
-        //        {
-        //            MailListView.StartBringItemIntoView(collectionContainer.ThreadViewModel, new BringIntoViewOptions());
-        //        }
-        //        else if (collectionContainer.ItemViewModel != null)
-        //        {
-        //            MailListView.StartBringItemIntoView(collectionContainer.ItemViewModel, new BringIntoViewOptions());
-        //        }
+            if (isSelected && message.ScrollToItem)
+            {
+                var collectionContainer = ViewModel.MailCollection.GetMailItemContainer(message.SelectedMailViewModel.MailCopy.UniqueId);
 
-        //    }
-        //});
+                // Scroll to thread if available.
+                // Find the item index on the UI. This is different than ListView.
+
+                int scrollIndex = -1;
+                if (collectionContainer.ThreadViewModel != null)
+                {
+                    scrollIndex = ViewModel.MailCollection.IndexOf(collectionContainer.ThreadViewModel);
+                }
+                else if (collectionContainer.ItemViewModel != null)
+                {
+                    scrollIndex = ViewModel.MailCollection.IndexOf(collectionContainer.ItemViewModel);
+                }
+
+                if (scrollIndex >= 0)
+                {
+                    MailListView.StartBringItemIntoView(scrollIndex, new BringIntoViewOptions() { AnimationDesired = true });
+                }
+            }
+        });
     }
 
     private void SearchBoxFocused(object sender, RoutedEventArgs e)
@@ -501,8 +505,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void DeleteAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
         => ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
 
-
-
     /// <summary>
     /// Animates the rotation using high-performance Composition APIs
     /// </summary>
@@ -539,6 +541,26 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         UpdateSelectAllButtonStatus();
         UpdateAdaptiveness();
+
+        SynchronizeSelectedItems();
+    }
+
+    private static object _selectedItemsLock = new object();
+    private void SynchronizeSelectedItems()
+    {
+        lock (_selectedItemsLock)
+        {
+            ViewModel.SelectedItems.Clear();
+
+            foreach (var item in MailListView.SelectedItems)
+            {
+                if (item is MailItemViewModel mailItem)
+                {
+                    if (!mailItem.IsSelected) mailItem.IsSelected = true;
+                    if (!ViewModel.SelectedItems.Contains(mailItem)) ViewModel.SelectedItems.Add(mailItem);
+                }
+            }
+        }
     }
 
     private void ThreadContainerRightTapped(object sender, RightTappedRoutedEventArgs e)
