@@ -12,6 +12,7 @@ using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Background;
 using Windows.UI.Core.Preview;
 using Windows.UI.Notifications;
+using MimeKit.Cryptography;
 using Wino.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -79,6 +80,8 @@ public sealed partial class App : WinoApplication,
         RegisterViewModels(services);
         RegisterActivationHandlers(services);
 
+        CryptographyContext.Register(typeof(WindowsSecureMimeContext));
+
         return services.BuildServiceProvider();
     }
 
@@ -121,6 +124,7 @@ public sealed partial class App : WinoApplication,
         services.AddTransient(typeof(LanguageTimePageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
+        services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
     }
 
     #endregion
