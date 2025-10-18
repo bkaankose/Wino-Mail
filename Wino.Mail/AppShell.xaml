@@ -30,6 +30,7 @@
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
             <controls:AccountNavigationItem
                 x:Name="AccountItem"
+                Height="50"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
                 BindingData="{x:Bind}"
@@ -57,19 +58,12 @@
                         Value="{x:Bind UnreadItemCount, Mode=OneWay}" />
                 </muxc:NavigationViewItem.InfoBadge>
 
-                <Grid
-                    MaxHeight="70"
-                    Margin="0,8"
-                    RowSpacing="6">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="2" />
-                    </Grid.RowDefinitions>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock
                             x:Name="AccountNameTextblock"
@@ -80,8 +74,7 @@
                             TextTrimming="CharacterEllipsis" />
 
                         <TextBlock
-                            FontSize="13"
-                            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind Parameter.Address, Mode=OneWay}"
@@ -90,8 +83,6 @@
 
                     <PathIcon
                         x:Name="AttentionIcon"
-                        Grid.Row="0"
-                        Grid.RowSpan="2"
                         Grid.Column="2"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
@@ -104,7 +95,6 @@
                         Grid.ColumnSpan="3"
                         Width="10"
                         Height="10"
-                        Margin="0,8,0,0"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Background="{ThemeResource AppBarItemBackgroundThemeBrush}"
@@ -169,7 +159,7 @@
         <!--  Inbox or any other folders.  -->
         <DataTemplate x:Key="FolderMenuTemplate" x:DataType="menu:FolderMenuItem">
             <coreControls:WinoNavigationViewItem
-                MinHeight="30"
+                MinHeight="40"
                 AllowDrop="True"
                 ContextRequested="MenuItemContextRequested"
                 DataContext="{x:Bind}"
@@ -200,6 +190,7 @@
                 <muxc:NavigationViewItem.Content>
                     <Grid
                         x:Name="FolderBackgroundGrid"
+                        MaxHeight="36"
                         Padding="2"
                         VerticalAlignment="Center">
                         <Grid
@@ -261,7 +252,7 @@
                     <PathIcon Data="F1 M 8.613281 17.5 C 8.75 17.942709 8.945312 18.359375 9.199219 18.75 L 4.921875 18.75 C 4.433594 18.75 3.966471 18.650717 3.520508 18.452148 C 3.074544 18.25358 2.683919 17.986654 2.348633 17.651367 C 2.013346 17.31608 1.746419 16.925455 1.547852 16.479492 C 1.349284 16.033529 1.25 15.566406 1.25 15.078125 L 1.25 4.921875 C 1.25 4.433594 1.349284 3.966473 1.547852 3.520508 C 1.746419 3.074545 2.013346 2.68392 2.348633 2.348633 C 2.683919 2.013348 3.074544 1.74642 3.520508 1.547852 C 3.966471 1.349285 4.433594 1.25 4.921875 1.25 L 15.078125 1.25 C 15.566406 1.25 16.033527 1.349285 16.479492 1.547852 C 16.925455 1.74642 17.31608 2.013348 17.651367 2.348633 C 17.986652 2.68392 18.25358 3.074545 18.452148 3.520508 C 18.650715 3.966473 18.75 4.433594 18.75 4.921875 L 18.75 6.572266 C 18.580729 6.344402 18.390299 6.132813 18.178711 5.9375 C 17.967121 5.742188 17.740885 5.566407 17.5 5.410156 L 17.5 4.951172 C 17.5 4.625651 17.433268 4.314779 17.299805 4.018555 C 17.16634 3.722332 16.987305 3.461914 16.762695 3.237305 C 16.538086 3.012695 16.277668 2.83366 15.981445 2.700195 C 15.685221 2.566732 15.374349 2.5 15.048828 2.5 L 4.951172 2.5 C 4.619141 2.5 4.303385 2.568359 4.003906 2.705078 C 3.704427 2.841797 3.44401 3.02409 3.222656 3.251953 C 3.001302 3.479818 2.825521 3.745117 2.695312 4.047852 C 2.565104 4.350587 2.5 4.66797 2.5 5 L 13.310547 5 C 12.60091 5.266928 11.998697 5.683594 11.503906 6.25 L 2.5 6.25 L 2.5 15.048828 C 2.5 15.38737 2.568359 15.704753 2.705078 16.000977 C 2.841797 16.297201 3.024088 16.55599 3.251953 16.777344 C 3.479818 16.998697 3.745117 17.174479 4.047852 17.304688 C 4.350586 17.434896 4.667969 17.5 5 17.5 Z" />
                 </coreControls:WinoNavigationViewItem.Icon>
 
-                <Grid MinHeight="50">
+                <Grid Height="50">
                     <StackPanel VerticalAlignment="Center" Spacing="0">
                         <TextBlock
                             x:Name="AccountNameTextblock"

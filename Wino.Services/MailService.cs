@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
 using Serilog;
 using SqlKata;
@@ -584,6 +585,10 @@ public class MailService : BaseDatabaseService, IMailService
             if (item.IsRead == isRead) return false;
 
             item.IsRead = isRead;
+            if (isRead && item.UniqueId != Guid.Empty)
+            {
+                WeakReferenceMessenger.Default.Send(new MailReadStatusChanged(item.UniqueId));
+            }
 
             return true;
         });

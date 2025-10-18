@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "账户名称",
     "IMAPSetupDialog_ValidationSuccess_Title": "成功",
     "IMAPSetupDialog_ValidationSuccess_Message": "验证成功",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP 服务器验证失败。",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "该服务器正在请求 SSL 握手以继续。请确认下方的证书详情。",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "允许握手并继续设置账户。",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "自定义主题",
     "SettingsDeleteAccount_Description": "删除与此账户关联的所有电子邮件和凭据。",
     "SettingsDeleteAccount_Title": "删除此账户",
-    "SettingsDeleteProtection_Description": "每次您尝试使用 Shift + Del 键永久删除邮件时，Wino 应该向您二次确认吗？",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "永久性删除保护",
     "SettingsDiagnostics_Description": "开发者选项",
     "SettingsDiagnostics_DiagnosticId_Description": "如需联系开发人员请求帮助，请提供此 ID。",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "显示预览文本",
     "SettingsShowSenderPictures_Description": "隐藏/显示缩略图发件人图片。",
     "SettingsShowSenderPictures_Title": "显示发件人头像",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "添加签名",
     "SettingsSignature_AddCustomSignature_Title": "添加自定义签名",
     "SettingsSignature_DeleteSignature_Title": "删除签名",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "邮件会话",
     "SettingsUnlinkAccounts_Description": "删除账户之间的链接。这不会删除您的账户。",
     "SettingsUnlinkAccounts_Title": "取消链接账户",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "确定要删除签名「{0}」吗？",
     "SignatureDeleteDialog_Title": "删除签名",
     "SignatureEditorDialog_SignatureName_Placeholder": "为签名命名",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino 免费使用 3 个邮件账户。如果您需要同时使用 3 个以上的账户，请升级。",
     "WinoUpgradeMessage": "升级为无限账户数",
     "WinoUpgradeRemainingAccountsMessage": "已使用 {0} 个免费账户，共 {1} 个。",
-    "Yesterday": "昨天"
+    "Yesterday": "昨天",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

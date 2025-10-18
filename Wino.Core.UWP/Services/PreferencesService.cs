@@ -290,6 +290,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(WorkingDayEnd), value);
     }
 
+    public int EmailSyncIntervalMinutes
+    {
+        get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);
+        set => SetPropertyAndSave(nameof(EmailSyncIntervalMinutes), value);
+    }
+
     public CalendarSettings GetCurrentCalendarSettings()
     {
         var workingDays = GetDaysBetween(WorkingDayStart, WorkingDayEnd);

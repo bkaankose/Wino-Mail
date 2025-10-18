@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Account type",
     "IMAPSetupDialog_ValidationSuccess_Title": "Success",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validation successful",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP Server validation failed.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "This server is requesting a SSL handshake to continue. Please confirm the certificate details below.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Allow the handshake to continue setting up your account.",
@@ -750,6 +752,8 @@
     "Composer_CertificateExpires": "Expires on: ",
     "Composer_SmimeSignature": "S/MIME Signature",
     "Composer_SmimeEncryption": "S/MIME Encryption"
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

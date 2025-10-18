@@ -39,6 +39,7 @@
     <PackageReference Include="H.NotifyIcon.Wpf" />
     <PackageReference Include="CommunityToolkit.WinUI.Notifications" />
     <PackageReference Include="Microsoft.Identity.Client" />
+    <PackageReference Include="Sentry.Serilog" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>
   <ItemGroup>

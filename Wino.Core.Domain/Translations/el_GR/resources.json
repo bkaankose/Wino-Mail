@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Τύπος λογαριασμού",
     "IMAPSetupDialog_ValidationSuccess_Title": "Επιτυχία",
     "IMAPSetupDialog_ValidationSuccess_Message": "Επιτυχής επικύρωση",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "Αποτυχία επικύρωσης διακομιστή IMAP.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Αυτός ο διακομιστής ζητά μια χειραψία SSL για να συνεχίσει. Παρακαλώ επιβεβαιώστε τις λεπτομέρειες του πιστοποιητικού παρακάτω.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Επιτρέψτε στην χειραψία να συνεχίσει τη ρύθμιση του λογαριασμού σας.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Προσαρμοσμένο Θέμα",
     "SettingsDeleteAccount_Description": "Διαγραφή όλων των e-mails και διαπιστευτηρίων που σχετίζονται με αυτόν τον λογαριασμό.",
     "SettingsDeleteAccount_Title": "Διαγραφή αυτού του λογαριασμού",
-    "SettingsDeleteProtection_Description": "Πρέπει να Wino ζητήσει την επιβεβαίωση κάθε φορά που προσπαθείτε να διαγράψετε μόνιμα ένα μήνυμα χρησιμοποιώντας το Shift + Del;",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Προστασία Μόνιμης Διαγραφής",
     "SettingsDiagnostics_Description": "Για προγραμματιστές",
     "SettingsDiagnostics_DiagnosticId_Description": "Μοιραστείτε αυτό το ID με τους προγραμματιστές όταν σας ζητηθεί να λάβετε βοήθεια για τα θέματα που αντιμετωπίζετε στο Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Εμφάνιση Κειμένου Προεπισκόπησης",
     "SettingsShowSenderPictures_Description": "Απόκρυψη/εμφάνιση της μικρογραφίας του αποστολέα.",
     "SettingsShowSenderPictures_Title": "Εμφάνιση Avatars Αποστολέα",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Προσθήκη υπογραφής",
     "SettingsSignature_AddCustomSignature_Title": "Προσθήκη προσαρμοσμένης υπογραφής",
     "SettingsSignature_DeleteSignature_Title": "Διαγραφή υπογραφής",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Νηματοποίηση Συζήτησης",
     "SettingsUnlinkAccounts_Description": "Αφαιρέστε τη σύνδεση μεταξύ των λογαριασμών. Δε θα διαγράψει τους λογαριασμούς σας.",
     "SettingsUnlinkAccounts_Title": "Αποδέσμευση Λογαριασμών",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Σίγουρα θέλετε να διαγράψετε την υπογραφή \"{0}\";",
     "SignatureDeleteDialog_Title": "Διαγραφή υπογραφής",
     "SignatureEditorDialog_SignatureName_Placeholder": "Ονομάστε την υπογραφή σας",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Το Wino προσφέρει 3 λογαριασμούς για να ξεκινήσετε δωρεάν. Εάν χρειάζεστε περισσότερους από 3, παρακαλώ αναβαθμίστε",
     "WinoUpgradeMessage": "Αναβάθμιση σε Απεριόριστους Λογαριασμούς",
     "WinoUpgradeRemainingAccountsMessage": "Χρησιμοποιούνται {0} από τους {1} δωρεάν λογαριασμούς.",
-    "Yesterday": "Χθες"
+    "Yesterday": "Χθες",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

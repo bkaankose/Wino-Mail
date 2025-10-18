@@ -47,16 +47,16 @@ public class ServerContext :
     IRecipient<OnlineSearchRequested>,
     IRecipient<AccountCacheResetMessage>
 {
-    private readonly System.Timers.Timer _timer;
+    private const double MinimumSynchronizationIntervalMinutes = 1;
+
+    private readonly System.Timers.Timer _timer = new System.Timers.Timer();
     private static object connectionLock = new object();
 
     private AppServiceConnection connection = null;
 
-    private readonly IDatabaseService _databaseService;
-    private readonly IApplicationConfiguration _applicationFolderConfiguration;
-    private readonly ISynchronizerFactory _synchronizerFactory;
     private readonly IServerMessageHandlerFactory _serverMessageHandlerFactory;
     private readonly IAccountService _accountService;
+    private readonly IPreferencesService _preferencesService;
     private readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
     {
         TypeInfoResolver = new ServerRequestTypeInfoResolver()
@@ -66,21 +66,35 @@ public class ServerContext :
                          IApplicationConfiguration applicationFolderConfiguration,
                          ISynchronizerFactory synchronizerFactory,
                          IServerMessageHandlerFactory serverMessageHandlerFactory,
-                         IAccountService accountService)
+                         IAccountService accountService,
+                         IPreferencesService preferencesService)
     {
-        // Setup timer for synchronization.
+        _preferencesService = preferencesService;
 
-        _timer = new System.Timers.Timer(1000 * 60 * 3); // 1 minute
         _timer.Elapsed += SynchronizationTimerTriggered;
+        _preferencesService.PropertyChanged += PreferencesUpdated;
 
-        _databaseService = databaseService;
-        _applicationFolderConfiguration = applicationFolderConfiguration;
-        _synchronizerFactory = synchronizerFactory;
         _serverMessageHandlerFactory = serverMessageHandlerFactory;
         _accountService = accountService;
 
         WeakReferenceMessenger.Default.RegisterAll(this);
 
+        // Setup timer for synchronization.
+        RestartSynchronizationTimer();
+    }
+
+    private void PreferencesUpdated(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
+            RestartSynchronizationTimer();
+    }
+
+    private void RestartSynchronizationTimer()
+    {
+        _timer.Stop();
+
+        // Ensure that the interval is at least 1 minute.
+        _timer.Interval = 1000 * 60 * Math.Max(MinimumSynchronizationIntervalMinutes, _preferencesService.EmailSyncIntervalMinutes);
         _timer.Start();
     }
 

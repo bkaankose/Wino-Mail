@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Tipo de conta",
     "IMAPSetupDialog_ValidationSuccess_Title": "Êxito",
     "IMAPSetupDialog_ValidationSuccess_Message": "Verificado com sucesso",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Sucesso",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "Configurações do IMAP salvas com sucesso.",
     "IMAPSetupDialog_ValidationFailed_Title": "Validação do servidor IMAP falhou.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Este servidor está solicitando um Handshake SSL para continuar. Por favor, confirme os detalhes do certificado abaixo.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Permitir que o handshake continue configurando a sua conta.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Tema Personalizado",
     "SettingsDeleteAccount_Description": "Apague todos os e-mails e credenciais associados a esta conta.",
     "SettingsDeleteAccount_Title": "Apagar esta conta",
-    "SettingsDeleteProtection_Description": "O Wino deveria pedir para confirmar toda vez que você tentar excluir permanentemente um e-mail usando as teclas Shift + Del?",
+    "SettingsDeleteProtection_Description": "O Wino deve solicitar confirmação sempre que você tentar excluir permanentemente um e-mail usando as teclas Shift + Del?",
     "SettingsDeleteProtection_Title": "Proteção de exclusão permanente",
     "SettingsDiagnostics_Description": "Para desenvolvedores",
     "SettingsDiagnostics_DiagnosticId_Description": "Compartilhe esta identificação com os desenvolvedores quando solicitado para obter ajuda para os problemas que você experimentar no Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Mostrar Pré-visualização de Texto",
     "SettingsShowSenderPictures_Description": "Ocultar/exibir imagens do remetente da miniatura.",
     "SettingsShowSenderPictures_Title": "Mostrar Avatares de Remetentes",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Usar gravatar (se disponível) como imagem do remetente",
+    "SettingsEnableFavicons_Title": "Ícones de domínio (Favicons)",
+    "SettingsEnableFavicons_Description": "Usar os favicons de domínio (se disponível) como imagem do remetente",
+    "SettingsMailList_ClearAvatarsCache_Button": "Limpar cache de avatares",
     "SettingsSignature_AddCustomSignature_Button": "Adicionar assinatura",
     "SettingsSignature_AddCustomSignature_Title": "Adicionar assinatura personalizada",
     "SettingsSignature_DeleteSignature_Title": "Excluir assinatura",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "* Encadeamento de conversas",
     "SettingsUnlinkAccounts_Description": "Remova o vínculo entre as contas. Isso não excluirá suas contas.",
     "SettingsUnlinkAccounts_Title": "Desvincular Contas",
+    "SettingsMailRendering_ActionLabels_Title": "Rótulos de ação",
+    "SettingsMailRendering_ActionLabels_Description": "Mostrar rótulos de ação.",
     "SignatureDeleteDialog_Message": "Tem certeza que deseja excluir a assinatura \"{0}\"?",
     "SignatureDeleteDialog_Title": "Excluir assinatura",
     "SignatureEditorDialog_SignatureName_Placeholder": "Nomeie sua assinatura",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino oferece de graça 3 contas para começar. Se você precisar de mais de 3 contas, por favor, atualize",
     "WinoUpgradeMessage": "Atualizar para Contas Ilimitadas",
     "WinoUpgradeRemainingAccountsMessage": "{0} de {1} contas gratuitas usadas.",
-    "Yesterday": "Ontem"
+    "Yesterday": "Ontem",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Intervalo de sincronização de e-mail",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Intervalo de sincronização automática de e-mails (minutos). Esta configuração será aplicada apenas após reiniciar o Wino Mail."
 }
 
 

@@ -1,11 +1,9 @@
 ﻿using System.Collections.Generic;
-using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.Extensibility;
+using Sentry;
 using Serilog;
 using Serilog.Core;
 using Serilog.Exceptions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services.Misc;
 
 namespace Wino.Services;
 
@@ -13,16 +11,12 @@ public class WinoLogger : IWinoLogger
 {
     private readonly LoggingLevelSwitch _levelSwitch = new LoggingLevelSwitch();
     private readonly IPreferencesService _preferencesService;
-    private readonly TelemetryConfiguration _telemetryConfiguration;
-
-    public TelemetryClient TelemetryClient { get; private set; }
+    private readonly IApplicationConfiguration _applicationConfiguration;
 
     public WinoLogger(IPreferencesService preferencesService, IApplicationConfiguration applicationConfiguration)
     {
         _preferencesService = preferencesService;
-        _telemetryConfiguration = new TelemetryConfiguration(applicationConfiguration.ApplicationInsightsInstrumentationKey);
-
-        TelemetryClient = new TelemetryClient(_telemetryConfiguration);
+        _applicationConfiguration = applicationConfiguration;
 
         RefreshLoggingLevel();
     }
@@ -42,13 +36,34 @@ public class WinoLogger : IWinoLogger
         // This call seems weird, but it is necessary to make sure the diagnostic id is set.
         _preferencesService.DiagnosticId = _preferencesService.DiagnosticId;
 
-        var insightsTelemetryConverter = new WinoTelemetryConverter(_preferencesService.DiagnosticId);
+        // Initialize Sentry
+        SentrySdk.Init(options =>
+        {
+            options.Dsn = _applicationConfiguration.SentryDNS;
+#if DEBUG
+            options.Debug = false;
+#else
+            options.Debug = true;
+#endif
+            options.AutoSessionTracking = true;
+
+            // Set user context
+            options.SetBeforeSend((sentryEvent, hint) =>
+            {
+                sentryEvent.User = new SentryUser
+                {
+                    Id = _preferencesService.DiagnosticId
+                };
+                return sentryEvent;
+            });
+        });
 
         Log.Logger = new LoggerConfiguration()
                     .MinimumLevel.ControlledBy(_levelSwitch)
                     .WriteTo.File(fullLogFilePath, retainedFileCountLimit: 3, rollOnFileSizeLimit: true, rollingInterval: RollingInterval.Day)
+                    .WriteTo.Sentry(minimumBreadcrumbLevel: Serilog.Events.LogEventLevel.Information,
+                                   minimumEventLevel: Serilog.Events.LogEventLevel.Error)
                     .WriteTo.Debug()
-                    .WriteTo.ApplicationInsights(TelemetryClient, insightsTelemetryConverter, restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Error)
                     .Enrich.FromLogContext()
                     .Enrich.WithExceptionDetails()
                     .CreateLogger();
@@ -56,8 +71,17 @@ public class WinoLogger : IWinoLogger
 
     public void TrackEvent(string eventName, Dictionary<string, string> properties = null)
     {
-        if (TelemetryClient == null) return;
+        SentrySdk.AddBreadcrumb(eventName, data: properties);
 
-        TelemetryClient.TrackEvent(eventName, properties);
+        SentrySdk.ConfigureScope(scope =>
+        {
+            if (properties != null)
+            {
+                foreach (var prop in properties)
+                {
+                    scope.SetTag(prop.Key, prop.Value);
+                }
+            }
+        });
     }
 }

@@ -22,4 +22,9 @@ public interface INotificationBuilder
     /// Creates test notification for test purposes.
     /// </summary>
     Task CreateTestNotificationAsync(string title, string message);
+
+    /// <summary>
+    /// Removes the toast notification for a specific mail by unique id.
+    /// </summary>
+    void RemoveNotification(Guid mailUniqueId);
 }
