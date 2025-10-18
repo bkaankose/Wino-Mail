@@ -60,14 +60,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private IObservable<System.Reactive.EventPattern<NotifyCollectionChangedEventArgs>> selectionChangedObservable = null;
 
     public GroupedEmailCollection MailCollection { get; set; } = new GroupedEmailCollection();
-
-    //public IEnumerable<MailItemViewModel> SelectedItems
-    //{
-    //    get
-    //    {
-
-    //    }
-    //}
     public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
     public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
     public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = [];
@@ -246,11 +238,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             if (SetProperty(ref _selectedSortingOption, value))
             {
-                // TODO: Update sorting in mail collection.
-                //if (value != null && MailCollection != null)
-                //{
-                //    MailCollection.SortingType = value.Type;
-                //}
+                if (value != null && MailCollection != null)
+                {
+                    MailCollection.GroupingType = value.Type == SortingOptionType.ReceiveDate ? EmailGroupingType.ByDate : EmailGroupingType.ByFromName;
+                }
             }
         }
     }
@@ -562,24 +553,24 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task LoadMoreItemsAsync()
     {
-        //if (IsInitializingFolder || IsOnlineSearchEnabled) return;
+        if (IsInitializingFolder || IsOnlineSearchEnabled) return;
 
-        //await ExecuteUIThread(() => { IsInitializingFolder = true; });
+        await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
-        //var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
-        //                                                              SelectedFilterOption.Type,
-        //                                                              SelectedSortingOption.Type,
-        //                                                              PreferencesService.IsThreadingEnabled,
-        //                                                              SelectedFolderPivot.IsFocused,
-        //                                                              IsInSearchMode ? SearchQuery : string.Empty,
-        //                                                              MailCollection.MailCopyIdHashSet);
+        var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,
+                                                                      SelectedFilterOption.Type,
+                                                                      SelectedSortingOption.Type,
+                                                                      PreferencesService.IsThreadingEnabled,
+                                                                      SelectedFolderPivot.IsFocused,
+                                                                      IsInSearchMode ? SearchQuery : string.Empty,
+                                                                      MailCollection.MailCopyIdHashSet);
 
-        //var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
+        var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
 
-        //var viewModels = PrepareMailViewModels(items);
+        var viewModels = PrepareMailViewModels(items);
 
-        //await ExecuteUIThread(() => { MailCollection.AddRange(viewModels, clearIdCache: false); });
-        //await ExecuteUIThread(() => { IsInitializingFolder = false; });
+        await ExecuteUIThread(() => { MailCollection.AddEmails(viewModels); });
+        await ExecuteUIThread(() => { IsInitializingFolder = false; });
     }
 
     #endregion
@@ -588,7 +579,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public IEnumerable<MailOperationMenuItem> GetAvailableMailActions(IEnumerable<MailItemViewModel> contextMailItems)
         => _contextMenuItemService.GetMailItemContextMenuActions(contextMailItems.Select(a => a.MailCopy));
-
 
     private bool ShouldPreventItemAdd(MailCopy mailItem)
     {
@@ -733,13 +723,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private IEnumerable<MailItemViewModel> PrepareMailViewModels(IEnumerable<MailCopy> mailItems)
     {
         return mailItems.Select(a => new MailItemViewModel(a));
-        //foreach (var item in mailItems)
-        //{
-        //    if (item is MailCopy singleMailItem)
-        //        yield return new MailItemViewModel(singleMailItem);
-        //    else if (item is ThreadMailItem threadMailItem)
-        //        yield return new ThreadMailItemViewModel(threadMailItem);
-        //}
     }
 
     [RelayCommand]
@@ -784,7 +767,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Here items are sorted and filtered.
 
             List<MailCopy> items = null;
-            List<MailCopy> onlineSearchItems = null;
 
             bool isDoingSearch = !string.IsNullOrEmpty(SearchQuery);
             bool isDoingOnlineSearch = false;
@@ -851,8 +833,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                                           PreferencesService.IsThreadingEnabled,
                                                                           SelectedFolderPivot.IsFocused,
                                                                           SearchQuery,
-                                                                          default,
-                                                                          onlineSearchItems);
+                                                                          MailCollection.MailCopyIdHashSet);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 

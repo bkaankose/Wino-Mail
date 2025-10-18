@@ -12,7 +12,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.WinUI;
 using Wino.Core.WinUI.Extensions;
 using Wino.Mail.WinUI;
 
@@ -140,7 +139,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     {
         this.DefaultStyleKey = typeof(WebViewEditorControl);
 
-        IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
+        IsEditorDarkMode = Core.WinUI.WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
     }
 
     protected override async void OnApplyTemplate()

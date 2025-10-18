@@ -13,14 +13,13 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
-using Wino.Core.Services;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
+using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
@@ -411,8 +410,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
                 // Download missing MIME message using SynchronizationManager
                 await SynchronizationManager.Instance.DownloadMimeMessageAsync(
-                    CurrentMailDraftItem.MailCopy, 
-                    CurrentMailDraftItem.AssignedAccount.Id);
+                    CurrentMailDraftItem.MailCopy,
+                    CurrentMailDraftItem.MailCopy.AssignedAccount.Id);
 
                 goto retry;
             }

@@ -12,5 +12,7 @@ public record MailListInitializationOptions(IEnumerable<IMailItemFolder> Folders
                                             bool CreateThreads,
                                             bool? IsFocusedOnly,
                                             string SearchQuery,
-                                            IEnumerable<Guid> ExistingUniqueIds,
-                                            List<MailCopy> PreFetchMailCopies = null);
+                                                HashSet<Guid> ExistingUniqueIds = null,
+                                            List<MailCopy> PreFetchMailCopies = null,
+                                            int Skip = 0,
+                                            int Take = 0);

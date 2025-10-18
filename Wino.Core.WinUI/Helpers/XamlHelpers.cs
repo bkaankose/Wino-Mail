@@ -26,6 +26,7 @@ public static class XamlHelpers
 
     #region Converters
 
+    public static Thickness GetMailItemControlMargin(bool isDisplayedInThread) => isDisplayedInThread ? new Thickness(40, 0, 6, 0) : new Thickness(6, 0, 6, 0);
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)

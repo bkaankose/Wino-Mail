@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Windows.Foundation;
+using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -74,7 +75,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         // Dispose all WinoListView items.
 
-        MailListView.Dispose();
+        // MailListView.Dispose();
 
         this.Bindings.StopTracking();
 
@@ -162,31 +163,24 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Context is requested from a single mail point, but we might have multiple selected items.
         // This menu should be calculated based on all selected items by providers.
 
-        //if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
-        //{
-        //    await FocusManager.TryFocusAsync(control, FocusState.Keyboard);
+        if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
+        {
+            if (control.DataContext is MailItemViewModel clickedMailItemContext)
+            {
+                var targetItems = ViewModel.MailCollection.AllItems.Where(a => a.IsSelected);
+                var availableActions = ViewModel.GetAvailableMailActions(targetItems);
 
-        //    if (control.DataContext is IMailItem clickedMailItemContext)
-        //    {
-        //        var targetItems = ViewModel.GetTargetMailItemViewModels(clickedMailItemContext);
-        //        var availableActions = ViewModel.GetAvailableMailActions(targetItems);
+                if (!availableActions?.Any() ?? false) return;
 
-        //        if (!availableActions?.Any() ?? false) return;
-        //        var t = targetItems.ElementAt(0);
+                var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
 
-        //        ViewModel.ChangeCustomFocusedState(targetItems, true);
+                if (clickedOperation == null) return;
 
-        //        var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
+                var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
 
-        //        ViewModel.ChangeCustomFocusedState(targetItems, false);
-
-        //        if (clickedOperation == null) return;
-
-        //        var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
-
-        //        await ViewModel.ExecuteMailOperationAsync(prepRequest);
-        //    }
-        //}
+                await ViewModel.ExecuteMailOperationAsync(prepRequest);
+            }
+        }
     }
 
     private async Task<MailOperationMenuItem> GetMailOperationFromFlyoutAsync(IEnumerable<MailOperationMenuItem> availableActions,
@@ -507,22 +501,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void DeleteAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
         => ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
 
-    private void ThreadContainerTapped(object sender, TappedRoutedEventArgs e)
-    {
-        if (sender is ItemContainer container && container.Tag is ThreadMailItemViewModel expander)
-        {
-            // Toggle expansion state
-            expander.IsThreadExpanded = !expander.IsThreadExpanded;
 
-            // Find the expander icon and animate its rotation using Composition APIs
-            var expanderIcon = WinoVisualTreeHelper.GetChildObject<FontIcon>(container, "ExpanderIcon");
-            if (expanderIcon != null)
-            {
-                var targetAngle = expander.IsThreadExpanded ? 90f : 0f;
-                AnimateRotationWithComposition(expanderIcon, targetAngle);
-            }
-        }
-    }
 
     /// <summary>
     /// Animates the rotation using high-performance Composition APIs
@@ -560,5 +539,33 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         UpdateSelectAllButtonStatus();
         UpdateAdaptiveness();
+    }
+
+    private void ThreadContainerRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (sender is ItemContainer container && container.Tag is ThreadMailItemViewModel expander)
+        {
+            expander.IsThreadExpanded = !expander.IsThreadExpanded;
+
+            // Select all.
+            ViewModel.MailCollection.AllItems.Where(a => expander.ThreadEmails.Contains(a)).ForEach(a => a.IsSelected = true);
+        }
+    }
+
+    private void ThreadContainerTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is ItemContainer container && container.Tag is ThreadMailItemViewModel expander)
+        {
+            // Toggle expansion state
+            expander.IsThreadExpanded = !expander.IsThreadExpanded;
+
+            // Find the expander icon and animate its rotation using Composition APIs
+            var expanderIcon = WinoVisualTreeHelper.GetChildObject<FontIcon>(container, "ExpanderIcon");
+            if (expanderIcon != null)
+            {
+                var targetAngle = expander.IsThreadExpanded ? 90f : 0f;
+                AnimateRotationWithComposition(expanderIcon, targetAngle);
+            }
+        }
     }
 }

@@ -25,7 +25,6 @@ using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
@@ -355,8 +354,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             // Download missing MIME message using SynchronizationManager
             await SynchronizationManager.Instance.DownloadMimeMessageAsync(
-                mailItemViewModel.MailCopy, 
-                mailItemViewModel.AssignedAccount.Id);
+                mailItemViewModel.MailCopy,
+                mailItemViewModel.MailCopy.AssignedAccount.Id);
         }
         catch (OperationCanceledException)
         {

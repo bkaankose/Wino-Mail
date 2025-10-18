@@ -67,104 +67,34 @@
                     <animations:OpacityAnimation To="0.0" Duration="0:0:1" />
                 </animations:Implicit.HideAnimations>
 
-                <Grid Height="80">
-                    <!--  Thread background  -->
-                    <Grid
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        Background="{ThemeResource CardStrokeColorDefaultBrush}"
-                        Visibility="{x:Bind IsDisplayedInThread, Mode=OneWay}" />
-
-                    <Grid Padding="8,4,12,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <!--  Left: PersonPicture  -->
-                        <PersonPicture
-                            Grid.Column="0"
-                            Width="40"
-                            Height="40"
-                            Margin="0,0,12,0"
-                            VerticalAlignment="Center"
-                            DisplayName="{x:Bind FromName, Mode=OneWay}" />
-
-                        <!--  Center: Content  -->
-                        <StackPanel
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            Spacing="2">
-                            <!--  Subject  -->
-                            <TextBlock
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                MaxLines="1"
-                                Text="{x:Bind Subject, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-
-                            <!--  Sender Name  -->
-                            <TextBlock
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                MaxLines="1"
-                                Text="{x:Bind FromName, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-
-                            <!--  Preview Text  -->
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                MaxLines="1"
-                                Text="{x:Bind PreviewText, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-
-                        <!--  Right: Indicators  -->
-                        <StackPanel
-                            Grid.Column="2"
-                            Margin="12,0,0,0"
-                            VerticalAlignment="Center"
-                            Spacing="4">
-
-                            <!--  Unread Indicator (show when IsRead is false)  -->
-                            <Ellipse
-                                Width="8"
-                                Height="8"
-                                Fill="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-
-                            <!--  Flagged Indicator  -->
-                            <FontIcon
-                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                FontSize="12"
-                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Glyph="&#xE129;"
-                                Visibility="{x:Bind IsFlagged, Mode=OneWay}" />
-
-                            <!--  Attachment Indicator  -->
-                            <FontIcon
-                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                FontSize="12"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE723;"
-                                Visibility="{x:Bind HasAttachments, Mode=OneWay}" />
-                        </StackPanel>
-                    </Grid>
-                </Grid>
+                <controls:MailItemDisplayInformationControl
+                    Margin="{x:Bind helpers:XamlHelpers.GetMailItemControlMargin(IsDisplayedInThread), Mode=OneWay}"
+                    x:DefaultBindMode="OneWay"
+                    CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                    ContextRequested="MailItemContextRequested"
+                    DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                    HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                    IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                    IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                    IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
+                    LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                    MailItem="{x:Bind MailCopy, Mode=OneWay}"
+                    Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                    RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                    ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
             </ItemContainer>
         </DataTemplate>
 
         <DataTemplate x:Key="ThreadExpanderTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <ItemContainer Tag="{x:Bind}" Tapped="ThreadContainerTapped">
-                <Grid
-                    Padding="4,12,0,12"
-                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                    ColumnSpacing="8">
+            <ItemContainer
+                CanUserSelect="UserCannotSelect"
+                RightTapped="ThreadContainerRightTapped"
+                Tag="{x:Bind}"
+                Tapped="ThreadContainerTapped">
+                <Grid Padding="4,0,0,0" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <!--  Expansion indicator  -->
@@ -177,42 +107,34 @@
                             Glyph="&#xE76C;" />
                     </Viewbox>
 
-                    <!--  Thread content  -->
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock
-                            FontWeight="SemiBold"
-                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                            Text="{x:Bind Subject, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{ThemeResource CaptionTextBlockStyle}"
-                            Text="{x:Bind LatestEmailDate, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-
-                    <!--  Email count badge  -->
-                    <Border
-                        Grid.Column="2"
-                        Margin="8,0,12,0"
-                        Padding="6,2"
-                        VerticalAlignment="Center"
-                        Background="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        CornerRadius="8">
-                        <TextBlock
-                            Foreground="White"
-                            Style="{ThemeResource CaptionTextBlockStyle}"
-                            Text="{x:Bind EmailCount, Mode=OneWay}" />
-                    </Border>
+                    <controls:MailItemDisplayInformationControl
+                        Grid.Column="1"
+                        x:DefaultBindMode="OneWay"
+                        CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                        ContextRequested="MailItemContextRequested"
+                        DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                        HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                        IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                        IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                        IsThumbnailUpdated="{x:Bind LatestMailViewModel.ThumbnailUpdatedEvent, Mode=OneWay}"
+                        LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                        MailItem="{x:Bind LatestMailViewModel.MailCopy, Mode=OneWay}"
+                        Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                        RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                        ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
                 </Grid>
             </ItemContainer>
         </DataTemplate>
 
         <DataTemplate x:Key="DateGroupHeaderTemplate" x:DataType="data:DateGroupHeader">
-            <ItemContainer IsHitTestVisible="False">
+            <ItemContainer
+                CanUserSelect="UserCannotSelect"
+                IsEnabled="False"
+                IsHitTestVisible="False">
                 <Grid Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                     <TextBlock
                         FontSize="14"
+                        FontWeight="SemiBold"
                         Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                         Style="{ThemeResource CaptionTextBlockStyle}"
                         Text="{x:Bind DisplayName, Mode=OneWay}" />
@@ -221,7 +143,10 @@
         </DataTemplate>
 
         <DataTemplate x:Key="SenderGroupHeaderTemplate" x:DataType="data:SenderGroupHeader">
-            <ItemContainer IsHitTestVisible="False">
+            <ItemContainer
+                CanUserSelect="UserCannotSelect"
+                IsEnabled="False"
+                IsHitTestVisible="False">
                 <Grid Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -503,14 +428,17 @@
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
+
                     <advanced:WinoItemsView
                         x:Name="MailListView"
                         Margin="4"
                         ItemTemplate="{StaticResource MailItemContainerSelector}"
                         ItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneTime}"
                         Layout="{StaticResource DefaultItemsViewLayout}"
+                        LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                         SelectionChanged="ListSelectionChanged"
                         SelectionMode="Extended" />
+
 
                     <!--  Try online search panel.  -->
                     <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">

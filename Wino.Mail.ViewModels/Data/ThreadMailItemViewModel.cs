@@ -53,14 +53,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
     /// </summary>
     public IReadOnlyList<MailItemViewModel> ThreadEmails => _threadEmails.AsReadOnly();
 
+    public MailItemViewModel LatestMailViewModel => _threadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
+
     public ThreadMailItemViewModel(string threadId)
     {
         _threadId = threadId;
-    }
-
-    partial void OnIsSelectedChanged(bool value)
-    {
-
     }
 
     protected virtual void Dispose(bool disposing)
@@ -86,6 +83,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
     {
         OnPropertyChanged(nameof(Subject));
         OnPropertyChanged(nameof(FromName));
+        OnPropertyChanged(nameof(LatestEmailDate));
+        OnPropertyChanged(nameof(LatestMailViewModel));
     }
 
 

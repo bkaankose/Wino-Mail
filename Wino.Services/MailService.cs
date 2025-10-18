@@ -28,6 +28,7 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISignatureService _signatureService;
+
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
 
@@ -192,15 +193,23 @@ public class MailService : BaseDatabaseService, IMailService
                         .OrWhereContains("MailCopy.FromName", options.SearchQuery)
                         .OrWhereContains("MailCopy.FromAddress", options.SearchQuery));
 
+        // Support pagination by excluding already fetched items
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
             query.WhereNotIn("MailCopy.UniqueId", options.ExistingUniqueIds);
         }
 
-        //if (options.Skip > 0)
-        //{
-        //    query.Skip(options.Skip);
-        //}
+        // Support skip for pagination
+        if (options.Skip > 0)
+        {
+            query.Skip(options.Skip);
+        }
+
+        // Support custom take count for pagination
+        if (options.Take > 0)
+        {
+            query.Take(options.Take);
+        }
 
         return query.GetRawQuery();
     }
@@ -218,7 +227,6 @@ public class MailService : BaseDatabaseService, IMailService
         {
             // If not just do the query.
             var query = BuildMailFetchQuery(options);
-
             mails = await Connection.QueryAsync<MailCopy>(query);
         }
 
@@ -238,9 +246,6 @@ public class MailService : BaseDatabaseService, IMailService
         mails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
 
         cancellationToken.ThrowIfCancellationRequested();
-
-        // Threading is disabled. Just return everything as it is.
-        // mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
 
         return [.. mails];
     }
@@ -1005,7 +1010,7 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
     {
-        var localMailIds = uniqueIds.Where(a => a != null).Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
+        var localMailIds = uniqueIds.Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
 
         var query = new Query(nameof(MailCopy))
                         .WhereIn("Id", localMailIds)

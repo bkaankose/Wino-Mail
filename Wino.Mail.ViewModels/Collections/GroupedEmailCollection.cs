@@ -39,6 +39,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     private readonly Dictionary<string, int> _groupHeaderIndexCache = [];
     private readonly Dictionary<string, List<object>> _groupItems = [];
     private readonly Dictionary<string, ThreadMailItemViewModel> _threadExpanders = [];
+    private readonly HashSet<Guid> _mailCopyIdHashSet = [];
     private bool _disposed;
     private bool _isUpdating;
 
@@ -77,6 +78,11 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     /// Total number of unread emails across all groups
     /// </summary>
     public int TotalUnreadCount => _sourceItems.Count(e => e.MailCopy?.IsRead == false);
+
+    /// <summary>
+    /// HashSet containing unique IDs of all mail copies in the collection for pagination tracking
+    /// </summary>
+    public HashSet<Guid> MailCopyIdHashSet => _mailCopyIdHashSet;
 
     /// <summary>
     /// Gets all email items across all groups as a flat collection
@@ -227,6 +233,9 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         if (email?.MailCopy == null)
             return;
 
+        // Add to unique ID tracking
+        _mailCopyIdHashSet.Add(email.MailCopy.UniqueId);
+
         _isUpdating = true;
         try
         {
@@ -305,6 +314,9 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     {
         if (email?.MailCopy == null)
             return;
+
+        // Remove from unique ID tracking
+        _mailCopyIdHashSet.Remove(email.MailCopy.UniqueId);
 
         _isUpdating = true;
         try
@@ -386,6 +398,12 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         _isUpdating = true;
         try
         {
+            // Add to unique ID tracking
+            foreach (var email in emailList)
+            {
+                _mailCopyIdHashSet.Add(email.MailCopy.UniqueId);
+            }
+
             // For bulk loading, add to source and refresh
             foreach (var email in emailList)
             {
@@ -430,6 +448,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
             _groupHeaderIndexCache.Clear();
             _groupItems.Clear();
             _threadExpanders.Clear();
+            _mailCopyIdHashSet.Clear();
 
             OnPropertyChanged(nameof(TotalCount));
             OnPropertyChanged(nameof(TotalUnreadCount));

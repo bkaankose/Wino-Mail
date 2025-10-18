@@ -12,7 +12,7 @@
 
     <!--  SystemBackdrop will be set by NewThemeService  -->
 
-    <Grid>
+    <Grid Background="{ThemeResource WinoApplicationBackgroundColor}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -25,10 +25,10 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"
+            Background="Transparent"
             IsBackButtonVisible="{x:Bind StatePersistanceService.IsBackButtonVisible, Mode=OneWay}"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="PaneButtonClicked" />
-
         <Frame
             x:Name="MainShellFrame"
             Grid.Row="1"
