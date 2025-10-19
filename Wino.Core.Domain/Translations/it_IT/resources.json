@@ -709,7 +709,7 @@
     "SmimeCertificateSavedTo": "Certificato salvato in {0}",
     "SmimeSignedTooltip": "Questo messaggio è firmato con un certificato S/Mime. Clicca per dettagli",
     "SmimeEncryptedTooltip": "Questo messaggio è cifrato con un certificato S/Mime.",
-    "SmimeCertificateFileInfo": "File: {0}\nTipo: {1}\nDimensione: {2:N0} byte"
+    "SmimeCertificateFileInfo": "File: {0}\nTipo: {1}\nDimensione: {2:N0} byte",
     "SettingsAppPreferences_EmailSyncInterval_Title": "Intervallo sincronizzazione e-mail",
     "SettingsAppPreferences_EmailSyncInterval_Description": "Intervallo di sincronizzazione automatica delle e-mail (minuti). Questa impostazione sarà applicata solo dopo il riavvio di Wino Mail."
 }
