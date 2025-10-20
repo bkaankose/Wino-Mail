@@ -29,7 +29,6 @@
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
 		<PackageReference Include="SqlKata" />
-		<PackageReference Include="System.Text.Encoding.CodePages" />
 	</ItemGroup>
 	
 	<ItemGroup>
