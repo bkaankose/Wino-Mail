@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
-using MoreLinq;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using MoreLinq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.WinUI.Views.Abstract;
@@ -97,13 +96,13 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         GoBackFrame();
     }
 
-    public async void Receive(AccountUpdatedMessage message)
+    public void Receive(AccountUpdatedMessage message)
     {
         var activePage = PageHistory.FirstOrDefault(a => a.Request.PageType == WinoPage.AccountDetailsPage);
 
         if (activePage == null) return;
 
-        await Dispatcher.TryRunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+        DispatcherQueue.TryEnqueue(() =>
         {
             activePage.Title = message.Account.Name;
         });

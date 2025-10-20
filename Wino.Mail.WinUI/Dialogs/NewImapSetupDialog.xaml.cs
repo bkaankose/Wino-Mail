@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Entities.Shared;
@@ -59,7 +60,7 @@ public sealed partial class NewImapSetupDialog : ContentDialog,
             if (ImapFrame.CanGoBack)
             {
                 // Go back using Dispatcher to allow navigations in OnNavigatedTo.
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                await DispatcherQueue.EnqueueAsync(() =>
                 {
                     ImapFrame.GoBack();
                 });

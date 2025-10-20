@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -46,9 +47,9 @@ public sealed partial class AccountCreationDialogControl : UserControl, IRecipie
 
         await Task.Delay(2000);
 
-        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+        await DispatcherQueue.EnqueueAsync(async () =>
         {
-            AuthHelpDialogButton.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            AuthHelpDialogButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
         });
     }
 
