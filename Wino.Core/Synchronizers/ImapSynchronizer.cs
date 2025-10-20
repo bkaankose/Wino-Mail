@@ -37,6 +37,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     [Obsolete("N/A")]
     public override uint BatchModificationSize => 1000;
     public override uint InitialMessageDownloadCountPerFolder => 500;
+    public override int InitialSyncMimeDownloadCount => 50;
 
     #region Idle Implementation
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Google;
 using Google.Apis.Calendar.v3.Data;
@@ -51,7 +52,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     // It's actually 100. But Gmail SDK has internal bug for Out of Memory exception.
     // https://github.com/googleapis/google-api-dotnet-client/issues/2603
     private const uint MaximumAllowedBatchRequestSize = 10;
-
+    
     private readonly ConfigurableHttpClient _googleHttpClient;
     private readonly GmailService _gmailService;
     private readonly CalendarService _calendarService;
@@ -63,6 +64,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     // Keeping a reference for quick access to the virtual archive folder.
     private Guid? archiveFolderId;
+    
+    // Track messages downloaded per folder during current synchronization
+    private readonly Dictionary<string, int> _folderDownloadCounts = new();
 
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
@@ -185,6 +189,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 f.SpecialFolderType != SpecialFolderType.Category &&
                 f.SpecialFolderType != SpecialFolderType.Archive).ToList();
 
+            // Reset folder download counts for this sync
+            _folderDownloadCounts.Clear();
+
             // Download messages for each folder separately
             foreach (var folder in syncFolders)
             {
@@ -196,6 +203,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                 string nextPageToken = null;
                 uint downloadedCount = 0;
+                int folderMimeDownloadCount = 0;
 
                 do
                 {
@@ -211,6 +219,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     {
                         downloadedCount += (uint)result.Messages.Count;
                         listChanges.Add(result);
+
+                        // Download MIME for the first 50 messages in this folder immediately
+                        foreach (var message in result.Messages)
+                        {
+                            if (folderMimeDownloadCount < InitialSyncMimeDownloadCount)
+                            {
+                                // Download with MIME for first 50 messages
+                                await DownloadSingleMessageAsync(message.Id, true, cancellationToken).ConfigureAwait(false);
+                                folderMimeDownloadCount++;
+                                _logger.Debug("Downloaded MIME message {MessageId} ({Count}/{MaxCount}) for folder {FolderName}", 
+                                    message.Id, folderMimeDownloadCount, InitialSyncMimeDownloadCount, folder.FolderName);
+                            }
+                            // Note: Messages beyond 50 will be downloaded without MIME in the general loop later
+                        }
                     }
 
                     // Stop if we've downloaded enough messages for this folder
@@ -221,7 +243,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                 } while (!string.IsNullOrEmpty(nextPageToken));
 
-                _logger.Information("Downloaded {Count} messages for folder {Folder}", downloadedCount, folder.FolderName);
+                _logger.Information("Downloaded {Count} messages for folder {Folder} (first {MimeCount} with MIME)", 
+                    downloadedCount, folder.FolderName, Math.Min(folderMimeDownloadCount, InitialSyncMimeDownloadCount));
+                
+                // Track how many messages we've downloaded with MIME for this folder
+                _folderDownloadCounts[folder.RemoteFolderId] = folderMimeDownloadCount;
             }
         }
         else
@@ -272,8 +298,28 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
         }
 
-        // Add initial message ids from initial sync.
-        missingMessageIds.AddRange(listChanges.Where(a => a.Messages != null).SelectMany(a => a.Messages).Select(a => a.Id));
+        // For delta sync or messages beyond the MIME download limit, add to missing messages list
+        if (!isInitialSync)
+        {
+            // For delta sync, add all message IDs - they will be downloaded with MIME
+            missingMessageIds.AddRange(listChanges.Where(a => a.Messages != null).SelectMany(a => a.Messages).Select(a => a.Id));
+        }
+        else
+        {
+            // For initial sync, we've already downloaded the first 50 messages per folder with MIME
+            // Any remaining messages from the listChanges that weren't downloaded need metadata-only download
+            var allInitialSyncMessages = listChanges.Where(a => a.Messages != null).SelectMany(a => a.Messages).Select(a => a.Id).ToList();
+            var totalDownloadedCount = _folderDownloadCounts.Values.Sum();
+            
+            // Skip the messages that were already downloaded with MIME and add the rest for metadata-only download
+            if (allInitialSyncMessages.Count > totalDownloadedCount)
+            {
+                var remainingMessages = allInitialSyncMessages.Skip(totalDownloadedCount).ToList();
+                missingMessageIds.AddRange(remainingMessages);
+                
+                _logger.Information("Added {Count} remaining messages for metadata-only download", remainingMessages.Count);
+            }
+        }
 
         // Add missing message ids from delta changes.
         foreach (var historyResponse in deltaChanges)
@@ -287,10 +333,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             missingMessageIds.AddRange(addedMessageIds);
         }
 
-        // Start downloading missing messages.
+        // Start downloading remaining messages (metadata only for initial sync beyond first 50, full download for delta sync).
         foreach (var messageId in missingMessageIds)
         {
-            await DownloadSingleMessageAsync(messageId, cancellationToken).ConfigureAwait(false);
+            // For initial sync, download without MIME (metadata only) since MIME was already downloaded for first 50
+            // For delta sync, download with MIME as usual
+            bool downloadMime = !isInitialSync;
+            await DownloadSingleMessageAsync(messageId, downloadMime, cancellationToken).ConfigureAwait(false);
         }
 
         // Map archive assignments if there are any changes reported.
@@ -335,6 +384,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     private async Task DownloadSingleMessageAsync(string messageId, CancellationToken cancellationToken = default)
     {
+        await DownloadSingleMessageAsync(messageId, true, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task DownloadSingleMessageAsync(string messageId, bool downloadMime, CancellationToken cancellationToken = default)
+    {
         // Google .NET SDK has memory issues with batch downloading messages which will not be fixed since the library is in maintenance mode.
         // https://github.com/googleapis/google-api-dotnet-client/issues/2603
         // This method will be used to download messages one by one to prevent memory spikes.
@@ -344,7 +398,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             var singleRequest = CreateSingleMessageGet(messageId);
             var downloadedMessage = await singleRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
-            await HandleSingleItemDownloadedCallbackAsync(downloadedMessage, null, messageId, cancellationToken).ConfigureAwait(false);
+            if (downloadMime)
+            {
+                await HandleSingleItemDownloadedCallbackAsync(downloadedMessage, null, messageId, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await HandleSingleItemDownloadedCallbackMinimalAsync(downloadedMessage, null, messageId, cancellationToken).ConfigureAwait(false);
+            }
+            
             await UpdateAccountSyncIdentifierAsync(downloadedMessage.HistoryId).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -1158,6 +1220,58 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     }
 
     /// <summary>
+    /// Handles after each single message download with minimal metadata only (no MIME).
+    /// This involves adding the Gmail message into Wino database with minimal properties.
+    /// </summary>
+    /// <param name="message">Gmail message</param>
+    /// <param name="error">Request error</param>
+    /// <param name="downloadingMessageId">Message ID being downloaded</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    private async Task<Message> HandleSingleItemDownloadedCallbackMinimalAsync(Message message,
+                                                                       RequestError error,
+                                                                       string downloadingMessageId,
+                                                                       CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await ProcessGmailRequestErrorAsync(error, null);
+        }
+        catch (OutOfMemoryException)
+        {
+            _logger.Warning("Gmail SDK got OutOfMemoryException due to bug in the SDK");
+        }
+        catch (SynchronizerEntityNotFoundException)
+        {
+            _logger.Warning("Resource not found for {DownloadingMessageId}", downloadingMessageId);
+        }
+        catch (SynchronizerException synchronizerException)
+        {
+            _logger.Error("Gmail SDK returned error for {DownloadingMessageId}\n{SynchronizerException}", downloadingMessageId, synchronizerException);
+        }
+
+        if (message == null)
+        {
+            _logger.Warning("Skipped GMail message download for {DownloadingMessageId}", downloadingMessageId);
+
+            return null;
+        }
+
+        // Use minimal package creation for metadata-only download
+        var mailPackage = await CreateNewMailPackagesMinimalAsync(message, cancellationToken);
+
+        // If CreateNewMailPackagesMinimalAsync returns null it means local draft mapping is done.
+        // We don't need to insert anything else.
+        if (mailPackage == null) return message;
+
+        foreach (var package in mailPackage)
+        {
+            await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+        }
+
+        return message;
+    }
+
+    /// <summary>
     /// Handles after each single message download.
     /// This involves adding the Gmail message into Wino database.
     /// </summary>
@@ -1353,6 +1467,84 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             await _gmailChangeProcessor.MapLocalDraftAsync(draft.Message.Id, draft.Id, draft.Message.ThreadId);
         }
+    }
+
+    /// <summary>
+    /// Creates a minimal MailCopy from Gmail message without downloading MIME content.
+    /// This includes only the information available from the Gmail message metadata.
+    /// </summary>
+    /// <param name="gmailMessage">Gmail message</param>
+    /// <returns>MailCopy with minimal properties</returns>
+    private static MailCopy CreateMinimalMailCopy(Message gmailMessage)
+    {
+        bool isUnread = gmailMessage.GetIsUnread();
+        bool isFocused = gmailMessage.GetIsFocused();
+        bool isFlagged = gmailMessage.GetIsFlagged();
+        bool isDraft = gmailMessage.GetIsDraft();
+
+        return new MailCopy()
+        {
+            CreationDate = DateTime.UtcNow, // We don't have the exact date without MIME, use current time
+            Subject = HttpUtility.HtmlDecode(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Subject", StringComparison.OrdinalIgnoreCase))?.Value ?? ""),
+            FromName = HttpUtility.HtmlDecode(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("From", StringComparison.OrdinalIgnoreCase))?.Value ?? ""),
+            FromAddress = ExtractEmailFromHeader(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("From", StringComparison.OrdinalIgnoreCase))?.Value ?? ""),
+            PreviewText = HttpUtility.HtmlDecode(gmailMessage.Snippet),
+            ThreadId = gmailMessage.ThreadId,
+            Importance = MailImportance.Normal, // Default importance without MIME
+            Id = gmailMessage.Id,
+            IsDraft = isDraft,
+            HasAttachments = gmailMessage.Payload?.Parts?.Any(p => !string.IsNullOrEmpty(p.Filename)) ?? false,
+            IsRead = !isUnread,
+            IsFlagged = isFlagged,
+            IsFocused = isFocused,
+            InReplyTo = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("In-Reply-To", StringComparison.OrdinalIgnoreCase))?.Value,
+            MessageId = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Message-Id", StringComparison.OrdinalIgnoreCase))?.Value,
+            References = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("References", StringComparison.OrdinalIgnoreCase))?.Value,
+            FileId = Guid.NewGuid()
+        };
+    }
+
+    /// <summary>
+    /// Extracts email address from a header value like "Name <email@domain.com>" or "email@domain.com"
+    /// </summary>
+    private static string ExtractEmailFromHeader(string headerValue)
+    {
+        if (string.IsNullOrEmpty(headerValue)) return "";
+
+        var match = System.Text.RegularExpressions.Regex.Match(headerValue, @"<(.+?)>");
+        if (match.Success)
+            return match.Groups[1].Value;
+
+        // If no angle brackets, assume the whole value is the email
+        return headerValue.Trim();
+    }
+
+    /// <summary>
+    /// Creates new mail packages for the given message with minimal metadata only (no MIME download).
+    /// This is used for messages beyond the initial MIME download limit during synchronization.
+    /// </summary>
+    /// <param name="message">Gmail message to create package for.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>New mail package with minimal metadata only.</returns>
+    private async Task<List<NewMailItemPackage>> CreateNewMailPackagesMinimalAsync(Message message, CancellationToken cancellationToken = default)
+    {
+        var packageList = new List<NewMailItemPackage>();
+
+        // Create mail copy with minimal properties - no MIME download
+        var mailCopy = CreateMinimalMailCopy(message);
+        
+        // Since this is metadata-only download, we can't check for draft mapping via MIME headers
+        // Draft mapping will be handled during delta synchronization or when MIME is downloaded on-demand
+
+        if (message.LabelIds is not null)
+        {
+            foreach (var labelId in message.LabelIds)
+            {
+                packageList.Add(new NewMailItemPackage(mailCopy, null, labelId));
+            }
+        }
+
+        return packageList;
     }
 
     /// <summary>

@@ -325,7 +325,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             // Download mails concurrently with semaphore control
             if (mailIds.Any())
             {
-                _logger.Information("Starting concurrent download of {Count} mails for folder {FolderName}", mailIds.Count, folder.FolderName);
+                var mimeDownloadCount = Math.Min(mailIds.Count, InitialSyncMimeDownloadCount);
+                _logger.Information("Starting concurrent download of {Count} mails for folder {FolderName} (first {MimeCount} with MIME messages)", 
+                    mailIds.Count, folder.FolderName, mimeDownloadCount);
                 await DownloadMailsConcurrentlyAsync(mailIds, folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
             }
             else
@@ -388,15 +390,26 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     /// <summary>
     /// Downloads mails concurrently with semaphore control to limit concurrent downloads to 10.
+    /// This overload is used for initial sync where MIME messages are downloaded for the first 50 messages.
     /// </summary>
     private async Task DownloadMailsConcurrentlyAsync(List<string> mailIds, MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
     {
-        var downloadTasks = mailIds.Select(async mailId =>
+        await DownloadMailsConcurrentlyAsync(mailIds, folder, downloadedMessageIds, true, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Downloads mails concurrently with semaphore control to limit concurrent downloads to 10.
+    /// </summary>
+    private async Task DownloadMailsConcurrentlyAsync(List<string> mailIds, MailItemFolder folder, List<string> downloadedMessageIds, bool isInitialSync, CancellationToken cancellationToken)
+    {
+        var downloadTasks = mailIds.Select(async (mailId, index) =>
         {
             await _concurrentDownloadSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var downloaded = await DownloadSingleMailAsync(mailId, folder, cancellationToken).ConfigureAwait(false);
+                // Download MIME for the first 50 messages during initial sync only
+                bool shouldDownloadMime = isInitialSync && index < InitialSyncMimeDownloadCount;
+                var downloaded = await DownloadSingleMailAsync(mailId, folder, shouldDownloadMime, cancellationToken).ConfigureAwait(false);
                 if (downloaded != null)
                 {
                     lock (downloadedMessageIds)
@@ -417,7 +430,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// <summary>
     /// Downloads a single mail by ID and creates it in the database.
     /// </summary>
-    private async Task<string> DownloadSingleMailAsync(string mailId, MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<string> DownloadSingleMailAsync(string mailId, MailItemFolder folder, bool downloadMime, CancellationToken cancellationToken)
     {
         try
         {
@@ -435,27 +448,60 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             if (message != null)
             {
-                // Create minimal MailCopy without downloading MIME
-                var mailCopy = await CreateMinimalMailCopyAsync(message, folder, cancellationToken).ConfigureAwait(false);
-
-                if (mailCopy != null)
+                if (downloadMime)
                 {
-                    // Create a minimal package without MIME for direct sync
-                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
-                    bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                    // Download the full message packages with MIME for the first 50 messages
+                    var mailPackages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
 
-                    if (isInserted)
+                    if (mailPackages != null)
                     {
-                        return mailCopy.Id; // Successfully created
+                        foreach (var package in mailPackages)
+                        {
+                            if (package?.Copy != null)
+                            {
+                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                                if (isInserted)
+                                {
+                                    _logger.Debug("Downloaded MIME message {MailId} for folder {FolderName}", mailId, folder.FolderName);
+                                    return package.Copy.Id; // Successfully created with MIME
+                                }
+                                else
+                                {
+                                    _logger.Warning("Failed to insert mail with MIME {MailId} for folder {FolderName}", mailId, folder.FolderName);
+                                }
+                            }
+                        }
                     }
                     else
                     {
-                        _logger.Warning("Failed to insert mail {MailId} for folder {FolderName}", mailId, folder.FolderName);
+                        _logger.Debug("Could not create MIME mail packages for {MailId} in folder {FolderName}", mailId, folder.FolderName);
                     }
                 }
                 else
                 {
-                    _logger.Debug("Could not create MailCopy for {MailId} in folder {FolderName} (might be unsupported message type)", mailId, folder.FolderName);
+                    // Create minimal MailCopy without downloading MIME
+                    var mailCopy = await CreateMinimalMailCopyAsync(message, folder, cancellationToken).ConfigureAwait(false);
+
+                    if (mailCopy != null)
+                    {
+                        // Create a minimal package without MIME for direct sync
+                        var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
+                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                        if (isInserted)
+                        {
+                            return mailCopy.Id; // Successfully created
+                        }
+                        else
+                        {
+                            _logger.Warning("Failed to insert mail {MailId} for folder {FolderName}", mailId, folder.FolderName);
+                        }
+                    }
+                    else
+                    {
+                        _logger.Debug("Could not create MailCopy for {MailId} in folder {FolderName} (might be unsupported message type)", mailId, folder.FolderName);
+                    }
                 }
             }
             else
@@ -623,7 +669,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (newMailIds.Any())
             {
                 _logger.Information("Starting direct download of {Count} new mails from delta sync for folder {FolderName}", newMailIds.Count, folder.FolderName);
-                await DownloadMailsConcurrentlyAsync(newMailIds, folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+                await DownloadMailsConcurrentlyAsync(newMailIds, folder, downloadedMessageIds, false, cancellationToken).ConfigureAwait(false);
             }
 
             // Update delta token for next sync - always store when there are no nextPageToken remaining

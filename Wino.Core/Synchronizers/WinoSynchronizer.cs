@@ -45,6 +45,13 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public abstract uint InitialMessageDownloadCountPerFolder { get; }
 
     /// <summary>
+    /// Number of MIME messages to download during initial synchronization per folder.
+    /// For the first messages in each folder during initial sync, both metadata and MIME content will be downloaded.
+    /// Subsequent messages will only have metadata downloaded, with MIME content fetched on-demand.
+    /// </summary>
+    public virtual int InitialSyncMimeDownloadCount => 50;
+
+    /// <summary>
     /// Creates a new Wino Mail Item package out of native message type with full Mime.
     /// </summary>
     /// <param name="message">Native message type for the synchronizer.</param>
