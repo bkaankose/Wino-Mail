@@ -540,9 +540,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void ListSelectionChanged(ItemsView sender, ItemsViewSelectionChangedEventArgs args)
     {
         UpdateSelectAllButtonStatus();
-        UpdateAdaptiveness();
-
         SynchronizeSelectedItems();
+
+        UpdateAdaptiveness();
     }
 
     private static object _selectedItemsLock = new object();

@@ -121,6 +121,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         base.OnNavigatedFrom(e);
 
+        WeakReferenceMessenger.Default.Unregister<HtmlRenderingRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<CancelRenderingContentRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+
         // Disposing the page.
         // Make sure the WebView2 is disposed properly.
 
@@ -149,6 +153,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+
+        WeakReferenceMessenger.Default.Register<HtmlRenderingRequested>(this);
+        WeakReferenceMessenger.Default.Register<CancelRenderingContentRequested>(this);
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
 
         var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
         anim?.TryStart(Chromium);
