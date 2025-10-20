@@ -43,10 +43,27 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
         Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
 
+        ViewModel.ShowPrintUIAction = ShowPrintUI;
+
         ViewModel.SaveHTMLasPDFFunc = new Func<string, Task<bool>>((path) =>
         {
             return Chromium.CoreWebView2.PrintToPdfAsync(path, null).AsTask();
         });
+    }
+
+    private async void ShowPrintUI()
+    {
+        if (Chromium.CoreWebView2 == null) return;
+
+        // TODO: Footer still shows wino.mail/html, there is no way to change it currently.
+        // TODO: ShowPrintUI - System doesn't open.
+        // TODO: ShowPrintUI - System doesn't open.
+
+        // Set the document title before printing. This title will be used in the print dialog and header.
+        await Chromium.CoreWebView2.ExecuteScriptAsync($"document.title = '{ViewModel.Subject}';");
+        var settings = Chromium.CoreWebView2.Environment.CreatePrintSettings();
+
+        Chromium.CoreWebView2?.ShowPrintUI(CoreWebView2PrintDialogKind.System);
     }
 
     public override async void OnEditorThemeChanged()
@@ -181,7 +198,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         var editorBundlePath = (await ViewModel.NativeAppService.GetEditorBundlePathAsync()).Replace("editor.html", string.Empty);
 
-        Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.reader", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
+        Chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("wino.mail", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
 
         Chromium.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
         Chromium.CoreWebView2.DOMContentLoaded += DOMContentLoaded;
@@ -189,7 +206,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Chromium.CoreWebView2.NewWindowRequested -= WindowRequested;
         Chromium.CoreWebView2.NewWindowRequested += WindowRequested;
 
-        Chromium.Source = new Uri("https://app.reader/reader.html");
+        Chromium.Source = new Uri("https://wino.mail/reader.html");
     }
 
 
@@ -206,7 +223,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private async void WebViewNavigationStarting(WebView2 sender, CoreWebView2NavigationStartingEventArgs args)
     {
         // This is our reader.
-        if (args.Uri == "https://app.reader/reader.html")
+        if (args.Uri == "https://wino.mail/reader.html")
             return;
 
         // Cancel all external navigations since it's navigating to different address inside the WebView2.

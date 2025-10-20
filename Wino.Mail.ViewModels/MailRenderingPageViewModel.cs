@@ -55,6 +55,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     // Used in 'Save as' and 'Print' functionality.
     public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
 
+    public Action ShowPrintUIAction { get; set; }
+
     #region Properties
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
@@ -255,7 +257,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
         else if (operation == MailOperation.Print)
         {
-            await PrintAsync();
+            ShowPrintUI();
         }
         else if (operation == MailOperation.ViewMessageSource)
         {
@@ -680,37 +682,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task PrintAsync()
+    private void ShowPrintUI()
     {
-        // Printing:
-        // 1. Let WebView2 save the current HTML as PDF to temporary location.
-        // 2. Saving as PDF will divide pages correctly for Win2D CanvasBitmap.
-        // 3. Use Win2D CanvasBitmap as IPrintDocumentSource and WinRT APIs to print the PDF.
-
         try
         {
-            var printFilePath = Path.Combine(_applicationConfiguration.ApplicationTempFolderPath, "print.pdf");
-
-            if (File.Exists(printFilePath)) File.Delete(printFilePath);
-
-            await SaveHTMLasPDFFunc(printFilePath);
-
-            var result = await PrintService.PrintPdfFileAsync(printFilePath, Subject);
-
-            if (result == PrintingResult.Submitted)
-            {
-                _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
-            }
-            else if (result != PrintingResult.Canceled)
-            {
-                var message = string.Format(Translator.DialogMessage_PrintingFailedMessage, result);
-                _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, message, InfoBarMessageType.Warning);
-            }
+            ShowPrintUIAction?.Invoke();
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            Log.Error(ex, "Failed to print mail.");
-            _dialogService.InfoBarMessage(string.Empty, ex.Message, InfoBarMessageType.Error);
+            Log.Error(exception, "Failed to print mail.");
+            _dialogService.InfoBarMessage(string.Empty, exception.Message, InfoBarMessageType.Error);
         }
     }
 
