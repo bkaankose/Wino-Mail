@@ -404,14 +404,15 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                 _mailCopyIdHashSet.Add(email.MailCopy.UniqueId);
             }
 
-            // For bulk loading, add to source and refresh
+            // For bulk loading, add to source and use incremental refresh to preserve selection
             foreach (var email in emailList)
             {
                 var insertIndex = FindInsertionIndex(email);
                 _sourceItems.Insert(insertIndex, email);
             }
 
-            RefreshGrouping();
+            // Use incremental refresh instead of full refresh to preserve selection
+            IncrementalRefreshGrouping(emailList);
 
             OnPropertyChanged(nameof(TotalCount));
             OnPropertyChanged(nameof(TotalUnreadCount));
@@ -564,6 +565,72 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
             // Update group header counts
             UpdateAllGroupHeaderCounts();
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
+    }
+
+    /// <summary>
+    /// Incrementally adds new emails to the collection without clearing existing items
+    /// </summary>
+    private void IncrementalRefreshGrouping(IList<MailItemViewModel> newEmails)
+    {
+        _isUpdating = true;
+        try
+        {
+            if (!newEmails.Any())
+                return;
+
+            // Update thread expanders with any new emails that should be threaded
+            UpdateThreadExpandersForNewEmails(newEmails);
+
+            // Process each new email
+            foreach (var email in newEmails)
+            {
+                // Skip if it's already displayed in a thread
+                if (email.IsDisplayedInThread)
+                    continue;
+
+                // Determine the group key for this email
+                var groupKey = GetGroupKeyForItem(email);
+                
+                // Get or create the group header
+                var groupHeader = GetOrCreateGroupHeader(groupKey);
+                
+                // Find where this email should be inserted in the UI
+                var insertPosition = FindUIInsertionPosition(email, groupKey);
+                
+                // Insert the email at the correct position
+                Items.Insert(insertPosition, email);
+                
+                // Update the group items list
+                if (!_groupItems.ContainsKey(groupKey))
+                {
+                    _groupItems[groupKey] = new List<object>();
+                }
+                
+                // Insert in the group items list maintaining sort order
+                var groupItems = _groupItems[groupKey];
+                var groupInsertIndex = FindGroupInsertionIndex(email, groupItems);
+                groupItems.Insert(groupInsertIndex, email);
+                
+                // If this is the first item in a new group, we need to add the header
+                if (groupItems.Count == 1)
+                {
+                    // Find where to insert the header
+                    var headerInsertPosition = FindHeaderInsertionPosition(groupKey, groupHeader);
+                    Items.Insert(headerInsertPosition, groupHeader);
+                    _groupHeaderIndexCache[groupKey] = headerInsertPosition;
+                    
+                    // Update all subsequent header indices
+                    UpdateSubsequentHeaderIndices(groupKey, 1);
+                }
+            }
+
+            // Update group header counts for affected groups
+            UpdateGroupHeaderCountsForNewEmails(newEmails);
         }
         finally
         {
@@ -1074,7 +1141,168 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         }
     }
 
-    private void OnSourceItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    #region Incremental Refresh Helper Methods
+
+    /// <summary>
+    /// Updates thread expanders when new emails are added
+    /// </summary>
+    private void UpdateThreadExpandersForNewEmails(IList<MailItemViewModel> newEmails)
+    {
+        // Group new emails by ThreadId
+        var newThreadGroups = newEmails
+            .Where(e => !string.IsNullOrEmpty(e.MailCopy?.ThreadId))
+            .GroupBy(e => e.MailCopy!.ThreadId!)
+            .ToList();
+
+        foreach (var threadGroup in newThreadGroups)
+        {
+            var threadId = threadGroup.Key;
+            
+            if (_threadExpanders.TryGetValue(threadId, out var existingExpander))
+            {
+                // Add new emails to existing thread
+                foreach (var email in threadGroup)
+                {
+                    existingExpander.AddEmail(email);
+                    email.IsDisplayedInThread = true;
+                }
+            }
+            else
+            {
+                // Check if we need to create a new thread with existing emails
+                var existingEmailsInThread = _sourceItems
+                    .Where(e => e.MailCopy?.ThreadId == threadId && !threadGroup.Contains(e))
+                    .ToList();
+
+                var allThreadEmails = existingEmailsInThread.Concat(threadGroup).ToList();
+                
+                if (allThreadEmails.Count >= 2)
+                {
+                    // Create new thread expander
+                    var expander = new ThreadMailItemViewModel(threadId);
+                    _threadExpanders[threadId] = expander;
+                    
+                    // Add all emails to the thread
+                    foreach (var email in allThreadEmails)
+                    {
+                        expander.AddEmail(email);
+                        email.IsDisplayedInThread = true;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds the correct position to insert an email in the UI Items collection
+    /// </summary>
+    private int FindUIInsertionPosition(MailItemViewModel email, string groupKey)
+    {
+        // If group doesn't exist yet, find position for new group
+        if (!_groupHeaderIndexCache.ContainsKey(groupKey))
+        {
+            return FindGroupInsertionPosition(groupKey);
+        }
+
+        var headerIndex = _groupHeaderIndexCache[groupKey];
+        var groupEndIndex = FindGroupEndIndex(headerIndex);
+        
+        return FindItemInsertionIndexInGroup(email, headerIndex, groupEndIndex);
+    }
+
+    /// <summary>
+    /// Finds the correct position to insert an email within a group's items list
+    /// </summary>
+    private int FindGroupInsertionIndex(MailItemViewModel email, List<object> groupItems)
+    {
+        var emailDate = email.MailCopy?.CreationDate ?? DateTime.MinValue;
+        
+        for (int i = 0; i < groupItems.Count; i++)
+        {
+            var existingDate = GetEffectiveDate(groupItems[i]);
+            var comparison = emailDate.CompareTo(existingDate);
+            
+            if (SortDirection == EmailSortDirection.Descending)
+                comparison = -comparison;
+                
+            if (comparison < 0)
+                return i;
+        }
+        
+        return groupItems.Count;
+    }
+
+    /// <summary>
+    /// Finds the correct position to insert a group header
+    /// </summary>
+    private int FindHeaderInsertionPosition(string groupKey, GroupHeaderBase groupHeader)
+    {
+        if (_groupHeaderIndexCache.Count == 0)
+            return 0;
+
+        var comparer = GetGroupComparer();
+        var insertPosition = 0;
+
+        foreach (var kvp in _groupHeaderIndexCache.OrderBy(k => k.Key, comparer))
+        {
+            var existingGroupKey = kvp.Key;
+            var comparison = comparer.Compare(groupKey, existingGroupKey);
+
+            if (comparison < 0)
+            {
+                insertPosition = kvp.Value;
+                break;
+            }
+            else
+            {
+                var groupEndIndex = FindGroupEndIndex(kvp.Value);
+                insertPosition = groupEndIndex;
+            }
+        }
+
+        return insertPosition;
+    }
+
+    /// <summary>
+    /// Updates header indices after a new group is inserted
+    /// </summary>
+    private void UpdateSubsequentHeaderIndices(string insertedGroupKey, int itemCount)
+    {
+        var insertedHeaderIndex = _groupHeaderIndexCache[insertedGroupKey];
+        
+        var keysToUpdate = _groupHeaderIndexCache
+            .Where(kvp => kvp.Key != insertedGroupKey && kvp.Value > insertedHeaderIndex)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in keysToUpdate)
+        {
+            _groupHeaderIndexCache[key] += itemCount;
+        }
+    }
+
+    /// <summary>
+    /// Updates group header counts for affected groups when new emails are added
+    /// </summary>
+    private void UpdateGroupHeaderCountsForNewEmails(IList<MailItemViewModel> newEmails)
+    {
+        var affectedGroups = newEmails
+            .Select(email => GetGroupKey(email))
+            .Distinct()
+            .ToList();
+
+        foreach (var groupKey in affectedGroups)
+        {
+            if (_groupHeaders.TryGetValue(groupKey, out var groupHeader))
+            {
+                UpdateGroupHeaderCounts(groupKey, groupHeader);
+            }
+        }
+    }
+
+    #endregion
+
+    private void OnSourceItemsChanged(object sender, NotifyCollectionChangedEventArgs e)
     {
         if (!_isUpdating)
         {
