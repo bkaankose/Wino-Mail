@@ -20,6 +20,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -55,7 +56,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     // Used in 'Save as' and 'Print' functionality.
     public Func<string, Task<bool>> SaveHTMLasPDFFunc { get; set; }
 
-    public Action ShowPrintUIAction { get; set; }
+    public Func<WebView2PrintSettingsModel, Task<PrintingResult>> DirectPrintFuncAsync { get; set; }
 
     #region Properties
 
@@ -257,7 +258,22 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
         else if (operation == MailOperation.Print)
         {
-            ShowPrintUI();
+            var settings = await _dialogService.ShowPrintDialogAsync();
+
+            if (settings == null) return;
+
+            var printingResult = await DirectPrintFuncAsync.Invoke(settings);
+
+            // TODO: More detailed printing result handling.
+            if (printingResult == PrintingResult.Submitted)
+            {
+                _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
+            }
+            else if (printingResult == PrintingResult.Failed)
+            {
+                _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, Translator.DialogMessage_PrintingFailedMessage, InfoBarMessageType.Error);
+            }
+
         }
         else if (operation == MailOperation.ViewMessageSource)
         {
@@ -682,19 +698,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
     }
 
-    private void ShowPrintUI()
-    {
-        try
-        {
-            ShowPrintUIAction?.Invoke();
-        }
-        catch (Exception exception)
-        {
-            Log.Error(exception, "Failed to print mail.");
-            _dialogService.InfoBarMessage(string.Empty, exception.Message, InfoBarMessageType.Error);
-        }
-    }
-
     private async Task SaveAsAsync()
     {
         try
@@ -792,5 +795,21 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 }
             }
         });
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        Messenger.Register<NewMailItemRenderingRequestedEvent>(this);
+        Messenger.Register<ThumbnailAdded>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        Messenger.Unregister<NewMailItemRenderingRequestedEvent>(this);
+        Messenger.Unregister<ThumbnailAdded>(this);
     }
 }

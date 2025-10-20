@@ -8,7 +8,7 @@ namespace Wino.Core.Domain.Models.MailItem;
 /// </summary>
 public class MailDragPackage
 {
-    public MailDragPackage(IEnumerable<MailCopy> draggingMails)
+    public MailDragPackage(IEnumerable<object> draggingMails)
     {
         DraggingMails = draggingMails;
     }
@@ -21,5 +21,5 @@ public class MailDragPackage
         ];
     }
 
-    public IEnumerable<MailCopy> DraggingMails { get; set; }
+    public IEnumerable<object> DraggingMails { get; set; }
 }

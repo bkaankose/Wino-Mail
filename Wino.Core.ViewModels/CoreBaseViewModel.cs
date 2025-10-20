@@ -33,9 +33,15 @@ public class CoreBaseViewModel : ObservableRecipient,
         }
     }
 
-    public virtual void OnNavigatedTo(NavigationMode mode, object parameters) { IsActive = true; }
+    public virtual void OnNavigatedTo(NavigationMode mode, object parameters) 
+    { 
+        RegisterRecipients();
+    }
 
-    public virtual void OnNavigatedFrom(NavigationMode mode, object parameters) { IsActive = false; }
+    public virtual void OnNavigatedFrom(NavigationMode mode, object parameters) 
+    { 
+        UnregisterRecipients();
+    }
 
     public virtual void OnPageLoaded() { }
 
@@ -43,6 +49,16 @@ public class CoreBaseViewModel : ObservableRecipient,
     public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
 
     protected virtual void OnDispatcherAssigned() { }
+
+    /// <summary>
+    /// Register message recipients for this view model. Override to register specific message types.
+    /// </summary>
+    protected virtual void RegisterRecipients() { }
+
+    /// <summary>
+    /// Unregister message recipients for this view model. Override to unregister specific message types.
+    /// </summary>
+    protected virtual void UnregisterRecipients() { }
 
     protected virtual void OnAccountCreated(MailAccount createdAccount) { }
     protected virtual void OnAccountRemoved(MailAccount removedAccount) { }

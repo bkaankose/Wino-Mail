@@ -11,7 +11,9 @@ using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Web.WebView2.Core;
 using Windows.System;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Printing;
 using Wino.Core.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
@@ -43,7 +45,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
         Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
 
-        ViewModel.ShowPrintUIAction = ShowPrintUI;
+        ViewModel.DirectPrintFuncAsync = DirectPrintAsync;
 
         ViewModel.SaveHTMLasPDFFunc = new Func<string, Task<bool>>((path) =>
         {
@@ -51,19 +53,25 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         });
     }
 
-    private async void ShowPrintUI()
+    private async Task<PrintingResult> DirectPrintAsync(WebView2PrintSettingsModel settings)
     {
-        if (Chromium.CoreWebView2 == null) return;
+        if (Chromium.CoreWebView2 == null) return PrintingResult.Failed;
 
-        // TODO: Footer still shows wino.mail/html, there is no way to change it currently.
-        // TODO: ShowPrintUI - System doesn't open.
-        // TODO: ShowPrintUI - System doesn't open.
+        try
+        {
+            var nativeSettings = settings.ToCoreWebView2PrintSettings(Chromium.CoreWebView2.Environment);
+            var res = await Chromium.CoreWebView2.PrintAsync(nativeSettings);
 
-        // Set the document title before printing. This title will be used in the print dialog and header.
-        await Chromium.CoreWebView2.ExecuteScriptAsync($"document.title = '{ViewModel.Subject}';");
-        var settings = Chromium.CoreWebView2.Environment.CreatePrintSettings();
-
-        Chromium.CoreWebView2?.ShowPrintUI(CoreWebView2PrintDialogKind.System);
+            return res switch
+            {
+                CoreWebView2PrintStatus.Succeeded => PrintingResult.Submitted,
+                _ => PrintingResult.Failed,
+            };
+        }
+        catch (Exception)
+        {
+            return PrintingResult.Failed;
+        }
     }
 
     public override async void OnEditorThemeChanged()
@@ -138,10 +146,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         base.OnNavigatedFrom(e);
 
-        WeakReferenceMessenger.Default.Unregister<HtmlRenderingRequested>(this);
-        WeakReferenceMessenger.Default.Unregister<CancelRenderingContentRequested>(this);
-        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
-
         // Disposing the page.
         // Make sure the WebView2 is disposed properly.
 
@@ -170,10 +174,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-
-        WeakReferenceMessenger.Default.Register<HtmlRenderingRequested>(this);
-        WeakReferenceMessenger.Default.Register<CancelRenderingContentRequested>(this);
-        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
 
         var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
         anim?.TryStart(Chromium);
@@ -296,5 +296,23 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             hyperlinkButton.ContextFlyout.ShowAt(hyperlinkButton);
         }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        WeakReferenceMessenger.Default.Register<HtmlRenderingRequested>(this);
+        WeakReferenceMessenger.Default.Register<CancelRenderingContentRequested>(this);
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        WeakReferenceMessenger.Default.Unregister<HtmlRenderingRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<CancelRenderingContentRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
     }
 }

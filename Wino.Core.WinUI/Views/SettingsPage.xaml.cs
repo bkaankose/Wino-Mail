@@ -26,9 +26,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract, IRecipient<Brea
     {
         base.OnNavigatedTo(e);
 
-        // Re-register the breadcrumb navigation handler after base.OnNavigatedTo unregisters all handlers
-        WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
-
         SettingsFrame.Navigate(typeof(SettingOptionsPage), null, new SuppressNavigationTransitionInfo());
 
         var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage);
@@ -63,10 +60,21 @@ public sealed partial class SettingsPage : SettingsPageAbstract, IRecipient<Brea
 
     protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
     {
-        // Explicitly unregister our message handlers before base.OnNavigatingFrom calls UnregisterAll
-        WeakReferenceMessenger.Default.Unregister<BreadcrumbNavigationRequested>(this);
-
         base.OnNavigatingFrom(e);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        WeakReferenceMessenger.Default.Register<BreadcrumbNavigationRequested>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        WeakReferenceMessenger.Default.Unregister<BreadcrumbNavigationRequested>(this);
     }
 
     void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)

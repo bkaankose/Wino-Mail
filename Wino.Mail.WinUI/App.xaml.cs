@@ -15,7 +15,7 @@ namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication, IRecipient<NewMailSynchronizationRequested>
 {
-    private ISynchronizationManager _synchronizationManager;
+    private ISynchronizationManager? _synchronizationManager;
 
     public App()
     {
@@ -23,7 +23,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-        WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
+        RegisterRecipients();
     }
 
     #region Dependency Injection
@@ -114,8 +114,13 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         MainWindow.Activate();
     }
 
+    private void RegisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
+    }
+
     public void Receive(NewMailSynchronizationRequested message)
     {
-        _synchronizationManager.SynchronizeMailAsync(message.Options);
+        _synchronizationManager?.SynchronizeMailAsync(message.Options);
     }
 }

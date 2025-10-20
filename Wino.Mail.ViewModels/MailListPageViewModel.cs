@@ -1081,4 +1081,34 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         // MailCollection.UpdateThumbnails(message.Email);
     }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<MailItemNavigationRequested>(this);
+        Messenger.Register<ActiveMailFolderChangedEvent>(this);
+        Messenger.Register<MailItemSelectedEvent>(this);
+        Messenger.Register<MailItemSelectionRemovedEvent>(this);
+        Messenger.Register<AccountSynchronizationCompleted>(this);
+        Messenger.Register<NewMailSynchronizationRequested>(this);
+        Messenger.Register<AccountSynchronizerStateChanged>(this);
+        Messenger.Register<AccountCacheResetMessage>(this);
+        Messenger.Register<ThumbnailAdded>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<MailItemNavigationRequested>(this);
+        Messenger.Unregister<ActiveMailFolderChangedEvent>(this);
+        Messenger.Unregister<MailItemSelectedEvent>(this);
+        Messenger.Unregister<MailItemSelectionRemovedEvent>(this);
+        Messenger.Unregister<AccountSynchronizationCompleted>(this);
+        Messenger.Unregister<NewMailSynchronizationRequested>(this);
+        Messenger.Unregister<AccountSynchronizerStateChanged>(this);
+        Messenger.Unregister<AccountCacheResetMessage>(this);
+        Messenger.Unregister<ThumbnailAdded>(this);
+    }
 }

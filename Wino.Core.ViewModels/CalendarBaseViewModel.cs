@@ -9,4 +9,18 @@ public class CalendarBaseViewModel : CoreBaseViewModel, IRecipient<CalendarItemA
     public void Receive(CalendarItemAdded message) => OnCalendarItemAdded(message.CalendarItem);
 
     protected virtual void OnCalendarItemAdded(CalendarItem calendarItem) { }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        Messenger.Register<CalendarItemAdded>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        Messenger.Unregister<CalendarItemAdded>(this);
+    }
 }

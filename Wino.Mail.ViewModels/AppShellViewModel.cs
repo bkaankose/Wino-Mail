@@ -1037,4 +1037,36 @@ public partial class AppShellViewModel : MailBaseViewModel,
     {
         await MenuItemInvokedOrSelectedAsync(SettingsItem, WinoPage.AppPreferencesPage);
     }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        Messenger.Register<NavigateManageAccountsRequested>(this);
+        Messenger.Register<MailtoProtocolMessageRequested>(this);
+        Messenger.Register<RefreshUnreadCountsMessage>(this);
+        Messenger.Register<AccountsMenuRefreshRequested>(this);
+        Messenger.Register<MergedInboxRenamed>(this);
+        Messenger.Register<LanguageChanged>(this);
+        Messenger.Register<AccountMenuItemsReordered>(this);
+        Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
+        Messenger.Register<NavigateAppPreferencesRequested>(this);
+        Messenger.Register<AccountFolderConfigurationUpdated>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        Messenger.Unregister<NavigateManageAccountsRequested>(this);
+        Messenger.Unregister<MailtoProtocolMessageRequested>(this);
+        Messenger.Unregister<RefreshUnreadCountsMessage>(this);
+        Messenger.Unregister<AccountsMenuRefreshRequested>(this);
+        Messenger.Unregister<MergedInboxRenamed>(this);
+        Messenger.Unregister<LanguageChanged>(this);
+        Messenger.Unregister<AccountMenuItemsReordered>(this);
+        Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
+        Messenger.Unregister<NavigateAppPreferencesRequested>(this);
+        Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
+    }
 }

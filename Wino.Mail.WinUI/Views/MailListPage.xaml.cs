@@ -57,21 +57,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
         }
-
-        WeakReferenceMessenger.Default.Register<ClearMailSelectionsRequested>(this);
-        WeakReferenceMessenger.Default.Register<ActiveMailItemChangedEvent>(this);
-        WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
-        WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-
-        WeakReferenceMessenger.Default.Unregister<ClearMailSelectionsRequested>(this);
-        WeakReferenceMessenger.Default.Unregister<ActiveMailItemChangedEvent>(this);
-        WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
-        WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
 
         // Dispose all WinoListView items.
 
@@ -453,6 +443,22 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public void Receive(DisposeRenderingFrameRequested message)
     {
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<ClearMailSelectionsRequested>(this);
+        WeakReferenceMessenger.Default.Register<ActiveMailItemChangedEvent>(this);
+        WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
+        WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Unregister<ClearMailSelectionsRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ActiveMailItemChangedEvent>(this);
+        WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
+        WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
     }
 
     private void PageSizeChanged(object sender, SizeChangedEventArgs e)

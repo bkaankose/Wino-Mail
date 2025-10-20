@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -27,6 +26,16 @@ public partial class BasePage : Page, IRecipient<LanguageChanged>
     }
 
     public virtual void OnLanguageChanged() { }
+
+    /// <summary>
+    /// Register message recipients for this page. Override to register specific message types.
+    /// </summary>
+    protected virtual void RegisterRecipients() { }
+
+    /// <summary>
+    /// Unregister message recipients for this page. Override to unregister specific message types.
+    /// </summary>
+    protected virtual void UnregisterRecipients() { }
 }
 
 public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
@@ -49,10 +58,7 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
 
     private void PageLoaded(object sender, RoutedEventArgs e) => ViewModel.OnPageLoaded();
 
-    ~BasePage()
-    {
-        Debug.WriteLine($"Disposed {GetType().Name}");
-    }
+    ~BasePage() { Debug.WriteLine($"Disposed {GetType().Name}"); }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -61,8 +67,8 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         var mode = GetNavigationMode(e.NavigationMode);
         var parameter = e.Parameter;
 
-        WeakReferenceMessenger.Default.UnregisterAll(this);
         WeakReferenceMessenger.Default.Register<LanguageChanged>(this);
+        RegisterRecipients();
 
         ViewModel.OnNavigatedTo(mode, parameter);
     }
@@ -74,7 +80,8 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
         var mode = GetNavigationMode(e.NavigationMode);
         var parameter = e.Parameter;
 
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
+        UnregisterRecipients();
 
         ViewModel.OnNavigatedFrom(mode, parameter);
 

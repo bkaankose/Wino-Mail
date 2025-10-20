@@ -1,7 +1,11 @@
 using System.Collections.Generic;
+using System.Drawing.Printing;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
+using Serilog;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Printing;
-using Wino.Core.WinUI.Models;
 
 namespace Wino.Core.WinUI.Dialogs;
 
@@ -10,32 +14,40 @@ namespace Wino.Core.WinUI.Dialogs;
 /// </summary>
 public sealed partial class PrintDialog : ContentDialog
 {
-    /// <summary>
-    /// The ViewModel that handles the dialog's data binding and logic.
-    /// </summary>
-    public PrintDialogViewModel ViewModel { get; }
-
-    /// <summary>
-    /// Gets the configured print settings from the dialog.
-    /// </summary>
-    public WebView2PrintSettingsModel PrintSettings => ViewModel.PrintSettings;
+    public WebView2PrintSettingsModel PrintSettings { get; set; } = new WebView2PrintSettingsModel();
 
     public PrintDialog()
     {
         this.InitializeComponent();
-        ViewModel = new PrintDialogViewModel();
-        ViewModel.Initialize();
     }
 
     /// <summary>
     /// Initializes the dialog with existing print settings.
     /// </summary>
     /// <param name="printSettings">The initial print settings to load.</param>
-    public PrintDialog(WebView2PrintSettingsModel printSettings)
+    public PrintDialog(WebView2PrintSettingsModel printSettings = null)
     {
+        if (printSettings != null) PrintSettings = printSettings;
+
         this.InitializeComponent();
-        ViewModel = new PrintDialogViewModel();
-        ViewModel.Initialize(printSettings);
+    }
+
+    private void PrintDialog_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) => LoadSettingsToUI(PrintSettings);
+
+    private void OrientationRadio_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is RadioButtons radioButtons)
+        {
+            PrintSettings.Orientation = (PrintOrientation)radioButtons.SelectedIndex;
+        }
+    }
+
+    private void PrinterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox comboBox && comboBox.SelectedItem != null)
+        {
+            PrintSettings.PrinterName = comboBox.SelectedItem.ToString();
+        }
     }
 
     /// <summary>
@@ -44,7 +56,85 @@ public sealed partial class PrintDialog : ContentDialog
     /// <param name="printers">List of available printer names.</param>
     public void SetAvailablePrinters(IEnumerable<string> printers)
     {
-        ViewModel.SetAvailablePrinters(printers);
+        var printerList = printers?.ToList() ?? new List<string>();
+
+        if (this.FindName("PrinterComboBox") is ComboBox printerComboBox)
+        {
+            printerComboBox.ItemsSource = printerList;
+
+            if (printerList.Any())
+            {
+                // Set to first printer or to the one in settings
+                var targetPrinter = !string.IsNullOrEmpty(PrintSettings.PrinterName)
+                    ? PrintSettings.PrinterName
+                    : printerList.First();
+
+                var index = printerList.IndexOf(targetPrinter);
+                printerComboBox.SelectedIndex = index >= 0 ? index : 0;
+
+                // Update the settings model with the selected printer
+                PrintSettings.PrinterName = printerComboBox.SelectedItem?.ToString() ?? string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Loads available printers asynchronously and sets them in the dialog.
+    /// </summary>
+    public async Task LoadAvailablePrintersAsync()
+    {
+        try
+        {
+            var printers = await Task.Run(() =>
+            {
+                var printerList = new List<string>();
+
+                // Get all installed printers using System.Drawing.Printing
+                foreach (string printerName in PrinterSettings.InstalledPrinters)
+                {
+                    printerList.Add(printerName);
+                }
+
+                return printerList.AsEnumerable();
+            });
+
+            SetAvailablePrinters(printers);
+        }
+        catch (System.Exception ex)
+        {
+            // Log the exception if logging is available
+            Log.Error(ex, "Error getting available printers");
+
+            // Set empty list if printer discovery fails
+            SetAvailablePrinters(Enumerable.Empty<string>());
+        }
+    }
+
+    private void LoadSettingsToUI(WebView2PrintSettingsModel settings)
+    {
+        if (settings == null) return;
+
+        // Only handle orientation manually since other properties are bound via x:Bind
+        if (this.FindName("OrientationRadioButtons") is RadioButtons orientationRadio)
+        {
+            orientationRadio.SelectedIndex = (int)settings.Orientation;
+        }
+    }
+
+    private void UpdateSettingsFromUI()
+    {
+        // Most properties are bound via x:Bind, only handle orientation manually
+        if (this.FindName("OrientationRadioButtons") is RadioButtons orientationRadio)
+        {
+            PrintSettings.Orientation = (PrintOrientation)orientationRadio.SelectedIndex;
+        }
+
+        // Also update printer name from ComboBox since it uses ItemsSource binding
+        if (this.FindName("PrinterComboBox") is ComboBox printerComboBox &&
+            printerComboBox.SelectedItem != null)
+        {
+            PrintSettings.PrinterName = printerComboBox.SelectedItem.ToString();
+        }
     }
 
     /// <summary>
@@ -53,40 +143,15 @@ public sealed partial class PrintDialog : ContentDialog
     /// <returns>True if settings are valid, false otherwise.</returns>
     private bool ValidateSettings()
     {
-        // Validate printer selection
-        if (string.IsNullOrWhiteSpace(PrintSettings.PrinterName))
+        // Check if a printer is selected
+        if (this.FindName("PrinterComboBox") is ComboBox printerComboBox &&
+            printerComboBox.SelectedItem == null)
         {
-            // Show error message or set focus to printer selection
             return false;
         }
 
-        // Validate copies
+        // Copies validation is handled by the bound property with validation in the model
         if (PrintSettings.Copies <= 0)
-        {
-            return false;
-        }
-
-        // Validate page ranges if custom range is specified
-        if (ViewModel.IsCustomPageRange && !string.IsNullOrWhiteSpace(PrintSettings.PageRanges))
-        {
-            // Basic validation for page ranges format
-            // More comprehensive validation could be added here
-            var pageRanges = PrintSettings.PageRanges.Trim();
-            if (string.IsNullOrEmpty(pageRanges))
-            {
-                return false;
-            }
-        }
-
-        // Validate margins
-        if (PrintSettings.MarginTop < 0 || PrintSettings.MarginBottom < 0 ||
-            PrintSettings.MarginLeft < 0 || PrintSettings.MarginRight < 0)
-        {
-            return false;
-        }
-
-        // Validate scale factor
-        if (PrintSettings.ScaleFactor < 0.1 || PrintSettings.ScaleFactor > 2.0)
         {
             return false;
         }
@@ -96,11 +161,13 @@ public sealed partial class PrintDialog : ContentDialog
 
     private void ContentDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
+        // Update settings from UI before validation
+        UpdateSettingsFromUI();
+
         // Validate settings before closing
         if (!ValidateSettings())
         {
             args.Cancel = true;
-            // Could show error message here
         }
     }
 

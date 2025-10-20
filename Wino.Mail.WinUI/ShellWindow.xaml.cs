@@ -15,7 +15,7 @@ using WinUIEx;
 
 namespace Wino.Mail.WinUI;
 
-public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient<ApplicationThemeChanged>
+public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient<ApplicationThemeChanged>, IRecipient<TitleBarShellContentUpdated>
 {
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
@@ -23,8 +23,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     public ShellWindow()
     {
-        WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
-        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        RegisterRecipients();
 
         InitializeComponent();
 
@@ -177,10 +176,24 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
         // Clean up system tray
         _systemTrayService?.Dispose();
         
+        UnregisterRecipients();
+        
         // Close the window
         this.Close();
         
         // Exit the application
         Application.Current.Exit();
+    }
+
+    private void RegisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+    }
+
+    private void UnregisterRecipients()
+    {
+        WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
     }
 }

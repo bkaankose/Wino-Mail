@@ -1,6 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
-using Wino.Core.WinUI;
 using Wino.Core.ViewModels;
+using Wino.Core.WinUI;
 
 namespace Wino.Views.Abstract;
 

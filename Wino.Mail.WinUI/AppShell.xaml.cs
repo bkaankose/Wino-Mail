@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -20,6 +21,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Controls;
 using Wino.Extensions;
+using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Accounts;
@@ -37,13 +39,27 @@ public sealed partial class AppShell : AppShellAbstract,
     IRecipient<InfoBarMessageRequested>
 {
     [GeneratedDependencyProperty]
-    public partial UIElement TopShellContent { get; set; }
+    public partial UIElement? TopShellContent { get; set; }
 
     public AppShell() : base()
     {
         InitializeComponent();
     }
-    public Frame GetShellFrame() => ShellFrame;
+
+    //protected override void OnNavigatedTo(NavigationEventArgs e)
+    //{
+    //    base.OnNavigatedTo(e);
+
+    //    WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
+    //    WeakReferenceMessenger.Default.Register<AccountMenuItemExtended>(this);
+    //    WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
+    //    WeakReferenceMessenger.Default.Register<NavigateMailFolderEvent>(this);
+    //}
+
+    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    {
+        base.OnNavigatingFrom(e);
+    }
 
     private async void ItemDroppedOnFolder(object sender, DragEventArgs e)
     {
@@ -66,14 +82,14 @@ public sealed partial class AppShell : AppShellAbstract,
 
                     foreach (var item in dragPackage.DraggingMails)
                     {
-                        //if (item is MailItemViewModel singleMailItemViewModel)
-                        //{
-                        //    mailCopies.Add(singleMailItemViewModel.MailCopy);
-                        //}
-                        //else if (item is ThreadMailItemViewModel threadViewModel)
-                        //{
-                        //    mailCopies.AddRange(threadViewModel.GetMailCopies());
-                        //}
+                        if (item is MailItemViewModel singleMailItemViewModel)
+                        {
+                            mailCopies.Add(singleMailItemViewModel.MailCopy);
+                        }
+                        else if (item is ThreadMailItemViewModel threadViewModel)
+                        {
+                            mailCopies.AddRange(threadViewModel.ThreadEmails.Select(a => a.MailCopy));
+                        }
                     }
 
                     await ViewModel.PerformMoveOperationAsync(mailCopies, draggingFolder);
@@ -114,7 +130,7 @@ public sealed partial class AppShell : AppShellAbstract,
         // Check whether the moving item's account has at least one same as the target folder's account.
         var draggedAccountIds = folderMenuItem.HandlingFolders.Select(a => a.MailAccountId);
 
-        if (!dragPackage.DraggingMails.Any(a => draggedAccountIds.Contains(a.AssignedAccount.Id))) return false;
+        if (!dragPackage.DraggingMails.Cast<MailCopy>().Any(a => draggedAccountIds.Contains(a.AssignedAccount.Id))) return false;
 
         return true;
     }
@@ -319,5 +335,25 @@ public sealed partial class AppShell : AppShellAbstract,
         {
             ShellFrame.Margin = new Thickness(0);
         }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Register<AccountMenuItemExtended>(this);
+        WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
+        WeakReferenceMessenger.Default.Register<NavigateMailFolderEvent>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountMenuItemExtended>(this);
+        WeakReferenceMessenger.Default.Unregister<CreateNewMailWithMultipleAccountsRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<NavigateMailFolderEvent>(this);
     }
 }
