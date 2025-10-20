@@ -21,6 +21,7 @@ namespace Wino.Core.WinUI.Services;
 /// HTML file is saved as PDF to temporary location.
 /// Then PDF is loaded as PdfDocument and printed using CanvasBitmap for each page.
 /// </summary>
+
 public class PrintService : IPrintService
 {
     private TaskCompletionSource<PrintingResult> _taskCompletionSource;
