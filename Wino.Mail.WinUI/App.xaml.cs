@@ -2,13 +2,13 @@
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Windows.AppLifecycle;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Interfaces;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
-using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Server;
 using Wino.Services;
 namespace Wino.Mail.WinUI;
@@ -36,7 +36,6 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
-        services.AddSingleton<ISystemTrayService, SystemTrayService>();
     }
 
     private void RegisterViewModels(IServiceCollection services)
@@ -79,6 +78,8 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         return services.BuildServiceProvider();
     }
 
+    private bool IsStartupTaskLaunch() => AppInstance.GetCurrent().GetActivatedEventArgs()?.Kind == ExtendedActivationKind.StartupTask;
+
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         // TODO: Check app relaunch mutex before loading anything.
@@ -99,19 +100,16 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
 
         await InitializeServicesAsync();
 
-        // Initialize system tray
-        var systemTrayService = Services.GetRequiredService<ISystemTrayService>();
-        if (systemTrayService != null)
-        {
-            systemTrayService.Initialize();
-            systemTrayService.Show(); // Explicitly show the tray icon
-        }
-
         if (MainWindow is not IWinoShellWindow shellWindow) throw new ArgumentException("MainWindow must implement IWinoShellWindow");
 
-        shellWindow.HandleAppActivation(args);
+        bool isStartupTaskLaunch = IsStartupTaskLaunch();
 
-        MainWindow.Activate();
+        // Do not actiavate window if launched from startup task. Keep running in the system tray.
+        if (!isStartupTaskLaunch)
+        {
+            shellWindow.HandleAppActivation(args);
+            MainWindow.Activate();
+        }
     }
 
     private void RegisterRecipients()

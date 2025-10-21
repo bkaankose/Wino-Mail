@@ -4,8 +4,10 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:notifyicon="using:H.NotifyIcon"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
     mc:Ignorable="d">
@@ -30,9 +32,25 @@
             IsBackButtonVisible="{x:Bind StatePersistanceService.IsBackButtonVisible, Mode=OneWay}"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="PaneButtonClicked" />
+
         <Frame
             x:Name="MainShellFrame"
             Grid.Row="1"
             Navigated="MainFrameNavigated" />
+
+        <notifyicon:TaskbarIcon
+            x:Name="SystemTrayIcon"
+            ContextMenuMode="PopupMenu"
+            DoubleClickCommand="{x:Bind ShowWinoCommand}"
+            IconSource="/Assets/Wino_Icon.ico"
+            NoLeftClickDelay="True">
+            <notifyicon:TaskbarIcon.ContextFlyout>
+                <MenuFlyout AreOpenCloseAnimationsEnabled="False">
+                    <MenuFlyoutItem Command="{x:Bind ShowWinoCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ShowWino}" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Command="{x:Bind ExitWinoCommand}" Text="{x:Bind domain:Translator.SystemTrayMenu_ExitWino}" />
+                </MenuFlyout>
+            </notifyicon:TaskbarIcon.ContextFlyout>
+        </notifyicon:TaskbarIcon>
     </Grid>
 </winuiex:WindowEx>

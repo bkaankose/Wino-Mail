@@ -686,6 +686,8 @@
     "SystemFolderConfigDialogValidation_InboxSelected": "You can't assign Inbox folder to any other system folder.",
     "SystemFolderConfigSetupSuccess_Message": "System folders are successfully configured.",
     "SystemFolderConfigSetupSuccess_Title": "System Folders Setup",
+    "SystemTrayMenu_ShowWino": "Open Wino Mail",
+    "SystemTrayMenu_ExitWino": "Exit",
     "TestingImapConnectionMessage": "Testing server connection...",
     "TitleBarServerDisconnectedButton_Description": "Wino is disconnected from the network. Click reconnect to restore connection.",
     "TitleBarServerDisconnectedButton_Title": "no connection",
