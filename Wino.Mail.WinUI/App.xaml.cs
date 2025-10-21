@@ -104,10 +104,11 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
 
         bool isStartupTaskLaunch = IsStartupTaskLaunch();
 
+        shellWindow.HandleAppActivation(args);
+
         // Do not actiavate window if launched from startup task. Keep running in the system tray.
         if (!isStartupTaskLaunch)
         {
-            shellWindow.HandleAppActivation(args);
             MainWindow.Activate();
         }
     }

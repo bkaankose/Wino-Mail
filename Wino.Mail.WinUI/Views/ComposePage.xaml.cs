@@ -10,6 +10,7 @@ using EmailValidation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using MimeKit;
 using Windows.ApplicationModel.DataTransfer;
@@ -34,12 +35,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
     private readonly List<IDisposable> _disposables = [];
-    private readonly SystemNavigationManagerPreview _navManagerPreview = SystemNavigationManagerPreview.GetForCurrentView();
 
     public ComposePage()
     {
         InitializeComponent();
-        _navManagerPreview.CloseRequested += OnClose;
     }
 
     private async void GlobalFocusManagerGotFocus(object sender, FocusManagerGotFocusEventArgs e)
@@ -235,9 +234,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         FocusManager.GotFocus += GlobalFocusManagerGotFocus;
 
-        // TODO: disabled animation for now, since it's still not working properly.
-        //var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
-        //anim?.TryStart(GetWebView());
+        var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
+        anim?.TryStart(GetWebView());
 
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
@@ -371,7 +369,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         base.OnNavigatingFrom(e);
 
         FocusManager.GotFocus -= GlobalFocusManagerGotFocus;
-        _navManagerPreview.CloseRequested -= OnClose;
         await ViewModel.UpdateMimeChangesAsync();
 
         DisposeDisposables();

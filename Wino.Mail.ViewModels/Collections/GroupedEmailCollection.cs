@@ -6,6 +6,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels.Collections;
@@ -34,12 +35,15 @@ public enum EmailSortDirection
 /// </summary>
 public partial class GroupedEmailCollection : ObservableObject, IRecipient<PropertyChangedMessage<bool>>, IDisposable
 {
+    public event EventHandler SelectionChanged;
+
     private readonly ObservableCollection<MailItemViewModel> _sourceItems = [];
     private readonly Dictionary<string, GroupHeaderBase> _groupHeaders = [];
     private readonly Dictionary<string, int> _groupHeaderIndexCache = [];
     private readonly Dictionary<string, List<object>> _groupItems = [];
     private readonly Dictionary<string, ThreadMailItemViewModel> _threadExpanders = [];
     private readonly HashSet<Guid> _mailCopyIdHashSet = [];
+    private readonly HashSet<MailItemViewModel> _selectedVisibleItems = [];
     private bool _disposed;
     private bool _isUpdating;
 
@@ -48,6 +52,28 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
     [ObservableProperty]
     private EmailSortDirection sortDirection = EmailSortDirection.Descending;
+
+    // Tracks the number of currently selected visible mail items. Notify derived bools when changed.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedItems))]
+    [NotifyPropertyChangedFor(nameof(HasSingleItemSelected))]
+    [NotifyPropertyChangedFor(nameof(HasMultipleItemsSelected))]
+    public partial int SelectedVisibleCount { get; set; }
+
+    /// <summary>
+    /// Indicates whether there are any selected visible items.
+    /// </summary>
+    public bool HasSelectedItems => SelectedVisibleCount > 0;
+
+    /// <summary>
+    /// Indicates whether there is exactly one selected visible item.
+    /// </summary>
+    public bool HasSingleItemSelected => SelectedVisibleCount == 1;
+
+    /// <summary>
+    /// Indicates whether there are multiple selected visible items.
+    /// </summary>
+    public bool HasMultipleItemsSelected => SelectedVisibleCount > 1;
 
     public GroupedEmailCollection()
     {
@@ -88,6 +114,12 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     /// Gets all email items across all groups as a flat collection
     /// </summary>
     public IEnumerable<MailItemViewModel> AllItems => _sourceItems;
+
+    /// <summary>
+    /// Gets all currently selected visible email items in the UI.
+    /// This collection is automatically maintained by tracking PropertyChanged events.
+    /// </summary>
+    public IReadOnlyCollection<MailItemViewModel> SelectedVisibleItems => _selectedVisibleItems;
 
     /// <summary>
     /// Gets all currently selected email items.
@@ -163,7 +195,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     }
 
     /// <summary>
-    /// Handles PropertyChanged messages for thread expansion
+    /// Handles PropertyChanged messages for thread expansion and mail item selection
     /// </summary>
     public void Receive(PropertyChangedMessage<bool> message)
     {
@@ -174,6 +206,94 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         if (message.PropertyName == nameof(ThreadMailItemViewModel.IsThreadExpanded) && message.Sender is ThreadMailItemViewModel expander)
         {
             HandleThreadExpansion(expander);
+        }
+        else if (message.PropertyName == nameof(MailItemViewModel.IsSelected) && message.Sender is MailItemViewModel mailItem)
+        {
+            HandleMailItemSelectionChanged(mailItem, message.NewValue);
+        }
+    }
+
+    private void HandleMailItemSelectionChanged(MailItemViewModel mailItem, bool isSelected)
+    {
+        bool selectionChanged = false;
+
+        if (isSelected)
+        {
+            // Add to selected items if it's visible in the UI
+            if (Items.Contains(mailItem))
+            {
+                if (_selectedVisibleItems.Add(mailItem))
+                {
+                    SelectedVisibleCount = _selectedVisibleItems.Count;
+                    OnPropertyChanged(nameof(SelectedVisibleItems));
+                    selectionChanged = true;
+                }
+            }
+        }
+        else
+        {
+            // Remove from selected items
+            if (_selectedVisibleItems.Remove(mailItem))
+            {
+                SelectedVisibleCount = _selectedVisibleItems.Count;
+                OnPropertyChanged(nameof(SelectedVisibleItems));
+                selectionChanged = true;
+            }
+        }
+
+        if (selectionChanged)
+        {
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Registers a mail item to track its selection state when added to the visible UI
+    /// </summary>
+    private void RegisterMailItemForSelectionTracking(MailItemViewModel mailItem)
+    {
+        if (mailItem == null)
+            return;
+
+        // Subscribe to property changed to track IsSelected changes
+        mailItem.PropertyChanged += MailItem_PropertyChanged;
+
+        // If the item is already selected, add it to the tracking set
+        if (mailItem.IsSelected && Items.Contains(mailItem))
+        {
+            if (_selectedVisibleItems.Add(mailItem))
+            {
+                SelectedVisibleCount = _selectedVisibleItems.Count;
+                SelectionChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Unregisters a mail item from selection tracking when removed from the visible UI
+    /// </summary>
+    private void UnregisterMailItemFromSelectionTracking(MailItemViewModel mailItem)
+    {
+        if (mailItem == null)
+            return;
+
+        // Unsubscribe from property changed
+        mailItem.PropertyChanged -= MailItem_PropertyChanged;
+
+        // Remove from selected items tracking
+        if (_selectedVisibleItems.Remove(mailItem))
+        {
+            SelectedVisibleCount = _selectedVisibleItems.Count;
+            OnPropertyChanged(nameof(SelectedVisibleItems));
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void MailItem_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is MailItemViewModel mailItem && e.PropertyName == nameof(MailItemViewModel.IsSelected))
+        {
+            HandleMailItemSelectionChanged(mailItem, mailItem.IsSelected);
         }
     }
 
@@ -197,6 +317,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                 foreach (var email in sortedThreadEmails)
                 {
                     Items.Insert(insertIndex, email);
+                    RegisterMailItemForSelectionTracking(email);
                     insertIndex++;
                 }
 
@@ -210,8 +331,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                     var emailIndex = Items.IndexOf(email);
                     if (emailIndex >= 0)
                     {
-                        var sourceItem = _sourceItems.FirstOrDefault(a => a == email);
-
+                        UnregisterMailItemFromSelectionTracking(email);
                         Items.RemoveAt(emailIndex);
                         UpdateHeaderIndicesAfterRemoval(emailIndex);
                     }
@@ -315,17 +435,35 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         if (email?.MailCopy == null)
             return;
 
+        RemoveEmailByMailCopy(email.MailCopy);
+    }
+
+    /// <summary>
+    /// Removes an email from the collection based on MailCopy.
+    /// The mail copy might be in a thread where it's not visible in the UI items.
+    /// In that case, it will be removed from the all items source and the thread.
+    /// </summary>
+    public void RemoveEmailByMailCopy(MailCopy mailCopy)
+    {
+        if (mailCopy == null)
+            return;
+
         // Remove from unique ID tracking
-        _mailCopyIdHashSet.Remove(email.MailCopy.UniqueId);
+        _mailCopyIdHashSet.Remove(mailCopy.UniqueId);
 
         _isUpdating = true;
         try
         {
-            var threadId = email.MailCopy.ThreadId;
+            // Find the email in the source collection
+            var email = _sourceItems.FirstOrDefault(e => e.MailCopy.UniqueId == mailCopy.UniqueId);
+
+            if (email == null)
+                return; // Email not found
+
+            var threadId = mailCopy.ThreadId;
 
             // Remove from source collection
-            if (!_sourceItems.Remove(email))
-                return; // Email not found
+            _sourceItems.Remove(email);
 
             if (!string.IsNullOrEmpty(threadId) && _threadExpanders.TryGetValue(threadId, out var expander))
             {
@@ -333,7 +471,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                 expander.RemoveEmail(email);
                 email.IsDisplayedInThread = false;
 
-                // Remove email from UI
+                // Remove email from UI if it's visible (only if thread is expanded)
                 RemoveEmailFromUI(email);
 
                 // Check if thread now has only 1 email - convert back to standalone
@@ -431,6 +569,20 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         _isUpdating = true;
         try
         {
+            // Unregister all mail items from selection tracking
+            foreach (var item in Items)
+            {
+                if (item is MailItemViewModel mailItem)
+                {
+                    UnregisterMailItemFromSelectionTracking(mailItem);
+                }
+            }
+
+            // Clear selected items tracking
+            var hadSelectedItems = _selectedVisibleItems.Count > 0;
+            _selectedVisibleItems.Clear();
+            SelectedVisibleCount = 0;
+
             // Reset IsDisplayedInThread for all emails before clearing
             foreach (var email in _sourceItems)
             {
@@ -453,6 +605,12 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
             OnPropertyChanged(nameof(TotalCount));
             OnPropertyChanged(nameof(TotalUnreadCount));
+            OnPropertyChanged(nameof(SelectedVisibleItems));
+
+            if (hadSelectedItems)
+            {
+                SelectionChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
         finally
         {
@@ -481,14 +639,32 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         _isUpdating = true;
         try
         {
+            // Unregister all mail items before clearing
+            foreach (var item in Items)
+            {
+                if (item is MailItemViewModel mailItem)
+                {
+                    UnregisterMailItemFromSelectionTracking(mailItem);
+                }
+            }
+
             // Clear UI items but preserve source and expanders
             Items.Clear();
             _groupHeaders.Clear();
             _groupHeaderIndexCache.Clear();
             _groupItems.Clear();
+            var hadSelectedItems = _selectedVisibleItems.Count > 0;
+            _selectedVisibleItems.Clear();
+            SelectedVisibleCount = 0;
 
             if (!_sourceItems.Any())
+            {
+                if (hadSelectedItems)
+                {
+                    SelectionChanged?.Invoke(this, EventArgs.Empty);
+                }
                 return;
+            }
 
             // Rebuild thread expanders based on current emails
             RebuildThreadExpanders();
@@ -550,6 +726,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                             foreach (var threadEmail in sortedThreadEmails)
                             {
                                 Items.Add(threadEmail);
+                                RegisterMailItemForSelectionTracking(threadEmail);
                                 currentIndex++;
                             }
                         }
@@ -558,6 +735,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                     {
                         // Add standalone email
                         Items.Add(email);
+                        RegisterMailItemForSelectionTracking(email);
                         currentIndex++;
                     }
                 }
@@ -565,6 +743,11 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
             // Update group header counts
             UpdateAllGroupHeaderCounts();
+
+            if (hadSelectedItems)
+            {
+                SelectionChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
         finally
         {
@@ -595,27 +778,28 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
                 // Determine the group key for this email
                 var groupKey = GetGroupKeyForItem(email);
-                
+
                 // Get or create the group header
                 var groupHeader = GetOrCreateGroupHeader(groupKey);
-                
+
                 // Find where this email should be inserted in the UI
                 var insertPosition = FindUIInsertionPosition(email, groupKey);
-                
+
                 // Insert the email at the correct position
                 Items.Insert(insertPosition, email);
-                
+                RegisterMailItemForSelectionTracking(email);
+
                 // Update the group items list
                 if (!_groupItems.ContainsKey(groupKey))
                 {
                     _groupItems[groupKey] = new List<object>();
                 }
-                
+
                 // Insert in the group items list maintaining sort order
                 var groupItems = _groupItems[groupKey];
                 var groupInsertIndex = FindGroupInsertionIndex(email, groupItems);
                 groupItems.Insert(groupInsertIndex, email);
-                
+
                 // If this is the first item in a new group, we need to add the header
                 if (groupItems.Count == 1)
                 {
@@ -623,7 +807,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                     var headerInsertPosition = FindHeaderInsertionPosition(groupKey, groupHeader);
                     Items.Insert(headerInsertPosition, groupHeader);
                     _groupHeaderIndexCache[groupKey] = headerInsertPosition;
-                    
+
                     // Update all subsequent header indices
                     UpdateSubsequentHeaderIndices(groupKey, 1);
                 }
@@ -762,6 +946,196 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         return null;
     }
 
+    /// <summary>
+    /// Gets the next item in the UI list based on the given MailCopy.
+    /// If the next item is a thread, the thread will be expanded and the first item in the thread returned.
+    /// </summary>
+    /// <param name="mailCopy">The mail copy to find the next item for.</param>
+    /// <returns>The next mail item in the UI list, or null if no next item exists.</returns>
+    public MailItemViewModel GetNextItem(MailCopy mailCopy)
+    {
+        if (mailCopy == null)
+            return null;
+
+        _isUpdating = true;
+        try
+        {
+            // Find the current item in the UI Items collection
+            var currentItemIndex = -1;
+            MailItemViewModel currentMailItem = null;
+            ThreadMailItemViewModel currentThread = null;
+
+            // First, try to find the item as a standalone email in the Items collection
+            for (int i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i];
+
+                if (item is MailItemViewModel mailItem && mailItem.MailCopy.UniqueId == mailCopy.UniqueId)
+                {
+                    currentItemIndex = i;
+                    currentMailItem = mailItem;
+                    break;
+                }
+            }
+
+            // If not found as standalone, check if it's in a thread
+            if (currentItemIndex == -1)
+            {
+                // Find the thread that contains this mail
+                foreach (var expander in _threadExpanders.Values)
+                {
+                    if (expander.HasUniqueId(mailCopy.UniqueId))
+                    {
+                        // Find the thread expander in the Items collection
+                        currentItemIndex = Items.IndexOf(expander);
+                        currentThread = expander;
+
+                        // If thread is expanded, find the specific mail item within the thread
+                        if (expander.IsThreadExpanded)
+                        {
+                            var threadMailItem = expander.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == mailCopy.UniqueId);
+                            if (threadMailItem != null)
+                            {
+                                currentItemIndex = Items.IndexOf(threadMailItem);
+                                currentMailItem = threadMailItem;
+                            }
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            // If we still haven't found the item, it's not in the UI
+            if (currentItemIndex == -1)
+                return null;
+
+            // Look for the next item in the Items collection
+            for (int i = currentItemIndex + 1; i < Items.Count; i++)
+            {
+                var nextItem = Items[i];
+
+                // Skip group headers
+                if (nextItem is GroupHeaderBase)
+                    continue;
+
+                // If next item is a mail item, return it
+                if (nextItem is MailItemViewModel nextMailItem)
+                {
+                    return nextMailItem;
+                }
+
+                // If next item is a thread expander, expand it and return the first item
+                if (nextItem is ThreadMailItemViewModel threadExpander)
+                {
+                    // Expand the thread if not already expanded
+                    if (!threadExpander.IsThreadExpanded)
+                    {
+                        threadExpander.IsThreadExpanded = true;
+                    }
+
+                    // Return the first item in the thread (latest email)
+                    var sortedThreadEmails = SortDirection == EmailSortDirection.Descending
+                        ? threadExpander.ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).ToList()
+                        : threadExpander.ThreadEmails.OrderBy(e => e.MailCopy?.CreationDate).ToList();
+
+                    return sortedThreadEmails.FirstOrDefault();
+                }
+            }
+
+            // No next item found
+            return null;
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
+    }
+
+    /// <summary>
+    /// Searches for all mail items with a specific FromAddress and toggles their ThumbnailUpdatedEvent property.
+    /// This will notify the UI to update thumbnails for all matching items.
+    /// </summary>
+    /// <param name="fromAddress">The email address to search for in FromAddress property.</param>
+    public void UpdateThumbnailsForAddress(string fromAddress)
+    {
+        if (string.IsNullOrEmpty(fromAddress)) return;
+
+        // Search through all source items (includes both standalone and threaded emails)
+        foreach (var mailItem in _sourceItems)
+        {
+            if (string.Equals(mailItem.MailCopy.FromAddress, fromAddress, StringComparison.OrdinalIgnoreCase))
+            {
+                // Toggle the ThumbnailUpdatedEvent to notify the UI
+                mailItem.ThumbnailUpdatedEvent = !mailItem.ThumbnailUpdatedEvent;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Selects all visible mail items in the collection.
+    /// Only operates on MailItemViewModel instances, skipping group headers and thread expanders.
+    /// </summary>
+    /// <returns>The number of items that were selected.</returns>
+    public int SelectAll()
+    {
+        var selectedCount = 0;
+
+        foreach (var item in Items)
+        {
+            // Only select MailItemViewModel instances (skip GroupHeaderBase and ThreadMailItemViewModel)
+            if (item is MailItemViewModel mailItem)
+            {
+                if (!mailItem.IsSelected)
+                {
+                    mailItem.IsSelected = true;
+                    selectedCount++;
+                }
+            }
+        }
+
+        SelectedVisibleCount = _selectedVisibleItems.Count;
+
+        if (selectedCount > 0)
+        {
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        return selectedCount;
+    }
+
+    /// <summary>
+    /// Clears the selection of all visible mail items in the collection.
+    /// Only operates on MailItemViewModel instances, skipping group headers and thread expanders.
+    /// </summary>
+    /// <returns>The number of items that were deselected.</returns>
+    public int ClearSelections()
+    {
+        var deselectedCount = 0;
+
+        foreach (var item in Items)
+        {
+            // Only deselect MailItemViewModel instances (skip GroupHeaderBase and ThreadMailItemViewModel)
+            if (item is MailItemViewModel mailItem)
+            {
+                if (mailItem.IsSelected)
+                {
+                    mailItem.IsSelected = false;
+                    deselectedCount++;
+                }
+            }
+        }
+
+        SelectedVisibleCount = _selectedVisibleItems.Count;
+
+        if (deselectedCount > 0)
+        {
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        return deselectedCount;
+    }
+
     private void AddThreadToUI(ThreadMailItemViewModel expander, string groupKey)
     {
         var groupHeader = GetOrCreateGroupHeader(groupKey);
@@ -789,6 +1163,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                 foreach (var email in sortedThreadEmails)
                 {
                     Items.Insert(currentIndex, email);
+                    RegisterMailItemForSelectionTracking(email);
                     currentIndex++;
                     totalInserted++;
                 }
@@ -819,6 +1194,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                 foreach (var email in sortedThreadEmails)
                 {
                     Items.Insert(currentIndex, email);
+                    RegisterMailItemForSelectionTracking(email);
                     currentIndex++;
                     totalInserted++;
                 }
@@ -846,6 +1222,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
             var emailIndex = Items.IndexOf(email);
             if (emailIndex >= 0)
             {
+                UnregisterMailItemFromSelectionTracking(email);
                 Items.RemoveAt(emailIndex);
                 UpdateHeaderIndicesAfterRemoval(emailIndex);
             }
@@ -857,6 +1234,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         var itemIndex = Items.IndexOf(email);
         if (itemIndex >= 0)
         {
+            UnregisterMailItemFromSelectionTracking(email);
             Items.RemoveAt(itemIndex);
             UpdateHeaderIndicesAfterRemoval(itemIndex);
         }
@@ -874,6 +1252,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
             var insertPosition = FindGroupInsertionPosition(groupKey);
             Items.Insert(insertPosition, groupHeader);
             Items.Insert(insertPosition + 1, email);
+            RegisterMailItemForSelectionTracking(email);
 
             UpdateHeaderIndicesAfterInsertion(insertPosition, 2);
             _groupHeaderIndexCache[groupKey] = insertPosition;
@@ -884,6 +1263,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
             var groupEndIndex = FindGroupEndIndex(headerIndex);
             var insertIndex = FindItemInsertionIndexInGroup(email, headerIndex, groupEndIndex);
             Items.Insert(insertIndex, email);
+            RegisterMailItemForSelectionTracking(email);
 
             UpdateHeaderIndicesAfterInsertion(insertIndex);
         }
@@ -1157,7 +1537,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         foreach (var threadGroup in newThreadGroups)
         {
             var threadId = threadGroup.Key;
-            
+
             if (_threadExpanders.TryGetValue(threadId, out var existingExpander))
             {
                 // Add new emails to existing thread
@@ -1175,13 +1555,13 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                     .ToList();
 
                 var allThreadEmails = existingEmailsInThread.Concat(threadGroup).ToList();
-                
+
                 if (allThreadEmails.Count >= 2)
                 {
                     // Create new thread expander
                     var expander = new ThreadMailItemViewModel(threadId);
                     _threadExpanders[threadId] = expander;
-                    
+
                     // Add all emails to the thread
                     foreach (var email in allThreadEmails)
                     {
@@ -1206,7 +1586,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
         var headerIndex = _groupHeaderIndexCache[groupKey];
         var groupEndIndex = FindGroupEndIndex(headerIndex);
-        
+
         return FindItemInsertionIndexInGroup(email, headerIndex, groupEndIndex);
     }
 
@@ -1216,19 +1596,19 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     private int FindGroupInsertionIndex(MailItemViewModel email, List<object> groupItems)
     {
         var emailDate = email.MailCopy?.CreationDate ?? DateTime.MinValue;
-        
+
         for (int i = 0; i < groupItems.Count; i++)
         {
             var existingDate = GetEffectiveDate(groupItems[i]);
             var comparison = emailDate.CompareTo(existingDate);
-            
+
             if (SortDirection == EmailSortDirection.Descending)
                 comparison = -comparison;
-                
+
             if (comparison < 0)
                 return i;
         }
-        
+
         return groupItems.Count;
     }
 
@@ -1269,7 +1649,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     private void UpdateSubsequentHeaderIndices(string insertedGroupKey, int itemCount)
     {
         var insertedHeaderIndex = _groupHeaderIndexCache[insertedGroupKey];
-        
+
         var keysToUpdate = _groupHeaderIndexCache
             .Where(kvp => kvp.Key != insertedGroupKey && kvp.Value > insertedHeaderIndex)
             .Select(kvp => kvp.Key)
@@ -1321,6 +1701,15 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         {
             _sourceItems.CollectionChanged -= OnSourceItemsChanged;
 
+            // Unregister all mail items from selection tracking
+            foreach (var item in Items)
+            {
+                if (item is MailItemViewModel mailItem)
+                {
+                    UnregisterMailItemFromSelectionTracking(mailItem);
+                }
+            }
+
             // Unregister from messenger
             WeakReferenceMessenger.Default.Unregister<PropertyChangedMessage<bool>>(this);
 
@@ -1342,6 +1731,8 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
             _groupHeaderIndexCache.Clear();
             _groupItems.Clear();
             _threadExpanders.Clear();
+            _selectedVisibleItems.Clear();
+            SelectedVisibleCount = 0;
         }
 
         _disposed = true;

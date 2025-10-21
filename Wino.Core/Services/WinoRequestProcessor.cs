@@ -94,7 +94,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         var requests = new List<IMailActionRequest>();
 
         // TODO: Fix: Collection was modified; enumeration operation may not execute
-        foreach (var item in preperationRequest.MailItems)
+        foreach (var item in preperationRequest.MailItems.ToList())
         {
             var singleRequest = await GetSingleRequestAsync(item, action, moveTargetStructure, preperationRequest.ToggleExecution);
 

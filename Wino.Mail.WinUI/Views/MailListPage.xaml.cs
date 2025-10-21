@@ -481,7 +481,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (StatePersistenceService.IsReaderNarrowed)
         {
-            if (ViewModel.HasSingleItemSelection && !isMultiSelectionEnabled)
+            if (ViewModel.MailCollection.HasSingleItemSelected && !isMultiSelectionEnabled)
             {
                 VisualStateManager.GoToState(this, "NarrowRenderer", true);
             }
@@ -492,7 +492,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
         else
         {
-            if (ViewModel.HasSingleItemSelection && !isMultiSelectionEnabled)
+            if (ViewModel.MailCollection.HasSingleItemSelected && !isMultiSelectionEnabled)
             {
                 VisualStateManager.GoToState(this, "BothPanelsMailSelected", true);
             }
@@ -505,6 +505,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void SelectAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+
+
         // MailListView.SelectAllWino();
     }
 
@@ -554,19 +556,19 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private static object _selectedItemsLock = new object();
     private void SynchronizeSelectedItems()
     {
-        lock (_selectedItemsLock)
-        {
-            ViewModel.SelectedItems.Clear();
+        //lock (_selectedItemsLock)
+        //{
+        //    ViewModel.SelectedItems.Clear();
 
-            foreach (var item in MailListView.SelectedItems)
-            {
-                if (item is MailItemViewModel mailItem)
-                {
-                    if (!mailItem.IsSelected) mailItem.IsSelected = true;
-                    if (!ViewModel.SelectedItems.Contains(mailItem)) ViewModel.SelectedItems.Add(mailItem);
-                }
-            }
-        }
+        //    foreach (var item in MailListView.SelectedItems)
+        //    {
+        //        if (item is MailItemViewModel mailItem)
+        //        {
+        //            if (!mailItem.IsSelected) mailItem.IsSelected = true;
+        //            if (!ViewModel.SelectedItems.Contains(mailItem)) ViewModel.SelectedItems.Add(mailItem);
+        //        }
+        //    }
+        //}
     }
 
     private void ThreadContainerRightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -594,6 +596,34 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 var targetAngle = expander.IsThreadExpanded ? 90f : 0f;
                 AnimateRotationWithComposition(expanderIcon, targetAngle);
             }
+        }
+    }
+
+    private void MailListView_ProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
+    {
+        // ItemsView have weird logic for selection inversion. We need to handle it manually.
+        args.Handled = true;
+
+        ViewModel.MailCollection.SelectAll();
+
+        // If not all items are selected, select all. Otherwise clear selection.
+        // Handle selections in the GroupedEmailCollection.
+
+        //if (MailListView.SelectedItems.Count < MailListView.CastedItemsSource?.Count())
+        //{
+        //    // MailListView.SelectAllWino();
+        //}
+        //else
+        //{
+        //    // MailListView.ClearSelections();
+        //}
+    }
+
+    private void SingleItemInvoked(ItemsView sender, ItemsViewItemInvokedEventArgs args)
+    {
+        if (args.InvokedItem is MailItemViewModel mailItem)
+        {
+            mailItem.IsSelected = !mailItem.IsSelected;
         }
     }
 }

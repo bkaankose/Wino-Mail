@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
-using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,11 +19,13 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Helpers;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Server;
@@ -36,8 +36,6 @@ namespace Wino.Mail.ViewModels;
 public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<MailItemNavigationRequested>,
     IRecipient<ActiveMailFolderChangedEvent>,
-    IRecipient<MailItemSelectedEvent>,
-    IRecipient<MailItemSelectionRemovedEvent>,
     IRecipient<AccountSynchronizationCompleted>,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<AccountSynchronizerStateChanged>,
@@ -57,10 +55,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private readonly HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = [];
 
-    private IObservable<System.Reactive.EventPattern<NotifyCollectionChangedEventArgs>> selectionChangedObservable = null;
+    private ThrottledEventHandler _selectionChangedThrottler;
 
     public GroupedEmailCollection MailCollection { get; set; } = new GroupedEmailCollection();
-    public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
+    //public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
     public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
     public ObservableCollection<MailOperationMenuItem> ActionItems { get; set; } = [];
 
@@ -177,37 +175,56 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         mailListLength = statePersistenceService.MailListPaneLength;
 
-        selectionChangedObservable = Observable.FromEventPattern<NotifyCollectionChangedEventArgs>(SelectedItems, nameof(SelectedItems.CollectionChanged));
-        selectionChangedObservable
-            .Throttle(TimeSpan.FromMilliseconds(100))
-            .Subscribe(async a =>
+        _selectionChangedThrottler = new ThrottledEventHandler(100, () =>
+        {
+            _ = ExecuteUIThread(() =>
             {
-                await ExecuteUIThread(() => { SelectedItemCollectionUpdated(a.EventArgs); });
-            });
+                if (MailCollection.SelectedVisibleCount == 1)
+                {
+                    ActiveMailItemChanged(MailCollection.SelectedVisibleItems.ElementAt(0));
+                }
+                else
+                {
+                    // At this point, either we don't have any item selected 
+                    // or we have multiple item selected. In either case
+                    // there should be no active item.
 
-        //MailCollection.MailItemRemoved += (c, removedItem) =>
-        //{
-        //    if (removedItem is ThreadMailItemViewModel removedThreadViewModelItem)
-        //    {
-        //        foreach (var viewModel in removedThreadViewModelItem.ThreadItems.Cast<MailItemViewModel>())
-        //        {
-        //            if (SelectedItems.Contains(viewModel))
-        //            {
-        //                SelectedItems.Remove(viewModel);
-        //            }
-        //        }
-        //    }
-        //    else if (removedItem is MailItemViewModel removedMailItemViewModel && SelectedItems.Contains(removedMailItemViewModel))
-        //    {
-        //        SelectedItems.Remove(removedMailItemViewModel);
-        //    }
-        //};
+                    ActiveMailItemChanged(null);
+                }
+
+                NotifyItemSelected();
+                SetupTopBarActions();
+            });
+        });
+    }
+
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        MailCollection.SelectionChanged += SelectedItemsChanged;
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        MailCollection.SelectionChanged -= SelectedItemsChanged;
+        MailCollection.Dispose();
+
+        _selectionChangedThrottler?.Dispose();
+        _selectionChangedThrottler = null;
+    }
+
+    private void SelectedItemsChanged(object sender, EventArgs e)
+    {
+        _selectionChangedThrottler?.Trigger();
     }
 
     private void SetupTopBarActions()
     {
         ActionItems.Clear();
-        var actions = GetAvailableMailActions(SelectedItems);
+        var actions = GetAvailableMailActions(MailCollection.SelectedVisibleItems);
         actions.ForEach(a => ActionItems.Add(a));
     }
 
@@ -248,13 +265,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public bool CanSynchronize => !IsAccountSynchronizerInSynchronization && IsFolderSynchronizationEnabled;
     public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
-    public int SelectedItemCount => SelectedItems.Count;
-    public bool HasMultipleItemSelections => SelectedItemCount > 1;
-    public bool HasSingleItemSelection => SelectedItemCount == 1;
-    public bool HasSelectedItems => SelectedItems.Any();
     public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
 
-    public string SelectedMessageText => HasSelectedItems ? string.Format(Translator.MailsSelected, SelectedItemCount) : Translator.NoMailSelected;
+    public string SelectedMessageText => MailCollection.SelectedVisibleCount > 0 ? string.Format(Translator.MailsSelected, MailCollection.SelectedVisibleCount) : Translator.NoMailSelected;
 
     /// <summary>
     /// Indicates current state of the mail list. Doesn't matter it's loading or no.
@@ -333,13 +346,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public void NotifyItemSelected()
     {
         OnPropertyChanged(nameof(SelectedMessageText));
-        OnPropertyChanged(nameof(HasSingleItemSelection));
-        OnPropertyChanged(nameof(HasSelectedItems));
-        OnPropertyChanged(nameof(SelectedItemCount));
-        OnPropertyChanged(nameof(HasMultipleItemSelections));
+        //OnPropertyChanged(nameof(HasSingleItemSelection));
+        //OnPropertyChanged(nameof(HasSelectedItems));
+        //OnPropertyChanged(nameof(SelectedItemCount));
+        //OnPropertyChanged(nameof(HasMultipleItemSelections));
 
-        if (SelectedFolderPivot != null)
-            SelectedFolderPivot.SelectedItemCount = SelectedItemCount;
+        SelectedFolderPivot?.SelectedItemCount = MailCollection.SelectedItemsCount;
     }
 
     private void NotifyItemFoundState()
@@ -358,26 +370,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             IsBarOpen = true;
         });
-    }
-
-    private void SelectedItemCollectionUpdated(NotifyCollectionChangedEventArgs e)
-    {
-        if (SelectedItems.Count == 1)
-        {
-            ActiveMailItemChanged(SelectedItems[0]);
-        }
-        else
-        {
-            // At this point, either we don't have any item selected 
-            // or we have multiple item selected. In either case
-            // there should be no active item.
-
-            ActiveMailItemChanged(null);
-        }
-
-        NotifyItemSelected();
-
-        SetupTopBarActions();
     }
 
     private async Task UpdateFolderPivotsAsync()
@@ -440,9 +432,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task ExecuteTopBarAction(MailOperationMenuItem menuItem)
     {
-        if (menuItem == null || !SelectedItems.Any()) return;
+        if (menuItem == null || MailCollection.SelectedVisibleCount == 0) return;
 
-        await HandleMailOperation(menuItem.Operation, SelectedItems);
+        await HandleMailOperation(menuItem.Operation, MailCollection.SelectedVisibleItems);
     }
 
     /// <summary>
@@ -452,9 +444,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task ExecuteMailOperation(MailOperation mailOperation)
     {
-        if (!SelectedItems.Any()) return;
+        if (!MailCollection.SelectedVisibleItems.Any()) return;
 
-        await HandleMailOperation(mailOperation, SelectedItems);
+        await HandleMailOperation(mailOperation, MailCollection.SelectedVisibleItems);
     }
 
     private async Task HandleMailOperation(MailOperation mailOperation, IEnumerable<MailItemViewModel> mailItems)
@@ -615,9 +607,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             await listManipulationSemepahore.WaitAsync();
 
-            // await MailCollection.AddAsync(addedMail);
-
-            await ExecuteUIThread(() => { NotifyItemFoundState(); });
+            await ExecuteUIThread(() =>
+            {
+                MailCollection.AddEmail(new MailItemViewModel(addedMail));
+                NotifyItemFoundState();
+            });
         }
         catch { }
         finally
@@ -632,6 +626,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         Debug.WriteLine($"Updating {updatedMail.Id}-> {updatedMail.UniqueId}");
 
+        // TODO
         // await MailCollection.UpdateMailCopy(updatedMail);
 
         await ExecuteUIThread(() => { SetupTopBarActions(); });
@@ -658,7 +653,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         if ((removedFromActiveFolder || removedFromDraftOrSent) && !isDeletedByGmailUnreadFolderAction)
         {
-            bool isDeletedMailSelected = SelectedItems.Any(a => a.MailCopy.UniqueId == removedMail.UniqueId);
+            bool isDeletedMailSelected = MailCollection.SelectedVisibleItems.Any(a => a.MailCopy.UniqueId == removedMail.UniqueId);
 
             // Automatically select the next item in the list if the setting is enabled.
             MailItemViewModel nextItem = null;
@@ -667,12 +662,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             {
                 await ExecuteUIThread(() =>
                 {
-                    // nextItem = MailCollection.GetNextItem(removedMail);
+                    nextItem = MailCollection.GetNextItem(removedMail);
                 });
             }
 
             // Remove the deleted item from the list.
-            // await MailCollection.RemoveAsync(removedMail);
+            await ExecuteUIThread(() =>
+            {
+                MailCollection.RemoveEmailByMailCopy(removedMail);
+            });
 
             if (nextItem != null)
                 WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem, ScrollToItem: true));
@@ -681,7 +679,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // There are no next item to select, but we removed the last item which was selected.
                 // Clearing selected item will dispose rendering page.
 
-                SelectedItems.Clear();
+                await ExecuteUIThread(() =>
+                {
+                    MailCollection.ClearSelections();
+                });
             }
 
             await ExecuteUIThread(() => { NotifyItemFoundState(); });
@@ -742,8 +743,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         try
         {
             MailCollection.Clear();
-
-            SelectedItems.Clear();
 
             if (ActiveFolder == null)
                 return;
@@ -885,16 +884,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     #region Receivers
 
-    void IRecipient<MailItemSelectedEvent>.Receive(MailItemSelectedEvent message)
-    {
-        if (!SelectedItems.Contains(message.SelectedMailItem)) SelectedItems.Add(message.SelectedMailItem);
-    }
-
-    void IRecipient<MailItemSelectionRemovedEvent>.Receive(MailItemSelectionRemovedEvent message)
-    {
-        if (SelectedItems.Contains(message.RemovedMailItem)) SelectedItems.Remove(message.RemovedMailItem);
-    }
-
     async void IRecipient<ActiveMailFolderChangedEvent>.Receive(ActiveMailFolderChangedEvent message)
     {
         NotifyItemSelected();
@@ -993,16 +982,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         for (int i = 0; i < 3; i++)
         {
-            // TODO: Get container.
-            //var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
+            var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
 
-            //if (mailContainer != null)
-            //{
-            //    navigatingMailItem = mailContainer.ItemViewModel;
-            //    threadMailItemViewModel = mailContainer.ThreadViewModel;
+            if (mailContainer != null)
+            {
+                navigatingMailItem = mailContainer.ItemViewModel;
+                threadMailItemViewModel = mailContainer.ThreadViewModel;
 
-            //    break;
-            //}
+                break;
+            }
         }
 
         if (threadMailItemViewModel != null)
@@ -1079,7 +1067,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     public void Receive(ThumbnailAdded message)
     {
-        // MailCollection.UpdateThumbnails(message.Email);
+        Dispatcher.ExecuteOnUIThread(() =>
+        {
+            MailCollection.UpdateThumbnailsForAddress(message.Email);
+        });
     }
 
     protected override void RegisterRecipients()
@@ -1088,8 +1079,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         Messenger.Register<MailItemNavigationRequested>(this);
         Messenger.Register<ActiveMailFolderChangedEvent>(this);
-        Messenger.Register<MailItemSelectedEvent>(this);
-        Messenger.Register<MailItemSelectionRemovedEvent>(this);
         Messenger.Register<AccountSynchronizationCompleted>(this);
         Messenger.Register<NewMailSynchronizationRequested>(this);
         Messenger.Register<AccountSynchronizerStateChanged>(this);
@@ -1103,8 +1092,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         Messenger.Unregister<MailItemNavigationRequested>(this);
         Messenger.Unregister<ActiveMailFolderChangedEvent>(this);
-        Messenger.Unregister<MailItemSelectedEvent>(this);
-        Messenger.Unregister<MailItemSelectionRemovedEvent>(this);
         Messenger.Unregister<AccountSynchronizationCompleted>(this);
         Messenger.Unregister<NewMailSynchronizationRequested>(this);
         Messenger.Unregister<AccountSynchronizerStateChanged>(this);

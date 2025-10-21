@@ -33,6 +33,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <x:Double x:Key="ItemContainerDisabledOpacity">1</x:Double>
 
         <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
         <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
@@ -58,6 +59,7 @@
             <ItemContainer
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                CanUserInvoke="UserCanInvoke"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}">
                 <animations:Implicit.ShowAnimations>
                     <animations:OpacityAnimation To="1.0" Duration="0:0:1" />
@@ -129,12 +131,16 @@
         </DataTemplate>
 
         <DataTemplate x:Key="DateGroupHeaderTemplate" x:DataType="data:DateGroupHeader">
-            <ItemContainer CanUserSelect="UserCannotSelect" IsHitTestVisible="False">
+            <ItemContainer
+                CanUserSelect="UserCannotSelect"
+                IsHitTestVisible="False"
+                IsSelected="False">
                 <Grid Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                     <TextBlock
                         FontSize="14"
                         FontWeight="SemiBold"
                         Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                        Opacity="1"
                         Style="{ThemeResource CaptionTextBlockStyle}"
                         Text="{x:Bind DisplayName, Mode=OneWay}" />
                 </Grid>
@@ -251,7 +257,7 @@
                     <CommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedItemCount), Mode=OneWay}"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedVisibleItems.Count), Mode=OneWay}"
                         OverflowButtonVisibility="Auto">
                         <interactivity:Interaction.Behaviors>
                             <local:BindableCommandBarBehavior ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}" PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
@@ -436,9 +442,8 @@
                         ItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneTime}"
                         Layout="{StaticResource DefaultItemsViewLayout}"
                         LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
-                        SelectionChanged="ListSelectionChanged"
+                        ProcessKeyboardAccelerators="MailListView_ProcessKeyboardAccelerators"
                         SelectionMode="Extended" />
-
 
                     <!--  Try online search panel.  -->
                     <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">
