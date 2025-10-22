@@ -49,8 +49,15 @@
 
         <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
 
+        <!--
+            Virtualization is disabled because it messes up the selected items.
+            When item is unrealized, it's selection state is lost.
+            I don't want to intercept ItemContainer for it.
+        -->
+
         <StackLayout
             x:Key="DefaultItemsViewLayout"
+            IsVirtualizationEnabled="False"
             Orientation="Vertical"
             Spacing="6" />
 
@@ -61,13 +68,6 @@
                 VerticalContentAlignment="Stretch"
                 CanUserInvoke="UserCanInvoke"
                 IsSelected="{x:Bind IsSelected, Mode=TwoWay}">
-                <animations:Implicit.ShowAnimations>
-                    <animations:OpacityAnimation To="1.0" Duration="0:0:1" />
-                </animations:Implicit.ShowAnimations>
-
-                <animations:Implicit.HideAnimations>
-                    <animations:OpacityAnimation To="0.0" Duration="0:0:1" />
-                </animations:Implicit.HideAnimations>
 
                 <controls:MailItemDisplayInformationControl
                     Margin="{x:Bind helpers:XamlHelpers.GetMailItemControlMargin(IsDisplayedInThread), Mode=OneWay}"
@@ -286,6 +286,7 @@
                         VerticalAlignment="Center"
                         Canvas.ZIndex="100"
                         Checked="SelectAllCheckboxChecked"
+                        IsChecked="{x:Bind ViewModel.MailCollection.IsAllItemsSelected, Mode=OneWay}"
                         Unchecked="SelectAllCheckboxUnchecked" />
 
 

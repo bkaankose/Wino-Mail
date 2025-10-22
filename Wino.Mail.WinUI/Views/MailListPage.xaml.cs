@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Windows.Foundation;
+using Windows.System;
 using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -57,16 +58,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
         }
+
+        ViewModel.ThrottledSelectionChanged += ListSelectionChanged;
+    }
+
+    private void ListSelectionChanged(object? sender, EventArgs e)
+    {
+        UpdateSelectAllButtonStatus();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
 
-        // Dispose all WinoListView items.
-
-        // MailListView.Dispose();
-
+        ViewModel.ThrottledSelectionChanged -= ListSelectionChanged;
         this.Bindings.StopTracking();
 
         RenderingFrame.Navigate(typeof(IdlePage));
@@ -79,13 +84,17 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Check all checkbox if all is selected.
         // Unhook events to prevent selection overriding.
 
-        SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
-        SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
+        //DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        //{
+        //    SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
+        //    SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
 
-        SelectAllCheckbox.IsChecked = MailListView.CastedItemsSource?.Count() > 0 && MailListView.SelectedItems.Count == MailListView.CastedItemsSource.Count();
+        //    bool isAllSelected = ViewModel.MailCollection.AllItems.All(a => a.IsSelected);
+        //    SelectAllCheckbox.IsChecked = ViewModel.MailCollection.AllItems.Count() > 0 && isAllSelected;
 
-        SelectAllCheckbox.Checked += SelectAllCheckboxChecked;
-        SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
+        //    SelectAllCheckbox.Checked += SelectAllCheckboxChecked;
+        //    SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
+        //});
     }
 
     private void SelectionModeToggleChecked(object sender, RoutedEventArgs e) => ChangeSelectionMode(ItemsViewSelectionMode.Multiple);
@@ -108,10 +117,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
         }
 
-        // SelectAllCheckbox.IsChecked = false;
+        SelectAllCheckbox.IsChecked = false;
         SelectionModeToggle.IsChecked = false;
-
-        // MailListView.ClearSelections();
 
         UpdateSelectAllButtonStatus();
         ViewModel.SelectedPivotChangedCommand.Execute(null);
@@ -134,12 +141,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
     {
-        // MailListView.SelectAllWino();
+        ViewModel.MailCollection.SelectAll();
     }
 
     private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
     {
-        // MailListView.ClearSelections();
+        ViewModel.MailCollection.ClearSelections();
     }
 
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
@@ -548,27 +555,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void ListSelectionChanged(ItemsView sender, ItemsViewSelectionChangedEventArgs args)
     {
         UpdateSelectAllButtonStatus();
-        SynchronizeSelectedItems();
-
         UpdateAdaptiveness();
-    }
-
-    private static object _selectedItemsLock = new object();
-    private void SynchronizeSelectedItems()
-    {
-        //lock (_selectedItemsLock)
-        //{
-        //    ViewModel.SelectedItems.Clear();
-
-        //    foreach (var item in MailListView.SelectedItems)
-        //    {
-        //        if (item is MailItemViewModel mailItem)
-        //        {
-        //            if (!mailItem.IsSelected) mailItem.IsSelected = true;
-        //            if (!ViewModel.SelectedItems.Contains(mailItem)) ViewModel.SelectedItems.Add(mailItem);
-        //        }
-        //    }
-        //}
     }
 
     private void ThreadContainerRightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -601,29 +588,28 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void MailListView_ProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
     {
-        // ItemsView have weird logic for selection inversion. We need to handle it manually.
-        args.Handled = true;
-
-        ViewModel.MailCollection.SelectAll();
-
-        // If not all items are selected, select all. Otherwise clear selection.
-        // Handle selections in the GroupedEmailCollection.
-
-        //if (MailListView.SelectedItems.Count < MailListView.CastedItemsSource?.Count())
-        //{
-        //    // MailListView.SelectAllWino();
-        //}
-        //else
-        //{
-        //    // MailListView.ClearSelections();
-        //}
-    }
-
-    private void SingleItemInvoked(ItemsView sender, ItemsViewItemInvokedEventArgs args)
-    {
-        if (args.InvokedItem is MailItemViewModel mailItem)
+        if (args.Key == VirtualKey.Delete)
         {
-            mailItem.IsSelected = !mailItem.IsSelected;
+
+        }
+        else
+        {
+            // ItemsView have weird logic for selection inversion. We need to handle it manually.
+            args.Handled = true;
+
+            // TODO: If not all items are selected, select all. Otherwise clear selection.
+            // Handle selections in the GroupedEmailCollection.
+
+            ViewModel.MailCollection.SelectAll();
+
+            //if (!ViewModel.MailCollection.IsAllItemsSelected)
+            //{
+
+            //}
+            //else
+            //{
+            //    ViewModel.MailCollection.ClearSelections();
+            //}
         }
     }
 }

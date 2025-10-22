@@ -57,6 +57,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private ThrottledEventHandler _selectionChangedThrottler;
 
+    public event EventHandler ThrottledSelectionChanged;
     public GroupedEmailCollection MailCollection { get; set; } = new GroupedEmailCollection();
     //public ObservableCollection<MailItemViewModel> SelectedItems { get; set; } = [];
     public ObservableCollection<FolderPivotViewModel> PivotFolders { get; set; } = [];
@@ -195,6 +196,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 NotifyItemSelected();
                 SetupTopBarActions();
             });
+
+            ThrottledSelectionChanged?.Invoke(this, EventArgs.Empty);
         });
     }
 

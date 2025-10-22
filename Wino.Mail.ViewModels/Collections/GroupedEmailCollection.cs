@@ -58,6 +58,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     [NotifyPropertyChangedFor(nameof(HasSelectedItems))]
     [NotifyPropertyChangedFor(nameof(HasSingleItemSelected))]
     [NotifyPropertyChangedFor(nameof(HasMultipleItemsSelected))]
+    [NotifyPropertyChangedFor(nameof(IsAllItemsSelected))]
     public partial int SelectedVisibleCount { get; set; }
 
     /// <summary>
@@ -74,6 +75,41 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     /// Indicates whether there are multiple selected visible items.
     /// </summary>
     public bool HasMultipleItemsSelected => SelectedVisibleCount > 1;
+
+    /// <summary>
+    /// Indicates whether all mail items are currently selected.
+    /// Counts all mail items including those in threads, regardless of thread expansion state.
+    /// </summary>
+    public bool IsAllItemsSelected
+    {
+        get
+        {
+            var totalMailItems = _sourceItems.Count;
+            if (totalMailItems == 0) return false;
+
+            var selectedCount = 0;
+
+            // Count selected standalone emails (not in threads)
+            selectedCount += _sourceItems.Count(e => e.IsSelected && !e.IsDisplayedInThread);
+
+            // Count selected emails in threads
+            foreach (var expander in _threadExpanders.Values)
+            {
+                if (expander.IsSelected)
+                {
+                    // If thread is selected, all emails in the thread are considered selected
+                    selectedCount += expander.ThreadEmails.Count;
+                }
+                else
+                {
+                    // If thread is not selected, count only individually selected emails within the thread
+                    selectedCount += expander.ThreadEmails.Count(e => e.IsSelected);
+                }
+            }
+
+            return selectedCount == totalMailItems;
+        }
+    }
 
     public GroupedEmailCollection()
     {
@@ -211,6 +247,10 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         {
             HandleMailItemSelectionChanged(mailItem, message.NewValue);
         }
+        else if (message.PropertyName == nameof(ThreadMailItemViewModel.IsSelected) && message.Sender is ThreadMailItemViewModel threadExpander)
+        {
+            HandleThreadSelectionChanged(threadExpander, message.NewValue);
+        }
     }
 
     private void HandleMailItemSelectionChanged(MailItemViewModel mailItem, bool isSelected)
@@ -245,6 +285,14 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         {
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private void HandleThreadSelectionChanged(ThreadMailItemViewModel threadExpander, bool isSelected)
+    {
+        // When a thread expander's selection changes, it affects the selection state of all emails in that thread
+        // We need to notify that the "all items selected" state might have changed
+        OnPropertyChanged(nameof(IsAllItemsSelected));
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -337,6 +385,9 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
                     }
                 }
             }
+
+            // Notify that the "all items selected" state might have changed due to visible item count change
+            OnPropertyChanged(nameof(IsAllItemsSelected));
         }
         finally
         {
@@ -606,6 +657,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
             OnPropertyChanged(nameof(TotalCount));
             OnPropertyChanged(nameof(TotalUnreadCount));
             OnPropertyChanged(nameof(SelectedVisibleItems));
+            OnPropertyChanged(nameof(IsAllItemsSelected));
 
             if (hadSelectedItems)
             {
@@ -743,6 +795,9 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
 
             // Update group header counts
             UpdateAllGroupHeaderCounts();
+
+            // Notify that the "all items selected" state might have changed due to visible items rebuild
+            OnPropertyChanged(nameof(IsAllItemsSelected));
 
             if (hadSelectedItems)
             {
@@ -1073,28 +1128,30 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     }
 
     /// <summary>
-    /// Selects all visible mail items in the collection.
-    /// Only operates on MailItemViewModel instances, skipping group headers and thread expanders.
+    /// Selects all mail items in the collection.
+    /// Includes standalone mail items and all mail items inside threads, regardless of thread expansion state.
     /// </summary>
     /// <returns>The number of items that were selected.</returns>
     public int SelectAll()
     {
-        var selectedCount = 0;
+        var initialSelectedCount = SelectedItems.Count();
 
-        foreach (var item in Items)
+        // Select all standalone emails (not in threads)
+        foreach (var mailItem in _sourceItems.Where(e => !e.IsDisplayedInThread))
         {
-            // Only select MailItemViewModel instances (skip GroupHeaderBase and ThreadMailItemViewModel)
-            if (item is MailItemViewModel mailItem)
-            {
-                if (!mailItem.IsSelected)
-                {
-                    mailItem.IsSelected = true;
-                    selectedCount++;
-                }
-            }
+            mailItem.IsSelected = true;
+        }
+
+        // Select all thread expanders (which automatically selects all emails within them)
+        foreach (var expander in _threadExpanders.Values)
+        {
+            expander.IsSelected = true;
         }
 
         SelectedVisibleCount = _selectedVisibleItems.Count;
+
+        var finalSelectedCount = SelectedItems.Count();
+        var selectedCount = finalSelectedCount - initialSelectedCount;
 
         if (selectedCount > 0)
         {
@@ -1105,28 +1162,36 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
     }
 
     /// <summary>
-    /// Clears the selection of all visible mail items in the collection.
-    /// Only operates on MailItemViewModel instances, skipping group headers and thread expanders.
+    /// Clears the selection of all mail items in the collection.
+    /// Includes standalone mail items and all mail items inside threads, regardless of thread expansion state.
     /// </summary>
     /// <returns>The number of items that were deselected.</returns>
     public int ClearSelections()
     {
-        var deselectedCount = 0;
+        var initialSelectedCount = SelectedItems.Count();
 
-        foreach (var item in Items)
+        // Deselect all standalone emails (not in threads)
+        foreach (var mailItem in _sourceItems.Where(e => !e.IsDisplayedInThread))
         {
-            // Only deselect MailItemViewModel instances (skip GroupHeaderBase and ThreadMailItemViewModel)
-            if (item is MailItemViewModel mailItem)
+            mailItem.IsSelected = false;
+        }
+
+        // Deselect all thread expanders and individual emails in threads
+        foreach (var expander in _threadExpanders.Values)
+        {
+            expander.IsSelected = false;
+            
+            // Also explicitly deselect individual emails within threads
+            foreach (var threadEmail in expander.ThreadEmails)
             {
-                if (mailItem.IsSelected)
-                {
-                    mailItem.IsSelected = false;
-                    deselectedCount++;
-                }
+                threadEmail.IsSelected = false;
             }
         }
 
         SelectedVisibleCount = _selectedVisibleItems.Count;
+
+        var finalSelectedCount = SelectedItems.Count();
+        var deselectedCount = initialSelectedCount - finalSelectedCount;
 
         if (deselectedCount > 0)
         {
