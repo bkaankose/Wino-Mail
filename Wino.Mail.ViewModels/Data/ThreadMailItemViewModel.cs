@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Thread mail item (multiple IMailItem) view model representation.
 /// </summary>
-public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
+public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable, IMailListItem
 {
     private readonly string _threadId;
 
@@ -30,21 +31,21 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
     /// <summary>
     /// Gets the latest email's subject for display
     /// </summary>
-    public string? Subject => _threadEmails
+    public string Subject => _threadEmails
         .OrderByDescending(e => e.MailCopy?.CreationDate)
         .FirstOrDefault()?.MailCopy?.Subject;
 
     /// <summary>
     /// Gets the latest email's sender name for display
     /// </summary>
-    public string? FromName => _threadEmails
+    public string FromName => _threadEmails
         .OrderByDescending(e => e.MailCopy?.CreationDate)
         .FirstOrDefault()?.MailCopy?.SenderContact.Name;
 
     /// <summary>
     /// Gets the latest email's creation date for sorting
     /// </summary>
-    public DateTime LatestEmailDate => _threadEmails
+    public DateTime CreationDate => _threadEmails
         .OrderByDescending(e => e.MailCopy?.CreationDate)
         .FirstOrDefault()?.MailCopy?.CreationDate ?? DateTime.MinValue;
 
@@ -79,11 +80,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void NotifyPropertyChanges()
+    public void NotifyPropertyChanges()
     {
         OnPropertyChanged(nameof(Subject));
         OnPropertyChanged(nameof(FromName));
-        OnPropertyChanged(nameof(LatestEmailDate));
+        OnPropertyChanged(nameof(CreationDate));
         OnPropertyChanged(nameof(LatestMailViewModel));
     }
 
@@ -115,4 +116,6 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable
     /// Checks if this thread contains an email with the specified unique ID
     /// </summary>
     public bool HasUniqueId(Guid uniqueId) => _threadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);
+
+    public IEnumerable<Guid> GetContainingIds() => ThreadEmails.Select(a => a.MailCopy.UniqueId);
 }

@@ -1,13 +1,17 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject
+public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailListItem
 {
+    public DateTime CreationDate => MailCopy.CreationDate;
     [ObservableProperty]
     public partial MailCopy MailCopy { get; set; } = mailCopy;
 
@@ -85,4 +89,6 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject
         get => MailCopy.HasAttachments;
         set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
     }
+
+    public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];
 }
