@@ -37,7 +37,10 @@ public partial class AppShellViewModel : MailBaseViewModel,
     IRecipient<AccountMenuItemsReordered>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<NavigateAppPreferencesRequested>,
-    IRecipient<AccountFolderConfigurationUpdated>
+    IRecipient<AccountFolderConfigurationUpdated>,
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>,
+    IRecipient<AccountCreatedMessage>
 {
     #region Menu Items
 
@@ -835,48 +838,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
     }
 
-    protected override async void OnAccountUpdated(MailAccount updatedAccount)
-    {
-        await ExecuteUIThread(() =>
-        {
-            if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
-            {
-                foundAccountMenuItem.UpdateAccount(updatedAccount);
-            }
-        });
-    }
 
-    protected override void OnAccountRemoved(MailAccount removedAccount)
-        => Messenger.Send(new AccountsMenuRefreshRequested(false));
-
-    protected override async void OnAccountCreated(MailAccount createdAccount)
-    {
-        latestSelectedAccountMenuItem = null;
-
-        await RecreateMenuItemsAsync();
-
-        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
-
-        await ChangeLoadedAccountAsync(createdMenuItem);
-
-        // Each created account should start a new synchronization automatically.
-        var options = new MailSynchronizationOptions()
-        {
-            AccountId = createdAccount.Id,
-            Type = MailSynchronizationType.FullFolders,
-        };
-
-        Messenger.Send(new NewMailSynchronizationRequested(options));
-
-        try
-        {
-            await _nativeAppService.PinAppToTaskbarAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to pin Wino to taskbar.");
-        }
-    }
 
     // TODO: Handle by messaging.
     private async Task SetAccountAttentionAsync(Guid accountId, AccountAttentionReason reason)
@@ -1041,7 +1003,10 @@ public partial class AppShellViewModel : MailBaseViewModel,
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-        
+
+        Messenger.Register<AccountCreatedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<NavigateManageAccountsRequested>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
@@ -1057,7 +1022,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
-        
+
         Messenger.Unregister<NavigateManageAccountsRequested>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
@@ -1068,5 +1033,50 @@ public partial class AppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Unregister<NavigateAppPreferencesRequested>(this);
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
+    }
+
+    public void Receive(AccountRemovedMessage message) => Messenger.Send(new AccountsMenuRefreshRequested(false));
+
+    public async void Receive(AccountCreatedMessage message)
+    {
+        var createdAccount = message.Account;
+        latestSelectedAccountMenuItem = null;
+
+        await RecreateMenuItemsAsync();
+
+        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
+
+        await ChangeLoadedAccountAsync(createdMenuItem);
+
+        // Each created account should start a new synchronization automatically.
+        var options = new MailSynchronizationOptions()
+        {
+            AccountId = createdAccount.Id,
+            Type = MailSynchronizationType.FullFolders,
+        };
+
+        Messenger.Send(new NewMailSynchronizationRequested(options));
+
+        try
+        {
+            await _nativeAppService.PinAppToTaskbarAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to pin Wino to taskbar.");
+        }
+    }
+
+    public async void Receive(AccountUpdatedMessage message)
+    {
+        var updatedAccount = message.Account;
+
+        await ExecuteUIThread(() =>
+        {
+            if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
+            {
+                foundAccountMenuItem.UpdateAccount(updatedAccount);
+            }
+        });
     }
 }

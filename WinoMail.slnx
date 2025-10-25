@@ -29,7 +29,7 @@
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="Wino.Core.WinUI/Wino.Core.WinUI.csproj" Id="fbb6acb5-7efb-4ac9-beee-adac47a4527a">
-      <Platform Solution="Debug|x64" Project="x64" />
+      <Platform Solution="*|x64" Project="x64" />
     </Project>
     <Project Path="Wino.Core/Wino.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />

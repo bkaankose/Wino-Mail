@@ -8,33 +8,6 @@
     <UseWinUI>true</UseWinUI>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="AppThemes\Acrylic.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Clouds.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Custom.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Forest.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Garden.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Default.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Nighty.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\Snowflake.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
-    <Content Include="AppThemes\TestTheme.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Content>
     <Content Include="Assets\FileTypes\type_archive.png" />
     <Content Include="Assets\FileTypes\type_audio.png" />
     <Content Include="Assets\FileTypes\type_executable.png" />
