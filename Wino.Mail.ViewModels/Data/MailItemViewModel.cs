@@ -91,4 +91,12 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     }
 
     public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];
+
+    public IEnumerable<MailItemViewModel> GetSelectedMailItems()
+    {
+        if (IsSelected)
+        {
+            yield return this;
+        }
+    }
 }

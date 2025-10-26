@@ -17,6 +17,7 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:i="using:Microsoft.Xaml.Interactivity"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
+    xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:local="using:Wino.Behaviors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:menuflyouts="using:Wino.MenuFlyouts"
@@ -49,147 +50,55 @@
 
         <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
 
-        <!--
-            Virtualization is disabled because it messes up the selected items.
-            When item is unrealized, it's selection state is lost.
-            I don't want to intercept ItemContainer for it.
-        -->
-
-        <StackLayout
-            x:Key="DefaultItemsViewLayout"
-            IsVirtualizationEnabled="False"
-            Orientation="Vertical"
-            Spacing="6" />
-
-        <!--  Templates  -->
-        <DataTemplate x:Key="EmailTemplate" x:DataType="viewModelData:MailItemViewModel">
-            <ItemContainer
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"
-                CanUserInvoke="UserCanInvoke"
-                IsSelected="{x:Bind IsSelected, Mode=TwoWay}">
-
-                <controls:MailItemDisplayInformationControl
-                    Margin="{x:Bind helpers:XamlHelpers.GetMailItemControlMargin(IsDisplayedInThread), Mode=OneWay}"
-                    x:DefaultBindMode="OneWay"
-                    CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
-                    ContextRequested="MailItemContextRequested"
-                    DataContext="{x:Bind}"
-                    DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
-                    HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
-                    IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
-                    IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
-                    IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
-                    LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
-                    MailItem="{x:Bind MailCopy, Mode=OneWay}"
-                    Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
-                    RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                    ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
-            </ItemContainer>
+        <!--  Single Mail Item Template  -->
+        <DataTemplate x:Key="SingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
+            <controls:MailItemDisplayInformationControl
+                x:DefaultBindMode="OneWay"
+                CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                ContextRequested="MailItemContextRequested"
+                DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
+                LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                MailItem="{x:Bind MailCopy, Mode=OneWay}"
+                Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
         </DataTemplate>
 
-        <DataTemplate x:Key="ThreadExpanderTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <ItemContainer
-                CanUserSelect="UserCannotSelect"
-                RightTapped="ThreadContainerRightTapped"
-                Tag="{x:Bind}"
-                Tapped="ThreadContainerTapped">
-                <Grid Padding="4,0,0,0" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!--  Expansion indicator  -->
-                    <Viewbox Width="12" Height="12">
-                        <FontIcon
-                            x:Name="ExpanderIcon"
-                            FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                            FontSize="12"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Glyph="&#xE76C;" />
-                    </Viewbox>
-
-                    <controls:MailItemDisplayInformationControl
-                        Grid.Column="1"
-                        x:DefaultBindMode="OneWay"
-                        CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
-                        ContextRequested="MailItemContextRequested"
-                        DataContext="{x:Bind}"
-                        DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
-                        HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
-                        IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
-                        IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
-                        IsThumbnailUpdated="{x:Bind LatestMailViewModel.ThumbnailUpdatedEvent, Mode=OneWay}"
-                        LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
-                        MailItem="{x:Bind LatestMailViewModel.MailCopy, Mode=OneWay}"
-                        Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
-                        RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                        ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
-                </Grid>
-            </ItemContainer>
+        <DataTemplate x:Key="ThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
+            <TextBlock Text="thread :)" />
         </DataTemplate>
 
-        <DataTemplate x:Key="DateGroupHeaderTemplate" x:DataType="data:DateGroupHeader">
-            <ItemContainer
-                CanUserSelect="UserCannotSelect"
-                IsHitTestVisible="False"
-                IsSelected="False">
-                <Grid Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                    <TextBlock
-                        FontSize="14"
-                        FontWeight="SemiBold"
-                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                        Opacity="1"
-                        Style="{ThemeResource CaptionTextBlockStyle}"
-                        Text="{x:Bind DisplayName, Mode=OneWay}" />
-                </Grid>
-            </ItemContainer>
-        </DataTemplate>
+        <listview:WinoMailItemTemplateSelector
+            x:Key="MailItemTemplateSelector"
+            SingleMailItemTemplate="{StaticResource SingleMailItemTemplate}"
+            ThreadMailItemTemplate="{StaticResource ThreadMailItemTemplate}" />
 
-        <DataTemplate x:Key="SenderGroupHeaderTemplate" x:DataType="data:SenderGroupHeader">
-            <ItemContainer
-                CanUserSelect="UserCannotSelect"
-                IsEnabled="False"
-                IsHitTestVisible="False">
-                <Grid Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock
-                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                        Style="{ThemeResource SubtitleTextBlockStyle}"
-                        Text="{x:Bind DisplayName, Mode=OneWay}" />
-                    <StackPanel
-                        Grid.Column="1"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{ThemeResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ItemCount, Mode=OneWay}" />
-                    </StackPanel>
-                </Grid>
-            </ItemContainer>
-        </DataTemplate>
+        <CollectionViewSource
+            x:Name="MailCollectionViewSource"
+            IsSourceGrouped="True"
+            Source="{x:Bind ViewModel.MailCollection.MailItems, Mode=OneWay}" />
 
-        <selectors1:MailItemContainerSelector
-            x:Name="MailItemContainerSelector"
-            DateGroupHeaderTemplate="{StaticResource DateGroupHeaderTemplate}"
-            EmailTemplate="{StaticResource EmailTemplate}"
-            SenderGroupHeaderTemplate="{StaticResource SenderGroupHeaderTemplate}"
-            ThreadExpanderTemplate="{StaticResource ThreadExpanderTemplate}" />
+        <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="collections:IReadOnlyObservableGroup">
+            <Grid
+                Margin="4,2"
+                AllowFocusOnInteraction="False"
+                Background="{ThemeResource MailListHeaderBackgroundColor}"
+                CornerRadius="6">
+                <TextBlock
+                    Padding="12"
+                    VerticalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    FontSize="13"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}" />
+            </Grid>
+        </DataTemplate>
     </Page.Resources>
 
-    <Page.KeyboardAccelerators>
-        <KeyboardAccelerator
-            Key="A"
-            Invoked="SelectAllInvoked"
-            Modifiers="Control" />
-
-        <KeyboardAccelerator Key="Delete" Invoked="DeleteAllInvoked" />
-    </Page.KeyboardAccelerators>
     <wino:BasePage.ShellContent>
         <Grid HorizontalAlignment="Stretch">
             <!--  Hidden focus receiver...  -->
@@ -257,7 +166,7 @@
                     <CommandBar
                         HorizontalAlignment="Left"
                         DefaultLabelPosition="Collapsed"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedVisibleItems.Count), Mode=OneWay}"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.MailCollection.SelectedItemsCount), Mode=OneWay}"
                         OverflowButtonVisibility="Auto">
                         <interactivity:Interaction.Behaviors>
                             <local:BindableCommandBarBehavior ItemClickedCommand="{x:Bind ViewModel.ExecuteTopBarActionCommand}" PrimaryCommands="{x:Bind ViewModel.ActionItems, Mode=OneWay}" />
@@ -286,7 +195,6 @@
                         VerticalAlignment="Center"
                         Canvas.ZIndex="100"
                         Checked="SelectAllCheckboxChecked"
-                        IsChecked="{x:Bind ViewModel.MailCollection.IsAllItemsSelected, Mode=OneWay}"
                         Unchecked="SelectAllCheckboxUnchecked" />
 
 
@@ -329,6 +237,7 @@
                         Grid.Row="1"
                         Grid.Column="2"
                         Orientation="Horizontal">
+                        <Button Command="{x:Bind ViewModel.RemoveFirstCommand}" Content="T" />
                         <Button
                             Width="36"
                             Height="36"
@@ -436,7 +345,37 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <advanced:WinoItemsView
+                    <listview:WinoListView
+                        x:Name="MailListView"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
+                        ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
+                        ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
+                        ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
+                        ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
+                        SelectionMode="Extended">
+                        <listview:WinoListView.ItemContainerTransitions>
+                            <TransitionCollection>
+                                <AddDeleteThemeTransition />
+                            </TransitionCollection>
+                        </listview:WinoListView.ItemContainerTransitions>
+                        <listview:WinoListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsStackPanel Margin="8,0,12,0" AreStickyGroupHeadersEnabled="True" />
+                            </ItemsPanelTemplate>
+                        </listview:WinoListView.ItemsPanel>
+                        <listview:WinoListView.Resources>
+                            <ResourceDictionary>
+                                <Style BasedOn="{StaticResource MailListHeaderStyle}" TargetType="ListViewHeaderItem" />
+                            </ResourceDictionary>
+                        </listview:WinoListView.Resources>
+                        <listview:WinoListView.GroupStyle>
+                            <GroupStyle HeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}" HidesIfEmpty="True" />
+                        </listview:WinoListView.GroupStyle>
+                    </listview:WinoListView>
+                    <!--<advanced:WinoItemsView
                         x:Name="MailListView"
                         Margin="4"
                         ItemTemplate="{StaticResource MailItemContainerSelector}"
@@ -444,7 +383,7 @@
                         Layout="{StaticResource DefaultItemsViewLayout}"
                         LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                         ProcessKeyboardAccelerators="MailListView_ProcessKeyboardAccelerators"
-                        SelectionMode="Extended" />
+                        SelectionMode="Extended" />-->
 
                     <!--  Try online search panel.  -->
                     <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">

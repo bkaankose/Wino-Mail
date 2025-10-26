@@ -1180,7 +1180,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         foreach (var expander in _threadExpanders.Values)
         {
             expander.IsSelected = false;
-            
+
             // Also explicitly deselect individual emails within threads
             foreach (var threadEmail in expander.ThreadEmails)
             {
@@ -1363,7 +1363,7 @@ public partial class GroupedEmailCollection : ObservableObject, IRecipient<Prope
         return item switch
         {
             MailItemViewModel email => email.MailCopy?.CreationDate ?? DateTime.MinValue,
-            ThreadMailItemViewModel expander => expander.LatestEmailDate,
+            ThreadMailItemViewModel expander => expander.LatestMailViewModel?.CreationDate ?? DateTime.MinValue,
             _ => DateTime.MinValue
         };
     }

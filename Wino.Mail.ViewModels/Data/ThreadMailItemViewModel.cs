@@ -118,4 +118,18 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
     public bool HasUniqueId(Guid uniqueId) => _threadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);
 
     public IEnumerable<Guid> GetContainingIds() => ThreadEmails.Select(a => a.MailCopy.UniqueId);
+
+    public IEnumerable<MailItemViewModel> GetSelectedMailItems()
+    {
+        if (IsSelected)
+        {
+            // If the thread itself is selected, return all emails in the thread
+            return ThreadEmails;
+        }
+        else
+        {
+            // Otherwise, return only individually selected emails within the thread
+            return ThreadEmails.Where(e => e.IsSelected);
+        }
+    }
 }

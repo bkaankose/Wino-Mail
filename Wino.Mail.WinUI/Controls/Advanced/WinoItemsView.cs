@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
@@ -6,6 +7,7 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls.Advanced;
 
+[Obsolete("ItemsView sucks. Hard to deal with virtualization issues. Use ListView. This control is here to wise up anyone who tries to use it.")]
 public partial class WinoItemsView : ItemsView
 {
     private const string PART_ScrollView = nameof(PART_ScrollView);

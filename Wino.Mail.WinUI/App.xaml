@@ -12,9 +12,11 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <uwp:CoreGeneric />
                 <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
+                <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
                 <ResourceDictionary Source="Styles/ItemContainerStyles.xaml" />
                 <ResourceDictionary Source="Styles/ImagePreviewControl.xaml" />
                 <ResourceDictionary Source="Styles/WebViewEditorControl.xaml" />
+                <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
 
                 <styles:WinoExpanderStyle />
                 <ResourceDictionary Source="/Wino.Core.WinUI/AppThemes/Default.xaml" />

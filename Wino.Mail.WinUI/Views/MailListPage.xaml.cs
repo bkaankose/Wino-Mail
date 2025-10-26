@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -14,7 +15,6 @@ using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Windows.Foundation;
 using Windows.System;
-using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -24,7 +24,6 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
-using Wino.Mail.WinUI;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.Abstract;
@@ -39,8 +38,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
 
-    private IStatePersistanceService StatePersistenceService { get; } = App.Current.Services.GetService<IStatePersistanceService>();
-    private IKeyPressService KeyPressService { get; } = App.Current.Services.GetService<IKeyPressService>();
+    private IStatePersistanceService StatePersistenceService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
+    private IKeyPressService KeyPressService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
 
     public MailListPage()
     {
@@ -53,26 +52,25 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         Bindings.Update();
 
+        ViewModel.MailCollection.ItemSelectionChanged += WinoMailCollectionSelectionChanged;
+
+        UpdateSelectAllButtonStatus();
+        UpdateAdaptiveness();
+
         // Delegate to ViewModel.
         if (e.Parameter is NavigateMailFolderEventArgs folderNavigationArgs)
         {
             WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
         }
-
-        ViewModel.ThrottledSelectionChanged += ListSelectionChanged;
-    }
-
-    private void ListSelectionChanged(object? sender, EventArgs e)
-    {
-        UpdateSelectAllButtonStatus();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
 
-        ViewModel.ThrottledSelectionChanged -= ListSelectionChanged;
         this.Bindings.StopTracking();
+
+        ViewModel.MailCollection.ItemSelectionChanged -= WinoMailCollectionSelectionChanged;
 
         RenderingFrame.Navigate(typeof(IdlePage));
 
@@ -84,20 +82,19 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Check all checkbox if all is selected.
         // Unhook events to prevent selection overriding.
 
-        //DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
-        //{
-        //    SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
-        //    SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
+            SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
 
-        //    bool isAllSelected = ViewModel.MailCollection.AllItems.All(a => a.IsSelected);
-        //    SelectAllCheckbox.IsChecked = ViewModel.MailCollection.AllItems.Count() > 0 && isAllSelected;
+            SelectAllCheckbox.IsChecked = ViewModel.MailCollection.IsAllItemsSelected;
 
-        //    SelectAllCheckbox.Checked += SelectAllCheckboxChecked;
-        //    SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
-        //});
+            SelectAllCheckbox.Checked += SelectAllCheckboxChecked;
+            SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
+        });
     }
 
-    private void SelectionModeToggleChecked(object sender, RoutedEventArgs e) => ChangeSelectionMode(ItemsViewSelectionMode.Multiple);
+    private void SelectionModeToggleChecked(object sender, RoutedEventArgs e) => ChangeSelectionMode(ListViewSelectionMode.Multiple);
 
     private void FolderPivotChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -124,29 +121,29 @@ public sealed partial class MailListPage : MailListPageAbstract,
         ViewModel.SelectedPivotChangedCommand.Execute(null);
     }
 
-    private void ChangeSelectionMode(ItemsViewSelectionMode mode)
+    private void ChangeSelectionMode(ListViewSelectionMode mode)
     {
         MailListView.SelectionMode = mode;
 
         if (ViewModel?.PivotFolders != null)
         {
-            ViewModel.PivotFolders.ForEach(a => a.IsExtendedMode = mode == ItemsViewSelectionMode.Extended);
+            ViewModel.PivotFolders.ForEach(a => a.IsExtendedMode = mode == ListViewSelectionMode.Extended);
         }
     }
 
     private void SelectionModeToggleUnchecked(object sender, RoutedEventArgs e)
     {
-        ChangeSelectionMode(ItemsViewSelectionMode.Extended);
+        ChangeSelectionMode(ListViewSelectionMode.Extended);
     }
 
-    private void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
+    private async void SelectAllCheckboxChecked(object sender, RoutedEventArgs e)
     {
-        ViewModel.MailCollection.SelectAll();
+        await ViewModel.MailCollection.SelectAllAsync();
     }
 
-    private void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
+    private async void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
     {
-        ViewModel.MailCollection.ClearSelections();
+        await ViewModel.MailCollection.UnselectAllAsync();
     }
 
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
@@ -156,24 +153,24 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Context is requested from a single mail point, but we might have multiple selected items.
         // This menu should be calculated based on all selected items by providers.
 
-        if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
-        {
-            if (control.DataContext is MailItemViewModel clickedMailItemContext)
-            {
-                var targetItems = ViewModel.MailCollection.AllItems.Where(a => a.IsSelected);
-                var availableActions = ViewModel.GetAvailableMailActions(targetItems);
+        //if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
+        //{
+        //    if (control.DataContext is MailItemViewModel clickedMailItemContext)
+        //    {
+        //        var targetItems = ViewModel.MailCollection.AllItems.Where(a => a.IsSelected);
+        //        var availableActions = ViewModel.GetAvailableMailActions(targetItems);
 
-                if (!availableActions?.Any() ?? false) return;
+        //        if (!availableActions?.Any() ?? false) return;
 
-                var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
+        //        var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
 
-                if (clickedOperation == null) return;
+        //        if (clickedOperation == null) return;
 
-                var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
+        //        var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
 
-                await ViewModel.ExecuteMailOperationAsync(prepRequest);
-            }
-        }
+        //        await ViewModel.ExecuteMailOperationAsync(prepRequest);
+        //    }
+        //}
     }
 
     private async Task<MailOperationMenuItem> GetMailOperationFromFlyoutAsync(IEnumerable<MailOperationMenuItem> availableActions,
@@ -277,7 +274,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     #region Connected Animation Helpers
 
-    private WebView2 GetRenderingPageWebView()
+    private WebView2? GetRenderingPageWebView()
     {
         if (RenderingFrame.Content is MailRenderingPage renderingPage)
             return renderingPage.GetWebView();
@@ -285,7 +282,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return null;
     }
 
-    private WebView2 GetComposerPageWebView()
+    private WebView2? GetComposerPageWebView()
     {
         if (RenderingFrame.Content is ComposePage composePage)
             return composePage.GetWebView();
@@ -301,7 +298,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         await ViewModel.ExecuteUIThread(async () =>
         {
-            MailListView.ClearSelections(message.SelectedMailViewModel, true);
+            // MailListView.ClearSelections(message.SelectedMailViewModel, true);
 
             int retriedSelectionCount = 0;
         trySelection:
@@ -343,7 +340,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
                 if (scrollIndex >= 0)
                 {
-                    MailListView.StartBringItemIntoView(scrollIndex, new BringIntoViewOptions() { AnimationDesired = true });
+                    await MailListView.SmoothScrollIntoViewWithIndexAsync(scrollIndex);
                 }
             }
         });
@@ -436,7 +433,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-
     private async void SearchBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         // User clicked 'x' button to clearout the search text.
@@ -510,13 +506,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void SelectAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-    {
-
-
-        // MailListView.SelectAllWino();
-    }
-
     private void DeleteAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
         => ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
 
@@ -552,7 +541,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         visual.StartAnimation("RotationAngleInDegrees", rotationAnimation);
     }
 
-    private void ListSelectionChanged(ItemsView sender, ItemsViewSelectionChangedEventArgs args)
+    private void WinoMailCollectionSelectionChanged(object sender, EventArgs args)
     {
         UpdateSelectAllButtonStatus();
         UpdateAdaptiveness();
@@ -565,7 +554,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
             expander.IsThreadExpanded = !expander.IsThreadExpanded;
 
             // Select all.
-            ViewModel.MailCollection.AllItems.Where(a => expander.ThreadEmails.Contains(a)).ForEach(a => a.IsSelected = true);
+            // ViewModel.MailCollection.AllItems.Where(a => expander.ThreadEmails.Contains(a)).ForEach(a => a.IsSelected = true);
         }
     }
 
@@ -586,7 +575,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void MailListView_ProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
+    private async void WinoListViewProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
     {
         if (args.Key == VirtualKey.Delete)
         {
@@ -594,22 +583,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
         else
         {
-            // ItemsView have weird logic for selection inversion. We need to handle it manually.
             args.Handled = true;
 
-            // TODO: If not all items are selected, select all. Otherwise clear selection.
-            // Handle selections in the GroupedEmailCollection.
-
-            ViewModel.MailCollection.SelectAll();
-
-            //if (!ViewModel.MailCollection.IsAllItemsSelected)
-            //{
-
-            //}
-            //else
-            //{
-            //    ViewModel.MailCollection.ClearSelections();
-            //}
+            await ViewModel.MailCollection.ToggleSelectAllAsync();
         }
     }
 }

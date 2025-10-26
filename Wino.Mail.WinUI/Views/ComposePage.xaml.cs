@@ -234,8 +234,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         FocusManager.GotFocus += GlobalFocusManagerGotFocus;
 
-        var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
-        anim?.TryStart(GetWebView());
+        var webView = GetWebView();
+
+        if (webView != null)
+        {
+            var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
+
+            anim?.TryStart(webView);
+        }
 
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
