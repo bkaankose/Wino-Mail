@@ -28,7 +28,6 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISignatureService _signatureService;
-
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
 
@@ -247,7 +246,59 @@ public class MailService : BaseDatabaseService, IMailService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        return [.. mails];
+        // If CreateThreads is false, just return the mails as-is
+        if (!options.CreateThreads)
+        {
+            return [.. mails];
+        }
+
+        // Include other mails in the same threads
+        var expandedMails = new List<MailCopy>(mails);
+        var processedThreadIds = new HashSet<string>();
+
+        foreach (var mail in mails)
+        {
+            if (!string.IsNullOrEmpty(mail.ThreadId) && !processedThreadIds.Contains(mail.ThreadId))
+            {
+                processedThreadIds.Add(mail.ThreadId);
+
+                // Get all other mails with the same ThreadId that are not already in the result
+                var existingMailIds = expandedMails.Select(m => m.Id).ToHashSet();
+                var threadMails = await GetMailsByThreadIdAsync(mail.ThreadId, existingMailIds).ConfigureAwait(false);
+
+                if (threadMails?.Any() == true)
+                {
+                    // Load assigned properties for the thread mails
+                    foreach (var threadMail in threadMails)
+                    {
+                        await LoadAssignedPropertiesWithCacheAsync(threadMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
+                    }
+
+                    // Remove items that have no assigned account or folder
+                    threadMails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
+
+                    expandedMails.AddRange(threadMails);
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return [.. expandedMails];
+    }
+
+    private async Task<List<MailCopy>> GetMailsByThreadIdAsync(string threadId, HashSet<string> excludeMailIds)
+    {
+        if (string.IsNullOrEmpty(threadId))
+            return [];
+
+        var query = new Query("MailCopy")
+                    .Where("ThreadId", threadId)
+                    .WhereNotIn("Id", excludeMailIds)
+                    .SelectRaw("MailCopy.*")
+                    .GetRawQuery();
+
+        return await Connection.QueryAsync<MailCopy>(query);
     }
 
     /// <summary>

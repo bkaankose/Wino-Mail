@@ -1,47 +1,30 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
 
-public partial class WinoListViewItem : ListViewItem
+public partial class WinoMailItemViewModelListViewItem : ListViewItem
 {
-    public bool IsExpanded
+    public WinoMailItemViewModelListViewItem()
     {
-        get { return (bool)GetValue(IsExpandedProperty); }
-        set { SetValue(IsExpandedProperty, value); }
-    }
-
-    public static readonly DependencyProperty IsExpandedProperty = DependencyProperty.Register(nameof(IsExpanded), typeof(bool), typeof(WinoListViewItem), new PropertyMetadata(false, OnIsExpandedChanged));
-
-    public WinoListViewItem()
-    {
-        DefaultStyleKey = typeof(WinoListViewItem);
+        DefaultStyleKey = typeof(WinoMailItemViewModelListViewItem);
 
         RegisterPropertyChangedCallback(IsSelectedProperty, OnIsSelectedChanged);
-    }
-
-    private static void OnIsExpandedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is WinoListViewItem item)
-        {
-            // Handle expansion state change if needed
-        }
     }
 
     protected override void OnContentChanged(object oldContent, object newContent)
     {
         base.OnContentChanged(oldContent, newContent);
 
-        if (oldContent is IMailListItem oldMailItem)
+        if (oldContent is MailItemViewModel oldMailItem)
         {
             UnregisterSelectionCallback(oldMailItem);
         }
 
-        if (newContent is IMailListItem newMailItem)
+        if (newContent is MailItemViewModel newMailItem)
         {
             IsSelected = newMailItem.IsSelected;
             RegisterSelectionCallback(newMailItem);
@@ -61,9 +44,9 @@ public partial class WinoListViewItem : ListViewItem
     // From model
     private void MailPropChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (sender is not IMailListItem mailItem) return;
+        if (sender is not MailItemViewModel mailItem) return;
 
-        if (e.PropertyName == nameof(IMailListItem.IsSelected)) ApplySelectionForContainer(mailItem);
+        if (e.PropertyName == nameof(MailItemViewModel.IsSelected)) ApplySelectionForContainer(mailItem);
     }
 
     // From container.
@@ -90,14 +73,5 @@ public partial class WinoListViewItem : ListViewItem
         {
             IsSelected = mailItem.IsSelected;
         }
-    }
-
-    public WinoListView? GetWinoListViewControl()
-    {
-        var expander = GetTemplateChild("ExpanderPart") as Expander;
-
-        if (expander?.Content is ContentPresenter presenter) return VisualTreeHelper.GetChild(presenter, 0) as WinoListView;
-
-        return null;
     }
 }

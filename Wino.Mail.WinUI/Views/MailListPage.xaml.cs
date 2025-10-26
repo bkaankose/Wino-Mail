@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
@@ -21,7 +20,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.MenuFlyouts.Context;
@@ -123,7 +121,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void ChangeSelectionMode(ListViewSelectionMode mode)
     {
-        MailListView.SelectionMode = mode;
+        MailListView.ChangeSelectionMode(mode);
 
         if (ViewModel?.PivotFolders != null)
         {
@@ -509,70 +507,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void DeleteAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
         => ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
 
-    /// <summary>
-    /// Animates the rotation using high-performance Composition APIs
-    /// </summary>
-    private void AnimateRotationWithComposition(FrameworkElement element, float targetAngleInDegrees)
-    {
-        // Get the element's visual from the composition layer
-        var visual = ElementCompositionPreview.GetElementVisual(element);
-        var compositor = visual.Compositor;
-
-        // Set the center point for rotation (center of the element)
-        visual.CenterPoint = new System.Numerics.Vector3(
-            (float)element.ActualWidth / 2f,
-            (float)element.ActualHeight / 2f,
-            0f);
-
-        // Create a rotation animation
-        var rotationAnimation = compositor.CreateScalarKeyFrameAnimation();
-        rotationAnimation.Target = "RotationAngleInDegrees";
-        rotationAnimation.Duration = TimeSpan.FromMilliseconds(200);
-
-        // Add easing function for smooth animation
-        var easingFunction = compositor.CreateCubicBezierEasingFunction(
-            new System.Numerics.Vector2(0.25f, 0.1f),  // Control point 1
-            new System.Numerics.Vector2(0.25f, 1f));   // Control point 2 (similar to CircleEase)
-
-        // Insert keyframe with the target angle and easing
-        rotationAnimation.InsertKeyFrame(1.0f, targetAngleInDegrees, easingFunction);
-
-        // Start the animation
-        visual.StartAnimation("RotationAngleInDegrees", rotationAnimation);
-    }
-
-    private void WinoMailCollectionSelectionChanged(object sender, EventArgs args)
+    private void WinoMailCollectionSelectionChanged(object? sender, EventArgs args)
     {
         UpdateSelectAllButtonStatus();
         UpdateAdaptiveness();
-    }
-
-    private void ThreadContainerRightTapped(object sender, RightTappedRoutedEventArgs e)
-    {
-        if (sender is ItemContainer container && container.Tag is ThreadMailItemViewModel expander)
-        {
-            expander.IsThreadExpanded = !expander.IsThreadExpanded;
-
-            // Select all.
-            // ViewModel.MailCollection.AllItems.Where(a => expander.ThreadEmails.Contains(a)).ForEach(a => a.IsSelected = true);
-        }
-    }
-
-    private void ThreadContainerTapped(object sender, TappedRoutedEventArgs e)
-    {
-        if (sender is ItemContainer container && container.Tag is ThreadMailItemViewModel expander)
-        {
-            // Toggle expansion state
-            expander.IsThreadExpanded = !expander.IsThreadExpanded;
-
-            // Find the expander icon and animate its rotation using Composition APIs
-            var expanderIcon = WinoVisualTreeHelper.GetChildObject<FontIcon>(container, "ExpanderIcon");
-            if (expanderIcon != null)
-            {
-                var targetAngle = expander.IsThreadExpanded ? 90f : 0f;
-                AnimateRotationWithComposition(expanderIcon, targetAngle);
-            }
-        }
     }
 
     private async void WinoListViewProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
@@ -587,5 +525,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             await ViewModel.MailCollection.ToggleSelectAllAsync();
         }
+    }
+
+    private void WinoListViewSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+
     }
 }

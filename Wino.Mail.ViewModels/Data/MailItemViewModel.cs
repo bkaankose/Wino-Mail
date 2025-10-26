@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -88,6 +87,10 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     {
         get => MailCopy.HasAttachments;
         set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
+    }
+
+    partial void OnIsSelectedChanged(bool oldValue, bool newValue)
+    {
     }
 
     public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];

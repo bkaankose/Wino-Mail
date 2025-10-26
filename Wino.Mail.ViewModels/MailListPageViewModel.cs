@@ -753,7 +753,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         try
         {
-            _ = MailCollection.ClearAsync();
+            await MailCollection.ClearAsync();
 
             if (ActiveFolder == null)
                 return;

@@ -83,7 +83,7 @@ public partial class WinoExpander : Control
             return;
         }
 
-        IsExpanded = !IsExpanded;
+        // IsExpanded = !IsExpanded;
     }
 
     private static void OnIsExpandedChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)

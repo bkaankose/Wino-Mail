@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -13,7 +13,6 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
 {
     private readonly string _threadId;
 
-    private readonly List<MailItemViewModel> _threadEmails = [];
     private bool _disposed;
 
     [ObservableProperty]
@@ -26,35 +25,37 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
     /// <summary>
     /// Gets the number of emails in this thread
     /// </summary>
-    public int EmailCount => _threadEmails.Count;
+    public int EmailCount => ThreadEmails.Count;
 
     /// <summary>
     /// Gets the latest email's subject for display
     /// </summary>
-    public string Subject => _threadEmails
+    public string Subject => ThreadEmails
         .OrderByDescending(e => e.MailCopy?.CreationDate)
         .FirstOrDefault()?.MailCopy?.Subject;
 
     /// <summary>
     /// Gets the latest email's sender name for display
     /// </summary>
-    public string FromName => _threadEmails
+    public string FromName => ThreadEmails
         .OrderByDescending(e => e.MailCopy?.CreationDate)
         .FirstOrDefault()?.MailCopy?.SenderContact.Name;
 
     /// <summary>
     /// Gets the latest email's creation date for sorting
     /// </summary>
-    public DateTime CreationDate => _threadEmails
+    public DateTime CreationDate => ThreadEmails
         .OrderByDescending(e => e.MailCopy?.CreationDate)
         .FirstOrDefault()?.MailCopy?.CreationDate ?? DateTime.MinValue;
 
     /// <summary>
-    /// Gets all emails in this thread (read-only)
+    /// Gets all emails in this thread (observable)
     /// </summary>
-    public IReadOnlyList<MailItemViewModel> ThreadEmails => _threadEmails.AsReadOnly();
+    ///
+    [ObservableProperty]
+    public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
-    public MailItemViewModel LatestMailViewModel => _threadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
+    public MailItemViewModel LatestMailViewModel => ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
 
     public ThreadMailItemViewModel(string threadId)
     {
@@ -68,7 +69,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
 
         if (disposing)
         {
-            _threadEmails.Clear();
+            ThreadEmails.Clear();
         }
 
         _disposed = true;
@@ -86,6 +87,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
         OnPropertyChanged(nameof(FromName));
         OnPropertyChanged(nameof(CreationDate));
         OnPropertyChanged(nameof(LatestMailViewModel));
+        OnPropertyChanged(nameof(ThreadEmails));
     }
 
 
@@ -97,7 +99,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
         if (email.MailCopy.ThreadId != _threadId)
             throw new ArgumentException($"Email ThreadId '{email.MailCopy.ThreadId}' does not match expander ThreadId '{_threadId}'");
 
-        _threadEmails.Add(email);
+        ThreadEmails.Add(email);
         NotifyPropertyChanges();
     }
 
@@ -106,7 +108,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
     /// </summary>
     public void RemoveEmail(MailItemViewModel email)
     {
-        if (_threadEmails.Remove(email))
+        if (ThreadEmails.Remove(email))
         {
             NotifyPropertyChanges();
         }
@@ -115,7 +117,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
     /// <summary>
     /// Checks if this thread contains an email with the specified unique ID
     /// </summary>
-    public bool HasUniqueId(Guid uniqueId) => _threadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);
+    public bool HasUniqueId(Guid uniqueId) => ThreadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);
 
     public IEnumerable<Guid> GetContainingIds() => ThreadEmails.Select(a => a.MailCopy.UniqueId);
 

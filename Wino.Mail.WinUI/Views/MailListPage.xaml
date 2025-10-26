@@ -69,7 +69,39 @@
         </DataTemplate>
 
         <DataTemplate x:Key="ThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <TextBlock Text="thread :)" />
+            <controls:WinoExpander x:Name="ExpanderPart" IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
+                <controls:WinoExpander.Header>
+                    <controls:MailItemDisplayInformationControl
+                        x:DefaultBindMode="OneWay"
+                        CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
+                        ContextRequested="MailItemContextRequested"
+                        DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                        HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
+                        IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                        IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                        IsThreadExpanded="{x:Bind IsThreadExpanded, Mode=OneWay}"
+                        IsThreadExpanderVisible="True"
+                        IsThumbnailUpdated="{x:Bind LatestMailViewModel.ThumbnailUpdatedEvent, Mode=OneWay}"
+                        LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
+                        MailItem="{x:Bind LatestMailViewModel.MailCopy, Mode=OneWay}"
+                        Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                        RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
+                        ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
+                </controls:WinoExpander.Header>
+                <controls:WinoExpander.Content>
+                    <listview:WinoListView
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
+                        toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
+                        ItemContainerStyle="{StaticResource DefaultMailListViewItemStyle}"
+                        ItemTemplate="{StaticResource SingleMailItemTemplate}"
+                        ItemsSource="{x:Bind ThreadEmails, Mode=OneTime}"
+                        ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
+                        SelectionMode="Extended" />
+                </controls:WinoExpander.Content>
+            </controls:WinoExpander>
+
         </DataTemplate>
 
         <listview:WinoMailItemTemplateSelector
@@ -355,6 +387,7 @@
                         ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
                         ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
+                        SelectionChanged="WinoListViewSelectionChanged"
                         SelectionMode="Extended">
                         <listview:WinoListView.ItemContainerTransitions>
                             <TransitionCollection>
