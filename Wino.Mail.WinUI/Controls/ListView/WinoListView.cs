@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 
@@ -28,15 +27,10 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 
     protected override void ClearContainerForItemOverride(DependencyObject element, object item)
     {
-        if (item is IMailListItem mailListItem)
-        {
-            if (element is WinoThreadMailItemViewModelListViewItem threadMailItemViewModelListViewItem) threadMailItemViewModelListViewItem.Cleanup();
-            if (element is WinoMailItemViewModelListViewItem winoMailItemViewModelListViewItem) winoMailItemViewModelListViewItem.Cleanup();
-        }
+        if (element is WinoThreadMailItemViewModelListViewItem threadMailItemViewModelListViewItem) threadMailItemViewModelListViewItem.Cleanup();
+        if (element is WinoMailItemViewModelListViewItem winoMailItemViewModelListViewItem) winoMailItemViewModelListViewItem.Cleanup();
 
         base.ClearContainerForItemOverride(element, item);
-
-        Debug.WriteLine($"Cleaned container");
     }
 
     public bool SelectMailItemContainer(MailItemViewModel mailItemViewModel)

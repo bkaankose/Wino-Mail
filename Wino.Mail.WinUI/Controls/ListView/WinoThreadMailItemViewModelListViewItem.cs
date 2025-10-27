@@ -108,6 +108,7 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 
     private void RegisterSelectionCallback(ThreadMailItemViewModel mailItem)
     {
+        mailItem.PropertyChanged -= MailPropChanged;
         mailItem.PropertyChanged += MailPropChanged;
     }
 

@@ -49,6 +49,7 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
 
     private void RegisterSelectionCallback(IMailListItem mailItem)
     {
+        mailItem.PropertyChanged -= MailPropChanged;
         mailItem.PropertyChanged += MailPropChanged;
     }
 
