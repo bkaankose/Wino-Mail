@@ -63,6 +63,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
+
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
@@ -161,6 +162,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Handle the preparation in PrepareContainerForItemOverride
         args.IsContainerPrepared = false;
     }
+
+
 
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
@@ -496,7 +499,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void UpdateAdaptiveness()
     {
-        bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled || KeyPressService.IsCtrlKeyPressed();
+        bool isMultiSelectionEnabled = ViewModel.IsMultiSelectionModeEnabled;
 
         if (StatePersistenceService.IsReaderNarrowed)
         {
@@ -545,22 +548,85 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void WinoListViewSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void WinoListViewItemClicked(object sender, ItemClickEventArgs e)
     {
+        if (sender is not WinoListView listView) return;
 
-    }
+        bool isSelectedItemFromThread = listView.IsThreadListView;
+        bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed();
 
-    private void WinoListView_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is ThreadMailItemViewModel clickedThread)
+        bool isClickingThreadItem = e.ClickedItem is ThreadMailItemViewModel;
+
+        // Unselect all items. It's single selection.
+        if (!isCtrlPressed)
         {
-            // Only if container is selected.
+            await ViewModel.MailCollection.UnselectAllAsync();
 
-            var threadContainer = MailListView.ContainerFromItem(clickedThread) as WinoThreadMailItemViewModelListViewItem;
-
-            if (threadContainer?.IsSelected ?? false)
+            if (!isSelectedItemFromThread && !isClickingThreadItem)
             {
-                clickedThread.IsThreadExpanded = !clickedThread.IsThreadExpanded;
+                await ViewModel.MailCollection.CollapseAllThreadsAsync();
+            }
+        }
+
+        if (e.ClickedItem is MailItemViewModel mailListItem)
+        {
+            mailListItem.IsSelected = !mailListItem.IsSelected;
+        }
+        else if (e.ClickedItem is ThreadMailItemViewModel threadMailItemViewModel)
+        {
+            // Extended selection mode handling for threads
+            if (isCtrlPressed)
+            {
+                // If thread is selected and Ctrl is pressed
+                if (threadMailItemViewModel.IsSelected)
+                {
+                    // If thread was collapsed, expand it
+                    if (!threadMailItemViewModel.IsThreadExpanded)
+                    {
+                        threadMailItemViewModel.IsThreadExpanded = true;
+                    }
+                    else
+                    {
+                        // Check if all items are selected.
+                        // If so, then unselect all items in the thread and unselect the thread itself.
+                        if (threadMailItemViewModel.ThreadEmails.All(a => a.IsSelected))
+                        {
+                            foreach (var threadEmail in threadMailItemViewModel.ThreadEmails)
+                            {
+                                threadEmail.IsSelected = false;
+                            }
+                            threadMailItemViewModel.IsSelected = false;
+                            return;
+                        }
+                        else
+                        {
+                            // If thread was already expanded, select all items in the thread
+                            foreach (var threadEmail in threadMailItemViewModel.ThreadEmails)
+                            {
+                                threadEmail.IsSelected = true;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Thread is not selected, select and expand it.
+                    if (!threadMailItemViewModel.IsThreadExpanded) threadMailItemViewModel.IsThreadExpanded = true;
+                    if (!threadMailItemViewModel.IsSelected)
+                    {
+                        threadMailItemViewModel.IsSelected = true;
+
+                        foreach (var threadEmail in threadMailItemViewModel.ThreadEmails)
+                        {
+                            threadEmail.IsSelected = true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // No Ctrl pressed, toggle expansion state (default behavior)
+                threadMailItemViewModel.IsThreadExpanded = !threadMailItemViewModel.IsThreadExpanded;
             }
         }
     }

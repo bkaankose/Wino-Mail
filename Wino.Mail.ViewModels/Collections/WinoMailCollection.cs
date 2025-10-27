@@ -724,6 +724,27 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         await NotifySelectionChangesAsync();
     }
 
+    private IEnumerable<IMailListItem> AllItemsIncludingThreads
+    {
+        get
+        {
+            foreach (var group in _mailItemSource)
+            {
+                foreach (var item in group)
+                {
+                    if (item is ThreadMailItemViewModel threadMailItemViewModel)
+                    {
+                        foreach (var child in threadMailItemViewModel.ThreadEmails)
+                        {
+                            yield return child;
+                        }
+                    }
+                    yield return item;
+                }
+            }
+        }
+    }
+
     private IEnumerable<MailItemViewModel> AllItems
     {
         get
@@ -752,7 +773,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public bool IsAllItemsSelected => AllItems.Any() && AllItems.All(a => a.IsSelected);
     public bool HasSingleItemSelected => SelectedItemsCount == 1;
 
-    public async Task ExecuteWithoutRaiseSelectionChangedAsync(Action<MailItemViewModel> action)
+    public async Task ExecuteWithoutRaiseSelectionChangedAsync(Action<IMailListItem> action, bool includeThreads)
     {
         try
         {
@@ -761,9 +782,19 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
             await ExecuteUIThread(() =>
             {
-                foreach (var item in AllItems)
+                if (includeThreads)
                 {
-                    action(item);
+                    foreach (var item in AllItemsIncludingThreads)
+                    {
+                        action(item);
+                    }
+                }
+                else
+                {
+                    foreach (var item in AllItems)
+                    {
+                        action(item);
+                    }
                 }
             });
         }
@@ -816,8 +847,9 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         return -1;
     }
 
-    public Task SelectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = true);
-    public Task UnselectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = false);
+    public Task SelectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = true, true);
+    public Task UnselectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = false, true);
+    public Task CollapseAllThreadsAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a is ThreadMailItemViewModel thread) thread.IsThreadExpanded = false; }, true);
 
     private async Task ExecuteUIThread(Action action) => await CoreDispatcher?.ExecuteOnUIThread(action);
 

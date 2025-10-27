@@ -1,5 +1,5 @@
-﻿using System.ComponentModel;
-using System.Linq;
+﻿using System.Linq;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Controls;
@@ -10,30 +10,29 @@ namespace Wino.Mail.WinUI.Controls.ListView;
 
 public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 {
-    public bool IsThreadExpanded
+    [GeneratedDependencyProperty]
+    public partial bool IsThreadExpanded { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial ThreadMailItemViewModel? Item { get; set; }
+
+    protected override void OnContentChanged(object oldContent, object newContent)
     {
-        get { return (bool)GetValue(IsThreadExpandedProperty); }
-        set { SetValue(IsThreadExpandedProperty, value); }
+        base.OnContentChanged(oldContent, newContent);
+
+        if (newContent is ThreadMailItemViewModel threadMailItemViewModel) Item = threadMailItemViewModel;
     }
 
-    public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(WinoThreadMailItemViewModelListViewItem), new PropertyMetadata(false, new PropertyChangedCallback(OnIsThreadExpandedChanged)));
-
-    private readonly long _selectionChangeCallbackToken;
     public WinoThreadMailItemViewModelListViewItem()
     {
         DefaultStyleKey = typeof(WinoThreadMailItemViewModelListViewItem);
-
-        _selectionChangeCallbackToken = RegisterPropertyChangedCallback(IsSelectedProperty, OnIsSelectedChanged);
     }
 
-    public void Cleanup()
+    partial void OnIsThreadExpandedChanged(bool newValue)
     {
-        if (Content is ThreadMailItemViewModel mailItem)
-        {
-            UnregisterSelectionCallback(mailItem);
-
-            UnregisterPropertyChangedCallback(IsSelectedProperty, _selectionChangeCallbackToken);
-        }
+        // 1. Reflect expansion changes to WinoExpander.
+        // 2. Automatically select first item on expansion, if none selected.
+        // 3. Unselect all items on collapse.
     }
 
     private static void OnIsThreadExpandedChanged(DependencyObject sender, DependencyPropertyChangedEventArgs dp)
@@ -42,79 +41,32 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
         // 2. Automatically select first item on expansion, if none selected.
         // 3. Unselect all items on collapse.
 
-        var control = sender as WinoThreadMailItemViewModelListViewItem;
+        //var control = sender as WinoThreadMailItemViewModelListViewItem;
 
-        var innerControl = control?.GetWinoListViewControl();
-        var expander = control?.GetExpander();
+        //var innerControl = control?.GetWinoListViewControl();
+        //var expander = control?.GetExpander();
 
-        if (innerControl == null || control == null || expander == null) return;
+        //if (innerControl == null || control == null || expander == null) return;
 
 
-        // 2
-        if (control.IsThreadExpanded && innerControl.SelectedItems.Count == 0 && innerControl.Items.Count > 0)
-        {
-            innerControl.SelectedItems.Clear();
+        //// 2
+        //if (control.IsThreadExpanded && innerControl.SelectedItems.Count == 0 && innerControl.Items.Count > 0)
+        //{
+        //    innerControl.SelectedItems.Clear();
 
-            // Make item selected, container might not be realized yet, so set on the model.
-            // It'll appear selected when container is realized.
+        //    // Make item selected, container might not be realized yet, so set on the model.
+        //    // It'll appear selected when container is realized.
 
-            var firstItem = innerControl.Items.FirstOrDefault() as MailItemViewModel;
+        //    var firstItem = innerControl.Items.FirstOrDefault() as MailItemViewModel;
 
-            firstItem?.IsSelected = true;
-        }
+        //    firstItem?.IsSelected = true;
+        //}
 
-        // 1
-        expander.IsExpanded = control.IsThreadExpanded;
+        //// 1
+        //expander.IsExpanded = control.IsThreadExpanded;
 
-        // 3
-        if (!control.IsSelected) innerControl?.SelectedItems.Clear();
-    }
-
-    protected override void OnContentChanged(object oldContent, object newContent)
-    {
-        base.OnContentChanged(oldContent, newContent);
-
-        if (oldContent is ThreadMailItemViewModel oldMailItem)
-        {
-            UnregisterSelectionCallback(oldMailItem);
-        }
-
-        if (newContent is ThreadMailItemViewModel newMailItem)
-        {
-            IsSelected = newMailItem.IsSelected;
-            RegisterSelectionCallback(newMailItem);
-        }
-    }
-
-    private void OnIsSelectedChanged(DependencyObject sender, DependencyProperty dp)
-    {
-        IsThreadExpanded = IsSelected;
-    }
-
-    public void UnregisterSelectionCallback(ThreadMailItemViewModel mailItem)
-    {
-        mailItem.PropertyChanged -= MailPropChanged;
-    }
-
-    private void MailPropChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (sender is not ThreadMailItemViewModel mailItem) return;
-
-        if (e.PropertyName == nameof(ThreadMailItemViewModel.IsThreadExpanded))
-        {
-            ApplySelectionForContainer(mailItem);
-        }
-    }
-
-    private void RegisterSelectionCallback(ThreadMailItemViewModel mailItem)
-    {
-        mailItem.PropertyChanged -= MailPropChanged;
-        mailItem.PropertyChanged += MailPropChanged;
-    }
-
-    private void ApplySelectionForContainer(ThreadMailItemViewModel mailItem)
-    {
-        if (IsThreadExpanded != mailItem.IsThreadExpanded) IsThreadExpanded = mailItem.IsThreadExpanded;
+        //// 3
+        //if (!control.IsSelected) innerControl?.SelectedItems.Clear();
     }
 
     public WinoListView? GetWinoListViewControl()

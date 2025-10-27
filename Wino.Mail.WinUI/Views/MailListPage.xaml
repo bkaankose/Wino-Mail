@@ -69,7 +69,10 @@
         </DataTemplate>
 
         <DataTemplate x:Key="ThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <controls:WinoExpander x:Name="ExpanderPart" IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
+            <controls:WinoExpander
+                x:Name="ExpanderPart"
+                Margin="0,2"
+                IsExpanded="{x:Bind IsThreadExpanded, Mode=TwoWay}">
                 <controls:WinoExpander.Header>
                     <controls:MailItemDisplayInformationControl
                         x:DefaultBindMode="OneWay"
@@ -95,11 +98,20 @@
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                         toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
                         ChoosingItemContainer="WinoListViewChoosingItemContainer"
+                        IsItemClickEnabled="True"
+                        IsThreadListView="True"
+                        ItemClick="WinoListViewItemClicked"
                         ItemContainerStyle="{StaticResource DefaultMailListViewItemStyle}"
                         ItemTemplate="{StaticResource SingleMailItemTemplate}"
                         ItemsSource="{x:Bind ThreadEmails, Mode=OneTime}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                        SelectionMode="Extended" />
+                        SelectionMode="Extended">
+                        <listview:WinoListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsStackPanel Margin="8,0,12,0" AreStickyGroupHeadersEnabled="True" />
+                            </ItemsPanelTemplate>
+                        </listview:WinoListView.ItemsPanel>
+                    </listview:WinoListView>
                 </controls:WinoExpander.Content>
             </controls:WinoExpander>
 
@@ -117,7 +129,7 @@
 
         <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="collections:IReadOnlyObservableGroup">
             <Grid
-                Margin="4,2"
+                Margin="0,0,0,6"
                 AllowFocusOnInteraction="False"
                 Background="{ThemeResource MailListHeaderBackgroundColor}"
                 CornerRadius="6">
@@ -386,12 +398,11 @@
                         toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
                         ChoosingItemContainer="WinoListViewChoosingItemContainer"
                         IsItemClickEnabled="True"
-                        ItemClick="WinoListView_ItemClick"
+                        ItemClick="WinoListViewItemClicked"
                         ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
                         ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
                         ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                        SelectionChanged="WinoListViewSelectionChanged"
                         SelectionMode="Extended">
                         <listview:WinoListView.ItemContainerTransitions>
                             <TransitionCollection>
@@ -400,7 +411,7 @@
                         </listview:WinoListView.ItemContainerTransitions>
                         <listview:WinoListView.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <ItemsStackPanel Margin="8,0,12,0" AreStickyGroupHeadersEnabled="True" />
+                                <ItemsStackPanel AreStickyGroupHeadersEnabled="True" GroupPadding="10,10,10,0" />
                             </ItemsPanelTemplate>
                         </listview:WinoListView.ItemsPanel>
                         <listview:WinoListView.Resources>
@@ -412,15 +423,6 @@
                             <GroupStyle HeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}" HidesIfEmpty="True" />
                         </listview:WinoListView.GroupStyle>
                     </listview:WinoListView>
-                    <!--<advanced:WinoItemsView
-                        x:Name="MailListView"
-                        Margin="4"
-                        ItemTemplate="{StaticResource MailItemContainerSelector}"
-                        ItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneTime}"
-                        Layout="{StaticResource DefaultItemsViewLayout}"
-                        LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
-                        ProcessKeyboardAccelerators="MailListView_ProcessKeyboardAccelerators"
-                        SelectionMode="Extended" />-->
 
                     <!--  Try online search panel.  -->
                     <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">

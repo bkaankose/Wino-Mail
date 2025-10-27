@@ -1,4 +1,5 @@
-﻿using Microsoft.UI.Xaml;
+﻿using System.Linq;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 
@@ -6,10 +7,20 @@ namespace Wino.Mail.WinUI.Controls.ListView;
 
 public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 {
+    public bool IsThreadListView
+    {
+        get { return (bool)GetValue(IsThreadListViewProperty); }
+        set { SetValue(IsThreadListViewProperty, value); }
+    }
+
+    public static readonly DependencyProperty IsThreadListViewProperty = DependencyProperty.Register(nameof(IsThreadListView), typeof(bool), typeof(WinoListView), new PropertyMetadata(false));
+
     public bool IsAllSelected => Items.Count == SelectedItems.Count;
 
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {
+        base.PrepareContainerForItemOverride(element, item);
+
         if (item is MailItemViewModel mailItemViewModel && element is WinoMailItemViewModelListViewItem container)
         {
             // Ensure the container's selection state matches the model's state
@@ -19,18 +30,52 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         }
         else if (item is ThreadMailItemViewModel threadMailItemViewModel && element is WinoThreadMailItemViewModelListViewItem threadContainer)
         {
+            threadContainer.IsSelected = threadMailItemViewModel.IsSelected;
             threadContainer.IsThreadExpanded = threadMailItemViewModel.IsThreadExpanded;
         }
-
-        base.PrepareContainerForItemOverride(element, item);
     }
 
-    protected override void ClearContainerForItemOverride(DependencyObject element, object item)
+    public WinoMailItemViewModelListViewItem? GetMailItemContainer(MailItemViewModel mailItemViewModel)
     {
-        if (element is WinoThreadMailItemViewModelListViewItem threadMailItemViewModelListViewItem) threadMailItemViewModelListViewItem.Cleanup();
-        if (element is WinoMailItemViewModelListViewItem winoMailItemViewModelListViewItem) winoMailItemViewModelListViewItem.Cleanup();
+        foreach (var item in Items)
+        {
+            if (item is MailItemViewModel mailItem && mailItem.Id == mailItemViewModel.Id) return ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
+            if (item is ThreadMailItemViewModel threadMailItem && threadMailItem.GetContainingIds().Contains(mailItemViewModel.MailCopy.UniqueId))
+            {
+                var threadContainer = ContainerFromItem(threadMailItem) as WinoThreadMailItemViewModelListViewItem;
 
-        base.ClearContainerForItemOverride(element, item);
+                // Try to get the inner WinoListView.
+                if (threadContainer != null)
+                {
+                    var innerListViewControl = threadContainer.GetWinoListViewControl();
+
+                    return innerListViewControl?.ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public WinoThreadMailItemViewModelListViewItem? GetThreadMailItemContainer(ThreadMailItemViewModel threadMailItemViewModel)
+        => ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
+
+    public void ToggleItemContainer(IMailListItem mailListItem)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (mailListItem is MailItemViewModel mailItemViewModel)
+            {
+                var container = GetMailItemContainer(mailItemViewModel);
+                container?.IsSelected = mailItemViewModel.IsSelected;
+            }
+            else if (mailListItem is ThreadMailItemViewModel threadMailItemViewModel)
+            {
+                var container = GetThreadMailItemContainer(threadMailItemViewModel);
+                container?.IsSelected = threadMailItemViewModel.IsSelected;
+                container?.IsThreadExpanded = threadMailItemViewModel.IsThreadExpanded;
+            }
+        });
     }
 
     public bool SelectMailItemContainer(MailItemViewModel mailItemViewModel)

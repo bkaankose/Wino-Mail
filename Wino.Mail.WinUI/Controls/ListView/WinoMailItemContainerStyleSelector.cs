@@ -12,7 +12,8 @@ public partial class WinoMailItemContainerStyleSelector : StyleSelector
     protected override Style SelectStyleCore(object item, DependencyObject container)
     {
         if (item is MailItemViewModel) return MailItemStyle ?? throw new Exception($"Missing style for {nameof(MailItemViewModel)}");
-        if (item is ThreadMailItemViewModel) return ThreadStyle ?? throw new Exception($"Missing style for {nameof(ThreadMailItemViewModel)}");
+        if (item is ThreadMailItemViewModel)
+            return ThreadStyle ?? throw new Exception($"Missing style for {nameof(ThreadMailItemViewModel)}");
 
         return null;
     }

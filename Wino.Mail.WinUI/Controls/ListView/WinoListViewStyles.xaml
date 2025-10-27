@@ -11,37 +11,76 @@
 
         <ResourceDictionary>
             <!--  Thread Mail ListViewItem Style  -->
-            <Style x:Key="DefaultThreadListViewItemStyle" TargetType="local:WinoMailItemViewModelListViewItem">
-                <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
-                <Setter Property="FontSize" Value="{ThemeResource ControlContentThemeFontSize}" />
-                <Setter Property="Background" Value="{ThemeResource ListViewItemBackground}" />
-                <Setter Property="Foreground" Value="{ThemeResource ListViewItemForeground}" />
-                <Setter Property="TabNavigation" Value="Local" />
-                <Setter Property="IsHoldingEnabled" Value="True" />
-                <Setter Property="Padding" Value="16,0,12,0" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="MinWidth" Value="{ThemeResource ListViewItemMinWidth}" />
-                <Setter Property="MinHeight" Value="{ThemeResource ListViewItemMinHeight}" />
-                <Setter Property="AllowDrop" Value="False" />
-                <Setter Property="UseSystemFocusVisuals" Value="True" />
-                <Setter Property="FocusVisualMargin" Value="1" />
-                <Setter Property="FocusVisualPrimaryBrush" Value="{ThemeResource ListViewItemFocusVisualPrimaryBrush}" />
-                <Setter Property="FocusVisualPrimaryThickness" Value="2" />
-                <Setter Property="FocusVisualSecondaryBrush" Value="{ThemeResource ListViewItemFocusVisualSecondaryBrush}" />
-                <Setter Property="FocusVisualSecondaryThickness" Value="1" />
+            <Style
+                x:Key="DefaultThreadListViewItemStyle"
+                BasedOn="{StaticResource DefaultListViewItemStyle}"
+                TargetType="local:WinoThreadMailItemViewModelListViewItem">
                 <Setter Property="Template">
                     <Setter.Value>
-                        <ControlTemplate TargetType="local:WinoMailItemViewModelListViewItem">
-                            <!--  Expandable Content  -->
-                            <ContentPresenter
-                                x:Name="ThreadContent"
-                                Margin="{TemplateBinding Padding}"
-                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                Content="{TemplateBinding Content}"
-                                ContentTemplate="{TemplateBinding ContentTemplate}"
-                                ContentTransitions="{TemplateBinding ContentTransitions}" />
+                        <ControlTemplate TargetType="local:WinoThreadMailItemViewModelListViewItem">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Grid
+                                    x:Name="RootGrid"
+                                    Grid.ColumnSpan="2"
+                                    Background="{ThemeResource ListViewItemBackground}"
+                                    CornerRadius="{ThemeResource ControlCornerRadius}" />
+                                <Border
+                                    x:Name="SelectionIndicator"
+                                    Width="4"
+                                    Margin="0,16"
+                                    HorizontalAlignment="Center"
+                                    Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
+                                    CornerRadius="4"
+                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
+                                <!--  Expandable Content  -->
+                                <ContentPresenter
+                                    x:Name="ThreadContent"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
+                                                <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelected}" />
+                                                <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPointerOver}" />
+                                                <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="PressedSelected">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
 
                         </ControlTemplate>
                     </Setter.Value>
@@ -52,7 +91,76 @@
             <Style
                 x:Key="DefaultMailListViewItemStyle"
                 BasedOn="{StaticResource DefaultListViewItemStyle}"
-                TargetType="local:WinoMailItemViewModelListViewItem" />
+                TargetType="local:WinoMailItemViewModelListViewItem">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="local:WinoMailItemViewModelListViewItem">
+                            <Grid
+                                x:Name="RootGrid"
+                                Margin="0,2"
+                                Background="{ThemeResource ListViewItemBackground}"
+                                CornerRadius="{ThemeResource ControlCornerRadius}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    x:Name="SelectionIndicator"
+                                    Width="4"
+                                    Margin="0,16"
+                                    HorizontalAlignment="Center"
+                                    Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
+                                    CornerRadius="4"
+                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
+
+                                <ContentPresenter
+                                    x:Name="MailContent"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Background="Transparent"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
+                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelected}" />
+                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPointerOver}" />
+                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="PressedSelected">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
             <local:WinoMailItemContainerStyleSelector
                 x:Name="WinoMailItemContainerStyleSelector"

@@ -8,7 +8,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailListItem
+public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient, IMailListItem
 {
     public DateTime CreationDate => MailCopy.CreationDate;
     [ObservableProperty]
@@ -18,6 +18,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     public partial bool ThumbnailUpdatedEvent { get; set; } = false;
 
     [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
     public partial bool IsSelected { get; set; }
 
     [ObservableProperty]
@@ -87,10 +88,6 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
     {
         get => MailCopy.HasAttachments;
         set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
-    }
-
-    partial void OnIsSelectedChanged(bool oldValue, bool newValue)
-    {
     }
 
     public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];

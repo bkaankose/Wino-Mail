@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.Mvvm.Messaging.Messages;
 using MoreLinq;
 using Nito.AsyncEx;
 using Serilog;
@@ -39,7 +40,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<AccountSynchronizerStateChanged>,
     IRecipient<AccountCacheResetMessage>,
-    IRecipient<ThumbnailAdded>
+    IRecipient<ThumbnailAdded>,
+    IRecipient<PropertyChangedMessage<bool>>
 {
     private bool isChangingFolder = false;
 
@@ -221,7 +223,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             var selectedItem = MailCollection.SelectedItems.ElementAtOrDefault(0);
             ActiveMailItemChanged(selectedItem);
         }
-        else if (MailCollection.SelectedItemsCount > 1)
+        else if (MailCollection.SelectedItemsCount == 0)
         {
             ActiveMailItemChanged(null);
         }
@@ -310,20 +312,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private async void ActiveMailItemChanged(MailItemViewModel selectedMailItemViewModel)
     {
         if (_activeMailItem == selectedMailItemViewModel) return;
-
-        // Don't update active mail item if Ctrl key is pressed or multi selection is enabled.
-        // User is probably trying to select multiple items.
-        // This is not the same behavior in Windows Mail,
-        // but it's a trash behavior.
-
-        var isCtrlKeyPressed = _keyPressService.IsCtrlKeyPressed();
-
-        bool isMultiSelecting = isCtrlKeyPressed || IsMultiSelectionModeEnabled;
-
-        if (isMultiSelecting && StatePersistenceService.IsReaderNarrowed)
-        {
-            return;
-        }
 
         _activeMailItem = selectedMailItemViewModel;
 
@@ -1102,6 +1090,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<AccountSynchronizerStateChanged>(this);
         Messenger.Register<AccountCacheResetMessage>(this);
         Messenger.Register<ThumbnailAdded>(this);
+        Messenger.Register<PropertyChangedMessage<bool>>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -1115,5 +1104,26 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountSynchronizerStateChanged>(this);
         Messenger.Unregister<AccountCacheResetMessage>(this);
         Messenger.Unregister<ThumbnailAdded>(this);
+        Messenger.Unregister<PropertyChangedMessage<bool>>(this);
+    }
+
+    public void Receive(PropertyChangedMessage<bool> message)
+    {
+        // Handle IsSelected property changes from MailItemViewModel
+        if (message.PropertyName == nameof(MailItemViewModel.IsSelected) && message.Sender is MailItemViewModel mailItemViewModel)
+        {
+            Messenger.Send(new SelectedItemsChangedMessage());
+        }
+        else if (message.Sender is ThreadMailItemViewModel threadMailItemViewModel)
+        {
+            if (message.PropertyName == nameof(ThreadMailItemViewModel.IsSelected))
+            {
+                // Thread selected.
+            }
+            else if (message.PropertyName == nameof(ThreadMailItemViewModel.IsThreadExpanded))
+            {
+                // Thread expanded.
+            }
+        }
     }
 }

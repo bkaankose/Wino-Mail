@@ -17,10 +17,15 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
+    [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsThreadExpanded { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
+    [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsSelected { get; set; }
+
+    public bool IsSelectedOrExpanded => IsSelected || IsThreadExpanded;
 
     /// <summary>
     /// Gets the number of emails in this thread
