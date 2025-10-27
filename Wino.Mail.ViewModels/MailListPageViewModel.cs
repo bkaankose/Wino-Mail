@@ -41,7 +41,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<AccountSynchronizerStateChanged>,
     IRecipient<AccountCacheResetMessage>,
     IRecipient<ThumbnailAdded>,
-    IRecipient<PropertyChangedMessage<bool>>
+    IRecipient<PropertyChangedMessage<bool>>,
+    IRecipient<SwipeActionRequested>
 {
     private bool isChangingFolder = false;
 
@@ -1125,5 +1126,29 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // Thread expanded.
             }
         }
+    }
+
+    public async void Receive(SwipeActionRequested message)
+    {
+        if (message.MailItem == null) return;
+
+        // Get mail copies based on the mail item type
+        IEnumerable<MailCopy> mailCopies;
+        
+        if (message.MailItem is MailItemViewModel singleItem)
+        {
+            mailCopies = new[] { singleItem.MailCopy };
+        }
+        else if (message.MailItem is ThreadMailItemViewModel threadItem)
+        {
+            mailCopies = threadItem.ThreadEmails.Select(e => e.MailCopy);
+        }
+        else
+        {
+            return; // Unknown mail item type
+        }
+
+        var package = new MailOperationPreperationRequest(message.Operation, mailCopies);
+        await ExecuteMailOperationAsync(package);
     }
 }

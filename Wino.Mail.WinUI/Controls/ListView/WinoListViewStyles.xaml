@@ -18,35 +18,52 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="local:WinoThreadMailItemViewModelListViewItem">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                            <SwipeControl x:Name="ThreadSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}">
+                                <SwipeControl.LeftItems>
+                                    <controls:WinoSwipeControlItems
+                                        x:Name="LeftSwipeItems"
+                                        IsRightSwipe="False"
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                </SwipeControl.LeftItems>
+                                <SwipeControl.RightItems>
+                                    <controls:WinoSwipeControlItems
+                                        x:Name="RightSwipeItems"
+                                        IsRightSwipe="True"
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                </SwipeControl.RightItems>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <Grid
-                                    x:Name="RootGrid"
-                                    Grid.ColumnSpan="2"
-                                    Background="{ThemeResource ListViewItemBackground}"
-                                    CornerRadius="{ThemeResource ControlCornerRadius}" />
-                                <Border
-                                    x:Name="SelectionIndicator"
-                                    Width="4"
-                                    Margin="0,16"
-                                    HorizontalAlignment="Center"
-                                    Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
-                                    CornerRadius="4"
-                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
-                                <!--  Expandable Content  -->
-                                <ContentPresenter
-                                    x:Name="ThreadContent"
-                                    Grid.Column="1"
-                                    Margin="6,0,0,0"
-                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                    Content="{TemplateBinding Content}"
-                                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
+                                    <Grid
+                                        x:Name="RootGrid"
+                                        Grid.ColumnSpan="2"
+                                        Background="{ThemeResource ListViewItemBackground}"
+                                        CornerRadius="{ThemeResource ControlCornerRadius}" />
+                                    <Border
+                                        x:Name="SelectionIndicator"
+                                        Width="4"
+                                        Margin="0,16"
+                                        HorizontalAlignment="Center"
+                                        Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
+                                        CornerRadius="4"
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
+
+                                    <!--  Expandable Content  -->
+                                    <ContentPresenter
+                                        x:Name="ThreadContent"
+                                        Grid.Column="1"
+                                        Margin="6,0,0,0"
+                                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                                        ContentTransitions="{TemplateBinding ContentTransitions}" />
+
+
+                                </Grid>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
@@ -80,8 +97,7 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-                            </Grid>
-
+                            </SwipeControl>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
@@ -95,34 +111,50 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="local:WinoMailItemViewModelListViewItem">
-                            <Grid
-                                x:Name="RootGrid"
-                                Margin="0,2"
-                                Background="{ThemeResource ListViewItemBackground}"
-                                CornerRadius="{ThemeResource ControlCornerRadius}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="8" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border
-                                    x:Name="SelectionIndicator"
-                                    Width="4"
-                                    Margin="0,16"
-                                    HorizontalAlignment="Center"
-                                    Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
-                                    CornerRadius="4"
-                                    Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
+                            <SwipeControl x:Name="MailSwipeControl" Tag="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}">
+                                <SwipeControl.LeftItems>
+                                    <controls:WinoSwipeControlItems
+                                        x:Name="LeftSwipeItems"
+                                        IsRightSwipe="False"
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                </SwipeControl.LeftItems>
+                                <SwipeControl.RightItems>
+                                    <controls:WinoSwipeControlItems
+                                        x:Name="RightSwipeItems"
+                                        IsRightSwipe="True"
+                                        MailItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item}" />
+                                </SwipeControl.RightItems>
+                                <Grid
+                                    x:Name="RootGrid"
+                                    Margin="0,2"
+                                    Background="{ThemeResource ListViewItemBackground}"
+                                    CornerRadius="{ThemeResource ControlCornerRadius}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border
+                                        x:Name="SelectionIndicator"
+                                        Width="4"
+                                        Margin="0,16"
+                                        HorizontalAlignment="Center"
+                                        Background="{ThemeResource ListViewItemSelectionIndicatorBrush}"
+                                        CornerRadius="4"
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
 
-                                <ContentPresenter
-                                    x:Name="MailContent"
-                                    Grid.Column="1"
-                                    Margin="6,0,0,0"
-                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                    Background="Transparent"
-                                    Content="{TemplateBinding Content}"
-                                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
+                                    <ContentPresenter
+                                        x:Name="MailContent"
+                                        Grid.Column="1"
+                                        Margin="6,0,0,0"
+                                        HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                        Background="Transparent"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                                        ContentTransitions="{TemplateBinding ContentTransitions}" />
+
+
+                                </Grid>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
@@ -156,7 +188,7 @@
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-                            </Grid>
+                            </SwipeControl>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
