@@ -1,4 +1,5 @@
-﻿using Microsoft.UI.Xaml;
+﻿using System.Diagnostics;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 
@@ -7,26 +8,6 @@ namespace Wino.Mail.WinUI.Controls.ListView;
 public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 {
     public bool IsAllSelected => Items.Count == SelectedItems.Count;
-
-    public WinoListView()
-    {
-        ChoosingItemContainer += WinoListView_ChoosingItemContainer;
-    }
-
-    private void WinoListView_ChoosingItemContainer(ListViewBase sender, ChoosingItemContainerEventArgs args)
-    {
-        if (args.Item is ThreadMailItemViewModel)
-        {
-            args.ItemContainer = new WinoThreadMailItemViewModelListViewItem();
-        }
-        else if (args.Item is MailItemViewModel)
-        {
-            args.ItemContainer = new WinoMailItemViewModelListViewItem();
-        }
-
-        // Handle the preparation in PrepareContainerForItemOverride
-        args.IsContainerPrepared = false;
-    }
 
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {
@@ -43,6 +24,19 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         }
 
         base.PrepareContainerForItemOverride(element, item);
+    }
+
+    protected override void ClearContainerForItemOverride(DependencyObject element, object item)
+    {
+        if (item is IMailListItem mailListItem)
+        {
+            if (element is WinoThreadMailItemViewModelListViewItem threadMailItemViewModelListViewItem) threadMailItemViewModelListViewItem.Cleanup();
+            if (element is WinoMailItemViewModelListViewItem winoMailItemViewModelListViewItem) winoMailItemViewModelListViewItem.Cleanup();
+        }
+
+        base.ClearContainerForItemOverride(element, item);
+
+        Debug.WriteLine($"Cleaned container");
     }
 
     public bool SelectMailItemContainer(MailItemViewModel mailItemViewModel)

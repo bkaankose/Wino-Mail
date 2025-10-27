@@ -18,9 +18,22 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 
     public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(WinoThreadMailItemViewModelListViewItem), new PropertyMetadata(false, new PropertyChangedCallback(OnIsThreadExpandedChanged)));
 
+    private readonly long _selectionChangeCallbackToken;
     public WinoThreadMailItemViewModelListViewItem()
     {
-        RegisterPropertyChangedCallback(IsSelectedProperty, OnIsSelectedChanged);
+        DefaultStyleKey = typeof(WinoThreadMailItemViewModelListViewItem);
+
+        _selectionChangeCallbackToken = RegisterPropertyChangedCallback(IsSelectedProperty, OnIsSelectedChanged);
+    }
+
+    public void Cleanup()
+    {
+        if (Content is ThreadMailItemViewModel mailItem)
+        {
+            UnregisterSelectionCallback(mailItem);
+
+            UnregisterPropertyChangedCallback(IsSelectedProperty, _selectionChangeCallbackToken);
+        }
     }
 
     private static void OnIsThreadExpandedChanged(DependencyObject sender, DependencyPropertyChangedEventArgs dp)
@@ -70,7 +83,7 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
         IsThreadExpanded = IsSelected;
     }
 
-    private void UnregisterSelectionCallback(ThreadMailItemViewModel mailItem)
+    public void UnregisterSelectionCallback(ThreadMailItemViewModel mailItem)
     {
         mailItem.PropertyChanged -= MailPropChanged;
     }

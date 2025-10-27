@@ -92,6 +92,7 @@
                     <listview:WinoListView
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
+                        ChoosingItemContainer="WinoListViewChoosingItemContainer"
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                         toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
                         ItemContainerStyle="{StaticResource DefaultMailListViewItemStyle}"
@@ -380,6 +381,7 @@
                     <listview:WinoListView
                         x:Name="MailListView"
                         HorizontalAlignment="Stretch"
+                        ChoosingItemContainer="WinoListViewChoosingItemContainer"
                         HorizontalContentAlignment="Stretch"
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                         toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"

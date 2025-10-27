@@ -8,11 +8,12 @@ namespace Wino.Mail.WinUI.Controls.ListView;
 
 public partial class WinoMailItemViewModelListViewItem : ListViewItem
 {
+    private readonly long _selectionChangeCallbackToken;
     public WinoMailItemViewModelListViewItem()
     {
         DefaultStyleKey = typeof(WinoMailItemViewModelListViewItem);
 
-        RegisterPropertyChangedCallback(IsSelectedProperty, OnIsSelectedChanged);
+        _selectionChangeCallbackToken = RegisterPropertyChangedCallback(IsSelectedProperty, OnIsSelectedChanged);
     }
 
     protected override void OnContentChanged(object oldContent, object newContent)
@@ -28,6 +29,16 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
         {
             IsSelected = newMailItem.IsSelected;
             RegisterSelectionCallback(newMailItem);
+        }
+    }
+
+    public void Cleanup()
+    {
+        if (Content is MailItemViewModel mailItem)
+        {
+            UnregisterSelectionCallback(mailItem);
+
+            UnregisterPropertyChangedCallback(IsSelectedProperty, _selectionChangeCallbackToken);
         }
     }
 

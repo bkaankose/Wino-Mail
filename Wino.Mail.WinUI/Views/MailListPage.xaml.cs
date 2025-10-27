@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.WinUI.Controls.ListView;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.Abstract;
@@ -142,6 +143,21 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private async void SelectAllCheckboxUnchecked(object sender, RoutedEventArgs e)
     {
         await ViewModel.MailCollection.UnselectAllAsync();
+    }
+
+    private void WinoListViewChoosingItemContainer(ListViewBase sender, ChoosingItemContainerEventArgs args)
+    {
+        if (args.Item is ThreadMailItemViewModel)
+        {
+            args.ItemContainer = new WinoThreadMailItemViewModelListViewItem();
+        }
+        else if (args.Item is MailItemViewModel)
+        {
+            args.ItemContainer = new WinoMailItemViewModelListViewItem();
+        }
+
+        // Handle the preparation in PrepareContainerForItemOverride
+        args.IsContainerPrepared = false;
     }
 
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
