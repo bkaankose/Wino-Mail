@@ -75,6 +75,11 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         Messenger.Register<SelectedItemsChangedMessage>(this);
     }
 
+    public void Cleanup()
+    {
+        Messenger.Unregister<SelectedItemsChangedMessage>(this);
+    }
+
     public async Task ClearAsync()
     {
         await ExecuteUIThread(() =>

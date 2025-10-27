@@ -49,14 +49,22 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 
         if (innerControl == null || control == null || expander == null) return;
 
-        // 1
-        expander.IsExpanded = control.IsThreadExpanded;
 
         // 2
         if (control.IsThreadExpanded && innerControl.SelectedItems.Count == 0 && innerControl.Items.Count > 0)
         {
-            innerControl.SelectedItem = innerControl.Items[0];
+            innerControl.SelectedItems.Clear();
+
+            // Make item selected, container might not be realized yet, so set on the model.
+            // It'll appear selected when container is realized.
+
+            var firstItem = innerControl.Items.FirstOrDefault() as MailItemViewModel;
+
+            firstItem?.IsSelected = true;
         }
+
+        // 1
+        expander.IsExpanded = control.IsThreadExpanded;
 
         // 3
         if (!control.IsSelected) innerControl?.SelectedItems.Clear();
@@ -101,14 +109,6 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
     private void RegisterSelectionCallback(ThreadMailItemViewModel mailItem)
     {
         mailItem.PropertyChanged += MailPropChanged;
-    }
-
-    private void ApplySelectionForModel(ThreadMailItemViewModel mailItem)
-    {
-        if (mailItem.IsThreadExpanded != IsThreadExpanded)
-        {
-            mailItem.IsThreadExpanded = IsThreadExpanded;
-        }
     }
 
     private void ApplySelectionForContainer(ThreadMailItemViewModel mailItem)

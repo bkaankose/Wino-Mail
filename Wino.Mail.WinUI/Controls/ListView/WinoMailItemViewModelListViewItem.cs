@@ -71,11 +71,8 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
 
     private void ApplySelectionForModel(IMailListItem mailItem)
     {
-        if (mailItem.IsSelected != IsSelected)
-        {
-            mailItem.IsSelected = IsSelected;
-            WeakReferenceMessenger.Default.Send(new SelectedItemsChangedMessage());
-        }
+        mailItem.IsSelected = IsSelected;
+        WeakReferenceMessenger.Default.Send(new SelectedItemsChangedMessage());
     }
 
     private void ApplySelectionForContainer(IMailListItem mailItem)

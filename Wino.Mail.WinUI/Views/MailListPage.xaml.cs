@@ -70,6 +70,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         this.Bindings.StopTracking();
 
         ViewModel.MailCollection.ItemSelectionChanged -= WinoMailCollectionSelectionChanged;
+        SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
+        SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
 
         RenderingFrame.Navigate(typeof(IdlePage));
 
@@ -546,5 +548,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void WinoListViewSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
 
+    }
+
+    private void WinoListView_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is ThreadMailItemViewModel clickedThread)
+        {
+            // Only if container is selected.
+
+            var threadContainer = MailListView.ContainerFromItem(clickedThread) as WinoThreadMailItemViewModelListViewItem;
+
+            if (threadContainer?.IsSelected ?? false)
+            {
+                clickedThread.IsThreadExpanded = !clickedThread.IsThreadExpanded;
+            }
+        }
     }
 }

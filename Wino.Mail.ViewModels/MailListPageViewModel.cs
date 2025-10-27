@@ -204,11 +204,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         MailCollection.ItemSelectionChanged += MailItemSelectionChanged;
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    public override async void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
 
         MailCollection.ItemSelectionChanged -= MailItemSelectionChanged;
+
+        await MailCollection.ClearAsync();
+        MailCollection.Cleanup();
     }
 
     private void MailItemSelectionChanged(object sender, EventArgs e)
