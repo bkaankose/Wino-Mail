@@ -48,15 +48,8 @@
                         <VisualState.Storyboard>
                             <Storyboard>
                                 <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentArea" Storyboard.TargetProperty="Visibility">
-                                    <DiscreteObjectKeyFrame KeyTime="0:0:0.111" Value="Collapsed" />
+                                    <DiscreteObjectKeyFrame KeyTime="0:0:0.011" Value="Collapsed" />
                                 </ObjectAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ContentArea" Storyboard.TargetProperty="(UIElement.RenderTransform).(CompositeTransform.TranslateY)">
-                                    <DiscreteDoubleKeyFrame KeyTime="0" Value="0" />
-                                    <SplineDoubleKeyFrame
-                                        KeySpline="1.0, 1.0, 0.0, 1.0"
-                                        KeyTime="0:0:0.111"
-                                        Value="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=TemplateSettings.NegativeContentHeight}" />
-                                </DoubleAnimationUsingKeyFrames>
                             </Storyboard>
                         </VisualState.Storyboard>
                     </VisualState>
