@@ -54,18 +54,28 @@
         <DataTemplate x:Key="SingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
             <controls:MailItemDisplayInformationControl
                 x:DefaultBindMode="OneWay"
+                ActionItem="{x:Bind}"
+                Base64ContactPicture="{x:Bind MailCopy.SenderContact.Base64ContactPicture, Mode=OneWay, TargetNullValue=''}"
                 CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
                 ContextRequested="MailItemContextRequested"
+                CreationDate="{x:Bind CreationDate}"
                 DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                FromAddress="{x:Bind FromAddress}"
+                FromName="{x:Bind FromName}"
+                HasAttachments="{x:Bind HasAttachments, Mode=OneWay}"
                 HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
                 IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                IsDraft="{x:Bind IsDraft, Mode=OneWay}"
+                IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
                 IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                IsRead="{x:Bind IsRead, Mode=OneWay}"
                 IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
                 LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
-                MailItem="{x:Bind MailCopy, Mode=OneWay}"
                 Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                PreviewText="{x:Bind PreviewText, Mode=OneWay}"
                 RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
+                ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                Subject="{x:Bind Subject, Mode=OneWay}" />
         </DataTemplate>
 
         <DataTemplate x:Key="ThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
@@ -76,20 +86,30 @@
                 <controls:WinoExpander.Header>
                     <controls:MailItemDisplayInformationControl
                         x:DefaultBindMode="OneWay"
+                        ActionItem="{x:Bind}"
+                        Base64ContactPicture="{x:Bind Base64ContactPicture, Mode=OneWay, TargetNullValue=''}"
                         CenterHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.CenterHoverAction, Mode=OneWay}"
                         ContextRequested="MailItemContextRequested"
+                        CreationDate="{x:Bind CreationDate}"
                         DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
+                        FromAddress="{x:Bind FromAddress}"
+                        FromName="{x:Bind FromName}"
+                        HasAttachments="{x:Bind HasAttachments, Mode=OneWay}"
                         HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
                         IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                        IsDraft="{x:Bind IsDraft, Mode=OneWay}"
+                        IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
                         IsHoverActionsEnabled="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
+                        IsRead="{x:Bind IsRead, Mode=OneWay}"
                         IsThreadExpanded="{x:Bind IsThreadExpanded, Mode=OneWay}"
                         IsThreadExpanderVisible="True"
-                        IsThumbnailUpdated="{x:Bind LatestMailViewModel.ThumbnailUpdatedEvent, Mode=OneWay}"
+                        IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
                         LeftHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.LeftHoverAction, Mode=OneWay}"
-                        MailItem="{x:Bind LatestMailViewModel.MailCopy, Mode=OneWay}"
                         Prefer24HourTimeFormat="{Binding ElementName=root, Path=ViewModel.PreferencesService.Prefer24HourTimeFormat, Mode=OneWay}"
+                        PreviewText="{x:Bind PreviewText, Mode=OneWay}"
                         RightHoverAction="{Binding ElementName=root, Path=ViewModel.PreferencesService.RightHoverAction, Mode=OneWay}"
-                        ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}" />
+                        ShowPreviewText="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowPreviewEnabled, Mode=OneWay}"
+                        Subject="{x:Bind Subject, Mode=OneWay}" />
                 </controls:WinoExpander.Header>
                 <controls:WinoExpander.Content>
                     <listview:WinoListView

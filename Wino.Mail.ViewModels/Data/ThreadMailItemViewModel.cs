@@ -3,17 +3,16 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Thread mail item (multiple IMailItem) view model representation.
 /// </summary>
-public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable, IMailListItem
+public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListItem
 {
     private readonly string _threadId;
-
-    private bool _disposed;
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
@@ -35,23 +34,106 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
     /// <summary>
     /// Gets the latest email's subject for display
     /// </summary>
-    public string Subject => ThreadEmails
-        .OrderByDescending(e => e.MailCopy?.CreationDate)
-        .FirstOrDefault()?.MailCopy?.Subject;
+    public string Subject => latestMailViewModel?.MailCopy?.Subject;
 
     /// <summary>
     /// Gets the latest email's sender name for display
     /// </summary>
-    public string FromName => ThreadEmails
-        .OrderByDescending(e => e.MailCopy?.CreationDate)
-        .FirstOrDefault()?.MailCopy?.SenderContact.Name;
+    public string FromName => latestMailViewModel?.MailCopy?.SenderContact.Name;
 
     /// <summary>
     /// Gets the latest email's creation date for sorting
     /// </summary>
-    public DateTime CreationDate => ThreadEmails
-        .OrderByDescending(e => e.MailCopy?.CreationDate)
-        .FirstOrDefault()?.MailCopy?.CreationDate ?? DateTime.MinValue;
+    public DateTime CreationDate => latestMailViewModel?.MailCopy?.CreationDate ?? DateTime.MinValue;
+
+    /// <summary>
+    /// Gets the latest email's sender address for display
+    /// </summary>
+    public string FromAddress => latestMailViewModel?.FromAddress ?? string.Empty;
+
+    /// <summary>
+    /// Gets the preview text from the latest email
+    /// </summary>
+    public string PreviewText => latestMailViewModel?.PreviewText ?? string.Empty;
+
+    /// <summary>
+    /// Gets whether any email in this thread has attachments
+    /// </summary>
+    public bool HasAttachments => ThreadEmails.Any(e => e.HasAttachments);
+
+    /// <summary>
+    /// Gets whether any email in this thread is flagged
+    /// </summary>
+    public bool IsFlagged => ThreadEmails.Any(e => e.IsFlagged);
+
+    /// <summary>
+    /// Gets whether the latest email is focused
+    /// </summary>
+    public bool IsFocused => latestMailViewModel?.IsFocused ?? false;
+
+    /// <summary>
+    /// Gets whether all emails in this thread are read
+    /// </summary>
+    public bool IsRead => ThreadEmails.All(e => e.IsRead);
+
+    /// <summary>
+    /// Gets whether any email in this thread is a draft
+    /// </summary>
+    public bool IsDraft => ThreadEmails.Any(e => e.IsDraft);
+
+    /// <summary>
+    /// Gets the draft ID from the latest email if it's a draft
+    /// </summary>
+    public string DraftId => latestMailViewModel?.DraftId ?? string.Empty;
+
+    /// <summary>
+    /// Gets the ID from the latest email
+    /// </summary>
+    public string Id => latestMailViewModel?.Id ?? string.Empty;
+
+    /// <summary>
+    /// Gets the importance of the latest email
+    /// </summary>
+    public MailImportance Importance => latestMailViewModel?.Importance ?? MailImportance.Normal;
+
+    /// <summary>
+    /// Gets the thread ID from the latest email
+    /// </summary>
+    public string ThreadId => latestMailViewModel?.ThreadId ?? _threadId;
+
+    /// <summary>
+    /// Gets the message ID from the latest email
+    /// </summary>
+    public string MessageId => latestMailViewModel?.MessageId ?? string.Empty;
+
+    /// <summary>
+    /// Gets the references from the latest email
+    /// </summary>
+    public string References => latestMailViewModel?.References ?? string.Empty;
+
+    /// <summary>
+    /// Gets the in-reply-to from the latest email
+    /// </summary>
+    public string InReplyTo => latestMailViewModel?.InReplyTo ?? string.Empty;
+
+    /// <summary>
+    /// Gets the file ID from the latest email
+    /// </summary>
+    public Guid FileId => latestMailViewModel?.FileId ?? Guid.Empty;
+
+    /// <summary>
+    /// Gets the folder ID from the latest email
+    /// </summary>
+    public Guid FolderId => latestMailViewModel?.FolderId ?? Guid.Empty;
+
+    /// <summary>
+    /// Gets the unique ID from the latest email
+    /// </summary>
+    public Guid UniqueId => latestMailViewModel?.UniqueId ?? Guid.Empty;
+
+    public string Base64ContactPicture => latestMailViewModel?.MailCopy?.SenderContact?.Base64ContactPicture ?? string.Empty;
+
+    public bool ThumbnailUpdatedEvent => latestMailViewModel?.ThumbnailUpdatedEvent ?? false;
 
     /// <summary>
     /// Gets all emails in this thread (observable)
@@ -60,30 +142,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
     [ObservableProperty]
     public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
-    public MailItemViewModel LatestMailViewModel => ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
+    private MailItemViewModel latestMailViewModel => ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
 
     public ThreadMailItemViewModel(string threadId)
     {
         _threadId = threadId;
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_disposed)
-            return;
-
-        if (disposing)
-        {
-            ThreadEmails.Clear();
-        }
-
-        _disposed = true;
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
     }
 
     public void NotifyPropertyChanges()
@@ -91,10 +154,27 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IDisposable,
         OnPropertyChanged(nameof(Subject));
         OnPropertyChanged(nameof(FromName));
         OnPropertyChanged(nameof(CreationDate));
-        OnPropertyChanged(nameof(LatestMailViewModel));
+        OnPropertyChanged(nameof(FromAddress));
+        OnPropertyChanged(nameof(PreviewText));
+        OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(IsFlagged));
+        OnPropertyChanged(nameof(IsFocused));
+        OnPropertyChanged(nameof(IsRead));
+        OnPropertyChanged(nameof(IsDraft));
+        OnPropertyChanged(nameof(DraftId));
+        OnPropertyChanged(nameof(Id));
+        OnPropertyChanged(nameof(Importance));
+        OnPropertyChanged(nameof(ThreadId));
+        OnPropertyChanged(nameof(MessageId));
+        OnPropertyChanged(nameof(References));
+        OnPropertyChanged(nameof(InReplyTo));
+        OnPropertyChanged(nameof(FileId));
+        OnPropertyChanged(nameof(FolderId));
+        OnPropertyChanged(nameof(UniqueId));
         OnPropertyChanged(nameof(ThreadEmails));
+        OnPropertyChanged(nameof(EmailCount));
+        OnPropertyChanged(nameof(Base64ContactPicture));
     }
-
 
     /// <summary>
     /// Adds an email to this thread

@@ -340,7 +340,7 @@ public sealed partial class AppShell : AppShellAbstract,
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-        
+
         WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountMenuItemExtended>(this);
         WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
@@ -350,7 +350,7 @@ public sealed partial class AppShell : AppShellAbstract,
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
-        
+
         WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
         WeakReferenceMessenger.Default.Unregister<AccountMenuItemExtended>(this);
         WeakReferenceMessenger.Default.Unregister<CreateNewMailWithMultipleAccountsRequested>(this);

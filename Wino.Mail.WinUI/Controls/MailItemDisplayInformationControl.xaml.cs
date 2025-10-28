@@ -1,13 +1,14 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Linq;
+using System.Numerics;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Controls;
 
@@ -17,116 +18,88 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     public bool IsRunningHoverAction { get; set; }
 
-    public static readonly DependencyProperty DisplayModeProperty = DependencyProperty.Register(nameof(DisplayMode), typeof(MailListDisplayMode), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailListDisplayMode.Spacious));
-    public static readonly DependencyProperty ShowPreviewTextProperty = DependencyProperty.Register(nameof(ShowPreviewText), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-    public static readonly DependencyProperty IsAvatarVisibleProperty = DependencyProperty.Register(nameof(IsAvatarVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-    public static readonly DependencyProperty IsSubjectVisibleProperty = DependencyProperty.Register(nameof(IsSubjectVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-    public static readonly DependencyProperty ConnectedExpanderProperty = DependencyProperty.Register(nameof(ConnectedExpander), typeof(WinoExpander), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
-    public static readonly DependencyProperty LeftHoverActionProperty = DependencyProperty.Register(nameof(LeftHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
-    public static readonly DependencyProperty CenterHoverActionProperty = DependencyProperty.Register(nameof(CenterHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
-    public static readonly DependencyProperty RightHoverActionProperty = DependencyProperty.Register(nameof(RightHoverAction), typeof(MailOperation), typeof(MailItemDisplayInformationControl), new PropertyMetadata(MailOperation.None));
-    public static readonly DependencyProperty HoverActionExecutedCommandProperty = DependencyProperty.Register(nameof(HoverActionExecutedCommand), typeof(ICommand), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null));
-    public static readonly DependencyProperty MailItemProperty = DependencyProperty.Register(nameof(MailItem), typeof(MailCopy), typeof(MailItemDisplayInformationControl), new PropertyMetadata(null, new PropertyChangedCallback(OnMailItemChanged)));
-    public static readonly DependencyProperty IsHoverActionsEnabledProperty = DependencyProperty.Register(nameof(IsHoverActionsEnabled), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(true));
-    public static readonly DependencyProperty Prefer24HourTimeFormatProperty = DependencyProperty.Register(nameof(Prefer24HourTimeFormat), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
-    public static readonly DependencyProperty IsThreadExpanderVisibleProperty = DependencyProperty.Register(nameof(IsThreadExpanderVisible), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
-    public static readonly DependencyProperty IsThreadExpandedProperty = DependencyProperty.Register(nameof(IsThreadExpanded), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
-    public static readonly DependencyProperty IsThumbnailUpdatedProperty = DependencyProperty.Register(nameof(IsThumbnailUpdated), typeof(bool), typeof(MailItemDisplayInformationControl), new PropertyMetadata(false));
+    [GeneratedDependencyProperty(DefaultValue = MailListDisplayMode.Spacious)]
+    public partial MailListDisplayMode DisplayMode { get; set; }
 
-    public bool IsThumbnailUpdated
-    {
-        get { return (bool)GetValue(IsThumbnailUpdatedProperty); }
-        set { SetValue(IsThumbnailUpdatedProperty, value); }
-    }
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool ShowPreviewText { get; set; }
 
-    public bool IsThreadExpanded
-    {
-        get { return (bool)GetValue(IsThreadExpandedProperty); }
-        set { SetValue(IsThreadExpandedProperty, value); }
-    }
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool IsAvatarVisible { get; set; }
 
-    public bool IsThreadExpanderVisible
-    {
-        get { return (bool)GetValue(IsThreadExpanderVisibleProperty); }
-        set { SetValue(IsThreadExpanderVisibleProperty, value); }
-    }
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool IsSubjectVisible { get; set; }
 
-    public bool Prefer24HourTimeFormat
-    {
-        get { return (bool)GetValue(Prefer24HourTimeFormatProperty); }
-        set { SetValue(Prefer24HourTimeFormatProperty, value); }
-    }
+    #region Display Properties
 
-    public bool IsHoverActionsEnabled
-    {
-        get { return (bool)GetValue(IsHoverActionsEnabledProperty); }
-        set { SetValue(IsHoverActionsEnabledProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? Subject { get; set; }
 
-    public MailCopy MailItem
-    {
-        get { return (MailCopy)GetValue(MailItemProperty); }
-        set { SetValue(MailItemProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? FromName { get; set; }
 
-    public ICommand HoverActionExecutedCommand
-    {
-        get { return (ICommand)GetValue(HoverActionExecutedCommandProperty); }
-        set { SetValue(HoverActionExecutedCommandProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? FromAddress { get; set; }
 
-    public MailOperation LeftHoverAction
-    {
-        get { return (MailOperation)GetValue(LeftHoverActionProperty); }
-        set { SetValue(LeftHoverActionProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? PreviewText { get; set; }
 
-    public MailOperation CenterHoverAction
-    {
-        get { return (MailOperation)GetValue(CenterHoverActionProperty); }
-        set { SetValue(CenterHoverActionProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial bool IsRead { get; set; }
 
-    public MailOperation RightHoverAction
-    {
-        get { return (MailOperation)GetValue(RightHoverActionProperty); }
-        set { SetValue(RightHoverActionProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial bool IsDraft { get; set; }
 
-    public WinoExpander ConnectedExpander
-    {
-        get { return (WinoExpander)GetValue(ConnectedExpanderProperty); }
-        set { SetValue(ConnectedExpanderProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial bool HasAttachments { get; set; }
 
-    public bool IsSubjectVisible
-    {
-        get { return (bool)GetValue(IsSubjectVisibleProperty); }
-        set { SetValue(IsSubjectVisibleProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial bool IsFlagged { get; set; }
 
-    public bool IsAvatarVisible
-    {
-        get { return (bool)GetValue(IsAvatarVisibleProperty); }
-        set { SetValue(IsAvatarVisibleProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial DateTime CreationDate { get; set; }
 
+    [GeneratedDependencyProperty]
+    public partial string? Base64ContactPicture { get; set; }
 
-    public bool ShowPreviewText
-    {
-        get { return (bool)GetValue(ShowPreviewTextProperty); }
-        set { SetValue(ShowPreviewTextProperty, value); }
-    }
+    #endregion
 
-    public MailListDisplayMode DisplayMode
-    {
-        get { return (MailListDisplayMode)GetValue(DisplayModeProperty); }
-        set { SetValue(DisplayModeProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial WinoExpander? ConnectedExpander { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
+    public partial MailOperation LeftHoverAction { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
+    public partial MailOperation CenterHoverAction { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
+    public partial MailOperation RightHoverAction { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial ICommand? HoverActionExecutedCommand { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool IsHoverActionsEnabled { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool Prefer24HourTimeFormat { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsThreadExpanderVisible { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsThreadExpanded { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsThumbnailUpdated { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial IMailListItem? ActionItem { get; set; }
 
     public MailItemDisplayInformationControl()
     {
-        this.InitializeComponent();
+        InitializeComponent();
 
         var compositor = this.Visual().Compositor;
 
@@ -142,19 +115,9 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
     }
 
-    private static void OnMailItemChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    partial void OnIsFlaggedChanged(bool newValue)
     {
-        if (obj is MailItemDisplayInformationControl control)
-        {
-            control.UpdateInformation();
-        }
-    }
 
-    private void UpdateInformation()
-    {
-        if (MailItem == null) return;
-
-        TitleText.Text = string.IsNullOrWhiteSpace(MailItem.Subject) ? Translator.MailItemNoSubject : MailItem.Subject;
     }
 
     private void ControlPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -179,14 +142,13 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     {
         IsRunningHoverAction = true;
 
-        MailOperationPreperationRequest package = null;
+        MailOperationPreperationRequest? package = null;
 
-        //if (MailItem is MailCopy mailCopy)
-        //    package = new MailOperationPreperationRequest(operation, mailCopy, toggleExecution: true);
-        //else if (MailItem is ThreadMailItemViewModel threadMailItemViewModel)
-        //    package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.GetMailCopies(), toggleExecution: true);
-        //else if (MailItem is ThreadMailItem threadMailItem)
-        //    package = new MailOperationPreperationRequest(operation, threadMailItem.ThreadItems.Cast<MailItemViewModel>().Select(a => a.MailCopy), toggleExecution: true);
+        if (ActionItem is MailItemViewModel mailItemViewModel)
+            package = new MailOperationPreperationRequest(operation, mailItemViewModel.MailCopy, toggleExecution: true);
+
+        else if (ActionItem is ThreadMailItemViewModel threadMailItemViewModel)
+            package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.ThreadEmails.Select(a => a.MailCopy), toggleExecution: true);
 
         if (package == null) return;
 

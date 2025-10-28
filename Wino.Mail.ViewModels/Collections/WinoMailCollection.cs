@@ -345,7 +345,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         UpdateUniqueIdHashes(existingItem, false);
         UpdateUniqueIdHashes(new MailItemViewModel(updatedItem), true);
 
-        await ExecuteUIThread(() => { existingItem.MailCopy = updatedItem; });
+        await ExecuteUIThread(() => { existingItem.NotifyPropertyChanges(); });
     }
 
     /// <summary>
@@ -548,7 +548,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
             if (itemContainer.ItemViewModel != null)
             {
-                itemContainer.ItemViewModel.MailCopy = updatedMailCopy;
+                itemContainer.ItemViewModel.NotifyPropertyChanges();
             }
 
             UpdateUniqueIdHashes(new MailItemViewModel(updatedMailCopy), true);

@@ -49,7 +49,7 @@
                     VerticalAlignment="Top"
                     Canvas.ZIndex="0"
                     Fill="{ThemeResource SystemAccentColor}"
-                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(MailItem.IsRead), Mode=OneWay}" />
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
             </Grid>
 
 
@@ -73,9 +73,9 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     FontSize="14"
-                    FromAddress="{x:Bind MailItem.FromAddress, Mode=OneWay}"
-                    FromName="{x:Bind MailItem.FromName, Mode=OneWay}"
-                    SenderContactPicture="{x:Bind MailItem.SenderContact.Base64ContactPicture}"
+                    FromAddress="{x:Bind FromAddress, Mode=OneWay}"
+                    FromName="{x:Bind FromName, Mode=OneWay}"
+                    SenderContactPicture="{x:Bind Base64ContactPicture, Mode=OneWay}"
                     ThumbnailUpdatedEvent="{x:Bind IsThumbnailUpdated, Mode=OneWay}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
@@ -104,7 +104,7 @@
                             <TextBlock
                                 x:Name="DraftTitle"
                                 Margin="0,0,4,0"
-                                x:Load="{x:Bind MailItem.IsDraft, Mode=OneWay}"
+                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}">
 
                                 <Run Text="[" /><Run Text="{x:Bind domain:Translator.Draft}" /><Run Text="]" /> <Run Text=" " />
@@ -114,17 +114,17 @@
                             <TextBlock
                                 x:Name="SenderTextFromName"
                                 Grid.Column="1"
-                                Text="{x:Bind MailItem.FromName}"
+                                Text="{x:Bind FromName}"
                                 TextTrimming="WordEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(MailItem.FromName)}" />
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName)}" />
 
                             <!--  Sender  -->
                             <TextBlock
                                 x:Name="SenderTextFromAddress"
                                 Grid.Column="1"
-                                Text="{x:Bind MailItem.FromAddress}"
+                                Text="{x:Bind FromAddress}"
                                 TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItem.FromName)}" />
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName)}" />
 
                             <!--  Hover button  -->
                             <StackPanel
@@ -194,6 +194,7 @@
                                 x:Name="TitleText"
                                 Grid.Column="1"
                                 MaxLines="1"
+                                Text="{x:Bind Subject, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
 
                             <TextBlock
@@ -203,7 +204,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="11"
                                 Opacity="0.7"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(MailItem.IsDraft, MailItem.CreationDate, Prefer24HourTimeFormat)}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, Prefer24HourTimeFormat)}" />
                         </Grid>
 
                         <!--  Message  -->
@@ -219,10 +220,10 @@
                             <Grid x:Name="PreviewTextContainer">
                                 <TextBlock
                                     x:Name="PreviewTextblock"
-                                    x:Load="{x:Bind helpers:XamlHelpers.ShouldDisplayPreview(MailItem.PreviewText), Mode=OneWay}"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ShouldDisplayPreview(PreviewText), Mode=OneWay}"
                                     MaxLines="1"
                                     Opacity="0.7"
-                                    Text="{x:Bind MailItem.PreviewText}"
+                                    Text="{x:Bind PreviewText}"
                                     TextTrimming="CharacterEllipsis" />
                             </Grid>
 
@@ -236,12 +237,12 @@
 
                                 <ContentPresenter
                                     x:Name="HasAttachmentContent"
-                                    x:Load="{x:Bind MailItem.HasAttachments, Mode=OneWay}"
+                                    x:Load="{x:Bind HasAttachments, Mode=OneWay}"
                                     ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
 
                                 <ContentPresenter
                                     x:Name="IsFlaggedContent"
-                                    x:Load="{x:Bind MailItem.IsFlagged, Mode=OneWay}"
+                                    x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                     ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                             </StackPanel>
                         </Grid>
@@ -255,7 +256,7 @@
             <VisualStateGroup x:Name="ReadStates">
                 <VisualState x:Name="Unread">
                     <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind MailItem.IsRead, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}" />
+                        <StateTrigger IsActive="{x:Bind IsRead, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}" />
                     </VisualState.StateTriggers>
 
                     <VisualState.Setters>

@@ -26,22 +26,28 @@
         <DataTemplate x:Key="CompactDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Compact"
-                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
-                ShowPreviewText="False" />
+                FromAddress="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.FromAddress}"
+                FromName="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.FromName}"
+                ShowPreviewText="False"
+                Subject="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.Subject}" />
         </DataTemplate>
 
         <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Medium"
-                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
-                ShowPreviewText="True" />
+                FromAddress="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.FromAddress}"
+                FromName="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.FromName}"
+                ShowPreviewText="True"
+                Subject="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.Subject}" />
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
             <controls1:MailItemDisplayInformationControl
                 DisplayMode="Spacious"
-                MailItem="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy}"
-                ShowPreviewText="True" />
+                FromAddress="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.FromAddress}"
+                FromName="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.FromName}"
+                ShowPreviewText="True"
+                Subject="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailCopy.Subject}" />
         </DataTemplate>
 
         <mailSelectors:MailItemDisplayModePreviewTemplateSelector
