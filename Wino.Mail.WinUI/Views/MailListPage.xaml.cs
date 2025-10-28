@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Windows.Foundation;
 using Windows.System;
+using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -163,33 +164,26 @@ public sealed partial class MailListPage : MailListPageAbstract,
         args.IsContainerPrepared = false;
     }
 
-
-
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        // TODO: New ItemsView implementation.
-
         // Context is requested from a single mail point, but we might have multiple selected items.
         // This menu should be calculated based on all selected items by providers.
 
-        //if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
-        //{
-        //    if (control.DataContext is MailItemViewModel clickedMailItemContext)
-        //    {
-        //        var targetItems = ViewModel.MailCollection.AllItems.Where(a => a.IsSelected);
-        //        var availableActions = ViewModel.GetAvailableMailActions(targetItems);
+        if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
+        {
+            var targetItems = ViewModel.MailCollection.SelectedItems;
+            var availableActions = ViewModel.GetAvailableMailActions(targetItems);
 
-        //        if (!availableActions?.Any() ?? false) return;
+            if (!availableActions?.Any() ?? false) return;
 
-        //        var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
+            var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
 
-        //        if (clickedOperation == null) return;
+            if (clickedOperation == null) return;
 
-        //        var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
+            var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
 
-        //        await ViewModel.ExecuteMailOperationAsync(prepRequest);
-        //    }
-        //}
+            await ViewModel.ExecuteMailOperationAsync(prepRequest);
+        }
     }
 
     private async Task<MailOperationMenuItem> GetMailOperationFromFlyoutAsync(IEnumerable<MailOperationMenuItem> availableActions,
@@ -210,9 +204,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return await source.Task;
     }
 
-    void IRecipient<ClearMailSelectionsRequested>.Receive(ClearMailSelectionsRequested message)
+    async void IRecipient<ClearMailSelectionsRequested>.Receive(ClearMailSelectionsRequested message)
     {
-        // MailListView.ClearSelections(null, preserveThreadExpanding: true);
+        await ViewModel.MailCollection.UnselectAllAsync();
     }
 
     void IRecipient<ActiveMailItemChangedEvent>.Receive(ActiveMailItemChangedEvent message)
@@ -465,6 +459,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public void Receive(DisposeRenderingFrameRequested message)
     {
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
+        UpdateAdaptiveness();
     }
 
     protected override void RegisterRecipients()
@@ -525,8 +520,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void DeleteAllInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
-        => ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
+
 
     private void WinoMailCollectionSelectionChanged(object? sender, EventArgs args)
     {
@@ -536,14 +530,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private async void WinoListViewProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
     {
+        args.Handled = true;
+
         if (args.Key == VirtualKey.Delete)
         {
-
+            ViewModel.ExecuteMailOperationCommand.Execute(MailOperation.SoftDelete);
         }
-        else
+        else if (args.Key == VirtualKey.A && args.Modifiers.HasFlag(VirtualKeyModifiers.Control))
         {
-            args.Handled = true;
-
             await ViewModel.MailCollection.ToggleSelectAllAsync();
         }
     }
@@ -627,6 +621,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
             {
                 // No Ctrl pressed, toggle expansion state (default behavior)
                 threadMailItemViewModel.IsThreadExpanded = !threadMailItemViewModel.IsThreadExpanded;
+
+                // Select the first item in the thread if none is selected
+                if (!threadMailItemViewModel.IsSelected)
+                {
+                    threadMailItemViewModel.IsSelected = true;
+                    var firstEmail = threadMailItemViewModel.ThreadEmails.FirstOrDefault();
+                    firstEmail?.IsSelected = true;
+                }
             }
         }
     }

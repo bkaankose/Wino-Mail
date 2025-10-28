@@ -326,16 +326,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         if (markAsPreference == MailMarkAsOption.WhenSelected)
         {
-            //var operation = MailOperation.MarkAsRead;
-            //var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
+            var operation = MailOperation.MarkAsRead;
+            var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
 
-            //if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
-            //    !gmailUnreadFolderMarkedAsReadUniqueIds.Contains(_activeMailItem.UniqueId))
-            //{
-            //    gmailUnreadFolderMarkedAsReadUniqueIds.Add(_activeMailItem.UniqueId);
-            //}
+            if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
+                !gmailUnreadFolderMarkedAsReadUniqueIds.Contains(_activeMailItem.UniqueId))
+            {
+                gmailUnreadFolderMarkedAsReadUniqueIds.Add(_activeMailItem.UniqueId);
+            }
 
-            //await ExecuteMailOperationAsync(package);
+            await ExecuteMailOperationAsync(package);
         }
         else if (markAsPreference == MailMarkAsOption.AfterDelay && PreferencesService.MarkAsDelay >= 0)
         {
@@ -582,6 +582,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public void RemoveFirst()
     {
         var fi = MailCollection.GetFirst();
+        if (fi == null) return;
 
         Messenger.Send(new MailRemovedMessage(fi.MailCopy));
     }
@@ -1134,7 +1135,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         // Get mail copies based on the mail item type
         IEnumerable<MailCopy> mailCopies;
-        
+
         if (message.MailItem is MailItemViewModel singleItem)
         {
             mailCopies = new[] { singleItem.MailCopy };
