@@ -114,9 +114,9 @@
                             <TextBlock
                                 x:Name="SenderTextFromName"
                                 Grid.Column="1"
-                                Text="{x:Bind FromName}"
+                                Text="{x:Bind FromName, Mode=OneWay}"
                                 TextTrimming="WordEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName)}" />
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
 
                             <!--  Sender  -->
                             <TextBlock
@@ -124,7 +124,7 @@
                                 Grid.Column="1"
                                 Text="{x:Bind FromAddress}"
                                 TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName)}" />
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
 
                             <!--  Hover button  -->
                             <StackPanel
@@ -204,7 +204,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="11"
                                 Opacity="0.7"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, Prefer24HourTimeFormat)}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, Prefer24HourTimeFormat), Mode=OneWay}" />
                         </Grid>
 
                         <!--  Message  -->
@@ -223,7 +223,7 @@
                                     x:Load="{x:Bind helpers:XamlHelpers.ShouldDisplayPreview(PreviewText), Mode=OneWay}"
                                     MaxLines="1"
                                     Opacity="0.7"
-                                    Text="{x:Bind PreviewText}"
+                                    Text="{x:Bind PreviewText, Mode=OneWay}"
                                     TextTrimming="CharacterEllipsis" />
                             </Grid>
 
