@@ -12,7 +12,7 @@ namespace Wino.Core.ViewModels.Data;
 public partial class KeyboardShortcutViewModel : ObservableObject
 {
     [ObservableProperty]
-    private bool isEnabled;
+    public partial bool IsEnabled { get; set; }
 
     public Guid Id { get; }
     public string Key { get; }
