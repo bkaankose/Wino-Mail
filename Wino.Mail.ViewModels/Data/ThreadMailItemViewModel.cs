@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.ViewModels.Data;
@@ -39,7 +40,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// <summary>
     /// Gets the latest email's sender name for display
     /// </summary>
-    public string FromName => latestMailViewModel?.MailCopy?.SenderContact.Name;
+    public string FromName => latestMailViewModel?.MailCopy?.SenderContact?.Name ?? Translator.UnknownSender;
 
     /// <summary>
     /// Gets the latest email's creation date for sorting

@@ -44,18 +44,18 @@ public partial class KeyboardShortcutViewModel : ObservableObject
         {
             return MailOperation switch
             {
-                MailOperation.Archive => "Archive",
-                MailOperation.UnArchive => "Unarchive",
-                MailOperation.SoftDelete => "Delete",
-                MailOperation.Move => "Move",
-                MailOperation.MoveToJunk => "Move to Junk",
-                MailOperation.SetFlag => "Set Flag",
-                MailOperation.ClearFlag => "Clear Flag",
-                MailOperation.MarkAsRead => "Mark as Read",
-                MailOperation.MarkAsUnread => "Mark as Unread",
-                MailOperation.Reply => "Reply",
-                MailOperation.ReplyAll => "Reply All",
-                MailOperation.Forward => "Forward",
+                MailOperation.Archive => Translator.MailOperation_Archive,
+                MailOperation.UnArchive => Translator.MailOperation_Unarchive,
+                MailOperation.SoftDelete => Translator.MailOperation_Delete,
+                MailOperation.Move => Translator.MailOperation_Move,
+                MailOperation.MoveToJunk => Translator.MailOperation_MoveJunk,
+                MailOperation.SetFlag => Translator.MailOperation_SetFlag,
+                MailOperation.ClearFlag => Translator.MailOperation_ClearFlag,
+                MailOperation.MarkAsRead => Translator.MailOperation_MarkAsRead,
+                MailOperation.MarkAsUnread => Translator.MailOperation_MarkAsUnread,
+                MailOperation.Reply => Translator.MailOperation_Reply,
+                MailOperation.ReplyAll => Translator.MailOperation_ReplyAll,
+                MailOperation.Forward => Translator.MailOperation_Forward,
                 _ => MailOperation.ToString()
             };
         }

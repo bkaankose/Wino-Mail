@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI.Controls.ListView;
+using Wino.Mail.WinUI.Extensions;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.Abstract;
@@ -40,7 +41,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private IStatePersistanceService StatePersistenceService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
     private IKeyPressService KeyPressService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
-
+    private IKeyboardShortcutService KeyboardShortcutService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IKeyboardShortcutService>() ?? throw new Exception($"Can't resolve {nameof(IKeyboardShortcutService)}");
     public MailListPage()
     {
         InitializeComponent();
@@ -539,6 +540,22 @@ public sealed partial class MailListPage : MailListPageAbstract,
         else if (args.Key == VirtualKey.A && args.Modifiers.HasFlag(VirtualKeyModifiers.Control))
         {
             await ViewModel.MailCollection.ToggleSelectAllAsync();
+        }
+        else
+        {
+            // Check keyboard shortcuts from service.
+            ModifierKeys modifiers = args.Modifiers.ToDomainModifierKeys();
+
+            var operation = await KeyboardShortcutService.GetMailOperationForKeyAsync(args.Key.ToString(), modifiers);
+
+            if (operation != null)
+            {
+                ViewModel.ExecuteMailOperationCommand.Execute(operation);
+            }
+            else
+            {
+                args.Handled = false;
+            }
         }
     }
 
