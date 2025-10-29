@@ -26,6 +26,9 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
     {
         base.OnApplyTemplate();
 
+        DragItemsStarting += ItemDragStarting;
+        DragItemsStarting -= ItemDragStarting;
+
         internalScrollviewer = GetTemplateChild(PART_ScrollViewer) as ScrollViewer;
 
         if (internalScrollviewer == null) return;
