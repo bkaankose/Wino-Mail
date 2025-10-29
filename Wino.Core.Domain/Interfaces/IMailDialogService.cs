@@ -59,4 +59,11 @@ public interface IMailDialogService : IDialogServiceBase
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
     Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null);
 #pragma warning restore CS8625
+
+    /// <summary>
+    /// Presents a dialog to the user for contact creation/modification.
+    /// </summary>
+    /// <param name="contact">Existing contact to edit, or null for new contact.</param>
+    /// <returns>Contact information. Null if canceled.</returns>
+    Task<AccountContact> ShowEditContactDialogAsync(AccountContact contact = null);
 }

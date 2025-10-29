@@ -34,7 +34,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         _statePersistanceService = statePersistanceService;
     }
 
-    public Type GetPageType(WinoPage winoPage)
+    public Type? GetPageType(WinoPage winoPage)
     {
         return winoPage switch
         {
@@ -60,6 +60,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
             WinoPage.EditAccountDetailsPage => typeof(EditAccountDetailsPage),
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
+            WinoPage.ContactsPage => typeof(ContactsPage),
             _ => null,
         };
     }

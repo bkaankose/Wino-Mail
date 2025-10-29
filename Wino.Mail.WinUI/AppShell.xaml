@@ -340,6 +340,7 @@
             x:Key="NavigationMenuTemplateSelector"
             AccountManagementTemplate="{StaticResource ManageAccountsTemplate}"
             ClickableAccountMenuTemplate="{StaticResource ClickableAccountMenuTemplate}"
+            ContactsMenuItemTemplate="{StaticResource ContactsTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfig}"
             FolderMenuTemplate="{StaticResource FolderMenuTemplate}"

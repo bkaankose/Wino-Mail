@@ -54,6 +54,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
     private readonly SettingsItem SettingsItem = new SettingsItem();
     private readonly ManageAccountsMenuItem ManageAccountsMenuItem = new ManageAccountsMenuItem();
+    private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
 
     public IMenuItem CreateMailMenuItem = new NewMailMenuItem();
 
@@ -150,6 +151,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
             FooterItems.Clear();
 
+            FooterItems.Add(ContactsMenuItem);
             FooterItems.Add(ManageAccountsMenuItem);
             FooterItems.Add(SettingsItem);
         });
@@ -590,6 +592,10 @@ public partial class AppShellViewModel : MailBaseViewModel,
         else if (clickedMenuItem is ManageAccountsMenuItem)
         {
             NavigationService.Navigate(WinoPage.ManageAccountsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+        }
+        else if (clickedMenuItem is ContactsMenuItem)
+        {
+            NavigationService.Navigate(WinoPage.ContactsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
         }
         else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
         {

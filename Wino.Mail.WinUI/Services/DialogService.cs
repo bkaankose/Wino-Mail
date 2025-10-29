@@ -209,4 +209,21 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         return dialog.Result;
     }
+
+    public async Task<Core.Domain.Entities.Shared.AccountContact?> ShowEditContactDialogAsync(Core.Domain.Entities.Shared.AccountContact? contact = null)
+    {
+        var dialog = new ContactEditDialog(contact, this)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        var result = await HandleDialogPresentationAsync(dialog);
+
+        if (result == ContentDialogResult.Primary)
+        {
+            return dialog.Contact;
+        }
+
+        return null;
+    }
 }

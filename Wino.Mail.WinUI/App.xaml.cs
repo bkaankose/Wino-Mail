@@ -59,6 +59,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         services.AddTransient(typeof(LanguageTimePageViewModel));
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
+        services.AddTransient(typeof(ContactsPageViewModel));
     }
 
     #endregion

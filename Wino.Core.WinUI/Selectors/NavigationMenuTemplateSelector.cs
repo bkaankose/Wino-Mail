@@ -7,6 +7,7 @@ namespace Wino.Core.WinUI.Selectors;
 public partial class NavigationMenuTemplateSelector : DataTemplateSelector
 {
     public DataTemplate MenuItemTemplate { get; set; }
+    public DataTemplate ContactsMenuItemTemplate { get; set; }
     public DataTemplate AccountManagementTemplate { get; set; }
     public DataTemplate ClickableAccountMenuTemplate { get; set; }
     public DataTemplate MergedAccountTemplate { get; set; }
@@ -27,6 +28,8 @@ public partial class NavigationMenuTemplateSelector : DataTemplateSelector
     {
         if (item is NewMailMenuItem)
             return NewMailTemplate;
+        else if (item is ContactsMenuItem)
+            return ContactsMenuItemTemplate;
         else if (item is SettingsItem)
             return SettingsItemTemplate;
         else if (item is SeperatorItem)

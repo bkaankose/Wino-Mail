@@ -9,6 +9,7 @@ public enum WinoPage
     IdlePage,
     ComposePage,
     SettingsPage,
+    ContactsPage,
     MailRenderingPage,
     WelcomePage,
     AccountDetailsPage,
@@ -27,7 +28,6 @@ public enum WinoPage
     AliasManagementPage,
     EditAccountDetailsPage,
     KeyboardShortcutsPage,
-    // Calendar
     CalendarPage,
     CalendarSettingsPage,
     EventDetailsPage

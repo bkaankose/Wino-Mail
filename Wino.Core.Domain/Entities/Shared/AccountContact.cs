@@ -36,6 +36,12 @@ public class AccountContact : IEquatable<AccountContact>
     /// </summary>
     public bool IsRootContact { get; set; }
 
+    /// <summary>
+    /// When true, indicates that the contact has been manually modified by the user.
+    /// Contacts with this flag set to true should not be updated during synchronization.
+    /// </summary>
+    public bool IsOverridden { get; set; } = false;
+
     public override bool Equals(object obj)
     {
         return Equals(obj as AccountContact);

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using CommunityToolkit.WinUI.Helpers;
 using Microsoft.UI;
@@ -46,6 +47,27 @@ public static class XamlHelpers
     public static bool ObjectEquals(object obj1, object obj2) => object.Equals(obj1, obj2);
     public static Visibility CountToVisibilityConverter(int value) => value > 0 ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility CountToVisibilityConverterWithThreshold(int value, int threshold) => value > threshold ? Visibility.Visible : Visibility.Collapsed;
+    public static ListViewSelectionMode BoolToSelectionMode(bool isSelectionMode) => isSelectionMode ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
+    public static string BoolToSelectionModeText(bool isSelectionMode) => isSelectionMode ? Translator.Buttons_Cancel : Translator.Buttons_Multiselect;
+
+    public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage Base64ToBitmapImage(string base64String)
+    {
+        if (string.IsNullOrEmpty(base64String))
+            return null;
+
+        try
+        {
+            var imageBytes = Convert.FromBase64String(base64String);
+            using var stream = new System.IO.MemoryStream(imageBytes);
+            var bitmap = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+            bitmap.SetSource(stream.AsRandomAccessStream());
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+    }
     public static InfoBarSeverity InfoBarSeverityConverter(InfoBarMessageType messageType)
     {
         return messageType switch

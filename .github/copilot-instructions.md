@@ -38,6 +38,8 @@
 - Place ViewModels in appropriate projects (Wino.Mail.ViewModels, Wino.Core.ViewModels, etc.)
 - Create abstract page classes in Views/Abstract folders
 - Follow the existing naming conventions
+- **NEVER** edit files in the old Wino.Mail project folder - it's UWP and deprecated
+- **ALWAYS** work with WinUI projects (Wino.Mail.WinUI, Wino.Core.WinUI) for UI components
 
 ### Error Handling
 - Always wrap async operations in try-catch blocks
@@ -55,6 +57,15 @@
 - Always validate contact data before operations
 - Use PersonPicture controls for contact avatars
 - Support multiple selection where appropriate
+
+### UI Data Binding and Converters
+- **NEVER** create IValueConverter classes or add them to Converters.xaml
+- **NEVER** use BoolToVisibilityConverter - boolean values are automatically converted to Visibility by the WinUI 3 SDK
+- **ALWAYS** use XamlHelpers static methods for data transformations when needed
+- Use XamlHelpers methods with x:Bind syntax: `{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PropertyName), Mode=OneWay}`
+- Available XamlHelpers methods include: ReverseBoolToVisibilityConverter, CountToBooleanConverter, BoolToSelectionMode, Base64ToBitmapImage, etc.
+- If a helper method doesn't exist, add it to XamlHelpers.cs instead of creating a converter
+- For boolean to Visibility binding, use direct binding: `Visibility="{x:Bind BooleanProperty, Mode=OneWay}"`
 
 ## Code Style
 - Use var where type is obvious

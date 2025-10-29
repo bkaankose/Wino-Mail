@@ -19,6 +19,7 @@ using Wino.Core.WinUI.Dialogs;
 using Wino.Core.WinUI.Extensions;
 using Wino.Dialogs;
 using Wino.Messaging.Client.Shell;
+using WinRT.Interop;
 
 namespace Wino.Core.WinUI.Services;
 
@@ -51,6 +52,9 @@ public class DialogServiceBase : IDialogServiceBase
         };
 
         picker.FileTypeFilter.Add("*");
+
+        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        InitializeWithWindow.Initialize(picker, windowHandle);
 
         var folder = await picker.PickSingleFolderAsync();
         if (folder == null) return string.Empty;
@@ -89,6 +93,9 @@ public class DialogServiceBase : IDialogServiceBase
             picker.FileTypeFilter.Add(filter.ToString());
         }
 
+        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        InitializeWithWindow.Initialize(picker, windowHandle);
+
         var files = await picker.PickMultipleFilesAsync();
         if (files == null) return returnList;
 
@@ -114,6 +121,9 @@ public class DialogServiceBase : IDialogServiceBase
         {
             picker.FileTypeFilter.Add(filter.ToString());
         }
+
+        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        InitializeWithWindow.Initialize(picker, windowHandle);
 
         var file = await picker.PickSingleFileAsync();
 
@@ -258,6 +268,9 @@ public class DialogServiceBase : IDialogServiceBase
         };
 
         picker.FileTypeFilter.Add("*");
+
+        nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
+        InitializeWithWindow.Initialize(picker, windowHandle);
 
         var pickedFolder = await picker.PickSingleFolderAsync();
 

@@ -68,6 +68,7 @@
   <ItemGroup>
     <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
     <None Remove="ShellWindow.xaml" />
+    <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -123,6 +124,11 @@
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Settings\ContactsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="Controls\ListView\WinoListViewStyles.xaml">
