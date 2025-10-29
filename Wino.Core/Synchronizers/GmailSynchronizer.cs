@@ -46,13 +46,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 {
     public override uint BatchModificationSize => 1000;
 
-    /// This now represents actual per-folder download count for initial sync
+    /// Maximum messages to fetch per folder during initial sync (1500).
+    /// For each folder: first 50 messages are downloaded with MIME, next 500 with metadata only.
+    /// Messages beyond 550 per folder are skipped during initial sync.
     public override uint InitialMessageDownloadCountPerFolder => 1500;
 
     // It's actually 100. But Gmail SDK has internal bug for Out of Memory exception.
     // https://github.com/googleapis/google-api-dotnet-client/issues/2603
     private const uint MaximumAllowedBatchRequestSize = 10;
-    
+
     private readonly ConfigurableHttpClient _googleHttpClient;
     private readonly GmailService _gmailService;
     private readonly CalendarService _calendarService;
@@ -64,7 +66,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     // Keeping a reference for quick access to the virtual archive folder.
     private Guid? archiveFolderId;
-    
+
     // Track messages downloaded per folder during current synchronization
     private readonly Dictionary<string, int> _folderDownloadCounts = new();
 
@@ -204,6 +206,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 string nextPageToken = null;
                 uint downloadedCount = 0;
                 int folderMimeDownloadCount = 0;
+                int folderMetadataDownloadCount = 0;
+                const int maxMetadataOnlyMessagesPerLabel = 500;
 
                 do
                 {
@@ -220,7 +224,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                         downloadedCount += (uint)result.Messages.Count;
                         listChanges.Add(result);
 
-                        // Download MIME for the first 50 messages in this folder immediately
+                        // Process messages in this folder: first 50 with MIME, next 500 with metadata only
                         foreach (var message in result.Messages)
                         {
                             if (folderMimeDownloadCount < InitialSyncMimeDownloadCount)
@@ -228,24 +232,33 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                 // Download with MIME for first 50 messages
                                 await DownloadSingleMessageAsync(message.Id, true, cancellationToken).ConfigureAwait(false);
                                 folderMimeDownloadCount++;
-                                _logger.Debug("Downloaded MIME message {MessageId} ({Count}/{MaxCount}) for folder {FolderName}", 
+                                _logger.Debug("Downloaded MIME message {MessageId} ({Count}/{MaxCount}) for folder {FolderName}",
                                     message.Id, folderMimeDownloadCount, InitialSyncMimeDownloadCount, folder.FolderName);
                             }
-                            // Note: Messages beyond 50 will be downloaded without MIME in the general loop later
+                            else if (folderMetadataDownloadCount < maxMetadataOnlyMessagesPerLabel)
+                            {
+                                // Download metadata only for next 500 messages
+                                await DownloadSingleMessageAsync(message.Id, false, cancellationToken).ConfigureAwait(false);
+                                folderMetadataDownloadCount++;
+                                _logger.Debug("Downloaded metadata message {MessageId} ({Count}/{MaxCount}) for folder {FolderName}",
+                                    message.Id, folderMetadataDownloadCount, maxMetadataOnlyMessagesPerLabel, folder.FolderName);
+                            }
+                            // Messages beyond 50 MIME + 500 metadata are skipped for initial sync
                         }
                     }
 
-                    // Stop if we've downloaded enough messages for this folder
-                    if (downloadedCount >= InitialMessageDownloadCountPerFolder)
+                    // Stop if we've downloaded enough messages for this folder or reached the metadata limit
+                    if (downloadedCount >= InitialMessageDownloadCountPerFolder || 
+                        (folderMimeDownloadCount >= InitialSyncMimeDownloadCount && folderMetadataDownloadCount >= maxMetadataOnlyMessagesPerLabel))
                     {
                         break;
                     }
 
                 } while (!string.IsNullOrEmpty(nextPageToken));
 
-                _logger.Information("Downloaded {Count} messages for folder {Folder} (first {MimeCount} with MIME)", 
-                    downloadedCount, folder.FolderName, Math.Min(folderMimeDownloadCount, InitialSyncMimeDownloadCount));
-                
+                _logger.Information("Downloaded {Count} messages for folder {Folder} (first {MimeCount} with MIME, {MetadataCount} metadata-only)",
+                    downloadedCount, folder.FolderName, Math.Min(folderMimeDownloadCount, InitialSyncMimeDownloadCount), folderMetadataDownloadCount);
+
                 // Track how many messages we've downloaded with MIME for this folder
                 _folderDownloadCounts[folder.RemoteFolderId] = folderMimeDownloadCount;
             }
@@ -306,19 +319,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
         else
         {
-            // For initial sync, we've already downloaded the first 50 messages per folder with MIME
-            // Any remaining messages from the listChanges that weren't downloaded need metadata-only download
-            var allInitialSyncMessages = listChanges.Where(a => a.Messages != null).SelectMany(a => a.Messages).Select(a => a.Id).ToList();
-            var totalDownloadedCount = _folderDownloadCounts.Values.Sum();
-            
-            // Skip the messages that were already downloaded with MIME and add the rest for metadata-only download
-            if (allInitialSyncMessages.Count > totalDownloadedCount)
-            {
-                var remainingMessages = allInitialSyncMessages.Skip(totalDownloadedCount).ToList();
-                missingMessageIds.AddRange(remainingMessages);
-                
-                _logger.Information("Added {Count} remaining messages for metadata-only download", remainingMessages.Count);
-            }
+            // For initial sync, messages are now downloaded immediately during folder processing
+            // (first 50 with MIME, next 500 metadata-only per folder)
+            // No remaining messages to process here
+            _logger.Information("Initial sync completed: messages downloaded per folder (50 MIME + up to 500 metadata-only)");
         }
 
         // Add missing message ids from delta changes.
@@ -395,7 +399,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         try
         {
-            var singleRequest = CreateSingleMessageGet(messageId);
+            var singleRequest = CreateSingleMessageGet(messageId, downloadMime);
             var downloadedMessage = await singleRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
             if (downloadMime)
@@ -406,7 +410,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 await HandleSingleItemDownloadedCallbackMinimalAsync(downloadedMessage, null, messageId, cancellationToken).ConfigureAwait(false);
             }
-            
+
             await UpdateAccountSyncIdentifierAsync(downloadedMessage.HistoryId).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -733,14 +737,21 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     }
 
     /// <summary>
-    /// Returns a single get request to retrieve the raw message with the given id
+    /// Returns a single get request to retrieve the message with the given id
     /// </summary>
     /// <param name="messageId">Message to download.</param>
-    /// <returns>Get request for raw mail.</returns>
-    private UsersResource.MessagesResource.GetRequest CreateSingleMessageGet(string messageId)
+    /// <param name="downloadMime">True to download raw MIME content, false to download metadata only (headers, labels, etc.)</param>
+    /// <returns>Get request for message with appropriate format.</returns>
+    private UsersResource.MessagesResource.GetRequest CreateSingleMessageGet(string messageId, bool downloadMime = true)
     {
         var singleRequest = _gmailService.Users.Messages.Get("me", messageId);
-        singleRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
+        
+        // Use Raw format when downloading MIME content, Metadata format when downloading headers only
+        // This is critical: Raw format doesn't populate Payload.Headers, Metadata format does!
+        // Previously always used Raw format, causing FromAddress/FromName to be empty when downloadMime=false
+        singleRequest.Format = downloadMime 
+            ? UsersResource.MessagesResource.GetRequest.FormatEnum.Raw
+            : UsersResource.MessagesResource.GetRequest.FormatEnum.Metadata;
 
         return singleRequest;
     }
@@ -1482,9 +1493,27 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         bool isFlagged = gmailMessage.GetIsFlagged();
         bool isDraft = gmailMessage.GetIsDraft();
 
+        // Try to get the most accurate date from Gmail's InternalDate first, then fallback to Date header
+        DateTime creationDate = DateTime.UtcNow;
+        
+        if (gmailMessage.InternalDate.HasValue)
+        {
+            // Gmail's InternalDate is in milliseconds since Unix epoch
+            creationDate = DateTimeOffset.FromUnixTimeMilliseconds(gmailMessage.InternalDate.Value).UtcDateTime;
+        }
+        else
+        {
+            // Fallback to parsing the Date header
+            var dateHeaderValue = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Date", StringComparison.OrdinalIgnoreCase))?.Value;
+            if (!string.IsNullOrEmpty(dateHeaderValue) && DateTime.TryParse(dateHeaderValue, out var parsedDate))
+            {
+                creationDate = parsedDate.ToUniversalTime();
+            }
+        }
+
         return new MailCopy()
         {
-            CreationDate = DateTime.UtcNow, // We don't have the exact date without MIME, use current time
+            CreationDate = creationDate,
             Subject = HttpUtility.HtmlDecode(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Subject", StringComparison.OrdinalIgnoreCase))?.Value ?? ""),
             FromName = HttpUtility.HtmlDecode(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("From", StringComparison.OrdinalIgnoreCase))?.Value ?? ""),
             FromAddress = ExtractEmailFromHeader(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("From", StringComparison.OrdinalIgnoreCase))?.Value ?? ""),
@@ -1532,7 +1561,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Create mail copy with minimal properties - no MIME download
         var mailCopy = CreateMinimalMailCopy(message);
-        
+
         // Since this is metadata-only download, we can't check for draft mapping via MIME headers
         // Draft mapping will be handled during delta synchronization or when MIME is downloaded on-demand
 
