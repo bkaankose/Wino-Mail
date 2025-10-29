@@ -76,6 +76,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
         SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
 
+        MailListView.Cleanup();
+
         RenderingFrame.Navigate(typeof(IdlePage));
 
         GC.Collect();
