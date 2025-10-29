@@ -422,6 +422,7 @@
                         ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
                         ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
                         ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
+                        LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                         SelectionMode="Extended">
                         <listview:WinoListView.ItemContainerTransitions>

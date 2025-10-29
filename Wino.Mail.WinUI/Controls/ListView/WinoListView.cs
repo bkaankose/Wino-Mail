@@ -1,21 +1,51 @@
 ﻿using System.Linq;
+using System.Windows.Input;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls.ListView;
 
 public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 {
-    public bool IsThreadListView
+    private const string PART_ScrollViewer = "ScrollViewer";
+    private ScrollViewer? internalScrollviewer;
+
+    private double lastestRaisedOffset = 0;
+    private int lastItemSize = 0;
+
+    [GeneratedDependencyProperty]
+    public partial bool IsThreadListView { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial ICommand? LoadMoreCommand { get; set; }
+
+    protected override void OnApplyTemplate()
     {
-        get { return (bool)GetValue(IsThreadListViewProperty); }
-        set { SetValue(IsThreadListViewProperty, value); }
+        base.OnApplyTemplate();
+
+        internalScrollviewer = GetTemplateChild(PART_ScrollViewer) as ScrollViewer;
+
+        if (internalScrollviewer == null) return;
+
+        internalScrollviewer.ViewChanged -= InternalScrollVeiwerViewChanged;
+        internalScrollviewer.ViewChanged += InternalScrollVeiwerViewChanged;
     }
 
-    public static readonly DependencyProperty IsThreadListViewProperty = DependencyProperty.Register(nameof(IsThreadListView), typeof(bool), typeof(WinoListView), new PropertyMetadata(false));
+    private void InternalScrollVeiwerViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (internalScrollviewer == null) return;
 
-    public bool IsAllSelected => Items.Count == SelectedItems.Count;
+        // No need to raise init request if there are no items in the list.
+        if (ItemsSource == null) return;
+
+        double progress = internalScrollviewer.VerticalOffset / internalScrollviewer.ScrollableHeight;
+
+        // Trigger when scrolled past 90% of total height
+        if (progress >= 0.9) LoadMoreCommand?.Execute(null);
+    }
 
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {
@@ -143,6 +173,39 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
                     innerListViewControl?.ChangeSelectionMode(mode);
                 }
             }
+        }
+    }
+    public void Cleanup()
+    {
+        DragItemsStarting -= ItemDragStarting;
+
+        if (internalScrollviewer != null)
+        {
+            internalScrollviewer.ViewChanged -= InternalScrollVeiwerViewChanged;
+        }
+    }
+
+    private void ItemDragStarting(object sender, DragItemsStartingEventArgs args)
+    {
+        // Dragging multiple mails from different accounts/folders are supported with the condition below:
+        // All mails belongs to the drag will be matched on the dropped folder's account.
+        // Meaning that if users drag 1 mail from Account A/Inbox and 1 mail from Account B/Inbox,
+        // and drop to Account A/Inbox, the mail from Account B/Inbox will NOT be moved.
+
+        if (IsThreadListView)
+        {
+            var allItems = args.Items.Cast<MailItemViewModel>();
+
+            // Set native drag arg properties.
+            var dragPackage = new MailDragPackage(allItems.Cast<IMailListItem>());
+
+            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
+        }
+        else
+        {
+            var dragPackage = new MailDragPackage(args.Items.Cast<IMailListItem>());
+
+            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
         }
     }
 }
