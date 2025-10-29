@@ -7,8 +7,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.WinUI;
-using Wino.Core.WinUI.Services;
 using Wino.Core.WinUI.Interfaces;
+using Wino.Core.WinUI.Services;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
@@ -59,6 +59,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.AliasManagementPage => typeof(AliasManagementPage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
             WinoPage.EditAccountDetailsPage => typeof(EditAccountDetailsPage),
+            WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             _ => null,
         };
     }

@@ -23,5 +23,6 @@ public static class ServicesContainerSetup
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
+        services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
     }
 }

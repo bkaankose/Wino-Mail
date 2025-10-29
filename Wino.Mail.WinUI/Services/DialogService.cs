@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
@@ -193,5 +194,19 @@ public class DialogService : DialogServiceBase, IMailDialogService
         };
 
         await HandleDialogPresentationAsync(accountReorderDialog);
+    }
+
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+    public async Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null)
+#pragma warning restore CS8625
+    {
+        var dialog = new KeyboardShortcutDialog(existingShortcut)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
     }
 }

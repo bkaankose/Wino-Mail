@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -49,4 +50,13 @@ public interface IMailDialogService : IDialogServiceBase
     /// Presents a dialog to the user to show email source.
     /// </summary>
     Task ShowMessageSourceDialogAsync(string messageSource);
+
+    /// <summary>
+    /// Presents a dialog to the user for keyboard shortcut creation/modification.
+    /// </summary>
+    /// <param name="existingShortcut">Existing shortcut to edit, or null for new shortcut.</param>
+    /// <returns>Dialog result with shortcut information.</returns>
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+    Task<KeyboardShortcutDialogResult> ShowKeyboardShortcutDialogAsync(KeyboardShortcut existingShortcut = null);
+#pragma warning restore CS8625
 }

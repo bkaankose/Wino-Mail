@@ -40,5 +40,6 @@ public static class CoreUWPContainerSetup
         services.AddTransient(typeof(AboutPageViewModel));
         services.AddTransient(typeof(SettingsPageViewModel));
         services.AddTransient(typeof(ManageAccountsPagePageViewModel));
+        services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
     }
 }
