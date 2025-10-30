@@ -59,7 +59,8 @@ public class DatabaseService : IDatabaseService
             typeof(CalendarItem),
             typeof(Reminder),
             typeof(Thumbnail),
-            typeof(KeyboardShortcut)
+            typeof(KeyboardShortcut),
+            typeof(MailItemQueue)
             );
     }
 }

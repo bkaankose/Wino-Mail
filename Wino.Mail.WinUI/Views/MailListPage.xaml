@@ -92,8 +92,8 @@
                         ContextRequested="MailItemContextRequested"
                         CreationDate="{x:Bind CreationDate}"
                         DisplayMode="{Binding ElementName=root, Path=ViewModel.PreferencesService.MailItemDisplayMode, Mode=OneWay}"
-                        FromAddress="{x:Bind FromAddress}"
-                        FromName="{x:Bind FromName}"
+                        FromAddress="{x:Bind FromAddress, Mode=OneWay}"
+                        FromName="{x:Bind FromName, Mode=OneWay}"
                         HasAttachments="{x:Bind HasAttachments, Mode=OneWay}"
                         HoverActionExecutedCommand="{Binding ElementName=root, Path=ViewModel.ExecuteHoverActionCommand}"
                         IsAvatarVisible="{Binding ElementName=root, Path=ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
@@ -302,7 +302,6 @@
                         Grid.Row="1"
                         Grid.Column="2"
                         Orientation="Horizontal">
-                        <Button Command="{x:Bind ViewModel.RemoveFirstCommand}" Content="T" />
                         <Button
                             Width="36"
                             Height="36"

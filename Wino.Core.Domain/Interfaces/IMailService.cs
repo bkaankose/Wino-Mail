@@ -162,4 +162,9 @@ public interface IMailService
     /// <param name="onlineArchiveMailIds">Retrieved MailCopy ids from search result.</param>
     /// <returns>Result model that contains added and removed mail copy ids.</returns>
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
+    Task ClearMailItemQueueAsync(Guid accountId);
+    Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems);
+    Task<int> GetMailItemQueueCountAsync(Guid accountId);
+    Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take);
+    Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems);
 }

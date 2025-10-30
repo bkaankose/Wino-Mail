@@ -41,22 +41,27 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     /// <summary>
     /// How many items must be downloaded per folder when the folder is first synchronized.
+    /// Only metadata is downloaded during sync - MIME content is fetched on-demand when user reads mail.
     /// </summary>
     public abstract uint InitialMessageDownloadCountPerFolder { get; }
 
     /// <summary>
-    /// Number of MIME messages to download during initial synchronization per folder.
-    /// For the first messages in each folder during initial sync, both metadata and MIME content will be downloaded.
-    /// Subsequent messages will only have metadata downloaded, with MIME content fetched on-demand.
+    /// DEPRECATED: MIME messages are no longer downloaded during synchronization.
+    /// MIME content is only downloaded when explicitly needed (e.g., when user reads a message).
+    /// This property is kept for backward compatibility but is no longer used.
     /// </summary>
-    public virtual int InitialSyncMimeDownloadCount => 50;
+    [Obsolete("MIME messages are no longer downloaded during sync. Use DownloadMissingMimeMessageAsync instead.")]
+    public virtual int InitialSyncMimeDownloadCount => 0;
 
     /// <summary>
-    /// Creates a new Wino Mail Item package out of native message type with full Mime.
+    /// Creates a new Wino Mail Item package out of native message type with metadata only.
+    /// NO MIME content is downloaded during synchronization - only headers and essential metadata.
+    /// MIME will be downloaded on-demand when user explicitly reads the message.
     /// </summary>
     /// <param name="message">Native message type for the synchronizer.</param>
+    /// <param name="assignedFolder">Folder to assign the mail to.</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Package that encapsulates downloaded Mime and additional information for adding new mail.</returns>
+    /// <returns>Package with MailCopy metadata. MimeMessage will be null during sync.</returns>
     public abstract Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(TMessageType message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -86,13 +91,15 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     /// <summary>
     /// Creates a MailCopy object with minimal properties from the native message type.
-    /// This is used for queue-based sync to avoid downloading full MIME messages.
-    /// Only overridden by synchronizers that support the new queue-based sync.
+    /// This is used during synchronization to create mail entries WITHOUT downloading MIME content.
+    /// Only metadata (headers, labels, flags) is extracted from the native message format.
+    /// MIME content will be downloaded later on-demand when user reads the message.
+    /// Only overridden by synchronizers that support metadata-only synchronization.
     /// </summary>
     /// <param name="message">Native message type</param>
     /// <param name="assignedFolder">Folder this message belongs to</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>MailCopy with minimal properties</returns>
+    /// <returns>MailCopy with minimal properties populated from metadata</returns>
     protected virtual Task<MailCopy> CreateMinimalMailCopyAsync(TMessageType message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default) => Task.FromResult<MailCopy>(null);
 
     /// <summary>

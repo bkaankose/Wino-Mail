@@ -543,6 +543,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         if (IsInitializingFolder || IsOnlineSearchEnabled) return;
 
+        Debug.WriteLine("Loading more...");
         await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
         var initializationOptions = new MailListInitializationOptions(ActiveFolder.HandlingFolders,

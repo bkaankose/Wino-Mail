@@ -65,6 +65,11 @@ public interface IDefaultChangeProcessor
     Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId);
     Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds);
     Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier);
+    Task ClearMailItemQueueAsync(Guid accountId);
+    Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems);
+    Task<int> GetMailItemQueueCountAsync(Guid accountId);
+    Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take);
+    Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -207,6 +212,21 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
         => CalendarService.UpdateCalendarDeltaSynchronizationToken(calendarId, deltaToken);
+
+    public Task ClearMailItemQueueAsync(Guid accountId)
+        => MailService.ClearMailItemQueueAsync(accountId);
+
+    public Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems)
+        => MailService.AddMailItemQueueItemsAsync(queueItems);
+
+    public Task<int> GetMailItemQueueCountAsync(Guid accountId)
+        => MailService.GetMailItemQueueCountAsync(accountId);
+
+    public Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take)
+        => MailService.GetMailItemQueueAsync(accountId, take);
+
+    public Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems)
+        => MailService.UpdateMailItemQueueAsync(queueItems);
 
     public async Task DeleteUserMailCacheAsync(Guid accountId)
     {

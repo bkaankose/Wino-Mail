@@ -52,7 +52,7 @@
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.10" />
     <PackageVersion Include="System.Text.Json" Version="9.0.10" />
     <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.3.0" />
-    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.3.1" />
+    <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.3.2" />
     <PackageVersion Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.72.0" />
     <PackageVersion Include="Google.Apis.Calendar.v3" Version="1.69.0.3746" />
@@ -64,7 +64,7 @@
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.10" />
     <PackageVersion Include="System.Text.Encodings.Web" Version="9.0.10" />
-    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6584" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6901" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.0.250930001-experimental1" />
     <PackageVersion Include="WinUIEx" Version="2.9.0" />
   </ItemGroup>
