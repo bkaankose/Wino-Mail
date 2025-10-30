@@ -13,9 +13,6 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
     private const string PART_ScrollViewer = "ScrollViewer";
     private ScrollViewer? internalScrollviewer;
 
-    private double lastestRaisedOffset = 0;
-    private int lastItemSize = 0;
-
     [GeneratedDependencyProperty]
     public partial bool IsThreadListView { get; set; }
 
@@ -47,24 +44,55 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         double progress = internalScrollviewer.VerticalOffset / internalScrollviewer.ScrollableHeight;
 
         // Trigger when scrolled past 90% of total height
-        if (progress >= 0.9) LoadMoreCommand?.Execute(null);
+        if (progress >= 0.9)
+        {
+            bool canLoadMore = LoadMoreCommand?.CanExecute(null) ?? false;
+
+            if (canLoadMore)
+            {
+                LoadMoreCommand?.Execute(null);
+            }
+        }
     }
 
     protected override void PrepareContainerForItemOverride(DependencyObject element, object item)
     {
         base.PrepareContainerForItemOverride(element, item);
 
+        // Ensure the container's selection state matches the model's state
+        // This is crucial for virtualization scenarios where containers are recycled
+
+        if (item is MailItemViewModel mailItemViewModel
+            && element is WinoMailItemViewModelListViewItem container
+            && container.Item != mailItemViewModel)
+        {
+            container.Item = mailItemViewModel;
+            container.IsSelected = mailItemViewModel.IsSelected;
+        }
+        else if (item is ThreadMailItemViewModel threadMailItemViewModel
+            && element is WinoThreadMailItemViewModelListViewItem threadContainer
+            && threadContainer.Item != threadMailItemViewModel)
+        {
+            threadContainer.Item = threadMailItemViewModel;
+            threadContainer.IsSelected = threadMailItemViewModel.IsSelected;
+            threadContainer.IsThreadExpanded = threadMailItemViewModel.IsThreadExpanded;
+        }
+    }
+
+    protected override void ClearContainerForItemOverride(DependencyObject element, object item)
+    {
+        base.ClearContainerForItemOverride(element, item);
+
         if (item is MailItemViewModel mailItemViewModel && element is WinoMailItemViewModelListViewItem container)
         {
-            // Ensure the container's selection state matches the model's state
-            // This is crucial for virtualization scenarios where containers are recycled
-
-            container.IsSelected = mailItemViewModel.IsSelected;
+            container.Item = null;
+            container.IsSelected = false;
         }
         else if (item is ThreadMailItemViewModel threadMailItemViewModel && element is WinoThreadMailItemViewModelListViewItem threadContainer)
         {
-            threadContainer.IsSelected = threadMailItemViewModel.IsSelected;
-            threadContainer.IsThreadExpanded = threadMailItemViewModel.IsThreadExpanded;
+            threadContainer.Item = null;
+            threadContainer.IsSelected = false;
+            threadContainer.IsThreadExpanded = false;
         }
     }
 
@@ -92,24 +120,6 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 
     public WinoThreadMailItemViewModelListViewItem? GetThreadMailItemContainer(ThreadMailItemViewModel threadMailItemViewModel)
         => ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
-
-    public void ToggleItemContainer(IMailListItem mailListItem)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (mailListItem is MailItemViewModel mailItemViewModel)
-            {
-                var container = GetMailItemContainer(mailItemViewModel);
-                container?.IsSelected = mailItemViewModel.IsSelected;
-            }
-            else if (mailListItem is ThreadMailItemViewModel threadMailItemViewModel)
-            {
-                var container = GetThreadMailItemContainer(threadMailItemViewModel);
-                container?.IsSelected = threadMailItemViewModel.IsSelected;
-                container?.IsThreadExpanded = threadMailItemViewModel.IsThreadExpanded;
-            }
-        });
-    }
 
     public bool SelectMailItemContainer(MailItemViewModel mailItemViewModel)
     {
@@ -178,6 +188,7 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
             }
         }
     }
+
     public void Cleanup()
     {
         DragItemsStarting -= ItemDragStarting;

@@ -88,7 +88,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
                              IGmailChangeProcessor gmailChangeProcessor,
-                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory) : base(account)
+                             IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory) : base(account, WeakReferenceMessenger.Default)
     {
         var messageHandler = new GmailClientMessageHandler(authenticator, account);
 

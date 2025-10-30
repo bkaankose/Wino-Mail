@@ -35,7 +35,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
     IRecipient<MergedInboxRenamed>,
     IRecipient<LanguageChanged>,
     IRecipient<AccountMenuItemsReordered>,
-    IRecipient<AccountSynchronizationProgressUpdatedMessage>,
+    IRecipient<AccountSynchronizerStateChanged>,
     IRecipient<NavigateAppPreferencesRequested>,
     IRecipient<AccountFolderConfigurationUpdated>,
     IRecipient<AccountRemovedMessage>,
@@ -992,13 +992,24 @@ public partial class AppShellViewModel : MailBaseViewModel,
         UpdateFolderCollection(mailItemFolder);
     }
 
-    public async void Receive(AccountSynchronizationProgressUpdatedMessage message)
+    public async void Receive(AccountSynchronizerStateChanged message)
     {
         var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(message.AccountId);
 
         if (accountMenuItem == null) return;
 
-        await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = message.Progress; });
+        await ExecuteUIThread(() =>
+        {
+            accountMenuItem.TotalItemsToSync = message.TotalItemsToSync;
+            accountMenuItem.RemainingItemsToSync = message.RemainingItemsToSync;
+            accountMenuItem.SynchronizationStatus = message.SynchronizationStatus;
+            
+            // If this account is part of a merged inbox, update the merged inbox progress as well
+            if (accountMenuItem.ParentMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            {
+                mergedAccountMenuItem.RefreshSynchronizationProgress();
+            }
+        });
     }
 
     public async void Receive(NavigateAppPreferencesRequested message)
@@ -1020,7 +1031,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
         Messenger.Register<MergedInboxRenamed>(this);
         Messenger.Register<LanguageChanged>(this);
         Messenger.Register<AccountMenuItemsReordered>(this);
-        Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
+        Messenger.Register<AccountSynchronizerStateChanged>(this);
         Messenger.Register<NavigateAppPreferencesRequested>(this);
         Messenger.Register<AccountFolderConfigurationUpdated>(this);
     }
@@ -1036,7 +1047,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<MergedInboxRenamed>(this);
         Messenger.Unregister<LanguageChanged>(this);
         Messenger.Unregister<AccountMenuItemsReordered>(this);
-        Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
+        Messenger.Unregister<AccountSynchronizerStateChanged>(this);
         Messenger.Unregister<NavigateAppPreferencesRequested>(this);
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
     }

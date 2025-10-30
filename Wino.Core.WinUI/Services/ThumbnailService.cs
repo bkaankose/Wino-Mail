@@ -7,7 +7,6 @@ using System.Net.Mail;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Gravatar;
-using Windows.Networking.Connectivity;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
@@ -92,10 +91,10 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
         // No network available, skip fetching Gravatar
         // Do not cache it, since network can be available later
-        bool isInternetAvailable = GetIsInternetAvailable();
+        //bool isInternetAvailable = GetIsInternetAvailable();
 
-        if (!isInternetAvailable)
-            return default;
+        //if (!isInternetAvailable)
+        //    return default;
 
         if (!_requests.TryGetValue(email, out var request))
         {
@@ -112,11 +111,11 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
         return default;
 
-        static bool GetIsInternetAvailable()
-        {
-            var connection = NetworkInformation.GetInternetConnectionProfile();
-            return connection != null && connection.GetNetworkConnectivityLevel() == NetworkConnectivityLevel.InternetAccess;
-        }
+        //static bool GetIsInternetAvailable()
+        //{
+        //    var connection = NetworkInformation.GetInternetConnectionProfile();
+        //    return connection != null && connection.GetNetworkConnectivityLevel() == NetworkConnectivityLevel.InternetAccess;
+        //}
     }
 
     private async Task RequestNewThumbnail(string email)

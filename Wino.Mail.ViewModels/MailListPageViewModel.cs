@@ -110,25 +110,32 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     [NotifyPropertyChangedFor(nameof(IsFolderEmpty))]
     [NotifyPropertyChangedFor(nameof(IsProgressRing))]
-    private bool isInitializingFolder;
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreItemsCommand))]
+    public partial bool IsInitializingFolder { get; set; }
 
     [ObservableProperty]
-    private InfoBarMessageType barSeverity;
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreItemsCommand))]
+    public partial bool FinishedLoading { get; set; } = false;
+
+    public bool CanLoadMoreItems => !IsInitializingFolder && !IsOnlineSearchEnabled && !FinishedLoading;
 
     [ObservableProperty]
-    private string barMessage;
+    public partial InfoBarMessageType BarSeverity { get; set; }
+
+    [ObservableProperty]
+    public partial string BarMessage { get; set; }
 
     [ObservableProperty]
     public partial double MailListLength { get; set; } = 420;
 
     [ObservableProperty]
-    private double maxMailListLength = 1200;
+    public partial double MaxMailListLength { get; set; } = 1200;
 
     [ObservableProperty]
-    private string barTitle;
+    public partial string BarTitle { get; set; }
 
     [ObservableProperty]
-    private bool isBarOpen;
+    public partial bool IsBarOpen { get; set; }
 
     /// <summary>
     /// Current folder that is being represented from the menu.
@@ -136,11 +143,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
     [NotifyPropertyChangedFor(nameof(IsFolderSynchronizationEnabled))]
-    private IBaseFolderMenuItem activeFolder;
+    public partial IBaseFolderMenuItem ActiveFolder { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronize))]
-    private bool isAccountSynchronizerInSynchronization;
+    public partial bool IsAccountSynchronizerInSynchronization { get; set; }
 
     public MailListPageViewModel(IMailDialogService dialogService,
                                  INavigationService navigationService,
@@ -303,6 +310,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public partial bool IsOnlineSearchButtonVisible { get; set; }
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreItemsCommand))]
     public partial bool IsOnlineSearchEnabled { get; set; }
 
     [ObservableProperty]
@@ -538,10 +546,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanLoadMoreItems))]
     private async Task LoadMoreItemsAsync()
     {
-        if (IsInitializingFolder || IsOnlineSearchEnabled) return;
+        if (IsInitializingFolder || IsOnlineSearchEnabled || FinishedLoading) return;
 
         Debug.WriteLine("Loading more...");
         await ExecuteUIThread(() => { IsInitializingFolder = true; });
@@ -555,6 +563,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                                       MailCollection.MailCopyIdHashSet);
 
         var items = await _mailService.FetchMailsAsync(initializationOptions).ConfigureAwait(false);
+
+        if (items.Count == 0)
+        {
+            await ExecuteUIThread(() => { FinishedLoading = true; });
+
+            return;
+        }
 
         var viewModels = PrepareMailViewModels(items);
 
@@ -613,9 +628,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             await listManipulationSemepahore.WaitAsync();
 
-            await ExecuteUIThread(async () =>
+            // AddAsync already handles UI threading internally, no need to wrap it
+            await MailCollection.AddAsync(addedMail);
+
+            await ExecuteUIThread(() =>
             {
-                await MailCollection.AddAsync(addedMail);
                 NotifyItemFoundState();
             });
         }
@@ -671,11 +688,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 });
             }
 
-            // Remove the deleted item from the list.
-            await ExecuteUIThread(() =>
-            {
-                _ = MailCollection.RemoveAsync(removedMail);
-            });
+            // RemoveAsync already handles UI threading internally
+            await MailCollection.RemoveAsync(removedMail);
 
             if (nextItem != null)
                 WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem, ScrollToItem: true));
@@ -684,10 +698,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // There are no next item to select, but we removed the last item which was selected.
                 // Clearing selected item will dispose rendering page.
 
-                await ExecuteUIThread(() =>
-                {
-                    _ = MailCollection.UnselectAllAsync();
-                });
+                // UnselectAllAsync already handles UI threading internally
+                await MailCollection.UnselectAllAsync();
             }
 
             await ExecuteUIThread(() => { NotifyItemFoundState(); });
@@ -709,11 +721,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Otherwise the draft mail item will be duplicated on the next add execution.
             await listManipulationSemepahore.WaitAsync();
 
-            await ExecuteUIThread(async () =>
-            {
-                // Create the item. Draft folder navigation is already done at this point.
-                await MailCollection.AddAsync(draftMail);
+            // AddAsync already handles UI threading internally
+            await MailCollection.AddAsync(draftMail);
 
+            await ExecuteUIThread(() =>
+            {
                 // New draft is created by user. Select the item.
                 Messenger.Send(new MailItemNavigationRequested(draftMail.UniqueId, ScrollToItem: true));
 
@@ -726,9 +738,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    private IEnumerable<MailItemViewModel> PrepareMailViewModels(IEnumerable<MailCopy> mailItems)
+    private List<MailItemViewModel> PrepareMailViewModels(IEnumerable<MailCopy> mailItems)
     {
-        return mailItems.Select(a => new MailItemViewModel(a));
+        return mailItems.Select(a => new MailItemViewModel(a)).ToList();
     }
 
     [RelayCommand]
@@ -1052,7 +1064,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => { IsAccountSynchronizerInSynchronization = isAnyAccountSynchronizing; });
     }
 
-    public void Receive(AccountCacheResetMessage message)
+    public async void Receive(AccountCacheResetMessage message)
     {
         if (message.Reason == AccountCacheResetReason.ExpiredCache &&
             ActiveFolder.HandlingFolders.Any(a => a.MailAccountId == message.AccountId))
@@ -1061,10 +1073,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             if (handlingFolder == null) return;
 
-            _ = ExecuteUIThread(async () =>
-            {
-                await MailCollection.ClearAsync();
+            // ClearAsync already handles UI threading internally
+            await MailCollection.ClearAsync();
 
+            await ExecuteUIThread(() =>
+            {
                 _mailDialogService.InfoBarMessage(Translator.AccountCacheReset_Title, Translator.AccountCacheReset_Message, InfoBarMessageType.Warning);
             });
         }

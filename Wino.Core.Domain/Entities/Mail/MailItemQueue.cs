@@ -9,6 +9,7 @@ public class MailItemQueue
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
     public string RemoteServerId { get; set; }
+    public string RemoteFolderId { get; set; }  // For Outlook per-folder sync
     public bool IsProcessed { get; set; }
     public int FailedCount { get; set; }
     public DateTime CreatedAt { get; set; }

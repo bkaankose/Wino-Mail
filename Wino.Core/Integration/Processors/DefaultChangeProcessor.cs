@@ -69,6 +69,8 @@ public interface IDefaultChangeProcessor
     Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems);
     Task<int> GetMailItemQueueCountAsync(Guid accountId);
     Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take);
+    Task<List<MailItemQueue>> GetMailItemQueueByFolderAsync(Guid accountId, string remoteFolderId, int take);
+    Task<int> GetMailItemQueueCountByFolderAsync(Guid accountId, string remoteFolderId);
     Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems);
 }
 
@@ -224,6 +226,12 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take)
         => MailService.GetMailItemQueueAsync(accountId, take);
+
+    public Task<List<MailItemQueue>> GetMailItemQueueByFolderAsync(Guid accountId, string remoteFolderId, int take)
+        => MailService.GetMailItemQueueByFolderAsync(accountId, remoteFolderId, take);
+
+    public Task<int> GetMailItemQueueCountByFolderAsync(Guid accountId, string remoteFolderId)
+        => MailService.GetMailItemQueueCountByFolderAsync(accountId, remoteFolderId);
 
     public Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems)
         => MailService.UpdateMailItemQueueAsync(queueItems);

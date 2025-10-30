@@ -13,11 +13,4 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
     {
         DefaultStyleKey = typeof(WinoMailItemViewModelListViewItem);
     }
-
-    protected override void OnContentChanged(object oldContent, object newContent)
-    {
-        base.OnContentChanged(oldContent, newContent);
-
-        if (newContent is MailItemViewModel mailItemViewModel) Item = mailItemViewModel;
-    }
 }

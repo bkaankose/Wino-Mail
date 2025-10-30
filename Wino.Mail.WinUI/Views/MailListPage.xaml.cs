@@ -154,17 +154,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void WinoListViewChoosingItemContainer(ListViewBase sender, ChoosingItemContainerEventArgs args)
     {
-        if (args.Item is ThreadMailItemViewModel)
+        if (args.Item is ThreadMailItemViewModel && args.ItemContainer is not WinoThreadMailItemViewModelListViewItem)
         {
-            args.ItemContainer = new WinoThreadMailItemViewModelListViewItem();
+            args.ItemContainer = new WinoThreadMailItemViewModelListViewItem()
+            {
+                Item = args.Item as ThreadMailItemViewModel
+            };
         }
-        else if (args.Item is MailItemViewModel)
+        else if (args.Item is MailItemViewModel && args.ItemContainer is not WinoMailItemViewModelListViewItem)
         {
-            args.ItemContainer = new WinoMailItemViewModelListViewItem();
+            args.ItemContainer = new WinoMailItemViewModelListViewItem()
+            {
+                Item = args.Item as MailItemViewModel
+            };
         }
-
-        // Handle the preparation in PrepareContainerForItemOverride
-        args.IsContainerPrepared = false;
     }
 
     private async void MailItemContextRequested(UIElement sender, ContextRequestedEventArgs args)

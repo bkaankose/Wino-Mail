@@ -166,5 +166,7 @@ public interface IMailService
     Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems);
     Task<int> GetMailItemQueueCountAsync(Guid accountId);
     Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take);
+    Task<List<MailItemQueue>> GetMailItemQueueByFolderAsync(Guid accountId, string remoteFolderId, int take);
+    Task<int> GetMailItemQueueCountByFolderAsync(Guid accountId, string remoteFolderId);
     Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems);
 }

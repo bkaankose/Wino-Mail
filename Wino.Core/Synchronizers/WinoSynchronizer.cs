@@ -32,7 +32,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType>>();
 
-    protected WinoSynchronizer(MailAccount account) : base(account) { }
+    protected WinoSynchronizer(MailAccount account, IMessenger messenger) : base(account, messenger) { }
 
     /// <summary>
     /// How many items per single HTTP call can be modified.
@@ -249,7 +249,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
             await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
 
-            PublishSynchronizationProgress(1);
+            // Set indeterminate progress for initial state
+            UpdateSyncProgress(0, 0, "Synchronizing...");
 
             State = AccountSynchronizerState.Synchronizing;
 
@@ -330,8 +331,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 PendingSynchronizationRequest.Remove(pendingRequest.Key);
             }
 
-            // Reset account progress to hide the progress.
-            PublishSynchronizationProgress(0);
+            // Reset synchronization progress
+            ResetSyncProgress();
 
             State = AccountSynchronizerState.Idle;
             synchronizationSemaphore.Release();
@@ -356,13 +357,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// </summary>
     private void PublishUnreadItemChanges()
         => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
-
-    /// <summary>
-    /// Sends a message to the shell to update the synchronization progress.
-    /// </summary>
-    /// <param name="progress">Percentage of the progress.</param>
-    public void PublishSynchronizationProgress(double progress)
-        => WeakReferenceMessenger.Default.Send(new AccountSynchronizationProgressUpdatedMessage(Account.Id, progress));
 
     /// <summary>
     /// Attempts to find out the best possible synchronization options after the batch request execution.

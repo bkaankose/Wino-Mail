@@ -797,6 +797,9 @@ public class MailService : BaseDatabaseService, IMailService
     public Task<int> GetMailItemQueueCountAsync(Guid accountId)
         => Connection.Table<MailItemQueue>().Where(a => a.AccountId == accountId).CountAsync();
 
+    public Task<int> GetMailItemQueueCountByFolderAsync(Guid accountId, string remoteFolderId)
+        => Connection.Table<MailItemQueue>().Where(a => a.AccountId == accountId && a.RemoteFolderId == remoteFolderId).CountAsync();
+
     public Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems)
     {
         if (queueItems == null || !queueItems.Any())
@@ -819,6 +822,16 @@ public class MailService : BaseDatabaseService, IMailService
 
         return Connection.Table<MailItemQueue>()
                          .Where(a => a.AccountId == accountId && !a.IsProcessed)
+                         .OrderBy(a => a.CreatedAt)
+                         .Take(take)
+                         .ToListAsync();
+    }
+
+    public Task<List<MailItemQueue>> GetMailItemQueueByFolderAsync(Guid accountId, string remoteFolderId, int take)
+    {
+        // For Outlook per-folder sync
+        return Connection.Table<MailItemQueue>()
+                         .Where(a => a.AccountId == accountId && a.RemoteFolderId == remoteFolderId && !a.IsProcessed)
                          .OrderBy(a => a.CreatedAt)
                          .Take(take)
                          .ToListAsync();

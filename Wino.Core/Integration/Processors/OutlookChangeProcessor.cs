@@ -39,7 +39,10 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         => Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ? WHERE Id = ?", synchronizationIdentifier, folderId);
 
     public Task UpdateFolderInitialSyncCompletedAsync(Guid folderId, bool isCompleted)
-        => Connection.ExecuteAsync("UPDATE MailItemFolder SET IsInitialSyncCompleted = ? WHERE Id = ?", isCompleted, folderId);
+    {
+        var status = isCompleted ? InitialSynchronizationStatus.Completed : InitialSynchronizationStatus.None;
+        return Connection.ExecuteAsync("UPDATE MailItemFolder SET FolderStatus = ? WHERE Id = ?", status, folderId);
+    }
 
     public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
