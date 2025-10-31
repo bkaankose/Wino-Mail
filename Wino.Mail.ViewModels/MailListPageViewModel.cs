@@ -792,11 +792,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (ActiveFolder == null)
                 return;
 
-            await ExecuteUIThread(() => { 
-                IsInitializingFolder = true;
-                // Show initial loading progress
-                UpdateBarMessage(InfoBarMessageType.Information, ActiveFolder.FolderName, "Loading emails...");
-            });
+            await ExecuteUIThread(() => { IsInitializingFolder = true; });
 
             // Folder is changed during initialization.
             // Just cancel the existing one and wait for new initialization.
@@ -887,21 +883,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             if (!listManipulationCancellationTokenSource.IsCancellationRequested)
             {
-                // Update progress: Creating view models
-                await ExecuteUIThread(() => {
-                    UpdateBarMessage(InfoBarMessageType.Information, ActiveFolder.FolderName, $"Processing {items.Count} emails...");
-                });
-
                 // Here they are already threaded if needed.
                 // We don't need to insert them one by one.
                 // Just create VMs and do bulk insert.
 
                 var viewModels = await PrepareMailViewModelsAsync(items, cancellationToken).ConfigureAwait(false);
-
-                // Update progress: Adding to collection
-                await ExecuteUIThread(() => {
-                    UpdateBarMessage(InfoBarMessageType.Information, ActiveFolder.FolderName, "Finalizing...");
-                });
 
                 await MailCollection.AddRangeAsync(viewModels, clearIdCache: true);
 
@@ -937,7 +923,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
                 OnPropertyChanged(nameof(CanSynchronize));
                 NotifyItemFoundState();
-                
+
                 // Clear the loading message after completion
                 IsBarOpen = false;
             });

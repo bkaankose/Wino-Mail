@@ -48,6 +48,8 @@ namespace Wino.Core.Synchronizers.Mail;
 [JsonSerializable(typeof(OutlookFileAttachment))]
 public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
+
+
 /// <summary>
 /// Outlook synchronizer implementation with queue-based metadata-only synchronization.
 /// 
@@ -118,6 +120,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var handlers = GraphClientFactory.CreateDefaultHandlers();
 
         handlers.Add(GetMicrosoftImmutableIdHandler());
+        handlers.Add(GetGraphRateLimitHandler());
 
         var httpClient = GraphClientFactory.Create(handlers);
         _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
@@ -129,6 +132,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     #region MS Graph Handlers
 
     private MicrosoftImmutableIdHandler GetMicrosoftImmutableIdHandler() => new();
+
+    private GraphRateLimitHandler GetGraphRateLimitHandler() => new();
 
     #endregion
 
@@ -328,7 +333,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 config.QueryParameters.Select = ["Id"]; // Only get the message Ids
                 config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
-                config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
+                // config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
             }, cancellationToken).ConfigureAwait(false);
         }
         else
@@ -751,11 +756,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             var currentDeltaToken = folder.DeltaToken;
 
             _logger.Debug("Processing delta changes for folder {FolderName} with token {DeltaToken}", folder.FolderName, currentDeltaToken.Substring(0, Math.Min(10, currentDeltaToken.Length)) + "...");
+            _logger.Debug("Delta sync will include all message properties to detect updates (IsRead, Flag, etc.)");
 
             // Always use Delta endpoint with proper configuration
             var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
             {
-                config.QueryParameters.Select = ["Id"]; // Only get IDs
+                config.QueryParameters.Select = outlookMessageSelectParameters; // Include all necessary fields for detecting updates
                 config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
             });
 
@@ -766,29 +772,23 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 DeltaGetResponse.CreateFromDiscriminatorValue,
                 cancellationToken: cancellationToken);
 
-            var newMailIds = new List<string>();
-
-            // Use PageIterator<DeltaGetResponse> for iterating through delta changes
+            // Use PageIterator to process delta changes (both new messages and updates)
             var messageIterator = PageIterator<Message, DeltaGetResponse>
-                .CreatePageIterator(_graphClient, messageCollectionPage, (message) =>
+                .CreatePageIterator(_graphClient, messageCollectionPage, async (message) =>
                 {
-                    // Only process new messages, not deleted ones
-                    if (!IsResourceDeleted(message.AdditionalData))
+                    try
                     {
-                        newMailIds.Add(message.Id);
+                        await HandleItemRetrievedAsync(message, folder, downloadedMessageIds, cancellationToken);
+                        return true;
                     }
-                    return true;
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Failed to handle delta item {MessageId} for folder {FolderName}", message.Id, folder.FolderName);
+                        return true; // Continue processing other items
+                    }
                 });
 
             await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
-
-            // Download new mails with metadata only (no MIME)
-            if (newMailIds.Any())
-            {
-                _logger.Information("Downloading {Count} new mails from delta sync for folder {FolderName} (metadata only)", newMailIds.Count, folder.FolderName);
-                var deltaDownloadedIds = await DownloadMessageMetadataBatchAsync(newMailIds, folder, true, cancellationToken).ConfigureAwait(false);
-                downloadedMessageIds.AddRange(deltaDownloadedIds);
-            }
 
             // Update delta token for next sync - always store when there are no nextPageToken remaining
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
@@ -985,16 +985,19 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (isMailExists)
             {
                 // Some of the properties of the item are updated.
+                _logger.Debug("Processing delta update for existing mail {MessageId} in folder {FolderName}", item.Id, folder.FolderName);
 
                 if (item.IsRead != null)
                 {
+                    _logger.Debug("Updating read status for mail {MessageId}: IsRead={IsRead}", item.Id, item.IsRead.GetValueOrDefault());
                     await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
                 }
 
                 if (item.Flag?.FlagStatus != null)
                 {
-                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
-                                                 .ConfigureAwait(false);
+                    var isFlagged = item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged;
+                    _logger.Debug("Updating flag status for mail {MessageId}: IsFlagged={IsFlagged}", item.Id, isFlagged);
+                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, isFlagged).ConfigureAwait(false);
                 }
             }
             else
