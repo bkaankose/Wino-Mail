@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -229,9 +230,9 @@ public class MailService : BaseDatabaseService, IMailService
             mails = await Connection.QueryAsync<MailCopy>(query);
         }
 
-        Dictionary<Guid, MailItemFolder> folderCache = [];
-        Dictionary<Guid, MailAccount> accountCache = [];
-        Dictionary<string, AccountContact> contactCache = [];
+        ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
+        ConcurrentDictionary<Guid, MailAccount> accountCache = new();
+        ConcurrentDictionary<string, AccountContact> contactCache = new();
 
         // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
         // This is needed to execute threading strategy by account type.
@@ -321,7 +322,7 @@ public class MailService : BaseDatabaseService, IMailService
     /// This method should used for operations with multiple mailItems. Don't use this for single mail items.
     /// Called method should provide own instances for caches.
     /// </summary>
-    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache, Dictionary<string, AccountContact> contactCache)
+    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, ConcurrentDictionary<Guid, MailItemFolder> folderCache, ConcurrentDictionary<Guid, MailAccount> accountCache, ConcurrentDictionary<string, AccountContact> contactCache)
     {
         if (mail is MailCopy mailCopy)
         {
@@ -1168,9 +1169,9 @@ public class MailService : BaseDatabaseService, IMailService
         var mailCopies = await Connection.QueryAsync<MailCopy>(query);
         if (mailCopies?.Count == 0) return [];
 
-        Dictionary<Guid, MailItemFolder> folderCache = [];
-        Dictionary<Guid, MailAccount> accountCache = [];
-        Dictionary<string, AccountContact> contactCache = [];
+        ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
+        ConcurrentDictionary<Guid, MailAccount> accountCache = new();
+        ConcurrentDictionary<string, AccountContact> contactCache = new();
 
         foreach (var mail in mailCopies)
         {
