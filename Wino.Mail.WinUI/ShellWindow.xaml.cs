@@ -44,6 +44,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
         ShowWinoCommand = new RelayCommand(RestoreFromTray);
         ExitWinoCommand = new RelayCommand(ForceClose);
 
+        this.SetIcon("Assets/Wino_Icon.ico");
+        Title = "Wino Mail";
+
         SystemTrayIcon.ForceCreate();
     }
 
