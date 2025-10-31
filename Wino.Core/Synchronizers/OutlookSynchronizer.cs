@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -21,8 +20,6 @@ using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Abstractions.Serialization;
-using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
-using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -122,14 +119,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         handlers.Add(GetMicrosoftImmutableIdHandler());
 
-        // Remove existing RetryHandler and add a new one with custom options.
-        var existingRetryHandler = handlers.FirstOrDefault(a => a is RetryHandler);
-        if (existingRetryHandler != null)
-            handlers.Remove(existingRetryHandler);
-
-        // Add custom one.
-        handlers.Add(GetRetryHandler());
-
         var httpClient = GraphClientFactory.Create(handlers);
         _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
 
@@ -140,30 +129,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     #region MS Graph Handlers
 
     private MicrosoftImmutableIdHandler GetMicrosoftImmutableIdHandler() => new();
-
-    private RetryHandler GetRetryHandler()
-    {
-        var options = new RetryHandlerOption()
-        {
-            ShouldRetry = (delay, attempt, httpResponse) =>
-            {
-                var statusCode = httpResponse.StatusCode;
-
-                return statusCode switch
-                {
-                    HttpStatusCode.ServiceUnavailable => true,
-                    HttpStatusCode.GatewayTimeout => true,
-                    (HttpStatusCode)429 => true,
-                    HttpStatusCode.Unauthorized => true,
-                    _ => false
-                };
-            },
-            Delay = 3,
-            MaxRetry = 3
-        };
-
-        return new RetryHandler(options);
-    }
 
     #endregion
 
@@ -193,7 +158,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 for (int i = 0; i < totalFolders; i++)
                 {
                     var folder = synchronizationFolders[i];
-                    
+
                     // Update progress based on folder completion
                     UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
 
@@ -316,7 +281,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-            
+
             if (handled)
             {
                 // The error handler has processed the error (e.g., DeltaTokenExpiredHandler for 410)
@@ -333,7 +298,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 // No handler could process this error, log and re-throw
                 _logger.Error(apiException, "Unhandled API error during initial sync for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
             }
-            
+
             // Re-throw the exception so the synchronization can be retried
             throw;
         }
@@ -482,7 +447,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 try
                 {
                     // Download all messages in this chunk concurrently
-                    var chunkDownloadedIds = await DownloadMessageMetadataBatchAsync(messageIdsToDownload, folder, cancellationToken).ConfigureAwait(false);
+                    var chunkDownloadedIds = await DownloadMessageMetadataBatchAsync(messageIdsToDownload, folder, true, cancellationToken).ConfigureAwait(false);
 
                     downloadedMessageIds.AddRange(chunkDownloadedIds);
 
@@ -533,7 +498,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// Downloads metadata for a batch of messages using Graph SDK batch API (no MIME content).
     /// Processes up to 20 messages per batch request as per MaximumAllowedBatchRequestSize.
     /// </summary>
-    private async Task<List<string>> DownloadMessageMetadataBatchAsync(List<string> messageIds, MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<List<string>> DownloadMessageMetadataBatchAsync(List<string> messageIds, MailItemFolder folder, bool retryFailedOnce, CancellationToken cancellationToken)
     {
         if (messageIds == null || messageIds.Count == 0)
             return new List<string>();
@@ -560,6 +525,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             _logger.Debug("All messages already exist in folder {FolderName}", folder.FolderName);
             return downloadedIds;
         }
+
+        // Store failed message ids to retry after.
+
+        List<string> failedMessageIds = new();
 
         // Process in batches of MaximumAllowedBatchRequestSize (20)
         var batches = messagesToDownload.Batch((int)MaximumAllowedBatchRequestSize);
@@ -623,6 +592,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         else
                         {
                             _logger.Warning("Failed to deserialize message {MailId} for folder {FolderName}", messageId, folder.FolderName);
+                            failedMessageIds.Add(messageId);
                         }
                     }
                     catch (ODataError odataError)
@@ -634,6 +604,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         }
                         else
                         {
+                            failedMessageIds.Add(messageId);
                             _logger.Error("OData error while downloading mail {MailId} for folder {FolderName}. Error: {Error}", messageId, folder.FolderName, odataError.Error?.Message);
                         }
                     }
@@ -645,26 +616,42 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                             Account = Account,
                             ErrorCode = (int?)serviceException.ResponseStatusCode,
                             ErrorMessage = $"Service error during batch mail download: {serviceException.Message}",
-                            Exception = serviceException
+                            Exception = serviceException,
                         };
 
                         var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-                        
+
                         if (!handled)
                         {
+                            failedMessageIds.Add(messageId);
                             _logger.Error(serviceException, "Unhandled service error while downloading mail {MailId} for folder {FolderName}. Error: {ErrorCode}", messageId, folder.FolderName, serviceException.ResponseStatusCode);
                         }
                     }
                     catch (Exception ex)
                     {
+                        failedMessageIds.Add(messageId);
                         _logger.Error(ex, "Error occurred while processing message {MailId} for folder {FolderName}", messageId, folder.FolderName);
                     }
                 }
             }
             catch (Exception ex)
             {
+                failedMessageIds.AddRange(batch);
+
                 _logger.Error(ex, "Error occurred during batch download for folder {FolderName}", folder.FolderName);
             }
+        }
+
+        if (retryFailedOnce && failedMessageIds.Any())
+        {
+            // For a good cause wait a little bit.
+
+            await Task.Delay(3000);
+
+            // Do not retry here once again.
+            var failedDownloadedMessagIds = await DownloadMessageMetadataBatchAsync(failedMessageIds, folder, false, cancellationToken);
+
+            downloadedIds.Concat(failedDownloadedMessagIds);
         }
 
         return downloadedIds;
@@ -722,7 +709,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-            
+
             if (!handled)
             {
                 // No handler could process this error, log and handle appropriately
@@ -799,7 +786,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (newMailIds.Any())
             {
                 _logger.Information("Downloading {Count} new mails from delta sync for folder {FolderName} (metadata only)", newMailIds.Count, folder.FolderName);
-                var deltaDownloadedIds = await DownloadMessageMetadataBatchAsync(newMailIds, folder, cancellationToken).ConfigureAwait(false);
+                var deltaDownloadedIds = await DownloadMessageMetadataBatchAsync(newMailIds, folder, true, cancellationToken).ConfigureAwait(false);
                 downloadedMessageIds.AddRange(deltaDownloadedIds);
             }
 
@@ -824,7 +811,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-            
+
             if (handled)
             {
                 // The error handler has processed the error (e.g., DeltaTokenExpiredHandler for 410)
@@ -915,7 +902,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-            
+
             if (!handled)
             {
                 // No handler could process this error, log and re-throw
@@ -1162,7 +1149,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
-            
+
             if (handled)
             {
                 // The error handler has processed the error (e.g., DeltaTokenExpiredHandler for 410)
@@ -1179,13 +1166,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 _logger.Error(apiException, "Unhandled API error during folder synchronization for account {AccountName}. Error: {ErrorCode}", Account.Name, apiException.ResponseStatusCode);
                 throw;
             }
-            
+
             // If a handler processed the error and it was 410, retry with fresh token
             if (apiException.ResponseStatusCode == 410)
             {
                 return await GetDeltaFoldersAsync(cancellationToken);
             }
-            
+
             // For other handled errors, we still need to throw since we can't return a meaningful response
             throw;
         }
