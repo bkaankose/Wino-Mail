@@ -603,6 +603,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Send(new MailRemovedMessage(fi.MailCopy));
     }
 
+    /// <summary>
+    /// Checks if a ThreadId exists in the current mail collection.
+    /// </summary>
+    /// <param name="mailItem">The mail item to check ThreadId for.</param>
+    /// <returns>True if the ThreadId exists in the collection, false otherwise.</returns>
+    private bool ThreadIdExistsInCollection(MailCopy mailItem)
+    {
+        return MailCollection.ContainsThreadId(mailItem.ThreadId);
+    }
+
     protected override async void OnMailAdded(MailCopy addedMail)
     {
         base.OnMailAdded(addedMail);
@@ -616,15 +626,23 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // At least one of the accounts we are listing must match with the account of the added mail.
             if (!ActiveFolder.HandlingFolders.Any(a => a.MailAccountId == addedMail.AssignedAccount.Id)) return;
 
-            // Messages coming to sent or draft folder must be inserted regardless of the filter.
-            bool shouldPreventIgnoringFilter = addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
-                                               addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent;
+            // Messages coming to sent or draft folder should only be inserted if their ThreadId exists in the collection.
+            bool isFromDraftOrSentFolder = addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
+                                           addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent;
 
-            // Item does not belong to this folder and doesn't have special type to be inserted.
-            if (!shouldPreventIgnoringFilter && !ActiveFolder.HandlingFolders.Any(a => a.Id == addedMail.AssignedFolder.Id)) return;
+            if (isFromDraftOrSentFolder)
+            {
+                // Only add if the ThreadId exists in the collection (can be threaded with existing items)
+                if (!ThreadIdExistsInCollection(addedMail)) return;
+            }
+            else
+            {
+                // Item does not belong to this folder.
+                if (!ActiveFolder.HandlingFolders.Any(a => a.Id == addedMail.AssignedFolder.Id)) return;
 
-            // Item should be prevented from being added to the list due to filter.
-            if (!shouldPreventIgnoringFilter && ShouldPreventItemAdd(addedMail)) return;
+                // Item should be prevented from being added to the list due to filter.
+                if (ShouldPreventItemAdd(addedMail)) return;
+            }
 
             await listManipulationSemepahore.WaitAsync();
 

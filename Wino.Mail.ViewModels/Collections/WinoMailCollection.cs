@@ -188,6 +188,16 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         return _threadIdToItemsMap[threadId].FirstOrDefault();
     }
 
+    /// <summary>
+    /// Checks if a ThreadId exists in the collection.
+    /// </summary>
+    /// <param name="threadId">The ThreadId to check for.</param>
+    /// <returns>True if the ThreadId exists in the collection, false otherwise.</returns>
+    public bool ContainsThreadId(string threadId)
+    {
+        return !string.IsNullOrEmpty(threadId) && _threadIdToItemsMap.ContainsKey(threadId);
+    }
+
     private async Task InsertItemInternalAsync(object groupKey, IMailListItem mailItem)
     {
         UpdateUniqueIdHashes(mailItem, true);
