@@ -95,7 +95,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid>
+    <Grid MaxWidth="700">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />

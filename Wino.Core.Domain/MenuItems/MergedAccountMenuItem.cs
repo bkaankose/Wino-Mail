@@ -20,14 +20,14 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
     /// Total items to sync across all merged accounts.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress))]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate))]
     public partial int TotalItemsToSync { get; set; }
 
     /// <summary>
     /// Remaining items to sync across all merged accounts.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SynchronizationProgress))]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress), nameof(IsSynchronizationProgressVisible), nameof(IsProgressIndeterminate))]
     public partial int RemainingItemsToSync { get; set; }
 
     /// <summary>
@@ -49,6 +49,17 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
             return ((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100;
         }
     }
+
+    /// <summary>
+    /// Whether synchronization progress should be visible.
+    /// Visible when there's active synchronization (TotalItemsToSync > 0 or RemainingItemsToSync > 0).
+    /// </summary>
+    public bool IsSynchronizationProgressVisible => TotalItemsToSync > 0 || RemainingItemsToSync > 0;
+
+    /// <summary>
+    /// Whether progress should be indeterminate.
+    /// </summary>
+    public bool IsProgressIndeterminate => TotalItemsToSync == 0 && IsSynchronizationProgressVisible;
 
     [ObservableProperty]
     private string mergedAccountName;

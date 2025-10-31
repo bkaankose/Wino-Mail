@@ -76,12 +76,25 @@
                             MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind Parameter.Address, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis" />
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind IsSynchronizationProgressVisible, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
+
+                        <TextBlock
+                            x:Name="SyncStatusText"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            MaxLines="1"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind SynchronizationStatus, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
                     </StackPanel>
 
                     <PathIcon
                         x:Name="AttentionIcon"
-                        Grid.Column="2"
+                        Grid.Column="1"
+                        Width="16"
+                        Height="16"
+                        Margin="8,0"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind IsAttentionRequired, Mode=OneWay}"
@@ -90,18 +103,15 @@
 
                     <muxc:ProgressRing
                         x:Name="SynchronizationProgressBar"
-                        Grid.ColumnSpan="3"
-                        Width="10"
-                        Height="10"
-                        HorizontalAlignment="Right"
+                        Grid.Column="2"
+                        Width="16"
+                        Height="16"
+                        Margin="8,0"
+                        HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        Background="{ThemeResource AppBarItemBackgroundThemeBrush}"
-                        Foreground="{ThemeResource AppBarItemForegroundThemeBrush}"
                         IsActive="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
-                        IsIndeterminate="{x:Bind IsProgressIndeterminate}"
-                        Maximum="100"
-                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
-                        Value="{x:Bind SynchronizationProgress, Mode=OneWay}" />
+                        IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
+                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
                 </Grid>
             </controls:AccountNavigationItem>
         </DataTemplate>
@@ -251,6 +261,10 @@
                 </coreControls:WinoNavigationViewItem.Icon>
 
                 <Grid Height="50">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" Spacing="0">
                         <TextBlock
                             x:Name="AccountNameTextblock"
@@ -262,12 +276,34 @@
 
                         <TextBlock
                             FontSize="12"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             MaxLines="1"
                             Style="{StaticResource CaptionTextBlockStyle}"
-                            TextTrimming="CharacterEllipsis">
-                            <Run Text="{x:Bind MergedAccountCount}" /><Run Text="{x:Bind domain:Translator.MenuMergedAccountItemAccountsSuffix}" />
+                            Text="{x:Bind SynchronizationStatus, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
+
+                        <TextBlock
+                            FontSize="12"
+                            MaxLines="1"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsSynchronizationProgressVisible), Mode=OneWay}">
+                            <Run Text="{x:Bind MergedAccountCount, Mode=OneWay}" /><Run Text="{x:Bind domain:Translator.MenuMergedAccountItemAccountsSuffix}" />
                         </TextBlock>
                     </StackPanel>
+
+                    <muxc:ProgressRing
+                        x:Name="SynchronizationProgressBar"
+                        Grid.Column="1"
+                        Width="16"
+                        Height="16"
+                        Margin="8,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        IsActive="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}"
+                        IsIndeterminate="{x:Bind IsProgressIndeterminate, Mode=OneWay}"
+                        Visibility="{x:Bind IsSynchronizationProgressVisible, Mode=OneWay}" />
                 </Grid>
             </controls:AccountNavigationItem>
         </DataTemplate>

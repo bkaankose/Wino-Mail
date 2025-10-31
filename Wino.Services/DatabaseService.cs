@@ -1,7 +1,6 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using SQLite;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -44,6 +43,10 @@ public class DatabaseService : IDatabaseService
 
     private async Task CreateTablesAsync()
     {
+        //typeof(AccountCalendar),
+        //    typeof(CalendarEventAttendee),
+        //    typeof(CalendarItem),
+        //    typeof(Reminder),
         await Connection.CreateTablesAsync(CreateFlags.None,
             typeof(MailCopy),
             typeof(MailItemFolder),
@@ -54,10 +57,6 @@ public class DatabaseService : IDatabaseService
             typeof(MergedInbox),
             typeof(MailAccountPreferences),
             typeof(MailAccountAlias),
-            typeof(AccountCalendar),
-            typeof(CalendarEventAttendee),
-            typeof(CalendarItem),
-            typeof(Reminder),
             typeof(Thumbnail),
             typeof(KeyboardShortcut),
             typeof(MailItemQueue)

@@ -154,6 +154,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         if (shouldSynchronizeFolders)
         {
             _logger.Information("Synchronizing folders for {Name}", Account.Name);
+            UpdateSyncProgress(0, 0, "Synchronizing folders...");
 
             try
             {
@@ -169,6 +170,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
+            UpdateSyncProgress(0, 0, "Folders synchronized");
         }
 
         // There is no specific folder synchronization in Gmail.
@@ -186,24 +188,30 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (Account.SynchronizationStatus == InitialSynchronizationStatus.None)
         {
+            UpdateSyncProgress(0, 0, "Fetching email IDs...");
             await FetchAllEmailIdsAsync().ConfigureAwait(false);
             await CompleteAccountSyncStatusAsync();
+            UpdateSyncProgress(0, 0, "Email IDs fetched");
         }
 
         if (!string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier))
         {
+            UpdateSyncProgress(0, 0, "Synchronizing changes...");
             await SynchronizeDeltaAsync(options, cancellationToken).ConfigureAwait(false);
             await CompleteAccountSyncStatusAsync();
+            UpdateSyncProgress(0, 0, "Changes synchronized");
         }
 
         if (Account.SynchronizationStatus == InitialSynchronizationStatus.IdsFetched)
         {
+            UpdateSyncProgress(0, 0, "Processing email metadata...");
             await ProcessEmailMetadataFromQueueAsync(cancellationToken);
+            UpdateSyncProgress(0, 0, "Email metadata processed");
         }
 
         if (Account.SynchronizationStatus == InitialSynchronizationStatus.Completed)
         {
-
+            UpdateSyncProgress(0, 0, "Synchronization completed");
         }
 
         return MailSynchronizationResult.Completed(new List<MailCopy>());
@@ -220,12 +228,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             await _gmailChangeProcessor.ClearMailItemQueueAsync(Account.Id).ConfigureAwait(false);
 
             var totalFetched = 0;
-            string? pageToken = null;
+            string pageToken = null;
+            var pageCount = 0;
 
             do
             {
                 try
                 {
+                    pageCount++;
+                    
                     // Use maximum page size of 500 for efficiency
                     var request = _gmailService.Users.Messages.List("me");
                     request.MaxResults = 500;
@@ -248,6 +259,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                         await _gmailChangeProcessor.AddMailItemQueueItemsAsync(queueEntries1).ConfigureAwait(false);
 
                         totalFetched += queueEntries1.Count();
+                        
+                        // Update progress - we don't know total count, so show indeterminate with status
+                        UpdateSyncProgress(0, 0, $"Fetched {totalFetched} email IDs (page {pageCount})");
                     }
 
                     pageToken = response.NextPageToken;
@@ -261,8 +275,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     continue; // Retry the same page
                 }
             } while (!string.IsNullOrEmpty(pageToken));
+            
+            // Final update with total count
+            UpdateSyncProgress(0, 0, $"Fetched {totalFetched} email IDs total");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             throw;
         }
@@ -327,6 +344,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         // Get total count for progress tracking
         var totalInQueue = await _gmailChangeProcessor.GetMailItemQueueCountAsync(Account.Id).ConfigureAwait(false);
+        var processedCount = 0;
 
         try
         {
@@ -365,6 +383,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                             {
                                 queueItem.IsProcessed = true;
                                 queueItem.ProcessedAt = DateTime.UtcNow;
+                                processedCount++;
                             }
                         }
                         catch (Exception)
@@ -376,10 +395,18 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                 queueItem.ProcessedAt = null;
                                 queueItem.FailedCount++;
                                 totalFailed++;
+                                processedCount++; // Count failed items as processed for progress
                             }
                         }
 
                         await _gmailChangeProcessor.UpdateMailItemQueueAsync(mailItemQueue).ConfigureAwait(false);
+
+                        // Update progress based on processed items
+                        if (totalInQueue > 0)
+                        {
+                            var remainingItems = totalInQueue - processedCount;
+                            UpdateSyncProgress(totalInQueue, remainingItems, $"Processing emails: {processedCount}/{totalInQueue}");
+                        }
 
                         // If too many failures, pause to avoid hitting rate limits
                         if (totalFailed > 85) await Task.Delay(TimeSpan.FromSeconds(10));

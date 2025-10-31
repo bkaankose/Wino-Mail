@@ -514,9 +514,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         // Group items by their grouping key and add them in a single UI thread call
         if (itemsToAdd.Count > 0)
         {
-            var groupedItems = itemsToAdd
+            // Pre-compute grouping on background thread to reduce UI thread work
+            var groupedItems = await Task.Run(() => itemsToAdd
                 .GroupBy(GetGroupingKey)
-                .ToDictionary(g => g.Key, g => g.ToList());
+                .ToDictionary(g => g.Key, g => g.ToList())).ConfigureAwait(false);
 
             await ExecuteUIThread(() =>
             {

@@ -252,33 +252,35 @@ public class MailService : BaseDatabaseService, IMailService
             return [.. mails];
         }
 
-        // Include other mails in the same threads
+        // Include other mails in the same threads - batch process to reduce DB calls
         var expandedMails = new List<MailCopy>(mails);
-        var processedThreadIds = new HashSet<string>();
+        var uniqueThreadIds = mails
+            .Where(m => !string.IsNullOrEmpty(m.ThreadId))
+            .Select(m => m.ThreadId)
+            .Distinct()
+            .ToList();
 
-        foreach (var mail in mails)
+        if (uniqueThreadIds.Count > 0)
         {
-            if (!string.IsNullOrEmpty(mail.ThreadId) && !processedThreadIds.Contains(mail.ThreadId))
+            // Get all thread mails in a single DB call
+            var existingMailIds = expandedMails.Select(m => m.Id).ToHashSet();
+            var allThreadMails = await GetMailsByThreadIdsAsync(uniqueThreadIds, existingMailIds).ConfigureAwait(false);
+
+            if (allThreadMails?.Count > 0)
             {
-                processedThreadIds.Add(mail.ThreadId);
-
-                // Get all other mails with the same ThreadId that are not already in the result
-                var existingMailIds = expandedMails.Select(m => m.Id).ToHashSet();
-                var threadMails = await GetMailsByThreadIdAsync(mail.ThreadId, existingMailIds).ConfigureAwait(false);
-
-                if (threadMails?.Any() == true)
+                // Process thread mails in parallel to improve performance
+                var tasks = allThreadMails.Select(async threadMail =>
                 {
-                    // Load assigned properties for the thread mails
-                    foreach (var threadMail in threadMails)
-                    {
-                        await LoadAssignedPropertiesWithCacheAsync(threadMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-                    }
+                    await LoadAssignedPropertiesWithCacheAsync(threadMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
+                    return threadMail;
+                });
 
-                    // Remove items that have no assigned account or folder
-                    threadMails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
-
-                    expandedMails.AddRange(threadMails);
-                }
+                var processedThreadMails = await Task.WhenAll(tasks).ConfigureAwait(false);
+                
+                // Filter out items with no assigned account or folder
+                var validThreadMails = processedThreadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null);
+                
+                expandedMails.AddRange(validThreadMails);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -299,6 +301,20 @@ public class MailService : BaseDatabaseService, IMailService
                     .GetRawQuery();
 
         return await Connection.QueryAsync<MailCopy>(query);
+    }
+
+    private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(List<string> threadIds, HashSet<string> excludeMailIds)
+    {
+        if (threadIds?.Count == 0)
+            return [];
+
+        var query = new Query("MailCopy")
+                    .WhereIn("ThreadId", threadIds)
+                    .WhereNotIn("Id", excludeMailIds)
+                    .SelectRaw("MailCopy.*")
+                    .GetRawQuery();
+
+        return await Connection.QueryAsync<MailCopy>(query).ConfigureAwait(false);
     }
 
     /// <summary>
