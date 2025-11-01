@@ -98,6 +98,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         "Subject",
         "ParentFolderId",
         "InternetMessageId",
+        "InternetMessageHeaders",
     ];
 
     private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
@@ -575,7 +576,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         if (message != null)
                         {
                             // Create MailCopy from metadata only
-                            var mailCopy = CreateMailCopyFromMessage(message, folder);
+                            var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
 
                             if (mailCopy != null)
                             {
@@ -666,7 +667,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// Creates a MailCopy from an Outlook Message with metadata only (centralized method).
     /// This replaces the scattered CreateMinimalMailCopyAsync and AsMailCopy calls.
     /// </summary>
-    private MailCopy CreateMailCopyFromMessage(Message message, MailItemFolder assignedFolder)
+    private async Task<MailCopy> CreateMailCopyFromMessageAsync(Message message, MailItemFolder assignedFolder)
     {
         if (message == null) return null;
 
@@ -674,6 +675,37 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         mailCopy.FolderId = assignedFolder.Id;
         mailCopy.UniqueId = Guid.NewGuid();
         mailCopy.FileId = Guid.NewGuid();
+
+        // Check for draft mapping if this is a draft with WinoLocalDraftHeader
+        if (message.IsDraft.GetValueOrDefault() && message.InternetMessageHeaders != null)
+        {
+            var winoDraftHeader = message.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase));
+
+            if (winoDraftHeader != null && Guid.TryParse(winoDraftHeader.Value, out Guid localDraftCopyUniqueId))
+            {
+                // This message belongs to existing local draft copy.
+                // We don't need to create a new mail copy for this message, just update the existing one.
+                
+                bool isMappingSuccessful = await _outlookChangeProcessor.MapLocalDraftAsync(
+                    Account.Id, 
+                    localDraftCopyUniqueId, 
+                    mailCopy.Id, 
+                    mailCopy.DraftId, 
+                    mailCopy.ThreadId);
+
+                if (isMappingSuccessful)
+                {
+                    _logger.Debug("Successfully mapped remote draft {RemoteId} to local draft {LocalId}", 
+                        mailCopy.Id, localDraftCopyUniqueId);
+                    return null; // Don't create new mail copy, existing one was updated
+                }
+
+                // Local copy doesn't exist. Continue execution to insert mail copy.
+                _logger.Debug("Local draft copy {LocalId} not found, creating new mail copy for {RemoteId}", 
+                    localDraftCopyUniqueId, mailCopy.Id);
+            }
+        }
 
         return mailCopy;
     }
@@ -687,10 +719,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         await QueueMailIdsForFolderAsync(folder, cancellationToken).ConfigureAwait(false);
     }
 
-    protected override Task<MailCopy> CreateMinimalMailCopyAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
+    protected override async Task<MailCopy> CreateMinimalMailCopyAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
         // Use centralized method
-        return Task.FromResult(CreateMailCopyFromMessage(message, assignedFolder));
+        return await CreateMailCopyFromMessageAsync(message, assignedFolder).ConfigureAwait(false);
     }
 
     private async Task<Message> GetMessageByIdAsync(string messageId, CancellationToken cancellationToken = default)
@@ -1760,23 +1792,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
         // Download MIME message for specific scenarios (e.g., search results, draft handling)
-        // During normal sync, this method should not be called - use CreateMailCopyFromMessage instead
+        // During normal sync, this method should not be called - use CreateMailCopyFromMessageAsync instead
         var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
-        var mailCopy = CreateMailCopyFromMessage(message, assignedFolder);
+        var mailCopy = await CreateMailCopyFromMessageAsync(message, assignedFolder).ConfigureAwait(false);
 
-        if (message.IsDraft.GetValueOrDefault()
-            && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
-            && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
-        {
-            // This message belongs to existing local draft copy.
-            // We don't need to create a new mail copy for this message, just update the existing one.
-
-            bool isMappingSuccessful = await _outlookChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
-
-            if (isMappingSuccessful) return null;
-
-            // Local copy doesn't exists. Continue execution to insert mail copy.
-        }
+        // If draft mapping was successful, mailCopy will be null
+        if (mailCopy == null) return null;
 
         // Outlook messages can only be assigned to 1 folder at a time.
         // Therefore we don't need to create multiple copies of the same message for different folders.
