@@ -379,6 +379,24 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         DisposeDisposables();
     }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        WeakReferenceMessenger.Default.Register<CreateNewComposeMailRequested>(this);
+        WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        WeakReferenceMessenger.Default.Unregister<CreateNewComposeMailRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+    }
+
+    // TODO: Save mime on closing the app.
     private async void OnClose(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
     {
         var deferral = e.GetDeferral();
