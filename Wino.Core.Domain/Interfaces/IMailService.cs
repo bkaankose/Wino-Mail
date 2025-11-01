@@ -25,7 +25,7 @@ public interface IMailService
     /// Caution: This method is not safe. Use other overrides.
     /// </summary>
     Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds);
-    Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
+    Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes all mail copies for all folders.
@@ -162,4 +162,11 @@ public interface IMailService
     /// <param name="onlineArchiveMailIds">Retrieved MailCopy ids from search result.</param>
     /// <returns>Result model that contains added and removed mail copy ids.</returns>
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
+    Task ClearMailItemQueueAsync(Guid accountId);
+    Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems);
+    Task<int> GetMailItemQueueCountAsync(Guid accountId);
+    Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take);
+    Task<List<MailItemQueue>> GetMailItemQueueByFolderAsync(Guid accountId, string remoteFolderId, int take);
+    Task<int> GetMailItemQueueCountByFolderAsync(Guid accountId, string remoteFolderId);
+    Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems);
 }

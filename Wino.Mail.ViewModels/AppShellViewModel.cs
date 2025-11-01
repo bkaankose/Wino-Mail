@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MoreLinq;
 using MoreLinq.Extensions;
@@ -36,9 +35,12 @@ public partial class AppShellViewModel : MailBaseViewModel,
     IRecipient<MergedInboxRenamed>,
     IRecipient<LanguageChanged>,
     IRecipient<AccountMenuItemsReordered>,
-    IRecipient<AccountSynchronizationProgressUpdatedMessage>,
+    IRecipient<AccountSynchronizerStateChanged>,
     IRecipient<NavigateAppPreferencesRequested>,
-    IRecipient<AccountFolderConfigurationUpdated>
+    IRecipient<AccountFolderConfigurationUpdated>,
+    IRecipient<AccountRemovedMessage>,
+    IRecipient<AccountUpdatedMessage>,
+    IRecipient<AccountCreatedMessage>
 {
     #region Menu Items
 
@@ -52,6 +54,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
     private readonly SettingsItem SettingsItem = new SettingsItem();
     private readonly ManageAccountsMenuItem ManageAccountsMenuItem = new ManageAccountsMenuItem();
+    private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
 
     public IMenuItem CreateMailMenuItem = new NewMailMenuItem();
 
@@ -60,7 +63,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
     private const string IsActivateStartupLaunchAskedKey = nameof(IsActivateStartupLaunchAskedKey);
 
     public IStatePersistanceService StatePersistenceService { get; }
-    public IWinoServerConnectionManager ServerConnectionManager { get; }
     public IPreferencesService PreferencesService { get; }
     public INavigationService NavigationService { get; }
 
@@ -74,7 +76,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
-    private readonly IBackgroundTaskService _backgroundTaskService;
     private readonly IMimeFileService _mimeFileService;
 
     private readonly INativeAppService _nativeAppService;
@@ -82,12 +83,8 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
-    [ObservableProperty]
-    private WinoServerConnectionStatus activeConnectionStatus;
-
     public AppShellViewModel(IMailDialogService dialogService,
                              INavigationService navigationService,
-                             IBackgroundTaskService backgroundTaskService,
                              IMimeFileService mimeFileService,
                              INativeAppService nativeAppService,
                              IMailService mailService,
@@ -100,21 +97,10 @@ public partial class AppShellViewModel : MailBaseViewModel,
                              IWinoRequestDelegator winoRequestDelegator,
                              IFolderService folderService,
                              IStatePersistanceService statePersistanceService,
-                             IWinoServerConnectionManager serverConnectionManager,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService)
     {
         StatePersistenceService = statePersistanceService;
-        ServerConnectionManager = serverConnectionManager;
-
-        ActiveConnectionStatus = serverConnectionManager.Status;
-        ServerConnectionManager.StatusChanged += async (sender, status) =>
-        {
-            await ExecuteUIThread(() =>
-            {
-                ActiveConnectionStatus = status;
-            });
-        };
 
         PreferencesService = preferencesService;
         _dialogService = dialogService;
@@ -122,7 +108,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
         _configurationService = configurationService;
         _startupBehaviorService = startupBehaviorService;
-        _backgroundTaskService = backgroundTaskService;
         _mimeFileService = mimeFileService;
         _nativeAppService = nativeAppService;
         _mailService = mailService;
@@ -134,9 +119,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
     }
-
-    [RelayCommand]
-    private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
 
     protected override void OnDispatcherAssigned()
     {
@@ -169,6 +151,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
 
             FooterItems.Clear();
 
+            FooterItems.Add(ContactsMenuItem);
             FooterItems.Add(ManageAccountsMenuItem);
             FooterItems.Add(SettingsItem);
         });
@@ -248,7 +231,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
         }
 
         await MakeSureEnableStartupLaunchAsync();
-        await ConfigureBackgroundTasksAsync();
     }
 
     private async Task MakeSureEnableStartupLaunchAsync()
@@ -291,22 +273,6 @@ public partial class AppShellViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task ConfigureBackgroundTasksAsync()
-    {
-        try
-        {
-            // This will only unregister once. Safe to execute multiple times.
-            _backgroundTaskService.UnregisterAllBackgroundTask();
-
-            await _backgroundTaskService.RegisterBackgroundTasksAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to configure background tasks.");
-
-            _dialogService.InfoBarMessage(Translator.Info_BackgroundExecutionUnknownErrorTitle, Translator.Info_BackgroundExecutionUnknownErrorMessage, InfoBarMessageType.Error);
-        }
-    }
 
     private async Task ForceAllAccountSynchronizationsAsync()
     {
@@ -321,7 +287,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
                 Type = MailSynchronizationType.FullFolders
             };
 
-            Messenger.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+            Messenger.Send(new NewMailSynchronizationRequested(options));
         }
     }
 
@@ -627,6 +593,10 @@ public partial class AppShellViewModel : MailBaseViewModel,
         {
             NavigationService.Navigate(WinoPage.ManageAccountsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
         }
+        else if (clickedMenuItem is ContactsMenuItem)
+        {
+            NavigationService.Navigate(WinoPage.ContactsPage, parameter, NavigationReferenceFrame.ShellFrame, NavigationTransitionType.None);
+        }
         else if (clickedMenuItem is IAccountMenuItem clickedAccountMenuItem)
         {
             // Changing loaded account.
@@ -874,48 +844,7 @@ public partial class AppShellViewModel : MailBaseViewModel,
         await _winoRequestDelegator.ExecuteAsync(draftPreparationRequest);
     }
 
-    protected override async void OnAccountUpdated(MailAccount updatedAccount)
-    {
-        await ExecuteUIThread(() =>
-        {
-            if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
-            {
-                foundAccountMenuItem.UpdateAccount(updatedAccount);
-            }
-        });
-    }
 
-    protected override void OnAccountRemoved(MailAccount removedAccount)
-        => Messenger.Send(new AccountsMenuRefreshRequested(false));
-
-    protected override async void OnAccountCreated(MailAccount createdAccount)
-    {
-        latestSelectedAccountMenuItem = null;
-
-        await RecreateMenuItemsAsync();
-
-        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
-
-        await ChangeLoadedAccountAsync(createdMenuItem);
-
-        // Each created account should start a new synchronization automatically.
-        var options = new MailSynchronizationOptions()
-        {
-            AccountId = createdAccount.Id,
-            Type = MailSynchronizationType.FullFolders,
-        };
-
-        Messenger.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
-
-        try
-        {
-            await _nativeAppService.PinAppToTaskbarAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to pin Wino to taskbar.");
-        }
-    }
 
     // TODO: Handle by messaging.
     private async Task SetAccountAttentionAsync(Guid accountId, AccountAttentionReason reason)
@@ -1063,17 +992,108 @@ public partial class AppShellViewModel : MailBaseViewModel,
         UpdateFolderCollection(mailItemFolder);
     }
 
-    public async void Receive(AccountSynchronizationProgressUpdatedMessage message)
+    public async void Receive(AccountSynchronizerStateChanged message)
     {
         var accountMenuItem = MenuItems.GetSpecificAccountMenuItem(message.AccountId);
 
         if (accountMenuItem == null) return;
 
-        await ExecuteUIThread(() => { accountMenuItem.SynchronizationProgress = message.Progress; });
+        await ExecuteUIThread(() =>
+        {
+            accountMenuItem.TotalItemsToSync = message.TotalItemsToSync;
+            accountMenuItem.RemainingItemsToSync = message.RemainingItemsToSync;
+            accountMenuItem.SynchronizationStatus = message.SynchronizationStatus;
+            
+            // If this account is part of a merged inbox, update the merged inbox progress as well
+            if (accountMenuItem.ParentMenuItem is MergedAccountMenuItem mergedAccountMenuItem)
+            {
+                mergedAccountMenuItem.RefreshSynchronizationProgress();
+            }
+        });
     }
 
     public async void Receive(NavigateAppPreferencesRequested message)
     {
         await MenuItemInvokedOrSelectedAsync(SettingsItem, WinoPage.AppPreferencesPage);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<AccountCreatedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountUpdatedMessage>(this);
+        Messenger.Register<NavigateManageAccountsRequested>(this);
+        Messenger.Register<MailtoProtocolMessageRequested>(this);
+        Messenger.Register<RefreshUnreadCountsMessage>(this);
+        Messenger.Register<AccountsMenuRefreshRequested>(this);
+        Messenger.Register<MergedInboxRenamed>(this);
+        Messenger.Register<LanguageChanged>(this);
+        Messenger.Register<AccountMenuItemsReordered>(this);
+        Messenger.Register<AccountSynchronizerStateChanged>(this);
+        Messenger.Register<NavigateAppPreferencesRequested>(this);
+        Messenger.Register<AccountFolderConfigurationUpdated>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<NavigateManageAccountsRequested>(this);
+        Messenger.Unregister<MailtoProtocolMessageRequested>(this);
+        Messenger.Unregister<RefreshUnreadCountsMessage>(this);
+        Messenger.Unregister<AccountsMenuRefreshRequested>(this);
+        Messenger.Unregister<MergedInboxRenamed>(this);
+        Messenger.Unregister<LanguageChanged>(this);
+        Messenger.Unregister<AccountMenuItemsReordered>(this);
+        Messenger.Unregister<AccountSynchronizerStateChanged>(this);
+        Messenger.Unregister<NavigateAppPreferencesRequested>(this);
+        Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
+    }
+
+    public void Receive(AccountRemovedMessage message) => Messenger.Send(new AccountsMenuRefreshRequested(false));
+
+    public async void Receive(AccountCreatedMessage message)
+    {
+        var createdAccount = message.Account;
+        latestSelectedAccountMenuItem = null;
+
+        await RecreateMenuItemsAsync();
+
+        if (!MenuItems.TryGetAccountMenuItem(createdAccount.Id, out IAccountMenuItem createdMenuItem)) return;
+
+        await ChangeLoadedAccountAsync(createdMenuItem);
+
+        // Each created account should start a new synchronization automatically.
+        var options = new MailSynchronizationOptions()
+        {
+            AccountId = createdAccount.Id,
+            Type = MailSynchronizationType.FullFolders,
+        };
+
+        Messenger.Send(new NewMailSynchronizationRequested(options));
+
+        try
+        {
+            await _nativeAppService.PinAppToTaskbarAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to pin Wino to taskbar.");
+        }
+    }
+
+    public async void Receive(AccountUpdatedMessage message)
+    {
+        var updatedAccount = message.Account;
+
+        await ExecuteUIThread(() =>
+        {
+            if (MenuItems.TryGetAccountMenuItem(updatedAccount.Id, out IAccountMenuItem foundAccountMenuItem))
+            {
+                foundAccountMenuItem.UpdateAccount(updatedAccount);
+            }
+        });
     }
 }

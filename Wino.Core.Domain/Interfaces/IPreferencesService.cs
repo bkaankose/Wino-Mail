@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IPreferencesService: INotifyPropertyChanged
+public interface IPreferencesService : INotifyPropertyChanged
 {
     /// <summary>
     /// When any of the preferences are changed.
@@ -29,11 +29,6 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Setting: Whether the navigation pane is opened on the last session or not.
     /// </summary>
     bool IsNavigationPaneOpened { get; set; }
-
-    /// <summary>
-    /// Setting: Gets or sets what should happen to server app when the client is terminated.
-    /// </summary>
-    ServerBackgroundMode ServerTerminationBehavior { get; set; }
 
     /// <summary>
     /// Setting: Preferred time format for mail or calendar header display.

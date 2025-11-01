@@ -17,6 +17,8 @@ public static class CoreContainerSetup
 
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
+        services.AddSingleton<ISynchronizationManager>(provider => SynchronizationManager.Instance);
+        services.AddTransient<SynchronizationManagerInitializer>();
 
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
@@ -38,6 +40,7 @@ public static class CoreContainerSetup
 
         // Register error factory handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();
+        services.AddTransient<DeltaTokenExpiredHandler>();
 
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();

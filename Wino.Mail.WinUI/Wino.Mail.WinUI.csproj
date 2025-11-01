@@ -1,0 +1,277 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Wino.Mail.WinUI</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Remove="Assets\BadgeLogo.scale-100.png" />
+    <Content Remove="Assets\BadgeLogo.scale-125.png" />
+    <Content Remove="Assets\BadgeLogo.scale-150.png" />
+    <Content Remove="Assets\BadgeLogo.scale-200.png" />
+    <Content Remove="Assets\BadgeLogo.scale-400.png" />
+    <Content Remove="Assets\LargeTile.scale-100.png" />
+    <Content Remove="Assets\LargeTile.scale-125.png" />
+    <Content Remove="Assets\LargeTile.scale-150.png" />
+    <Content Remove="Assets\LargeTile.scale-200.png" />
+    <Content Remove="Assets\LargeTile.scale-400.png" />
+    <Content Remove="Assets\SmallTile.scale-100.png" />
+    <Content Remove="Assets\SmallTile.scale-125.png" />
+    <Content Remove="Assets\SmallTile.scale-150.png" />
+    <Content Remove="Assets\SmallTile.scale-200.png" />
+    <Content Remove="Assets\SmallTile.scale-400.png" />
+    <Content Remove="Assets\SplashScreen.scale-100.png" />
+    <Content Remove="Assets\SplashScreen.scale-125.png" />
+    <Content Remove="Assets\SplashScreen.scale-150.png" />
+    <Content Remove="Assets\SplashScreen.scale-400.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-100.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-125.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-150.png" />
+    <Content Remove="Assets\Square150x150Logo.scale-400.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-16.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-24.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-256.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-32.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-lightunplated_targetsize-48.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-16.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-256.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-32.png" />
+    <Content Remove="Assets\Square44x44Logo.altform-unplated_targetsize-48.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-100.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-125.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-150.png" />
+    <Content Remove="Assets\Square44x44Logo.scale-400.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-16.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-24.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-256.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-32.png" />
+    <Content Remove="Assets\Square44x44Logo.targetsize-48.png" />
+    <Content Remove="Assets\StoreLogo.backup.png" />
+    <Content Remove="Assets\StoreLogo.scale-100.png" />
+    <Content Remove="Assets\StoreLogo.scale-125.png" />
+    <Content Remove="Assets\StoreLogo.scale-150.png" />
+    <Content Remove="Assets\StoreLogo.scale-200.png" />
+    <Content Remove="Assets\StoreLogo.scale-400.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-100.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-125.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-150.png" />
+    <Content Remove="Assets\Wide310x150Logo.scale-400.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
+    <None Remove="ShellWindow.xaml" />
+    <None Remove="Views\Settings\ContactsPage.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\Wino_Icon.ico" />
+    <Content Include="JS\editor.html" />
+    <Content Include="JS\editor.js" />
+    <Content Include="JS\global.css" />
+    <Content Include="JS\libs\darkreader.js" />
+    <Content Include="JS\libs\jodit.min.css" />
+    <Content Include="JS\libs\jodit.min.js" />
+    <Content Include="JS\libs\linkify-element.min.js" />
+    <Content Include="JS\libs\linkify.min.js" />
+    <Content Include="JS\reader.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+  <ItemGroup>
+	<PackageReference Include="CommunityToolkit.Common" />
+	<PackageReference Include="CommunityToolkit.Diagnostics" />
+	<PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" />
+    <PackageReference Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" />
+	  
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
+	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+	  
+	<PackageReference Include="ColorHashSharp" />
+	<PackageReference Include="Sentry.Serilog" />
+	<PackageReference Include="sqlite-net-pcl" />
+	<PackageReference Include="EmailValidation" />
+	<PackageReference Include="System.Drawing.Common" />
+	<PackageReference Include="WinUIEx" />
+	<PackageReference Include="H.NotifyIcon.WinUI" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Core.WinUI\Wino.Core.WinUI.csproj" />
+	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Settings\ContactsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Controls\ListView\WinoListViewStyles.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="ShellWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="AppShell.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Controls\MailItemDisplayInformationControl.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\AccountReorderDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\CreateAccountAliasDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\MessageSourceDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\MoveMailDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\NewImapSetupDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\SignatureEditorDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Dialogs\SystemFolderConfigurationDialog.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\ImagePreviewControl.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\ItemContainerStyles.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\WebViewEditorControl.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Styles\WinoExpanderStyle.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\AccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\AccountManagementPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Account\MergedAccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ComposePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\IdlePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ImapSetup\AdvancedImapSetupPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ImapSetup\ImapConnectionFailedPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ImapSetup\PreparingImapFoldersPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ImapSetup\TestingImapConnectionPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ImapSetup\WelcomeImapSetupPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\MailListPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\MailRenderingPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\AboutPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\AliasManagementPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\AppPreferencesPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\EditAccountDetailsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\LanguageTimePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\MessageListPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\PersonalizationPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\ReadComposePanePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\Settings\SignatureManagementPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\WelcomePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties -->
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
+    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <PackageCertificateThumbprint>2661584A2F31D3419FFF8AA09A2C16B1991B8290</PackageCertificateThumbprint>
+  </PropertyGroup>
+</Project>

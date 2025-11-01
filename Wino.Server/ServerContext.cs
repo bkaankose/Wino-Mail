@@ -40,7 +40,6 @@ public class ServerContext :
     IRecipient<AccountSynchronizerStateChanged>,
     IRecipient<RefreshUnreadCountsMessage>,
     IRecipient<ServerTerminationModeChanged>,
-    IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<AccountFolderConfigurationUpdated>,
     IRecipient<CopyAuthURLRequested>,
     IRecipient<NewMailSynchronizationRequested>,
@@ -153,8 +152,6 @@ public class ServerContext :
     public async void Receive(RefreshUnreadCountsMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
     public async void Receive(AccountSynchronizerStateChanged message) => await SendMessageAsync(MessageType.UIMessage, message);
-
-    public async void Receive(AccountSynchronizationProgressUpdatedMessage message) => await SendMessageAsync(MessageType.UIMessage, message);
 
     public async void Receive(AccountFolderConfigurationUpdated message) => await SendMessageAsync(MessageType.UIMessage, message);
 

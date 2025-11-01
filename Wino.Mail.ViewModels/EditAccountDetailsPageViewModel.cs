@@ -18,7 +18,7 @@ namespace Wino.Mail.ViewModels;
 public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
-    private readonly IThemeService _themeService;
+    private readonly INewThemeService _themeService;
     private readonly IImapTestService _imapTestService;
     private readonly IMailDialogService _mailDialogService;
 
@@ -76,7 +76,7 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
     public bool IsImapServer => ServerInformation != null;
 
     public EditAccountDetailsPageViewModel(IAccountService accountService,
-                                           IThemeService themeService,
+                                           INewThemeService themeService,
                                            IImapTestService imapTestService,
                                            IMailDialogService mailDialogService)
     {

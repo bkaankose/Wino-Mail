@@ -332,4 +332,24 @@ public sealed partial class AppShell : AppShellAbstract,
             ShellFrame.Margin = new Thickness(0);
         }
     }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Register<AccountMenuItemExtended>(this);
+        WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
+        WeakReferenceMessenger.Default.Register<NavigateMailFolderEvent>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        WeakReferenceMessenger.Default.Unregister<InfoBarMessageRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountMenuItemExtended>(this);
+        WeakReferenceMessenger.Default.Unregister<CreateNewMailWithMultipleAccountsRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<NavigateMailFolderEvent>(this);
+    }
 }

@@ -323,10 +323,24 @@ public static class OutlookIntegratorExtensions
 
         var headers = new List<InternetMessageHeader>();
 
+        // PRIORITY: Always include WinoLocalDraftHeader first if it exists
+        // This is critical for draft mapping functionality
+        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.WinoLocalDraftHeader);
         int includedHeaderCount = 0;
 
+        if (winoDraftHeader != null)
+        {
+            var headerValue = winoDraftHeader.Value.Length >= 995 ? winoDraftHeader.Value.Substring(0, 995) : winoDraftHeader.Value;
+            headers.Add(new InternetMessageHeader() { Name = winoDraftHeader.Field, Value = headerValue });
+            includedHeaderCount++;
+        }
+
+        // Include other headers up to the limit (excluding the already added WinoLocalDraftHeader)
         foreach (var header in mime.Headers)
         {
+            if (header.Field == Domain.Constants.WinoLocalDraftHeader)
+                continue; // Already processed above
+
             if (!headersToIgnore.Contains(header.Field))
             {
                 var headerName = headersToModify.Contains(header.Field) ? $"X-{header.Field}" : header.Field;

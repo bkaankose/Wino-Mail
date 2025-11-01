@@ -2,34 +2,32 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IMailItem
+public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient, IMailListItem
 {
-    [ObservableProperty]
-    public partial MailCopy MailCopy { get; set; } = mailCopy;
+    public MailCopy MailCopy { get; } = mailCopy;
 
-    public Guid UniqueId => ((IMailItem)MailCopy).UniqueId;
-    public string ThreadId => ((IMailItem)MailCopy).ThreadId;
-    public string MessageId => ((IMailItem)MailCopy).MessageId;
-    public DateTime CreationDate => ((IMailItem)MailCopy).CreationDate;
-    public string References => ((IMailItem)MailCopy).References;
-    public string InReplyTo => ((IMailItem)MailCopy).InReplyTo;
+    [ObservableProperty]
+    public partial bool IsDisplayedInThread { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedRecipients]
+    public partial bool IsSelected { get; set; }
+
+    public DateTime CreationDate
+    {
+        get => MailCopy.CreationDate;
+        set => SetProperty(MailCopy.CreationDate, value, MailCopy, (u, n) => u.CreationDate = n);
+    }
 
     [ObservableProperty]
     public partial bool ThumbnailUpdatedEvent { get; set; } = false;
-
-    [ObservableProperty]
-    public partial bool IsCustomFocused { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsSelected { get; set; }
 
     public bool IsFlagged
     {
@@ -97,13 +95,93 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableObject, IM
         set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
     }
 
-    public MailItemFolder AssignedFolder => ((IMailItem)MailCopy).AssignedFolder;
+    public MailImportance Importance
+    {
+        get => MailCopy.Importance;
+        set => SetProperty(MailCopy.Importance, value, MailCopy, (u, n) => u.Importance = n);
+    }
 
-    public MailAccount AssignedAccount => ((IMailItem)MailCopy).AssignedAccount;
+    public string ThreadId
+    {
+        get => MailCopy.ThreadId;
+        set => SetProperty(MailCopy.ThreadId, value, MailCopy, (u, n) => u.ThreadId = n);
+    }
 
-    public Guid FileId => ((IMailItem)MailCopy).FileId;
+    public string MessageId
+    {
+        get => MailCopy.MessageId;
+        set => SetProperty(MailCopy.MessageId, value, MailCopy, (u, n) => u.MessageId = n);
+    }
 
-    public AccountContact SenderContact => ((IMailItem)MailCopy).SenderContact;
+    public string References
+    {
+        get => MailCopy.References;
+        set => SetProperty(MailCopy.References, value, MailCopy, (u, n) => u.References = n);
+    }
 
-    public IEnumerable<Guid> GetContainingIds() => new[] { UniqueId };
+    public string InReplyTo
+    {
+        get => MailCopy.InReplyTo;
+        set => SetProperty(MailCopy.InReplyTo, value, MailCopy, (u, n) => u.InReplyTo = n);
+    }
+
+    public Guid FileId
+    {
+        get => MailCopy.FileId;
+        set => SetProperty(MailCopy.FileId, value, MailCopy, (u, n) => u.FileId = n);
+    }
+
+    public Guid FolderId
+    {
+        get => MailCopy.FolderId;
+        set => SetProperty(MailCopy.FolderId, value, MailCopy, (u, n) => u.FolderId = n);
+    }
+
+    public Guid UniqueId
+    {
+        get => MailCopy.UniqueId;
+        set => SetProperty(MailCopy.UniqueId, value, MailCopy, (u, n) => u.UniqueId = n);
+    }
+
+    public string Base64ContactPicture
+    {
+        get => MailCopy.SenderContact?.Base64ContactPicture ?? string.Empty;
+        set => SetProperty(MailCopy.SenderContact.Base64ContactPicture, value, MailCopy, (u, n) => u.SenderContact.Base64ContactPicture = n);
+    }
+
+    public void NotifyPropertyChanges()
+    {
+        // Raise on property changes for all observable properties.
+        OnPropertyChanged(nameof(CreationDate));
+        OnPropertyChanged(nameof(IsFlagged));
+        OnPropertyChanged(nameof(FromName));
+        OnPropertyChanged(nameof(IsFocused));
+        OnPropertyChanged(nameof(IsRead));
+        OnPropertyChanged(nameof(IsDraft));
+        OnPropertyChanged(nameof(DraftId));
+        OnPropertyChanged(nameof(Id));
+        OnPropertyChanged(nameof(Subject));
+        OnPropertyChanged(nameof(PreviewText));
+        OnPropertyChanged(nameof(FromAddress));
+        OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(Importance));
+        OnPropertyChanged(nameof(ThreadId));
+        OnPropertyChanged(nameof(MessageId));
+        OnPropertyChanged(nameof(References));
+        OnPropertyChanged(nameof(InReplyTo));
+        OnPropertyChanged(nameof(FileId));
+        OnPropertyChanged(nameof(FolderId));
+        OnPropertyChanged(nameof(UniqueId));
+        OnPropertyChanged(nameof(Base64ContactPicture));
+    }
+
+    public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];
+
+    public IEnumerable<MailItemViewModel> GetSelectedMailItems()
+    {
+        if (IsSelected)
+        {
+            yield return this;
+        }
+    }
 }

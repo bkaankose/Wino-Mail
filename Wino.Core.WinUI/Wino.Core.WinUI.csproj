@@ -1,0 +1,63 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Wino.Core.WinUI</RootNamespace>
+	<Platforms>x86;x64;arm64</Platforms>
+	<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Assets\FileTypes\type_archive.png" />
+    <Content Include="Assets\FileTypes\type_audio.png" />
+    <Content Include="Assets\FileTypes\type_executable.png" />
+    <Content Include="Assets\FileTypes\type_html.png" />
+    <Content Include="Assets\FileTypes\type_image.png" />
+    <Content Include="Assets\FileTypes\type_none.png" />
+    <Content Include="Assets\FileTypes\type_other.png" />
+    <Content Include="Assets\FileTypes\type_pdf.png" />
+    <Content Include="Assets\FileTypes\type_rar.png" />
+    <Content Include="Assets\FileTypes\type_video.png" />
+    <Content Include="Assets\Providers\Gmail.png" />
+    <Content Include="Assets\Providers\iCloud.png" />
+    <Content Include="Assets\Providers\IMAP4.png" />
+    <Content Include="Assets\Providers\Office 365.png" />
+    <Content Include="Assets\Providers\Outlook.png" />
+    <Content Include="Assets\Providers\Yahoo.png" />
+    <Content Include="Assets\WinoIcons.ttf" />
+    <Content Include="BackgroundImages\Acrylic.jpg" />
+    <Content Include="BackgroundImages\Clouds.jpg" />
+    <Content Include="BackgroundImages\Forest.jpg" />
+    <Content Include="BackgroundImages\Garden.jpg" />
+    <Content Include="BackgroundImages\Mica.jpg" />
+    <Content Include="BackgroundImages\Nighty.jpg" />
+    <Content Include="BackgroundImages\Snowflake.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.WinUI.Animations" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" />
+    <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+
+	<PackageReference Include="gravatar-dotnet" />
+	<PackageReference Include="Microsoft.Identity.Client" />
+	<PackageReference Include="CommunityToolkit.Common" />
+	<PackageReference Include="CommunityToolkit.Diagnostics" />
+	<PackageReference Include="CommunityToolkit.Mvvm" />
+	<PackageReference Include="EmailValidation" />
+	<PackageReference Include="System.Drawing.Common" />
+	<PackageReference Include="WinUIEx" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+    <ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
+  </ItemGroup>
+  
+</Project>

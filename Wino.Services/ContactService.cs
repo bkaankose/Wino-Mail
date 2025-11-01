@@ -59,7 +59,7 @@ public class ContactService : BaseDatabaseService, IContactService
                 {
                     await Connection.InsertAsync(info).ConfigureAwait(false);
                 }
-                else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+                else if (!currentContact.IsRootContact && !currentContact.IsOverridden) // Don't update root contacts or overridden contacts.
                 {
                     await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
                 }
@@ -68,6 +68,53 @@ public class ContactService : BaseDatabaseService, IContactService
             {
                 Log.Error("Failed to add contact information to the database.", ex);
             }
+        }
+    }
+
+    public Task<List<AccountContact>> GetAllContactsAsync()
+    {
+        return Connection.Table<AccountContact>().ToListAsync();
+    }
+
+    public Task<List<AccountContact>> SearchContactsAsync(string searchQuery)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+            return GetAllContactsAsync();
+
+        var query = new Query(nameof(AccountContact));
+        query.WhereContains("Address", searchQuery.Trim());
+        query.OrWhereContains("Name", searchQuery.Trim());
+
+        var rawLikeQuery = query.GetRawQuery();
+
+        return Connection.QueryAsync<AccountContact>(rawLikeQuery);
+    }
+
+    public async Task<AccountContact> UpdateContactAsync(AccountContact contact)
+    {
+        // Mark the contact as overridden when manually updated
+        contact.IsOverridden = true;
+        
+        await Connection.UpdateAsync(contact).ConfigureAwait(false);
+        
+        return contact;
+    }
+
+    public async Task DeleteContactAsync(string address)
+    {
+        var contact = await GetAddressInformationByAddressAsync(address).ConfigureAwait(false);
+        
+        if (contact != null && !contact.IsRootContact)
+        {
+            await Connection.DeleteAsync(contact).ConfigureAwait(false);
+        }
+    }
+
+    public async Task DeleteContactsAsync(IEnumerable<string> addresses)
+    {
+        foreach (var address in addresses)
+        {
+            await DeleteContactAsync(address).ConfigureAwait(false);
         }
     }
 }

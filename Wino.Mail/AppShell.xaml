@@ -19,7 +19,6 @@
     xmlns:menu="using:Wino.Core.Domain.MenuItems"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     x:Name="Root"
-    muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -458,7 +457,6 @@
             Grid.ColumnSpan="2"
             BackButtonClicked="BackButtonClicked"
             Canvas.ZIndex="150"
-            ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"
             IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
             IsDragArea="True"
@@ -467,7 +465,6 @@
             NavigationViewDisplayMode="{x:Bind navigationView.DisplayMode, Mode=OneWay}"
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
             ReadingPaneLength="{x:Bind ViewModel.StatePersistenceService.MailListPaneLength, Mode=OneWay}"
-            ReconnectCommand="{x:Bind ViewModel.ReconnectServerCommand}"
             SystemReserved="180" />
     </Grid>
 </abstract:AppShellAbstract>

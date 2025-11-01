@@ -38,6 +38,12 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
     public Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
         => Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = ? WHERE Id = ?", synchronizationIdentifier, folderId);
 
+    public Task UpdateFolderInitialSyncCompletedAsync(Guid folderId, bool isCompleted)
+    {
+        var status = isCompleted ? InitialSynchronizationStatus.Completed : InitialSynchronizationStatus.None;
+        return Connection.ExecuteAsync("UPDATE MailItemFolder SET FolderStatus = ? WHERE Id = ?", status, folderId);
+    }
+
     public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
         // We parse the occurrences based on the parent event.

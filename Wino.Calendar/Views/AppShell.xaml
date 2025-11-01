@@ -16,7 +16,6 @@
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    muxc:BackdropMaterial.ApplyToRootOrPageBackground="{ThemeResource UseMica}"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -58,13 +57,11 @@
             Grid.ColumnSpan="2"
             BackButtonClicked="AppBarBackButtonClicked"
             Canvas.ZIndex="150"
-            ConnectionStatus="{x:Bind ViewModel.ActiveConnectionStatus, Mode=OneWay}"
             CoreWindowText="Wino Calendar"
             IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
             IsNavigationPaneOpen="{x:Bind MainSplitView.IsPaneOpen, Mode=TwoWay}"
             NavigationViewDisplayMode="{x:Bind helpers:XamlHelpers.NavigationViewDisplayModeConverter(MainSplitView.DisplayMode), Mode=OneWay}"
             OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
-            ReconnectCommand="{x:Bind ViewModel.ReconnectServerCommand}"
             ShrinkShellContentOnExpansion="False"
             SystemReserved="180">
             <coreControls:WinoAppTitleBar.ShellFrameContent>
@@ -125,12 +122,12 @@
                                 ItemsSource="{x:Bind ViewModel.DateNavigationHeaderItems}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedDateNavigationHeaderIndex, Mode=OneWay}">
                                 <FlipView.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="x:String">
                                         <TextBlock
                                             VerticalAlignment="Center"
                                             FontSize="18"
                                             Style="{StaticResource BodyTextBlockStyle}"
-                                            Text="{Binding}" />
+                                            Text="{x:Bind}" />
                                     </DataTemplate>
                                 </FlipView.ItemTemplate>
                             </calendarControls:CustomCalendarFlipView>

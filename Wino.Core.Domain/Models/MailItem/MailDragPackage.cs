@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -7,12 +8,12 @@ namespace Wino.Core.Domain.Models.MailItem;
 /// </summary>
 public class MailDragPackage
 {
-    public MailDragPackage(IEnumerable<IMailItem> draggingMails)
+    public MailDragPackage(IEnumerable<object> draggingMails)
     {
         DraggingMails = draggingMails;
     }
 
-    public MailDragPackage(IMailItem draggingMail)
+    public MailDragPackage(MailCopy draggingMail)
     {
         DraggingMails =
         [
@@ -20,5 +21,5 @@ public class MailDragPackage
         ];
     }
 
-    public IEnumerable<IMailItem> DraggingMails { get; set; }
+    public IEnumerable<object> DraggingMails { get; set; }
 }

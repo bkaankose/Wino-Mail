@@ -36,6 +36,12 @@ public class MailItemFolder : IMailItemFolder
     /// </summary>
     public string DeltaToken { get; set; }
 
+    /// <summary>
+    /// Whether initial synchronization of mail ids is completed for this folder.
+    /// Used to determine if we should queue all mail ids first or start downloading from queue.
+    /// </summary>
+    public InitialSynchronizationStatus FolderStatus { get; set; }
+
     // For GMail Labels
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }

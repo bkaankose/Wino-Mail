@@ -34,7 +34,6 @@ public partial class AppShellViewModel : CalendarBaseViewModel,
     public IStatePersistanceService StatePersistenceService { get; }
     public IAccountCalendarStateService AccountCalendarStateService { get; }
     public INavigationService NavigationService { get; }
-    public IWinoServerConnectionManager ServerConnectionManager { get; }
 
     [ObservableProperty]
     private bool _isEventDetailsPageActive;
@@ -45,11 +44,7 @@ public partial class AppShellViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     private bool isCalendarEnabled;
 
-    /// <summary>
-    /// Gets or sets the active connection status of the Wino server.
-    /// </summary>
-    [ObservableProperty]
-    private WinoServerConnectionStatus activeConnectionStatus;
+
 
     /// <summary>
     /// Gets or sets the display date of the calendar.
@@ -79,8 +74,7 @@ public partial class AppShellViewModel : CalendarBaseViewModel,
                              IAccountService accountService,
                              ICalendarService calendarService,
                              IAccountCalendarStateService accountCalendarStateService,
-                             INavigationService navigationService,
-                             IWinoServerConnectionManager serverConnectionManager)
+                             INavigationService navigationService)
     {
         _accountService = accountService;
         _calendarService = calendarService;
@@ -90,7 +84,6 @@ public partial class AppShellViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
 
         NavigationService = navigationService;
-        ServerConnectionManager = serverConnectionManager;
         PreferencesService = preferencesService;
 
         StatePersistenceService = statePersistanceService;
@@ -286,8 +279,7 @@ public partial class AppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     public void ManageAccounts() => NavigationService.Navigate(WinoPage.AccountManagementPage);
 
-    [RelayCommand]
-    private Task ReconnectServerAsync() => ServerConnectionManager.ConnectAsync();
+
 
     [RelayCommand]
     private void DateClicked(CalendarViewDayClickedEventArgs clickedDateArgs)

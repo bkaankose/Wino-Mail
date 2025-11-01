@@ -1,0 +1,80 @@
+<ContentDialog
+    x:Class="Wino.Dialogs.KeyboardShortcutDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Core.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:local="using:Wino.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.KeyboardShortcuts_Add}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="SaveClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <Grid MinWidth="400" MinHeight="300">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Mail Operation  -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock
+                Margin="0,0,0,4"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_MailoperationAction}" />
+            <ComboBox
+                x:Name="MailOperationComboBox"
+                HorizontalAlignment="Stretch"
+                DisplayMemberPath="DisplayName"
+                ItemsSource="{x:Bind AvailableMailOperations}"
+                SelectedItem="{x:Bind SelectedMailOperation, Mode=TwoWay}" />
+        </StackPanel>
+
+        <!--  Key Input  -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <TextBlock
+                Margin="0,0,0,4"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination}" />
+            <TextBox
+                x:Name="KeyInputTextBox"
+                IsReadOnly="True"
+                PlaceholderText="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere}"
+                PreviewKeyDown="KeyInputTextBox_PreviewKeyDown" />
+            <TextBlock
+                Margin="0,4,0,0"
+                Opacity="0.7"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_FocusArea}" />
+        </StackPanel>
+
+        <!--  Modifiers  -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+            <TextBlock
+                Margin="0,0,0,8"
+                Style="{ThemeResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Modifiers}" />
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <CheckBox Content="Ctrl" IsChecked="{x:Bind IsControlPressed, Mode=TwoWay}" />
+                <CheckBox Content="Alt" IsChecked="{x:Bind IsAltPressed, Mode=TwoWay}" />
+                <CheckBox Content="Shift" IsChecked="{x:Bind IsShiftPressed, Mode=TwoWay}" />
+                <CheckBox Content="Win" IsChecked="{x:Bind IsWindowsPressed, Mode=TwoWay}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!--  Error Message  -->
+        <TextBlock
+            x:Name="ErrorTextBlock"
+            Grid.Row="3"
+            Foreground="{ThemeResource SystemErrorTextColor}"
+            Style="{ThemeResource CaptionTextBlockStyle}"
+            Visibility="Collapsed" />
+    </Grid>
+</ContentDialog>

@@ -19,17 +19,14 @@ namespace Wino.Core.Services;
 public class WinoRequestDelegator : IWinoRequestDelegator
 {
     private readonly IWinoRequestProcessor _winoRequestProcessor;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private readonly IFolderService _folderService;
     private readonly IMailDialogService _dialogService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
-                                IWinoServerConnectionManager winoServerConnectionManager,
                                 IFolderService folderService,
                                 IMailDialogService dialogService)
     {
         _winoRequestProcessor = winoRequestProcessor;
-        _winoServerConnectionManager = winoServerConnectionManager;
         _folderService = folderService;
         _dialogService = dialogService;
     }
@@ -138,34 +135,19 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
-        try
-        {
-            await EnsureServerConnectedAsync();
-            await _winoServerConnectionManager.QueueRequestAsync(request, accountId);
-        }
-        catch (WinoServerException serverException)
-        {
-            _dialogService.InfoBarMessage("Wino Server Exception", serverException.Message, InfoBarMessageType.Error);
-        }
+        // Don't trigger synchronization for individual requests - we'll trigger it once for all requests
+        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId, triggerSynchronization: false);
     }
 
-    private async Task QueueSynchronizationAsync(Guid accountId)
+    private Task QueueSynchronizationAsync(Guid accountId)
     {
-        await EnsureServerConnectedAsync();
-
         var options = new MailSynchronizationOptions()
         {
             AccountId = accountId,
             Type = MailSynchronizationType.ExecuteRequests
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
-    }
-
-    private async Task EnsureServerConnectedAsync()
-    {
-        if (_winoServerConnectionManager.Status == WinoServerConnectionStatus.Connected) return;
-
-        await _winoServerConnectionManager.ConnectAsync();
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        return Task.CompletedTask;
     }
 }

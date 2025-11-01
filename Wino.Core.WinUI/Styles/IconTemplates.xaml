@@ -1,0 +1,60 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:selectors="using:Wino.Core.WinUI.Selectors">
+
+    <!--  Attachment Icon Templates  -->
+
+    <DataTemplate x:Key="NoneTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_none.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="ExecutableTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_executable.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="ImageTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_image.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="VideoTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_video.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="AudioTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_audio.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="PDFTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_pdf.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="HTMLTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_html.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="RarTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_rar.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="ArchiveTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_archive.png" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="OtherTemplate">
+        <Image Source="ms-appx:///Wino.Core.WinUI/Assets/FileTypes/type_other.png" />
+    </DataTemplate>
+
+    <selectors:FileAttachmentTypeSelector
+        x:Key="FileTypeIconSelector"
+        Archive="{StaticResource ArchiveTemplate}"
+        Executable="{StaticResource ExecutableTemplate}"
+        HTML="{StaticResource HTMLTemplate}"
+        Image="{StaticResource ImageTemplate}"
+        None="{StaticResource NoneTemplate}"
+        Other="{StaticResource OtherTemplate}"
+        PDF="{StaticResource PDFTemplate}"
+        RarArchive="{StaticResource RarTemplate}"
+        Video="{StaticResource VideoTemplate}" />
+
+</ResourceDictionary>

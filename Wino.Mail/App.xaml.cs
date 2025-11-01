@@ -53,18 +53,8 @@ public sealed partial class App : WinoApplication,
         // We must restore it.
         // Server might be running already, but re-launching it will trigger a new connection attempt.
 
-        try
-        {
-            await AppServiceConnectionManager.ConnectAsync();
-        }
-        catch (OperationCanceledException)
-        {
-            // Ignore
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to connect to server after resuming the app.");
-        }
+        // Server connection is now handled by the empty implementation
+        // No need to reconnect after resuming
     }
 
     public override IServiceProvider ConfigureServices()
@@ -141,13 +131,10 @@ public sealed partial class App : WinoApplication,
             if (appServiceTriggerDetails.CallerPackageFamilyName == Package.Current.Id.FamilyName)
             {
                 // Connection established from the fulltrust process
+                // This is no longer needed with the empty connection manager implementation
 
                 connectionBackgroundTaskDeferral = args.TaskInstance.GetDeferral();
                 args.TaskInstance.Canceled += OnConnectionBackgroundTaskCanceled;
-
-                AppServiceConnectionManager.Connection = appServiceTriggerDetails.AppServiceConnection;
-
-                WeakReferenceMessenger.Default.Send(new WinoServerConnectionEstablished());
             }
         }
         else if (args.TaskInstance.TriggerDetails is ToastNotificationActionTriggerDetail toastNotificationActionTriggerDetail)
@@ -226,24 +213,13 @@ public sealed partial class App : WinoApplication,
 
         connectionBackgroundTaskDeferral?.Complete();
         connectionBackgroundTaskDeferral = null;
-
-        AppServiceConnectionManager.Connection = null;
     }
 
     public async void Receive(NewMailSynchronizationRequested message)
     {
-        try
-        {
-            var synchronizationResultResponse = await AppServiceConnectionManager.GetResponseAsync<MailSynchronizationResult, NewMailSynchronizationRequested>(message);
-            synchronizationResultResponse.ThrowIfFailed();
-        }
-        catch (WinoServerException serverException)
-        {
-            // TODO: Exception context is lost.
-            var dialogService = Services.GetService<IMailDialogService>();
-
-            dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, serverException.Message, InfoBarMessageType.Error);
-        }
+        // Synchronization is now handled elsewhere
+        // The empty connection manager doesn't perform actual sync operations
+        await Task.CompletedTask;
     }
 
     protected override async void OnApplicationCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs e)
@@ -266,20 +242,7 @@ public sealed partial class App : WinoApplication,
 
         bool? isGoToAppPreferencesRequested = null;
 
-        if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
-        {
-            // Starting the server is fine, but check if server termination behavior is set to terminate.
-            // This state will kill the server once the app is terminated.
-
-            isGoToAppPreferencesRequested = await dialogService.ShowWinoCustomMessageDialogAsync(Translator.AppCloseBackgroundSynchronizationWarningTitle,
-                                                             $"{Translator.AppCloseTerminateBehaviorWarningMessageFirstLine}\n{Translator.AppCloseTerminateBehaviorWarningMessageSecondLine}\n\n{Translator.AppCloseTerminateBehaviorWarningMessageThirdLine}",
-                                                             Translator.Buttons_Yes,
-                                                             WinoCustomMessageDialogIcon.Warning,
-                                                             Translator.Buttons_No,
-                                                             "DontAskTerminateServerBehavior");
-        }
-
-        if (isGoToAppPreferencesRequested == null && currentStartupBehavior != StartupBehaviorResult.Enabled)
+        if (currentStartupBehavior != StartupBehaviorResult.Enabled)
         {
             // Startup behavior is not enabled.
 
@@ -295,21 +258,6 @@ public sealed partial class App : WinoApplication,
         {
             WeakReferenceMessenger.Default.Send(new NavigateAppPreferencesRequested());
             e.Handled = true;
-        }
-        else if (preferencesService.ServerTerminationBehavior == ServerBackgroundMode.Terminate)
-        {
-            try
-            {
-                var isServerKilled = await AppServiceConnectionManager.GetResponseAsync<bool, TerminateServerRequested>(new TerminateServerRequested());
-
-                isServerKilled.ThrowIfFailed();
-
-                Log.Information("Server is killed.");
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to kill server.");
-            }
         }
 
         deferral.Complete();

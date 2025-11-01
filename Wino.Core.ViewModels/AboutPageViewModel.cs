@@ -6,6 +6,7 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.ViewModels;
 
@@ -47,19 +48,17 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         PreferencesService = preferencesService;
     }
 
-    [RequiresDynamicCode("AOT")]
-    [RequiresUnreferencedCode("AOT")]
-    protected override void OnActivated()
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnActivated();
+        base.OnNavigatedTo(mode, parameters);
 
         PreferencesService.PreferenceChanged -= PreferencesChanged;
         PreferencesService.PreferenceChanged += PreferencesChanged;
     }
 
-    protected override void OnDeactivated()
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
-        base.OnDeactivated();
+        base.OnNavigatedFrom(mode, parameters);
 
         PreferencesService.PreferenceChanged -= PreferencesChanged;
     }

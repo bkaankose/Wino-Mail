@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -13,14 +12,14 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Graph;
+using Microsoft.Graph.Me.MailFolders.Item.Messages.Delta;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Abstractions.Serialization;
-using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
-using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -49,10 +48,31 @@ namespace Wino.Core.Synchronizers.Mail;
 [JsonSerializable(typeof(OutlookFileAttachment))]
 public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
+
+
+/// <summary>
+/// Outlook synchronizer implementation with queue-based metadata-only synchronization.
+/// 
+/// SYNCHRONIZATION STRATEGY:
+/// - Uses per-folder queue system (unlike Gmail's per-account queue)
+/// - During sync (initial/delta), only message metadata is downloaded (no MIME content)
+/// - Messages are queued by folder using MailItemQueue with RemoteFolderId
+/// - MailCopy objects are created from Graph API metadata fields only
+/// - MIME files are downloaded on-demand when user explicitly reads a message
+/// - This dramatically reduces bandwidth usage and sync time
+/// 
+/// Key implementation details:
+/// - QueueMailIdsForFolderAsync: Queues all mail IDs for a folder using Delta API
+/// - ProcessMailQueueForFolderAsync: Downloads metadata in batches from queue
+/// - DownloadMessageMetadataBatchAsync: Concurrently downloads metadata for batches
+/// - CreateMailCopyFromMessage: Centralized method to create MailCopy from Message (metadata only)
+/// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
+/// - CreateNewMailPackagesAsync: Only used for search results and special cases (downloads MIME)
+/// </summary>
 public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>
 {
     public override uint BatchModificationSize => 20;
-    public override uint InitialMessageDownloadCountPerFolder => 250;
+    public override uint InitialMessageDownloadCountPerFolder => 1000;
     private const uint MaximumAllowedBatchRequestSize = 20;
 
     private const string INBOX_NAME = "inbox";
@@ -78,6 +98,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         "Subject",
         "ParentFolderId",
         "InternetMessageId",
+        "InternetMessageHeaders",
     ];
 
     private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
@@ -87,10 +108,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly GraphServiceClient _graphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
 
+    private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
+
     public OutlookSynchronizer(MailAccount account,
                                IAuthenticator authenticator,
                                IOutlookChangeProcessor outlookChangeProcessor,
-                               IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory) : base(account)
+                               IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory) : base(account, WeakReferenceMessenger.Default)
     {
         var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
 
@@ -98,14 +121,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var handlers = GraphClientFactory.CreateDefaultHandlers();
 
         handlers.Add(GetMicrosoftImmutableIdHandler());
-
-        // Remove existing RetryHandler and add a new one with custom options.
-        var existingRetryHandler = handlers.FirstOrDefault(a => a is RetryHandler);
-        if (existingRetryHandler != null)
-            handlers.Remove(existingRetryHandler);
-
-        // Add custom one.
-        handlers.Add(GetRetryHandler());
+        handlers.Add(GetGraphRateLimitHandler());
 
         var httpClient = GraphClientFactory.Create(handlers);
         _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
@@ -118,29 +134,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     private MicrosoftImmutableIdHandler GetMicrosoftImmutableIdHandler() => new();
 
-    private RetryHandler GetRetryHandler()
-    {
-        var options = new RetryHandlerOption()
-        {
-            ShouldRetry = (delay, attempt, httpResponse) =>
-            {
-                var statusCode = httpResponse.StatusCode;
-
-                return statusCode switch
-                {
-                    HttpStatusCode.ServiceUnavailable => true,
-                    HttpStatusCode.GatewayTimeout => true,
-                    (HttpStatusCode)429 => true,
-                    HttpStatusCode.Unauthorized => true,
-                    _ => false
-                };
-            },
-            Delay = 3,
-            MaxRetry = 3
-        };
-
-        return new RetryHandler(options);
-    }
+    private GraphRateLimitHandler GetGraphRateLimitHandler() => new();
 
     #endregion
 
@@ -154,7 +148,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         try
         {
-            PublishSynchronizationProgress(1);
+            // Set indeterminate progress initially
+            UpdateSyncProgress(0, 0, "Synchronizing folders...");
 
             await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
 
@@ -164,12 +159,14 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 _logger.Information(string.Format("{1} Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName)), synchronizationFolders.Count));
 
-                for (int i = 0; i < synchronizationFolders.Count; i++)
+                var totalFolders = synchronizationFolders.Count;
+
+                for (int i = 0; i < totalFolders; i++)
                 {
                     var folder = synchronizationFolders[i];
-                    var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                    PublishSynchronizationProgress(progress);
+                    // Update progress based on folder completion
+                    UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
 
                     var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
                     downloadedMessageIds.AddRange(folderDownloadedMessageIds);
@@ -185,7 +182,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
         finally
         {
-            PublishSynchronizationProgress(100);
+            // Reset progress at the end
+            ResetSyncProgress();
         }
 
         // Get all unred new downloaded items and return in the result.
@@ -229,101 +227,721 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         cancellationToken.ThrowIfCancellationRequested();
 
-    retry:
-        string latestDeltaLink = string.Empty;
+        _logger.Debug("Synchronizing {FolderName} with direct download approach", folder.FolderName);
 
-        bool isInitialSync = string.IsNullOrEmpty(folder.DeltaToken);
-
-        Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse messageCollectionPage = null;
-
-        _logger.Debug("Synchronizing {FolderName}", folder.FolderName);
-
-        if (isInitialSync)
+        // Check if initial sync is completed for this folder
+        if (folder.FolderStatus != InitialSynchronizationStatus.Completed)
         {
-            _logger.Debug("No sync identifier for Folder {FolderName}. Performing initial sync.", folder.FolderName);
+            _logger.Debug("Initial sync not completed for folder {FolderName}. Starting mail synchronization.", folder.FolderName);
 
-            // No delta link. Performing initial sync.
+            // Download mails for initial sync
+            await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
 
-            messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
-           {
-               config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
-               config.QueryParameters.Select = outlookMessageSelectParameters;
-               config.QueryParameters.Orderby = ["receivedDateTime desc"];
-           }, cancellationToken).ConfigureAwait(false);
+            // Mark initial sync as completed
+            await _outlookChangeProcessor.UpdateFolderInitialSyncCompletedAsync(folder.Id, true).ConfigureAwait(false);
+            folder.FolderStatus = InitialSynchronizationStatus.Completed;
         }
         else
         {
-            var currentDeltaToken = folder.DeltaToken;
+            // Initial sync is completed, process delta changes and download new mails
+            _logger.Debug("Initial sync completed for folder {FolderName}. Processing delta changes and downloading new mails.", folder.FolderName);
 
+            await ProcessDeltaChangesAndDownloadMailsAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+        }
+
+        await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
+
+        if (downloadedMessageIds.Any())
+        {
+            _logger.Information("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
+        }
+
+        return downloadedMessageIds;
+    }
+
+    /// <summary>
+    /// Downloads mails for initial synchronization using Delta API and queue-based system.
+    /// First, queues all mail IDs, then downloads metadata in batches.
+    /// </summary>
+    private async Task DownloadMailsForInitialSyncAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
+    {
+        _logger.Debug("Starting initial mail download for folder {FolderName}", folder.FolderName);
+
+        try
+        {
+            // Step 1: Queue all mail IDs using Delta API
+            await QueueMailIdsForFolderAsync(folder, cancellationToken).ConfigureAwait(false);
+
+            // Step 2: Process queued mail IDs in batches
+            await ProcessMailQueueForFolderAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ApiException apiException)
+        {
+            // Try to handle the error using the error handling factory
+            var errorContext = new SynchronizerErrorContext
+            {
+                Account = Account,
+                ErrorCode = (int?)apiException.ResponseStatusCode,
+                ErrorMessage = $"API error during initial sync: {apiException.Message}",
+                Exception = apiException
+            };
+
+            var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+            if (handled)
+            {
+                // The error handler has processed the error (e.g., DeltaTokenExpiredHandler for 410)
+                // Update in-memory folder state if it was a delta token expiration
+                if (apiException.ResponseStatusCode == 410)
+                {
+                    folder.DeltaToken = string.Empty;
+                    folder.FolderStatus = InitialSynchronizationStatus.None;
+                    _logger.Information("API error handled successfully for folder {FolderName} during initial sync. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
+                }
+            }
+            else
+            {
+                // No handler could process this error, log and re-throw
+                _logger.Error(apiException, "Unhandled API error during initial sync for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
+            }
+
+            // Re-throw the exception so the synchronization can be retried
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error occurred during initial mail download for folder {FolderName}", folder.FolderName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Queues all mail IDs for a folder using Delta API.
+    /// Only retrieves message IDs to minimize data transfer.
+    /// </summary>
+    private async Task QueueMailIdsForFolderAsync(MailItemFolder folder, CancellationToken cancellationToken)
+    {
+        _logger.Debug("Queuing mail IDs for folder {FolderName}", folder.FolderName);
+
+        var mailIds = new List<string>();
+
+        // Always use Delta API for initial sync - this ensures proper delta token setup for future incremental syncs
+        DeltaGetResponse messageCollectionPage = null;
+
+        if (string.IsNullOrEmpty(folder.DeltaToken))
+        {
+            messageCollectionPage = await _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.GetAsDeltaGetResponseAsync((config) =>
+            {
+                config.QueryParameters.Select = ["Id"]; // Only get the message Ids
+                config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
+                // config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
             var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
             {
-                config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
+                config.QueryParameters.Select = ["Id"]; // Only get the message Ids
+                config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
+            });
+
+            requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
+            requestInformation.QueryParameters.Add("%24deltatoken", folder.DeltaToken);
+
+            messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation, DeltaGetResponse.CreateFromDiscriminatorValue, cancellationToken: cancellationToken);
+        }
+
+        // Use PageIterator to iterate through all messages and collect IDs
+        var messageIterator = PageIterator<Message, DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, (message) =>
+        {
+            if (!IsResourceDeleted(message.AdditionalData))
+            {
+                mailIds.Add(message.Id);
+            }
+
+            // Iterator must continue all the time to receive delta token at the end.
+            return true;
+        });
+
+        await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
+
+        // Extract delta token from the iterator's delta link
+        string deltaToken = null;
+        if (!string.IsNullOrEmpty(messageIterator.Deltalink))
+        {
+            deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
+        }
+
+        // Queue all mail IDs for processing
+        if (mailIds.Any())
+        {
+            var queueEntries = mailIds.Select(id => new MailItemQueue
+            {
+                Id = Guid.CreateVersion7(),
+                AccountId = Account.Id,
+                RemoteServerId = id,
+                RemoteFolderId = folder.RemoteFolderId,
+                IsProcessed = false,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _outlookChangeProcessor.AddMailItemQueueItemsAsync(queueEntries).ConfigureAwait(false);
+
+            _logger.Information("Queued {Count} mail IDs for folder {FolderName}", mailIds.Count, folder.FolderName);
+        }
+        else
+        {
+            _logger.Information("No mail ids found to queue for folder {FolderName}", folder.FolderName);
+        }
+
+        // Store the delta token for future incremental syncs - always store when available
+        if (!string.IsNullOrEmpty(deltaToken))
+        {
+            await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+            await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
+            folder.DeltaToken = deltaToken;
+            _logger.Information("Stored delta token for folder {FolderName} - future syncs will be incremental", folder.FolderName);
+        }
+        else
+        {
+            _logger.Warning("No delta token received for folder {FolderName} - future syncs may re-download messages", folder.FolderName);
+        }
+    }
+
+    /// <summary>
+    /// Processes queued mail IDs in batches, downloading metadata only (no MIME).
+    /// </summary>
+    private async Task ProcessMailQueueForFolderAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
+    {
+        var totalInQueue = await _outlookChangeProcessor.GetMailItemQueueCountByFolderAsync(Account.Id, folder.RemoteFolderId).ConfigureAwait(false);
+
+        if (totalInQueue == 0)
+        {
+            _logger.Information("No mails in queue for folder {FolderName}", folder.FolderName);
+            return;
+        }
+
+        _logger.Information("Processing {Count} queued mails for folder {FolderName}", totalInQueue, folder.FolderName);
+
+        var totalFailed = 0;
+        var totalProcessed = 0;
+
+        // Set initial progress for queue processing
+        UpdateSyncProgress(totalInQueue, totalInQueue, $"Downloading {folder.FolderName}...");
+
+        // Continue until all emails in queue are processed
+        while (true)
+        {
+            // Get next batch of unprocessed emails from queue
+            var mailItemQueue = await _outlookChangeProcessor.GetMailItemQueueByFolderAsync(Account.Id, folder.RemoteFolderId, 100).ConfigureAwait(false);
+
+            if (mailItemQueue.Count == 0)
+                break; // No more emails to process
+
+            // Remove the items that should be deleted from queue first
+            mailItemQueue.RemoveAll(a => a.ShouldDelete());
+
+            var mailChunks = mailItemQueue.Chunk(20); // Process 20 at a time
+
+            foreach (var chunk in mailChunks)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Collect message IDs from the chunk
+                var messageIdsToDownload = chunk.Select(q => q.RemoteServerId).ToList();
+
+                try
+                {
+                    // Download all messages in this chunk concurrently
+                    var chunkDownloadedIds = await DownloadMessageMetadataBatchAsync(messageIdsToDownload, folder, true, cancellationToken).ConfigureAwait(false);
+
+                    downloadedMessageIds.AddRange(chunkDownloadedIds);
+
+                    // Mark all items in chunk as processed
+                    foreach (var queueItem in chunk)
+                    {
+                        queueItem.IsProcessed = true;
+                        queueItem.ProcessedAt = DateTime.UtcNow;
+                        totalProcessed++;
+                    }
+
+                    // Update progress with remaining items
+                    var remainingItems = totalInQueue - totalProcessed;
+                    UpdateSyncProgress(totalInQueue, remainingItems, $"Downloading {folder.FolderName} ({totalProcessed}/{totalInQueue})");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Failed to download chunk of messages for folder {FolderName}", folder.FolderName);
+
+                    // Mark all items in chunk as failed
+                    foreach (var queueItem in chunk)
+                    {
+                        queueItem.IsProcessed = false;
+                        queueItem.ProcessedAt = null;
+                        queueItem.FailedCount++;
+                        totalFailed++;
+                    }
+                }
+
+                await _outlookChangeProcessor.UpdateMailItemQueueAsync(mailItemQueue).ConfigureAwait(false);
+
+                // If too many failures, pause to avoid hitting rate limits
+                if (totalFailed > 50)
+                {
+                    _logger.Warning("Too many failures ({Count}), pausing for 10 seconds", totalFailed);
+                    await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+                    totalFailed = 0; // Reset counter
+                }
+            }
+
+            _logger.Debug("Processed batch: {Processed}/{Total} for folder {FolderName}", totalProcessed, totalInQueue, folder.FolderName);
+        }
+
+        _logger.Information("Completed processing queue for folder {FolderName}. Processed: {Count}", folder.FolderName, totalProcessed);
+    }
+
+    /// <summary>
+    /// Downloads metadata for a batch of messages using Graph SDK batch API (no MIME content).
+    /// Processes up to 20 messages per batch request as per MaximumAllowedBatchRequestSize.
+    /// </summary>
+    private async Task<List<string>> DownloadMessageMetadataBatchAsync(List<string> messageIds, MailItemFolder folder, bool retryFailedOnce, CancellationToken cancellationToken)
+    {
+        if (messageIds == null || messageIds.Count == 0)
+            return new List<string>();
+
+        var downloadedIds = new List<string>();
+
+        // Filter out messages that already exist in the database
+        var messagesToDownload = new List<string>();
+        foreach (var messageId in messageIds)
+        {
+            bool mailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(messageId, folder.Id).ConfigureAwait(false);
+            if (!mailExists)
+            {
+                messagesToDownload.Add(messageId);
+            }
+            else
+            {
+                _logger.Debug("Mail {MailId} already exists in folder {FolderName}, skipping download", messageId, folder.FolderName);
+            }
+        }
+
+        if (messagesToDownload.Count == 0)
+        {
+            _logger.Debug("All messages already exist in folder {FolderName}", folder.FolderName);
+            return downloadedIds;
+        }
+
+        // Store failed message ids to retry after.
+
+        List<string> failedMessageIds = new();
+
+        // Process in batches of MaximumAllowedBatchRequestSize (20)
+        var batches = messagesToDownload.Batch((int)MaximumAllowedBatchRequestSize);
+
+        foreach (var batch in batches)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var batchContent = new BatchRequestContentCollection(_graphClient);
+                var requestIdToMessageIdMap = new Dictionary<string, string>();
+
+                // Add all message requests to the batch
+                foreach (var messageId in batch)
+                {
+                    var requestInfo = _graphClient.Me.Messages[messageId].ToGetRequestInformation((config) =>
+                    {
+                        config.QueryParameters.Select = outlookMessageSelectParameters;
+                    });
+
+                    var batchRequestId = await batchContent.AddBatchRequestStepAsync(requestInfo).ConfigureAwait(false);
+                    requestIdToMessageIdMap[batchRequestId] = messageId;
+                }
+
+                // Execute the batch request
+                var batchResponse = await _graphClient.Batch.PostAsync(batchContent, cancellationToken).ConfigureAwait(false);
+
+                // Process all responses
+                foreach (var batchRequestId in requestIdToMessageIdMap.Keys)
+                {
+                    var messageId = requestIdToMessageIdMap[batchRequestId];
+
+                    try
+                    {
+                        // Deserialize the Message directly from batch response
+                        var message = await batchResponse.GetResponseByIdAsync<Message>(batchRequestId).ConfigureAwait(false);
+
+                        if (message != null)
+                        {
+                            // Create MailCopy from metadata only
+                            var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
+
+                            if (mailCopy != null)
+                            {
+                                // Create package without MIME
+                                var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
+                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                                if (isInserted)
+                                {
+                                    downloadedIds.Add(mailCopy.Id);
+                                    _logger.Debug("Downloaded metadata for message {MailId} in folder {FolderName}", messageId, folder.FolderName);
+                                }
+                                else
+                                {
+                                    _logger.Warning("Failed to insert mail {MailId} for folder {FolderName}", messageId, folder.FolderName);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            _logger.Warning("Failed to deserialize message {MailId} for folder {FolderName}", messageId, folder.FolderName);
+                            failedMessageIds.Add(messageId);
+                        }
+                    }
+                    catch (ODataError odataError)
+                    {
+                        // Handle OData errors from the batch response
+                        if (odataError.ResponseStatusCode == 404)
+                        {
+                            _logger.Warning("Mail {MailId} not found on server (404) for folder {FolderName}", messageId, folder.FolderName);
+                        }
+                        else
+                        {
+                            failedMessageIds.Add(messageId);
+                            _logger.Error("OData error while downloading mail {MailId} for folder {FolderName}. Error: {Error}", messageId, folder.FolderName, odataError.Error?.Message);
+                        }
+                    }
+                    catch (ServiceException serviceException)
+                    {
+                        // Try to handle the error using the error handling factory
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorCode = (int?)serviceException.ResponseStatusCode,
+                            ErrorMessage = $"Service error during batch mail download: {serviceException.Message}",
+                            Exception = serviceException,
+                        };
+
+                        var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+                        if (!handled)
+                        {
+                            failedMessageIds.Add(messageId);
+                            _logger.Error(serviceException, "Unhandled service error while downloading mail {MailId} for folder {FolderName}. Error: {ErrorCode}", messageId, folder.FolderName, serviceException.ResponseStatusCode);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failedMessageIds.Add(messageId);
+                        _logger.Error(ex, "Error occurred while processing message {MailId} for folder {FolderName}", messageId, folder.FolderName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                failedMessageIds.AddRange(batch);
+
+                _logger.Error(ex, "Error occurred during batch download for folder {FolderName}", folder.FolderName);
+            }
+        }
+
+        if (retryFailedOnce && failedMessageIds.Any())
+        {
+            // For a good cause wait a little bit.
+
+            await Task.Delay(3000);
+
+            // Do not retry here once again.
+            var failedDownloadedMessagIds = await DownloadMessageMetadataBatchAsync(failedMessageIds, folder, false, cancellationToken);
+
+            downloadedIds.Concat(failedDownloadedMessagIds);
+        }
+
+        return downloadedIds;
+    }
+
+    /// <summary>
+    /// Creates a MailCopy from an Outlook Message with metadata only (centralized method).
+    /// This replaces the scattered CreateMinimalMailCopyAsync and AsMailCopy calls.
+    /// </summary>
+    private async Task<MailCopy> CreateMailCopyFromMessageAsync(Message message, MailItemFolder assignedFolder)
+    {
+        if (message == null) return null;
+
+        var mailCopy = message.AsMailCopy();
+        mailCopy.FolderId = assignedFolder.Id;
+        mailCopy.UniqueId = Guid.NewGuid();
+        mailCopy.FileId = Guid.NewGuid();
+
+        // Check for draft mapping if this is a draft with WinoLocalDraftHeader
+        if (message.IsDraft.GetValueOrDefault() && message.InternetMessageHeaders != null)
+        {
+            var winoDraftHeader = message.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase));
+
+            if (winoDraftHeader != null && Guid.TryParse(winoDraftHeader.Value, out Guid localDraftCopyUniqueId))
+            {
+                // This message belongs to existing local draft copy.
+                // We don't need to create a new mail copy for this message, just update the existing one.
+                
+                bool isMappingSuccessful = await _outlookChangeProcessor.MapLocalDraftAsync(
+                    Account.Id, 
+                    localDraftCopyUniqueId, 
+                    mailCopy.Id, 
+                    mailCopy.DraftId, 
+                    mailCopy.ThreadId);
+
+                if (isMappingSuccessful)
+                {
+                    _logger.Debug("Successfully mapped remote draft {RemoteId} to local draft {LocalId}", 
+                        mailCopy.Id, localDraftCopyUniqueId);
+                    return null; // Don't create new mail copy, existing one was updated
+                }
+
+                // Local copy doesn't exist. Continue execution to insert mail copy.
+                _logger.Debug("Local draft copy {LocalId} not found, creating new mail copy for {RemoteId}", 
+                    localDraftCopyUniqueId, mailCopy.Id);
+            }
+        }
+
+        return mailCopy;
+    }
+
+    private string GetDeltaTokenFromDeltaLink(string deltaLink)
+        => Regex.Split(deltaLink, "deltatoken=")[1];
+
+    protected override async Task QueueMailIdsForInitialSyncAsync(MailItemFolder folder, CancellationToken cancellationToken = default)
+    {
+        // Queue all mail IDs for the folder
+        await QueueMailIdsForFolderAsync(folder, cancellationToken).ConfigureAwait(false);
+    }
+
+    protected override async Task<MailCopy> CreateMinimalMailCopyAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
+    {
+        // Use centralized method
+        return await CreateMailCopyFromMessageAsync(message, assignedFolder).ConfigureAwait(false);
+    }
+
+    private async Task<Message> GetMessageByIdAsync(string messageId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _graphClient.Me.Messages[messageId].GetAsync((config) =>
+            {
                 config.QueryParameters.Select = outlookMessageSelectParameters;
-                config.QueryParameters.Orderby = ["receivedDateTime desc"];
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ServiceException serviceException)
+        {
+            // Try to handle the error using the error handling factory first
+            var errorContext = new SynchronizerErrorContext
+            {
+                Account = Account,
+                ErrorCode = (int?)serviceException.ResponseStatusCode,
+                ErrorMessage = $"Service error during message retrieval: {serviceException.Message}",
+                Exception = serviceException
+            };
+
+            var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+            if (!handled)
+            {
+                // No handler could process this error, log and handle appropriately
+                if (serviceException.ResponseStatusCode == 404)
+                {
+                    // Re-throw 404 errors to be handled by the caller for queue cleanup
+                    throw;
+                }
+                else
+                {
+                    _logger.Error(serviceException, "Unhandled service error while getting message {MessageId}. Error: {ErrorCode}", messageId, serviceException.ResponseStatusCode);
+                    return null;
+                }
+            }
+            else
+            {
+                _logger.Information("Service error handled successfully during message retrieval. Message: {MessageId}, Error: {ErrorCode}", messageId, serviceException.ResponseStatusCode);
+                return null; // Return null since the error was handled but we couldn't get the message
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to get message {MessageId}", messageId);
+            return null;
+        }
+    }
+
+    private async Task ProcessDeltaChangesAndDownloadMailsAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken = default)
+    {
+        // Process delta changes and download new mails with metadata only (no MIME)
+        if (string.IsNullOrEmpty(folder.DeltaToken))
+        {
+            _logger.Debug("No delta token available for folder {FolderName}. Skipping delta sync.", folder.FolderName);
+            return;
+        }
+
+        try
+        {
+            var currentDeltaToken = folder.DeltaToken;
+
+            _logger.Debug("Processing delta changes for folder {FolderName} with token {DeltaToken}", folder.FolderName, currentDeltaToken.Substring(0, Math.Min(10, currentDeltaToken.Length)) + "...");
+            _logger.Debug("Delta sync will include all message properties to detect updates (IsRead, Flag, etc.)");
+
+            // Always use Delta endpoint with proper configuration
+            var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
+            {
+                config.QueryParameters.Select = outlookMessageSelectParameters; // Include all necessary fields for detecting updates
+                config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
             });
 
             requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
             requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
 
-            try
-            {
-                messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse.CreateFromDiscriminatorValue, cancellationToken: cancellationToken);
-            }
-            catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
-            {
-                folder.DeltaToken = string.Empty;
+            var messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation,
+                DeltaGetResponse.CreateFromDiscriminatorValue,
+                cancellationToken: cancellationToken);
 
-                goto retry;
+            // Use PageIterator to process delta changes (both new messages and updates)
+            var messageIterator = PageIterator<Message, DeltaGetResponse>
+                .CreatePageIterator(_graphClient, messageCollectionPage, async (message) =>
+                {
+                    try
+                    {
+                        await HandleItemRetrievedAsync(message, folder, downloadedMessageIds, cancellationToken);
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Failed to handle delta item {MessageId} for folder {FolderName}", message.Id, folder.FolderName);
+                        return true; // Continue processing other items
+                    }
+                });
+
+            await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
+
+            // Update delta token for next sync - always store when there are no nextPageToken remaining
+            if (!string.IsNullOrEmpty(messageIterator.Deltalink))
+            {
+                var deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
+                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+                folder.DeltaToken = deltaToken; // Update in-memory object too
+                _logger.Debug("Updated delta token for folder {FolderName} after processing delta changes", folder.FolderName);
             }
         }
-
-        var messageIteratorAsync = PageIterator<Message, Microsoft.Graph.Me.MailFolders.Item.Messages.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, async (item) =>
+        catch (ApiException apiException)
         {
-            try
+            // Try to handle the error using the error handling factory
+            var errorContext = new SynchronizerErrorContext
             {
-                await _handleItemRetrievalSemaphore.WaitAsync();
-                return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
-            }
-            catch (Exception ex)
+                Account = Account,
+                ErrorCode = (int?)apiException.ResponseStatusCode,
+                ErrorMessage = $"API error during delta sync: {apiException.Message}",
+                Exception = apiException
+            };
+
+            var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+            if (handled)
             {
-                _logger.Error(ex, "Error occurred while handling item {Id} for folder {FolderName}", item.Id, folder.FolderName);
+                // The error handler has processed the error (e.g., DeltaTokenExpiredHandler for 410)
+                // Update in-memory folder state if it was a delta token expiration
+                if (apiException.ResponseStatusCode == 410)
+                {
+                    folder.DeltaToken = string.Empty;
+                    folder.FolderStatus = InitialSynchronizationStatus.None;
+                    _logger.Information("API error handled successfully for folder {FolderName} during delta sync. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
+                }
             }
-            finally
+            else
             {
-                _handleItemRetrievalSemaphore.Release();
+                // No handler could process this error, log and re-throw
+                _logger.Error(apiException, "Unhandled API error during delta sync for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
             }
-
-            return true;
-        });
-
-        await messageIteratorAsync
-            .IterateAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        latestDeltaLink = messageIteratorAsync.Deltalink;
-
-        if (downloadedMessageIds.Any())
-        {
-            _logger.Debug("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
         }
-
-        //Store delta link for tracking new changes.
-        if (!string.IsNullOrEmpty(latestDeltaLink))
+        catch (Exception ex)
         {
-            // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
-
-            var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
-
-            await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+            _logger.Error(ex, "Error processing delta changes for folder {FolderName}", folder.FolderName);
         }
-
-        await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
-
-        return downloadedMessageIds;
     }
 
-    private string GetDeltaTokenFromDeltaLink(string deltaLink)
-        => Regex.Split(deltaLink, "deltatoken=")[1];
+    private async Task ProcessDeltaChangesAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken = default)
+    {
+        // Only process delta changes if we have a delta token (not initial sync)
+        if (string.IsNullOrEmpty(folder.DeltaToken))
+            return;
+
+        try
+        {
+            var currentDeltaToken = folder.DeltaToken;
+
+            // Always use Delta endpoint with proper configuration
+            var requestInformation = _graphClient.Me.MailFolders[folder.RemoteFolderId].Messages.Delta.ToGetRequestInformation((config) =>
+            {
+                config.QueryParameters.Select = outlookMessageSelectParameters;
+                config.QueryParameters.Orderby = ["receivedDateTime desc"]; // Sort by received date desc
+            });
+
+            requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
+            requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
+
+            var messageCollectionPage = await _graphClient.RequestAdapter.SendAsync(requestInformation,
+                DeltaGetResponse.CreateFromDiscriminatorValue,
+                cancellationToken: cancellationToken);
+
+            // Use PageIterator<DeltaGetResponse> for iterating mails
+            var messageIterator = PageIterator<Message, DeltaGetResponse>
+                .CreatePageIterator(_graphClient, messageCollectionPage, async (item) =>
+                {
+                    try
+                    {
+                        await _handleItemRetrievalSemaphore.WaitAsync();
+                        return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Error occurred while handling delta item {Id} for folder {FolderName}", item.Id, folder.FolderName);
+                    }
+                    finally
+                    {
+                        _handleItemRetrievalSemaphore.Release();
+                    }
+
+                    return true;
+                });
+
+            await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
+
+            // Update delta token for next sync - store delta token when there are no nextPageToken remaining
+            if (!string.IsNullOrEmpty(messageIterator.Deltalink))
+            {
+                var deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
+                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+                _logger.Debug("Updated delta token for folder {FolderName} after processing delta changes", folder.FolderName);
+            }
+        }
+        catch (ApiException apiException)
+        {
+            // Try to handle the error using the error handling factory
+            var errorContext = new SynchronizerErrorContext
+            {
+                Account = Account,
+                ErrorCode = (int?)apiException.ResponseStatusCode,
+                ErrorMessage = $"API error during legacy delta sync: {apiException.Message}",
+                Exception = apiException
+            };
+
+            var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+            if (!handled)
+            {
+                // No handler could process this error, log and re-throw
+                _logger.Error(apiException, "Unhandled API error during legacy delta sync for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
+            }
+        }
+    }
 
     private bool IsResourceDeleted(IDictionary<string, object> additionalData)
         => additionalData != null && additionalData.ContainsKey("@removed");
@@ -399,16 +1017,19 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (isMailExists)
             {
                 // Some of the properties of the item are updated.
+                _logger.Debug("Processing delta update for existing mail {MessageId} in folder {FolderName}", item.Id, folder.FolderName);
 
                 if (item.IsRead != null)
                 {
+                    _logger.Debug("Updating read status for mail {MessageId}: IsRead={IsRead}", item.Id, item.IsRead.GetValueOrDefault());
                     await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
                 }
 
                 if (item.Flag?.FlagStatus != null)
                 {
-                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged)
-                                                 .ConfigureAwait(false);
+                    var isFlagged = item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged;
+                    _logger.Debug("Updating flag status for mail {MessageId}: IsFlagged={IsFlagged}", item.Id, isFlagged);
+                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, isFlagged).ConfigureAwait(false);
                 }
             }
             else
@@ -551,10 +1172,44 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse.CreateFromDiscriminatorValue,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (ApiException apiException) when (apiException.ResponseStatusCode == 410)
+        catch (ApiException apiException)
         {
-            Account.SynchronizationDeltaIdentifier = string.Empty;
-            return await GetDeltaFoldersAsync(cancellationToken);
+            // Try to handle the error using the error handling factory
+            var errorContext = new SynchronizerErrorContext
+            {
+                Account = Account,
+                ErrorCode = (int?)apiException.ResponseStatusCode,
+                ErrorMessage = $"API error during folder synchronization: {apiException.Message}",
+                Exception = apiException
+            };
+
+            var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+            if (handled)
+            {
+                // The error handler has processed the error (e.g., DeltaTokenExpiredHandler for 410)
+                // Update in-memory account state if it was a delta token expiration
+                if (apiException.ResponseStatusCode == 410)
+                {
+                    Account.SynchronizationDeltaIdentifier = string.Empty;
+                    _logger.Information("API error handled successfully for account {AccountName} during folder sync. Error: {ErrorCode}", Account.Name, apiException.ResponseStatusCode);
+                }
+            }
+            else
+            {
+                // No handler could process this error, log and re-throw
+                _logger.Error(apiException, "Unhandled API error during folder synchronization for account {AccountName}. Error: {ErrorCode}", Account.Name, apiException.ResponseStatusCode);
+                throw;
+            }
+
+            // If a handler processed the error and it was 410, retry with fresh token
+            if (apiException.ResponseStatusCode == 410)
+            {
+                return await GetDeltaFoldersAsync(cancellationToken);
+            }
+
+            // For other handled errors, we still need to throw since we can't return a meaningful response
+            throw;
         }
     }
 
@@ -871,7 +1526,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return Move(batchMoveRequest);
     }
 
-    public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
+    public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
@@ -1136,22 +1791,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
+        // Download MIME message for specific scenarios (e.g., search results, draft handling)
+        // During normal sync, this method should not be called - use CreateMailCopyFromMessageAsync instead
         var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
-        var mailCopy = message.AsMailCopy();
+        var mailCopy = await CreateMailCopyFromMessageAsync(message, assignedFolder).ConfigureAwait(false);
 
-        if (message.IsDraft.GetValueOrDefault()
-            && mimeMessage.Headers.Contains(Domain.Constants.WinoLocalDraftHeader)
-            && Guid.TryParse(mimeMessage.Headers[Domain.Constants.WinoLocalDraftHeader], out Guid localDraftCopyUniqueId))
-        {
-            // This message belongs to existing local draft copy.
-            // We don't need to create a new mail copy for this message, just update the existing one.
-
-            bool isMappingSuccessful = await _outlookChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
-
-            if (isMappingSuccessful) return null;
-
-            // Local copy doesn't exists. Continue execution to insert mail copy.
-        }
+        // If draft mapping was successful, mailCopy will be null
+        if (mailCopy == null) return null;
 
         // Outlook messages can only be assigned to 1 folder at a time.
         // Therefore we don't need to create multiple copies of the same message for different folders.

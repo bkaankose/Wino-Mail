@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<uwp:WinoApplication
+    x:Class="Wino.Mail.WinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Wino.Mail.WinUI"
+    xmlns:styles="using:Wino.Styles"
+    xmlns:uwp="using:Wino.Core.WinUI">
+    <uwp:WinoApplication.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <uwp:CoreGeneric />
+                <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
+                <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
+                <ResourceDictionary Source="Styles/ItemContainerStyles.xaml" />
+                <ResourceDictionary Source="Styles/ImagePreviewControl.xaml" />
+                <ResourceDictionary Source="Styles/WebViewEditorControl.xaml" />
+                <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
+
+                <styles:WinoExpanderStyle />
+                <ResourceDictionary Source="/Wino.Core.WinUI/AppThemes/Default.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </uwp:WinoApplication.Resources>
+</uwp:WinoApplication>
+
+

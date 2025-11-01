@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services.Threading;
 
 namespace Wino.Services;
 
@@ -24,12 +23,6 @@ public static class ServicesContainerSetup
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
-
-        services.AddSingleton<IThreadingStrategyProvider, ThreadingStrategyProvider>();
-        services.AddTransient<IOutlookThreadingStrategy, OutlookThreadingStrategy>();
-        services.AddTransient<IGmailThreadingStrategy, GmailThreadingStrategy>();
-        services.AddTransient<IImapThreadingStrategy, ImapThreadingStrategy>();
-
-
+        services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
     }
 }

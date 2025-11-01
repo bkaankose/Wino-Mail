@@ -1,0 +1,54 @@
+<ContentDialog
+    x:Class="Wino.Core.WinUI.Dialogs.PrintDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:printing="using:Wino.Core.Domain.Models.Printing"
+    Title="Print Settings"
+    MinWidth="400"
+    MinHeight="300"
+    DefaultButton="Primary"
+    Loaded="PrintDialog_Loaded"
+    PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
+    PrimaryButtonText="Print"
+    SecondaryButtonClick="ContentDialog_SecondaryButtonClick"
+    SecondaryButtonText="Cancel"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <StackPanel Margin="20" Spacing="16">
+
+        <!--  Printer Selection  -->
+        <ComboBox
+            x:Name="PrinterComboBox"
+            HorizontalAlignment="Stretch"
+            Header="Printer"
+            SelectedItem="{x:Bind PrintSettings.PrinterName, Mode=TwoWay}"
+            SelectionChanged="PrinterComboBox_SelectionChanged" />
+
+        <!--  Copies  -->
+        <NumberBox
+            Header="Copies"
+            Maximum="999"
+            Minimum="1"
+            SpinButtonPlacementMode="Inline"
+            Value="{x:Bind PrintSettings.Copies, Mode=TwoWay}" />
+
+        <!--  Orientation  -->
+        <RadioButtons
+            x:Name="OrientationRadioButtons"
+            Header="Orientation"
+            SelectionChanged="OrientationRadio_SelectionChanged">
+            <RadioButton Content="Portrait" />
+            <RadioButton Content="Landscape" />
+        </RadioButtons>
+
+        <!--  Print Options  -->
+        <StackPanel Spacing="8">
+            <TextBlock Text="Options" />
+            <CheckBox Content="Print backgrounds" IsChecked="{x:Bind PrintSettings.ShouldPrintBackgrounds, Mode=TwoWay}" />
+            <CheckBox Content="Print headers and footers" IsChecked="{x:Bind PrintSettings.ShouldPrintHeaderAndFooter, Mode=TwoWay}" />
+        </StackPanel>
+    </StackPanel>
+</ContentDialog>

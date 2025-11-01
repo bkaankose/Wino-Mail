@@ -1,0 +1,241 @@
+<abstract:ContactsPageAbstract
+    x:Class="Wino.Views.Settings.ContactsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    x:Name="root"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="ContactTemplate" x:DataType="entities:AccountContact">
+            <Grid Margin="0,4" Padding="16,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Contact Picture  -->
+                <PersonPicture
+                    Grid.Column="0"
+                    Width="48"
+                    Height="48"
+                    Margin="0,0,16,0"
+                    DisplayName="{x:Bind Name}"
+                    ProfilePicture="{x:Bind helpers:XamlHelpers.Base64ToBitmapImage(Base64ContactPicture), Mode=OneWay}" />
+
+                <!--  Contact Info  -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Text="{x:Bind Name}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind Address}"
+                        TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Padding="4,2"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="2"
+                            Visibility="{x:Bind IsRootContact, Mode=OneWay}">
+                            <TextBlock
+                                FontSize="10"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                Text="{x:Bind domain:Translator.ContactStatus_Account, Mode=OneTime}" />
+                        </Border>
+                        <Border
+                            Padding="4,2"
+                            CornerRadius="2"
+                            Visibility="{x:Bind IsOverridden, Mode=OneWay}">
+                            <TextBlock FontSize="10" Text="{x:Bind domain:Translator.ContactStatus_Modified, Mode=OneTime}" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  Actions  -->
+                <StackPanel
+                    Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        Command="{Binding ViewModel.EditContactCommand, ElementName=root}"
+                        CommandParameter="{Binding}"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_Edit, Mode=OneTime}">
+                        <FontIcon FontSize="16" Glyph="&#xE70F;" />
+                    </Button>
+                    <Button
+                        Command="{Binding ViewModel.PickContactPhotoCommand, ElementName=root}"
+                        CommandParameter="{Binding}"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_ChangePhoto, Mode=OneTime}">
+                        <FontIcon FontSize="16" Glyph="&#xE91B;" />
+                    </Button>
+                    <Button
+                        Command="{Binding ViewModel.DeleteContactCommand, ElementName=root}"
+                        CommandParameter="{Binding}"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRootContact), Mode=OneWay}"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_Delete, Mode=OneTime}">
+                        <FontIcon FontSize="16" Glyph="&#xE74D;" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <Grid MaxWidth="700">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Grid Grid.Row="0" Padding="24,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock
+                    FontSize="28"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind domain:Translator.ContactsPage_Title, Mode=OneTime}" />
+                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ContactsPage_Subtitle, Mode=OneTime}" />
+            </StackPanel>
+
+            <StackPanel
+                Grid.Column="1"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button Command="{x:Bind ViewModel.AddContactCommand}" Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="16" Glyph="&#xE710;" />
+                        <TextBlock Text="{x:Bind domain:Translator.ContactAction_Add, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{x:Bind ViewModel.ToggleSelectionCommand}" Style="{StaticResource DefaultButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="16" Glyph="&#xE762;" />
+                        <TextBlock Text="{x:Bind helpers:XamlHelpers.BoolToSelectionModeText(ViewModel.IsSelectionMode), Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!--  Search and Selection Bar  -->
+        <Grid
+            Grid.Row="2"
+            Padding="24,0,24,16"
+            Visibility="{x:Bind ViewModel.IsSelectionMode, Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{x:Bind ViewModel.SelectedContactsCount, Mode=OneWay}"
+                    TextWrapping="Wrap">
+                    <Run Text="{x:Bind ViewModel.SelectedContactsCount, Mode=OneWay}" />
+                    <Run Text="{x:Bind domain:Translator.ContactSelection_Selected, Mode=OneTime}" />
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel
+                Grid.Column="1"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button Command="{x:Bind ViewModel.SelectAllContactsCommand}" Style="{StaticResource SubtleButtonStyle}">
+                    <TextBlock Text="{x:Bind domain:Translator.ContactSelection_SelectAll, Mode=OneTime}" />
+                </Button>
+                <Button Command="{x:Bind ViewModel.ClearSelectionCommand}" Style="{StaticResource SubtleButtonStyle}">
+                    <TextBlock Text="{x:Bind domain:Translator.ContactSelection_Clear, Mode=OneTime}" />
+                </Button>
+                <Button
+                    Command="{x:Bind ViewModel.DeleteSelectedContactsCommand}"
+                    IsEnabled="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.SelectedContactsCount), Mode=OneWay}"
+                    Style="{StaticResource SubtleButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="16" Glyph="&#xE74D;" />
+                        <TextBlock Text="{x:Bind domain:Translator.ContactAction_Delete, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!--  Search Box  -->
+        <AutoSuggestBox
+            Grid.Row="1"
+            Margin="24,0,24,16"
+            PlaceholderText="{x:Bind domain:Translator.ContactsPage_SearchPlaceholder, Mode=OneTime}"
+            QueryIcon="Find"
+            Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.IsSelectionMode, Mode=OneWay}" />
+
+        <!--  Content  -->
+        <Grid Grid.Row="3" Padding="24,0">
+            <!--  Loading Indicator  -->
+            <ProgressRing
+                Width="48"
+                Height="48"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+
+            <!--  Contacts List  -->
+            <ListView
+                ItemTemplate="{StaticResource ContactTemplate}"
+                ItemsSource="{x:Bind ViewModel.Contacts, Mode=OneWay}"
+                SelectionMode="{x:Bind helpers:XamlHelpers.BoolToSelectionMode(ViewModel.IsSelectionMode), Mode=OneWay}">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <AddDeleteThemeTransition />
+                        <ContentThemeTransition />
+                        <ReorderThemeTransition />
+                        <EntranceThemeTransition IsStaggeringEnabled="True" />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
+            </ListView>
+
+            <!--  Empty State  -->
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="16"
+                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.SelectedContactsCount), Mode=OneWay}">
+                <FontIcon
+                    FontSize="48"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Glyph="&#xE716;" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind domain:Translator.ContactsPage_EmptyState, Mode=OneTime}"
+                    TextAlignment="Center" />
+                <Button Command="{x:Bind ViewModel.AddContactCommand}" Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="16" Glyph="&#xE710;" />
+                        <TextBlock Text="{x:Bind domain:Translator.ContactsPage_AddFirstContact, Mode=OneTime}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</abstract:ContactsPageAbstract>

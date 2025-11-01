@@ -102,9 +102,19 @@ public sealed partial class NewImapSetupDialog : ContentDialog,
     public void StartImapConnectionSetup(MailAccount account) => ImapFrame.Navigate(typeof(WelcomeImapSetupPage), account, new DrillInNavigationTransitionInfo());
     public void StartImapConnectionSetup(AccountCreationDialogResult accountCreationDialogResult) => ImapFrame.Navigate(typeof(WelcomeImapSetupPage), accountCreationDialogResult, new DrillInNavigationTransitionInfo());
 
-    private void ImapSetupDialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => WeakReferenceMessenger.Default.UnregisterAll(this);
+    private void ImapSetupDialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args)
+    {
+        WeakReferenceMessenger.Default.Unregister<ImapSetupNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ImapSetupBackNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<ImapSetupDismissRequested>(this);
+    }
 
-    private void ImapSetupDialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args) => WeakReferenceMessenger.Default.RegisterAll(this);
+    private void ImapSetupDialogOpened(ContentDialog sender, ContentDialogOpenedEventArgs args)
+    {
+        WeakReferenceMessenger.Default.Register<ImapSetupNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<ImapSetupBackNavigationRequested>(this);
+        WeakReferenceMessenger.Default.Register<ImapSetupDismissRequested>(this);
+    }
 
     // Don't hide the dialog unless dismiss is requested from the inner pages specifically.
     private void OnDialogClosing(ContentDialog sender, ContentDialogClosingEventArgs args) => args.Cancel = !isDismissRequested;

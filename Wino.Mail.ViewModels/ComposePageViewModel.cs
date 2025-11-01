@@ -22,7 +22,6 @@ using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
@@ -117,7 +116,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
     private readonly IWinoRequestDelegator _worker;
     public readonly IFontService FontService;
     public readonly IPreferencesService PreferencesService;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     public readonly IContactService ContactService;
     public readonly ISmimeCertificateService _smimeCertificateService;
 
@@ -181,8 +179,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
     {
         IsSmimeSignatureEnabled = value != null;
     }
-
-
 
     [RelayCommand]
     private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
@@ -265,7 +261,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         isUpdatingMimeBlocked = true;
 
-        var assignedAccount = CurrentMailDraftItem.AssignedAccount;
+        var assignedAccount = CurrentMailDraftItem.MailCopy.AssignedAccount;
         var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
 
 
@@ -318,8 +314,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
         var draftSendPreparationRequest = new SendDraftPreparationRequest(CurrentMailDraftItem.MailCopy,
                                                                           SelectedAlias,
                                                                           sentFolder,
-                                                                          CurrentMailDraftItem.AssignedFolder,
-                                                                          CurrentMailDraftItem.AssignedAccount.Preferences,
+                                                                          CurrentMailDraftItem.MailCopy.AssignedFolder,
+                                                                          CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
                                                                           base64EncodedMessage);
 
         await _worker.ExecuteAsync(draftSendPreparationRequest);
@@ -450,7 +446,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         if (ComposingAccount != null) return true;
 
-        var composingAccount = await _accountService.GetAccountAsync(CurrentMailDraftItem.AssignedAccount.Id).ConfigureAwait(false);
+        var composingAccount = await _accountService.GetAccountAsync(CurrentMailDraftItem.MailCopy.AssignedAccount.Id).ConfigureAwait(false);
         if (composingAccount == null) return false;
 
         var aliases = await _accountService.GetAccountAliasesAsync(composingAccount.Id).ConfigureAwait(false);
@@ -504,13 +500,12 @@ public partial class ComposePageViewModel : MailBaseViewModel
             {
                 downloadIfNeeded = false;
 
-                var package = new DownloadMissingMessageRequested(CurrentMailDraftItem.AssignedAccount.Id, CurrentMailDraftItem.MailCopy);
-                var downloadResponse = await _winoServerConnectionManager.GetResponseAsync<bool, DownloadMissingMessageRequested>(package);
+                // Download missing MIME message using SynchronizationManager
+                await SynchronizationManager.Instance.DownloadMimeMessageAsync(
+                    CurrentMailDraftItem.MailCopy,
+                    CurrentMailDraftItem.MailCopy.AssignedAccount.Id);
 
-                if (downloadResponse.IsSuccess)
-                {
-                    goto retry;
-                }
+                goto retry;
             }
             else
                 _dialogService.InfoBarMessage(Translator.Info_ComposerMissingMIMETitle, Translator.Info_ComposerMissingMIMEMessage, InfoBarMessageType.Error);
@@ -652,12 +647,11 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         if (CurrentMailDraftItem == null) return;
 
-        if (updatedMail.UniqueId == CurrentMailDraftItem.UniqueId)
+        if (updatedMail.UniqueId == CurrentMailDraftItem.MailCopy.UniqueId)
         {
             await ExecuteUIThread(() =>
             {
-                CurrentMailDraftItem.MailCopy = updatedMail;
-
+                CurrentMailDraftItem.NotifyPropertyChanges();
                 DiscardCommand.NotifyCanExecuteChanged();
                 SendCommand.NotifyCanExecuteChanged();
             });
