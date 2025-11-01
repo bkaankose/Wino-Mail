@@ -42,10 +42,21 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     public ReadOnlyObservableGroupedCollection<object, IMailListItem> MailItems { get; }
 
+    private SortingOptionType _sortingType;
+
     /// <summary>
     /// Property that defines how the item sorting should be done in the collection.
     /// </summary>
-    public SortingOptionType SortingType { get; set; }
+    public SortingOptionType SortingType
+    {
+        get => _sortingType;
+        set
+        {
+            _sortingType = value;
+            // Update the comparer's sort mode when sorting type changes
+            listComparer.SortByName = value == SortingOptionType.Sender;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the grouping type for emails.
@@ -78,6 +89,9 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     public WinoMailCollection()
     {
         MailItems = new ReadOnlyObservableGroupedCollection<object, IMailListItem>(_mailItemSource);
+
+        // Initialize sorting type to default (date-based)
+        SortingType = SortingOptionType.ReceiveDate;
 
         Messenger.Register<SelectedItemsChangedMessage>(this);
     }

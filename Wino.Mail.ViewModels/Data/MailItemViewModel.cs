@@ -171,6 +171,10 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         set => SetProperty(MailCopy.SenderContact.Base64ContactPicture, value, MailCopy, (u, n) => u.SenderContact.Base64ContactPicture = n);
     }
 
+    public DateTime SortingDate => CreationDate;
+
+    public string SortingName => FromName;
+
     public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];
 
     public IEnumerable<MailItemViewModel> GetSelectedMailItems()

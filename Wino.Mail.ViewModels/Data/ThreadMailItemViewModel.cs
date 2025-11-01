@@ -167,6 +167,10 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
     private MailItemViewModel latestMailViewModel => ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
 
+    public DateTime SortingDate => CreationDate;
+
+    public string SortingName => FromName;
+
     public ThreadMailItemViewModel(string threadId)
     {
         _threadId = threadId;

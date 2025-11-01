@@ -9,7 +9,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// Common interface for mail items that can be displayed in a mail list.
 /// Implemented by both MailItemViewModel and ThreadMailItemViewModel.
 /// </summary>
-public interface IMailListItem : IMailHashContainer, INotifyPropertyChanged
+public interface IMailListItem : IMailHashContainer, IMailListItemSorting, INotifyPropertyChanged
 {
     /// <summary>
     /// Gets the latest creation date for sorting purposes.
