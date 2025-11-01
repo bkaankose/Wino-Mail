@@ -405,12 +405,12 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     private async Task UpdateExistingItemAsync(MailItemViewModel existingItem, MailCopy updatedItem)
     {
         UpdateUniqueIdHashes(existingItem, false);
-        
-        await ExecuteUIThread(() => 
-        { 
+
+        await ExecuteUIThread(() =>
+        {
             existingItem.MailCopy = updatedItem;
         });
-        
+
         UpdateUniqueIdHashes(existingItem, true);
     }
 
@@ -702,10 +702,10 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             if (itemContainer.ItemViewModel != null)
             {
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
-                
+
                 // Update the MailCopy - this will automatically notify all dependent properties
                 itemContainer.ItemViewModel.MailCopy = updatedMailCopy;
-                
+
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, true);
             }
 
@@ -962,6 +962,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
         finally
         {
+            Messenger.Unregister<SelectedItemsChangedMessage>(this);
             Messenger.Register<SelectedItemsChangedMessage>(this);
             Messenger.Send(new SelectedItemsChangedMessage());
 

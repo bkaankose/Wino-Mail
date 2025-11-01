@@ -69,7 +69,7 @@ public static class OutlookIntegratorExtensions
         return mailCopy;
     }
 
-    public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders)
+    public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders, string conversationId = null)
     {
         var fromAddress = GetRecipients(mime.From).ElementAt(0);
         var toAddresses = GetRecipients(mime.To).ToList();
@@ -92,6 +92,12 @@ public static class OutlookIntegratorExtensions
             ReplyTo = replyToAddresses,
             Attachments = []
         };
+
+        // Set ConversationId if provided to maintain threading
+        if (!string.IsNullOrEmpty(conversationId))
+        {
+            message.ConversationId = conversationId;
+        }
 
         // Headers are only included when creating the draft.
         // When sending, they are not included. Graph will throw an error.

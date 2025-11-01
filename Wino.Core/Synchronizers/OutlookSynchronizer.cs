@@ -1231,7 +1231,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Alias support is lacking with direct MIMEs.
         // Therefore we convert the MIME message to Outlook message and use proper APIs.
 
-        var outlookMessage = mimeMessage.AsOutlookMessage(false);
+        // Pass the ConversationId (ThreadId) to maintain threading for replies/forwards
+        var conversationId = sendDraftPreparationRequest.MailItem.ThreadId;
+        var outlookMessage = mimeMessage.AsOutlookMessage(false, conversationId);
 
         // Create attachment requests.
         // TODO: We need to support large file attachments with sessioned upload at some point.

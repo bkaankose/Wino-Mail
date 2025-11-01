@@ -936,11 +936,42 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
             // Manage "ThreadId-ConversationId"
+            // CRITICAL: In-Reply-To and References headers are essential for threading
+            // They must reference the original message's Message-ID from the MIME headers
             if (!string.IsNullOrEmpty(referenceMessage.MessageId))
             {
                 message.InReplyTo = referenceMessage.MessageId;
-                message.References.AddRange(referenceMessage.References);
+                
+                // Add all previous References first
+                if (referenceMessage.References != null && referenceMessage.References.Count > 0)
+                {
+                    message.References.AddRange(referenceMessage.References);
+                }
+                
+                // Then add the message we're replying to
                 message.References.Add(referenceMessage.MessageId);
+            }
+            else
+            {
+                // WARNING: Reference message has no Message-ID!
+                // This will break threading. Try to use the MessageId from MailCopy if available.
+                var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
+                if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
+                {
+                    message.InReplyTo = referenceMailCopy.MessageId;
+                    
+                    if (!string.IsNullOrEmpty(referenceMailCopy.References))
+                    {
+                        // Parse the References string and add them
+                        var references = referenceMailCopy.References.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var reference in references)
+                        {
+                            message.References.Add(reference.Trim());
+                        }
+                    }
+                    
+                    message.References.Add(referenceMailCopy.MessageId);
+                }
             }
 
             message.Headers.Add("Thread-Topic", referenceMessage.Subject);
