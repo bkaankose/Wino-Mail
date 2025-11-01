@@ -315,46 +315,30 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (message.SelectedMailViewModel == null) return;
 
-        await ViewModel.ExecuteUIThread(async () =>
+        await DispatcherQueue.EnqueueAsync(async () =>
         {
             // MailListView.ClearSelections(message.SelectedMailViewModel, true);
 
-            int retriedSelectionCount = 0;
-        trySelection:
+            var collectionContainer = await MailListView.GetItemContainersAsync(message.SelectedMailViewModel);
 
-            bool isSelected = MailListView.SelectMailItemContainer(message.SelectedMailViewModel);
-
-            if (!isSelected)
-            {
-                for (int i = retriedSelectionCount; i < 5;)
-                {
-                    // Retry with delay until the container is realized. Max 1 second.
-                    await Task.Delay(200);
-
-                    retriedSelectionCount++;
-
-                    goto trySelection;
-                }
-            }
+            if (collectionContainer.Item1 == null && collectionContainer.Item2 == null) return;
 
             // Automatically scroll to the selected item.
             // This is useful when creating draft.
 
-            if (isSelected && message.ScrollToItem)
+            if (message.ScrollToItem)
             {
-                var collectionContainer = ViewModel.MailCollection.GetMailItemContainer(message.SelectedMailViewModel.MailCopy.UniqueId);
-
                 // Scroll to thread if available.
                 // Find the item index on the UI. This is different than ListView.
 
                 int scrollIndex = -1;
-                if (collectionContainer.ThreadViewModel != null)
+                if (collectionContainer.Item2 != null)
                 {
-                    scrollIndex = ViewModel.MailCollection.IndexOf(collectionContainer.ThreadViewModel);
+                    scrollIndex = ViewModel.MailCollection.IndexOf(collectionContainer.Item2.Item);
                 }
-                else if (collectionContainer.ItemViewModel != null)
+                else if (collectionContainer.Item1 != null)
                 {
-                    scrollIndex = ViewModel.MailCollection.IndexOf(collectionContainer.ItemViewModel);
+                    scrollIndex = ViewModel.MailCollection.IndexOf(collectionContainer.Item1.Item);
                 }
 
                 if (scrollIndex >= 0)
@@ -362,6 +346,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
                     await MailListView.SmoothScrollIntoViewWithIndexAsync(scrollIndex);
                 }
             }
+
+            var listView = collectionContainer.Item3 ?? MailListView;
+            var mailItemViewModelContainer = collectionContainer.Item1;
+            var threadMailItemViewModelContainer = collectionContainer.Item2;
+
+            await WinoClickItemInternalAsync(listView, collectionContainer.Item1?.Item ?? null);
         });
     }
 
@@ -564,14 +554,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private async void WinoListViewItemClicked(object sender, ItemClickEventArgs e)
+    private async Task WinoClickItemInternalAsync(WinoListView listView, object? clickedItem)
     {
-        if (sender is not WinoListView listView) return;
+        if (clickedItem == null) return;
 
         bool isSelectedItemFromThread = listView.IsThreadListView;
         bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed();
 
-        bool isClickingThreadItem = e.ClickedItem is ThreadMailItemViewModel;
+        bool isClickingThreadItem = clickedItem is ThreadMailItemViewModel;
 
         // Unselect all items. It's single selection.
         if (!isCtrlPressed)
@@ -584,11 +574,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
         }
 
-        if (e.ClickedItem is MailItemViewModel mailListItem)
+        if (clickedItem is MailItemViewModel mailListItem)
         {
             mailListItem.IsSelected = !mailListItem.IsSelected;
         }
-        else if (e.ClickedItem is ThreadMailItemViewModel threadMailItemViewModel)
+        else if (clickedItem is ThreadMailItemViewModel threadMailItemViewModel)
         {
             // Extended selection mode handling for threads
             if (isCtrlPressed)
@@ -653,5 +643,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 }
             }
         }
+    }
+
+    private async void WinoListViewItemClicked(object sender, ItemClickEventArgs e)
+    {
+        if (sender is not WinoListView listView) return;
+
+        await WinoClickItemInternalAsync(listView, e.ClickedItem);
     }
 }

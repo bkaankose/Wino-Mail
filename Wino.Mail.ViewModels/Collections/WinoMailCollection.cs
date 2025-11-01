@@ -287,7 +287,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
         else
         {
-            await ExecuteUIThread(() => { threadViewModel.NotifyPropertyChanges(); });
+            await ExecuteUIThread(() => { threadViewModel.ThreadEmails = threadViewModel.ThreadEmails; });
         }
 
         UpdateUniqueIdHashes(new MailItemViewModel(addedItem), true);
@@ -391,9 +391,13 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     private async Task UpdateExistingItemAsync(MailItemViewModel existingItem, MailCopy updatedItem)
     {
         UpdateUniqueIdHashes(existingItem, false);
-        UpdateUniqueIdHashes(new MailItemViewModel(updatedItem), true);
-
-        await ExecuteUIThread(() => { existingItem.NotifyPropertyChanges(); });
+        
+        await ExecuteUIThread(() => 
+        { 
+            existingItem.MailCopy = updatedItem;
+        });
+        
+        UpdateUniqueIdHashes(existingItem, true);
     }
 
     /// <summary>
@@ -520,8 +524,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 foreach (var (existing, updated) in itemsToUpdate)
                 {
                     UpdateUniqueIdHashes(existing, false);
-                    UpdateUniqueIdHashes(new MailItemViewModel(updated), true);
-                    existing.NotifyPropertyChanges();
+                    existing.MailCopy = updated;
+                    UpdateUniqueIdHashes(existing, true);
                 }
             });
         }
@@ -684,17 +688,18 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             if (itemContainer.ItemViewModel != null)
             {
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
+                
+                // Update the MailCopy - this will automatically notify all dependent properties
+                itemContainer.ItemViewModel.MailCopy = updatedMailCopy;
+                
+                UpdateUniqueIdHashes(itemContainer.ItemViewModel, true);
             }
 
-            if (itemContainer.ItemViewModel != null)
+            // Trigger thread property notifications if this item is in a thread
+            if (itemContainer.ThreadViewModel != null)
             {
-                itemContainer.ItemViewModel.NotifyPropertyChanges();
+                itemContainer.ThreadViewModel.ThreadEmails = itemContainer.ThreadViewModel.ThreadEmails;
             }
-
-            UpdateUniqueIdHashes(new MailItemViewModel(updatedMailCopy), true);
-
-            // Call thread notifications if possible.
-            itemContainer.ThreadViewModel?.NotifyPropertyChanges();
         });
     }
 

@@ -11,7 +11,29 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient, IMailListItem
 {
-    public MailCopy MailCopy { get; } = mailCopy;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CreationDate))]
+    [NotifyPropertyChangedFor(nameof(IsFlagged))]
+    [NotifyPropertyChangedFor(nameof(FromName))]
+    [NotifyPropertyChangedFor(nameof(IsFocused))]
+    [NotifyPropertyChangedFor(nameof(IsRead))]
+    [NotifyPropertyChangedFor(nameof(IsDraft))]
+    [NotifyPropertyChangedFor(nameof(DraftId))]
+    [NotifyPropertyChangedFor(nameof(Id))]
+    [NotifyPropertyChangedFor(nameof(Subject))]
+    [NotifyPropertyChangedFor(nameof(PreviewText))]
+    [NotifyPropertyChangedFor(nameof(FromAddress))]
+    [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    [NotifyPropertyChangedFor(nameof(Importance))]
+    [NotifyPropertyChangedFor(nameof(ThreadId))]
+    [NotifyPropertyChangedFor(nameof(MessageId))]
+    [NotifyPropertyChangedFor(nameof(References))]
+    [NotifyPropertyChangedFor(nameof(InReplyTo))]
+    [NotifyPropertyChangedFor(nameof(FileId))]
+    [NotifyPropertyChangedFor(nameof(FolderId))]
+    [NotifyPropertyChangedFor(nameof(UniqueId))]
+    [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
+    public partial MailCopy MailCopy { get; set; } = mailCopy;
 
     [ObservableProperty]
     public partial bool IsDisplayedInThread { get; set; }
@@ -147,32 +169,6 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     {
         get => MailCopy.SenderContact?.Base64ContactPicture ?? string.Empty;
         set => SetProperty(MailCopy.SenderContact.Base64ContactPicture, value, MailCopy, (u, n) => u.SenderContact.Base64ContactPicture = n);
-    }
-
-    public void NotifyPropertyChanges()
-    {
-        // Raise on property changes for all observable properties.
-        OnPropertyChanged(nameof(CreationDate));
-        OnPropertyChanged(nameof(IsFlagged));
-        OnPropertyChanged(nameof(FromName));
-        OnPropertyChanged(nameof(IsFocused));
-        OnPropertyChanged(nameof(IsRead));
-        OnPropertyChanged(nameof(IsDraft));
-        OnPropertyChanged(nameof(DraftId));
-        OnPropertyChanged(nameof(Id));
-        OnPropertyChanged(nameof(Subject));
-        OnPropertyChanged(nameof(PreviewText));
-        OnPropertyChanged(nameof(FromAddress));
-        OnPropertyChanged(nameof(HasAttachments));
-        OnPropertyChanged(nameof(Importance));
-        OnPropertyChanged(nameof(ThreadId));
-        OnPropertyChanged(nameof(MessageId));
-        OnPropertyChanged(nameof(References));
-        OnPropertyChanged(nameof(InReplyTo));
-        OnPropertyChanged(nameof(FileId));
-        OnPropertyChanged(nameof(FolderId));
-        OnPropertyChanged(nameof(UniqueId));
-        OnPropertyChanged(nameof(Base64ContactPicture));
     }
 
     public IEnumerable<Guid> GetContainingIds() => [MailCopy.UniqueId];

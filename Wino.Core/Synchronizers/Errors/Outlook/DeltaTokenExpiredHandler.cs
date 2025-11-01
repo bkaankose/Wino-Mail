@@ -43,19 +43,16 @@ public class DeltaTokenExpiredHandler : ISynchronizerErrorHandler
             // Reset the account's delta synchronization identifier
             await _outlookChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(error.Account.Id, string.Empty).ConfigureAwait(false);
 
-            // Get all folders for the account and reset their delta tokens and initial sync status
+            // Get all folders for the account and reset their delta tokens
             var folders = await _outlookChangeProcessor.GetLocalFoldersAsync(error.Account.Id).ConfigureAwait(false);
             
             foreach (var folder in folders)
             {
-                // Reset folder delta token
+                // Reset folder delta token to force full re-sync (last 30 days)
                 await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, string.Empty).ConfigureAwait(false);
-                
-                // Reset initial sync completion status to force full re-sync
-                await _outlookChangeProcessor.UpdateFolderInitialSyncCompletedAsync(folder.Id, false).ConfigureAwait(false);
             }
 
-            _logger.Information("Successfully reset synchronization state for account {AccountName} ({AccountId}). Next sync will be a full re-sync.", 
+            _logger.Information("Successfully reset synchronization state for account {AccountName} ({AccountId}). Next sync will download last 30 days.", 
                 error.Account.Name, error.Account.Id);
 
             return true;

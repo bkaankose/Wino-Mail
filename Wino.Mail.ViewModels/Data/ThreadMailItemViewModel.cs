@@ -141,6 +141,28 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// </summary>
     ///
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EmailCount))]
+    [NotifyPropertyChangedFor(nameof(Subject))]
+    [NotifyPropertyChangedFor(nameof(FromName))]
+    [NotifyPropertyChangedFor(nameof(CreationDate))]
+    [NotifyPropertyChangedFor(nameof(FromAddress))]
+    [NotifyPropertyChangedFor(nameof(PreviewText))]
+    [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    [NotifyPropertyChangedFor(nameof(IsFlagged))]
+    [NotifyPropertyChangedFor(nameof(IsFocused))]
+    [NotifyPropertyChangedFor(nameof(IsRead))]
+    [NotifyPropertyChangedFor(nameof(IsDraft))]
+    [NotifyPropertyChangedFor(nameof(DraftId))]
+    [NotifyPropertyChangedFor(nameof(Id))]
+    [NotifyPropertyChangedFor(nameof(Importance))]
+    [NotifyPropertyChangedFor(nameof(ThreadId))]
+    [NotifyPropertyChangedFor(nameof(MessageId))]
+    [NotifyPropertyChangedFor(nameof(References))]
+    [NotifyPropertyChangedFor(nameof(InReplyTo))]
+    [NotifyPropertyChangedFor(nameof(FileId))]
+    [NotifyPropertyChangedFor(nameof(FolderId))]
+    [NotifyPropertyChangedFor(nameof(UniqueId))]
+    [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
     public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
     private MailItemViewModel latestMailViewModel => ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
@@ -148,33 +170,6 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     public ThreadMailItemViewModel(string threadId)
     {
         _threadId = threadId;
-    }
-
-    public void NotifyPropertyChanges()
-    {
-        OnPropertyChanged(nameof(Subject));
-        OnPropertyChanged(nameof(FromName));
-        OnPropertyChanged(nameof(CreationDate));
-        OnPropertyChanged(nameof(FromAddress));
-        OnPropertyChanged(nameof(PreviewText));
-        OnPropertyChanged(nameof(HasAttachments));
-        OnPropertyChanged(nameof(IsFlagged));
-        OnPropertyChanged(nameof(IsFocused));
-        OnPropertyChanged(nameof(IsRead));
-        OnPropertyChanged(nameof(IsDraft));
-        OnPropertyChanged(nameof(DraftId));
-        OnPropertyChanged(nameof(Id));
-        OnPropertyChanged(nameof(Importance));
-        OnPropertyChanged(nameof(ThreadId));
-        OnPropertyChanged(nameof(MessageId));
-        OnPropertyChanged(nameof(References));
-        OnPropertyChanged(nameof(InReplyTo));
-        OnPropertyChanged(nameof(FileId));
-        OnPropertyChanged(nameof(FolderId));
-        OnPropertyChanged(nameof(UniqueId));
-        OnPropertyChanged(nameof(ThreadEmails));
-        OnPropertyChanged(nameof(EmailCount));
-        OnPropertyChanged(nameof(Base64ContactPicture));
     }
 
     /// <summary>
@@ -186,7 +181,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
             throw new ArgumentException($"Email ThreadId '{email.MailCopy.ThreadId}' does not match expander ThreadId '{_threadId}'");
 
         ThreadEmails.Add(email);
-        NotifyPropertyChanges();
+        // Reassign to trigger property change notifications
+        ThreadEmails = ThreadEmails;
     }
 
     /// <summary>
@@ -196,7 +192,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     {
         if (ThreadEmails.Remove(email))
         {
-            NotifyPropertyChanges();
+            // Reassign to trigger property change notifications
+            ThreadEmails = ThreadEmails;
         }
     }
 

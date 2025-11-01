@@ -58,8 +58,7 @@ public class DatabaseService : IDatabaseService
             typeof(MailAccountPreferences),
             typeof(MailAccountAlias),
             typeof(Thumbnail),
-            typeof(KeyboardShortcut),
-            typeof(MailItemQueue)
+            typeof(KeyboardShortcut)
             );
     }
 }

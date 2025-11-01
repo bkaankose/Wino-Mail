@@ -43,20 +43,21 @@ using CalendarService = Google.Apis.Calendar.v3.CalendarService;
 namespace Wino.Core.Synchronizers.Mail;
 
 /// <summary>
-/// Gmail synchronizer implementation.
+/// Gmail synchronizer implementation with per-folder history ID synchronization.
 /// 
-/// IMPORTANT: This synchronizer implements METADATA-ONLY synchronization strategy:
-/// - During sync (initial/delta), only message metadata is downloaded (headers, labels, snippet)
-/// - NO raw MIME content is downloaded during synchronization
-/// - Messages are created with Format=Metadata which populates Payload.Headers but NOT Raw content
-/// - MIME files are downloaded on-demand only when user explicitly reads a message
-/// - This dramatically reduces bandwidth usage and sync time, especially for accounts with many messages
+/// SYNCHRONIZATION STRATEGY:
+/// - Uses Gmail History API for both initial and incremental sync
+/// - Initial sync: Downloads top 1500 messages per folder with metadata only
+/// - Incremental sync: Uses history ID to get only changes since last sync
+/// - Messages are downloaded with metadata only (no MIME content during sync)
+/// - MIME files are downloaded on-demand when user explicitly reads a message
 /// 
 /// Key implementation details:
-/// - CreateNewMailPackagesAsync: Creates MailCopy from metadata, passes null for MimeMessage
-/// - CreateMinimalMailCopyAsync: Extracts all MailCopy fields from Gmail Metadata format (Payload.Headers)
+/// - SynchronizeFolderAsync: Main entry point for per-folder synchronization
+/// - DownloadMessagesForFolderAsync: Downloads top 1500 messages for initial sync
+/// - SynchronizeDeltaAsync: Processes incremental changes using history ID
+/// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
-/// - CreateSingleMessageGet: Always uses Metadata format (not Raw format) for synchronization
 /// </summary>
 public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message, Event>, IHttpClientFactory
 {
@@ -179,122 +180,146 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (options.Type == MailSynchronizationType.FoldersOnly) return MailSynchronizationResult.Empty;
 
-        retry:
         cancellationToken.ThrowIfCancellationRequested();
 
         bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
 
         _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
 
-        if (Account.SynchronizationStatus == InitialSynchronizationStatus.None)
+        var downloadedMessageIds = new List<string>();
+
+        // Get all folders to synchronize
+        var synchronizationFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+        
+        _logger.Information("Synchronizing {Count} folders for {Name}", synchronizationFolders.Count, Account.Name);
+
+        var totalFolders = synchronizationFolders.Count;
+
+        for (int i = 0; i < totalFolders; i++)
         {
-            UpdateSyncProgress(0, 0, "Fetching email IDs...");
-            await FetchAllEmailIdsAsync().ConfigureAwait(false);
-            await CompleteAccountSyncStatusAsync();
-            UpdateSyncProgress(0, 0, "Email IDs fetched");
+            var folder = synchronizationFolders[i];
+
+            // Update progress based on folder completion
+            UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
+
+            var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
+            downloadedMessageIds.AddRange(folderDownloadedMessageIds);
         }
 
+        // Process incremental changes using history API if we have a history ID
         if (!string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier))
         {
             UpdateSyncProgress(0, 0, "Synchronizing changes...");
             await SynchronizeDeltaAsync(options, cancellationToken).ConfigureAwait(false);
-            await CompleteAccountSyncStatusAsync();
             UpdateSyncProgress(0, 0, "Changes synchronized");
         }
 
-        if (Account.SynchronizationStatus == InitialSynchronizationStatus.IdsFetched)
-        {
-            UpdateSyncProgress(0, 0, "Processing email metadata...");
-            await ProcessEmailMetadataFromQueueAsync(cancellationToken);
-            UpdateSyncProgress(0, 0, "Email metadata processed");
-        }
+        // Get all unread new downloaded items for notifications
+        var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-        if (Account.SynchronizationStatus == InitialSynchronizationStatus.Completed)
-        {
-            UpdateSyncProgress(0, 0, "Synchronization completed");
-        }
-
-        return MailSynchronizationResult.Completed(new List<MailCopy>());
+        return MailSynchronizationResult.Completed(unreadNewItems);
     }
 
-    #region Queue System
-
-    private async Task FetchAllEmailIdsAsync()
+    /// <summary>
+    /// Synchronizes a single folder by downloading top 1500 messages with metadata only.
+    /// </summary>
+    private async Task<List<string>> SynchronizeFolderAsync(MailItemFolder folder, CancellationToken cancellationToken)
     {
+        var downloadedMessageIds = new List<string>();
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        _logger.Debug("Synchronizing folder {FolderName} (label: {LabelId})", folder.FolderName, folder.RemoteFolderId);
+
         try
         {
-            // If this method is hit, we don't need previous state for this table,
-            // we just clean it first to make sure nothing was left before.
-            await _gmailChangeProcessor.ClearMailItemQueueAsync(Account.Id).ConfigureAwait(false);
+            // Download top 1500 messages for this folder
+            await DownloadMessagesForFolderAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
 
-            var totalFetched = 0;
+            if (downloadedMessageIds.Any())
+            {
+                _logger.Information("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error synchronizing folder {FolderName}", folder.FolderName);
+            throw;
+        }
+
+        return downloadedMessageIds;
+    }
+
+    /// <summary>
+    /// Downloads top 1500 messages for a folder using Gmail API with metadata only.
+    /// </summary>
+    private async Task DownloadMessagesForFolderAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
+    {
+        _logger.Debug("Downloading messages for folder {FolderName}", folder.FolderName);
+
+        try
+        {
+            var totalDownloaded = 0;
             string pageToken = null;
-            var pageCount = 0;
+
+            // Gmail API returns messages newest first by default
+            // We'll download up to 1500 messages per folder
+            var remainingToDownload = (int)InitialMessageDownloadCountPerFolder;
 
             do
             {
-                try
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var request = _gmailService.Users.Messages.List("me");
+                request.LabelIds = new Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
+                request.MaxResults = Math.Min(remainingToDownload, 500); // API max is 500
+                request.PageToken = pageToken;
+
+                var response = await request.ExecuteAsync(cancellationToken);
+
+                if (response.Messages != null && response.Messages.Count > 0)
                 {
-                    pageCount++;
-                    
-                    // Use maximum page size of 500 for efficiency
-                    var request = _gmailService.Users.Messages.List("me");
-                    request.MaxResults = 500;
-                    request.IncludeSpamTrash = true;
-                    request.PageToken = pageToken;
+                    var messageIds = response.Messages.Select(m => m.Id).ToList();
 
-                    var response = await request.ExecuteAsync();
+                    // Download metadata in batches
+                    await DownloadMessagesInBatchAsync(messageIds, downloadRawMime: false, cancellationToken).ConfigureAwait(false);
 
-                    if (response.Messages != null)
-                    {
-                        var queueEntries1 = response.Messages.Select(x => new MailItemQueue
-                        {
-                            Id = Guid.CreateVersion7(),
-                            AccountId = Account.Id,
-                            RemoteServerId = x.Id,
-                            IsProcessed = false,
-                            CreatedAt = DateTime.UtcNow
-                        });
+                    downloadedMessageIds.AddRange(messageIds);
+                    totalDownloaded += messageIds.Count;
+                    remainingToDownload -= messageIds.Count;
 
-                        await _gmailChangeProcessor.AddMailItemQueueItemsAsync(queueEntries1).ConfigureAwait(false);
+                    _logger.Debug("Downloaded {Count} messages for folder {FolderName} (total: {Total})", messageIds.Count, folder.FolderName, totalDownloaded);
 
-                        totalFetched += queueEntries1.Count();
-                        
-                        // Update progress - we don't know total count, so show indeterminate with status
-                        UpdateSyncProgress(0, 0, $"Fetched {totalFetched} email IDs (page {pageCount})");
-                    }
-
-                    pageToken = response.NextPageToken;
+                    // Update progress
+                    UpdateSyncProgress(0, 0, $"Downloaded {totalDownloaded} messages from {folder.FolderName}");
                 }
-                catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                {
-                    // Handle 429 rate limit errors by waiting and retrying
-                    _logger.Warning("Rate limit exceeded while fetching email IDs for {Name}. Retrying after delay.", Account.Name);
 
-                    await Task.Delay(TimeSpan.FromSeconds(10));
-                    continue; // Retry the same page
-                }
+                pageToken = response.NextPageToken;
+
+                // Stop if we've downloaded enough messages or no more pages
+                if (remainingToDownload <= 0 || string.IsNullOrEmpty(pageToken))
+                    break;
+
             } while (!string.IsNullOrEmpty(pageToken));
-            
-            // Final update with total count
-            UpdateSyncProgress(0, 0, $"Fetched {totalFetched} email IDs total");
+
+            // Store history ID for future incremental syncs
+            var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync(cancellationToken);
+            Account.SynchronizationDeltaIdentifier = profile.HistoryId.ToString();
+            await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+
+            _logger.Information("Completed downloading {Count} messages for folder {FolderName}", totalDownloaded, folder.FolderName);
         }
-        catch (Exception)
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
+            _logger.Warning("Rate limit exceeded while downloading messages for folder {FolderName}. Retrying after delay.", folder.FolderName);
+            await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             throw;
         }
-    }
-
-    private async Task CompleteAccountSyncStatusAsync()
-    {
-        // Set history ID immediately after fetching email IDs for future incremental syncs
-        var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync();
-        Account.SynchronizationDeltaIdentifier = profile.HistoryId.ToString();
-
-        // Update account sync status
-        Account.SynchronizationStatus = InitialSynchronizationStatus.IdsFetched;
-
-        await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error downloading messages for folder {FolderName}", folder.FolderName);
+            throw;
+        }
     }
 
     private async Task SynchronizeDeltaAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
@@ -339,100 +364,6 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             throw;
         }
     }
-
-    private async Task ProcessEmailMetadataFromQueueAsync(CancellationToken cancellationToken = default)
-    {
-        // Get total count for progress tracking
-        var totalInQueue = await _gmailChangeProcessor.GetMailItemQueueCountAsync(Account.Id).ConfigureAwait(false);
-        var processedCount = 0;
-
-        try
-        {
-            var totalFailed = 0;
-
-            // Continue until all emails in queue are processed
-            while (true)
-            {
-                // Get next batch of unprocessed emails from queue
-                var mailItemQueue = await _gmailChangeProcessor.GetMailItemQueueAsync(Account.Id, 100).ConfigureAwait(false);
-
-                if (mailItemQueue.Count == 0)
-                    break; // No more emails to process
-
-                var messageIds = mailItemQueue.Select(q => q.RemoteServerId).ToList();
-
-                try
-                {
-                    // Remove the deleted items from queue first
-                    mailItemQueue.RemoveAll(a => a.ShouldDelete());
-
-                    var mailChunks = mailItemQueue.Chunk(100);
-
-                    foreach (var chunk in mailChunks)
-                    {
-                        // Collect message IDs from the chunk
-                        var messageIdsToDownload = chunk.Select(q => q.RemoteServerId).ToList();
-
-                        try
-                        {
-                            // Download all messages in this chunk using batch API
-                            await DownloadMessagesInBatchAsync(messageIdsToDownload, cancellationToken).ConfigureAwait(false);
-
-                            // Mark all items in chunk as processed
-                            foreach (var queueItem in chunk)
-                            {
-                                queueItem.IsProcessed = true;
-                                queueItem.ProcessedAt = DateTime.UtcNow;
-                                processedCount++;
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            // Mark all items in chunk as failed
-                            foreach (var queueItem in chunk)
-                            {
-                                queueItem.IsProcessed = false;
-                                queueItem.ProcessedAt = null;
-                                queueItem.FailedCount++;
-                                totalFailed++;
-                                processedCount++; // Count failed items as processed for progress
-                            }
-                        }
-
-                        await _gmailChangeProcessor.UpdateMailItemQueueAsync(mailItemQueue).ConfigureAwait(false);
-
-                        // Update progress based on processed items
-                        if (totalInQueue > 0)
-                        {
-                            var remainingItems = totalInQueue - processedCount;
-                            UpdateSyncProgress(totalInQueue, remainingItems, $"Processing emails: {processedCount}/{totalInQueue}");
-                        }
-
-                        // If too many failures, pause to avoid hitting rate limits
-                        if (totalFailed > 85) await Task.Delay(TimeSpan.FromSeconds(10));
-                    }
-                }
-                catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                {
-                    // Handle 429 rate limit errors by waiting and retrying
-                    await Task.Delay(TimeSpan.FromSeconds(10));
-                    continue; // Retry the same batch
-                }
-            }
-
-            // Update account sync status to completed
-            Account.SynchronizationStatus = InitialSynchronizationStatus.Completed;
-
-            await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            throw;
-        }
-    }
-
-
-    #endregion
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {

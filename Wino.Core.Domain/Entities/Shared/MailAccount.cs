@@ -34,11 +34,6 @@ public class MailAccount
     public MailProviderType ProviderType { get; set; }
 
     /// <summary>
-    /// Gets or sets the initial mail sync status for the account.
-    /// </summary>
-    public InitialSynchronizationStatus SynchronizationStatus { get; set; }
-
-    /// <summary>
     /// For tracking mail change delta.
     /// Gmail  : historyId
     /// Outlook: deltaToken

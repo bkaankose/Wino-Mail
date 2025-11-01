@@ -806,56 +806,6 @@ public class MailService : BaseDatabaseService, IMailService
         }
     }
 
-    #region Mail Queue
-
-    public Task ClearMailItemQueueAsync(Guid accountId)
-      => Connection.ExecuteAsync("DELETE FROM MailItemQueue WHERE AccountId = ?", accountId);
-
-    public Task<int> GetMailItemQueueCountAsync(Guid accountId)
-        => Connection.Table<MailItemQueue>().Where(a => a.AccountId == accountId).CountAsync();
-
-    public Task<int> GetMailItemQueueCountByFolderAsync(Guid accountId, string remoteFolderId)
-        => Connection.Table<MailItemQueue>().Where(a => a.AccountId == accountId && a.RemoteFolderId == remoteFolderId).CountAsync();
-
-    public Task UpdateMailItemQueueAsync(IEnumerable<MailItemQueue> queueItems)
-    {
-        if (queueItems == null || !queueItems.Any())
-            return Task.CompletedTask;
-
-        return Connection.UpdateAllAsync(queueItems);
-    }
-
-    public Task AddMailItemQueueItemsAsync(IEnumerable<MailItemQueue> queueItems)
-    {
-        if (queueItems == null || !queueItems.Any())
-            return Task.CompletedTask;
-
-        return Connection.InsertAllAsync(queueItems);
-    }
-
-    public Task<List<MailItemQueue>> GetMailItemQueueAsync(Guid accountId, int take)
-    {
-        // Skip not needed. Items are removed as they are processed.
-
-        return Connection.Table<MailItemQueue>()
-                         .Where(a => a.AccountId == accountId && !a.IsProcessed)
-                         .OrderBy(a => a.CreatedAt)
-                         .Take(take)
-                         .ToListAsync();
-    }
-
-    public Task<List<MailItemQueue>> GetMailItemQueueByFolderAsync(Guid accountId, string remoteFolderId, int take)
-    {
-        // For Outlook per-folder sync
-        return Connection.Table<MailItemQueue>()
-                         .Where(a => a.AccountId == accountId && a.RemoteFolderId == remoteFolderId && !a.IsProcessed)
-                         .OrderBy(a => a.CreatedAt)
-                         .Take(take)
-                         .ToListAsync();
-    }
-
-    #endregion
-
     private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions)
     {
         // This unique id is stored in mime headers for Wino to identify remote message with local copy.

@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
@@ -118,13 +120,14 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         return null;
     }
 
-    public WinoThreadMailItemViewModelListViewItem? GetThreadMailItemContainer(ThreadMailItemViewModel threadMailItemViewModel)
-        => ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
-
-    public bool SelectMailItemContainer(MailItemViewModel mailItemViewModel)
+    public async Task<Tuple<WinoMailItemViewModelListViewItem?, WinoThreadMailItemViewModelListViewItem?, WinoListView?>> GetItemContainersAsync(MailItemViewModel mailItemViewModel)
     {
         WinoMailItemViewModelListViewItem? itemContainer = null;
         WinoThreadMailItemViewModelListViewItem? threadContainer = null;
+        WinoListView? innerListView = null;
+
+        int retryCount = 0;
+        int maxRetries = 5;
 
         foreach (var item in Items)
         {
@@ -132,11 +135,37 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
             {
                 itemContainer = ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
 
+                // Not realized yet.
+                if (itemContainer == null)
+                {
+                    ScrollIntoView(mailItemViewModel);
+
+                    // Wait for the container to be generated.
+                    while (itemContainer == null && retryCount < maxRetries)
+                    {
+                        await Task.Delay(100); // Wait a bit for the UI to update
+                        itemContainer = ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
+                        retryCount++;
+                    }
+                }
+
                 break;
             }
             else if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(mailItemViewModel.MailCopy.UniqueId))
             {
                 threadContainer = ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
+
+                if (threadContainer == null)
+                {
+                    ScrollIntoView(threadMailItemViewModel);
+
+                    while (threadContainer == null && retryCount < maxRetries)
+                    {
+                        await Task.Delay(100); // Wait a bit for the UI to update
+                        threadContainer = ContainerFromItem(threadMailItemViewModel) as WinoThreadMailItemViewModelListViewItem;
+                        retryCount++;
+                    }
+                }
 
                 // Try to get the inner WinoListView.
                 if (threadContainer != null)
@@ -147,25 +176,16 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
 
                     if (innerListViewControl != null)
                     {
+                        innerListView = innerListViewControl;
+                        // TODO: What if it wasn't realized in the thread?
                         itemContainer = innerListViewControl.ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
                     }
                 }
-
                 break;
             }
         }
 
-        if (itemContainer != null)
-        {
-            itemContainer.IsSelected = true;
-            return true;
-        }
-        else if (threadContainer != null)
-        {
-            return true;
-        }
-
-        return false;
+        return new Tuple<WinoMailItemViewModelListViewItem?, WinoThreadMailItemViewModelListViewItem?, WinoListView?>(itemContainer, threadContainer, innerListView);
     }
 
     public void ChangeSelectionMode(ListViewSelectionMode mode)
