@@ -130,7 +130,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
                                 IContactService contactService,
                                 IFontService fontService,
                                 IPreferencesService preferencesService,
-                                IWinoServerConnectionManager winoServerConnectionManager,
                                 ISmimeCertificateService smimeCertificateService)
     {
         NativeAppService = nativeAppService;
@@ -145,7 +144,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
         _fileService = fileService;
         _accountService = accountService;
         _worker = worker;
-        _winoServerConnectionManager = winoServerConnectionManager;
         _smimeCertificateService = smimeCertificateService;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))

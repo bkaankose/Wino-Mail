@@ -4,7 +4,7 @@ using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Core.UWP.Services;
+namespace Wino.Core.WinUI.Services;
 
 public class SmimeCertificateService : ISmimeCertificateService
 {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -47,27 +46,12 @@ public class DialogServiceBase : IDialogServiceBase
 
     public async Task<string> PickFilePathAsync(string saveFileName)
     {
-        // var picker = new FolderPicker()
-        // {
-        //     SuggestedStartLocation = PickerLocationId.Desktop
-        // };
-        //
-        // picker.FileTypeFilter.Add("*");
-        //
-        // var folder = await picker.PickSingleFolderAsync();
-        // if (folder == null) return string.Empty;
-        //
-        // StorageApplicationPermissions.FutureAccessList.Add(folder);
-        //
-        // return folder.Path;
-
-        var picker = new FileSavePicker
+        var picker = new FolderPicker()
         {
-            SuggestedStartLocation = PickerLocationId.Desktop,
-            SuggestedFileName = saveFileName
+            SuggestedStartLocation = PickerLocationId.Desktop
         };
 
-        var extension = Path.GetExtension(saveFileName);
+        picker.FileTypeFilter.Add("*");
 
         nint windowHandle = WindowNative.GetWindowHandle(WinoApplication.MainWindow);
         InitializeWithWindow.Initialize(picker, windowHandle);
@@ -87,12 +71,12 @@ public class DialogServiceBase : IDialogServiceBase
 
         //picker.FileTypeChoices.Add(Translator.FilteringOption_All, [".*"]);
 
-        var file = await picker.PickSaveFileAsync();
-        if (file == null) return string.Empty;
+        //var file = await picker.PickSaveFileAsync();
+        //if (file == null) return string.Empty;
 
-        StorageApplicationPermissions.FutureAccessList.Add(file);
+        //StorageApplicationPermissions.FutureAccessList.Add(file);
 
-        return file.Path;
+        //return file.Path;
     }
 
     public async Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters)

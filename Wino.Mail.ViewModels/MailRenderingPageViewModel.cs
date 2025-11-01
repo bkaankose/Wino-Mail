@@ -153,8 +153,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IUnsubscriptionService unsubscriptionService,
         IPreferencesService preferencesService,
         IPrintService printService,
-        IApplicationConfiguration applicationConfiguration,
-        IWinoServerConnectionManager winoServerConnectionManager)
+        IApplicationConfiguration applicationConfiguration)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;

@@ -21,7 +21,6 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
-    private readonly IWinoServerConnectionManager _winoServerConnectionManager;
     private readonly ISmimeCertificateService _smimeCertificateService;
 
     [ObservableProperty]
@@ -35,12 +34,10 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
-                                        IWinoServerConnectionManager winoServerConnectionManager,
                                         ISmimeCertificateService smimeCertificateService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
-        _winoServerConnectionManager = winoServerConnectionManager;
         _smimeCertificateService = smimeCertificateService;
     }
 
