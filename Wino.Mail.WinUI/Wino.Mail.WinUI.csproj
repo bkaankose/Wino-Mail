@@ -112,7 +112,6 @@
 	  
 	<PackageReference Include="ColorHashSharp" />
 	<PackageReference Include="Sentry.Serilog" />
-	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
 	<PackageReference Include="System.Drawing.Common" />
 	<PackageReference Include="WinUIEx" />

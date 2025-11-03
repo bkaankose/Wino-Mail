@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
 
@@ -10,17 +12,23 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
 {
     public async Task<AccountSignature> GetSignatureAsync(Guid signatureId)
     {
-        return await Connection.Table<AccountSignature>().FirstAsync(s => s.Id == signatureId);
+        using var context = ContextFactory.CreateDbContext();
+        return await context.AccountSignatures.FirstAsync(s => s.Id == signatureId);
     }
 
     public async Task<List<AccountSignature>> GetSignaturesAsync(Guid accountId)
     {
-        return await Connection.Table<AccountSignature>().Where(s => s.MailAccountId == accountId).ToListAsync();
+        using var context = ContextFactory.CreateDbContext();
+        return await context.AccountSignatures
+            .Where(s => s.MailAccountId == accountId)
+            .ToListAsync();
     }
 
     public async Task<AccountSignature> CreateSignatureAsync(AccountSignature signature)
     {
-        await Connection.InsertAsync(signature);
+        using var context = ContextFactory.CreateDbContext();
+        context.AccountSignatures.Add(signature);
+        await context.SaveChangesAsync();
 
         return signature;
     }
@@ -36,21 +44,27 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
             HtmlBody = @"<p>Sent from <a href=""https://github.com/bkaankose/Wino-Mail/"">Wino Mail</a> for Windows</p>"
         };
 
-        await Connection.InsertAsync(defaultSignature);
+        using var context = ContextFactory.CreateDbContext();
+        context.AccountSignatures.Add(defaultSignature);
+        await context.SaveChangesAsync();
 
         return defaultSignature;
     }
 
     public async Task<AccountSignature> UpdateSignatureAsync(AccountSignature signature)
     {
-        await Connection.UpdateAsync(signature);
+        using var context = ContextFactory.CreateDbContext();
+        context.AccountSignatures.Update(signature);
+        await context.SaveChangesAsync();
 
         return signature;
     }
 
     public async Task<AccountSignature> DeleteSignatureAsync(AccountSignature signature)
     {
-        await Connection.DeleteAsync(signature);
+        using var context = ContextFactory.CreateDbContext();
+        context.AccountSignatures.Remove(signature);
+        await context.SaveChangesAsync();
 
         return signature;
     }

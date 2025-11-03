@@ -2,10 +2,10 @@
 using Serilog.Core;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
+using Wino.Core.Synchronizers.Mail;
 
 namespace Wino.Core;
 
@@ -20,9 +20,6 @@ public static class CoreContainerSetup
         services.AddSingleton<ISynchronizationManager>(provider => SynchronizationManager.Instance);
         services.AddTransient<SynchronizationManagerInitializer>();
 
-        services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
-        services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
-        services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IImapTestService, ImapTestService>();
@@ -37,6 +34,11 @@ public static class CoreContainerSetup
         services.AddTransient<CondstoreSynchronizer>();
         services.AddTransient<QResyncSynchronizer>();
         services.AddTransient<UidBasedSynchronizer>();
+
+        // Register synchronizers as transient
+        services.AddTransient<GmailSynchronizer>();
+        services.AddTransient<OutlookSynchronizer>();
+        services.AddTransient<ImapSynchronizer>();
 
         // Register error factory handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();

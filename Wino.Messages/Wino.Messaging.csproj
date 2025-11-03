@@ -7,9 +7,11 @@
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 	</PropertyGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+	  <Compile Remove="Client\Authorization\**" />
+	  <EmbeddedResource Remove="Client\Authorization\**" />
+	  <None Remove="Client\Authorization\**" />
 	</ItemGroup>
 	<ItemGroup>
-	  <Folder Include="Client\Authorization\" />
+		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	</ItemGroup>
 </Project>

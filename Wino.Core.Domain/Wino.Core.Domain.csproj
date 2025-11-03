@@ -56,7 +56,6 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="MimeKit" />
 		<PackageReference Include="MailKit" />
-		<PackageReference Include="sqlite-net-pcl" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
 	</ItemGroup>
 	<ItemGroup>

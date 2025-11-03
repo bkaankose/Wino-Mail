@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -32,7 +32,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
-using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
@@ -76,10 +75,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     private readonly ConfigurableHttpClient _googleHttpClient;
     private readonly GmailService _gmailService;
-    private readonly CalendarService _calendarService;
+    private readonly Google.Apis.Calendar.v3.CalendarService _googleCalendarService;
     private readonly PeopleServiceService _peopleService;
 
-    private readonly IGmailChangeProcessor _gmailChangeProcessor;
+    private readonly Wino.Core.Domain.Interfaces.IMailService _mailService;
+    private readonly IFolderService _folderService;
+    private readonly ICalendarService _winoCalendarService;
+    private readonly IAccountService _accountService;
+    private readonly IMimeFileService _mimeFileService;
+    private readonly IDatabaseService _databaseService;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
     private readonly ILogger _logger = Log.ForContext<GmailSynchronizer>();
 
@@ -88,7 +92,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     public GmailSynchronizer(MailAccount account,
                              IGmailAuthenticator authenticator,
-                             IGmailChangeProcessor gmailChangeProcessor,
+                             Wino.Core.Domain.Interfaces.IMailService mailService,
+                             IFolderService folderService,
+                             ICalendarService winoCalendarService,
+                             IAccountService accountService,
+                             IMimeFileService mimeFileService,
+                             IDatabaseService databaseService,
                              IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory) : base(account, WeakReferenceMessenger.Default)
     {
         var messageHandler = new GmailClientMessageHandler(authenticator, account);
@@ -101,9 +110,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         _googleHttpClient = new ConfigurableHttpClient(messageHandler);
         _gmailService = new GmailService(initializer);
         _peopleService = new PeopleServiceService(initializer);
-        _calendarService = new CalendarService(initializer);
+        _googleCalendarService = new Google.Apis.Calendar.v3.CalendarService(initializer);
 
-        _gmailChangeProcessor = gmailChangeProcessor;
+        _mailService = mailService;
+        _folderService = folderService;
+        _winoCalendarService = winoCalendarService;
+        _accountService = accountService;
+        _mimeFileService = mimeFileService;
+        _databaseService = databaseService;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
     }
 
@@ -138,7 +152,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
         var remoteAliases = sendAsListResponse.GetRemoteAliases();
 
-        await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
+        await _accountService.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
     }
 
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
@@ -189,7 +203,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var downloadedMessageIds = new List<string>();
 
         // Get all folders to synchronize
-        var synchronizationFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+        var synchronizationFolders = await _folderService.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
         
         _logger.Information("Synchronizing {Count} folders for {Name}", synchronizationFolders.Count, Account.Name);
 
@@ -215,7 +229,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         // Get all unread new downloaded items for notifications
-        var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
+        var unreadNewItems = await _mailService.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
         return MailSynchronizationResult.Completed(unreadNewItems);
     }
@@ -305,7 +319,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // Store history ID for future incremental syncs
             var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync(cancellationToken);
             Account.SynchronizationDeltaIdentifier = profile.HistoryId.ToString();
-            await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+            await _accountService.UpdateAccountAsync(Account).ConfigureAwait(false);
 
             _logger.Information("Completed downloading {Count} messages for folder {FolderName}", totalDownloaded, folder.FolderName);
         }
@@ -377,12 +391,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
 
-        var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var localCalendars = await _winoCalendarService.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
         // TODO: Better logging and exception handling.
         foreach (var calendar in localCalendars)
         {
-            var request = _calendarService.Events.List(calendar.RemoteCalendarId);
+            var request = _googleCalendarService.Events.List(calendar.RemoteCalendarId);
 
             request.SingleEvents = false;
             request.ShowDeleted = true;
@@ -435,10 +449,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 // TODO: Exception handling for event processing.
                 // TODO: Also update attendees and other properties.
 
-                await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
+                await ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
             }
 
-            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+            await _winoCalendarService.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
 
         return default;
@@ -446,7 +460,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
     {
-        var calendarListRequest = _calendarService.CalendarList.List();
+        var calendarListRequest = _googleCalendarService.CalendarList.List();
         var calendarListResponse = await calendarListRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
         if (calendarListResponse.Items == null)
@@ -455,7 +469,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             return;
         }
 
-        var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var localCalendars = await _winoCalendarService.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -470,7 +484,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 // Local calendar doesn't exists remotely. Delete local copy.
 
-                await _gmailChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                await _winoCalendarService.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
                 deletedCalendars.Add(calendar);
             }
         }
@@ -508,12 +522,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
         foreach (var calendar in insertedCalendars)
         {
-            await _gmailChangeProcessor.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
+            await _winoCalendarService.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
 
         foreach (var calendar in updatedCalendars)
         {
-            await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+            await _winoCalendarService.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
 
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
@@ -525,7 +539,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     private async Task InitializeArchiveFolderAsync()
     {
-        var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var localFolders = await _folderService.GetFoldersAsync(Account.Id).ConfigureAwait(false);
 
         // Handling of Gmail special virtual Archive folder.
         // We will generate a new virtual folder if doesn't exist.
@@ -548,7 +562,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 ShowUnreadCount = true
             };
 
-            await _gmailChangeProcessor.InsertFolderAsync(archiveFolder).ConfigureAwait(false);
+            await _folderService.InsertFolderAsync(archiveFolder).ConfigureAwait(false);
 
             // Migration-> User might've already have another special folder for Archive.
             // We must remove that type assignment.
@@ -559,7 +573,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             foreach (var otherArchiveFolder in otherArchiveFolders)
             {
                 otherArchiveFolder.SpecialFolderType = SpecialFolderType.Other;
-                await _gmailChangeProcessor.UpdateFolderAsync(otherArchiveFolder).ConfigureAwait(false);
+                await _folderService.UpdateFolderAsync(otherArchiveFolder).ConfigureAwait(false);
             }
         }
         else
@@ -570,7 +584,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     private async Task SynchronizeFoldersAsync(CancellationToken cancellationToken = default)
     {
-        var localFolders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var localFolders = await _folderService.GetFoldersAsync(Account.Id).ConfigureAwait(false);
         var folderRequest = _gmailService.Users.Labels.List("me");
 
         var labelsResponse = await folderRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
@@ -599,7 +613,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             if (remoteFolder == null)
             {
                 // Local folder doesn't exists remotely. Delete local copy.
-                await _gmailChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+                await _folderService.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
 
                 deletedFolders.Add(localFolder);
             }
@@ -646,12 +660,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
         foreach (var folder in insertedFolders)
         {
-            await _gmailChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
+            await _folderService.InsertFolderAsync(folder).ConfigureAwait(false);
         }
 
         foreach (var folder in updatedFolders)
         {
-            await _gmailChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
+            await _folderService.UpdateFolderAsync(folder).ConfigureAwait(false);
         }
 
         if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
@@ -754,7 +768,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                     _logger.Debug("Processing message deletion for {MessageId}", messageId);
 
-                    await _gmailChangeProcessor.DeleteMailAsync(Account.Id, messageId).ConfigureAwait(false);
+                    await _mailService.DeleteMailAsync(Account.Id, messageId).ConfigureAwait(false);
                 }
             }
         }
@@ -763,24 +777,24 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     private async Task HandleArchiveAssignmentAsync(string archivedMessageId)
     {
         // Ignore if the message is already in the archive.
-        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(archivedMessageId, archiveFolderId.Value);
+        bool archived = await _mailService.IsMailExistsAsync(archivedMessageId, archiveFolderId.Value);
 
         if (archived) return;
 
         _logger.Debug("Processing archive assignment for message {Id}", archivedMessageId);
 
-        await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, archivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
+        await _mailService.CreateAssignmentAsync(Account.Id, archivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
     }
 
     private async Task HandleUnarchiveAssignmentAsync(string unarchivedMessageId)
     {
         // Ignore if the message is not in the archive.
-        bool archived = await _gmailChangeProcessor.IsMailExistsInFolderAsync(unarchivedMessageId, archiveFolderId.Value);
+        bool archived = await _mailService.IsMailExistsAsync(unarchivedMessageId, archiveFolderId.Value);
         if (!archived) return;
 
         _logger.Debug("Processing un-archive assignment for message {Id}", unarchivedMessageId);
 
-        await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, unarchivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
+        await _mailService.DeleteAssignmentAsync(Account.Id, unarchivedMessageId, ServiceConstants.ARCHIVE_LABEL_ID).ConfigureAwait(false);
     }
 
     private async Task HandleLabelAssignmentAsync(HistoryLabelAdded addedLabel)
@@ -793,13 +807,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             // When UNREAD label is added mark the message as un-read.
             if (labelId == ServiceConstants.UNREAD_LABEL_ID)
-                await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, false).ConfigureAwait(false);
+                await _mailService.ChangeReadStatusAsync(messageId, false).ConfigureAwait(false);
 
             // When STARRED label is added mark the message as flagged.
             if (labelId == ServiceConstants.STARRED_LABEL_ID)
-                await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, true).ConfigureAwait(false);
+                await _mailService.ChangeFlagStatusAsync(messageId, true).ConfigureAwait(false);
 
-            await _gmailChangeProcessor.CreateAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
+            await _mailService.CreateAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
         }
     }
 
@@ -813,14 +827,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             // When UNREAD label is removed mark the message as read.
             if (labelId == ServiceConstants.UNREAD_LABEL_ID)
-                await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, true).ConfigureAwait(false);
+                await _mailService.ChangeReadStatusAsync(messageId, true).ConfigureAwait(false);
 
             // When STARRED label is removed mark the message as un-flagged.
             if (labelId == ServiceConstants.STARRED_LABEL_ID)
-                await _gmailChangeProcessor.ChangeFlagStatusAsync(messageId, false).ConfigureAwait(false);
+                await _mailService.ChangeFlagStatusAsync(messageId, false).ConfigureAwait(false);
 
             // For other labels remove the mail assignment.
-            await _gmailChangeProcessor.DeleteAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
+            await _mailService.DeleteAssignmentAsync(Account.Id, messageId, labelId).ConfigureAwait(false);
         }
     }
 
@@ -1052,14 +1066,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         var messageIds = messagesToDownload.Select(a => a.Id);
 
-        var downloadRequireMessageIds = messageIds.Except(await _gmailChangeProcessor.AreMailsExistsAsync(messageIds));
+        var downloadRequireMessageIds = messageIds.Except(await _mailService.AreMailsExistsAsync(messageIds));
 
         // Download missing messages in batch.
         await DownloadMessagesInBatchAsync(downloadRequireMessageIds, cancellationToken).ConfigureAwait(false);
 
         // Get results from database and return.
 
-        return await _gmailChangeProcessor.GetMailCopiesAsync(messageIds);
+        return await _mailService.GetMailItemsAsync(messageIds);
     }
 
     /// <summary>
@@ -1163,7 +1177,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                 ? new NewMailItemPackage(package.Copy, mimeMessage, package.AssignedRemoteFolderId)
                                 : package;
                             
-                            await _gmailChangeProcessor.CreateMailAsync(Account.Id, packageWithMime).ConfigureAwait(false);
+                            await _mailService.CreateMailAsync(Account.Id, packageWithMime).ConfigureAwait(false);
                         }
                     }
 
@@ -1204,7 +1218,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             foreach (var package in packages)
             {
-                await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                await _mailService.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
             }
         }
 
@@ -1231,7 +1245,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             return;
         }
 
-        await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+        await _mimeFileService.SaveMimeMessageAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
     }
 
     public override List<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
@@ -1354,7 +1368,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         if (ShouldUpdateSyncIdentifier(historyId))
         {
-            Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, historyId.Value.ToString());
+            Account.SynchronizationDeltaIdentifier = await _accountService.UpdateSyncIdentifierRawAsync(Account.Id, historyId.Value.ToString());
         }
     }
 
@@ -1378,7 +1392,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 foreach (var package in packages)
                 {
-                    await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                    await _mailService.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
                 }
             }
 
@@ -1405,7 +1419,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // fetch updates the historyId. Therefore we need to re-synchronize to get the latest history changes
             // which will have the original message downloaded eventually.
 
-            await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId);
+            await _mailService.MapLocalDraftAsync(Account.Id, localDraftCopy.UniqueId, messageDraft.Message.Id, messageDraft.Id, messageDraft.Message.ThreadId);
 
             var options = new MailSynchronizationOptions()
             {
@@ -1449,7 +1463,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             pageToken = response.NextPageToken;
         } while (!string.IsNullOrEmpty(pageToken));
 
-        var result = await _gmailChangeProcessor.GetGmailArchiveComparisonResultAsync(archiveFolderId.Value, archivedMessageIds).ConfigureAwait(false);
+        var result = await _mailService.GetGmailArchiveComparisonResultAsync(archiveFolderId.Value, archivedMessageIds).ConfigureAwait(false);
 
         foreach (var archiveAddedItem in result.Added)
         {
@@ -1472,7 +1486,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Check if account has any draft locally.
         // There is no point to send this query if there are no local drafts.
 
-        bool hasLocalDrafts = await _gmailChangeProcessor.HasAccountAnyDraftAsync(Account.Id).ConfigureAwait(false);
+        bool hasLocalDrafts = await _mailService.HasAccountAnyDraftAsync(Account.Id).ConfigureAwait(false);
 
         if (!hasLocalDrafts) return;
 
@@ -1487,7 +1501,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         foreach (var draft in drafts.Drafts)
         {
-            await _gmailChangeProcessor.MapLocalDraftAsync(draft.Message.Id, draft.Id, draft.Message.ThreadId);
+            await _mailService.MapLocalDraftAsync(draft.Message.Id, draft.Id, draft.Message.ThreadId);
         }
     }
 
@@ -1599,7 +1613,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 // This message belongs to existing local draft copy.
                 // We don't need to create a new mail copy for this message, just update the existing one.
 
-                bool isMappingSuccesfull = await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
+                bool isMappingSuccesfull = await _mailService.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
 
                 if (isMappingSuccesfull) return null;
 
@@ -1621,13 +1635,246 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     #endregion
 
+    #region Calendar Event Management Helpers
+
+    private async Task ManageCalendarEventAsync(Google.Apis.Calendar.v3.Data.Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
+    {
+        var status = calendarEvent.Status;
+        var recurringEventId = calendarEvent.RecurringEventId;
+
+        // Check if we have this event before.
+        var existingCalendarItem = await _winoCalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
+
+        if (existingCalendarItem == null)
+        {
+            CalendarItem parentRecurringEvent = null;
+
+            if (!string.IsNullOrEmpty(recurringEventId))
+            {
+                parentRecurringEvent = await _winoCalendarService.GetCalendarItemAsync(assignedCalendar.Id, recurringEventId).ConfigureAwait(false);
+
+                if (parentRecurringEvent == null)
+                {
+                    _logger.Information($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
+                    return;
+                }
+            }
+
+            var eventStartDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.Start);
+            var eventEndDateTimeOffset = GoogleIntegratorExtensions.GetEventDateTimeOffset(calendarEvent.End);
+
+            double totalDurationInSeconds = 0;
+
+            if (eventStartDateTimeOffset != null && eventEndDateTimeOffset != null)
+            {
+                totalDurationInSeconds = (eventEndDateTimeOffset.Value - eventStartDateTimeOffset.Value).TotalSeconds;
+            }
+
+            CalendarItem calendarItem = null;
+
+            if (parentRecurringEvent != null)
+            {
+                if (totalDurationInSeconds == 0)
+                {
+                    totalDurationInSeconds = parentRecurringEvent.DurationInSeconds;
+                }
+
+                var organizerMail = GetOrganizerEmail(calendarEvent, organizerAccount);
+                var organizerName = GetOrganizerName(calendarEvent, organizerAccount);
+
+                calendarItem = new CalendarItem()
+                {
+                    CalendarId = assignedCalendar.Id,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    Description = calendarEvent.Description ?? parentRecurringEvent.Description,
+                    Id = Guid.NewGuid(),
+                    StartDate = eventStartDateTimeOffset.Value.DateTime,
+                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
+                    EndDateOffset = eventEndDateTimeOffset?.Offset ?? parentRecurringEvent.EndDateOffset,
+                    DurationInSeconds = totalDurationInSeconds,
+                    Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
+                    Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) == null ? string.Empty : GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
+                    Status = GetCalendarItemStatus(calendarEvent.Status),
+                    Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                    Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetCalendarItemVisibility(calendarEvent.Visibility),
+                    HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent.HtmlLink : calendarEvent.HtmlLink,
+                    RemoteEventId = calendarEvent.Id,
+                    IsLocked = calendarEvent.Locked.GetValueOrDefault(),
+                    OrganizerDisplayName = string.IsNullOrEmpty(organizerName) ? parentRecurringEvent.OrganizerDisplayName : organizerName,
+                    OrganizerEmail = string.IsNullOrEmpty(organizerMail) ? parentRecurringEvent.OrganizerEmail : organizerMail
+                };
+            }
+            else
+            {
+                if (eventStartDateTimeOffset == null || eventEndDateTimeOffset == null)
+                {
+                    _logger.Error("Failed to create parent event because either start or end date is not specified.");
+                    return;
+                }
+
+                calendarItem = new CalendarItem()
+                {
+                    CalendarId = assignedCalendar.Id,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    Description = calendarEvent.Description,
+                    Id = Guid.NewGuid(),
+                    StartDate = eventStartDateTimeOffset.Value.DateTime,
+                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
+                    EndDateOffset = eventEndDateTimeOffset.Value.Offset,
+                    DurationInSeconds = totalDurationInSeconds,
+                    Location = calendarEvent.Location,
+                    Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
+                    Status = GetCalendarItemStatus(calendarEvent.Status),
+                    Title = calendarEvent.Summary,
+                    UpdatedAt = DateTimeOffset.UtcNow,
+                    Visibility = GetCalendarItemVisibility(calendarEvent.Visibility),
+                    HtmlLink = calendarEvent.HtmlLink,
+                    RemoteEventId = calendarEvent.Id,
+                    IsLocked = calendarEvent.Locked.GetValueOrDefault(),
+                    OrganizerDisplayName = GetOrganizerName(calendarEvent, organizerAccount),
+                    OrganizerEmail = GetOrganizerEmail(calendarEvent, organizerAccount)
+                };
+            }
+
+            calendarItem.IsHidden = calendarItem.Status == CalendarItemStatus.Cancelled;
+
+            if (parentRecurringEvent != null)
+            {
+                calendarItem.RecurringCalendarItemId = parentRecurringEvent.Id;
+            }
+
+            var attendees = new List<CalendarEventAttendee>();
+
+            if (calendarEvent.Attendees == null)
+            {
+                attendees.Add(new CalendarEventAttendee()
+                {
+                    CalendarItemId = calendarItem.Id,
+                    IsOrganizer = true,
+                    Email = organizerAccount.Address,
+                    Name = organizerAccount.SenderName,
+                    AttendenceStatus = AttendeeStatus.Accepted,
+                    Id = Guid.NewGuid(),
+                    IsOptionalAttendee = false,
+                });
+            }
+            else
+            {
+                foreach (var attendee in calendarEvent.Attendees)
+                {
+                    if (attendee.Self != true && !string.IsNullOrEmpty(attendee.Email))
+                    {
+                        var eventAttendee = new CalendarEventAttendee()
+                        {
+                            CalendarItemId = calendarItem.Id,
+                            IsOrganizer = attendee.Organizer ?? false,
+                            Comment = attendee.Comment,
+                            Email = attendee.Email,
+                            Name = attendee.DisplayName,
+                            AttendenceStatus = GetAttendeeStatus(attendee.ResponseStatus),
+                            Id = Guid.NewGuid(),
+                            IsOptionalAttendee = attendee.Optional ?? false,
+                        };
+
+                        attendees.Add(eventAttendee);
+                    }
+                }
+            }
+
+            await _winoCalendarService.CreateNewCalendarItemAsync(calendarItem, attendees);
+        }
+        else
+        {
+            if (calendarEvent.Status == "cancelled")
+            {
+                if (string.IsNullOrEmpty(recurringEventId))
+                {
+                    _logger.Information("Parent event is canceled. Deleting all instances of {Id}", existingCalendarItem.Id);
+                    await _winoCalendarService.DeleteCalendarItemAsync(existingCalendarItem.Id).ConfigureAwait(false);
+                    return;
+                }
+                else
+                {
+                    existingCalendarItem.IsHidden = true;
+                }
+            }
+            else
+            {
+                existingCalendarItem.IsHidden = false;
+            }
+
+            // Update using CalendarService
+            using var context = _databaseService.ContextFactory.CreateDbContext();
+            var tracked = context.CalendarItems.Find(existingCalendarItem.Id);
+            if (tracked != null)
+            {
+                context.Entry(tracked).CurrentValues.SetValues(existingCalendarItem);
+                await context.SaveChangesAsync();
+            }
+        }
+    }
+
+    private string GetOrganizerName(Google.Apis.Calendar.v3.Data.Event calendarEvent, MailAccount account)
+    {
+        if (calendarEvent.Organizer == null) return string.Empty;
+        if (calendarEvent.Organizer.Self == true) return account.SenderName;
+        return calendarEvent.Organizer.DisplayName;
+    }
+
+    private string GetOrganizerEmail(Google.Apis.Calendar.v3.Data.Event calendarEvent, MailAccount account)
+    {
+        if (calendarEvent.Organizer == null) return string.Empty;
+        if (calendarEvent.Organizer.Self == true) return account.Address;
+        return calendarEvent.Organizer.Email;
+    }
+
+    private CalendarItemStatus GetCalendarItemStatus(string status)
+    {
+        return status switch
+        {
+            "confirmed" => CalendarItemStatus.Confirmed,
+            "tentative" => CalendarItemStatus.Tentative,
+            "cancelled" => CalendarItemStatus.Cancelled,
+            _ => CalendarItemStatus.Confirmed
+        };
+    }
+
+    private CalendarItemVisibility GetCalendarItemVisibility(string visibility)
+    {
+        return visibility switch
+        {
+            "default" => CalendarItemVisibility.Default,
+            "public" => CalendarItemVisibility.Public,
+            "private" => CalendarItemVisibility.Private,
+            "confidential" => CalendarItemVisibility.Confidential,
+            _ => CalendarItemVisibility.Default
+        };
+    }
+
+    private AttendeeStatus GetAttendeeStatus(string responseStatus)
+    {
+        return responseStatus switch
+        {
+            "accepted" => AttendeeStatus.Accepted,
+            "declined" => AttendeeStatus.Declined,
+            "tentative" => AttendeeStatus.Tentative,
+            "needsAction" => AttendeeStatus.NeedsAction,
+            _ => AttendeeStatus.NeedsAction
+        };
+    }
+
+    #endregion
+
     public override async Task KillSynchronizerAsync()
     {
         await base.KillSynchronizerAsync();
 
         _gmailService.Dispose();
         _peopleService.Dispose();
-        _calendarService.Dispose();
+        _googleCalendarService.Dispose();
         _googleHttpClient.Dispose();
     }
 }
+
+

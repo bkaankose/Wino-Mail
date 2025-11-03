@@ -162,4 +162,10 @@ public interface IMailService
     /// <param name="onlineArchiveMailIds">Retrieved MailCopy ids from search result.</param>
     /// <returns>Result model that contains added and removed mail copy ids.</returns>
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
+
+    /// <summary>
+    /// Deletes all mails for the given account. Used when delta token expires and cache needs to be reset.
+    /// </summary>
+    /// <param name="accountId">Account id to delete mails for.</param>
+    Task DeleteAccountMailsAsync(Guid accountId);
 }

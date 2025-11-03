@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SqlKata;
+using Microsoft.EntityFrameworkCore;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -24,10 +24,11 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<IEnumerable<KeyboardShortcut>> GetKeyboardShortcutsAsync()
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .OrderBy(nameof(KeyboardShortcut.MailOperation));
-
-        return await Connection.QueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.KeyboardShortcuts
+            .OrderBy(k => k.MailOperation)
+            .ToListAsync();
     }
 
     /// <summary>
@@ -35,11 +36,12 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<IEnumerable<KeyboardShortcut>> GetEnabledKeyboardShortcutsAsync()
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.IsEnabled), true)
-            .OrderBy(nameof(KeyboardShortcut.MailOperation));
-
-        return await Connection.QueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.KeyboardShortcuts
+            .Where(k => k.IsEnabled)
+            .OrderBy(k => k.MailOperation)
+            .ToListAsync();
     }
 
     /// <summary>
@@ -47,17 +49,20 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<KeyboardShortcut> SaveKeyboardShortcutAsync(KeyboardShortcut shortcut)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         if (shortcut.Id == Guid.Empty)
         {
             shortcut.Id = Guid.NewGuid();
             shortcut.CreatedAt = DateTime.UtcNow;
-            await Connection.InsertAsync(shortcut);
+            context.KeyboardShortcuts.Add(shortcut);
         }
         else
         {
-            await Connection.UpdateAsync(shortcut);
+            context.KeyboardShortcuts.Update(shortcut);
         }
 
+        await context.SaveChangesAsync();
         return shortcut;
     }
 
@@ -66,10 +71,11 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task DeleteKeyboardShortcutAsync(Guid shortcutId)
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.Id), shortcutId);
-
-        await Connection.ExecuteAsync($"DELETE FROM {nameof(KeyboardShortcut)} WHERE {nameof(KeyboardShortcut.Id)} = ?", shortcutId);
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.KeyboardShortcuts
+            .Where(k => k.Id == shortcutId)
+            .ExecuteDeleteAsync();
     }
 
     /// <summary>
@@ -77,12 +83,12 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<MailOperation?> GetMailOperationForKeyAsync(string key, ModifierKeys modifierKeys)
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.Key), key)
-            .Where(nameof(KeyboardShortcut.ModifierKeys), (int)modifierKeys)
-            .Where(nameof(KeyboardShortcut.IsEnabled), true);
-
-        var shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        using var context = ContextFactory.CreateDbContext();
+        
+        var shortcut = await context.KeyboardShortcuts
+            .Where(k => k.Key == key && k.ModifierKeys == modifierKeys && k.IsEnabled)
+            .FirstOrDefaultAsync();
+            
         return shortcut?.MailOperation;
     }
 
@@ -91,16 +97,17 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<bool> IsKeyCombinationInUseAsync(string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null)
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.Key), key)
-            .Where(nameof(KeyboardShortcut.ModifierKeys), (int)modifierKeys);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var query = context.KeyboardShortcuts
+            .Where(k => k.Key == key && k.ModifierKeys == modifierKeys);
 
         if (excludeShortcutId.HasValue)
         {
-            query = query.WhereNot(nameof(KeyboardShortcut.Id), excludeShortcutId.Value);
+            query = query.Where(k => k.Id != excludeShortcutId.Value);
         }
 
-        var shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        var shortcut = await query.FirstOrDefaultAsync();
         return shortcut != null;
     }
 
@@ -127,8 +134,10 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task ResetToDefaultShortcutsAsync()
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         // Delete all existing shortcuts
-        await Connection.ExecuteAsync($"DELETE FROM {nameof(KeyboardShortcut)}");
+        await context.KeyboardShortcuts.ExecuteDeleteAsync();
 
         // Create default shortcuts
         await CreateDefaultShortcutsAsync();

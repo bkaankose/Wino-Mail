@@ -1,5 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
-using SQLite;
+using Microsoft.EntityFrameworkCore;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -7,7 +7,7 @@ namespace Wino.Services;
 public class BaseDatabaseService
 {
     protected IMessenger Messenger => WeakReferenceMessenger.Default;
-    protected SQLiteAsyncConnection Connection => _databaseService.Connection;
+    protected IDbContextFactory<WinoDbContext> ContextFactory => _databaseService.ContextFactory;
 
     private readonly IDatabaseService _databaseService;
 

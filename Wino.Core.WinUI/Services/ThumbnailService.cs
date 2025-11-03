@@ -7,6 +7,7 @@ using System.Net.Mail;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Gravatar;
+using Microsoft.EntityFrameworkCore;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
@@ -14,10 +15,10 @@ using Wino.Services;
 
 namespace Wino.Core.WinUI.Services;
 
-public class ThumbnailService(IPreferencesService preferencesService, IDatabaseService databaseService) : IThumbnailService
+public class ThumbnailService(IPreferencesService preferencesService, IDbContextFactory<WinoDbContext> contextFactory) : IThumbnailService
 {
     private readonly IPreferencesService _preferencesService = preferencesService;
-    private readonly IDatabaseService _databaseService = databaseService;
+    private readonly IDbContextFactory<WinoDbContext> _contextFactory = contextFactory;
     private static readonly HttpClient _httpClient = new();
     private bool _isInitialized = false;
 
@@ -53,10 +54,11 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
 
         if (!_isInitialized)
         {
-            var thumbnailsList = await _databaseService.Connection.Table<Thumbnail>().ToListAsync();
+            using var context = _contextFactory.CreateDbContext();
+            var thumbnailsList = await context.Thumbnails.ToListAsync();
 
             _cache = new ConcurrentDictionary<string, (string graviton, string favicon)>(
-                thumbnailsList.ToDictionary(x => x.Domain, x => (x.Gravatar, x.Favicon)));
+                thumbnailsList.ToDictionary(x => x.Address, x => (x.Gravatar, x.Favicon)));
             _isInitialized = true;
         }
 
@@ -81,7 +83,9 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
     {
         _cache?.Clear();
         _requests.Clear();
-        await _databaseService.Connection.DeleteAllAsync<Thumbnail>();
+        
+        using var context = _contextFactory.CreateDbContext();
+        await context.Thumbnails.ExecuteDeleteAsync();
     }
 
     private async ValueTask<(string gravatar, string favicon)> GetThumbnailInternal(string email, bool awaitLoad)
@@ -123,13 +127,33 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
         var gravatarBase64 = await GetGravatarBase64(email);
         var faviconBase64 = await GetFaviconBase64(email);
 
-        await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
+        using var context = _contextFactory.CreateDbContext();
+        
+        // Try to find existing thumbnail
+        var existingThumbnail = await context.Thumbnails
+            .FirstOrDefaultAsync(t => t.Address == email);
+
+        if (existingThumbnail != null)
         {
-            Domain = email,
-            Gravatar = gravatarBase64,
-            Favicon = faviconBase64,
-            LastUpdated = DateTime.UtcNow
-        });
+            // Update existing
+            existingThumbnail.Gravatar = gravatarBase64;
+            existingThumbnail.Favicon = faviconBase64;
+            existingThumbnail.LastUpdated = DateTime.UtcNow;
+        }
+        else
+        {
+            // Insert new
+            context.Thumbnails.Add(new Thumbnail
+            {
+                Id = Guid.NewGuid(),
+                Address = email,
+                Gravatar = gravatarBase64,
+                Favicon = faviconBase64,
+                LastUpdated = DateTime.UtcNow
+            });
+        }
+
+        await context.SaveChangesAsync();
         _ = _cache.TryAdd(email, (gravatarBase64, faviconBase64));
 
         WeakReferenceMessenger.Default.Send(new ThumbnailAdded(email));

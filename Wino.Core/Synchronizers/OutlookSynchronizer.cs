@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -29,6 +29,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Services;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Folders;
@@ -36,7 +37,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
-using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
@@ -103,15 +103,25 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
 
     private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
-    private readonly IOutlookChangeProcessor _outlookChangeProcessor;
+    private readonly Wino.Core.Domain.Interfaces.IMailService _mailService;
+    private readonly IFolderService _folderService;
+    private readonly ICalendarService _calendarService;
+    private readonly IAccountService _accountService;
+    private readonly IMimeFileService _mimeFileService;
+    private readonly IDatabaseService _databaseService;
     private readonly GraphServiceClient _graphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
 
     public OutlookSynchronizer(MailAccount account,
-                               IAuthenticator authenticator,
-                               IOutlookChangeProcessor outlookChangeProcessor,
+                               IOutlookAuthenticator authenticator,
+                               Wino.Core.Domain.Interfaces.IMailService mailService,
+                               IFolderService folderService,
+                               ICalendarService calendarService,
+                               IAccountService accountService,
+                               IMimeFileService mimeFileService,
+                               IDatabaseService databaseService,
                                IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory) : base(account, WeakReferenceMessenger.Default)
     {
         var tokenProvider = new MicrosoftTokenProvider(Account, authenticator);
@@ -125,7 +135,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var httpClient = GraphClientFactory.Create(handlers);
         _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
 
-        _outlookChangeProcessor = outlookChangeProcessor;
+        _mailService = mailService;
+        _folderService = folderService;
+        _calendarService = calendarService;
+        _accountService = accountService;
+        _mimeFileService = mimeFileService;
+        _databaseService = databaseService;
         _errorHandlingFactory = errorHandlingFactory;
     }
 
@@ -154,7 +169,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             if (options.Type != MailSynchronizationType.FoldersOnly)
             {
-                var synchronizationFolders = await _outlookChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+                var synchronizationFolders = await _folderService.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
                 _logger.Information(string.Format("{1} Folders: {0}", string.Join(",", synchronizationFolders.Select(a => a.FolderName)), synchronizationFolders.Count));
 
@@ -188,7 +203,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Get all unred new downloaded items and return in the result.
         // This is primarily used in notifications.
 
-        var unreadNewItems = await _outlookChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
+        var unreadNewItems = await _mailService.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
         return MailSynchronizationResult.Completed(unreadNewItems);
     }
@@ -216,7 +231,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            await _outlookChangeProcessor.CreateMailRawAsync(Account, assignedFolder, package).ConfigureAwait(false);
+            await _mailService.CreateMailRawAsync(Account, assignedFolder, package).ConfigureAwait(false);
         }
     }
 
@@ -244,7 +259,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             await ProcessDeltaChangesAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
         }
 
-        await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
+        await _folderService.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
 
         if (downloadedMessageIds.Any())
         {
@@ -290,7 +305,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     if (!IsResourceDeleted(message.AdditionalData) && !IsNotRealMessageType(message))
                     {
                         // Check if message already exists
-                        bool mailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(message.Id, folder.Id).ConfigureAwait(false);
+                        bool mailExists = await _mailService.IsMailExistsAsync(message.Id, folder.Id).ConfigureAwait(false);
 
                         if (!mailExists)
                         {
@@ -301,7 +316,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                             {
                                 // Create package without MIME
                                 var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
-                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                                bool isInserted = await _mailService.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
 
                                 if (isInserted)
                                 {
@@ -341,8 +356,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
             {
                 var deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
-                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
-                await _outlookChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
+                await _folderService.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+                await _folderService.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
                 folder.DeltaToken = deltaToken;
                 _logger.Information("Stored delta token for folder {FolderName} - future syncs will be incremental", folder.FolderName);
             }
@@ -403,7 +418,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var messagesToDownload = new List<string>();
         foreach (var messageId in messageIds)
         {
-            bool mailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(messageId, folder.Id).ConfigureAwait(false);
+            bool mailExists = await _mailService.IsMailExistsAsync(messageId, folder.Id).ConfigureAwait(false);
             if (!mailExists)
             {
                 messagesToDownload.Add(messageId);
@@ -470,7 +485,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                             {
                                 // Create package without MIME
                                 var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
-                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                                bool isInserted = await _mailService.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
 
                                 if (isInserted)
                                 {
@@ -575,7 +590,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 // This message belongs to existing local draft copy.
                 // We don't need to create a new mail copy for this message, just update the existing one.
                 
-                bool isMappingSuccessful = await _outlookChangeProcessor.MapLocalDraftAsync(
+                bool isMappingSuccessful = await _mailService.MapLocalDraftAsync(
                     Account.Id, 
                     localDraftCopyUniqueId, 
                     mailCopy.Id, 
@@ -707,7 +722,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
             {
                 var deltaToken = GetDeltaTokenFromDeltaLink(messageIterator.Deltalink);
-                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
+                await _folderService.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, deltaToken).ConfigureAwait(false);
                 _logger.Debug("Updated delta token for folder {FolderName} after processing delta changes", folder.FolderName);
             }
         }
@@ -739,7 +754,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         if (IsResourceDeleted(folder.AdditionalData))
         {
-            await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, folder.Id).ConfigureAwait(false);
+            await _folderService.DeleteFolderAsync(Account.Id, folder.Id).ConfigureAwait(false);
         }
         else
         {
@@ -771,7 +786,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             // By default, all special folders update unread count in the UI except Trash.
             item.ShowUnreadCount = item.SpecialFolderType != SpecialFolderType.Deleted || item.SpecialFolderType != SpecialFolderType.Other;
 
-            await _outlookChangeProcessor.InsertFolderAsync(item).ConfigureAwait(false);
+            await _folderService.InsertFolderAsync(item).ConfigureAwait(false);
         }
 
         return true;
@@ -795,13 +810,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             // Deleting item with this override instead of the other one that deletes all mail copies.
             // Outlook mails have 1 assignment per-folder, unlike Gmail that has one to many.
 
-            await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
+            await _mailService.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
         }
         else
         {
             // If the item exists in the local database, it means that it's already downloaded. Process as an Update.
 
-            var isMailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(item.Id, folder.Id);
+            var isMailExists = await _mailService.IsMailExistsAsync(item.Id, folder.Id);
 
             if (isMailExists)
             {
@@ -811,14 +826,14 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 if (item.IsRead != null)
                 {
                     _logger.Debug("Updating read status for mail {MessageId}: IsRead={IsRead}", item.Id, item.IsRead.GetValueOrDefault());
-                    await _outlookChangeProcessor.ChangeMailReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
+                    await _mailService.ChangeReadStatusAsync(item.Id, item.IsRead.GetValueOrDefault()).ConfigureAwait(false);
                 }
 
                 if (item.Flag?.FlagStatus != null)
                 {
                     var isFlagged = item.Flag.FlagStatus.GetValueOrDefault() == FollowupFlagStatus.Flagged;
                     _logger.Debug("Updating flag status for mail {MessageId}: IsFlagged={IsFlagged}", item.Id, isFlagged);
-                    await _outlookChangeProcessor.ChangeFlagStatusAsync(item.Id, isFlagged).ConfigureAwait(false);
+                    await _mailService.ChangeFlagStatusAsync(item.Id, isFlagged).ConfigureAwait(false);
                 }
             }
             else
@@ -847,7 +862,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     {
                         // Only add to downloaded message ids if it's inserted successfuly.
                         // Updates should not be added to the list because they are not new.
-                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                        bool isInserted = await _mailService.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
 
                         if (isInserted)
                         {
@@ -1007,8 +1022,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         if (string.IsNullOrEmpty(deltalink)) return;
 
         var deltaToken = deltalink.Split('=')[1];
-        var latestAccountDeltaToken = await _outlookChangeProcessor
-            .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, deltaToken);
+        var latestAccountDeltaToken = await _accountService
+            .UpdateSyncIdentifierRawAsync(Account.Id, deltaToken);
 
         if (!string.IsNullOrEmpty(latestAccountDeltaToken))
         {
@@ -1322,7 +1337,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                                            CancellationToken cancellationToken = default)
     {
         var mimeMessage = await DownloadMimeMessageAsync(mailItem.Id, cancellationToken).ConfigureAwait(false);
-        await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+        await _mimeFileService.SaveMimeMessageAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
     }
 
     public override List<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
@@ -1536,7 +1551,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         if (messagesReturnedByApi.Count == 0) return [];
 
-        var localFolders = (await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false))
+        var localFolders = (await _folderService.GetFoldersAsync(Account.Id).ConfigureAwait(false))
             .ToDictionary(x => x.RemoteFolderId);
 
         var messagesDictionary = messagesReturnedByApi.ToDictionary(a => a.Id);
@@ -1556,7 +1571,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             messageIdsWithKnownFolder.Add(message.Id);
         }
 
-        var locallyExistingMails = await _outlookChangeProcessor.AreMailsExistsAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
+        var locallyExistingMails = await _mailService.AreMailsExistsAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
 
         // Find messages that are not downloaded yet.
         List<Message> messagesToDownload = [];
@@ -1571,7 +1586,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
 
         // Get results from database and return.
-        return await _outlookChangeProcessor.GetMailCopiesAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
+        return await _mailService.GetMailItemsAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
     }
 
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)
@@ -1605,7 +1620,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
-        var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var localCalendars = await _calendarService.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
         Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse eventsDeltaResponse = null;
 
@@ -1693,7 +1708,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 try
                 {
                     await _handleItemRetrievalSemaphore.WaitAsync();
-                    await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
+                    await ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -1714,7 +1729,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
 
-                await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                await _calendarService.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
             }
         }
 
@@ -1725,7 +1740,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         var calendars = await _graphClient.Me.Calendars.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var localCalendars = await _calendarService.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -1740,7 +1755,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 // Local calendar doesn't exists remotely. Delete local copy.
 
-                await _outlookChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+                await _calendarService.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
                 deletedCalendars.Add(calendar);
             }
         }
@@ -1778,12 +1793,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // 3.Process changes in order-> Insert, Update. Deleted ones are already processed.
         foreach (var calendar in insertedCalendars)
         {
-            await _outlookChangeProcessor.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
+            await _calendarService.InsertAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
 
         foreach (var calendar in updatedCalendars)
         {
-            await _outlookChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+            await _calendarService.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
         }
 
         if (insertedCalendars.Any() || deletedCalendars.Any() || updatedCalendars.Any())
@@ -1803,6 +1818,121 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
     }
 
+    private async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
+    {
+        // We parse the occurrences based on the parent event.
+        // There is literally no point to store them because
+        // type=Exception events are the exceptional childs of recurrency parent event.
+
+        if (calendarEvent.Type == EventType.Occurrence) return;
+
+        var savingItem = await _calendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
+
+        Guid savingItemId = Guid.Empty;
+
+        if (savingItem != null)
+            savingItemId = savingItem.Id;
+        else
+        {
+            savingItemId = Guid.NewGuid();
+            savingItem = new CalendarItem() { Id = savingItemId };
+        }
+
+        DateTimeOffset eventStartDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.Start);
+        DateTimeOffset eventEndDateTimeOffset = OutlookIntegratorExtensions.GetDateTimeOffsetFromDateTimeTimeZone(calendarEvent.End);
+
+        var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
+
+        savingItem.RemoteEventId = calendarEvent.Id;
+        savingItem.StartDate = eventStartDateTimeOffset.DateTime;
+        savingItem.StartDateOffset = eventStartDateTimeOffset.Offset;
+        savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
+        savingItem.DurationInSeconds = durationInSeconds;
+
+        savingItem.Title = calendarEvent.Subject;
+        savingItem.Description = calendarEvent.Body?.Content;
+        savingItem.Location = calendarEvent.Location?.DisplayName;
+
+        if (calendarEvent.Type == EventType.Exception && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
+        {
+            // This is a recurring event exception.
+            // We need to find the parent event and set it as recurring event id.
+
+            var parentEvent = await _calendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterId);
+
+            if (parentEvent != null)
+            {
+                savingItem.RecurringCalendarItemId = parentEvent.Id;
+            }
+            else
+            {
+                Log.Warning($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
+                return;
+            }
+        }
+
+        // Convert the recurrence pattern to string for parent recurring events.
+        if (calendarEvent.Type == EventType.SeriesMaster && calendarEvent.Recurrence != null)
+        {
+            savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
+        }
+
+        savingItem.HtmlLink = calendarEvent.WebLink;
+        savingItem.CalendarId = assignedCalendar.Id;
+        savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
+        savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;
+        savingItem.IsHidden = false;
+
+        if (calendarEvent.ResponseStatus?.Response != null)
+        {
+            switch (calendarEvent.ResponseStatus.Response.Value)
+            {
+                case ResponseType.None:
+                case ResponseType.NotResponded:
+                    savingItem.Status = CalendarItemStatus.NotResponded;
+                    break;
+                case ResponseType.TentativelyAccepted:
+                    savingItem.Status = CalendarItemStatus.Tentative;
+                    break;
+                case ResponseType.Accepted:
+                case ResponseType.Organizer:
+                    savingItem.Status = CalendarItemStatus.Confirmed;
+                    break;
+                case ResponseType.Declined:
+                    savingItem.Status = CalendarItemStatus.Cancelled;
+                    savingItem.IsHidden = true;
+                    break;
+                default:
+                    break;
+            }
+        }
+        else
+        {
+            savingItem.Status = CalendarItemStatus.Confirmed;
+        }
+
+        // Upsert the event using EF Core.
+        using var context = _databaseService.ContextFactory.CreateDbContext();
+        var tracked = context.CalendarItems.Find(savingItem.Id);
+        if (tracked != null)
+        {
+            context.Entry(tracked).CurrentValues.SetValues(savingItem);
+        }
+        else
+        {
+            context.CalendarItems.Add(savingItem);
+        }
+        await context.SaveChangesAsync();
+
+        // Manage attendees.
+        if (calendarEvent.Attendees != null)
+        {
+            // Clear all attendees for this event.
+            var attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
+            await _calendarService.ManageEventAttendeesAsync(savingItemId, attendees).ConfigureAwait(false);
+        }
+    }
+
     public override async Task KillSynchronizerAsync()
     {
         await base.KillSynchronizerAsync();
@@ -1810,3 +1940,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _graphClient.Dispose();
     }
 }
+
+
+

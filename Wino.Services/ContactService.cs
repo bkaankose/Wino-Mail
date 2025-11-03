@@ -2,12 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using MimeKit;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
-using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
@@ -19,27 +18,34 @@ public class ContactService : BaseDatabaseService, IContactService
     {
         var contact = new AccountContact() { Address = address, Name = displayName };
 
-        await Connection.InsertAsync(contact).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        context.AccountContacts.Add(contact);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         return contact;
     }
 
-    public Task<List<AccountContact>> GetAddressInformationAsync(string queryText)
+    public async Task<List<AccountContact>> GetAddressInformationAsync(string queryText)
     {
         if (queryText == null || queryText.Length < 2)
-            return Task.FromResult<List<AccountContact>>(null);
+            return null;
 
-        var query = new Query(nameof(AccountContact));
-        query.WhereContains("Address", queryText);
-        query.OrWhereContains("Name", queryText);
-
-        var rawLikeQuery = query.GetRawQuery();
-
-        return Connection.QueryAsync<AccountContact>(rawLikeQuery);
+        using var context = ContextFactory.CreateDbContext();
+        // EF Core LINQ equivalent of SqlKata WhereContains
+        return await context.AccountContacts
+            .Where(a => EF.Functions.Like(a.Address, $"%{queryText}%") || 
+                       EF.Functions.Like(a.Name, $"%{queryText}%"))
+            .ToListAsync()
+            .ConfigureAwait(false);
     }
 
-    public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
-        => Connection.Table<AccountContact>().FirstOrDefaultAsync(a => a.Address == address);
+    public async Task<AccountContact> GetAddressInformationByAddressAsync(string address)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.AccountContacts
+            .FirstOrDefaultAsync(a => a.Address == address)
+            .ConfigureAwait(false);
+    }
 
     public async Task SaveAddressInformationAsync(MimeMessage message)
     {
@@ -55,13 +61,18 @@ public class ContactService : BaseDatabaseService, IContactService
 
             try
             {
+                using var context = ContextFactory.CreateDbContext();
                 if (currentContact == null)
                 {
-                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                    context.AccountContacts.Add(info);
+                    await context.SaveChangesAsync().ConfigureAwait(false);
                 }
                 else if (!currentContact.IsRootContact && !currentContact.IsOverridden) // Don't update root contacts or overridden contacts.
                 {
-                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                    // Update existing contact
+                    currentContact.Name = info.Name;
+                    context.AccountContacts.Update(currentContact);
+                    await context.SaveChangesAsync().ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -71,23 +82,26 @@ public class ContactService : BaseDatabaseService, IContactService
         }
     }
 
-    public Task<List<AccountContact>> GetAllContactsAsync()
+    public async Task<List<AccountContact>> GetAllContactsAsync()
     {
-        return Connection.Table<AccountContact>().ToListAsync();
+        using var context = ContextFactory.CreateDbContext();
+        return await context.AccountContacts.ToListAsync().ConfigureAwait(false);
     }
 
-    public Task<List<AccountContact>> SearchContactsAsync(string searchQuery)
+    public async Task<List<AccountContact>> SearchContactsAsync(string searchQuery)
     {
         if (string.IsNullOrWhiteSpace(searchQuery))
-            return GetAllContactsAsync();
+            return await GetAllContactsAsync().ConfigureAwait(false);
 
-        var query = new Query(nameof(AccountContact));
-        query.WhereContains("Address", searchQuery.Trim());
-        query.OrWhereContains("Name", searchQuery.Trim());
+        var trimmedQuery = searchQuery.Trim();
 
-        var rawLikeQuery = query.GetRawQuery();
-
-        return Connection.QueryAsync<AccountContact>(rawLikeQuery);
+        using var context = ContextFactory.CreateDbContext();
+        // EF Core LINQ equivalent of SqlKata WhereContains
+        return await context.AccountContacts
+            .Where(a => EF.Functions.Like(a.Address, $"%{trimmedQuery}%") || 
+                       EF.Functions.Like(a.Name, $"%{trimmedQuery}%"))
+            .ToListAsync()
+            .ConfigureAwait(false);
     }
 
     public async Task<AccountContact> UpdateContactAsync(AccountContact contact)
@@ -95,7 +109,9 @@ public class ContactService : BaseDatabaseService, IContactService
         // Mark the contact as overridden when manually updated
         contact.IsOverridden = true;
         
-        await Connection.UpdateAsync(contact).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        context.AccountContacts.Update(contact);
+        await context.SaveChangesAsync().ConfigureAwait(false);
         
         return contact;
     }
@@ -106,7 +122,9 @@ public class ContactService : BaseDatabaseService, IContactService
         
         if (contact != null && !contact.IsRootContact)
         {
-            await Connection.DeleteAsync(contact).ConfigureAwait(false);
+            using var context = ContextFactory.CreateDbContext();
+            context.AccountContacts.Remove(contact);
+            await context.SaveChangesAsync().ConfigureAwait(false);
         }
     }
 

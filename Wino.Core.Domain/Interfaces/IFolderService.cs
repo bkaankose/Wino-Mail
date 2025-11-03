@@ -91,4 +91,12 @@ public interface IFolderService
     /// </summary>
     /// <param name="accountIds">Account ids to get unread folder counts for.</param>
     Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds);
+
+    /// <summary>
+    /// Updates the folder delta synchronization identifier.
+    /// Used for Outlook delta synchronization.
+    /// </summary>
+    /// <param name="folderId">Folder to update.</param>
+    /// <param name="synchronizationIdentifier">Delta token.</param>
+    Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier);
 }

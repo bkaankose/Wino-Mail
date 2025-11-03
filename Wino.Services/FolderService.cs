@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -41,10 +41,18 @@ public class FolderService : BaseDatabaseService, IFolderService
     }
 
     public async Task ChangeStickyStatusAsync(Guid folderId, bool isSticky)
-        => await Connection.ExecuteAsync("UPDATE MailItemFolder SET IsSticky = ? WHERE Id = ?", isSticky, folderId);
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.MailItemFolders
+            .Where(f => f.Id == folderId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(f => f.IsSticky, isSticky));
+    }
 
     public async Task<int> GetFolderNotificationBadgeAsync(Guid folderId)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var folder = await GetFolderAsync(folderId);
 
         if (folder == null || !folder.ShowUnreadCount) return default;
@@ -53,27 +61,27 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         if (account == null) return default;
 
-        var query = new Query("MailCopy")
-                    .Where("FolderId", folderId)
-                    .SelectRaw("count (DISTINCT Id)");
+        var query = context.MailCopies.Where(mc => mc.FolderId == folderId);
 
         // If focused inbox is enabled, we need to check if this is the inbox folder.
         if (account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault() && folder.SpecialFolderType == SpecialFolderType.Inbox)
         {
-            query.Where("IsFocused", 1);
+            query = query.Where(mc => mc.IsFocused);
         }
 
         // Draft and Junk folders are not counted as unread. They must return the item count instead.
         if (folder.SpecialFolderType != SpecialFolderType.Draft && folder.SpecialFolderType != SpecialFolderType.Junk)
         {
-            query.Where("IsRead", 0);
+            query = query.Where(mc => !mc.IsRead);
         }
 
-        return await Connection.ExecuteScalarAsync<int>(query.GetRawQuery());
+        return await query.Select(mc => mc.Id).Distinct().CountAsync();
     }
 
     public async Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var account = await _accountService.GetAccountAsync(accountId);
 
         if (account == null)
@@ -82,7 +90,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         var accountTree = new AccountFolderTree(account);
 
         // Account folders.
-        var folderQuery = Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == accountId);
+        var folderQuery = context.MailItemFolders.Where(a => a.MailAccountId == accountId);
 
         if (!includeHiddenFolders)
             folderQuery = folderQuery.Where(a => !a.IsHidden);
@@ -145,8 +153,7 @@ public class FolderService : BaseDatabaseService, IFolderService
                     }
                     else if (account.ProviderType == MailProviderType.Outlook)
                     {
-                        bool belongsToExistingParent = await Connection
-                            .Table<MailItemFolder>()
+                        bool belongsToExistingParent = await context.MailItemFolders
                             .Where(a => unstickyItem.ParentRemoteFolderId == a.RemoteFolderId)
                             .CountAsync() > 0;
 
@@ -183,16 +190,17 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     private async Task<FolderMenuItem> GetPreparedFolderMenuItemRecursiveAsync(MailAccount account, MailItemFolder parentFolder, IMenuItem parentMenuItem)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         // Localize category folder name.
         if (parentFolder.SpecialFolderType == SpecialFolderType.Category) parentFolder.FolderName = Translator.CategoriesFolderNameOverride;
 
-        var query = new Query(nameof(MailItemFolder))
-                    .Where(nameof(MailItemFolder.ParentRemoteFolderId), parentFolder.RemoteFolderId)
-                    .Where(nameof(MailItemFolder.MailAccountId), parentFolder.MailAccountId);
-
         var preparedFolder = new FolderMenuItem(parentFolder, account, parentMenuItem);
 
-        var childFolders = await Connection.QueryAsync<MailItemFolder>(query.GetRawQuery()).ConfigureAwait(false);
+        var childFolders = await context.MailItemFolders
+            .Where(f => f.ParentRemoteFolderId == parentFolder.RemoteFolderId && f.MailAccountId == parentFolder.MailAccountId)
+            .ToListAsync()
+            .ConfigureAwait(false);
 
         if (childFolders.Any())
         {
@@ -319,12 +327,16 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     private async Task<MailItemFolder> GetChildFolderItemsRecursiveAsync(Guid folderId, Guid accountId)
     {
-        var folder = await Connection.Table<MailItemFolder>().Where(a => a.Id == folderId && a.MailAccountId == accountId).FirstOrDefaultAsync();
+        using var context = ContextFactory.CreateDbContext();
+        
+        var folder = await context.MailItemFolders
+            .Where(a => a.Id == folderId && a.MailAccountId == accountId)
+            .FirstOrDefaultAsync();
 
         if (folder == null)
             return null;
 
-        var childFolders = await Connection.Table<MailItemFolder>()
+        var childFolders = await context.MailItemFolders
             .Where(a => a.ParentRemoteFolderId == folder.RemoteFolderId && a.MailAccountId == folder.MailAccountId)
             .ToListAsync();
 
@@ -338,31 +350,41 @@ public class FolderService : BaseDatabaseService, IFolderService
     }
 
     public async Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type)
-        => await Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.SpecialFolderType == type);
-
-    public async Task<MailItemFolder> GetFolderAsync(Guid folderId)
-        => await Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.Id.Equals(folderId));
-
-    public Task<int> GetCurrentItemCountForFolder(Guid folderId)
-        => Connection.Table<MailCopy>().Where(a => a.FolderId == folderId).CountAsync();
-
-    public Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
     {
-        var query = new Query(nameof(MailItemFolder))
-                    .Where(nameof(MailItemFolder.MailAccountId), accountId)
-                    .OrderBy(nameof(MailItemFolder.SpecialFolderType));
-
-        return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailItemFolders.FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.SpecialFolderType == type);
     }
 
-    public Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
+    public async Task<MailItemFolder> GetFolderAsync(Guid folderId)
     {
-        var query = new Query(nameof(MailItemFolder))
-                    .Where(nameof(MailItemFolder.MailAccountId), accountId)
-                    .Where(nameof(MailItemFolder.IsHidden), false)
-                    .OrderBy(nameof(MailItemFolder.SpecialFolderType));
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailItemFolders.FirstOrDefaultAsync(a => a.Id.Equals(folderId));
+    }
 
-        return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+    public async Task<int> GetCurrentItemCountForFolder(Guid folderId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailCopies.Where(a => a.FolderId == folderId).CountAsync();
+    }
+
+    public async Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailItemFolders
+            .Where(f => f.MailAccountId == accountId)
+            .OrderBy(f => f.SpecialFolderType)
+            .ToListAsync();
+    }
+
+    public async Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailItemFolders
+            .Where(f => f.MailAccountId == accountId && !f.IsHidden)
+            .OrderBy(f => f.SpecialFolderType)
+            .ToListAsync();
     }
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
@@ -408,7 +430,9 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     public async Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled)
     {
-        var localFolder = await Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.Id == folderId);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var localFolder = await context.MailItemFolders.FirstOrDefaultAsync(a => a.Id == folderId);
 
         if (localFolder != null)
         {
@@ -450,9 +474,12 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         if (existingFolder == null)
         {
+            using var context = ContextFactory.CreateDbContext();
+            
             _logger.Debug("Inserting folder {Id} - {FolderName}", folder.Id, folder.FolderName, folder.MailAccountId);
 
-            await Connection.InsertAsync(folder).ConfigureAwait(false);
+            context.MailItemFolders.Add(folder);
+            await context.SaveChangesAsync().ConfigureAwait(false);
         }
         else
         {
@@ -481,9 +508,12 @@ public class FolderService : BaseDatabaseService, IFolderService
             return;
         }
 
+        using var context = ContextFactory.CreateDbContext();
+        
         _logger.Debug("Updating folder {FolderName}", folder.Id, folder.FolderName);
 
-        await Connection.UpdateAsync(folder).ConfigureAwait(false);
+        context.MailItemFolders.Update(folder);
+        await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private async Task DeleteFolderAsync(MailItemFolder folder)
@@ -502,39 +532,53 @@ public class FolderService : BaseDatabaseService, IFolderService
             return;
         }
 
+        using var context = ContextFactory.CreateDbContext();
+        
         _logger.Debug("Deleting folder {FolderName}", folder.FolderName);
 
-        await Connection.DeleteAsync(folder).ConfigureAwait(false);
+        context.MailItemFolders.Remove(folder);
 
         // Delete all existing mails from this folder.
-        await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", folder.Id);
+        await context.MailCopies.Where(mc => mc.FolderId == folder.Id).ExecuteDeleteAsync();
+        
+        await context.SaveChangesAsync();
 
         // TODO: Delete MIME messages from the disk.
     }
 
     #endregion
 
-    private Task<List<string>> GetMailCopyIdsByFolderIdAsync(Guid folderId)
+    private async Task<List<string>> GetMailCopyIdsByFolderIdAsync(Guid folderId)
     {
-        var query = new Query("MailCopy")
-                    .Where("FolderId", folderId)
-                    .Select("Id");
-
-        return Connection.QueryScalarsAsync<string>(query.GetRawQuery());
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailCopies
+            .Where(mc => mc.FolderId == folderId)
+            .Select(mc => mc.Id)
+            .ToListAsync();
     }
 
     public async Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(IEnumerable<string> mailCopyIds)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         // Get all assignments for all items.
-        var query = new Query(nameof(MailCopy))
-                    .Join(nameof(MailItemFolder), $"{nameof(MailCopy)}.FolderId", $"{nameof(MailItemFolder)}.Id")
-                    .WhereIn($"{nameof(MailCopy)}.Id", mailCopyIds)
-                    .SelectRaw($"{nameof(MailCopy)}.Id as MailCopyId, {nameof(MailItemFolder)}.Id as FolderId, {nameof(MailItemFolder)}.RemoteFolderId as RemoteFolderId")
-                    .Distinct();
+        var result = await context.MailCopies
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mif => mif.Id,
+                (mc, mif) => new { MailCopy = mc, Folder = mif })
+            .Where(x => mailCopyIds.Contains(x.MailCopy.Id))
+            .Select(x => new MailFolderPairMetadata
+            {
+                MailCopyId = x.MailCopy.Id,
+                FolderId = x.Folder.Id,
+                RemoteFolderId = x.Folder.RemoteFolderId
+            })
+            .Distinct()
+            .ToListAsync();
 
-        var rowQuery = query.GetRawQuery();
-
-        return await Connection.QueryAsync<MailFolderPairMetadata>(rowQuery);
+        return result;
     }
 
     public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)
@@ -542,6 +586,8 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     public async Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var folders = new List<MailItemFolder>();
 
         if (options.Type == MailSynchronizationType.IMAPIdle)
@@ -560,7 +606,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         {
             // Only get sync enabled folders.
 
-            var synchronizationFolders = await Connection.Table<MailItemFolder>()
+            var synchronizationFolders = await context.MailItemFolders
                 .Where(a => a.MailAccountId == options.AccountId && a.IsSynchronizationEnabled)
                 .OrderBy(a => a.SpecialFolderType)
                 .ToListAsync();
@@ -582,7 +628,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             {
                 // Only get the specified folders.
 
-                var synchronizationFolders = await Connection.Table<MailItemFolder>()
+                var synchronizationFolders = await context.MailItemFolders
                     .Where(a =>
                     a.MailAccountId == options.AccountId &&
                     options.SynchronizationFolderIds.Contains(a.Id))
@@ -648,8 +694,11 @@ public class FolderService : BaseDatabaseService, IFolderService
         return folders;
     }
 
-    public Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId)
-        => Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == remoteFolderId);
+    public async Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailItemFolders.FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == remoteFolderId);
+    }
 
     public async Task DeleteFolderAsync(Guid accountId, string remoteFolderId)
     {
@@ -678,23 +727,52 @@ public class FolderService : BaseDatabaseService, IFolderService
     }
 
     public async Task<bool> IsInboxAvailableForAccountAsync(Guid accountId)
-        => await Connection.Table<MailItemFolder>()
-        .Where(a => a.SpecialFolderType == SpecialFolderType.Inbox && a.MailAccountId == accountId)
-        .CountAsync() == 1;
-
-    public Task UpdateFolderLastSyncDateAsync(Guid folderId)
-        => Connection.ExecuteAsync("UPDATE MailItemFolder SET LastSynchronizedDate = ? WHERE Id = ?", DateTime.UtcNow, folderId);
-
-    public Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds)
     {
-        var query = new Query(nameof(MailCopy))
-                    .Join(nameof(MailItemFolder), $"{nameof(MailCopy)}.FolderId", $"{nameof(MailItemFolder)}.Id")
-                    .WhereIn($"{nameof(MailItemFolder)}.MailAccountId", accountIds)
-                    .Where($"{nameof(MailCopy)}.IsRead", 0)
-                    .Where($"{nameof(MailItemFolder)}.ShowUnreadCount", 1)
-                    .SelectRaw($"{nameof(MailItemFolder)}.Id as FolderId, {nameof(MailItemFolder)}.SpecialFolderType as SpecialFolderType, count (DISTINCT {nameof(MailCopy)}.Id) as UnreadItemCount, {nameof(MailItemFolder)}.MailAccountId as AccountId")
-                    .GroupBy($"{nameof(MailItemFolder)}.Id");
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailItemFolders
+            .Where(a => a.SpecialFolderType == SpecialFolderType.Inbox && a.MailAccountId == accountId)
+            .CountAsync() == 1;
+    }
 
-        return Connection.QueryAsync<UnreadItemCountResult>(query.GetRawQuery());
+    public async Task UpdateFolderLastSyncDateAsync(Guid folderId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.MailItemFolders
+            .Where(f => f.Id == folderId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(f => f.LastSynchronizedDate, DateTime.UtcNow));
+    }
+
+    public async Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        var result = await context.MailCopies
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mif => mif.Id,
+                (mc, mif) => new { MailCopy = mc, Folder = mif })
+            .Where(x => accountIds.Contains(x.Folder.MailAccountId) && !x.MailCopy.IsRead && x.Folder.ShowUnreadCount)
+            .GroupBy(x => x.Folder.Id)
+            .Select(g => new UnreadItemCountResult
+            {
+                FolderId = g.Key,
+                SpecialFolderType = g.First().Folder.SpecialFolderType,
+                UnreadItemCount = g.Select(x => x.MailCopy.Id).Distinct().Count(),
+                AccountId = g.First().Folder.MailAccountId
+            })
+            .ToListAsync();
+
+        return result;
+    }
+
+    public async Task UpdateFolderDeltaSynchronizationIdentifierAsync(Guid folderId, string synchronizationIdentifier)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.MailItemFolders
+            .Where(f => f.Id == folderId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(f => f.DeltaToken, synchronizationIdentifier));
     }
 }

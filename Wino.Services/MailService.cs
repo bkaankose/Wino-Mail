@@ -5,9 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.EntityFrameworkCore;
 using MimeKit;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -99,7 +99,9 @@ public class MailService : BaseDatabaseService, IMailService
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
         }
 
-        await Connection.InsertAsync(copy);
+        using var context = ContextFactory.CreateDbContext();
+        context.MailCopies.Add(copy);
+        await context.SaveChangesAsync();
 
         await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
 
@@ -110,7 +112,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
     {
-        var mails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ?", folderId);
+        using var context = ContextFactory.CreateDbContext();
+        var mails = await context.MailCopies.Where(x => x.FolderId == folderId).ToListAsync();
 
         foreach (var mail in mails)
         {
@@ -127,14 +130,18 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (draftFolder == null) return false;
 
-        var draftCount = await Connection.Table<MailCopy>().Where(a => a.FolderId == draftFolder.Id).CountAsync();
+        using var context = ContextFactory.CreateDbContext();
+        var draftCount = await context.MailCopies.Where(a => a.FolderId == draftFolder.Id).CountAsync();
 
         return draftCount > 0;
     }
 
     public async Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId)
     {
-        var unreadMails = await Connection.QueryAsync<MailCopy>("SELECT * FROM MailCopy WHERE FolderId = ? AND IsRead = 0", folderId);
+        using var context = ContextFactory.CreateDbContext();
+        var unreadMails = await context.MailCopies
+            .Where(x => x.FolderId == folderId && !x.IsRead)
+            .ToListAsync();
 
         foreach (var mail in unreadMails)
         {
@@ -144,74 +151,66 @@ public class MailService : BaseDatabaseService, IMailService
         return unreadMails;
     }
 
-    private static string BuildMailFetchQuery(MailListInitializationOptions options)
+    private static IQueryable<MailCopy> BuildMailFetchQuery(WinoDbContext context, MailListInitializationOptions options)
     {
-        // If the search query is there, we should ignore some properties and trim it.
-        //if (!string.IsNullOrEmpty(options.SearchQuery))
-        //{
-        //    options.IsFocusedOnly = null;
-        //    filterType = FilterOptionType.All;
+        // EF Core supports joins via navigation properties.
+        // We build the query using LINQ and EF Core will generate the appropriate SQL.
 
-        //    searchQuery = searchQuery.Trim();
-        //}
+        var query = context.MailCopies
+            .Include(mc => mc.AssignedFolder)
+            .Where(mc => options.Folders.Select(f => f.Id).Contains(mc.FolderId));
 
-        // SQLite PCL doesn't support joins.
-        // We make the query using SqlKata and execute it directly on SQLite-PCL.
-
-        var query = new Query("MailCopy")
-                    .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                    .WhereIn("MailCopy.FolderId", options.Folders.Select(a => a.Id))
-                    .Take(ItemLoadCount)
-                    .SelectRaw("MailCopy.*");
-
+        // Apply sorting
         if (options.SortingOptionType == SortingOptionType.ReceiveDate)
-            query.OrderByDesc("CreationDate");
+            query = query.OrderByDescending(mc => mc.CreationDate);
         else if (options.SortingOptionType == SortingOptionType.Sender)
-            query.OrderBy("FromName");
+            query = query.OrderBy(mc => mc.FromName);
 
-        // Conditional where.
+        // Conditional where filters
         switch (options.FilterType)
         {
             case FilterOptionType.Unread:
-                query.Where("MailCopy.IsRead", false);
+                query = query.Where(mc => !mc.IsRead);
                 break;
             case FilterOptionType.Flagged:
-                query.Where("MailCopy.IsFlagged", true);
+                query = query.Where(mc => mc.IsFlagged);
                 break;
             case FilterOptionType.Files:
-                query.Where("MailCopy.HasAttachments", true);
+                query = query.Where(mc => mc.HasAttachments);
                 break;
         }
 
         if (options.IsFocusedOnly != null)
-            query.Where("MailCopy.IsFocused", options.IsFocusedOnly.Value);
+            query = query.Where(mc => mc.IsFocused == options.IsFocusedOnly.Value);
 
         if (!string.IsNullOrEmpty(options.SearchQuery))
-            query.Where(a =>
-                        a.OrWhereContains("MailCopy.PreviewText", options.SearchQuery)
-                        .OrWhereContains("MailCopy.Subject", options.SearchQuery)
-                        .OrWhereContains("MailCopy.FromName", options.SearchQuery)
-                        .OrWhereContains("MailCopy.FromAddress", options.SearchQuery));
+        {
+            var searchTerm = $"%{options.SearchQuery}%";
+            query = query.Where(mc =>
+                EF.Functions.Like(mc.PreviewText, searchTerm) ||
+                EF.Functions.Like(mc.Subject, searchTerm) ||
+                EF.Functions.Like(mc.FromName, searchTerm) ||
+                EF.Functions.Like(mc.FromAddress, searchTerm));
+        }
 
         // Support pagination by excluding already fetched items
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
-            query.WhereNotIn("MailCopy.UniqueId", options.ExistingUniqueIds);
+            var existingIds = options.ExistingUniqueIds.Keys.ToList();
+            query = query.Where(mc => !existingIds.Contains(mc.UniqueId));
         }
 
         // Support skip for pagination
         if (options.Skip > 0)
         {
-            query.Skip(options.Skip);
+            query = query.Skip(options.Skip);
         }
 
         // Support custom take count for pagination
-        if (options.Take > 0)
-        {
-            query.Take(options.Take);
-        }
+        var takeCount = options.Take > 0 ? options.Take : ItemLoadCount;
+        query = query.Take(takeCount);
 
-        return query.GetRawQuery();
+        return query;
     }
 
     public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
@@ -225,9 +224,10 @@ public class MailService : BaseDatabaseService, IMailService
         }
         else
         {
-            // If not just do the query.
-            var query = BuildMailFetchQuery(options);
-            mails = await Connection.QueryAsync<MailCopy>(query);
+            // If not just do the query using EF Core.
+            using var context = ContextFactory.CreateDbContext();
+            var query = BuildMailFetchQuery(context, options);
+            mails = await query.ToListAsync(cancellationToken);
         }
 
         ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
@@ -295,13 +295,11 @@ public class MailService : BaseDatabaseService, IMailService
         if (string.IsNullOrEmpty(threadId))
             return [];
 
-        var query = new Query("MailCopy")
-                    .Where("ThreadId", threadId)
-                    .WhereNotIn("Id", excludeMailIds)
-                    .SelectRaw("MailCopy.*")
-                    .GetRawQuery();
-
-        return await Connection.QueryAsync<MailCopy>(query);
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailCopies
+            .Where(mc => mc.ThreadId == threadId && !excludeMailIds.Contains(mc.Id))
+            .ToListAsync();
     }
 
     private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(List<string> threadIds, HashSet<string> excludeMailIds)
@@ -309,13 +307,12 @@ public class MailService : BaseDatabaseService, IMailService
         if (threadIds?.Count == 0)
             return [];
 
-        var query = new Query("MailCopy")
-                    .WhereIn("ThreadId", threadIds)
-                    .WhereNotIn("Id", excludeMailIds)
-                    .SelectRaw("MailCopy.*")
-                    .GetRawQuery();
-
-        return await Connection.QueryAsync<MailCopy>(query).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailCopies
+            .Where(mc => threadIds.Contains(mc.ThreadId) && !excludeMailIds.Contains(mc.Id))
+            .ToListAsync()
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -390,7 +387,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     private async Task<List<MailCopy>> GetMailItemsAsync(string mailCopyId)
     {
-        var mailCopies = await Connection.Table<MailCopy>().Where(a => a.Id == mailCopyId).ToListAsync();
+        using var context = ContextFactory.CreateDbContext();
+        var mailCopies = await context.MailCopies.Where(a => a.Id == mailCopyId).ToListAsync();
 
         foreach (var mailCopy in mailCopies)
         {
@@ -434,7 +432,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<MailCopy> GetSingleMailItemWithoutFolderAssignmentAsync(string mailCopyId)
     {
-        var mailCopy = await Connection.Table<MailCopy>().FirstOrDefaultAsync(a => a.Id == mailCopyId);
+        using var context = ContextFactory.CreateDbContext();
+        var mailCopy = await context.MailCopies.FirstOrDefaultAsync(a => a.Id == mailCopyId);
 
         if (mailCopy == null) return null;
 
@@ -451,12 +450,9 @@ public class MailService : BaseDatabaseService, IMailService
     /// <param name="mailCopyId">Mail copy id.</param>
     public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId)
     {
-        var query = new Query("MailCopy")
-                       .Where("MailCopy.Id", mailCopyId)
-                       .SelectRaw("MailCopy.*")
-                       .GetRawQuery();
-
-        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(query);
+        using var context = ContextFactory.CreateDbContext();
+        var mailCopy = await context.MailCopies.FirstOrDefaultAsync(mc => mc.Id == mailCopyId);
+        
         if (mailCopy == null) return null;
 
         await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
@@ -466,14 +462,16 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId)
     {
-        var query = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .Where("MailCopy.Id", mailCopyId)
-                        .Where("MailItemFolder.RemoteFolderId", remoteFolderId)
-                        .SelectRaw("MailCopy.*")
-                        .GetRawQuery();
-
-        var mailItem = await Connection.FindWithQueryAsync<MailCopy>(query);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var mailItem = await context.MailCopies
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mf => mf.Id,
+                (mc, mf) => new { MailCopy = mc, Folder = mf })
+            .Where(x => x.MailCopy.Id == mailCopyId && x.Folder.RemoteFolderId == remoteFolderId)
+            .Select(x => x.MailCopy)
+            .FirstOrDefaultAsync();
 
         if (mailItem == null) return null;
 
@@ -484,7 +482,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<MailCopy> GetSingleMailItemAsync(Guid uniqueMailId)
     {
-        var mailItem = await Connection.FindAsync<MailCopy>(uniqueMailId);
+        using var context = ContextFactory.CreateDbContext();
+        var mailItem = await context.MailCopies.FirstOrDefaultAsync(mc => mc.UniqueId == uniqueMailId);
 
         if (mailItem == null) return null;
 
@@ -527,7 +526,9 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.InsertAsync(mailCopy).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        context.MailCopies.Add(mailCopy);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         ReportUIChange(new MailAddedMessage(mailCopy));
     }
@@ -543,7 +544,9 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
 
-        await Connection.UpdateAsync(mailCopy).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        context.MailCopies.Update(mailCopy);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         ReportUIChange(new MailUpdatedMessage(mailCopy));
     }
@@ -559,7 +562,9 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        context.MailCopies.Remove(mailCopy);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         // If there are no more copies exists of the same mail, delete the MIME file as well.
         var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
@@ -779,8 +784,9 @@ public class MailService : BaseDatabaseService, IMailService
         // Create mail copy in the database.
         // Update if exists.
 
-        var existingCopyItem = await Connection.Table<MailCopy>()
-                                                .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id);
+        using var context = ContextFactory.CreateDbContext();
+        var existingCopyItem = await context.MailCopies
+            .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id);
 
         if (existingCopyItem != null)
         {
@@ -1030,14 +1036,16 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
     {
-        var query = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .Where("MailCopy.UniqueId", localDraftCopyUniqueId)
-                        .Where("MailItemFolder.MailAccountId", accountId)
-                        .SelectRaw("MailCopy.*")
-                        .GetRawQuery();
-
-        var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(query);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var localDraftCopy = await context.MailCopies
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mf => mf.Id,
+                (mc, mf) => new { MailCopy = mc, Folder = mf })
+            .Where(x => x.MailCopy.UniqueId == localDraftCopyUniqueId && x.Folder.MailAccountId == accountId)
+            .Select(x => x.MailCopy)
+            .FirstOrDefaultAsync();
 
         if (localDraftCopy == null)
         {
@@ -1083,54 +1091,69 @@ public class MailService : BaseDatabaseService, IMailService
         });
     }
 
-    public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
+    public async Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
     {
-        var rawQuery = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .WhereIn("MailCopy.Id", downloadedMailCopyIds)
-                        .Where("MailCopy.IsRead", false)
-                        .Where("MailItemFolder.MailAccountId", accountId)
-                        .Where("MailItemFolder.SpecialFolderType", SpecialFolderType.Inbox)
-                        .SelectRaw("MailCopy.*")
-                        .GetRawQuery();
-
-        return Connection.QueryAsync<MailCopy>(rawQuery);
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailCopies
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mf => mf.Id,
+                (mc, mf) => new { MailCopy = mc, Folder = mf })
+            .Where(x => downloadedMailCopyIds.Contains(x.MailCopy.Id) && 
+                       !x.MailCopy.IsRead && 
+                       x.Folder.MailAccountId == accountId && 
+                       x.Folder.SpecialFolderType == SpecialFolderType.Inbox)
+            .Select(x => x.MailCopy)
+            .ToListAsync();
     }
 
-    public Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)
+    public async Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)
     {
-        var query = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .Join("MailAccount", "MailItemFolder.MailAccountId", "MailAccount.Id")
-                        .Where("MailCopy.UniqueId", uniqueMailId)
-                        .SelectRaw("MailAccount.*")
-                        .GetRawQuery();
-
-        return Connection.FindWithQueryAsync<MailAccount>(query);
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailCopies
+            .Where(mc => mc.UniqueId == uniqueMailId)
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mf => mf.Id,
+                (mc, mf) => new { MailCopy = mc, Folder = mf })
+            .Join(context.MailAccounts,
+                x => x.Folder.MailAccountId,
+                ma => ma.Id,
+                (x, ma) => ma)
+            .FirstOrDefaultAsync();
     }
 
-    public Task<bool> IsMailExistsAsync(string mailCopyId)
-        => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ?)", mailCopyId);
+    public async Task<bool> IsMailExistsAsync(string mailCopyId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailCopies.AnyAsync(mc => mc.Id == mailCopyId);
+    }
 
     public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
     {
+        using var context = ContextFactory.CreateDbContext();
         var localMailIds = uniqueIds.Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
-
-        var query = new Query(nameof(MailCopy))
-                        .WhereIn("Id", localMailIds)
-                        .GetRawQuery();
-
-        return await Connection.QueryAsync<MailCopy>(query);
+        
+        return await context.MailCopies
+            .Where(mc => localMailIds.Contains(mc.Id))
+            .ToListAsync();
     }
 
-    public Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
-        => Connection.ExecuteScalarAsync<bool>("SELECT EXISTS(SELECT 1 FROM MailCopy WHERE Id = ? AND FolderId = ?)", mailCopyId, folderId);
+    public async Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailCopies.AnyAsync(mc => mc.Id == mailCopyId && mc.FolderId == folderId);
+    }
 
     public async Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds)
     {
-        var localArchiveMails = await Connection.Table<MailCopy>()
-                                            .Where(a => a.FolderId == archiveFolderId)
-                                            .ToListAsync().ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        var localArchiveMails = await context.MailCopies
+            .Where(a => a.FolderId == archiveFolderId)
+            .ToListAsync()
+            .ConfigureAwait(false);
 
         var removedMails = localArchiveMails.Where(a => !onlineArchiveMailIds.Contains(a.Id)).Select(a => a.Id).Distinct().ToArray();
         var addedMails = onlineArchiveMailIds.Where(a => !localArchiveMails.Select(b => b.Id).Contains(a)).Distinct().ToArray();
@@ -1142,12 +1165,11 @@ public class MailService : BaseDatabaseService, IMailService
     {
         if (!mailCopyIds.Any()) return [];
 
-        var query = new Query("MailCopy")
-                       .WhereIn("MailCopy.Id", mailCopyIds)
-                       .SelectRaw("MailCopy.*")
-                       .GetRawQuery();
-
-        var mailCopies = await Connection.QueryAsync<MailCopy>(query);
+        using var context = ContextFactory.CreateDbContext();
+        var mailCopies = await context.MailCopies
+            .Where(mc => mailCopyIds.Contains(mc.Id))
+            .ToListAsync();
+            
         if (mailCopies?.Count == 0) return [];
 
         ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
@@ -1164,11 +1186,25 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
     {
-        var query = new Query(nameof(MailCopy))
-                        .WhereIn("Id", mailCopyIds)
-                        .Select("Id")
-                        .GetRawQuery();
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailCopies
+            .Where(mc => mailCopyIds.Contains(mc.Id))
+            .Select(mc => mc.Id)
+            .ToListAsync();
+    }
 
-        return await Connection.QueryScalarsAsync<string>(query);
+    public async Task DeleteAccountMailsAsync(Guid accountId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        
+        // Delete all mail copies for the account by joining with folders
+        await context.MailCopies
+            .Join(context.MailItemFolders,
+                mc => mc.FolderId,
+                mif => mif.Id,
+                (mc, mif) => new { MailCopy = mc, Folder = mif })
+            .Where(x => x.Folder.MailAccountId == accountId)
+            .Select(x => x.MailCopy)
+            .ExecuteDeleteAsync();
     }
 }

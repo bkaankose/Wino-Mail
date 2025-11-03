@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -40,6 +40,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task ClearAccountAttentionAsync(Guid accountId)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var account = await GetAccountAsync(accountId);
 
         Guard.IsNotNull(account);
@@ -51,31 +53,37 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateMergedInboxAsync(Guid mergedInboxId, IEnumerable<Guid> linkedAccountIds)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         // First, remove all accounts from merged inbox.
-        await Connection.ExecuteAsync("UPDATE MailAccount SET MergedInboxId = NULL WHERE MergedInboxId = ?", mergedInboxId);
+        await context.MailAccounts
+            .Where(a => a.MergedInboxId == mergedInboxId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.MergedInboxId, (Guid?)null));
 
         // Then, add new accounts to merged inbox.
-        var query = new Query("MailAccount")
-            .WhereIn("Id", linkedAccountIds)
-            .AsUpdate(new
-            {
-                MergedInboxId = mergedInboxId
-            });
-
-        await Connection.ExecuteAsync(query.GetRawQuery());
+        await context.MailAccounts
+            .Where(a => linkedAccountIds.Contains(a.Id))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.MergedInboxId, mergedInboxId));
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
 
     public async Task<string> UpdateSyncIdentifierRawAsync(Guid accountId, string syncIdentifier)
     {
-        await Connection.ExecuteAsync("UPDATE MailAccount SET SynchronizationDeltaIdentifier = ? WHERE Id = ?", syncIdentifier, accountId);
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.MailAccounts
+            .Where(a => a.Id == accountId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.SynchronizationDeltaIdentifier, syncIdentifier));
+            
         return syncIdentifier;
     }
 
     public async Task UnlinkMergedInboxAsync(Guid mergedInboxId)
     {
-        var mergedInbox = await Connection.Table<MergedInbox>().FirstOrDefaultAsync(a => a.Id == mergedInboxId).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var mergedInbox = await context.MergedInboxes.FirstOrDefaultAsync(a => a.Id == mergedInboxId).ConfigureAwait(false);
 
         if (mergedInbox == null)
         {
@@ -84,22 +92,20 @@ public class AccountService : BaseDatabaseService, IAccountService
             return;
         }
 
-        var query = new Query("MailAccount")
-            .Where("MergedInboxId", mergedInboxId)
-            .AsUpdate(new
-            {
-                MergedInboxId = (Guid?)null
-            });
-
-        await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
-        await Connection.DeleteAsync(mergedInbox).ConfigureAwait(false);
+        await context.MailAccounts
+            .Where(a => a.MergedInboxId == mergedInboxId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.MergedInboxId, (Guid?)null))
+            .ConfigureAwait(false);
+            
+        context.MergedInboxes.Remove(mergedInbox);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         // Change the startup entity id if it was the merged inbox.
         // Take the first account as startup account.
 
         if (_preferencesService.StartupEntityId == mergedInboxId)
         {
-            var firstAccount = await Connection.Table<MailAccount>().FirstOrDefaultAsync();
+            var firstAccount = await context.MailAccounts.FirstOrDefaultAsync();
 
             if (firstAccount != null)
             {
@@ -118,6 +124,8 @@ public class AccountService : BaseDatabaseService, IAccountService
     {
         if (mergedInbox == null) return;
 
+        using var context = ContextFactory.CreateDbContext();
+        
         // 0. Give the merged inbox a new Guid.
         mergedInbox.Id = Guid.NewGuid();
 
@@ -128,14 +136,14 @@ public class AccountService : BaseDatabaseService, IAccountService
         {
             var accountFolderList = new List<MailItemFolder>();
 
-            var folders = await Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == account.Id).ToListAsync();
+            var folders = await context.MailItemFolders.Where(a => a.MailAccountId == account.Id).ToListAsync();
 
             foreach (var folder in folders)
             {
                 accountFolderList.Add(folder);
                 folder.IsSticky = false;
 
-                await Connection.UpdateAsync(folder);
+                context.MailItemFolders.Update(folder);
             }
 
             accountFolderDictionary.Add(account, accountFolderList);
@@ -170,42 +178,43 @@ public class AccountService : BaseDatabaseService, IAccountService
                     {
                         folder.IsSticky = true;
 
-                        await Connection.UpdateAsync(folder);
+                        context.MailItemFolders.Update(folder);
                     }
                 }
             }
         }
 
         // 3. Insert merged inbox and assign accounts.
-        await Connection.InsertAsync(mergedInbox);
+        context.MergedInboxes.Add(mergedInbox);
 
         foreach (var account in accountsToMerge)
         {
             account.MergedInboxId = mergedInbox.Id;
 
-            await Connection.UpdateAsync(account);
+            context.MailAccounts.Update(account);
         }
+        
+        await context.SaveChangesAsync();
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
 
     public async Task RenameMergedAccountAsync(Guid mergedInboxId, string newName)
     {
-        var query = new Query("MergedInbox")
-            .Where("Id", mergedInboxId)
-            .AsUpdate(new
-            {
-                Name = newName
-            });
-
-        await Connection.ExecuteAsync(query.GetRawQuery());
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.MergedInboxes
+            .Where(a => a.Id == mergedInboxId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.Name, newName));
 
         ReportUIChange(new MergedInboxRenamed(mergedInboxId, newName));
     }
 
     public async Task FixTokenIssuesAsync(Guid accountId)
     {
-        var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var account = await context.MailAccounts.FirstOrDefaultAsync(a => a.Id == accountId);
 
         if (account == null) return;
 
@@ -218,12 +227,17 @@ public class AccountService : BaseDatabaseService, IAccountService
         // Guard.IsNotNull(token);
     }
 
-    private Task<MailAccountPreferences> GetAccountPreferencesAsync(Guid accountId)
-        => Connection.Table<MailAccountPreferences>().FirstOrDefaultAsync(a => a.AccountId == accountId);
+    private async Task<MailAccountPreferences> GetAccountPreferencesAsync(Guid accountId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MailAccountPreferences.FirstOrDefaultAsync(a => a.AccountId == accountId);
+    }
 
     public async Task<List<MailAccount>> GetAccountsAsync()
     {
-        var accounts = await Connection.Table<MailAccount>().OrderBy(a => a.Order).ToListAsync();
+        using var context = ContextFactory.CreateDbContext();
+        
+        var accounts = await context.MailAccounts.OrderBy(a => a.Order).ToListAsync();
 
         foreach (var account in accounts)
         {
@@ -243,6 +257,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task CreateRootAliasAsync(Guid accountId, string address)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var rootAlias = new MailAccountAlias()
         {
             AccountId = accountId,
@@ -254,76 +270,85 @@ public class AccountService : BaseDatabaseService, IAccountService
             Id = Guid.NewGuid()
         };
 
-        await Connection.InsertAsync(rootAlias).ConfigureAwait(false);
+        context.MailAccountAliases.Add(rootAlias);
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         Log.Information("Created root alias for the account {AccountId}", accountId);
     }
 
     public async Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
     {
-        var query = new Query(nameof(MailAccountAlias))
-            .Where(nameof(MailAccountAlias.AccountId), accountId)
-            .OrderByDesc(nameof(MailAccountAlias.IsRootAlias));
-
-        return await Connection.QueryAsync<MailAccountAlias>(query.GetRawQuery()).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        
+        return await context.MailAccountAliases
+            .Where(a => a.AccountId == accountId)
+            .OrderByDescending(a => a.IsRootAlias)
+            .ToListAsync()
+            .ConfigureAwait(false);
     }
 
-    private Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)
-        => Connection.Table<MergedInbox>().FirstOrDefaultAsync(a => a.Id == mergedInboxId);
+    private async Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.MergedInboxes.FirstOrDefaultAsync(a => a.Id == mergedInboxId);
+    }
 
     public async Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason)
     {
-        var deleteQuery = new Query("MailCopy")
-                .WhereIn("Id", q => q
-                .From("MailCopy")
-                .Select("Id")
-                .WhereIn("FolderId", q2 => q2
-                    .From("MailItemFolder")
-                    .Select("Id")
-                    .Where("MailAccountId", accountId)
-                )).AsDelete();
+        using var context = ContextFactory.CreateDbContext();
+        
+        // Delete all mail copies for folders belonging to this account
+        var folderIds = await context.MailItemFolders
+            .Where(f => f.MailAccountId == accountId)
+            .Select(f => f.Id)
+            .ToListAsync();
 
-        await Connection.ExecuteAsync(deleteQuery.GetRawQuery());
+        await context.MailCopies
+            .Where(mc => folderIds.Contains(mc.FolderId))
+            .ExecuteDeleteAsync();
 
         WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
     }
 
     public async Task DeleteAccountAsync(MailAccount account)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         await DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.AccountRemoval);
 
-        await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
-        await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
-        await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == account.Id);
+        await context.MailItemFolders.Where(a => a.MailAccountId == account.Id).ExecuteDeleteAsync();
+        await context.AccountSignatures.Where(a => a.MailAccountId == account.Id).ExecuteDeleteAsync();
+        await context.MailAccountAliases.Where(a => a.AccountId == account.Id).ExecuteDeleteAsync();
 
         // Account belongs to a merged inbox.
         // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.
 
         if (account.MergedInboxId != null)
         {
-            var mergedInboxAccountCount = await Connection.Table<MailAccount>().Where(a => a.MergedInboxId == account.MergedInboxId.Value).CountAsync();
+            var mergedInboxAccountCount = await context.MailAccounts
+                .Where(a => a.MergedInboxId == account.MergedInboxId.Value)
+                .CountAsync();
 
             // There will be only one account in the merged inbox. Remove the link for the other account as well.
             if (mergedInboxAccountCount == 2)
             {
-                var query = new Query("MailAccount")
-                .Where("MergedInboxId", account.MergedInboxId.Value)
-                .AsUpdate(new
-                {
-                    MergedInboxId = (Guid?)null
-                });
-
-                await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
+                await context.MailAccounts
+                    .Where(a => a.MergedInboxId == account.MergedInboxId.Value)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.MergedInboxId, (Guid?)null))
+                    .ConfigureAwait(false);
             }
         }
 
         if (account.ProviderType == MailProviderType.IMAP4)
-            await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
+            await context.CustomServerInformations.Where(a => a.AccountId == account.Id).ExecuteDeleteAsync();
 
         if (account.Preferences != null)
-            await Connection.DeleteAsync(account.Preferences);
+        {
+            context.MailAccountPreferences.Remove(account.Preferences);
+        }
 
-        await Connection.DeleteAsync(account);
+        context.MailAccounts.Remove(account);
+        await context.SaveChangesAsync();
 
         await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
 
@@ -332,7 +357,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (_preferencesService.StartupEntityId == account.Id || _preferencesService.StartupEntityId == account.MergedInboxId)
         {
-            var firstNonStartupAccount = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id != account.Id);
+            var firstNonStartupAccount = await context.MailAccounts.FirstOrDefaultAsync(a => a.Id != account.Id);
 
             if (firstNonStartupAccount != null)
             {
@@ -349,6 +374,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var account = await GetAccountAsync(accountId).ConfigureAwait(false);
 
         if (account != null)
@@ -370,7 +397,21 @@ public class AccountService : BaseDatabaseService, IAccountService
                 IsRootContact = true
             };
 
-            await Connection.InsertOrReplaceAsync(accountContact).ConfigureAwait(false);
+            var existingContact = await context.AccountContacts.FirstOrDefaultAsync(a => a.Address == accountContact.Address).ConfigureAwait(false);
+            
+            if (existingContact != null)
+            {
+                existingContact.Name = accountContact.Name;
+                existingContact.Base64ContactPicture = accountContact.Base64ContactPicture;
+                existingContact.IsRootContact = accountContact.IsRootContact;
+                context.AccountContacts.Update(existingContact);
+            }
+            else
+            {
+                context.AccountContacts.Add(accountContact);
+            }
+            
+            await context.SaveChangesAsync().ConfigureAwait(false);
 
             await UpdateAccountAsync(account).ConfigureAwait(false);
         }
@@ -378,7 +419,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task<MailAccount> GetAccountAsync(Guid accountId)
     {
-        var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(a => a.Id == accountId);
+        using var context = ContextFactory.CreateDbContext();
+        
+        var account = await context.MailAccounts.FirstOrDefaultAsync(a => a.Id == accountId);
 
         if (account == null)
         {
@@ -397,36 +440,48 @@ public class AccountService : BaseDatabaseService, IAccountService
         return null;
     }
 
-    public Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId)
-        => Connection.Table<CustomServerInformation>().FirstOrDefaultAsync(a => a.AccountId == accountId);
+    public async Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId)
+    {
+        using var context = ContextFactory.CreateDbContext();
+        return await context.CustomServerInformations.FirstOrDefaultAsync(a => a.AccountId == accountId);
+    }
 
     public async Task UpdateAccountAsync(MailAccount account)
     {
-        await Connection.UpdateAsync(account.Preferences).ConfigureAwait(false);
-        await Connection.UpdateAsync(account).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        
+        context.MailAccountPreferences.Update(account.Preferences);
+        context.MailAccounts.Update(account);
+        
+        await context.SaveChangesAsync().ConfigureAwait(false);
 
         ReportUIChange(new AccountUpdatedMessage(account));
     }
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
     {
-        await Connection.UpdateAsync(customServerInformation).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        
+        context.CustomServerInformations.Update(customServerInformation);
+        await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         // Delete existing ones.
-        await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == accountId).ConfigureAwait(false);
+        await context.MailAccountAliases.Where(a => a.AccountId == accountId).ExecuteDeleteAsync().ConfigureAwait(false);
 
         // Insert new ones.
-        foreach (var alias in aliases)
-        {
-            await Connection.InsertAsync(alias).ConfigureAwait(false);
-        }
+        context.MailAccountAliases.AddRange(aliases);
+        await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     public async Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         var localAliases = await GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
         var rootAlias = localAliases.Find(a => a.IsRootAlias);
 
@@ -449,7 +504,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                     AliasSenderName = remoteAlias.AliasSenderName
                 };
 
-                await Connection.InsertAsync(newAlias);
+                context.MailAccountAliases.Add(newAlias);
                 localAliases.Add(newAlias);
             }
             else
@@ -460,9 +515,11 @@ public class AccountService : BaseDatabaseService, IAccountService
                 existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
                 existingAlias.AliasSenderName = remoteAlias.AliasSenderName;
 
-                await Connection.UpdateAsync(existingAlias);
+                context.MailAccountAliases.Update(existingAlias);
             }
         }
+
+        await context.SaveChangesAsync();
 
         // Make sure there is only 1 root alias and 1 primary alias selected.
 
@@ -476,7 +533,8 @@ public class AccountService : BaseDatabaseService, IAccountService
             var idealPrimaryAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
 
             idealPrimaryAlias.IsPrimary = true;
-            await Connection.UpdateAsync(idealPrimaryAlias).ConfigureAwait(false);
+            context.MailAccountAliases.Update(idealPrimaryAlias);
+            await context.SaveChangesAsync().ConfigureAwait(false);
         }
 
         if (shouldUpdateRoot)
@@ -486,26 +544,28 @@ public class AccountService : BaseDatabaseService, IAccountService
             var idealRootAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
 
             idealRootAlias.IsRootAlias = true;
-            await Connection.UpdateAsync(idealRootAlias).ConfigureAwait(false);
+            context.MailAccountAliases.Update(idealRootAlias);
+            await context.SaveChangesAsync().ConfigureAwait(false);
         }
     }
 
     public async Task DeleteAccountAliasAsync(Guid aliasId)
     {
-        // Create query to delete alias.
-
-        var query = new Query("MailAccountAlias")
-            .Where("Id", aliasId)
-            .AsDelete();
-
-        await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
+        using var context = ContextFactory.CreateDbContext();
+        
+        await context.MailAccountAliases
+            .Where(a => a.Id == aliasId)
+            .ExecuteDeleteAsync()
+            .ConfigureAwait(false);
     }
 
     public async Task CreateAccountAsync(MailAccount account, CustomServerInformation customServerInformation)
     {
         Guard.IsNotNull(account);
 
-        var accountCount = await Connection.Table<MailAccount>().CountAsync();
+        using var context = ContextFactory.CreateDbContext();
+        
+        var accountCount = await context.MailAccounts.CountAsync();
 
         // If there are no accounts before this one, set it as startup account.
         if (accountCount == 0)
@@ -519,7 +579,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             account.Order = accountCount;
         }
 
-        await Connection.InsertAsync(account);
+        context.MailAccounts.Add(account);
 
         var preferences = new MailAccountPreferences()
         {
@@ -552,10 +612,12 @@ public class AccountService : BaseDatabaseService, IAccountService
         account.Preferences.SignatureIdForFollowingMessages = defaultSignature.Id;
         account.Preferences.IsSignatureEnabled = true;
 
-        await Connection.InsertAsync(preferences);
+        context.MailAccountPreferences.Add(preferences);
 
         if (customServerInformation != null)
-            await Connection.InsertAsync(customServerInformation);
+            context.CustomServerInformations.Add(customServerInformation);
+            
+        await context.SaveChangesAsync();
     }
 
     //public async Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier)
@@ -588,6 +650,8 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)
     {
+        using var context = ContextFactory.CreateDbContext();
+        
         foreach (var pair in accountIdOrderPair)
         {
             var account = await GetAccountAsync(pair.Key);
@@ -600,8 +664,10 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             account.Order = pair.Value;
 
-            await Connection.UpdateAsync(account);
+            context.MailAccounts.Update(account);
         }
+        
+        await context.SaveChangesAsync();
 
         Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));
     }

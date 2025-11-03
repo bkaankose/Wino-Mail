@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -22,7 +22,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Integration;
-using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
@@ -48,17 +47,23 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
     private readonly ILogger _logger = Log.ForContext<ImapSynchronizer>();
     private readonly ImapClientPool _clientPool;
-    private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly Wino.Core.Domain.Interfaces.IMailService _mailService;
+    private readonly IFolderService _folderService;
+    private readonly IMimeFileService _mimeFileService;
     private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
 
     public ImapSynchronizer(MailAccount account,
-                            IImapChangeProcessor imapChangeProcessor,
+                            Wino.Core.Domain.Interfaces.IMailService mailService,
+                            IFolderService folderService,
+                            IMimeFileService mimeFileService,
                             IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                             IApplicationConfiguration applicationConfiguration) : base(account, WeakReferenceMessenger.Default)
     {
         // Create client pool with account protocol log.
-        _imapChangeProcessor = imapChangeProcessor;
+        _mailService = mailService;
+        _folderService = folderService;
+        _mimeFileService = mimeFileService;
         _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
 
@@ -236,7 +241,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
 
-        await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
+        await _mimeFileService.SaveMimeMessageAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
         await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
 
         _clientPool.Release(client);
@@ -272,7 +277,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             // This message belongs to existing local draft copy.
             // We don't need to create a new mail copy for this message, just update the existing one.
 
-            bool isMappingSuccessful = await _imapChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
+            bool isMappingSuccessful = await _mailService.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
 
             if (isMappingSuccessful) return null;
 
@@ -306,7 +311,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         if (options.Type != MailSynchronizationType.FoldersOnly)
         {
-            var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+            var synchronizationFolders = await _folderService.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
             var totalFolders = synchronizationFolders.Count;
 
@@ -334,7 +339,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
 
-        var unreadNewItems = await _imapChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
+        var unreadNewItems = await _mailService.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
         return MailSynchronizationResult.Completed(unreadNewItems);
     }
@@ -452,7 +457,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     {
         // https://www.rfc-editor.org/rfc/rfc4549#section-1.1
 
-        var localFolders = await _imapChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var localFolders = await _folderService.GetFoldersAsync(Account.Id).ConfigureAwait(false);
 
         IImapClient executorClient = null;
 
@@ -498,7 +503,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                     if (shouldDeleteLocalFolder)
                     {
-                        await _imapChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+                        await _folderService.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
 
                         deletedFolders.Add(localFolder);
                     }
@@ -605,12 +610,12 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             foreach (var folder in insertedFolders)
             {
-                await _imapChangeProcessor.InsertFolderAsync(folder).ConfigureAwait(false);
+                await _folderService.InsertFolderAsync(folder).ConfigureAwait(false);
             }
 
             foreach (var folder in updatedFolders)
             {
-                await _imapChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
+                await _folderService.UpdateFolderAsync(folder).ConfigureAwait(false);
             }
 
             if (insertedFolders.Any() || deletedFolders.Any() || updatedFolders.Any())
@@ -664,7 +669,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 }
 
                 // Populate no foundIds
-                var foundIds = await _imapChangeProcessor.AreMailsExistsAsync(searchResultsIdsInFolder.Select(a => a.Key));
+                var foundIds = await _mailService.AreMailsExistsAsync(searchResultsIdsInFolder.Select(a => a.Key));
                 var notFoundIds = searchResultsIdsInFolder.Keys.Except(foundIds);
 
                 List<UniqueId> nonExistingUniqueIds = [];
@@ -683,7 +688,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
-            return await _imapChangeProcessor.GetMailCopiesAsync(searchResultFolderMailUids);
+            return await _mailService.GetMailItemsAsync(searchResultFolderMailUids);
         }
         catch (Exception ex)
         {
@@ -887,3 +892,4 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
     public Task PreWarmClientPoolAsync() => _clientPool.PreWarmPoolAsync();
 }
+

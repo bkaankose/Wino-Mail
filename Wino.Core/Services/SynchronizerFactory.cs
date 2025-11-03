@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.Mail;
 
 namespace Wino.Core.Services;
@@ -13,39 +13,15 @@ public class SynchronizerFactory : ISynchronizerFactory
     private bool isInitialized = false;
 
     private readonly IAccountService _accountService;
-    private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
-    private readonly IApplicationConfiguration _applicationConfiguration;
-    private readonly IOutlookSynchronizerErrorHandlerFactory _outlookSynchronizerErrorHandlerFactory;
-    private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
-    private readonly IOutlookChangeProcessor _outlookChangeProcessor;
-    private readonly IGmailChangeProcessor _gmailChangeProcessor;
-    private readonly IImapChangeProcessor _imapChangeProcessor;
-    private readonly IOutlookAuthenticator _outlookAuthenticator;
-    private readonly IGmailAuthenticator _gmailAuthenticator;
+    private readonly IServiceProvider _serviceProvider;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
-    public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
-                               IGmailChangeProcessor gmailChangeProcessor,
-                               IImapChangeProcessor imapChangeProcessor,
-                               IOutlookAuthenticator outlookAuthenticator,
-                               IGmailAuthenticator gmailAuthenticator,
-                               IAccountService accountService,
-                               IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
-                               IApplicationConfiguration applicationConfiguration,
-                               IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
-                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory)
+    public SynchronizerFactory(IAccountService accountService,
+                               IServiceProvider serviceProvider)
     {
-        _outlookChangeProcessor = outlookChangeProcessor;
-        _gmailChangeProcessor = gmailChangeProcessor;
-        _imapChangeProcessor = imapChangeProcessor;
-        _outlookAuthenticator = outlookAuthenticator;
-        _gmailAuthenticator = gmailAuthenticator;
         _accountService = accountService;
-        _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
-        _applicationConfiguration = applicationConfiguration;
-        _outlookSynchronizerErrorHandlerFactory = outlookSynchronizerErrorHandlerFactory;
-        _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -72,14 +48,16 @@ public class SynchronizerFactory : ISynchronizerFactory
     {
         var providerType = mailAccount.ProviderType;
 
+        // Use ActivatorUtilities to create synchronizers with the account parameter
+        // All other dependencies will be resolved from DI container
         switch (providerType)
         {
             case Domain.Enums.MailProviderType.Outlook:
-                return new OutlookSynchronizer(mailAccount, _outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
+                return ActivatorUtilities.CreateInstance<OutlookSynchronizer>(_serviceProvider, mailAccount);
             case Domain.Enums.MailProviderType.Gmail:
-                return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
+                return ActivatorUtilities.CreateInstance<GmailSynchronizer>(_serviceProvider, mailAccount);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration);
+                return ActivatorUtilities.CreateInstance<ImapSynchronizer>(_serviceProvider, mailAccount);
             default:
                 break;
         }

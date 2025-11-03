@@ -1,25 +1,24 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
-using SQLite;
-using Wino.Core.Domain.Entities.Mail;
-using Wino.Core.Domain.Entities.Shared;
+using Microsoft.EntityFrameworkCore;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
 public interface IDatabaseService : IInitializeAsync
 {
-    SQLiteAsyncConnection Connection { get; }
+    IDbContextFactory<WinoDbContext> ContextFactory { get; }
 }
 
-public class DatabaseService : IDatabaseService
+public class DatabaseService : IDatabaseService, IDbContextFactory<WinoDbContext>
 {
     private const string DatabaseName = "Wino180.db";
 
     private bool _isInitialized = false;
     private readonly IApplicationConfiguration _folderConfiguration;
+    private string _databasePath;
 
-    public SQLiteAsyncConnection Connection { get; private set; }
+    public IDbContextFactory<WinoDbContext> ContextFactory => this;
 
     public DatabaseService(IApplicationConfiguration folderConfiguration)
     {
@@ -32,33 +31,27 @@ public class DatabaseService : IDatabaseService
             return;
 
         var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
-        var databaseFileName = Path.Combine(publisherCacheFolder, DatabaseName);
+        _databasePath = Path.Combine(publisherCacheFolder, DatabaseName);
 
-        Connection = new SQLiteAsyncConnection(databaseFileName);
-
-        await CreateTablesAsync();
+        // Test context creation and ensure database exists
+        using var context = CreateDbContext();
+        await context.Database.EnsureCreatedAsync();
 
         _isInitialized = true;
     }
 
-    private async Task CreateTablesAsync()
+    public WinoDbContext CreateDbContext()
     {
-        //typeof(AccountCalendar),
-        //    typeof(CalendarEventAttendee),
-        //    typeof(CalendarItem),
-        //    typeof(Reminder),
-        await Connection.CreateTablesAsync(CreateFlags.None,
-            typeof(MailCopy),
-            typeof(MailItemFolder),
-            typeof(MailAccount),
-            typeof(AccountContact),
-            typeof(CustomServerInformation),
-            typeof(AccountSignature),
-            typeof(MergedInbox),
-            typeof(MailAccountPreferences),
-            typeof(MailAccountAlias),
-            typeof(Thumbnail),
-            typeof(KeyboardShortcut)
-            );
+        if (string.IsNullOrEmpty(_databasePath))
+        {
+            // Fallback for design-time or before initialization
+            var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
+            _databasePath = Path.Combine(publisherCacheFolder, DatabaseName);
+        }
+
+        var optionsBuilder = new DbContextOptionsBuilder<WinoDbContext>();
+        optionsBuilder.UseSqlite($"Data Source={_databasePath}");
+
+        return new WinoDbContext(optionsBuilder.Options);
     }
 }

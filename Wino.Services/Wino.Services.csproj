@@ -13,15 +13,18 @@
 	<ItemGroup>
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="Ical.Net" />
+		<PackageReference Include="Microsoft.Build.Tasks.Core" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="Serilog" />
 		<PackageReference Include="Serilog.Sinks.Debug" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Exceptions" />
-		<PackageReference Include="SqlKata" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

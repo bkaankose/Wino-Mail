@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -8,7 +9,11 @@ public static class ServicesContainerSetup
     public static void RegisterSharedServices(this IServiceCollection services)
     {
         services.AddSingleton<ITranslationService, TranslationService>();
-        services.AddSingleton<IDatabaseService, DatabaseService>();
+        
+        // Register DatabaseService as both IDatabaseService and IDbContextFactory
+        services.AddSingleton<DatabaseService>();
+        services.AddSingleton<IDatabaseService>(sp => sp.GetRequiredService<DatabaseService>());
+        services.AddSingleton<IDbContextFactory<WinoDbContext>>(sp => sp.GetRequiredService<DatabaseService>());
 
         services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();
         services.AddSingleton<IWinoLogger, WinoLogger>();
