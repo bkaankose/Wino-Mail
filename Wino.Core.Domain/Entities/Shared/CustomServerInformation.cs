@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Shared;
 
 public class CustomServerInformation
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
 
     public Guid AccountId { get; set; }
@@ -15,7 +16,7 @@ public class CustomServerInformation
     /// <summary>
     /// This field is ignored. DisplayName is stored in MailAccount as SenderName from now.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public string DisplayName { get; set; }
     public string Address { get; set; }
     public string IncomingServer { get; set; }

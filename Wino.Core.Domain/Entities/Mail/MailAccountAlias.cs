@@ -1,5 +1,6 @@
 ﻿using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Wino.Core.Domain.Entities.Mail;
 
@@ -47,7 +48,7 @@ public class MailAccountAlias : RemoteAccountAlias
     /// <summary>
     /// Unique Id for the alias.
     /// </summary>
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
 
     /// <summary>

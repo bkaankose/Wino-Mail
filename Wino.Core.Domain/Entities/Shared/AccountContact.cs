@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
 
 namespace Wino.Core.Domain.Entities.Shared;
 
@@ -16,7 +16,7 @@ public class AccountContact : IEquatable<AccountContact>
     /// <summary>
     /// E-mail address of the contact.
     /// </summary>
-    [PrimaryKey]
+    [Key]
     public string Address { get; set; }
 
     /// <summary>

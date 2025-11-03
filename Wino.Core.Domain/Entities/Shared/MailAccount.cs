@@ -1,5 +1,6 @@
 ﻿using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
@@ -7,7 +8,7 @@ namespace Wino.Core.Domain.Entities.Shared;
 
 public class MailAccount
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
 
     /// <summary>
@@ -82,20 +83,20 @@ public class MailAccount
     /// Contains the merged inbox this account belongs to.
     /// Ignored for all SQLite operations.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public MergedInbox MergedInbox { get; set; }
 
     /// <summary>
     /// Populated only when account has custom server information.
     /// </summary>
 
-    [Ignore]
+    [NotMapped]
     public CustomServerInformation ServerInformation { get; set; }
 
     /// <summary>
     /// Account preferences.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public MailAccountPreferences Preferences { get; set; }
 
     /// <summary>

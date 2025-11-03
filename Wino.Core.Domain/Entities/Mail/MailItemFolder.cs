@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
-using SQLite;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
@@ -10,7 +11,7 @@ namespace Wino.Core.Domain.Entities.Mail;
 [DebuggerDisplay("{FolderName} - {SpecialFolderType}")]
 public class MailItemFolder : IMailItemFolder
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
 
     public string RemoteFolderId { get; set; }
@@ -40,7 +41,7 @@ public class MailItemFolder : IMailItemFolder
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
 
-    [Ignore]
+    [NotMapped]
     public List<IMailItemFolder> ChildFolders { get; set; } = [];
 
     // Category and Move type folders are not valid move targets.

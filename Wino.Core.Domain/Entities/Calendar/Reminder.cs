@@ -1,12 +1,12 @@
 ﻿using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Calendar;
 
 public class Reminder
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
     public Guid CalendarItemId { get; set; }
 

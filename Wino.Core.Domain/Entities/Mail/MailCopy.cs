@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
@@ -15,7 +16,7 @@ public class MailCopy
     /// <summary>
     /// Unique Id of the mail.
     /// </summary>
-    [PrimaryKey]
+    [Key]
     public Guid UniqueId { get; set; }
 
     /// <summary>
@@ -111,7 +112,7 @@ public class MailCopy
     /// <summary>
     /// Whether this mail is only created locally.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public bool IsLocalDraft => !string.IsNullOrEmpty(DraftId) && DraftId.StartsWith(Constants.LocalDraftStartPrefix);
 
     /// <summary>
@@ -131,7 +132,7 @@ public class MailCopy
     /// Warning: This field is not populated by queries.
     /// Services or View Models are responsible for populating this field.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public MailItemFolder AssignedFolder { get; set; }
 
     /// <summary>
@@ -139,7 +140,7 @@ public class MailCopy
     /// Warning: This field is not populated by queries.
     /// Services or View Models are responsible for populating this field.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public MailAccount AssignedAccount { get; set; }
 
     /// <summary>
@@ -147,7 +148,7 @@ public class MailCopy
     /// Warning: This field is not populated by queries.
     /// Services or View Models are responsible for populating this field.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public AccountContact SenderContact { get; set; }
 
     public IEnumerable<Guid> GetContainingIds() => [UniqueId];

@@ -1,7 +1,8 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
 using Itenso.TimePeriod;
-using SQLite;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
@@ -10,7 +11,7 @@ namespace Wino.Core.Domain.Entities.Calendar;
 [DebuggerDisplay("{Title} ({StartDate} - {EndDate})")]
 public class CalendarItem : ICalendarItem
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
     public string RemoteEventId { get; set; }
     public string Title { get; set; }
@@ -127,14 +128,14 @@ public class CalendarItem : ICalendarItem
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid CalendarId { get; set; }
 
-    [Ignore]
+    [NotMapped]
     public IAccountCalendar AssignedCalendar { get; set; }
 
     /// <summary>
     /// Whether this item does not really exist in the database or not.
     /// These are used to display occurrence instances of parent recurring events.
     /// </summary>
-    [Ignore]
+    [NotMapped]
     public bool IsOccurrence { get; set; }
 
     /// <summary>

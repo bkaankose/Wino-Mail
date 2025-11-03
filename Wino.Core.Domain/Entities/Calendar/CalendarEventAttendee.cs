@@ -1,5 +1,5 @@
 ﻿using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Calendar;
@@ -7,7 +7,7 @@ namespace Wino.Core.Domain.Entities.Calendar;
 // TODO: Connect to Contact store with Wino People.
 public class CalendarEventAttendee
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
     public Guid CalendarItemId { get; set; }
     public string Name { get; set; }

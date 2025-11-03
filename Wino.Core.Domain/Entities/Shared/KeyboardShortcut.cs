@@ -1,5 +1,5 @@
 using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Shared;
@@ -9,7 +9,7 @@ namespace Wino.Core.Domain.Entities.Shared;
 /// </summary>
 public class KeyboardShortcut
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
 
     /// <summary>

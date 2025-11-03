@@ -1,11 +1,11 @@
 ﻿using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
 
 namespace Wino.Core.Domain.Entities.Mail;
 
 public class AccountSignature
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
 
     public string Name { get; set; }

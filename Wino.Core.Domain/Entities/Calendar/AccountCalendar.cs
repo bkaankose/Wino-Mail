@@ -1,13 +1,12 @@
 ﻿using System;
-using SQLite;
+using System.ComponentModel.DataAnnotations;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Entities.Calendar;
 
-[Preserve]
 public class AccountCalendar : IAccountCalendar
 {
-    [PrimaryKey]
+    [Key]
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
     public string RemoteCalendarId { get; set; }
