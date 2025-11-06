@@ -558,90 +558,148 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (clickedItem == null) return;
 
-        bool isSelectedItemFromThread = listView.IsThreadListView;
+        // Requirements (summary):
+        // CTRL pressed -> multi-select behaviour
+        //   * Clicking single item toggles only that item.
+        //   * Clicking thread header toggles selection of thread AND all its children (all on or all off).
+        //   * Clicking an item inside a thread toggles only that child item.
+        // CTRL NOT pressed -> single-select (exclusive) with toggle support (can leave zero selected)
+        //   * Clicking thread header: unselect everything else, collapse all other threads, select only the thread + first child.
+        //       If already in that state (thread selected and first child selected), clicking again unselects all (nothing selected).
+        //   * Clicking a single (non-thread) item OR a child item: collapse & unselect all others then toggle that item's selection.
+        //       If it was selected, result is nothing selected.
+
         bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed();
 
-        bool isClickingThreadItem = clickedItem is ThreadMailItemViewModel;
-
-        // Unselect all items. It's single selection.
-        if (!isCtrlPressed)
+        // Helper local to collapse all other threads (we always collapse ALL then possibly re-expand the active thread per rules)
+        async Task CollapseAllThreadsExceptAsync(ThreadMailItemViewModel? except)
         {
-            await ViewModel.MailCollection.UnselectAllAsync();
-
-            if (!isSelectedItemFromThread && !isClickingThreadItem)
+            await ViewModel.MailCollection.CollapseAllThreadsAsync();
+            if (except != null)
             {
-                await ViewModel.MailCollection.CollapseAllThreadsAsync();
+                // We'll expand explicitly when required by logic below.
             }
         }
 
-        if (clickedItem is MailItemViewModel mailListItem)
+        if (isCtrlPressed)
         {
-            mailListItem.IsSelected = !mailListItem.IsSelected;
-        }
-        else if (clickedItem is ThreadMailItemViewModel threadMailItemViewModel)
-        {
-            // Extended selection mode handling for threads
-            if (isCtrlPressed)
+            switch (clickedItem)
             {
-                // If thread is selected and Ctrl is pressed
-                if (threadMailItemViewModel.IsSelected)
-                {
-                    // If thread was collapsed, expand it
-                    if (!threadMailItemViewModel.IsThreadExpanded)
+                case ThreadMailItemViewModel thread:
                     {
-                        threadMailItemViewModel.IsThreadExpanded = true;
-                    }
-                    else
-                    {
-                        // Check if all items are selected.
-                        // If so, then unselect all items in the thread and unselect the thread itself.
-                        if (threadMailItemViewModel.ThreadEmails.All(a => a.IsSelected))
+                        // Determine if thread + all children currently selected
+                        bool allSelected = thread.IsSelected && thread.ThreadEmails.All(e => e.IsSelected);
+                        if (allSelected)
                         {
-                            foreach (var threadEmail in threadMailItemViewModel.ThreadEmails)
-                            {
-                                threadEmail.IsSelected = false;
-                            }
-                            threadMailItemViewModel.IsSelected = false;
-                            return;
+                            // Unselect thread & all children
+                            thread.IsSelected = false;
+                            foreach (var child in thread.ThreadEmails)
+                                child.IsSelected = false;
                         }
                         else
                         {
-                            // If thread was already expanded, select all items in the thread
-                            foreach (var threadEmail in threadMailItemViewModel.ThreadEmails)
-                            {
-                                threadEmail.IsSelected = true;
-                            }
+                            // Select thread & all children (do NOT disturb other selections in CTRL mode)
+                            thread.IsSelected = true;
+                            foreach (var child in thread.ThreadEmails)
+                                child.IsSelected = true;
+                            // Keep it expanded so user can see items
+                            thread.IsThreadExpanded = true;
                         }
+                        break;
                     }
-                }
-                else
-                {
-                    // Thread is not selected, select and expand it.
-                    if (!threadMailItemViewModel.IsThreadExpanded) threadMailItemViewModel.IsThreadExpanded = true;
-                    if (!threadMailItemViewModel.IsSelected)
+                case MailItemViewModel mail:
                     {
-                        threadMailItemViewModel.IsSelected = true;
+                        // Toggle just this item; no collapse/unselect of others in multi-select mode.
+                        mail.IsSelected = !mail.IsSelected;
+                        break;
+                    }
+            }
+            return; // Multi-select path ends here.
+        }
 
-                        foreach (var threadEmail in threadMailItemViewModel.ThreadEmails)
-                        {
-                            threadEmail.IsSelected = true;
-                        }
+        // SINGLE-SELECTION (exclusive) MODE WITH TOGGLE SUPPORT
+        if (clickedItem is ThreadMailItemViewModel clickedThread)
+        {
+            bool wasThreadSelected = clickedThread.IsSelected;
+
+            // Reset everything first (exclusive selection scenario)
+            await ViewModel.MailCollection.UnselectAllAsync();
+            await CollapseAllThreadsExceptAsync(clickedThread);
+
+            if (wasThreadSelected)
+            {
+                // Toggle off -> leave nothing selected (all unselected, thread collapsed)
+                clickedThread.IsThreadExpanded = false;
+                return;
+            }
+
+            // Select thread + first child only
+            clickedThread.IsSelected = true;
+            var firstChild = clickedThread.ThreadEmails.FirstOrDefault();
+            if (firstChild != null)
+            {
+                // Ensure only first child selected
+                foreach (var child in clickedThread.ThreadEmails)
+                {
+                    child.IsSelected = child == firstChild;
+                }
+            }
+            clickedThread.IsThreadExpanded = true; // Show contents of active thread
+        }
+        else if (clickedItem is MailItemViewModel clickedMail)
+        {
+            bool wasSelected = clickedMail.IsSelected;
+
+            // Determine if this mail belongs to an already selected & expanded thread.
+            // If so, we only want to switch the selection inside that thread without collapsing or unselecting the thread header.
+            ThreadMailItemViewModel? parentThread = null;
+
+            foreach (var group in ViewModel.MailCollection.MailItems)
+            {
+                foreach (var item in group)
+                {
+                    if (item is ThreadMailItemViewModel thread && thread.ThreadEmails.Contains(clickedMail))
+                    {
+                        parentThread = thread;
+                        break;
                     }
                 }
+                if (parentThread != null) break;
             }
-            else
-            {
-                // No Ctrl pressed, toggle expansion state (default behavior)
-                threadMailItemViewModel.IsThreadExpanded = !threadMailItemViewModel.IsThreadExpanded;
 
-                // Select the first item in the thread if none is selected
-                if (!threadMailItemViewModel.IsSelected)
+            bool isInSelectedExpandedThread = parentThread != null && parentThread.IsSelected && parentThread.IsThreadExpanded;
+
+            if (isInSelectedExpandedThread)
+            {
+                // Switch selection within the thread: unselect previously selected children, select the clicked one.
+                if (parentThread?.ThreadEmails != null)
                 {
-                    threadMailItemViewModel.IsSelected = true;
-                    var firstEmail = threadMailItemViewModel.ThreadEmails.FirstOrDefault();
-                    firstEmail?.IsSelected = true;
+                    foreach (var child in parentThread.ThreadEmails)
+                    {
+                        child.IsSelected = child == clickedMail && !wasSelected; // If clicking an already selected child -> toggle off (none selected in thread except header)
+                    }
                 }
+
+                if (wasSelected && parentThread != null)
+                {
+                    // Clicking the already selected child should leave the thread header selected (canonical state: thread + first child previously).
+                    // Decide whether to keep a child selected; spec wants toggle off allowed, so leave no child selected.
+                    // Ensure parent thread stays selected & expanded.
+                    parentThread.IsSelected = true;
+                    parentThread.IsThreadExpanded = true;
+                }
+                return; // Done.
             }
+
+            // Normal single-item (non-thread or entering a thread via child) behavior.
+            await ViewModel.MailCollection.UnselectAllAsync();
+            await ViewModel.MailCollection.CollapseAllThreadsAsync();
+
+            if (!wasSelected)
+            {
+                clickedMail.IsSelected = true; // Toggle on
+            }
+            // else leave all unselected (toggle off)
         }
     }
 
