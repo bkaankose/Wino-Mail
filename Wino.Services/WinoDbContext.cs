@@ -98,15 +98,17 @@ public class WinoDbContext : DbContext
             entity.HasIndex(e => e.HasAttachments).HasDatabaseName("IX_MailCopy_HasAttachments");
             entity.HasIndex(e => e.IsDraft).HasDatabaseName("IX_MailCopy_IsDraft");
 
-            // Foreign key relationship to MailItemFolder
-            entity.HasOne<MailItemFolder>()
+            // Navigation property to AssignedFolder (MailItemFolder)
+            entity.HasOne(e => e.AssignedFolder)
                 .WithMany()
                 .HasForeignKey(e => e.FolderId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Ignore navigation properties - these are loaded manually
-            entity.Ignore(e => e.AssignedFolder);
+            // AssignedAccount is computed through AssignedFolder, not a direct FK
+            // It will be loaded via Include(m => m.AssignedFolder).ThenInclude(f => f.AssignedAccount)
             entity.Ignore(e => e.AssignedAccount);
+            
+            // SenderContact is not mapped to database
             entity.Ignore(e => e.SenderContact);
         });
 
@@ -124,13 +126,13 @@ public class WinoDbContext : DbContext
             entity.HasIndex(e => new { e.MailAccountId, e.RemoteFolderId })
                 .HasDatabaseName("IX_MailItemFolder_Account_RemoteFolder");
 
-            // Foreign key relationship to MailAccount
-            entity.HasOne<MailAccount>()
+            // Navigation property to AssignedAccount (MailAccount)
+            entity.HasOne(e => e.AssignedAccount)
                 .WithMany()
                 .HasForeignKey(e => e.MailAccountId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Ignore navigation properties
+            // ChildFolders is not mapped to database (computed in-memory)
             entity.Ignore(e => e.ChildFolders);
         });
 
@@ -275,16 +277,24 @@ public class WinoDbContext : DbContext
             entity.HasIndex(e => e.MergedInboxId).HasDatabaseName("IX_MailAccount_MergedInboxId");
             entity.HasIndex(e => e.Order).HasDatabaseName("IX_MailAccount_Order");
 
-            // Foreign key relationship to MergedInbox (nullable)
-            entity.HasOne<MergedInbox>()
+            // Navigation property to MergedInbox (optional - may be null)
+            entity.HasOne(e => e.MergedInbox)
                 .WithMany()
                 .HasForeignKey(e => e.MergedInboxId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Ignore navigation properties
-            entity.Ignore(e => e.MergedInbox);
-            entity.Ignore(e => e.ServerInformation);
-            entity.Ignore(e => e.Preferences);
+            // Navigation property to Preferences (required - all accounts must have preferences)
+            entity.HasOne(e => e.Preferences)
+                .WithOne()
+                .HasForeignKey<MailAccountPreferences>(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+
+            // Navigation property to ServerInformation (optional - may be null for non-IMAP accounts)
+            entity.HasOne(e => e.ServerInformation)
+                .WithOne()
+                .HasForeignKey<CustomServerInformation>(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // MailAccountPreferences configuration
@@ -292,12 +302,8 @@ public class WinoDbContext : DbContext
         {
             entity.ToTable("MailAccountPreferences");
             entity.HasKey(e => e.AccountId);
-
-            // Foreign key relationship to MailAccount (one-to-one)
-            entity.HasOne<MailAccount>()
-                .WithOne()
-                .HasForeignKey<MailAccountPreferences>(e => e.AccountId)
-                .OnDelete(DeleteBehavior.Cascade);
+            
+            // Relationship configured from MailAccount side
         });
 
         // AccountContact configuration
@@ -320,11 +326,7 @@ public class WinoDbContext : DbContext
             // Index
             entity.HasIndex(e => e.AccountId).HasDatabaseName("IX_CustomServerInformation_AccountId");
 
-            // Foreign key relationship to MailAccount (one-to-one)
-            entity.HasOne<MailAccount>()
-                .WithOne()
-                .HasForeignKey<CustomServerInformation>(e => e.AccountId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // Relationship configured from MailAccount side
 
             // Ignore deprecated property
             entity.Ignore(e => e.DisplayName);

@@ -70,6 +70,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
         if (WinoApplication.MainWindow is not IWinoShellWindow shellWindow) throw new ArgumentException("MainWindow must implement IWinoShellWindow");
         if (shellWindow.GetMainFrame() is not Frame mainFrame) throw new ArgumentException("MainFrame cannot be null.");
 
+        if (frameType == NavigationReferenceFrame.ShellFrame && mainFrame.Content is AppShell appShellPage) return appShellPage.GetShellFrame();
+
         return WinoVisualTreeHelper.GetChildObject<Frame>(mainFrame.Content as UIElement, frameType.ToString());
     }
 

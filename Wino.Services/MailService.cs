@@ -99,9 +99,23 @@ public class MailService : BaseDatabaseService, IMailService
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
         }
 
+        // Save references to navigation properties before clearing
+        var assignedFolder = copy.AssignedFolder;
+        var assignedAccount = copy.AssignedAccount;
+
         using var context = ContextFactory.CreateDbContext();
+        
+        // Clear navigation properties before insertion to prevent EF Core from trying to insert related entities
+        // The FolderId foreign key is already set
+        copy.AssignedFolder = null;
+        copy.AssignedAccount = null;
+        
         context.MailCopies.Add(copy);
         await context.SaveChangesAsync();
+
+        // Restore navigation properties for subsequent use and messages
+        copy.AssignedFolder = assignedFolder;
+        copy.AssignedAccount = assignedAccount;
 
         await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
 
@@ -277,10 +291,10 @@ public class MailService : BaseDatabaseService, IMailService
                 });
 
                 var processedThreadMails = await Task.WhenAll(tasks).ConfigureAwait(false);
-                
+
                 // Filter out items with no assigned account or folder
                 var validThreadMails = processedThreadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null);
-                
+
                 expandedMails.AddRange(validThreadMails);
             }
 
@@ -296,7 +310,7 @@ public class MailService : BaseDatabaseService, IMailService
             return [];
 
         using var context = ContextFactory.CreateDbContext();
-        
+
         return await context.MailCopies
             .Where(mc => mc.ThreadId == threadId && !excludeMailIds.Contains(mc.Id))
             .ToListAsync();
@@ -308,7 +322,7 @@ public class MailService : BaseDatabaseService, IMailService
             return [];
 
         using var context = ContextFactory.CreateDbContext();
-        
+
         return await context.MailCopies
             .Where(mc => threadIds.Contains(mc.ThreadId) && !excludeMailIds.Contains(mc.Id))
             .ToListAsync()
@@ -452,7 +466,7 @@ public class MailService : BaseDatabaseService, IMailService
     {
         using var context = ContextFactory.CreateDbContext();
         var mailCopy = await context.MailCopies.FirstOrDefaultAsync(mc => mc.Id == mailCopyId);
-        
+
         if (mailCopy == null) return null;
 
         await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
@@ -463,7 +477,7 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId)
     {
         using var context = ContextFactory.CreateDbContext();
-        
+
         var mailItem = await context.MailCopies
             .Join(context.MailItemFolders,
                 mc => mc.FolderId,
@@ -524,11 +538,26 @@ public class MailService : BaseDatabaseService, IMailService
             return;
         }
 
-        _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
+        var folderName = mailCopy.AssignedFolder?.FolderName;
+        _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, folderName);
+
+        // Save references to navigation properties before clearing
+        var assignedFolder = mailCopy.AssignedFolder;
+        var assignedAccount = mailCopy.AssignedAccount;
 
         using var context = ContextFactory.CreateDbContext();
+        
+        // Clear navigation properties to prevent EF Core from trying to insert them
+        // The FolderId foreign key is already set
+        mailCopy.AssignedFolder = null;
+        mailCopy.AssignedAccount = null;
+        
         context.MailCopies.Add(mailCopy);
         await context.SaveChangesAsync().ConfigureAwait(false);
+
+        // Restore navigation properties for the message
+        mailCopy.AssignedFolder = assignedFolder;
+        mailCopy.AssignedAccount = assignedAccount;
 
         ReportUIChange(new MailAddedMessage(mailCopy));
     }
@@ -947,13 +976,13 @@ public class MailService : BaseDatabaseService, IMailService
             if (!string.IsNullOrEmpty(referenceMessage.MessageId))
             {
                 message.InReplyTo = referenceMessage.MessageId;
-                
+
                 // Add all previous References first
                 if (referenceMessage.References != null && referenceMessage.References.Count > 0)
                 {
                     message.References.AddRange(referenceMessage.References);
                 }
-                
+
                 // Then add the message we're replying to
                 message.References.Add(referenceMessage.MessageId);
             }
@@ -965,7 +994,7 @@ public class MailService : BaseDatabaseService, IMailService
                 if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
                 {
                     message.InReplyTo = referenceMailCopy.MessageId;
-                    
+
                     if (!string.IsNullOrEmpty(referenceMailCopy.References))
                     {
                         // Parse the References string and add them
@@ -975,7 +1004,7 @@ public class MailService : BaseDatabaseService, IMailService
                             message.References.Add(reference.Trim());
                         }
                     }
-                    
+
                     message.References.Add(referenceMailCopy.MessageId);
                 }
             }
@@ -1037,7 +1066,7 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
     {
         using var context = ContextFactory.CreateDbContext();
-        
+
         var localDraftCopy = await context.MailCopies
             .Join(context.MailItemFolders,
                 mc => mc.FolderId,
@@ -1094,15 +1123,15 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
     {
         using var context = ContextFactory.CreateDbContext();
-        
+
         return await context.MailCopies
             .Join(context.MailItemFolders,
                 mc => mc.FolderId,
                 mf => mf.Id,
                 (mc, mf) => new { MailCopy = mc, Folder = mf })
-            .Where(x => downloadedMailCopyIds.Contains(x.MailCopy.Id) && 
-                       !x.MailCopy.IsRead && 
-                       x.Folder.MailAccountId == accountId && 
+            .Where(x => downloadedMailCopyIds.Contains(x.MailCopy.Id) &&
+                       !x.MailCopy.IsRead &&
+                       x.Folder.MailAccountId == accountId &&
                        x.Folder.SpecialFolderType == SpecialFolderType.Inbox)
             .Select(x => x.MailCopy)
             .ToListAsync();
@@ -1111,7 +1140,7 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)
     {
         using var context = ContextFactory.CreateDbContext();
-        
+
         return await context.MailCopies
             .Where(mc => mc.UniqueId == uniqueMailId)
             .Join(context.MailItemFolders,
@@ -1135,7 +1164,7 @@ public class MailService : BaseDatabaseService, IMailService
     {
         using var context = ContextFactory.CreateDbContext();
         var localMailIds = uniqueIds.Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
-        
+
         return await context.MailCopies
             .Where(mc => localMailIds.Contains(mc.Id))
             .ToListAsync();
@@ -1169,7 +1198,7 @@ public class MailService : BaseDatabaseService, IMailService
         var mailCopies = await context.MailCopies
             .Where(mc => mailCopyIds.Contains(mc.Id))
             .ToListAsync();
-            
+
         if (mailCopies?.Count == 0) return [];
 
         ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
@@ -1196,7 +1225,7 @@ public class MailService : BaseDatabaseService, IMailService
     public async Task DeleteAccountMailsAsync(Guid accountId)
     {
         using var context = ContextFactory.CreateDbContext();
-        
+
         // Delete all mail copies for the account by joining with folders
         await context.MailCopies
             .Join(context.MailItemFolders,

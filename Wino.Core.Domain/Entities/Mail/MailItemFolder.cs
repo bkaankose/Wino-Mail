@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 
@@ -40,6 +41,12 @@ public class MailItemFolder : IMailItemFolder
     // For GMail Labels
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
+
+    /// <summary>
+    /// Account that this folder belongs to.
+    /// Services or View Models are responsible for populating this field via Include.
+    /// </summary>
+    public MailAccount AssignedAccount { get; set; }
 
     [NotMapped]
     public List<IMailItemFolder> ChildFolders { get; set; } = [];

@@ -9,7 +9,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -41,24 +40,11 @@ public sealed partial class AppShell : AppShellAbstract,
     [GeneratedDependencyProperty]
     public partial UIElement? TopShellContent { get; set; }
 
+    public Frame GetShellFrame() => ShellFrame;
+
     public AppShell() : base()
     {
         InitializeComponent();
-    }
-
-    //protected override void OnNavigatedTo(NavigationEventArgs e)
-    //{
-    //    base.OnNavigatedTo(e);
-
-    //    WeakReferenceMessenger.Default.Register<InfoBarMessageRequested>(this);
-    //    WeakReferenceMessenger.Default.Register<AccountMenuItemExtended>(this);
-    //    WeakReferenceMessenger.Default.Register<CreateNewMailWithMultipleAccountsRequested>(this);
-    //    WeakReferenceMessenger.Default.Register<NavigateMailFolderEvent>(this);
-    //}
-
-    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
-    {
-        base.OnNavigatingFrom(e);
     }
 
     private async void ItemDroppedOnFolder(object sender, DragEventArgs e)

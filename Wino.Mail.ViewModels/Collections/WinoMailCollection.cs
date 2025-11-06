@@ -167,6 +167,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             {
                 if (_threadIdToItemsMap.ContainsKey(threadId))
                 {
+                    // TODO: Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index
                     _threadIdToItemsMap[threadId].Remove(item);
                     if (_threadIdToItemsMap[threadId].Count == 0)
                     {
@@ -966,7 +967,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             Messenger.Register<SelectedItemsChangedMessage>(this);
             Messenger.Send(new SelectedItemsChangedMessage());
 
-            await NotifySelectionChangesAsync();
+            // await NotifySelectionChangesAsync();
         }
     }
 

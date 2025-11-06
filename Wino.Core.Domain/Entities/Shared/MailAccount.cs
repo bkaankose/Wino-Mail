@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
@@ -81,22 +80,18 @@ public class MailAccount
 
     /// <summary>
     /// Contains the merged inbox this account belongs to.
-    /// Ignored for all SQLite operations.
     /// </summary>
-    [NotMapped]
     public MergedInbox MergedInbox { get; set; }
 
     /// <summary>
     /// Populated only when account has custom server information.
     /// </summary>
 
-    [NotMapped]
     public CustomServerInformation ServerInformation { get; set; }
 
     /// <summary>
     /// Account preferences.
     /// </summary>
-    [NotMapped]
     public MailAccountPreferences Preferences { get; set; }
 
     /// <summary>

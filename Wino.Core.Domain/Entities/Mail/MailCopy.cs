@@ -129,18 +129,14 @@ public class MailCopy
 
     /// <summary>
     /// Folder that this mail is assigned to.
-    /// Warning: This field is not populated by queries.
     /// Services or View Models are responsible for populating this field.
     /// </summary>
-    [NotMapped]
     public MailItemFolder AssignedFolder { get; set; }
 
     /// <summary>
     /// Account that this mail is assigned to.
-    /// Warning: This field is not populated by queries.
     /// Services or View Models are responsible for populating this field.
     /// </summary>
-    [NotMapped]
     public MailAccount AssignedAccount { get; set; }
 
     /// <summary>

@@ -30,7 +30,7 @@ public interface ISignatureService
     /// Needed only for initial account setup.
     /// </summary>
     /// <param name="accountId">Account Id.</param>
-    Task<AccountSignature> CreateDefaultSignatureAsync(Guid accountId);
+    AccountSignature GetDefaultSignatureAsync(Guid accountId);
 
     /// <summary>
     /// Updates existing signature.

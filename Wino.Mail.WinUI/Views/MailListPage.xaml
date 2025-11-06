@@ -260,7 +260,8 @@
                         VerticalAlignment="Center"
                         Canvas.ZIndex="100"
                         Checked="SelectAllCheckboxChecked"
-                        Unchecked="SelectAllCheckboxUnchecked" />
+                        Unchecked="SelectAllCheckboxUnchecked"
+                        Visibility="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}" />
 
 
                     <!--  Folders  -->

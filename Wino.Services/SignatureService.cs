@@ -33,7 +33,7 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
         return signature;
     }
 
-    public async Task<AccountSignature> CreateDefaultSignatureAsync(Guid accountId)
+    public AccountSignature GetDefaultSignatureAsync(Guid accountId)
     {
         var defaultSignature = new AccountSignature()
         {
@@ -43,10 +43,6 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
             Name = "Wino Default Signature",
             HtmlBody = @"<p>Sent from <a href=""https://github.com/bkaankose/Wino-Mail/"">Wino Mail</a> for Windows</p>"
         };
-
-        using var context = ContextFactory.CreateDbContext();
-        context.AccountSignatures.Add(defaultSignature);
-        await context.SaveChangesAsync();
 
         return defaultSignature;
     }
