@@ -1009,7 +1009,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     }
 
     public Task SelectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = true, true);
-    public Task UnselectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = false, true);
+    public Task UnselectAllAsync(IMailListItem exceptItem = null) => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = false && a != exceptItem, true);
     public Task CollapseAllThreadsAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a is ThreadMailItemViewModel thread) thread.IsThreadExpanded = false; }, true);
 
     private Task ExecuteUIThread(Action action) => CoreDispatcher?.ExecuteOnUIThread(action);
