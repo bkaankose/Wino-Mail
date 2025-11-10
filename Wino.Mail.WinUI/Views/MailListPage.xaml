@@ -423,7 +423,7 @@
                         ItemsSource="{x:Bind MailCollectionViewSource.View, Mode=OneWay}"
                         LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                         ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
-                        SelectionMode="Extended">
+                        SelectionMode="None">
                         <listview:WinoListView.ItemContainerTransitions>
                             <TransitionCollection>
                                 <AddDeleteThemeTransition />

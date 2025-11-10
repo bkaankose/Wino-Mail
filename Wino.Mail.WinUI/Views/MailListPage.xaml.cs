@@ -699,7 +699,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
             {
                 clickedMail.IsSelected = true; // Toggle on
             }
-            // else leave all unselected (toggle off)
         }
     }
 
