@@ -40,7 +40,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// <summary>
     /// Gets the latest email's sender name for display
     /// </summary>
-    public string FromName => latestMailViewModel?.MailCopy?.SenderContact?.Name ?? Translator.UnknownSender;
+    public string FromName => latestMailViewModel?.MailCopy?.FromName ?? Translator.UnknownSender;
 
     /// <summary>
     /// Gets the latest email's creation date for sorting
