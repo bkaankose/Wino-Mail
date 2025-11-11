@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -1079,6 +1080,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     #region Request Execution
 
+    Task backoff = Task.CompletedTask;
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IClientServiceRequest>> batchedRequests,
                                                           CancellationToken cancellationToken = default)
     {
@@ -1103,6 +1105,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
                     => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));
             }
+
+            await backoff.WaitAsync(cancellationToken).ConfigureAwait(false);
 
             await nativeBatchRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
@@ -1147,6 +1151,15 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 throw new SynchronizerEntityNotFoundException(error.Message);
             }
 
+            if (error.Code == 429)
+            {
+                bundle?.UIChangeRequest?.RevertUIChanges();
+                var now = DateTimeOffset.UtcNow;
+                if (TryGetRetryAfter(error.Message) is { } retryAfter && retryAfter > now)
+                    backoff = Task.Delay(retryAfter - now);
+                throw new SynchronizerException(error.Message);
+            }
+
             if (!string.IsNullOrEmpty(error.Message))
             {
                 bundle?.UIChangeRequest?.RevertUIChanges();
@@ -1155,6 +1168,18 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 throw new SynchronizerException(error.Message);
             }
         }
+    }
+
+    static DateTimeOffset? TryGetRetryAfter(string rateLimitErrorMessage)
+    {
+        const string sample = "2025-11-11T15:19:18.256Z";
+        if (rateLimitErrorMessage.Length < sample.Length)
+            return null;
+        string maybeTimestamp = rateLimitErrorMessage[^sample.Length..];
+        return DateTimeOffset.TryParseExact(maybeTimestamp, "yyyy-MM-ddTHH:mm:ss.fffZ",
+            CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal,
+            out DateTimeOffset retryAfter)
+            ? retryAfter : null;
     }
 
     /// <summary>
