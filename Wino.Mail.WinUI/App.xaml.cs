@@ -7,6 +7,7 @@ using Microsoft.Windows.AppLifecycle;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Interfaces;
 using Wino.Mail.Services;
@@ -39,23 +40,55 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
 
         var mailService = Services.GetRequiredService<IMailService>();
         var accountService = Services.GetRequiredService<IAccountService>();
+        var actionKey = toastArgs.Contains(Constants.ToastActionKey) ? toastArgs[Constants.ToastActionKey] : string.Empty;
 
         if (Guid.TryParse(toastArgs[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
         {
-            var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
-            if (account == null) return;
+            // Action triggered. 
+            if (toastArgs.TryGetValue(Constants.ToastActionKey, out MailOperation action))
+            {
+                // Check if the app is running.
 
-            var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId).ConfigureAwait(false);
-            if (mailItem == null) return;
+                if (IsAppRunning())
+                {
+                    // Get the synchronizer and queue the action for the given item.
 
-            var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
+                    var processor = Services.GetRequiredService<IWinoRequestProcessor>();
+                    var delegator = Services.GetRequiredService<IWinoRequestDelegator>();
 
-            // Delegate this event to LaunchProtocolService so app shell can pick it up on launch if app doesn't work.
-            var launchProtocolService = Services.GetRequiredService<ILaunchProtocolService>();
-            launchProtocolService.LaunchParameter = message;
+                    var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId);
 
-            // Send the messsage anyways. Launch protocol service will be ignored if the message is picked up by subscriber shell.
-            WeakReferenceMessenger.Default.Send(message);
+                    if (mailItem != null)
+                    {
+                        var package = new MailOperationPreperationRequest(action, mailItem);
+
+                        await delegator.ExecuteAsync(package);
+                    }
+                }
+                else
+                {
+
+                }
+            }
+            else
+            {
+                // Notification clicked. Handle navigation.
+
+                var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
+                if (account == null) return;
+
+                var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId).ConfigureAwait(false);
+                if (mailItem == null) return;
+
+                var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
+
+                // Delegate this event to LaunchProtocolService so app shell can pick it up on launch if app doesn't work.
+                var launchProtocolService = Services.GetRequiredService<ILaunchProtocolService>();
+                launchProtocolService.LaunchParameter = message;
+
+                // Send the messsage anyways. Launch protocol service will be ignored if the message is picked up by subscriber shell.
+                WeakReferenceMessenger.Default.Send(message);
+            }
         }
 
         if (ToastNotificationManagerCompat.WasCurrentProcessToastActivated())
