@@ -177,7 +177,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
         {
-            var targetItems = ViewModel.MailCollection.SelectedItems;
+            IEnumerable<MailItemViewModel> targetItems;
+            if (!ViewModel.MailCollection.SelectedItems.Contains(control.ActionItem))
+            {
+                // Right clicked item is not selected. Select.
+                await WinoClickItemInternalAsync(control.ActionItem, true);
+            }
+
+            // Default to all selected items.
+            targetItems = ViewModel.MailCollection.SelectedItems;
             var availableActions = ViewModel.GetAvailableMailActions(targetItems);
 
             if (!availableActions?.Any() ?? false) return;
@@ -575,10 +583,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Helper local to collapse all other threads (we always collapse ALL then possibly re-expand the active thread per rules)
         async Task CollapseAllThreadsExceptAsync(ThreadMailItemViewModel? except)
         {
+            bool wasExpanded = except != null && except.IsThreadExpanded;
+
             await ViewModel.MailCollection.CollapseAllThreadsAsync();
-            if (except != null)
+            if (except != null && wasExpanded)
             {
                 // We'll expand explicitly when required by logic below.
+                except.IsThreadExpanded = true;
             }
         }
 
