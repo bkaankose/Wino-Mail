@@ -19,9 +19,10 @@ public interface ISynchronizationManager
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
     /// </summary>
-    Task InitializeAsync(ISynchronizerFactory synchronizerFactory, 
+    Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
                         IImapTestService imapTestService,
                         IAccountService accountService,
+                        INotificationBuilder notificationBuilder,
                         IAuthenticationProvider authenticationProvider);
 
     /// <summary>
@@ -32,7 +33,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Starts a new mail synchronization for the given account.
     /// </summary>
-    Task<MailSynchronizationResult> SynchronizeMailAsync(MailSynchronizationOptions options, 
+    Task<MailSynchronizationResult> SynchronizeMailAsync(MailSynchronizationOptions options,
                                                          CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -53,25 +54,25 @@ public interface ISynchronizationManager
     /// <summary>
     /// Handles folder synchronization for the given account.
     /// </summary>
-    Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId, 
+    Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId,
                                                             CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Handles alias synchronization for the given account.
     /// </summary>
-    Task<MailSynchronizationResult> SynchronizeAliasesAsync(Guid accountId, 
+    Task<MailSynchronizationResult> SynchronizeAliasesAsync(Guid accountId,
                                                             CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Handles profile synchronization for the given account.
     /// </summary>
-    Task<MailSynchronizationResult> SynchronizeProfileAsync(Guid accountId, 
+    Task<MailSynchronizationResult> SynchronizeProfileAsync(Guid accountId,
                                                             CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Downloads a MIME message for the given mail item.
     /// </summary>
-    Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId, 
+    Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId,
                                          CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -97,7 +98,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Handles OAuth authentication for the specified provider.
     /// </summary>
-    Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType, 
-                                                     MailAccount account = null, 
+    Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
+                                                     MailAccount account = null,
                                                      bool proposeCopyAuthorizationURL = false);
 }

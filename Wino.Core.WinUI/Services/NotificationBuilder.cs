@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -15,8 +14,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.WinUI.Services;
-
-// TODO: Refactor this thing. It's garbage.
 
 public class NotificationBuilder : INotificationBuilder
 {
@@ -44,12 +41,43 @@ public class NotificationBuilder : INotificationBuilder
         });
     }
 
-    public async Task CreateNotificationsAsync(Guid inboxFolderId, IEnumerable<MailCopy> downloadedMailItems)
+    public async Task CreateNotificationsAsync(IEnumerable<MailCopy> downloadedMailItems)
     {
-        var mailCount = downloadedMailItems.Count();
-
         try
         {
+            // Filter mails to only include Inbox folder items
+            var inboxMailItems = new List<MailCopy>();
+
+            foreach (var item in downloadedMailItems)
+            {
+                var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
+
+                //if (mailItem == null || mailItem.AssignedFolder == null)
+                //    continue;
+
+                //// Only create notifications for Inbox folder mails
+                //if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
+                //    continue;
+
+                //// Skip folders with synchronization disabled
+                //if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
+                //    continue;
+
+                //// Skip already read mails
+                //if (mailItem.IsRead)
+                //{
+                //    RemoveNotification(mailItem.UniqueId);
+                //    continue;
+                //}
+
+                inboxMailItems.Add(mailItem);
+            }
+
+            var mailCount = inboxMailItems.Count;
+
+            if (mailCount == 0)
+                return;
+
             // If there are more than 3 mails, just display 1 general toast.
             if (mailCount > 3)
             {
@@ -69,66 +97,9 @@ public class NotificationBuilder : INotificationBuilder
             }
             else
             {
-                var validItems = new List<MailCopy>();
-
-                // Fetch mails again to fill up assigned folder data and latest statuses.
-                // They've been marked as read by executing synchronizer tasks until inital sync finishes.
-
-                foreach (var item in downloadedMailItems)
+                foreach (var mailItem in inboxMailItems)
                 {
-                    var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
-
-                    if (mailItem != null && mailItem.AssignedFolder != null)
-                    {
-                        validItems.Add(mailItem);
-                    }
-                }
-
-                foreach (var mailItem in validItems)
-                {
-                    if (mailItem.IsRead)
-                    {
-                        // Remove the notification for a specific mail if it exists
-                        ToastNotificationManager.History.Remove(mailItem.UniqueId.ToString());
-                        continue;
-                    }
-
-                    var builder = new ToastContentBuilder();
-                    builder.SetToastScenario(ToastScenario.Default);
-
-                    var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
-                    if (!string.IsNullOrEmpty(avatarThumbnail))
-                    {
-                        var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
-                        await using (var stream = await tempFile.OpenStreamForWriteAsync())
-                        {
-                            var bytes = Convert.FromBase64String(avatarThumbnail);
-                            await stream.WriteAsync(bytes);
-                        }
-                        builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
-                    }
-
-                    // Override system notification timetamp with received date of the mail.
-                    // It may create confusion for some users, but still it's the truth...
-                    builder.AddCustomTimeStamp(mailItem.CreationDate.ToLocalTime());
-
-                    builder.AddText(mailItem.FromName);
-                    builder.AddText(mailItem.Subject);
-                    builder.AddText(mailItem.PreviewText);
-
-                    builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
-                    builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
-
-                    builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
-                    builder.AddButton(GetDeleteButton(mailItem.UniqueId));
-                    builder.AddButton(GetArchiveButton(mailItem.UniqueId));
-                    builder.AddAudio(new ToastAudio()
-                    {
-                        Src = new Uri("ms-winsoundevent:Notification.Mail")
-                    });
-
-                    // Use UniqueId as tag to allow removal
-                    builder.Show(toast => toast.Tag = mailItem.UniqueId.ToString());
+                    await CreateSingleNotificationAsync(mailItem);
                 }
 
                 await UpdateTaskbarIconBadgeAsync();
@@ -138,6 +109,45 @@ public class NotificationBuilder : INotificationBuilder
         {
             Log.Error(ex, "Failed to create notifications.");
         }
+    }
+
+    private async Task CreateSingleNotificationAsync(MailCopy mailItem)
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+        if (!string.IsNullOrEmpty(avatarThumbnail))
+        {
+            var tempFile = await Windows.Storage.ApplicationData.Current.TemporaryFolder.CreateFileAsync($"{Guid.NewGuid()}.png", Windows.Storage.CreationCollisionOption.ReplaceExisting);
+            await using (var stream = await tempFile.OpenStreamForWriteAsync())
+            {
+                var bytes = Convert.FromBase64String(avatarThumbnail);
+                await stream.WriteAsync(bytes);
+            }
+            builder.AddAppLogoOverride(new Uri($"ms-appdata:///temp/{tempFile.Name}"), hintCrop: ToastGenericAppLogoCrop.Default);
+        }
+
+        // Override system notification timestamp with received date of the mail.
+        builder.AddCustomTimeStamp(mailItem.CreationDate.ToLocalTime());
+
+        builder.AddText(mailItem.FromName);
+        builder.AddText(mailItem.Subject);
+        builder.AddText(mailItem.PreviewText);
+
+        builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
+        builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
+
+        builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
+        builder.AddButton(GetDeleteButton(mailItem.UniqueId));
+        builder.AddButton(GetArchiveButton(mailItem.UniqueId));
+        builder.AddAudio(new ToastAudio()
+        {
+            Src = new Uri("ms-winsoundevent:Notification.Mail")
+        });
+
+        // Use UniqueId as tag to allow removal
+        builder.Show(toast => toast.Tag = mailItem.UniqueId.ToString());
     }
 
     private ToastButton GetDismissButton()
@@ -214,32 +224,6 @@ public class NotificationBuilder : INotificationBuilder
         {
             Log.Error(ex, "Error while updating taskbar badge.");
         }
-    }
-
-    public async Task CreateTestNotificationAsync(string title, string message)
-    {
-        // with args test.
-        //await CreateNotificationsAsync(Guid.Parse("28c3c39b-7147-4de3-b209-949bd19eede6"), new List<IMailItem>()
-        //{
-        //    new MailCopy()
-        //    {
-        //        Subject = "test subject",
-        //        PreviewText = "preview html",
-        //        CreationDate = DateTime.UtcNow,
-        //        FromAddress = "bkaankose@outlook.com",
-        //        Id = "AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0AnMdP0zg8wkS_Ib2Eeh80LAAGq91I3QAA",
-        //    }
-        //});
-
-        //var builder = new ToastContentBuilder();
-        //builder.SetToastScenario(ToastScenario.Default);
-
-        //builder.AddText(title);
-        //builder.AddText(message);
-
-        //builder.Show();
-
-        //await Task.CompletedTask;
     }
 
     public void RemoveNotification(Guid mailUniqueId)

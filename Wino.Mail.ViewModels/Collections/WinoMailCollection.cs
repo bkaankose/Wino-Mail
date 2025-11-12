@@ -217,6 +217,42 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         return !string.IsNullOrEmpty(threadId) && _threadIdToItemsMap.ContainsKey(threadId);
     }
 
+    /// <summary>
+    /// Finds a MailItemViewModel by its UniqueId, searching through all items including those inside threads.
+    /// </summary>
+    /// <param name="uniqueId">The UniqueId of the mail item to find.</param>
+    /// <returns>The MailItemViewModel if found, otherwise null.</returns>
+    public MailItemViewModel Find(Guid uniqueId)
+    {
+        // First check the cache for fast lookup
+        if (_uniqueIdToMailItemMap.TryGetValue(uniqueId, out var cachedMailItem))
+        {
+            return cachedMailItem;
+        }
+
+        // If not in cache, search through all groups
+        foreach (var group in _mailItemSource)
+        {
+            foreach (var item in group)
+            {
+                if (item is MailItemViewModel mailItem && mailItem.MailCopy.UniqueId == uniqueId)
+                {
+                    return mailItem;
+                }
+                else if (item is ThreadMailItemViewModel threadItem)
+                {
+                    var foundInThread = threadItem.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == uniqueId);
+                    if (foundInThread != null)
+                    {
+                        return foundInThread;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     private async Task InsertItemInternalAsync(object groupKey, IMailListItem mailItem)
     {
         UpdateUniqueIdHashes(mailItem, true);

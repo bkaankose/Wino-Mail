@@ -177,8 +177,22 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
                     if (innerListViewControl != null)
                     {
                         innerListView = innerListViewControl;
-                        // TODO: What if it wasn't realized in the thread?
+
                         itemContainer = innerListViewControl.ContainerFromItem(mailItemViewModel) as WinoMailItemViewModelListViewItem;
+
+                        // Item thread has been found but container is not realized yet.
+                        // This could happen when Sent item passed to navigate for Inbox or vice-versa.
+                        // Ideally, we should select the first UniqueId match in the thread in this case.
+
+                        if (itemContainer == null)
+                        {
+                            var realThreadItem = innerListViewControl.Items.Cast<MailItemViewModel>().FirstOrDefault(a => a.UniqueId == mailItemViewModel.MailCopy.UniqueId);
+
+                            if (realThreadItem != null)
+                            {
+                                itemContainer = innerListViewControl.ContainerFromItem(realThreadItem) as WinoMailItemViewModelListViewItem;
+                            }
+                        }
                     }
                 }
                 break;

@@ -5,8 +5,10 @@
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap rescap com">
 	
 	<!-- Publisher Cache Folders -->
 	<Extensions>
@@ -60,6 +62,19 @@
 					Enabled="true"
 					DisplayName="Wino Startup Service" />
 			</uap5:Extension>
+
+			<!-- App notification activation -->
+			<desktop:Extension Category="windows.toastNotificationActivation">
+				<desktop:ToastNotificationActivation ToastActivatorCLSID="72c6d2d0-2538-44fe-a1b1-499f47bb1181" />
+			</desktop:Extension>
+
+			<com:Extension Category="windows.comServer">
+				<com:ComServer>
+					<com:ExeServer Executable="Wino.Mail.WinUI.exe" Arguments="-ToastActivated" DisplayName="Toast activator">
+						<com:Class Id="72c6d2d0-2538-44fe-a1b1-499f47bb1181" DisplayName="Toast activator"/>
+					</com:ExeServer>
+				</com:ComServer>
+			</com:Extension>
 			
 			<!-- Protocol activation: mailto -->
 			<uap:Extension Category="windows.protocol">

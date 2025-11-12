@@ -2,7 +2,6 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Services;
 
 namespace Wino.Core.Services;
 
@@ -24,10 +23,11 @@ public class SynchronizationManagerInitializer : IInitializeAsync
         var imapTestService = _serviceProvider.GetRequiredService<IImapTestService>();
         var accountService = _serviceProvider.GetRequiredService<IAccountService>();
         var authenticationProvider = _serviceProvider.GetRequiredService<IAuthenticationProvider>();
+        var notificationBuilder = _serviceProvider.GetRequiredService<INotificationBuilder>();
 
         // Cast to concrete type to access CreateNewSynchronizer method
         var concreteSynchronizerFactory = synchronizerFactory as SynchronizerFactory;
-        
-        await SynchronizationManager.Instance.InitializeAsync(concreteSynchronizerFactory, imapTestService, accountService, authenticationProvider);
+
+        await SynchronizationManager.Instance.InitializeAsync(concreteSynchronizerFactory, imapTestService, accountService, notificationBuilder, authenticationProvider);
     }
 }

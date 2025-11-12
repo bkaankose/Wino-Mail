@@ -10,7 +10,7 @@ public class ListItemComparer : IComparer<object>
     public int Compare(object x, object y)
     {
         if (x is IMailListItemSorting xSorting && y is IMailListItemSorting ySorting)
-            return SortByName ? string.Compare(xSorting.SortingName, ySorting.SortingName, StringComparison.OrdinalIgnoreCase) : DateTime.Compare(xSorting.SortingDate, ySorting.SortingDate);
+            return SortByName ? string.Compare(xSorting.SortingName, ySorting.SortingName, StringComparison.OrdinalIgnoreCase) : DateTime.Compare(ySorting.SortingDate, xSorting.SortingDate);
         else if (x is MailCopy xMail && y is MailCopy yMail)
             return SortByName ? string.Compare(xMail.FromName, yMail.FromName, StringComparison.OrdinalIgnoreCase) : DateTime.Compare(yMail.CreationDate, xMail.CreationDate);
         else if (x is DateTime dateX && y is DateTime dateY)

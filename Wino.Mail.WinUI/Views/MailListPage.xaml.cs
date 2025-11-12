@@ -313,13 +313,18 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     public async void Receive(SelectMailItemContainerEvent message)
     {
-        if (message.SelectedMailViewModel == null) return;
+        if (message.MailUniqueId == Guid.Empty) return;
+
+        // Find the item from the collection.
+        // Folder should be initialized already.
+
+        var item = ViewModel.MailCollection.Find(message.MailUniqueId);
+
+        if (item == null) return;
 
         await DispatcherQueue.EnqueueAsync(async () =>
         {
-            // MailListView.ClearSelections(message.SelectedMailViewModel, true);
-
-            var collectionContainer = await MailListView.GetItemContainersAsync(message.SelectedMailViewModel);
+            var collectionContainer = await MailListView.GetItemContainersAsync(item);
 
             if (collectionContainer.Item1 == null && collectionContainer.Item2 == null) return;
 
@@ -347,11 +352,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 }
             }
 
-            var listView = collectionContainer.Item3 ?? MailListView;
-            var mailItemViewModelContainer = collectionContainer.Item1;
-            var threadMailItemViewModelContainer = collectionContainer.Item2;
-
-            await WinoClickItemInternalAsync(listView, collectionContainer.Item1?.Item ?? null);
+            await WinoClickItemInternalAsync(item, true);
         });
     }
 
@@ -554,7 +555,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private async Task WinoClickItemInternalAsync(WinoListView listView, object? clickedItem)
+    private async Task WinoClickItemInternalAsync(object? clickedItem, bool selectExpandThread = false)
     {
         if (clickedItem == null) return;
 
@@ -621,29 +622,40 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (clickedItem is ThreadMailItemViewModel clickedThread)
         {
             bool wasThreadSelected = clickedThread.IsSelected;
+            bool wasThreadExpanded = clickedThread.IsThreadExpanded;
+
+            // Check if any child in this thread is already selected (e.g., from notification click)
+            var alreadySelectedChild = clickedThread.ThreadEmails.FirstOrDefault(e => e.IsSelected);
 
             // Reset everything first (exclusive selection scenario)
             await ViewModel.MailCollection.UnselectAllAsync();
             await CollapseAllThreadsExceptAsync(clickedThread);
 
-            if (wasThreadSelected)
+            if (wasThreadSelected && wasThreadExpanded)
             {
                 // Toggle off -> leave nothing selected (all unselected, thread collapsed)
                 clickedThread.IsThreadExpanded = false;
                 return;
             }
 
-            // Select thread + first child only
+            // Select thread header
             clickedThread.IsSelected = true;
-            var firstChild = clickedThread.ThreadEmails.FirstOrDefault();
-            if (firstChild != null)
+
+            // If a child was already selected (e.g., from notification), keep that selection
+            // Otherwise, select the first child
+            if (alreadySelectedChild != null)
             {
-                // Ensure only first child selected
-                foreach (var child in clickedThread.ThreadEmails)
+                alreadySelectedChild.IsSelected = true;
+            }
+            else
+            {
+                var firstChild = clickedThread.ThreadEmails.FirstOrDefault();
+                if (firstChild != null)
                 {
-                    child.IsSelected = child == firstChild;
+                    firstChild.IsSelected = true;
                 }
             }
+
             clickedThread.IsThreadExpanded = true; // Show contents of active thread
         }
         else if (clickedItem is MailItemViewModel clickedMail)
@@ -695,6 +707,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
             await ViewModel.MailCollection.UnselectAllAsync();
             await ViewModel.MailCollection.CollapseAllThreadsAsync();
 
+            if (parentThread != null && selectExpandThread)
+            {
+                // We're clicking an item inside a thread; select & expand the thread header as well.
+                parentThread.IsSelected = true;
+                parentThread.IsThreadExpanded = true;
+            }
+
             if (!wasSelected)
             {
                 clickedMail.IsSelected = true; // Toggle on
@@ -706,6 +725,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         if (sender is not WinoListView listView) return;
 
-        await WinoClickItemInternalAsync(listView, e.ClickedItem);
+        await WinoClickItemInternalAsync(e.ClickedItem);
     }
 }

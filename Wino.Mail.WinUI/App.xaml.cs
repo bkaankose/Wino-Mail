@@ -2,13 +2,16 @@
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.Windows.AppLifecycle;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.WinUI;
 using Wino.Core.WinUI.Interfaces;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
+using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 using Wino.Services;
 namespace Wino.Mail.WinUI;
@@ -22,8 +25,43 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        ToastNotificationManagerCompat.OnActivated += ToastActivationHandler;
 
         RegisterRecipients();
+    }
+
+    private async void ToastActivationHandler(ToastNotificationActivatedEventArgsCompat e)
+    {
+        // If we weren't launched by an app, launch our window like normal.
+        // Otherwise if launched by a toast, our OnActivated callback will be triggered.
+
+        var toastArgs = ToastArguments.Parse(e.Argument);
+
+        var mailService = Services.GetRequiredService<IMailService>();
+        var accountService = Services.GetRequiredService<IAccountService>();
+
+        if (Guid.TryParse(toastArgs[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
+        {
+            var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
+            if (account == null) return;
+
+            var mailItem = await mailService.GetSingleMailItemAsync(mailItemUniqueId).ConfigureAwait(false);
+            if (mailItem == null) return;
+
+            var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
+
+            // Delegate this event to LaunchProtocolService so app shell can pick it up on launch if app doesn't work.
+            var launchProtocolService = Services.GetRequiredService<ILaunchProtocolService>();
+            launchProtocolService.LaunchParameter = message;
+
+            // Send the messsage anyways. Launch protocol service will be ignored if the message is picked up by subscriber shell.
+            WeakReferenceMessenger.Default.Send(message);
+        }
+
+        if (ToastNotificationManagerCompat.WasCurrentProcessToastActivated())
+        {
+            MainWindow.BringToFront();
+        }
     }
 
     #region Dependency Injection
@@ -80,9 +118,13 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
     }
 
     private bool IsStartupTaskLaunch() => AppInstance.GetCurrent().GetActivatedEventArgs()?.Kind == ExtendedActivationKind.StartupTask;
+    public bool IsAppRunning() => MainWindow != null;
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        // If it's toast activation, compat will handle it.
+        if (IsAppRunning()) return;
+
         // TODO: Check app relaunch mutex before loading anything.
 
         // Initialize NewThemeService first to get backdrop settings before creating window

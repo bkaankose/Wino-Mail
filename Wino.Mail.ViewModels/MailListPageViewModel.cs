@@ -72,6 +72,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IMailDialogService _mailDialogService;
     private readonly IMailService _mailService;
+    private readonly INotificationBuilder _notificationBuilder;
     private readonly IFolderService _folderService;
     private readonly IContextMenuItemService _contextMenuItemService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
@@ -155,6 +156,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IMailDialogService mailDialogService,
                                  IMailService mailService,
                                  IStatePersistanceService statePersistenceService,
+                                 INotificationBuilder notificationBuilder,
                                  IFolderService folderService,
                                  IContextMenuItemService contextMenuItemService,
                                  IWinoRequestDelegator winoRequestDelegator,
@@ -175,6 +177,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         PreferencesService = preferencesService;
         ThemeService = themeService;
         StatePersistenceService = statePersistenceService;
+        _notificationBuilder = notificationBuilder;
         NavigationService = navigationService;
 
         SelectedFilterOption = FilterOptions[0];
@@ -468,6 +471,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private void SyncFolder()
     {
+        var mails = MailCollection.SelectedItems;
+        _notificationBuilder.CreateNotificationsAsync(mails.Select(a => a.MailCopy));
+
+        return;
         if (!CanSynchronize) return;
 
         // Only synchronize listed folders.
@@ -710,7 +717,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             await MailCollection.RemoveAsync(removedMail);
 
             if (nextItem != null)
-                WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem, ScrollToItem: true));
+                WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem.UniqueId, ScrollToItem: true));
             else if (isDeletedMailSelected)
             {
                 // There are no next item to select, but we removed the last item which was selected.
@@ -1022,30 +1029,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
     {
-        Debug.WriteLine($"Mail item navigation requested");
-        // Find mail item and add to selected items.
+        // TODO: Remove this.
 
-        MailItemViewModel navigatingMailItem = null;
-        ThreadMailItemViewModel threadMailItemViewModel = null;
-
-        for (int i = 0; i < 3; i++)
-        {
-            var mailContainer = MailCollection.GetMailItemContainer(message.UniqueMailId);
-
-            if (mailContainer != null)
-            {
-                navigatingMailItem = mailContainer.ItemViewModel;
-                threadMailItemViewModel = mailContainer.ThreadViewModel;
-
-                break;
-            }
-        }
-
-        if (threadMailItemViewModel != null)
-            threadMailItemViewModel.IsThreadExpanded = true;
-
-        if (navigatingMailItem != null)
-            WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(navigatingMailItem, message.ScrollToItem));
+        WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(message.UniqueMailId, message.ScrollToItem));
     }
 
     #endregion

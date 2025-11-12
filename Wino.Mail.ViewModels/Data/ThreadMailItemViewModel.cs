@@ -184,7 +184,19 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         if (email.MailCopy.ThreadId != _threadId)
             throw new ArgumentException($"Email ThreadId '{email.MailCopy.ThreadId}' does not match expander ThreadId '{_threadId}'");
 
-        ThreadEmails.Add(email);
+        // Insert email in sorted order by CreationDate (newest first, oldest last)
+        var insertIndex = 0;
+        for (int i = 0; i < ThreadEmails.Count; i++)
+        {
+            if (ThreadEmails[i].MailCopy.CreationDate < email.MailCopy.CreationDate)
+            {
+                insertIndex = i;
+                break;
+            }
+            insertIndex = i + 1;
+        }
+
+        ThreadEmails.Insert(insertIndex, email);
         // Reassign to trigger property change notifications
         ThreadEmails = ThreadEmails;
     }

@@ -13,7 +13,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Messaging.Server;
 
 namespace Wino.Core.Services;
 
@@ -30,11 +29,12 @@ public class SynchronizationManager : ISynchronizationManager
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
 
-    private ISynchronizerFactory _synchronizerFactory;
     private SynchronizerFactory _concreteSynchronizerFactory;
     private IImapTestService _imapTestService;
     private IAccountService _accountService;
     private IAuthenticationProvider _authenticationProvider;
+    private INotificationBuilder _notificationBuilder;
+
     private bool _isInitialized = false;
 
     private SynchronizationManager() { }
@@ -47,38 +47,40 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="imapTestService">Service for testing IMAP connectivity</param>
     /// <param name="accountService">Service for account operations</param>
     /// <param name="authenticationProvider">Provider for OAuth authentication</param>
-    public async Task InitializeAsync(ISynchronizerFactory synchronizerFactory, 
+    public async Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
                                      IImapTestService imapTestService,
                                      IAccountService accountService,
+                                     INotificationBuilder notificationBuilder,
                                      IAuthenticationProvider authenticationProvider)
     {
         await _initializationSemaphore.WaitAsync();
+
         try
         {
             if (_isInitialized) return;
 
-            _synchronizerFactory = synchronizerFactory ?? throw new ArgumentNullException(nameof(synchronizerFactory));
             _concreteSynchronizerFactory = synchronizerFactory as SynchronizerFactory ?? throw new ArgumentException("SynchronizerFactory must be the concrete implementation");
             _imapTestService = imapTestService ?? throw new ArgumentNullException(nameof(imapTestService));
             _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
             _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
+            _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
 
             // Get all accounts and create synchronizers for them
             var accounts = await _accountService.GetAccountsAsync();
-            
+
             foreach (var account in accounts)
             {
                 try
                 {
                     var synchronizer = _concreteSynchronizerFactory.CreateNewSynchronizer(account);
                     _synchronizerCache.TryAdd(account.Id, synchronizer);
-                    
-                    _logger.Information("Created synchronizer for account {AccountName} ({AccountId})", 
+
+                    _logger.Information("Created synchronizer for account {AccountName} ({AccountId})",
                                       account.Name, account.Id);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error(ex, "Failed to create synchronizer for account {AccountName} ({AccountId})", 
+                    _logger.Error(ex, "Failed to create synchronizer for account {AccountName} ({AccountId})",
                                 account.Name, account.Id);
                 }
             }
@@ -104,12 +106,12 @@ public class SynchronizationManager : ISynchronizationManager
 
         try
         {
-            _logger.Information("Testing IMAP connectivity for {Server}:{Port}", 
-                              serverInformation.IncomingServer, 
+            _logger.Information("Testing IMAP connectivity for {Server}:{Port}",
+                              serverInformation.IncomingServer,
                               serverInformation.IncomingServerPort);
 
             await _imapTestService.TestImapConnectionAsync(serverInformation, allowSSLHandshake);
-            
+
             _logger.Information("IMAP connectivity test successful");
             return ImapConnectivityTestResults.Success();
         }
@@ -117,8 +119,8 @@ public class SynchronizationManager : ISynchronizationManager
         {
             _logger.Warning("IMAP connectivity test requires SSL certificate confirmation");
             return ImapConnectivityTestResults.CertificateUIRequired(
-                sslTestException.Issuer, 
-                sslTestException.ExpirationDateString, 
+                sslTestException.Issuer,
+                sslTestException.ExpirationDateString,
                 sslTestException.ValidFromDateString);
         }
         catch (ImapClientPoolException clientPoolException)
@@ -139,7 +141,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="options">Mail synchronization options</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Synchronization result</returns>
-    public async Task<MailSynchronizationResult> SynchronizeMailAsync(MailSynchronizationOptions options, 
+    public async Task<MailSynchronizationResult> SynchronizeMailAsync(MailSynchronizationOptions options,
                                                                       CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
@@ -151,16 +153,20 @@ public class SynchronizationManager : ISynchronizationManager
             return MailSynchronizationResult.Failed;
         }
 
-        _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}", 
+        _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}",
                           options.AccountId, options.Type);
 
         try
         {
             var result = await synchronizer.SynchronizeMailsAsync(options, cancellationToken);
-            
-            _logger.Information("Mail synchronization completed for account {AccountId} with state {State}", 
+
+            _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
-            
+
+            // Create notifications.
+            if (result.DownloadedMessages?.Any() ?? false)
+                await _notificationBuilder.CreateNotificationsAsync(result.DownloadedMessages);
+
             return result;
         }
         catch (Exception ex)
@@ -181,7 +187,7 @@ public class SynchronizationManager : ISynchronizationManager
 
         if (_synchronizerCache.TryGetValue(accountId, out var synchronizer))
         {
-            return synchronizer.State == AccountSynchronizerState.Synchronizing || 
+            return synchronizer.State == AccountSynchronizerState.Synchronizing ||
                    synchronizer.State == AccountSynchronizerState.ExecutingRequests;
         }
 
@@ -215,7 +221,7 @@ public class SynchronizationManager : ISynchronizationManager
             return;
         }
 
-        _logger.Debug("Queuing request {RequestType} for account {AccountId}", 
+        _logger.Debug("Queuing request {RequestType} for account {AccountId}",
                      request.GetType().Name, accountId);
 
         synchronizer.QueueRequest(request);
@@ -224,7 +230,7 @@ public class SynchronizationManager : ISynchronizationManager
         {
             // Trigger synchronization to execute the queued request
             _logger.Debug("Triggering synchronization to execute queued request for account {AccountId}", accountId);
-            
+
             var synchronizationOptions = new MailSynchronizationOptions()
             {
                 AccountId = accountId,
@@ -253,7 +259,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="accountId">Account ID to synchronize folders for</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Synchronization result</returns>
-    public async Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId, 
+    public async Task<MailSynchronizationResult> SynchronizeFoldersAsync(Guid accountId,
                                                                          CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
@@ -273,7 +279,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="accountId">Account ID to synchronize aliases for</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Synchronization result</returns>
-    public async Task<MailSynchronizationResult> SynchronizeAliasesAsync(Guid accountId, 
+    public async Task<MailSynchronizationResult> SynchronizeAliasesAsync(Guid accountId,
                                                                          CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
@@ -293,7 +299,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="accountId">Account ID to synchronize profile for</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Synchronization result</returns>
-    public async Task<MailSynchronizationResult> SynchronizeProfileAsync(Guid accountId, 
+    public async Task<MailSynchronizationResult> SynchronizeProfileAsync(Guid accountId,
                                                                          CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
@@ -314,7 +320,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="accountId">Account ID that owns the mail item</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Downloaded MIME content path</returns>
-    public async Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId, 
+    public async Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId,
                                                        CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
@@ -353,15 +359,15 @@ public class SynchronizationManager : ISynchronizationManager
         {
             var synchronizer = _concreteSynchronizerFactory.CreateNewSynchronizer(account);
             _synchronizerCache.TryAdd(account.Id, synchronizer);
-            
-            _logger.Information("Created new synchronizer for account {AccountName} ({AccountId})", 
+
+            _logger.Information("Created new synchronizer for account {AccountName} ({AccountId})",
                               account.Name, account.Id);
-            
+
             return Task.FromResult(synchronizer);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Failed to create synchronizer for account {AccountName} ({AccountId})", 
+            _logger.Error(ex, "Failed to create synchronizer for account {AccountName} ({AccountId})",
                         account.Name, account.Id);
             return Task.FromResult<IWinoSynchronizerBase>(null);
         }
@@ -434,8 +440,8 @@ public class SynchronizationManager : ISynchronizationManager
     /// <param name="account">Optional account to authenticate (null for initial authentication)</param>
     /// <param name="proposeCopyAuthorizationURL">Whether to propose copying auth URL for Gmail</param>
     /// <returns>Token information containing access token and username</returns>
-    public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType, 
-                                                                  MailAccount account = null, 
+    public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
+                                                                  MailAccount account = null,
                                                                   bool proposeCopyAuthorizationURL = false)
     {
         EnsureInitialized();
