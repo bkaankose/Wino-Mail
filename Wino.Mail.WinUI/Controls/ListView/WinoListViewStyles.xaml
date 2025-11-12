@@ -133,6 +133,12 @@
                                         <ColumnDefinition Width="8" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
+
+                                    <Grid
+                                        x:Name="SelectionBackground"
+                                        Grid.ColumnSpan="2"
+                                        Background="{ThemeResource ListViewItemBackgroundSelected}"
+                                        Visibility="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Item.IsSelected, Mode=OneWay}" />
                                     <Border
                                         x:Name="SelectionIndicator"
                                         Width="4"
@@ -164,18 +170,9 @@
                                                 <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
                                             </VisualState.Setters>
                                         </VisualState>
-                                        <VisualState x:Name="Selected">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelected}" />
-                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                        <VisualState x:Name="SelectedPointerOver">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPointerOver}" />
-                                                <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
-                                            </VisualState.Setters>
-                                        </VisualState>
+                                        <!--  Selected states will never work because we don't select items.  -->
+                                        <VisualState x:Name="Selected" />
+                                        <VisualState x:Name="SelectedPointerOver" />
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />
