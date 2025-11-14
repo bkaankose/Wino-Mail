@@ -471,10 +471,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private void SyncFolder()
     {
-        var mails = MailCollection.SelectedItems;
-        _notificationBuilder.CreateNotificationsAsync(mails.Select(a => a.MailCopy));
-
-        return;
         if (!CanSynchronize) return;
 
         // Only synchronize listed folders.

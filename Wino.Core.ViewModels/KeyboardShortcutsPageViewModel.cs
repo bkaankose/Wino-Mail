@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -51,6 +52,8 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
         }
         catch (Exception ex)
         {
+            Log.Error("Failed to load keyboard shortcuts.", ex);
+
             await _dialogService.ShowMessageAsync(
                 Translator.KeyboardShortcuts_FailedToLoad,
                 Translator.GeneralTitle_Error,
@@ -88,6 +91,7 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
             }
             catch (Exception ex)
             {
+                Log.Error("Failed to save new keyboard shortcut.", ex);
                 await _dialogService.ShowMessageAsync(
                     Translator.KeyboardShortcuts_FailedToSave,
                     Translator.GeneralTitle_Error,
@@ -130,6 +134,8 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
             }
             catch (Exception ex)
             {
+                Log.Error("Failed to update keyboard shortcut.", ex);
+
                 await _dialogService.ShowMessageAsync(
                     Translator.KeyboardShortcuts_FailedToUpdate,
                     Translator.GeneralTitle_Error,
@@ -152,6 +158,7 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
         }
         catch (Exception ex)
         {
+            Log.Error("Failed to delete keyboard shortcut.", ex);
             await _dialogService.ShowMessageAsync(
                 Translator.KeyboardShortcuts_FailedToDelete,
                 Translator.GeneralTitle_Error,
@@ -169,6 +176,7 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
         }
         catch (Exception ex)
         {
+            Log.Error("Failed to reset keyboard shortcuts to defaults.", ex);
             await _dialogService.ShowMessageAsync(
                 Translator.KeyboardShortcuts_FailedToReset,
                 Translator.GeneralTitle_Error,
