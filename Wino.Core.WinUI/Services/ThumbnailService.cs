@@ -129,7 +129,8 @@ public class ThumbnailService(IPreferencesService preferencesService, IDatabaseS
             Gravatar = gravatarBase64,
             Favicon = faviconBase64,
             LastUpdated = DateTime.UtcNow
-        });
+        }, typeof(Thumbnail));
+
         _ = _cache.TryAdd(email, (gravatarBase64, faviconBase64));
 
         WeakReferenceMessenger.Default.Send(new ThumbnailAdded(email));

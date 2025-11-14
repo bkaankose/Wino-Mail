@@ -2,7 +2,7 @@
 
 namespace Wino.Core.WinUI.Styles;
 
-partial class CustomMessageDialogStyles : ResourceDictionary
+public partial class CustomMessageDialogStyles : ResourceDictionary
 {
     public CustomMessageDialogStyles()
     {
