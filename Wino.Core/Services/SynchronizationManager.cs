@@ -134,7 +134,8 @@ public class SynchronizationManager : ISynchronizationManager
         if (synchronizer == null)
         {
             _logger.Error("Could not find or create synchronizer for account {AccountId}", options.AccountId);
-            return MailSynchronizationResult.Failed;
+
+            return MailSynchronizationResult.Failed(new Exception("Can't create/get synchronizer."));
         }
 
         _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}",
@@ -151,12 +152,14 @@ public class SynchronizationManager : ISynchronizationManager
             if (result.DownloadedMessages?.Any() ?? false)
                 await _notificationBuilder.CreateNotificationsAsync(result.DownloadedMessages);
 
+            await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
+
             return result;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Mail synchronization failed for account {AccountId}", options.AccountId);
-            return MailSynchronizationResult.Failed;
+            return MailSynchronizationResult.Failed(ex);
         }
     }
 
@@ -176,16 +179,6 @@ public class SynchronizationManager : ISynchronizationManager
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// Queues a mail action request to the corresponding account's synchronizer.
-    /// </summary>
-    /// <param name="request">Request to queue</param>
-    /// <param name="accountId">Account ID to queue the request for</param>
-    public async Task QueueRequestAsync(IRequestBase request, Guid accountId)
-    {
-        await QueueRequestAsync(request, accountId, triggerSynchronization: true);
     }
 
     /// <summary>

@@ -9,6 +9,7 @@ using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.UI;
@@ -17,19 +18,16 @@ namespace Wino.Core.WinUI.Services;
 
 public class NotificationBuilder : INotificationBuilder
 {
-    private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
 
-    public NotificationBuilder(IUnderlyingThemeService underlyingThemeService,
-                               IAccountService accountService,
+    public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
                                IThumbnailService thumbnailService)
     {
-        _underlyingThemeService = underlyingThemeService;
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
@@ -52,23 +50,23 @@ public class NotificationBuilder : INotificationBuilder
             {
                 var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
 
-                if (mailItem == null || mailItem.AssignedFolder == null)
-                    continue;
+                //if (mailItem == null || mailItem.AssignedFolder == null)
+                //    continue;
 
-                // Only create notifications for Inbox folder mails
-                if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
-                    continue;
+                //// Only create notifications for Inbox folder mails
+                //if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
+                //    continue;
 
-                // Skip folders with synchronization disabled
-                if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
-                    continue;
+                //// Skip folders with synchronization disabled
+                //if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
+                //    continue;
 
-                // Skip already read mails
-                if (mailItem.IsRead)
-                {
-                    RemoveNotification(mailItem.UniqueId);
-                    continue;
-                }
+                //// Skip already read mails
+                //if (mailItem.IsRead)
+                //{
+                //    RemoveNotification(mailItem.UniqueId);
+                //    continue;
+                //}
 
                 inboxMailItems.Add(mailItem);
             }
@@ -236,5 +234,20 @@ public class NotificationBuilder : INotificationBuilder
         {
             Log.Error(ex, $"Failed to remove notification for mail {mailUniqueId}");
         }
+    }
+
+    public void CreateAttentionRequiredNotification(MailAccount account)
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.Exception_AccountNeedsAttention_Title);
+        builder.AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name));
+
+        builder.AddButton(GetDismissButton());
+
+        builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
+        builder.AddButton(new ToastButton().SetContent(Translator.Buttons_FixAccount));
+        builder.Show();
     }
 }

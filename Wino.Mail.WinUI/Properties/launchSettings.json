@@ -1,7 +1,8 @@
 {
   "profiles": {
     "Wino.Mail.WinUI (Package)": {
-      "commandName": "MsixPackage"
+      "commandName": "MsixPackage",
+      "doNotLaunchApp": true
     },
     "Wino.Mail.WinUI (Unpackaged)": {
       "commandName": "Project"

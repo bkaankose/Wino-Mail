@@ -271,7 +271,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 {
                     Log.Error(ex, "Failed to update profile information for {Name}", Account.Name);
 
-                    return MailSynchronizationResult.Failed;
+                    return MailSynchronizationResult.Failed(ex);
                 }
 
                 return MailSynchronizationResult.Completed(newProfileInformation);
@@ -292,7 +292,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 {
                     Log.Error(ex, "Failed to update aliases for {Name}", Account.Name);
 
-                    return MailSynchronizationResult.Failed;
+                    return MailSynchronizationResult.Failed(ex);
                 }
             }
 

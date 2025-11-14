@@ -90,6 +90,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
         try
         {
+            throw new MsalUiRequiredException("test", "test2");
+
             var authResult = await _publicClientApplication.AcquireTokenSilent(Scope, storedAccount).ExecuteAsync();
 
             return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
@@ -112,6 +114,12 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         try
         {
             await EnsureTokenCacheAttachedAsync();
+
+            // Interactive authentication required but window doesn't exist.
+            // This can happen when being called from a notification background task and the token is expired.
+            // Force account attention;
+
+            if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
 
             AuthenticationResult authResult = await _publicClientApplication
                 .AcquireTokenInteractive(Scope)

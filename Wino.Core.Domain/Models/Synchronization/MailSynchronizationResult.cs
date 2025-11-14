@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -22,6 +23,8 @@ public class MailSynchronizationResult
 
     public SynchronizationCompletedState CompletedState { get; set; }
 
+    public Exception Exception { get; set; }
+
     public static MailSynchronizationResult Empty => new() { CompletedState = SynchronizationCompletedState.Success };
 
     // Mail synchronization
@@ -41,5 +44,9 @@ public class MailSynchronizationResult
         };
 
     public static MailSynchronizationResult Canceled => new() { CompletedState = SynchronizationCompletedState.Canceled };
-    public static MailSynchronizationResult Failed => new() { CompletedState = SynchronizationCompletedState.Failed };
+    public static MailSynchronizationResult Failed(Exception exception) => new()
+    {
+        CompletedState = SynchronizationCompletedState.Failed,
+        Exception = exception
+    };
 }

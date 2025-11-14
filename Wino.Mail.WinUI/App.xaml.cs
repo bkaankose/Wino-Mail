@@ -37,7 +37,6 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
 
     public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
     {
-        // https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/migrate-to-windows-app-sdk/guides/toast-notifications?tabs=appsdk
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
 
         if (activationArgs.Kind == ExtendedActivationKind.AppNotification)
@@ -179,6 +178,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
             {
                 // User clicked action button (Mark as Read, Delete, etc.)
                 // Execute action without window and exit.
+
                 await HandleToastActionAsync(action, mailItemUniqueId);
             }
         }
@@ -312,7 +312,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
     /// <summary>
     /// Creates the main window and activates it.
     /// </summary>
-    private async Task CreateAndActivateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    private async Task CreateAndActivateWindow(LaunchActivatedEventArgs args)
     {
         CreateWindow(args);
 
