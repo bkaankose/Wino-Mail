@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -41,6 +42,11 @@ using Wino.Services;
 using CalendarService = Google.Apis.Calendar.v3.CalendarService;
 
 namespace Wino.Core.Synchronizers.Mail;
+
+[JsonSerializable(typeof(Message))]
+[JsonSerializable(typeof(Label))]
+[JsonSerializable(typeof(Draft))]
+public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// Gmail synchronizer implementation with per-folder history ID synchronization.
@@ -190,7 +196,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Get all folders to synchronize
         var synchronizationFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
-        
+
         _logger.Information("Synchronizing {Count} folders for {Name}", synchronizationFolders.Count, Account.Name);
 
         var totalFolders = synchronizationFolders.Count;
@@ -1132,12 +1138,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 try
                 {
                     MimeMessage mimeMessage = null;
-                    
+
                     // Extract MIME if we downloaded raw format
                     if (downloadRawMime)
                     {
                         mimeMessage = gmailMessage.GetGmailMimeMessage();
-                        
+
                         if (mimeMessage == null)
                         {
                             _logger.Warning("Failed to parse MIME for message {MessageId}", gmailMessage.Id);
@@ -1152,17 +1158,17 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                         // For Gmail, multiple packages can share the same message (different labels/folders)
                         // They should all share the same FileId so MIME is stored only once
                         Guid sharedFileId = Guid.NewGuid();
-                        
+
                         foreach (var package in packages)
                         {
                             // Set the same FileId for all copies
                             package.Copy.FileId = sharedFileId;
-                            
+
                             // Create the mail copy with the MIME (if downloaded)
                             var packageWithMime = downloadRawMime && mimeMessage != null
                                 ? new NewMailItemPackage(package.Copy, mimeMessage, package.AssignedRemoteFolderId)
                                 : package;
-                            
+
                             await _gmailChangeProcessor.CreateMailAsync(Account.Id, packageWithMime).ConfigureAwait(false);
                         }
                     }
@@ -1367,7 +1373,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         if (bundle is HttpRequestBundle<IClientServiceRequest, Message> messageBundle)
         {
-            var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
+            var gmailMessage = await messageBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Message, cancellationToken).ConfigureAwait(false);
 
             if (gmailMessage == null) return;
 
@@ -1392,7 +1398,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             // New draft mail is created.
 
-            var messageDraft = await draftBundle.DeserializeBundleAsync(httpResponseMessage, cancellationToken).ConfigureAwait(false);
+            var messageDraft = await draftBundle.DeserializeBundleAsync(httpResponseMessage, GmailSynchronizerJsonContext.Default.Draft, cancellationToken).ConfigureAwait(false);
 
             if (messageDraft == null) return;
 

@@ -253,7 +253,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
         }
 
         // Upsert the event.
-        await Connection.InsertOrReplaceAsync(existingCalendarItem);
+        await Connection.InsertOrReplaceAsync(existingCalendarItem, typeof(CalendarItem));
     }
 
     private string GetOrganizerName(Event calendarEvent, MailAccount account)

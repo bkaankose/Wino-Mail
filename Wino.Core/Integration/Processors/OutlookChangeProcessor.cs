@@ -132,7 +132,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         }
 
         // Upsert the event.
-        await Connection.InsertOrReplaceAsync(savingItem);
+        await Connection.InsertOrReplaceAsync(savingItem, typeof(CalendarItem));
 
         // Manage attendees.
         if (calendarEvent.Attendees != null)

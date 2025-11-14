@@ -46,14 +46,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public abstract uint InitialMessageDownloadCountPerFolder { get; }
 
     /// <summary>
-    /// DEPRECATED: MIME messages are no longer downloaded during synchronization.
-    /// MIME content is only downloaded when explicitly needed (e.g., when user reads a message).
-    /// This property is kept for backward compatibility but is no longer used.
-    /// </summary>
-    [Obsolete("MIME messages are no longer downloaded during sync. Use DownloadMissingMimeMessageAsync instead.")]
-    public virtual int InitialSyncMimeDownloadCount => 0;
-
-    /// <summary>
     /// Creates a new Wino Mail Item package out of native message type with metadata only.
     /// NO MIME content is downloaded during synchronization - only headers and essential metadata.
     /// MIME will be downloaded on-demand when user explicitly reads the message.

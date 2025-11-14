@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -574,23 +573,23 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 // This message belongs to existing local draft copy.
                 // We don't need to create a new mail copy for this message, just update the existing one.
-                
+
                 bool isMappingSuccessful = await _outlookChangeProcessor.MapLocalDraftAsync(
-                    Account.Id, 
-                    localDraftCopyUniqueId, 
-                    mailCopy.Id, 
-                    mailCopy.DraftId, 
+                    Account.Id,
+                    localDraftCopyUniqueId,
+                    mailCopy.Id,
+                    mailCopy.DraftId,
                     mailCopy.ThreadId);
 
                 if (isMappingSuccessful)
                 {
-                    _logger.Debug("Successfully mapped remote draft {RemoteId} to local draft {LocalId}", 
+                    _logger.Debug("Successfully mapped remote draft {RemoteId} to local draft {LocalId}",
                         mailCopy.Id, localDraftCopyUniqueId);
                     return null; // Don't create new mail copy, existing one was updated
                 }
 
                 // Local copy doesn't exist. Continue execution to insert mail copy.
-                _logger.Debug("Local draft copy {LocalId} not found, creating new mail copy for {RemoteId}", 
+                _logger.Debug("Local draft copy {LocalId} not found, creating new mail copy for {RemoteId}",
                     localDraftCopyUniqueId, mailCopy.Id);
             }
         }
@@ -875,7 +874,6 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         await UpdateDeltaSynchronizationIdentifierAsync(iterator.Deltalink).ConfigureAwait(false);
     }
 
-    [RequiresUnreferencedCode("Calls Microsoft.Kiota.Abstractions.Serialization.KiotaJsonSerializer.DeserializeAsync<T>(String, CancellationToken)")]
     private async Task<T> DeserializeGraphBatchResponseAsync<T>(BatchResponseContentCollection collection, string requestId, CancellationToken cancellationToken = default) where T : IParsable, new()
     {
         // This deserialization may throw generalException in case of failure.
@@ -893,12 +891,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
         catch (ServiceException serviceException)
         {
+            // TODO: AOT Comaptible inner exception deserialization.
+
             // Actual exception is hidden inside ServiceException.
+            // ODataError errorResult = await KiotaJsonSerializer.DeserializeAsync<ODataError>(serviceException.RawResponseBody, cancellationToken);
 
-
-            ODataError errorResult = await KiotaJsonSerializer.DeserializeAsync<ODataError>(serviceException.RawResponseBody, cancellationToken);
-
-            throw new SynchronizerException("Outlook Error", errorResult);
+            throw new SynchronizerException("Outlook Error", serviceException);
         }
     }
 

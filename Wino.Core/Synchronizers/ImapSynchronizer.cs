@@ -34,10 +34,11 @@ namespace Wino.Core.Synchronizers.Mail;
 
 public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer
 {
-    [Obsolete("N/A")]
+    /// <summary>
+    /// N/A for IMAP as it doesn't support batch modifications natively.
+    /// </summary>
     public override uint BatchModificationSize => 1000;
     public override uint InitialMessageDownloadCountPerFolder => 500;
-    public override int InitialSyncMimeDownloadCount => 50;
 
     #region Idle Implementation
 
@@ -313,7 +314,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             for (int i = 0; i < totalFolders; i++)
             {
                 var folder = synchronizationFolders[i];
-                
+
                 // Update progress based on folder completion
                 UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
 

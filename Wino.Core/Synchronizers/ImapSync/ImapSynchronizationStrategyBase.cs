@@ -137,7 +137,6 @@ public abstract class ImapSynchronizationStrategyBase : IImapSynchronizerStrateg
 
         foreach (var uniqueId in uniqueIds)
         {
-            if (uniqueId == null) continue;
             var localMailCopyId = MailkitClientExtensions.CreateUid(Folder.Id, uniqueId.Id);
 
             await MailService.DeleteMailAsync(Folder.MailAccountId, localMailCopyId).ConfigureAwait(false);
