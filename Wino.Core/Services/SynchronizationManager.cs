@@ -156,6 +156,15 @@ public class SynchronizationManager : ISynchronizationManager
 
             return result;
         }
+        catch (AuthenticationAttentionException authEx)
+        {
+            _logger.Warning("Account {AccountId} requires attention due to authentication issues", options.AccountId);
+            
+            // Create app notification for authentication attention
+            _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
+
+            return MailSynchronizationResult.Failed(authEx);
+        }
         catch (Exception ex)
         {
             _logger.Error(ex, "Mail synchronization failed for account {AccountId}", options.AccountId);
