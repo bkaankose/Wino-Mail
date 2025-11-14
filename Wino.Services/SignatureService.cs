@@ -20,7 +20,7 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
 
     public async Task<AccountSignature> CreateSignatureAsync(AccountSignature signature)
     {
-        await Connection.InsertAsync(signature);
+        await Connection.InsertAsync(signature, typeof(AccountSignature));
 
         return signature;
     }
@@ -36,21 +36,21 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
             HtmlBody = @"<p>Sent from <a href=""https://github.com/bkaankose/Wino-Mail/"">Wino Mail</a> for Windows</p>"
         };
 
-        await Connection.InsertAsync(defaultSignature);
+        await Connection.InsertAsync(defaultSignature, typeof(AccountSignature));
 
         return defaultSignature;
     }
 
     public async Task<AccountSignature> UpdateSignatureAsync(AccountSignature signature)
     {
-        await Connection.UpdateAsync(signature);
+        await Connection.UpdateAsync(signature, typeof(AccountSignature));
 
         return signature;
     }
 
     public async Task<AccountSignature> DeleteSignatureAsync(AccountSignature signature)
     {
-        await Connection.DeleteAsync(signature);
+        await Connection.DeleteAsync<AccountSignature>(signature);
 
         return signature;
     }

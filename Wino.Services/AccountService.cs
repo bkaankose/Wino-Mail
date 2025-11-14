@@ -92,7 +92,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             });
 
         await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
-        await Connection.DeleteAsync(mergedInbox).ConfigureAwait(false);
+        await Connection.DeleteAsync<MergedInbox>(mergedInbox).ConfigureAwait(false);
 
         // Change the startup entity id if it was the merged inbox.
         // Take the first account as startup account.
@@ -135,7 +135,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                 accountFolderList.Add(folder);
                 folder.IsSticky = false;
 
-                await Connection.UpdateAsync(folder);
+                await Connection.UpdateAsync(folder, typeof(MailItemFolder));
             }
 
             accountFolderDictionary.Add(account, accountFolderList);
@@ -170,20 +170,20 @@ public class AccountService : BaseDatabaseService, IAccountService
                     {
                         folder.IsSticky = true;
 
-                        await Connection.UpdateAsync(folder);
+                        await Connection.UpdateAsync(folder, typeof(MailItemFolder));
                     }
                 }
             }
         }
 
         // 3. Insert merged inbox and assign accounts.
-        await Connection.InsertAsync(mergedInbox);
+        await Connection.InsertAsync(mergedInbox, typeof(MergedInbox));
 
         foreach (var account in accountsToMerge)
         {
             account.MergedInboxId = mergedInbox.Id;
 
-            await Connection.UpdateAsync(account);
+            await Connection.UpdateAsync(account, typeof(MailAccount));
         }
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
@@ -254,7 +254,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             Id = Guid.NewGuid()
         };
 
-        await Connection.InsertAsync(rootAlias).ConfigureAwait(false);
+        await Connection.InsertAsync(rootAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
 
         Log.Information("Created root alias for the account {AccountId}", accountId);
     }
@@ -321,9 +321,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
 
         if (account.Preferences != null)
-            await Connection.DeleteAsync(account.Preferences);
+            await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences);
 
-        await Connection.DeleteAsync(account);
+        await Connection.DeleteAsync<MailAccount>(account);
 
         await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
 
@@ -370,7 +370,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                 IsRootContact = true
             };
 
-            await Connection.InsertOrReplaceAsync(accountContact).ConfigureAwait(false);
+            await Connection.InsertOrReplaceAsync(accountContact, typeof(AccountContact)).ConfigureAwait(false);
 
             await UpdateAccountAsync(account).ConfigureAwait(false);
         }
@@ -402,15 +402,15 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task UpdateAccountAsync(MailAccount account)
     {
-        await Connection.UpdateAsync(account.Preferences).ConfigureAwait(false);
-        await Connection.UpdateAsync(account).ConfigureAwait(false);
+        await Connection.UpdateAsync(account.Preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
+        await Connection.UpdateAsync(account, typeof(MailAccount)).ConfigureAwait(false);
 
         ReportUIChange(new AccountUpdatedMessage(account));
     }
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)
     {
-        await Connection.UpdateAsync(customServerInformation).ConfigureAwait(false);
+        await Connection.UpdateAsync(customServerInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
     }
 
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
@@ -421,7 +421,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         // Insert new ones.
         foreach (var alias in aliases)
         {
-            await Connection.InsertAsync(alias).ConfigureAwait(false);
+            await Connection.InsertAsync(alias, typeof(MailAccountAlias)).ConfigureAwait(false);
         }
     }
 
@@ -449,7 +449,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                     AliasSenderName = remoteAlias.AliasSenderName
                 };
 
-                await Connection.InsertAsync(newAlias);
+                await Connection.InsertAsync(newAlias, typeof(MailAccountAlias));
                 localAliases.Add(newAlias);
             }
             else
@@ -460,7 +460,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                 existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
                 existingAlias.AliasSenderName = remoteAlias.AliasSenderName;
 
-                await Connection.UpdateAsync(existingAlias);
+                await Connection.UpdateAsync(existingAlias, typeof(MailAccountAlias));
             }
         }
 
@@ -476,7 +476,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             var idealPrimaryAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
 
             idealPrimaryAlias.IsPrimary = true;
-            await Connection.UpdateAsync(idealPrimaryAlias).ConfigureAwait(false);
+            await Connection.UpdateAsync(idealPrimaryAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
         }
 
         if (shouldUpdateRoot)
@@ -486,7 +486,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             var idealRootAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
 
             idealRootAlias.IsRootAlias = true;
-            await Connection.UpdateAsync(idealRootAlias).ConfigureAwait(false);
+            await Connection.UpdateAsync(idealRootAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
         }
     }
 
@@ -519,7 +519,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             account.Order = accountCount;
         }
 
-        await Connection.InsertAsync(account);
+        await Connection.InsertAsync(account, typeof(MailAccount));
 
         var preferences = new MailAccountPreferences()
         {
@@ -552,10 +552,10 @@ public class AccountService : BaseDatabaseService, IAccountService
         account.Preferences.SignatureIdForFollowingMessages = defaultSignature.Id;
         account.Preferences.IsSignatureEnabled = true;
 
-        await Connection.InsertAsync(preferences);
+        await Connection.InsertAsync(preferences, typeof(MailAccountPreferences));
 
         if (customServerInformation != null)
-            await Connection.InsertAsync(customServerInformation);
+            await Connection.InsertAsync(customServerInformation, typeof(CustomServerInformation));
     }
 
     //public async Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier)
@@ -600,7 +600,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             account.Order = pair.Value;
 
-            await Connection.UpdateAsync(account);
+            await Connection.UpdateAsync(account, typeof(MailAccount));
         }
 
         Messenger.Send(new AccountMenuItemsReordered(accountIdOrderPair));

@@ -29,14 +29,14 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task InsertAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        await Connection.InsertAsync(accountCalendar);
+        await Connection.InsertAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListAdded(accountCalendar));
     }
 
     public async Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        await Connection.UpdateAsync(accountCalendar);
+        await Connection.UpdateAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListUpdated(accountCalendar));
     }
@@ -51,7 +51,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         var rawQuery = deleteCalendarItemsQuery.GetRawQuery();
 
         await Connection.ExecuteAsync(rawQuery);
-        await Connection.DeleteAsync(accountCalendar);
+        await Connection.DeleteAsync<AccountCalendar>(accountCalendar);
 
         WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
     }
@@ -85,11 +85,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         await Connection.RunInTransactionAsync((conn) =>
            {
-               conn.Insert(calendarItem);
+               conn.Insert(calendarItem, typeof(CalendarItem));
 
                if (attendees != null)
                {
-                   conn.InsertAll(attendees);
+                   conn.InsertAll(attendees, typeof(CalendarEventAttendee));
                }
            });
 
@@ -236,7 +236,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             connection.Execute(query.GetRawQuery());
 
             // Insert new attendees.
-            connection.InsertAll(allAttendees);
+            connection.InsertAll(allAttendees, typeof(CalendarEventAttendee));
         });
 
         return await Connection.Table<CalendarEventAttendee>().Where(a => a.CalendarItemId == calendarItemId).ToListAsync();

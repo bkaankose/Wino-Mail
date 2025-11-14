@@ -51,11 +51,11 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
         {
             shortcut.Id = Guid.NewGuid();
             shortcut.CreatedAt = DateTime.UtcNow;
-            await Connection.InsertAsync(shortcut);
+            await Connection.InsertAsync(shortcut, typeof(KeyboardShortcut));
         }
         else
         {
-            await Connection.UpdateAsync(shortcut);
+            await Connection.UpdateAsync(shortcut, typeof(KeyboardShortcut));
         }
 
         return shortcut;

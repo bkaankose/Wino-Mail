@@ -99,7 +99,7 @@ public class MailService : BaseDatabaseService, IMailService
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
         }
 
-        await Connection.InsertAsync(copy);
+        await Connection.InsertAsync(copy, typeof(MailCopy));
 
         await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
 
@@ -527,7 +527,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.InsertAsync(mailCopy).ConfigureAwait(false);
+        await Connection.InsertAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
         ReportUIChange(new MailAddedMessage(mailCopy));
     }
@@ -543,7 +543,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
 
-        await Connection.UpdateAsync(mailCopy).ConfigureAwait(false);
+        await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
         ReportUIChange(new MailUpdatedMessage(mailCopy));
     }
@@ -559,7 +559,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
+        await Connection.DeleteAsync<MailCopy>(mailCopy).ConfigureAwait(false);
 
         // If there are no more copies exists of the same mail, delete the MIME file as well.
         var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);

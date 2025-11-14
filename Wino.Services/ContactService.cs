@@ -19,7 +19,7 @@ public class ContactService : BaseDatabaseService, IContactService
     {
         var contact = new AccountContact() { Address = address, Name = displayName };
 
-        await Connection.InsertAsync(contact).ConfigureAwait(false);
+        await Connection.InsertAsync(contact, typeof(AccountContact)).ConfigureAwait(false);
 
         return contact;
     }
@@ -57,11 +57,11 @@ public class ContactService : BaseDatabaseService, IContactService
             {
                 if (currentContact == null)
                 {
-                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                    await Connection.InsertAsync(info, typeof(AccountContact)).ConfigureAwait(false);
                 }
                 else if (!currentContact.IsRootContact && !currentContact.IsOverridden) // Don't update root contacts or overridden contacts.
                 {
-                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                    await Connection.InsertOrReplaceAsync(info, typeof(AccountContact)).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -95,7 +95,7 @@ public class ContactService : BaseDatabaseService, IContactService
         // Mark the contact as overridden when manually updated
         contact.IsOverridden = true;
         
-        await Connection.UpdateAsync(contact).ConfigureAwait(false);
+        await Connection.UpdateAsync(contact, typeof(AccountContact)).ConfigureAwait(false);
         
         return contact;
     }
@@ -106,7 +106,7 @@ public class ContactService : BaseDatabaseService, IContactService
         
         if (contact != null && !contact.IsRootContact)
         {
-            await Connection.DeleteAsync(contact).ConfigureAwait(false);
+            await Connection.DeleteAsync<AccountContact>(contact).ConfigureAwait(false);
         }
     }
 

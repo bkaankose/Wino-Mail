@@ -452,7 +452,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         {
             _logger.Debug("Inserting folder {Id} - {FolderName}", folder.Id, folder.FolderName, folder.MailAccountId);
 
-            await Connection.InsertAsync(folder).ConfigureAwait(false);
+            await Connection.InsertAsync(folder, typeof(MailItemFolder)).ConfigureAwait(false);
         }
         else
         {
@@ -483,7 +483,7 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         _logger.Debug("Updating folder {FolderName}", folder.Id, folder.FolderName);
 
-        await Connection.UpdateAsync(folder).ConfigureAwait(false);
+        await Connection.UpdateAsync(folder, typeof(MailItemFolder)).ConfigureAwait(false);
     }
 
     private async Task DeleteFolderAsync(MailItemFolder folder)
@@ -504,7 +504,7 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         _logger.Debug("Deleting folder {FolderName}", folder.FolderName);
 
-        await Connection.DeleteAsync(folder).ConfigureAwait(false);
+        await Connection.DeleteAsync<MailItemFolder>(folder).ConfigureAwait(false);
 
         // Delete all existing mails from this folder.
         await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", folder.Id);
