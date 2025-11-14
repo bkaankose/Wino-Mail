@@ -351,4 +351,29 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
     {
         _synchronizationManager?.SynchronizeMailAsync(message.Options);
     }
+
+    /// <summary>
+    /// Handles activation redirected from another instance (single-instancing).
+    /// This is called when a second instance tries to launch and redirects to this existing instance.
+    /// </summary>
+    public void HandleRedirectedActivation(AppActivationArguments args)
+    {
+        // Dispatch to UI thread since this is called from Program.OnActivated
+        MainWindow?.DispatcherQueue.TryEnqueue(() =>
+        {
+            // Handle different activation kinds
+            if (args.Kind == ExtendedActivationKind.AppNotification)
+            {
+                // Handle toast notification activation
+                var toastArgs = (AppNotificationActivatedEventArgs)args.Data;
+                _ = HandleToastActivationAsync(toastArgs);
+            }
+            else
+            {
+                // For other activation types (Launch, Protocol, etc.), bring window to front
+                MainWindow?.BringToFront();
+                MainWindow?.Activate();
+            }
+        });
+    }
 }
