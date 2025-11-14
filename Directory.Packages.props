@@ -24,13 +24,13 @@
     <PackageVersion Include="IsExternalInit" Version="1.0.3" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.10" />
-    <PackageVersion Include="Microsoft.Graph" Version="5.94.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Graph" Version="5.96.0" />
     <PackageVersion Include="Microsoft.Graphics.Win2D" Version="1.3.2" />
-    <PackageVersion Include="Microsoft.Identity.Client" Version="4.77.1" />
-    <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.77.1" />
-    <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.77.1" />
+    <PackageVersion Include="Microsoft.Identity.Client" Version="4.79.1" />
+    <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.79.1" />
+    <PackageVersion Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.79.1" />
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.0" />
     <PackageVersion Include="MimeKit" Version="4.14.0" />
@@ -38,7 +38,7 @@
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="Nito.AsyncEx.Tasks" Version="5.1.2" />
     <PackageVersion Include="NodaTime" Version="3.2.2" />
-    <PackageVersion Include="Sentry.Serilog" Version="5.16.1" />
+    <PackageVersion Include="Sentry.Serilog" Version="5.16.2" />
     <PackageVersion Include="Serilog" Version="4.3.0" />
     <PackageVersion Include="Serilog.Exceptions" Version="8.4.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
@@ -47,23 +47,23 @@
     <PackageVersion Include="SkiaSharp" Version="3.119.1" />
     <PackageVersion Include="sqlite-net-pcl" Version="1.10.196-beta" />
     <PackageVersion Include="SqlKata" Version="4.0.1" />
-    <PackageVersion Include="System.Drawing.Common" Version="9.0.10" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.0" />
     <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.10" />
-    <PackageVersion Include="System.Text.Json" Version="9.0.10" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.0" />
     <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.3.0" />
     <PackageVersion Include="H.NotifyIcon.WinUI" Version="2.3.2" />
     <PackageVersion Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.72.0" />
-    <PackageVersion Include="Google.Apis.Calendar.v3" Version="1.69.0.3746" />
+    <PackageVersion Include="Google.Apis.Calendar.v3" Version="1.72.0.3953" />
     <PackageVersion Include="Google.Apis.Gmail.v1" Version="1.70.0.3833" />
     <PackageVersion Include="Google.Apis.PeopleService.v1" Version="1.69.0.3785" />
     <PackageVersion Include="HtmlKit" Version="1.2.0" />
     <PackageVersion Include="MailKit" Version="4.14.1" />
     <PackageVersion Include="TimePeriodLibrary.NET" Version="2.1.6" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
-    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.10" />
-    <PackageVersion Include="System.Text.Encodings.Web" Version="9.0.10" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.0" />
+    <PackageVersion Include="System.Text.Encodings.Web" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6901" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.0.250930001-experimental1" />
     <PackageVersion Include="WinUIEx" Version="2.9.0" />
