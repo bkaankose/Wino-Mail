@@ -90,8 +90,6 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
 
         try
         {
-            throw new MsalUiRequiredException("test", "test2");
-
             var authResult = await _publicClientApplication.AcquireTokenSilent(Scope, storedAccount).ExecuteAsync();
 
             return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username);
