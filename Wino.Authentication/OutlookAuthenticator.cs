@@ -57,6 +57,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         {
             outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
                 .WithBroker(options)
+                .WithParentActivityOrWindow(_nativeAppService.GetCoreWindowHwnd)
                 .WithDefaultRedirectUri()
                 .WithAuthority(Authority);
         }
