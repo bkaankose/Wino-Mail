@@ -11,7 +11,6 @@ using Microsoft.Windows.Globalization;
 using Nito.AsyncEx;
 using Serilog;
 using Windows.ApplicationModel.Activation;
-using Windows.ApplicationModel.AppService;
 using Windows.ApplicationModel.Core;
 using Windows.Foundation.Metadata;
 using Windows.Storage;
@@ -84,9 +83,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     {
         yield return DatabaseService;
         yield return TranslationService;
-        yield return NewThemeService;  // Initialize NewThemeService instead of old ThemeService
         yield return Services.GetService<SynchronizationManagerInitializer>();
-        // yield return ThemeService;  // Keep old service for backward compatibility but don't initialize
     }
 
     public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();

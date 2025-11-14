@@ -52,23 +52,23 @@ public class NotificationBuilder : INotificationBuilder
             {
                 var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
 
-                //if (mailItem == null || mailItem.AssignedFolder == null)
-                //    continue;
+                if (mailItem == null || mailItem.AssignedFolder == null)
+                    continue;
 
-                //// Only create notifications for Inbox folder mails
-                //if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
-                //    continue;
+                // Only create notifications for Inbox folder mails
+                if (mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Inbox)
+                    continue;
 
-                //// Skip folders with synchronization disabled
-                //if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
-                //    continue;
+                // Skip folders with synchronization disabled
+                if (!mailItem.AssignedFolder.IsSynchronizationEnabled)
+                    continue;
 
-                //// Skip already read mails
-                //if (mailItem.IsRead)
-                //{
-                //    RemoveNotification(mailItem.UniqueId);
-                //    continue;
-                //}
+                // Skip already read mails
+                if (mailItem.IsRead)
+                {
+                    RemoveNotification(mailItem.UniqueId);
+                    continue;
+                }
 
                 inboxMailItems.Add(mailItem);
             }

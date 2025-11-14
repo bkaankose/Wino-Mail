@@ -48,7 +48,7 @@ internal class ToastNotificationActivationHandler : ActivationHandler<ToastNotif
             var message = new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
 
             // Delegate this event to LaunchProtocolService so app shell can pick it up on launch if app doesn't work.
-            var launchProtocolService = App.Current.Services.GetService<ILaunchProtocolService>();
+            var launchProtocolService = App.Current.Services.GetRequiredService<ILaunchProtocolService>();
             launchProtocolService.LaunchParameter = message;
 
             // Send the messsage anyways. Launch protocol service will be ignored if the message is picked up by subscriber shell.

@@ -20,16 +20,14 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
-    private readonly IOutlookAuthenticator _outlookAuthenticator;
-    private readonly IGmailAuthenticator _gmailAuthenticator;
+    private readonly IAuthenticationProvider _authenticationProvider;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
     public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                IGmailChangeProcessor gmailChangeProcessor,
                                IImapChangeProcessor imapChangeProcessor,
-                               IOutlookAuthenticator outlookAuthenticator,
-                               IGmailAuthenticator gmailAuthenticator,
+                               IAuthenticationProvider authenticationProvider,
                                IAccountService accountService,
                                IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                                IApplicationConfiguration applicationConfiguration,
@@ -39,8 +37,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
         _imapChangeProcessor = imapChangeProcessor;
-        _outlookAuthenticator = outlookAuthenticator;
-        _gmailAuthenticator = gmailAuthenticator;
+        _authenticationProvider = authenticationProvider;
         _accountService = accountService;
         _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
@@ -75,9 +72,11 @@ public class SynchronizerFactory : ISynchronizerFactory
         switch (providerType)
         {
             case Domain.Enums.MailProviderType.Outlook:
-                return new OutlookSynchronizer(mailAccount, _outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
+                var outlookAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Outlook) as IOutlookAuthenticator;
+                return new OutlookSynchronizer(mailAccount, outlookAuthenticator, _outlookChangeProcessor, _outlookSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.Gmail:
-                return new GmailSynchronizer(mailAccount, _gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
+                var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
+                return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
                 return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration);
             default:

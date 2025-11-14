@@ -42,6 +42,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
     /// This must be called before using any other methods.
+    /// Note: Synchronizers are created lazily to avoid requiring window handles during app initialization.
     /// </summary>
     /// <param name="synchronizerFactory">Factory for creating synchronizers</param>
     /// <param name="imapTestService">Service for testing IMAP connectivity</param>
@@ -65,28 +66,11 @@ public class SynchronizationManager : ISynchronizationManager
             _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
 
-            // Get all accounts and create synchronizers for them
-            var accounts = await _accountService.GetAccountsAsync();
-
-            foreach (var account in accounts)
-            {
-                try
-                {
-                    var synchronizer = _concreteSynchronizerFactory.CreateNewSynchronizer(account);
-                    _synchronizerCache.TryAdd(account.Id, synchronizer);
-
-                    _logger.Information("Created synchronizer for account {AccountName} ({AccountId})",
-                                      account.Name, account.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "Failed to create synchronizer for account {AccountName} ({AccountId})",
-                                account.Name, account.Id);
-                }
-            }
+            // DO NOT create synchronizers here to avoid requiring window handles during initialization.
+            // Synchronizers will be created lazily when first accessed via GetOrCreateSynchronizerAsync.
 
             _isInitialized = true;
-            _logger.Information("SynchronizationManager initialized with {Count} synchronizers", _synchronizerCache.Count);
+            _logger.Information("SynchronizationManager dependencies initialized. Synchronizers will be created lazily.");
         }
         finally
         {
