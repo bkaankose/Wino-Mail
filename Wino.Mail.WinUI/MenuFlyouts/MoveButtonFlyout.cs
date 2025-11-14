@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Windows.Foundation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Foundation;
 using Wino.Core.Domain.Entities.Mail;
 
 namespace Wino.MenuFlyouts;
@@ -15,7 +15,7 @@ public class MoveButtonMenuItemClickedEventArgs
 
 public partial class MoveButtonFlyout : MenuFlyout
 {
-    public event TypedEventHandler<MoveButtonFlyout, MoveButtonMenuItemClickedEventArgs> MenuItemClick;
+    public event TypedEventHandler<MoveButtonFlyout, MoveButtonMenuItemClickedEventArgs> MenuItemClick = delegate { };
     public static readonly DependencyProperty FoldersProperty = DependencyProperty.Register(nameof(Folders), typeof(List<MailItemFolder>), typeof(MoveButtonFlyout), new PropertyMetadata(null, new PropertyChangedCallback(OnFoldersChanged)));
 
     public List<MailItemFolder> Folders
@@ -66,7 +66,7 @@ public partial class MoveButtonFlyout : MenuFlyout
 
     private void MenuItemClicked(object sender, RoutedEventArgs e)
     {
-        var clickedFolder = (sender as MenuFlyoutItem).Tag as MailItemFolder;
+        var clickedFolder = ((MenuFlyoutItem)sender).Tag as MailItemFolder ?? throw new InvalidOperationException("Clicked folder is null.");
 
         MenuItemClick?.Invoke(this, new MoveButtonMenuItemClickedEventArgs()
         {

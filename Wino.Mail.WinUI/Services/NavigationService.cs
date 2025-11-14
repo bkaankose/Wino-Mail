@@ -74,7 +74,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     public bool Navigate(WinoPage page,
-                         object parameter = null,
+                         object? parameter = null,
                          NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame,
                          NavigationTransitionType transition = NavigationTransitionType.None)
     {

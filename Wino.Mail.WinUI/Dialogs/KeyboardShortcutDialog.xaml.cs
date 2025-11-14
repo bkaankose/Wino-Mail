@@ -25,7 +25,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
     {
         InitializeComponent();
         AvailableMailOperations = GetAvailableMailOperations();
-        SelectedMailOperation = AvailableMailOperations.FirstOrDefault();
+        SelectedMailOperation = AvailableMailOperations.FirstOrDefault()!;
     }
 
     public KeyboardShortcutDialog(KeyboardShortcut existingShortcut) : this()
@@ -33,7 +33,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
         if (existingShortcut != null)
         {
             KeyInputTextBox.Text = existingShortcut.Key;
-            SelectedMailOperation = AvailableMailOperations.FirstOrDefault(x => x.Operation == existingShortcut.MailOperation);
+            SelectedMailOperation = AvailableMailOperations.FirstOrDefault(x => x.Operation == existingShortcut.MailOperation)!;
 
             var modifiers = existingShortcut.ModifierKeys;
             IsControlPressed = modifiers.HasFlag(ModifierKeys.Control);

@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
@@ -9,16 +10,16 @@ namespace Wino.Dialogs;
 
 public sealed partial class AccountReorderDialog : ContentDialog
 {
-    public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; }
+    public ObservableCollection<IAccountProviderDetailViewModel> Accounts { get; set; } = null!;
 
     private int count;
     private bool isOrdering = false;
 
-    private readonly IAccountService _accountService = App.Current.Services.GetService<IAccountService>();
+    private readonly IAccountService? _accountService = App.Current.Services.GetService<IAccountService>();
 
-    public AccountReorderDialog(ObservableCollection<IAccountProviderDetailViewModel> accounts)
+    public AccountReorderDialog(ObservableCollection<IAccountProviderDetailViewModel>? accounts)
     {
-        Accounts = accounts;
+        Accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
 
         count = accounts.Count;
 
@@ -33,7 +34,7 @@ public sealed partial class AccountReorderDialog : ContentDialog
 
     private void DialogClosed(ContentDialog sender, ContentDialogClosedEventArgs args) => Accounts.CollectionChanged -= AccountsChanged;
 
-    private async void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    private async void AccountsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (count - 1 == Accounts.Count)
             isOrdering = true;
@@ -44,7 +45,8 @@ public sealed partial class AccountReorderDialog : ContentDialog
 
             var dict = Accounts.ToDictionary(a => a.StartupEntityId, a => Accounts.IndexOf(a));
 
-            await _accountService.UpdateAccountOrdersAsync(dict);
+            if (_accountService != null)
+                await _accountService.UpdateAccountOrdersAsync(dict);
 
             isOrdering = false;
         }

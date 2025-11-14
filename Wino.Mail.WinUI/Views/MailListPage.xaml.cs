@@ -188,7 +188,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
             targetItems = ViewModel.MailCollection.SelectedItems;
             var availableActions = ViewModel.GetAvailableMailActions(targetItems);
 
-            if (!availableActions?.Any() ?? false) return;
+            if (availableActions == null || !availableActions.Any()) return;
 
             var clickedOperation = await GetMailOperationFromFlyoutAsync(availableActions, control, p.X, p.Y);
 
@@ -737,5 +737,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (sender is not WinoListView listView) return;
 
         await WinoClickItemInternalAsync(e.ClickedItem);
+    }
+
+    private void SearchbarQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        if (ViewModel.PerformSearchCommand.CanExecute(null))
+            ViewModel.PerformSearchCommand.Execute(null);
     }
 }

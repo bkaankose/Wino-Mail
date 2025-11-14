@@ -28,8 +28,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IRecipient<CancelRenderingContentRequested>,
     IRecipient<ApplicationThemeChanged>
 {
-    private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
-    private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>();
+    private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
+    private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
 
     private bool isRenderingInProgress = false;
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
@@ -232,7 +232,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // TODO: Check external link navigation setting is enabled.
         // Open all external urls in launcher.
 
-        if (args.Cancel && Uri.TryCreate(args.Uri, UriKind.Absolute, out Uri newUri))
+        if (args.Cancel && Uri.TryCreate(args.Uri, UriKind.Absolute, out Uri? newUri) && newUri != null)
         {
             await Launcher.LaunchUriAsync(newUri);
         }
@@ -242,7 +242,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         if (e.ClickedItem is MailAttachmentViewModel attachmentViewModel)
         {
-            ViewModel.OpenAttachmentCommand.Execute(attachmentViewModel);
+            ViewModel?.OpenAttachmentCommand.Execute(attachmentViewModel);
         }
     }
 

@@ -13,9 +13,9 @@ public partial class WinoExpander : Control
     private const string PART_ContentAreaWrapper = "ContentAreaWrapper";
     private const string PART_ContentArea = "ContentArea";
 
-    private ContentControl HeaderGrid;
-    private ContentControl ContentArea;
-    private Grid ContentAreaWrapper;
+    private ContentControl HeaderGrid = null!;
+    private ContentControl ContentArea = null!;
+    private Grid ContentAreaWrapper = null!;
 
     public static readonly DependencyProperty HeaderProperty = DependencyProperty.Register(nameof(Header), typeof(UIElement), typeof(WinoExpander), new PropertyMetadata(null));
     public static readonly DependencyProperty ContentProperty = DependencyProperty.Register(nameof(Content), typeof(UIElement), typeof(WinoExpander), new PropertyMetadata(null));
@@ -50,9 +50,9 @@ public partial class WinoExpander : Control
     {
         base.OnApplyTemplate();
 
-        HeaderGrid = GetTemplateChild(PART_HeaderGrid) as ContentControl;
-        ContentAreaWrapper = GetTemplateChild(PART_ContentAreaWrapper) as Grid;
-        ContentArea = GetTemplateChild(PART_ContentArea) as ContentControl;
+        HeaderGrid = (GetTemplateChild(PART_HeaderGrid) as ContentControl)!;
+        ContentAreaWrapper = (GetTemplateChild(PART_ContentAreaWrapper) as Grid)!;
+        ContentArea = (GetTemplateChild(PART_ContentArea) as ContentControl)!;
 
         Guard.IsNotNull(HeaderGrid, nameof(HeaderGrid));
         Guard.IsNotNull(ContentAreaWrapper, nameof(ContentAreaWrapper));

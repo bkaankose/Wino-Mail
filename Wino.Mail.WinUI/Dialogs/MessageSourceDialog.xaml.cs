@@ -8,8 +8,8 @@ namespace Wino.Mail.Dialogs;
 
 public sealed partial class MessageSourceDialog : ContentDialog
 {
-    private readonly IClipboardService _clipboardService = App.Current.Services.GetService<IClipboardService>();
-    public string MessageSource { get; set; }
+    private readonly IClipboardService? _clipboardService = App.Current.Services.GetService<IClipboardService>();
+    public string MessageSource { get; set; } = string.Empty;
     public bool Copied { get; set; }
     public MessageSourceDialog()
     {
@@ -18,7 +18,7 @@ public sealed partial class MessageSourceDialog : ContentDialog
 
     private void ContentDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        _clipboardService.CopyClipboardAsync(MessageSource);
+        _clipboardService!.CopyClipboardAsync(MessageSource);
         Copied = true;
     }
 }

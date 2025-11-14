@@ -149,7 +149,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
         return accountPicker.PickedAccount;
     }
 
-    public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature signatureModel = null)
+    public async Task<AccountSignature> ShowSignatureEditorDialog(AccountSignature? signatureModel = null)
     {
         SignatureEditorDialog signatureEditorDialog;
         if (signatureModel != null)
@@ -169,7 +169,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         var result = await HandleDialogPresentationAsync(signatureEditorDialog);
 
-        return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null;
+        return result == ContentDialogResult.Primary ? signatureEditorDialog.Result : null!;
     }
 
     public async Task ShowMessageSourceDialogAsync(string messageSource)

@@ -19,9 +19,9 @@ namespace Wino.Mail.Controls;
 
 public sealed partial class WebViewEditorControl : Control, IDisposable
 {
-    private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>();
-    private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>();
-    private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+    private readonly INativeAppService _nativeAppService = App.Current.Services.GetService<INativeAppService>()!;
+    private readonly IFontService _fontService = App.Current.Services.GetService<IFontService>()!;
+    private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
 
     [GeneratedDependencyProperty]
     public partial bool IsEditorDarkMode { get; set; }
@@ -131,7 +131,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     }
 
     private const string PART_WebView = "WebView";
-    private WebView2 _chromium;
+    private WebView2 _chromium = null!;
     private bool _disposedValue;
     private readonly TaskCompletionSource<bool> _domLoadedTask = new();
 
@@ -146,7 +146,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     {
         base.OnApplyTemplate();
 
-        _chromium = GetTemplateChild(PART_WebView) as WebView2;
+        _chromium = (GetTemplateChild(PART_WebView) as WebView2)!;
 
         await InitializeComponent();
     }
@@ -175,7 +175,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         IsEditorDarkMode = !IsEditorDarkMode;
     }
 
-    public async Task<string> GetHtmlBodyAsync()
+    public async Task<string?> GetHtmlBodyAsync()
     {
         var editorContent = await _chromium.ExecuteScriptFunctionSafeAsync("GetHTMLContent");
 
@@ -272,6 +272,8 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     private void ScriptMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
     {
         var change = JsonSerializer.Deserialize(args.WebMessageAsJson, DomainModelsJsonContext.Default.WebViewMessage);
+
+        if (change == null) return;
 
         if (change.Type == "bold")
         {

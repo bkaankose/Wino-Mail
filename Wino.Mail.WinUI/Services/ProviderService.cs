@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -15,7 +16,7 @@ public class ProviderService : IProviderService
     {
         var details = GetAvailableProviders();
 
-        return details.FirstOrDefault(a => a.Type == type);
+        return details.FirstOrDefault(a => a.Type == type) ?? throw new InvalidOperationException($"Provider detail not found for type: {type}");
     }
 
     public List<IProviderDetail> GetAvailableProviders()

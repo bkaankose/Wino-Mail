@@ -184,14 +184,9 @@
                 LostFocus="SearchBarUnfocused"
                 PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
                 QueryIcon="Find"
+                QuerySubmitted="SearchbarQuerySubmitted"
                 Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay}"
-                TextChanged="SearchBar_TextChanged">
-                <i:Interaction.Behaviors>
-                    <i:EventTriggerBehavior EventName="QuerySubmitted">
-                        <i:InvokeCommandAction Command="{x:Bind ViewModel.PerformSearchCommand}" />
-                    </i:EventTriggerBehavior>
-                </i:Interaction.Behaviors>
-            </AutoSuggestBox>
+                TextChanged="SearchBar_TextChanged" />
         </Grid>
     </wino:BasePage.ShellContent>
 

@@ -15,6 +15,6 @@ public partial class WinoMailItemContainerStyleSelector : StyleSelector
         if (item is ThreadMailItemViewModel)
             return ThreadStyle ?? throw new Exception($"Missing style for {nameof(ThreadMailItemViewModel)}");
 
-        return null;
+        return base.SelectStyleCore(item, container);
     }
 }

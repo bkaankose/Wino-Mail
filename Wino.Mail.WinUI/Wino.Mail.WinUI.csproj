@@ -11,8 +11,17 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
+
+	<!-- AOT / Trimming -->
+	<PublishAot Condition="'$(Configuration)' == 'Debug'">False</PublishAot>
+	<PublishAot Condition="'$(Configuration)' != 'Debug'">True</PublishAot>
+	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	  
+	<!-- Single instancing -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-  </PropertyGroup>
+  
+</PropertyGroup>
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />
     <Content Remove="Assets\BadgeLogo.scale-125.png" />
@@ -259,11 +268,14 @@
   </PropertyGroup>
 
   <!-- Publish Properties -->
-  <PropertyGroup>
+  <PropertyGroup>  
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+	  
+	<!-- Trimming -->
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+	  
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>

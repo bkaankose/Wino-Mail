@@ -60,13 +60,13 @@ public partial class ImagePreviewControl : Control
 
     #endregion
 
-    private Ellipse Ellipse;
-    private Grid InitialsGrid;
-    private TextBlock InitialsTextblock;
-    private Image KnownHostImage;
-    private Border FaviconSquircle;
-    private Image FaviconImage;
-    private CancellationTokenSource contactPictureLoadingCancellationTokenSource;
+    private Ellipse Ellipse = null!;
+    private Grid InitialsGrid = null!;
+    private TextBlock InitialsTextblock = null!;
+    private Image KnownHostImage = null!;
+    private Border FaviconSquircle = null!;
+    private Image FaviconImage = null!;
+    private CancellationTokenSource contactPictureLoadingCancellationTokenSource = null!;
 
     public ImagePreviewControl()
     {
@@ -77,12 +77,12 @@ public partial class ImagePreviewControl : Control
     {
         base.OnApplyTemplate();
 
-        InitialsGrid = GetTemplateChild(PART_EllipseInitialsGrid) as Grid;
-        InitialsTextblock = GetTemplateChild(PART_InitialsTextBlock) as TextBlock;
-        KnownHostImage = GetTemplateChild(PART_KnownHostImage) as Image;
-        Ellipse = GetTemplateChild(PART_Ellipse) as Ellipse;
-        FaviconSquircle = GetTemplateChild(PART_FaviconSquircle) as Border;
-        FaviconImage = GetTemplateChild(PART_FaviconImage) as Image;
+        InitialsGrid = (GetTemplateChild(PART_EllipseInitialsGrid) as Grid)!;
+        InitialsTextblock = (GetTemplateChild(PART_InitialsTextBlock) as TextBlock)!;
+        KnownHostImage = (GetTemplateChild(PART_KnownHostImage) as Image)!;
+        Ellipse = (GetTemplateChild(PART_Ellipse) as Ellipse)!;
+        FaviconSquircle = (GetTemplateChild(PART_FaviconSquircle) as Border)!;
+        FaviconImage = (GetTemplateChild(PART_FaviconImage) as Image)!;
 
         UpdateInformation();
     }
@@ -101,7 +101,7 @@ public partial class ImagePreviewControl : Control
         // Cancel active image loading if exists.
         if (!contactPictureLoadingCancellationTokenSource?.IsCancellationRequested ?? false)
         {
-            contactPictureLoadingCancellationTokenSource.Cancel();
+            contactPictureLoadingCancellationTokenSource!.Cancel();
         }
 
         string contactPicture = SenderContactPicture;
@@ -120,8 +120,10 @@ public partial class ImagePreviewControl : Control
             {
                 // Show favicon in squircle
                 FaviconSquircle.Visibility = Visibility.Visible;
-                InitialsGrid.Visibility = Visibility.Collapsed;
-                KnownHostImage.Visibility = Visibility.Collapsed;
+                if (InitialsGrid != null)
+                    InitialsGrid.Visibility = Visibility.Collapsed;
+                if (KnownHostImage != null)
+                    KnownHostImage.Visibility = Visibility.Collapsed;
 
                 var bitmapImage = await GetBitmapImageAsync(contactPicture);
 
@@ -133,9 +135,12 @@ public partial class ImagePreviewControl : Control
             else
             {
                 // Show normal avatar (tondo)
-                FaviconSquircle.Visibility = Visibility.Collapsed;
-                KnownHostImage.Visibility = Visibility.Collapsed;
-                InitialsGrid.Visibility = Visibility.Visible;
+                if (FaviconSquircle != null)
+                    FaviconSquircle.Visibility = Visibility.Collapsed;
+                if (KnownHostImage != null)
+                    KnownHostImage.Visibility = Visibility.Collapsed;
+                if (InitialsGrid != null)
+                    InitialsGrid.Visibility = Visibility.Visible;
                 contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
                 try
                 {
@@ -145,8 +150,10 @@ public partial class ImagePreviewControl : Control
                     {
                         if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
                         {
-                            Ellipse.Fill = brush;
-                            InitialsTextblock.Text = string.Empty;
+                            if (Ellipse != null)
+                                Ellipse.Fill = brush;
+                            if (InitialsTextblock != null)
+                                InitialsTextblock.Text = string.Empty;
                         }
                     }
                 }
@@ -158,19 +165,24 @@ public partial class ImagePreviewControl : Control
         }
         else
         {
-            FaviconSquircle.Visibility = Visibility.Collapsed;
-            KnownHostImage.Visibility = Visibility.Collapsed;
-            InitialsGrid.Visibility = Visibility.Visible;
+            if (FaviconSquircle != null)
+                FaviconSquircle.Visibility = Visibility.Collapsed;
+            if (KnownHostImage != null)
+                KnownHostImage.Visibility = Visibility.Collapsed;
+            if (InitialsGrid != null)
+                InitialsGrid.Visibility = Visibility.Visible;
 
             var colorHash = new ColorHash();
             var rgb = colorHash.Rgb(FromAddress);
 
-            Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
-            InitialsTextblock.Text = ExtractInitialsFromName(FromName);
+            if (Ellipse != null)
+                Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
+            if (InitialsTextblock != null)
+                InitialsTextblock.Text = ExtractInitialsFromName(FromName);
         }
     }
 
-    private static async Task<ImageBrush> GetContactImageBrushAsync(string base64)
+    private static async Task<ImageBrush?> GetContactImageBrushAsync(string base64)
     {
         // Load the image from base64 string.
 
@@ -181,7 +193,7 @@ public partial class ImagePreviewControl : Control
         return new ImageBrush() { ImageSource = bitmapImage };
     }
 
-    private static async Task<BitmapImage> GetBitmapImageAsync(string base64)
+    private static async Task<BitmapImage?> GetBitmapImageAsync(string base64)
     {
         try
         {

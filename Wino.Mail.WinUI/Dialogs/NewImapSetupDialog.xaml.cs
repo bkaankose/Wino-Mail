@@ -43,7 +43,7 @@ public sealed partial class NewImapSetupDialog : ContentDialog,
     public void Complete(bool cancel)
     {
         if (!_getServerInfoTaskCompletionSource.Task.IsCompleted)
-            _getServerInfoTaskCompletionSource.TrySetResult(null);
+            _getServerInfoTaskCompletionSource.TrySetResult(null!);
 
         isDismissRequested = true;
 

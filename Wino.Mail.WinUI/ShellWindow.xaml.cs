@@ -85,7 +85,11 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
         WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
     }
 
-    private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) => ShellTitleBar.Content = (e.Content as BasePage).ShellContent;
+    private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        if (e.Content is BasePage basePage)
+            ShellTitleBar.Content = basePage.ShellContent;
+    }
 
     private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {

@@ -7,7 +7,7 @@ namespace Wino.MenuFlyouts;
 
 public partial class WinoOperationFlyout<TActionType> : MenuFlyout, IDisposable where TActionType : class
 {
-    public TActionType ClickedOperation { get; set; }
+    public TActionType ClickedOperation { get; set; } = null!;
 
     protected readonly IEnumerable<TActionType> AvailableActions;
 

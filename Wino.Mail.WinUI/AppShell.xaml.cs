@@ -75,6 +75,9 @@ public sealed partial class AppShell : AppShellAbstract,
                     var mailCopies = new List<MailCopy>();
 
                     var dragPackage = e.DataView.Properties[nameof(MailDragPackage)] as MailDragPackage;
+
+                    if (dragPackage == null) return;
+
                     e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
 
                     // Extract mail copies from IMailItem.
@@ -116,7 +119,7 @@ public sealed partial class AppShell : AppShellAbstract,
         var dragPackage = args.DataView.Properties[nameof(MailDragPackage)] as MailDragPackage;
 
         // Invalid package.
-        if (!dragPackage.DraggingMails.Any()) return false;
+        if (dragPackage == null || !dragPackage.DraggingMails.Any()) return false;
 
         // Check whether source and target folder are the same.
         if (interactingContainer.IsSelected) return false;
@@ -143,6 +146,8 @@ public sealed partial class AppShell : AppShellAbstract,
             droppedContainer.IsDraggingItemOver = true;
 
             var draggingFolder = droppedContainer.DataContext as IBaseFolderMenuItem;
+
+            if (draggingFolder == null) return;
 
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = string.Format(Translator.DragMoveToFolderCaption, draggingFolder.FolderName);
@@ -235,7 +240,7 @@ public sealed partial class AppShell : AppShellAbstract,
 
     private void ShellFrameContentNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) => TopShellContent = ((BasePage)e.Content).ShellContent;
 
-    partial void OnTopShellContentChanged(UIElement newValue) => WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
+    partial void OnTopShellContentChanged(UIElement? newValue) => WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
 
     private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {

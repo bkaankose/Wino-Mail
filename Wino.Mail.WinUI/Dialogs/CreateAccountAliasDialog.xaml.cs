@@ -7,7 +7,7 @@ namespace Wino.Dialogs;
 
 public sealed partial class CreateAccountAliasDialog : ContentDialog, ICreateAccountAliasDialog
 {
-    public MailAccountAlias CreatedAccountAlias { get; set; }
+    public MailAccountAlias CreatedAccountAlias { get; set; } = null!;
     public CreateAccountAliasDialog()
     {
         InitializeComponent();

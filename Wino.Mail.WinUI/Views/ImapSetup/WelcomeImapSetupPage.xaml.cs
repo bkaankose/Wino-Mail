@@ -19,7 +19,7 @@ namespace Wino.Views.ImapSetup;
 
 public sealed partial class WelcomeImapSetupPage : Page
 {
-    private readonly IAutoDiscoveryService _autoDiscoveryService = App.Current.Services.GetService<IAutoDiscoveryService>();
+    private readonly IAutoDiscoveryService _autoDiscoveryService = App.Current.Services.GetService<IAutoDiscoveryService>()!;
 
     public WelcomeImapSetupPage()
     {

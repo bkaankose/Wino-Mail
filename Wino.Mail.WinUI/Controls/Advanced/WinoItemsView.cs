@@ -15,7 +15,7 @@ public partial class WinoItemsView : ItemsView
     private ScrollView? _internalScrollView;
 
     [GeneratedDependencyProperty]
-    public partial ICommand LoadMoreCommand { get; set; }
+    public partial ICommand? LoadMoreCommand { get; set; }
 
     public IEnumerable<object>? CastedItemsSource => ItemsSource as IEnumerable<object>;
 

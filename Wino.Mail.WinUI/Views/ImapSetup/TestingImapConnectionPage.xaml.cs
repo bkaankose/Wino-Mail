@@ -15,8 +15,8 @@ namespace Wino.Views.ImapSetup;
 
 public sealed partial class TestingImapConnectionPage : Page
 {
-    private AutoDiscoverySettings autoDiscoverySettings;
-    private CustomServerInformation serverInformationToTest;
+    private AutoDiscoverySettings autoDiscoverySettings = null!;
+    private CustomServerInformation serverInformationToTest = null!;
 
     public TestingImapConnectionPage()
     {

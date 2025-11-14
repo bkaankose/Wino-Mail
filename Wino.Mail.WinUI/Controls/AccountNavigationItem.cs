@@ -28,8 +28,8 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
     private const string PART_NavigationViewItemMenuItemsHost = "NavigationViewItemMenuItemsHost";
     private const string PART_SelectionIndicator = "CustomSelectionIndicator";
 
-    private ItemsRepeater _itemsRepeater;
-    private Microsoft.UI.Xaml.Shapes.Rectangle _selectionIndicator;
+    private ItemsRepeater _itemsRepeater = null!;
+    private Microsoft.UI.Xaml.Shapes.Rectangle _selectionIndicator = null!;
 
     public AccountNavigationItem()
     {
@@ -40,8 +40,8 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
     {
         base.OnApplyTemplate();
 
-        _itemsRepeater = GetTemplateChild(PART_NavigationViewItemMenuItemsHost) as ItemsRepeater;
-        _selectionIndicator = GetTemplateChild(PART_SelectionIndicator) as Microsoft.UI.Xaml.Shapes.Rectangle;
+        _itemsRepeater = (GetTemplateChild(PART_NavigationViewItemMenuItemsHost) as ItemsRepeater)!;
+        _selectionIndicator = (GetTemplateChild(PART_SelectionIndicator) as Microsoft.UI.Xaml.Shapes.Rectangle)!;
 
         UpdateSelectionBorder();
     }

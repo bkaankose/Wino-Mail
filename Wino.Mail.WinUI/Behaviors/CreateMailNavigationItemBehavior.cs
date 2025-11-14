@@ -58,7 +58,7 @@ public class CreateMailNavigationItemBehavior : Behavior<WinoNavigationViewItem>
         }
     }
 
-    private void MenuCollectionUpdated(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    private void MenuCollectionUpdated(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         ManageAccounts();
     }

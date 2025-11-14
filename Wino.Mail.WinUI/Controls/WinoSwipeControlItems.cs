@@ -60,7 +60,7 @@ public partial class WinoSwipeControlItems : SwipeItems
         this.Add(swipeItem);
     }
 
-    private SwipeItem GetSwipeItem(MailOperation operation)
+    private SwipeItem? GetSwipeItem(MailOperation operation)
     {
         if (MailItem == null) return null;
 
@@ -72,18 +72,18 @@ public partial class WinoSwipeControlItems : SwipeItems
         {
             var singleItem = MailItem as MailItemViewModel;
 
-            if (operation == MailOperation.MarkAsRead && singleItem.IsRead)
+            if (singleItem != null && operation == MailOperation.MarkAsRead && singleItem.IsRead)
                 finalOperation = MailOperation.MarkAsUnread;
-            else if (operation == MailOperation.MarkAsUnread && !singleItem.IsRead)
+            else if (singleItem != null && operation == MailOperation.MarkAsUnread && !singleItem.IsRead)
                 finalOperation = MailOperation.MarkAsRead;
         }
         else
         {
             var threadItem = MailItem as ThreadMailItemViewModel;
 
-            if (operation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
+            if (threadItem != null && operation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
                 finalOperation = MailOperation.MarkAsUnread;
-            else if (operation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
+            else if (threadItem != null && operation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
                 finalOperation = MailOperation.MarkAsRead;
         }
 
@@ -114,18 +114,21 @@ public partial class WinoSwipeControlItems : SwipeItems
         {
             var singleItem = MailItem as MailItemViewModel;
 
-            if (SwipeOperation == MailOperation.MarkAsRead && singleItem.IsRead)
-                finalOperation = MailOperation.MarkAsUnread;
-            else if (SwipeOperation == MailOperation.MarkAsUnread && !singleItem.IsRead)
-                finalOperation = MailOperation.MarkAsRead;
+            if (singleItem != null)
+            {
+                if (SwipeOperation == MailOperation.MarkAsRead && singleItem.IsRead)
+                    finalOperation = MailOperation.MarkAsUnread;
+                else if (SwipeOperation == MailOperation.MarkAsUnread && !singleItem.IsRead)
+                    finalOperation = MailOperation.MarkAsRead;
+            }
         }
         else
         {
             var threadItem = MailItem as ThreadMailItemViewModel;
 
-            if (SwipeOperation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
+            if (threadItem != null && SwipeOperation == MailOperation.MarkAsRead && threadItem.ThreadEmails.All(a => a.IsRead))
                 finalOperation = MailOperation.MarkAsUnread;
-            else if (SwipeOperation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
+            else if (threadItem != null && SwipeOperation == MailOperation.MarkAsUnread && threadItem.ThreadEmails.All(a => !a.IsRead))
                 finalOperation = MailOperation.MarkAsRead;
         }
 

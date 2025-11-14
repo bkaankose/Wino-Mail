@@ -17,13 +17,13 @@ namespace Wino.Behaviors;
 
 public partial class BindableCommandBarBehavior : Behavior<CommandBar>
 {
-    private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+    private readonly IPreferencesService? _preferencesService = App.Current.Services.GetService<IPreferencesService>();
     public static readonly DependencyProperty PrimaryCommandsProperty = DependencyProperty.Register(
         "PrimaryCommands", typeof(object), typeof(BindableCommandBarBehavior),
         new PropertyMetadata(null, UpdateCommands));
 
     [GeneratedDependencyProperty]
-    public partial ICommand ItemClickedCommand { get; set; }
+    public partial ICommand? ItemClickedCommand { get; set; }
 
     public object PrimaryCommands
     {
@@ -88,7 +88,7 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
         {
             if (command is MailOperationMenuItem mailOperationMenuItem)
             {
-                ICommandBarElement menuItem = null;
+                ICommandBarElement? menuItem = null;
 
                 if (mailOperationMenuItem.Operation == Core.Domain.Enums.MailOperation.Seperator)
                 {
@@ -97,13 +97,17 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
                 else
                 {
                     var label = XamlHelpers.GetOperationString(mailOperationMenuItem.Operation);
-                    var labelPosition = string.IsNullOrWhiteSpace(label) || !_preferencesService.IsShowActionLabelsEnabled ?
+                    var labelPosition = string.IsNullOrWhiteSpace(label) || _preferencesService == null || !_preferencesService.IsShowActionLabelsEnabled ?
                         CommandBarLabelPosition.Collapsed : CommandBarLabelPosition.Default;
+
+                    var iconGlyph = XamlHelpers.GetWinoIconGlyph(mailOperationMenuItem.Operation);
+                    var glyphValue = ControlConstants.WinoIconFontDictionary.TryGetValue(iconGlyph, out var glyph) ? glyph : string.Empty;
+
                     menuItem = new AppBarButton
                     {
                         Width = double.NaN,
                         MinWidth = 40,
-                        Icon = new WinoFontIcon() { Glyph = ControlConstants.WinoIconFontDictionary[XamlHelpers.GetWinoIconGlyph(mailOperationMenuItem.Operation)] },
+                        Icon = new WinoFontIcon() { Glyph = glyphValue },
                         Label = label,
                         LabelPosition = labelPosition,
                         DataContext = mailOperationMenuItem,
@@ -162,7 +166,7 @@ public partial class BindableCommandBarBehavior : Behavior<CommandBar>
         UpdatePrimaryCommands();
     }
 
-    private void PrimaryCommandsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+    private void PrimaryCommandsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         UpdatePrimaryCommands();
     }

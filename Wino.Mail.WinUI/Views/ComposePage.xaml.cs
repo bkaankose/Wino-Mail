@@ -41,7 +41,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         InitializeComponent();
     }
 
-    private async void GlobalFocusManagerGotFocus(object sender, FocusManagerGotFocusEventArgs e)
+    private async void GlobalFocusManagerGotFocus(object? sender, FocusManagerGotFocusEventArgs e)
     {
         // In order to delegate cursor to the inner editor for WebView2.
         // When the control got focus, we invoke script to focus the editor.
@@ -60,7 +60,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             x => box.TextChanged += x,
             x => box.TextChanged -= x)
                 .Throttle(TimeSpan.FromMilliseconds(120))
-                .ObserveOn(SynchronizationContext.Current)
+                .ObserveOn(SynchronizationContext.Current!)
                 .Subscribe(t =>
                 {
                     if (t.EventArgs.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
@@ -305,10 +305,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ImportanceFlyout.Hide();
         ImportanceSplitButton.IsChecked = true;
 
-        if (sender is Button senderButton)
+        if (sender is Button senderButton && senderButton.Tag is MessageImportance importance)
         {
-            ViewModel.SelectedMessageImportance = (MessageImportance)senderButton.Tag;
-            ((ImportanceSplitButton.Content as Viewbox).Child as SymbolIcon).Symbol = (senderButton.Content as SymbolIcon).Symbol;
+            ViewModel.SelectedMessageImportance = importance;
+            if (ImportanceSplitButton.Content is Viewbox viewbox && 
+                viewbox.Child is SymbolIcon symbolIcon && 
+                senderButton.Content is SymbolIcon contentIcon)
+            {
+                symbolIcon.Symbol = contentIcon.Symbol;
+            }
         }
     }
 
@@ -332,7 +337,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                     _ => null
                 };
 
-                AccountContact addedItem = null;
+                AccountContact? addedItem = null;
 
                 if (addressCollection != null)
                     addedItem = await ViewModel.GetAddressInformationAsync(currentText, addressCollection);

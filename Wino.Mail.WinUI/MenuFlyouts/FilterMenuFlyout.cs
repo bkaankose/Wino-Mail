@@ -110,7 +110,8 @@ public partial class FilterMenuFlyout : MenuFlyout
 
             var optionModel = button.Tag as SortingOption;
 
-            SelectSortingOption(optionModel);
+            if (optionModel != null)
+                SelectSortingOption(optionModel);
         }
     }
 
@@ -124,7 +125,8 @@ public partial class FilterMenuFlyout : MenuFlyout
 
             var optionModel = button.Tag as FilterOption;
 
-            SelectFilterOption(optionModel);
+            if (optionModel != null)
+                SelectFilterOption(optionModel);
         }
     }
 

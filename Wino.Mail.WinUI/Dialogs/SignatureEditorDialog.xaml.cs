@@ -8,7 +8,7 @@ namespace Wino.Dialogs;
 
 public sealed partial class SignatureEditorDialog : ContentDialog
 {
-    public AccountSignature Result;
+    public AccountSignature Result = null!;
 
     public SignatureEditorDialog()
     {
@@ -51,7 +51,7 @@ public sealed partial class SignatureEditorDialog : ContentDialog
 
     private async void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        var newSignature = Regex.Unescape(await WebViewEditor.GetHtmlBodyAsync());
+        var newSignature = Regex.Unescape((await WebViewEditor.GetHtmlBodyAsync())!);
 
         if (Result == null)
         {

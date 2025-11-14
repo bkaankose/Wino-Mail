@@ -17,7 +17,7 @@ public sealed partial class MoveMailDialog : ContentDialog
     public static readonly DependencyProperty SelectedFolderProperty = DependencyProperty.Register(nameof(SelectedFolder), typeof(IMailItemFolder), typeof(MoveMailDialog), new PropertyMetadata(null, OnSelectedFolderChanged));
 
 
-    public List<IMailItemFolder> FolderList { get; set; }
+    public List<IMailItemFolder> FolderList { get; set; } = [];
 
     public MoveMailDialog(List<IMailItemFolder> allFolders)
     {
@@ -58,7 +58,7 @@ public sealed partial class MoveMailDialog : ContentDialog
                         container.IsExpanded = !container.IsExpanded;
                     }
                 }
-                SelectedFolder = null;
+                SelectedFolder = null!;
             }
             else
             {

@@ -13,10 +13,10 @@ namespace Wino.Views.ImapSetup;
 
 public sealed partial class ImapConnectionFailedPage : Page
 {
-    private string _protocolLog;
+    private string? _protocolLog;
 
-    private readonly IClipboardService _clipboardService = App.Current.Services.GetService<IClipboardService>();
-    private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>();
+    private readonly IClipboardService _clipboardService = App.Current.Services.GetService<IClipboardService>()!;
+    private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
 
     public ImapConnectionFailedPage()
     {
