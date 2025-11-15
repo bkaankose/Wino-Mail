@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain;

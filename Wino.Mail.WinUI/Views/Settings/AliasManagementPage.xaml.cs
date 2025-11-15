@@ -1,4 +1,4 @@
-﻿using Wino.Views.Abstract;
+using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
 

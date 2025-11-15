@@ -87,8 +87,28 @@
     <None Remove="ShellWindow.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
+  <ItemGroup>
+    <Page Remove="AppThemes\Acrylic.xaml" />
+    <Page Remove="AppThemes\Clouds.xaml" />
+    <Page Remove="AppThemes\Custom.xaml" />
+    <Page Remove="AppThemes\Default.xaml" />
+    <Page Remove="AppThemes\Forest.xaml" />
+    <Page Remove="AppThemes\Garden.xaml" />
+    <Page Remove="AppThemes\Nighty.xaml" />
+    <Page Remove="AppThemes\Snowflake.xaml" />
+    <Page Remove="AppThemes\TestTheme.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
+    <Content Include="AppThemes\Acrylic.xaml" />
+    <Content Include="AppThemes\Clouds.xaml" />
+    <Content Include="AppThemes\Custom.xaml" />
+    <Content Include="AppThemes\Default.xaml" />
+    <Content Include="AppThemes\Forest.xaml" />
+    <Content Include="AppThemes\Garden.xaml" />
+    <Content Include="AppThemes\Nighty.xaml" />
+    <Content Include="AppThemes\Snowflake.xaml" />
+    <Content Include="AppThemes\TestTheme.xaml" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\Wino_Icon.ico" />
@@ -118,16 +138,27 @@
   <ItemGroup>
 	<PackageReference Include="CommunityToolkit.Common" />
 	<PackageReference Include="CommunityToolkit.Diagnostics" />
+	<PackageReference Include="CommunityToolkit.Mvvm" />
 	<PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
+    <PackageReference Include="CommunityToolkit.WinUI.Animations" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.TabbedCommandBar" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.TokenizingTextBox" />
+    <PackageReference Include="CommunityToolkit.WinUI.Extensions" />
     <PackageReference Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" />
 	  
+    <PackageReference Include="Microsoft.Graphics.Win2D" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
 	<PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" />
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+	<PackageReference Include="Microsoft.Identity.Client" />
 	  
 	<PackageReference Include="ColorHashSharp" />
+	<PackageReference Include="gravatar-dotnet" />
 	<PackageReference Include="Sentry.Serilog" />
 	<PackageReference Include="sqlite-net-pcl" />
 	<PackageReference Include="EmailValidation" />
@@ -136,7 +167,6 @@
 	<PackageReference Include="H.NotifyIcon.WinUI" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Core.WinUI\Wino.Core.WinUI.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />

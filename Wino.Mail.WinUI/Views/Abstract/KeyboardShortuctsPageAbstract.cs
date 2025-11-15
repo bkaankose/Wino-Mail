@@ -1,4 +1,4 @@
-﻿using Wino.Core.ViewModels;
+using Wino.Core.ViewModels;
 using Wino.Views.Abstract;
 
 namespace Wino.Mail.WinUI.Views.Abstract;

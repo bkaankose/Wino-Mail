@@ -1,4 +1,4 @@
-﻿using Wino.Core.ViewModels;
+using Wino.Core.ViewModels;
 
 namespace Wino.Views.Abstract;
 

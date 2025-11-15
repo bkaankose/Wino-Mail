@@ -1,10 +1,10 @@
-﻿<abstract:MailRenderingPageAbstract
+<abstract:MailRenderingPageAbstract
     x:Class="Wino.Views.MailRenderingPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
-    xmlns:customcontrols="using:Wino.Core.WinUI.Controls.CustomControls"
+    xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"

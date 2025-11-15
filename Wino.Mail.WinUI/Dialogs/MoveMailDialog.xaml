@@ -1,9 +1,9 @@
-﻿<ContentDialog
+<ContentDialog
     x:Class="Wino.Dialogs.MoveMailDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
-    xmlns:coreControls="using:Wino.Core.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:folders="using:Wino.Core.Domain.Models.Folders"

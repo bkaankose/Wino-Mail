@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Extensions;
 using Wino.MenuFlyouts.Context;
@@ -39,9 +40,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
 
-    private IStatePersistanceService StatePersistenceService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
-    private IKeyPressService KeyPressService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
-    private IKeyboardShortcutService KeyboardShortcutService { get; } = Core.WinUI.WinoApplication.Current.Services.GetService<IKeyboardShortcutService>() ?? throw new Exception($"Can't resolve {nameof(IKeyboardShortcutService)}");
+    private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
+    private IKeyPressService KeyPressService { get; } = WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
+    private IKeyboardShortcutService KeyboardShortcutService { get; } = WinoApplication.Current.Services.GetService<IKeyboardShortcutService>() ?? throw new Exception($"Can't resolve {nameof(IKeyboardShortcutService)}");
     public MailListPage()
     {
         InitializeComponent();

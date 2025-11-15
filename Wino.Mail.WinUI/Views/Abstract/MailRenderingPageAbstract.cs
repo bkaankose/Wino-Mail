@@ -1,5 +1,5 @@
-﻿using Microsoft.UI.Xaml;
-using Wino.Core.WinUI;
+using Microsoft.UI.Xaml;
+using Wino.Mail.WinUI;
 using Wino.Mail.ViewModels;
 
 namespace Wino.Views.Abstract;

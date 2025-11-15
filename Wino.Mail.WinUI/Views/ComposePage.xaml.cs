@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
@@ -20,7 +20,7 @@ using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Core.WinUI.Extensions;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;

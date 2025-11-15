@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
@@ -14,8 +14,8 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.WinUI.Extensions;
-using Wino.Core.WinUI.Services;
+using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Services;
 using Wino.Dialogs;
 using Wino.Mail.Dialogs;
 using Wino.Messaging.Server;

@@ -1,4 +1,4 @@
-﻿using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 

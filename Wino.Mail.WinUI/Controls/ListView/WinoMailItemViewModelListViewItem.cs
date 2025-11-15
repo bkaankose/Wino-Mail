@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.WinUI;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.ViewModels.Data;
 

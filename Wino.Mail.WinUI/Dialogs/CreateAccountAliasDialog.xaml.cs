@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;

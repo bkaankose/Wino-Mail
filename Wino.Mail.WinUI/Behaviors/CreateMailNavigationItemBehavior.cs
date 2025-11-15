@@ -1,8 +1,8 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using Microsoft.Xaml.Interactivity;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.WinUI.Controls;
+using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Behaviors;
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -14,7 +14,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
-using Wino.Core.WinUI.Extensions;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Messaging.Client.Mails;

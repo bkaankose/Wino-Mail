@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -18,8 +18,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.WinUI;
-using Wino.Core.WinUI.Controls;
+using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.MenuFlyouts;

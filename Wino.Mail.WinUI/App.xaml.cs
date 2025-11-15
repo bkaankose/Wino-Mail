@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,8 +13,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Core.WinUI;
-using Wino.Core.WinUI.Interfaces;
+using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Messaging.Client.Accounts;

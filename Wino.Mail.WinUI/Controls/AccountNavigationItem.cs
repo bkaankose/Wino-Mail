@@ -1,8 +1,8 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.WinUI.Controls;
+using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Controls;
 

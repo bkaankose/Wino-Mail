@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
@@ -6,9 +6,9 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.WinUI;
-using Wino.Core.WinUI.Interfaces;
-using Wino.Core.WinUI.Services;
+using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Services;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;

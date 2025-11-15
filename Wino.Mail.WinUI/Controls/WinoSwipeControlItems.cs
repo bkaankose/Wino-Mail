@@ -1,11 +1,11 @@
-﻿using System.Linq;
+using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.WinUI;
+using Wino.Mail.WinUI;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 

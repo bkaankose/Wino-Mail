@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Wino.Core.Domain.Models.Folders;
 
 namespace Wino.MenuFlyouts;

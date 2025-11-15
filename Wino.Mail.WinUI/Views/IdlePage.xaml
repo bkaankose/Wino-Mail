@@ -1,4 +1,4 @@
-﻿<abstract:IdlePageAbstract
+<abstract:IdlePageAbstract
     x:Class="Wino.Views.IdlePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

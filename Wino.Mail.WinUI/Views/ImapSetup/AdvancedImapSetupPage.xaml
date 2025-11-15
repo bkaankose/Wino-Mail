@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="Wino.Views.ImapSetup.AdvancedImapSetupPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -282,7 +282,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="x:String">
                         <TextBlock>
-                            <Run Text="• " /><Run Text="{x:Bind}" />
+                            <Run Text="� " /><Run Text="{x:Bind}" />
                         </TextBlock>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

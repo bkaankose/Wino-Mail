@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Controls;

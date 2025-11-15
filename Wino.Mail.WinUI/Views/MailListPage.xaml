@@ -1,4 +1,4 @@
-﻿<abstract:MailListPageAbstract
+<abstract:MailListPageAbstract
     x:Class="Wino.Views.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -9,7 +9,7 @@
     xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:controls="using:Wino.Controls"
     xmlns:converters="using:Wino.Converters"
-    xmlns:coreControls="using:Wino.Core.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Collections"
     xmlns:domain="using:Wino.Core.Domain"
@@ -27,7 +27,7 @@
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
-    xmlns:wino="using:Wino.Core.WinUI"
+    xmlns:wino="using:Wino.Mail.WinUI"
     x:Name="root"
     KeyboardAcceleratorPlacementMode="Hidden"
     SizeChanged="PageSizeChanged"

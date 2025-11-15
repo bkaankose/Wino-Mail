@@ -1,4 +1,4 @@
-﻿<abstract:AppShellAbstract
+<abstract:AppShellAbstract
     x:Class="Wino.Views.AppShell"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -7,9 +7,9 @@
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
-    xmlns:coreControls="using:Wino.Core.WinUI.Controls"
-    xmlns:coreConverters="using:Wino.Core.WinUI.Converters"
-    xmlns:coreSelectors="using:Wino.Core.WinUI.Selectors"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:coreConverters="using:Wino.Mail.WinUI.Converters"
+    xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"

@@ -1,12 +1,12 @@
-﻿<abstract:ComposePageAbstract
+<abstract:ComposePageAbstract
     x:Class="Wino.Views.ComposePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:Wino.Mail.Controls"
-    xmlns:coreControls="using:Wino.Core.WinUI.Controls"
-    xmlns:customcontrols="using:Wino.Core.WinUI.Controls.CustomControls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"

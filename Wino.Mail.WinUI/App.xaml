@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:styles="using:Wino.Styles"
-    xmlns:uwp="using:Wino.Core.WinUI">
+    xmlns:uwp="using:Wino.Mail.WinUI">
     <uwp:WinoApplication.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -19,7 +19,7 @@
                 <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
 
                 <styles:WinoExpanderStyle />
-                <ResourceDictionary Source="/Wino.Core.WinUI/AppThemes/Default.xaml" />
+                <ResourceDictionary Source="AppThemes/Default.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </uwp:WinoApplication.Resources>

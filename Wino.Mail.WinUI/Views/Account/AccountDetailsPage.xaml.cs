@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Views.Abstract;
 

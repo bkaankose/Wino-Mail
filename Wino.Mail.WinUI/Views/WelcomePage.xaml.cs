@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.WinUI.Controls;
+using CommunityToolkit.WinUI.Controls;
 using Wino.Views.Abstract;
 
 namespace Wino.Views;
