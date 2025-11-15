@@ -105,10 +105,15 @@
                 </controls:SettingsCard.HeaderIcon>
                 <controls:SettingsCard.Content>
                     <ComboBox
-                        DisplayMemberPath="Title"
                         IsEnabled="{x:Bind ViewModel.CanSelectElementTheme, Mode=OneWay}"
                         ItemsSource="{x:Bind ViewModel.ElementThemes}"
-                        SelectedItem="{x:Bind ViewModel.SelectedElementTheme, Mode=TwoWay}" />
+                        SelectedItem="{x:Bind ViewModel.SelectedElementTheme, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="personalization1:ElementThemeContainer">
+                                <TextBlock Text="{x:Bind Title}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </controls:SettingsCard.Content>
             </controls:SettingsCard>
 

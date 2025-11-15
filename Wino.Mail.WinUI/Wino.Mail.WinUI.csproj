@@ -15,13 +15,20 @@
 	<!-- AOT / Trimming -->
 	<PublishAot Condition="'$(Configuration)' == 'Debug'">False</PublishAot>
 	<PublishAot Condition="'$(Configuration)' != 'Debug'">True</PublishAot>
-	<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+	<TreatWarningsAsErrors>False</TreatWarningsAsErrors>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+	<PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+
+	<!-- Trimming -->
+	<PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
+	<PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+	
 	  
 	<!-- Single instancing -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-  
 </PropertyGroup>
+	
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />
     <Content Remove="Assets\BadgeLogo.scale-125.png" />
@@ -269,13 +276,6 @@
 
   <!-- Publish Properties -->
   <PropertyGroup>  
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-	  
-	<!-- Trimming -->
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-	  
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>

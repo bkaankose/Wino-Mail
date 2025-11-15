@@ -2,6 +2,7 @@
     x:Class="Wino.Views.ImapSetup.AdvancedImapSetupPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
@@ -101,9 +102,14 @@
                                         <ComboBox
                                             x:Name="IncomingConnectionSecurity"
                                             HorizontalAlignment="Stretch"
-                                            DisplayMemberPath="DisplayName"
                                             ItemsSource="{x:Bind AvailableConnectionSecurities}"
-                                            SelectedIndex="0" />
+                                            SelectedIndex="0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="accounts:ImapConnectionSecurityModel">
+                                                    <TextBlock Text="{x:Bind DisplayName}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
                                     </StackPanel>
 
                                     <!--  Authentication  -->
@@ -115,9 +121,14 @@
                                         <ComboBox
                                             x:Name="IncomingAuthenticationMethod"
                                             HorizontalAlignment="Stretch"
-                                            DisplayMemberPath="DisplayName"
                                             ItemsSource="{x:Bind AvailableAuthenticationMethods}"
-                                            SelectedIndex="0" />
+                                            SelectedIndex="0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="accounts:ImapAuthenticationMethodModel">
+                                                    <TextBlock Text="{x:Bind DisplayName}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
                                     </StackPanel>
                                 </Grid>
 
@@ -174,9 +185,15 @@
                                         <ComboBox
                                             x:Name="OutgoingConnectionSecurity"
                                             HorizontalAlignment="Stretch"
-                                            DisplayMemberPath="DisplayName"
                                             ItemsSource="{x:Bind AvailableConnectionSecurities}"
-                                            SelectedIndex="0" />
+                                            SelectedIndex="0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="accounts:ImapConnectionSecurityModel">
+                                                    <TextBlock Text="{x:Bind DisplayName}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
                                     </StackPanel>
 
                                     <!--  Authentication  -->
@@ -185,9 +202,14 @@
                                         <ComboBox
                                             x:Name="OutgoingAuthenticationMethod"
                                             HorizontalAlignment="Stretch"
-                                            DisplayMemberPath="DisplayName"
                                             ItemsSource="{x:Bind AvailableAuthenticationMethods}"
-                                            SelectedIndex="0" />
+                                            SelectedIndex="0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="accounts:ImapAuthenticationMethodModel">
+                                                    <TextBlock Text="{x:Bind DisplayName}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>

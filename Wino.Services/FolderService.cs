@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -53,23 +52,38 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         if (account == null) return default;
 
-        var query = new Query("MailCopy")
-                    .Where("FolderId", folderId)
-                    .SelectRaw("count (DISTINCT Id)");
-
-        // If focused inbox is enabled, we need to check if this is the inbox folder.
+        // Convert to raw SQL
+        string sqlQuery;
+        object[] parameters;
+        
         if (account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault() && folder.SpecialFolderType == SpecialFolderType.Inbox)
         {
-            query.Where("IsFocused", 1);
+            if (folder.SpecialFolderType != SpecialFolderType.Draft && folder.SpecialFolderType != SpecialFolderType.Junk)
+            {
+                sqlQuery = "SELECT COUNT(*) FROM MailCopy WHERE FolderId = ? AND IsFocused = ? AND IsRead = ?";
+                parameters = new object[] { folderId, 1, 0 };
+            }
+            else
+            {
+                sqlQuery = "SELECT COUNT(*) FROM MailCopy WHERE FolderId = ? AND IsFocused = ?";
+                parameters = new object[] { folderId, 1 };
+            }
         }
-
-        // Draft and Junk folders are not counted as unread. They must return the item count instead.
-        if (folder.SpecialFolderType != SpecialFolderType.Draft && folder.SpecialFolderType != SpecialFolderType.Junk)
+        else
         {
-            query.Where("IsRead", 0);
+            if (folder.SpecialFolderType != SpecialFolderType.Draft && folder.SpecialFolderType != SpecialFolderType.Junk)
+            {
+                sqlQuery = "SELECT COUNT(*) FROM MailCopy WHERE FolderId = ? AND IsRead = ?";
+                parameters = new object[] { folderId, 0 };
+            }
+            else
+            {
+                sqlQuery = "SELECT COUNT(*) FROM MailCopy WHERE FolderId = ?";
+                parameters = new object[] { folderId };
+            }
         }
 
-        return await Connection.ExecuteScalarAsync<int>(query.GetRawQuery());
+        return await Connection.ExecuteScalarAsync<int>(sqlQuery, parameters);
     }
 
     public async Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders)
@@ -186,13 +200,10 @@ public class FolderService : BaseDatabaseService, IFolderService
         // Localize category folder name.
         if (parentFolder.SpecialFolderType == SpecialFolderType.Category) parentFolder.FolderName = Translator.CategoriesFolderNameOverride;
 
-        var query = new Query(nameof(MailItemFolder))
-                    .Where(nameof(MailItemFolder.ParentRemoteFolderId), parentFolder.RemoteFolderId)
-                    .Where(nameof(MailItemFolder.MailAccountId), parentFolder.MailAccountId);
-
+        const string query = "SELECT * FROM MailItemFolder WHERE ParentRemoteFolderId = ? AND MailAccountId = ?";
         var preparedFolder = new FolderMenuItem(parentFolder, account, parentMenuItem);
 
-        var childFolders = await Connection.QueryAsync<MailItemFolder>(query.GetRawQuery()).ConfigureAwait(false);
+        var childFolders = await Connection.QueryAsync<MailItemFolder>(query, parentFolder.RemoteFolderId, parentFolder.MailAccountId).ConfigureAwait(false);
 
         if (childFolders.Any())
         {
@@ -348,21 +359,14 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     public Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId)
     {
-        var query = new Query(nameof(MailItemFolder))
-                    .Where(nameof(MailItemFolder.MailAccountId), accountId)
-                    .OrderBy(nameof(MailItemFolder.SpecialFolderType));
-
-        return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ? ORDER BY SpecialFolderType";
+        return Connection.QueryAsync<MailItemFolder>(query, accountId);
     }
 
     public Task<List<MailItemFolder>> GetVisibleFoldersAsync(Guid accountId)
     {
-        var query = new Query(nameof(MailItemFolder))
-                    .Where(nameof(MailItemFolder.MailAccountId), accountId)
-                    .Where(nameof(MailItemFolder.IsHidden), false)
-                    .OrderBy(nameof(MailItemFolder.SpecialFolderType));
-
-        return Connection.QueryAsync<MailItemFolder>(query.GetRawQuery());
+        const string query = "SELECT * FROM MailItemFolder WHERE MailAccountId = ? AND IsHidden = ? ORDER BY SpecialFolderType";
+        return Connection.QueryAsync<MailItemFolder>(query, accountId, 0);
     }
 
     public async Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId)
@@ -516,25 +520,18 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     private Task<List<string>> GetMailCopyIdsByFolderIdAsync(Guid folderId)
     {
-        var query = new Query("MailCopy")
-                    .Where("FolderId", folderId)
-                    .Select("Id");
-
-        return Connection.QueryScalarsAsync<string>(query.GetRawQuery());
+        const string query = "SELECT Id FROM MailCopy WHERE FolderId = ?";
+        return Connection.QueryScalarsAsync<string>(query, folderId);
     }
 
     public async Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(IEnumerable<string> mailCopyIds)
     {
-        // Get all assignments for all items.
-        var query = new Query(nameof(MailCopy))
-                    .Join(nameof(MailItemFolder), $"{nameof(MailCopy)}.FolderId", $"{nameof(MailItemFolder)}.Id")
-                    .WhereIn($"{nameof(MailCopy)}.Id", mailCopyIds)
-                    .SelectRaw($"{nameof(MailCopy)}.Id as MailCopyId, {nameof(MailItemFolder)}.Id as FolderId, {nameof(MailItemFolder)}.RemoteFolderId as RemoteFolderId")
-                    .Distinct();
-
-        var rowQuery = query.GetRawQuery();
-
-        return await Connection.QueryAsync<MailFolderPairMetadata>(rowQuery);
+        var mailCopyIdList = mailCopyIds.ToList();
+        var placeholders = string.Join(",", mailCopyIdList.Select(_ => "?"));
+        var query = $"SELECT DISTINCT MailCopy.Id as MailCopyId, MailItemFolder.Id as FolderId, MailItemFolder.RemoteFolderId as RemoteFolderId FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders})";
+        var parameters = mailCopyIdList.Cast<object>().ToArray();
+        
+        return await Connection.QueryAsync<MailFolderPairMetadata>(query, parameters);
     }
 
     public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)
@@ -687,14 +684,11 @@ public class FolderService : BaseDatabaseService, IFolderService
 
     public Task<List<UnreadItemCountResult>> GetUnreadItemCountResultsAsync(IEnumerable<Guid> accountIds)
     {
-        var query = new Query(nameof(MailCopy))
-                    .Join(nameof(MailItemFolder), $"{nameof(MailCopy)}.FolderId", $"{nameof(MailItemFolder)}.Id")
-                    .WhereIn($"{nameof(MailItemFolder)}.MailAccountId", accountIds)
-                    .Where($"{nameof(MailCopy)}.IsRead", 0)
-                    .Where($"{nameof(MailItemFolder)}.ShowUnreadCount", 1)
-                    .SelectRaw($"{nameof(MailItemFolder)}.Id as FolderId, {nameof(MailItemFolder)}.SpecialFolderType as SpecialFolderType, count (DISTINCT {nameof(MailCopy)}.Id) as UnreadItemCount, {nameof(MailItemFolder)}.MailAccountId as AccountId")
-                    .GroupBy($"{nameof(MailItemFolder)}.Id");
-
-        return Connection.QueryAsync<UnreadItemCountResult>(query.GetRawQuery());
+        var accountIdList = accountIds.ToList();
+        var placeholders = string.Join(",", accountIdList.Select(_ => "?"));
+        var query = $"SELECT MailItemFolder.Id as FolderId, MailItemFolder.SpecialFolderType as SpecialFolderType, count(DISTINCT MailCopy.Id) as UnreadItemCount, MailItemFolder.MailAccountId as AccountId FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailItemFolder.MailAccountId IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.ShowUnreadCount = ? GROUP BY MailItemFolder.Id";
+        var parameters = accountIdList.Cast<object>().Concat(new object[] { 0, 1 }).ToArray();
+        
+        return Connection.QueryAsync<UnreadItemCountResult>(query, parameters);
     }
 }

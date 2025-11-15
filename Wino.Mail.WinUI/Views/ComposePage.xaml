@@ -12,6 +12,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mailkit="using:MimeKit"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -470,10 +471,15 @@
                     <ComboBox
                         x:Name="AccountsComboBox"
                         Grid.Column="1"
-                        DisplayMemberPath="AliasAddress"
                         IsEditable="False"
                         ItemsSource="{x:Bind ViewModel.AvailableAliases, Mode=OneWay}"
-                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}" />
+                        SelectedItem="{x:Bind ViewModel.SelectedAlias, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="mail:MailAccountAlias">
+                                <TextBlock Text="{x:Bind AliasAddress}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
                     <!--  To  -->
                     <TextBlock

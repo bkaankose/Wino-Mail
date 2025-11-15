@@ -31,7 +31,6 @@
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
-		<PackageReference Include="SqlKata" />
 	</ItemGroup>
 	
 	<ItemGroup>

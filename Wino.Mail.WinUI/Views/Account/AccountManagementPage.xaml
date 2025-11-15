@@ -9,6 +9,7 @@
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:selectors="using:Wino.Selectors"
@@ -194,9 +195,14 @@
                         <winuiControls:SettingsCard Description="{x:Bind domain:Translator.SettingsStartupItem_Description}" Header="{x:Bind domain:Translator.SettingsStartupItem_Title}">
                             <ComboBox
                                 MinWidth="150"
-                                DisplayMemberPath="StartupEntityTitle"
                                 ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneTime}"
-                                SelectedItem="{x:Bind ViewModel.StartupAccount, Mode=TwoWay}" />
+                                SelectedItem="{x:Bind ViewModel.StartupAccount, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="interfaces:IAccountProviderDetailViewModel">
+                                        <TextBlock Text="{x:Bind StartupEntityTitle}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                             <winuiControls:SettingsCard.HeaderIcon>
                                 <SymbolIcon Symbol="Account" />
                             </winuiControls:SettingsCard.HeaderIcon>

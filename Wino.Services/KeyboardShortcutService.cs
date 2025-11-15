@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SqlKata;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -24,10 +23,8 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<IEnumerable<KeyboardShortcut>> GetKeyboardShortcutsAsync()
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .OrderBy(nameof(KeyboardShortcut.MailOperation));
-
-        return await Connection.QueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        return await Connection.QueryAsync<KeyboardShortcut>(
+            "SELECT * FROM KeyboardShortcut ORDER BY MailOperation");
     }
 
     /// <summary>
@@ -35,11 +32,9 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<IEnumerable<KeyboardShortcut>> GetEnabledKeyboardShortcutsAsync()
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.IsEnabled), true)
-            .OrderBy(nameof(KeyboardShortcut.MailOperation));
-
-        return await Connection.QueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        return await Connection.QueryAsync<KeyboardShortcut>(
+            "SELECT * FROM KeyboardShortcut WHERE IsEnabled = ? ORDER BY MailOperation",
+            true);
     }
 
     /// <summary>
@@ -66,9 +61,6 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task DeleteKeyboardShortcutAsync(Guid shortcutId)
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.Id), shortcutId);
-
         await Connection.ExecuteAsync($"DELETE FROM {nameof(KeyboardShortcut)} WHERE {nameof(KeyboardShortcut.Id)} = ?", shortcutId);
     }
 
@@ -77,12 +69,8 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<MailOperation?> GetMailOperationForKeyAsync(string key, ModifierKeys modifierKeys)
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.Key), key)
-            .Where(nameof(KeyboardShortcut.ModifierKeys), (int)modifierKeys)
-            .Where(nameof(KeyboardShortcut.IsEnabled), true);
-
-        var shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        const string query = "SELECT * FROM KeyboardShortcut WHERE Key = ? AND ModifierKeys = ? AND IsEnabled = ? LIMIT 1";
+        var shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, key, (int)modifierKeys, 1);
         return shortcut?.MailOperation;
     }
 
@@ -91,16 +79,20 @@ public class KeyboardShortcutService : BaseDatabaseService, IKeyboardShortcutSer
     /// </summary>
     public async Task<bool> IsKeyCombinationInUseAsync(string key, ModifierKeys modifierKeys, Guid? excludeShortcutId = null)
     {
-        var query = new Query(nameof(KeyboardShortcut))
-            .Where(nameof(KeyboardShortcut.Key), key)
-            .Where(nameof(KeyboardShortcut.ModifierKeys), (int)modifierKeys);
-
+        string query;
+        KeyboardShortcut shortcut;
+        
         if (excludeShortcutId.HasValue)
         {
-            query = query.WhereNot(nameof(KeyboardShortcut.Id), excludeShortcutId.Value);
+            query = "SELECT * FROM KeyboardShortcut WHERE Key = ? AND ModifierKeys = ? AND Id != ? LIMIT 1";
+            shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, key, (int)modifierKeys, excludeShortcutId.Value);
         }
-
-        var shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query.GetRawQuery());
+        else
+        {
+            query = "SELECT * FROM KeyboardShortcut WHERE Key = ? AND ModifierKeys = ? LIMIT 1";
+            shortcut = await Connection.FindWithQueryAsync<KeyboardShortcut>(query, key, (int)modifierKeys);
+        }
+        
         return shortcut != null;
     }
 

@@ -32,9 +32,15 @@
             <ComboBox
                 x:Name="MailOperationComboBox"
                 HorizontalAlignment="Stretch"
-                DisplayMemberPath="DisplayName"
                 ItemsSource="{x:Bind AvailableMailOperations}"
-                SelectedItem="{x:Bind SelectedMailOperation, Mode=TwoWay}" />
+                SelectedItem="{x:Bind SelectedMailOperation, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+
+                    <DataTemplate x:DataType="data:MailOperationViewModel">
+                        <TextBlock Text="{x:Bind DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
         </StackPanel>
 
         <!--  Key Input  -->

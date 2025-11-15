@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -55,14 +54,13 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.ExecuteAsync("UPDATE MailAccount SET MergedInboxId = NULL WHERE MergedInboxId = ?", mergedInboxId);
 
         // Then, add new accounts to merged inbox.
-        var query = new Query("MailAccount")
-            .WhereIn("Id", linkedAccountIds)
-            .AsUpdate(new
-            {
-                MergedInboxId = mergedInboxId
-            });
-
-        await Connection.ExecuteAsync(query.GetRawQuery());
+        var accountIdList = linkedAccountIds.ToList();
+        var placeholders = string.Join(",", accountIdList.Select(_ => "?"));
+        var sql = $"UPDATE MailAccount SET MergedInboxId = ? WHERE Id IN ({placeholders})";
+        var parameters = new List<object> { mergedInboxId };
+        parameters.AddRange(accountIdList.Cast<object>());
+        
+        await Connection.ExecuteAsync(sql, parameters.ToArray());
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
     }
@@ -84,14 +82,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             return;
         }
 
-        var query = new Query("MailAccount")
-            .Where("MergedInboxId", mergedInboxId)
-            .AsUpdate(new
-            {
-                MergedInboxId = (Guid?)null
-            });
-
-        await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
+        await Connection.ExecuteAsync("UPDATE MailAccount SET MergedInboxId = NULL WHERE MergedInboxId = ?", mergedInboxId).ConfigureAwait(false);
         await Connection.DeleteAsync<MergedInbox>(mergedInbox).ConfigureAwait(false);
 
         // Change the startup entity id if it was the merged inbox.
@@ -191,14 +182,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task RenameMergedAccountAsync(Guid mergedInboxId, string newName)
     {
-        var query = new Query("MergedInbox")
-            .Where("Id", mergedInboxId)
-            .AsUpdate(new
-            {
-                Name = newName
-            });
-
-        await Connection.ExecuteAsync(query.GetRawQuery());
+        await Connection.ExecuteAsync("UPDATE MergedInbox SET Name = ? WHERE Id = ?", newName, mergedInboxId);
 
         ReportUIChange(new MergedInboxRenamed(mergedInboxId, newName));
     }
@@ -261,11 +245,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task<List<MailAccountAlias>> GetAccountAliasesAsync(Guid accountId)
     {
-        var query = new Query(nameof(MailAccountAlias))
-            .Where(nameof(MailAccountAlias.AccountId), accountId)
-            .OrderByDesc(nameof(MailAccountAlias.IsRootAlias));
-
-        return await Connection.QueryAsync<MailAccountAlias>(query.GetRawQuery()).ConfigureAwait(false);
+        return await Connection.QueryAsync<MailAccountAlias>(
+            "SELECT * FROM MailAccountAlias WHERE AccountId = ? ORDER BY IsRootAlias DESC",
+            accountId).ConfigureAwait(false);
     }
 
     private Task<MergedInbox> GetMergedInboxInformationAsync(Guid mergedInboxId)
@@ -273,17 +255,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason)
     {
-        var deleteQuery = new Query("MailCopy")
-                .WhereIn("Id", q => q
-                .From("MailCopy")
-                .Select("Id")
-                .WhereIn("FolderId", q2 => q2
-                    .From("MailItemFolder")
-                    .Select("Id")
-                    .Where("MailAccountId", accountId)
-                )).AsDelete();
-
-        await Connection.ExecuteAsync(deleteQuery.GetRawQuery());
+        await Connection.ExecuteAsync(
+            "DELETE FROM MailCopy WHERE Id IN (SELECT Id FROM MailCopy WHERE FolderId IN (SELECT Id FROM MailItemFolder WHERE MailAccountId = ?))",
+            accountId);
 
         WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
     }
@@ -306,14 +280,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             // There will be only one account in the merged inbox. Remove the link for the other account as well.
             if (mergedInboxAccountCount == 2)
             {
-                var query = new Query("MailAccount")
-                .Where("MergedInboxId", account.MergedInboxId.Value)
-                .AsUpdate(new
-                {
-                    MergedInboxId = (Guid?)null
-                });
-
-                await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
+                await Connection.ExecuteAsync(
+                    "UPDATE MailAccount SET MergedInboxId = NULL WHERE MergedInboxId = ?",
+                    account.MergedInboxId.Value).ConfigureAwait(false);
             }
         }
 
@@ -494,11 +463,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     {
         // Create query to delete alias.
 
-        var query = new Query("MailAccountAlias")
-            .Where("Id", aliasId)
-            .AsDelete();
-
-        await Connection.ExecuteAsync(query.GetRawQuery()).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM MailAccountAlias WHERE Id = ?", aliasId).ConfigureAwait(false);
     }
 
     public async Task CreateAccountAsync(MailAccount account, CustomServerInformation customServerInformation)

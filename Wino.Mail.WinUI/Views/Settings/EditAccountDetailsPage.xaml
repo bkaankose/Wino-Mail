@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:converters="using:Wino.Core.WinUI.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -138,18 +139,28 @@
                             <ComboBox
                                 Grid.Row="5"
                                 HorizontalAlignment="Stretch"
-                                DisplayMemberPath="DisplayName"
                                 Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}"
                                 ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurities}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}" />
+                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerConnectionSecurityIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="accounts:ImapConnectionSecurityModel">
+                                        <TextBlock Text="{x:Bind DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <ComboBox
                                 Grid.Row="6"
                                 HorizontalAlignment="Stretch"
-                                DisplayMemberPath="DisplayName"
                                 Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}"
                                 ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethods}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+                                SelectedIndex="{x:Bind ViewModel.SelectedIncomingServerAuthenticationMethodIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="accounts:ImapAuthenticationMethodModel">
+                                        <TextBlock Text="{x:Bind DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <Border
                                 Grid.RowSpan="6"
@@ -193,19 +204,29 @@
                                 Grid.Row="5"
                                 Grid.Column="2"
                                 HorizontalAlignment="Stretch"
-                                DisplayMemberPath="DisplayName"
                                 Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_ConnectionSecurity}"
                                 ItemsSource="{x:Bind ViewModel.AvailableConnectionSecurities}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}" />
+                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerConnectionSecurityIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="accounts:ImapConnectionSecurityModel">
+                                        <TextBlock Text="{x:Bind DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <ComboBox
                                 Grid.Row="6"
                                 Grid.Column="2"
                                 HorizontalAlignment="Stretch"
-                                DisplayMemberPath="DisplayName"
                                 Header="{x:Bind domain:Translator.ImapAdvancedSetupDialog_AuthenticationMethod}"
                                 ItemsSource="{x:Bind ViewModel.AvailableAuthenticationMethods}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}" />
+                                SelectedIndex="{x:Bind ViewModel.SelectedOutgoingServerAuthenticationMethodIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="accounts:ImapAuthenticationMethodModel">
+                                        <TextBlock Text="{x:Bind DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <StackPanel
                                 Grid.Row="7"
