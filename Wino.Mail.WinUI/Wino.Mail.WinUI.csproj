@@ -110,7 +110,6 @@
     <Content Include="AppThemes\Snowflake.xaml" />
     <Content Include="AppThemes\TestTheme.xaml" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
-    <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="JS\editor.html" />
     <Content Include="JS\editor.js" />
