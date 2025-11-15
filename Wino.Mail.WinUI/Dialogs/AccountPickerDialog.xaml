@@ -5,15 +5,21 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     Title="{x:Bind domain:Translator.AccountPickerDialog_Title}"
     PrimaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
 
     <ListView
-        DisplayMemberPath="Address"
         IsItemClickEnabled="True"
         ItemClick="AccountClicked"
         ItemsSource="{x:Bind AvailableAccounts}"
-        SelectionMode="None" />
+        SelectionMode="None">
+        <ListView.ItemTemplate>
+            <DataTemplate x:DataType="shared:MailAccount">
+                <TextBlock Text="{x:Bind Address}" />
+            </DataTemplate>
+        </ListView.ItemTemplate>
+    </ListView>
 </ContentDialog>

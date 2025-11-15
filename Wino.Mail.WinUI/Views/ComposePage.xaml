@@ -84,12 +84,12 @@
                 <Grid.ContextFlyout>
                     <MenuFlyout>
                         <MenuFlyoutItem
-                            Command="{Binding ElementName=root, Path=ViewModel.OpenAttachmentCommand}"
-                            CommandParameter="{Binding}"
+                            Click="OpenAttachment_Click"
+                            CommandParameter="{x:Bind}"
                             Text="{x:Bind domain:Translator.Buttons_Open}" />
                         <MenuFlyoutItem
-                            Command="{Binding ElementName=root, Path=ViewModel.SaveAttachmentCommand}"
-                            CommandParameter="{Binding}"
+                            Click="SaveAttachment_Click"
+                            CommandParameter="{x:Bind}"
                             Text="{x:Bind domain:Translator.Buttons_Save}" />
                     </MenuFlyout>
                 </Grid.ContextFlyout>
@@ -139,8 +139,8 @@
                     VerticalAlignment="Stretch"
                     Background="Transparent"
                     BorderThickness="0"
-                    Command="{Binding ElementName=root, Path=ViewModel.RemoveAttachmentCommand}"
-                    CommandParameter="{Binding}">
+                    Click="RemoveAttachment_Click"
+                    CommandParameter="{x:Bind}">
                     <SymbolIcon
                         Grid.Column="2"
                         VerticalAlignment="Center"

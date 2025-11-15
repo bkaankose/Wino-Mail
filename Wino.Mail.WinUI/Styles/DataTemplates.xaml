@@ -20,20 +20,7 @@
     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
     <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
 
-    <!--  Root Account Template  -->
-    <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
-        <winuiControls:SettingsCard
-            Margin="0,2,0,0"
-            Command="{Binding ViewModel.NavigateAccountDetailsCommand, Mode=OneWay, ElementName=root}"
-            CommandParameter="{x:Bind}"
-            Description="{x:Bind Account.Address}"
-            Header="{x:Bind Account.Name}"
-            IsClickEnabled="True">
-            <winuiControls:SettingsCard.HeaderIcon>
-                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
-            </winuiControls:SettingsCard.HeaderIcon>
-        </winuiControls:SettingsCard>
-    </DataTemplate>
+
 
     <!--#region Navigation Menu Templates-->
 

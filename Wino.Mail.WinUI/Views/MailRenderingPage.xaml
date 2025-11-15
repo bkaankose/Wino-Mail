@@ -54,7 +54,7 @@
                                 Grid.Row="1"
                                 Grid.Column="1"
                                 Padding="0"
-                                Command="{Binding ElementName=root, Path=ViewModel.CopyClipboardCommand}"
+                                Click="CopyAddress_Click"
                                 CommandParameter="{x:Bind Address}"
                                 Content="{x:Bind Address}" />
                         </Grid>
@@ -83,7 +83,7 @@
                     <Grid.ContextFlyout>
                         <MenuFlyout Placement="Right">
                             <MenuFlyoutItem
-                                Command="{Binding ElementName=root, Path=ViewModel.OpenAttachmentCommand}"
+                                Click="OpenAttachment_Click"
                                 CommandParameter="{x:Bind}"
                                 Text="{x:Bind domain:Translator.Buttons_Open}">
                                 <MenuFlyoutItem.Icon>
@@ -91,7 +91,7 @@
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                             <MenuFlyoutItem
-                                Command="{Binding ElementName=root, Path=ViewModel.SaveAttachmentCommand}"
+                                Click="SaveAttachment_Click"
                                 CommandParameter="{x:Bind}"
                                 Text="{x:Bind domain:Translator.Buttons_Save}">
                                 <MenuFlyoutItem.Icon>

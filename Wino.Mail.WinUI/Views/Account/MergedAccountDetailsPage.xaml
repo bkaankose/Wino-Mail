@@ -18,7 +18,7 @@
         <DataTemplate x:Key="LinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
             <controls:SettingsCard
                 Margin="0,2,0,0"
-                Command="{Binding ViewModel.UnlinkAccountCommand, Mode=OneWay, ElementName=MainPage}"
+                Click="UnlinkAccount_Click"
                 CommandParameter="{x:Bind}"
                 Description="{x:Bind Account.Address}"
                 Header="{x:Bind Account.Name}"
@@ -38,7 +38,7 @@
         <DataTemplate x:Key="UnlinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
             <controls:SettingsCard
                 Margin="0,2,0,0"
-                Command="{Binding ViewModel.LinkAccountCommand, Mode=OneWay, ElementName=MainPage}"
+                Click="LinkAccount_Click"
                 CommandParameter="{x:Bind}"
                 Description="{x:Bind Account.Address}"
                 FlowDirection="RightToLeft"

@@ -30,7 +30,7 @@
                     Height="48"
                     Margin="0,0,16,0"
                     DisplayName="{x:Bind Name}"
-                    ProfilePicture="{x:Bind helpers:XamlHelpers.Base64ToBitmapImage(Base64ContactPicture), Mode=OneWay}" />
+                    ProfilePicture="{x:Bind helpers:XamlHelpers.Base64ToBitmapImage(Base64ContactPicture)}" />
 
                 <!--  Contact Info  -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -48,7 +48,7 @@
                             Padding="4,2"
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                             CornerRadius="2"
-                            Visibility="{x:Bind IsRootContact, Mode=OneWay}">
+                            Visibility="{x:Bind IsRootContact}">
                             <TextBlock
                                 FontSize="10"
                                 Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
@@ -57,7 +57,7 @@
                         <Border
                             Padding="4,2"
                             CornerRadius="2"
-                            Visibility="{x:Bind IsOverridden, Mode=OneWay}">
+                            Visibility="{x:Bind IsOverridden}">
                             <TextBlock FontSize="10" Text="{x:Bind domain:Translator.ContactStatus_Modified, Mode=OneTime}" />
                         </Border>
                     </StackPanel>
@@ -69,23 +69,23 @@
                     Orientation="Horizontal"
                     Spacing="8">
                     <Button
-                        Command="{Binding ViewModel.EditContactCommand, ElementName=root}"
-                        CommandParameter="{Binding}"
+                        Click="EditContact_Click"
+                        CommandParameter="{x:Bind}"
                         Style="{StaticResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_Edit, Mode=OneTime}">
                         <FontIcon FontSize="16" Glyph="&#xE70F;" />
                     </Button>
                     <Button
-                        Command="{Binding ViewModel.PickContactPhotoCommand, ElementName=root}"
-                        CommandParameter="{Binding}"
+                        Click="PickContactPhoto_Click"
+                        CommandParameter="{x:Bind}"
                         Style="{StaticResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_ChangePhoto, Mode=OneTime}">
                         <FontIcon FontSize="16" Glyph="&#xE91B;" />
                     </Button>
                     <Button
-                        Command="{Binding ViewModel.DeleteContactCommand, ElementName=root}"
-                        CommandParameter="{Binding}"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRootContact), Mode=OneWay}"
+                        Click="DeleteContact_Click"
+                        CommandParameter="{x:Bind}"
+                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRootContact)}"
                         Style="{StaticResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_Delete, Mode=OneTime}">
                         <FontIcon FontSize="16" Glyph="&#xE74D;" />

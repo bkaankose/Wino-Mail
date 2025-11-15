@@ -12,6 +12,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
+    xmlns:system="using:System"
     x:Name="root"
     mc:Ignorable="d">
 
@@ -19,7 +20,7 @@
         <DataTemplate x:Key="SignatureDialogTemplate" x:DataType="entities:AccountSignature">
             <controls1:SwitchPresenter Value="{x:Bind Id}">
                 <!--  Case for "None" signature  -->
-                <controls1:Case Value="{Binding ViewModel.EmptyGuid, Mode=OneTime, ElementName=root}" />
+                <controls1:Case Value="{x:Bind system:Guid.Empty}" />
 
                 <!--  Default case for regular signatures  -->
                 <controls1:Case IsDefault="True">
@@ -34,14 +35,14 @@
                             <controls1:SettingsCard Header="{x:Bind domain:Translator.SettingsSignature_EditSignature_Title}">
                                 <Button
                                     Width="65"
-                                    Command="{Binding ViewModel.OpenSignatureEditorEditCommand, Mode=OneWay, ElementName=root}"
+                                    Click="EditSignature_Click"
                                     CommandParameter="{x:Bind}"
                                     Content="{x:Bind domain:Translator.Buttons_Edit}" />
                             </controls1:SettingsCard>
                             <controls1:SettingsCard Header="{x:Bind domain:Translator.SettingsSignature_DeleteSignature_Title}">
                                 <Button
                                     Background="Red"
-                                    Command="{Binding ViewModel.DeleteSignatureCommand, Mode=OneWay, ElementName=root}"
+                                    Click="DeleteSignature_Click"
                                     CommandParameter="{x:Bind}"
                                     Content="{x:Bind domain:Translator.Buttons_Delete}" />
                             </controls1:SettingsCard>

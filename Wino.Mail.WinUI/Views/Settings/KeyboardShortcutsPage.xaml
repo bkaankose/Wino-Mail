@@ -68,7 +68,7 @@
                             <Button
                                 Grid.Column="2"
                                 Margin="4,0"
-                                Command="{Binding ViewModel.StartEditingShortcutCommand, ElementName=root}"
+                                Click="EditShortcut_Click"
                                 CommandParameter="{x:Bind}"
                                 Content="&#xE70F;"
                                 FontFamily="Segoe MDL2 Assets"
@@ -78,7 +78,7 @@
                             <Button
                                 Grid.Column="3"
                                 Margin="4,0"
-                                Command="{Binding ViewModel.DeleteShortcutCommand, ElementName=root}"
+                                Click="DeleteShortcut_Click"
                                 CommandParameter="{x:Bind}"
                                 Content="&#xE74D;"
                                 FontFamily="Segoe MDL2 Assets"

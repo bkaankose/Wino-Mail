@@ -19,7 +19,20 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-
+        <!--  Root Account Template  -->
+        <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
+            <winuiControls:SettingsCard
+                Margin="0,2,0,0"
+                Click="RootAccountTemplate_Click"
+                CommandParameter="{x:Bind}"
+                Description="{x:Bind Account.Address}"
+                Header="{x:Bind Account.Name}"
+                IsClickEnabled="True">
+                <winuiControls:SettingsCard.HeaderIcon>
+                    <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
+                </winuiControls:SettingsCard.HeaderIcon>
+            </winuiControls:SettingsCard>
+        </DataTemplate>
 
         <!--  Merged Account Template  -->
         <DataTemplate x:Key="MergedAccountTemplate" x:DataType="data:MergedAccountProviderDetailViewModel">
@@ -29,7 +42,7 @@
                     <winuiControls:SettingsCard
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
-                        Command="{Binding ViewModel.EditMergedAccountsCommand, Mode=OneWay, ElementName=root}"
+                        Click="EditMergedAccounts_Click"
                         CommandParameter="{x:Bind}"
                         Description="{x:Bind domain:Translator.SettingsEditLinkedInbox_Description}"
                         Header="{x:Bind domain:Translator.SettingsEditLinkedInbox_Title}"

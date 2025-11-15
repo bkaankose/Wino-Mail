@@ -298,6 +298,30 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         }
     }
 
+    private void CopyAddress_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is HyperlinkButton button && button.CommandParameter is string address)
+        {
+            ViewModel.CopyClipboardCommand.Execute(address);
+        }
+    }
+
+    private void OpenAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.OpenAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    private void SaveAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.SaveAttachmentCommand.Execute(attachment);
+        }
+    }
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();

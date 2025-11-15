@@ -385,6 +385,30 @@ public sealed partial class ComposePage : ComposePageAbstract,
         DisposeDisposables();
     }
 
+    private void OpenAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.OpenAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    private void SaveAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.SaveAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    private void RemoveAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.CommandParameter is MailAttachmentViewModel attachment)
+        {
+            ViewModel.RemoveAttachmentCommand.Execute(attachment);
+        }
+    }
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
