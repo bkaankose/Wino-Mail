@@ -3,12 +3,15 @@ using System.Linq;
 using System.Numerics;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI;
 
 namespace Wino.Controls;
 
@@ -29,6 +32,26 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsSubjectVisible { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
+    public partial MailOperation LeftHoverAction { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
+    public partial MailOperation CenterHoverAction { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
+    public partial MailOperation RightHoverAction { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool IsHoverActionsEnabled { get; set; }
+
+    public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool Prefer24HourTimeFormat { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial IMailListItem? ActionItem { get; set; }
 
     #region Display Properties
 
@@ -62,29 +85,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     [GeneratedDependencyProperty]
     public partial string? Base64ContactPicture { get; set; }
 
-    #endregion
-
-    [GeneratedDependencyProperty]
-    public partial WinoExpander? ConnectedExpander { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
-    public partial MailOperation LeftHoverAction { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
-    public partial MailOperation CenterHoverAction { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
-    public partial MailOperation RightHoverAction { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial ICommand? HoverActionExecutedCommand { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = true)]
-    public partial bool IsHoverActionsEnabled { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool Prefer24HourTimeFormat { get; set; }
-
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool IsThreadExpanderVisible { get; set; }
 
@@ -94,12 +94,23 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool IsThumbnailUpdated { get; set; }
 
-    [GeneratedDependencyProperty]
-    public partial IMailListItem? ActionItem { get; set; }
+    #endregion
 
     public MailItemDisplayInformationControl()
     {
         InitializeComponent();
+
+        // Initialize properties from IPreferencesService for AOT compatibility
+        var preferencesService = App.Current.Services.GetRequiredService<IPreferencesService>();
+
+        DisplayMode = preferencesService.MailItemDisplayMode;
+        ShowPreviewText = preferencesService.IsShowPreviewEnabled;
+        IsAvatarVisible = preferencesService.IsShowSenderPicturesEnabled;
+        IsHoverActionsEnabled = preferencesService.IsHoverActionsEnabled;
+        Prefer24HourTimeFormat = preferencesService.Prefer24HourTimeFormat;
+        LeftHoverAction = preferencesService.LeftHoverAction;
+        CenterHoverAction = preferencesService.CenterHoverAction;
+        RightHoverAction = preferencesService.RightHoverAction;
 
         var compositor = this.Visual().Compositor;
 
@@ -152,7 +163,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
         if (package == null) return;
 
-        HoverActionExecutedCommand?.Execute(package);
+        HoverActionExecuted?.Invoke(this, package);
     }
 
     private void FirstActionClicked(object sender, RoutedEventArgs e)

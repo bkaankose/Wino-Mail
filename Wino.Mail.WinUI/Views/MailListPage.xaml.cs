@@ -103,6 +103,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void SelectionModeToggleChecked(object sender, RoutedEventArgs e) => ChangeSelectionMode(ListViewSelectionMode.Multiple);
 
+    private void MailItemDisplayInformationControl_HoverActionExecuted(object sender, MailOperationPreperationRequest e)
+    {
+        ViewModel.ExecuteHoverActionCommand.Execute(e);
+    }
+
     private void FolderPivotChanged(object sender, SelectionChangedEventArgs e)
     {
         foreach (var addedItem in e.AddedItems)
