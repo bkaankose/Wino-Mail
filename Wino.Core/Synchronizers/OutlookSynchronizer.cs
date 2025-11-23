@@ -22,6 +22,7 @@ using Microsoft.Kiota.Abstractions.Serialization;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
