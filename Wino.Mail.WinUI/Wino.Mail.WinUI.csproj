@@ -28,7 +28,12 @@
 	<!-- Single instancing -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 </PropertyGroup>
-	
+
+<ItemGroup>
+	<TrimmerRootAssembly Include="Google.Apis.Auth" />
+	<TrimmerRootAssembly Include="Google.Apis.Gmail.v1" />
+</ItemGroup>
+
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />
     <Content Remove="Assets\BadgeLogo.scale-125.png" />
@@ -87,28 +92,8 @@
     <None Remove="ShellWindow.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
-  <ItemGroup>
-    <Page Remove="AppThemes\Acrylic.xaml" />
-    <Page Remove="AppThemes\Clouds.xaml" />
-    <Page Remove="AppThemes\Custom.xaml" />
-    <Page Remove="AppThemes\Default.xaml" />
-    <Page Remove="AppThemes\Forest.xaml" />
-    <Page Remove="AppThemes\Garden.xaml" />
-    <Page Remove="AppThemes\Nighty.xaml" />
-    <Page Remove="AppThemes\Snowflake.xaml" />
-    <Page Remove="AppThemes\TestTheme.xaml" />
-  </ItemGroup>
 
   <ItemGroup>
-    <Content Include="AppThemes\Acrylic.xaml" />
-    <Content Include="AppThemes\Clouds.xaml" />
-    <Content Include="AppThemes\Custom.xaml" />
-    <Content Include="AppThemes\Default.xaml" />
-    <Content Include="AppThemes\Forest.xaml" />
-    <Content Include="AppThemes\Garden.xaml" />
-    <Content Include="AppThemes\Nighty.xaml" />
-    <Content Include="AppThemes\Snowflake.xaml" />
-    <Content Include="AppThemes\TestTheme.xaml" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="JS\editor.html" />
@@ -134,6 +119,7 @@
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />
   </ItemGroup>
+	
   <ItemGroup>
 	<PackageReference Include="CommunityToolkit.Common" />
 	<PackageReference Include="CommunityToolkit.Diagnostics" />
