@@ -71,20 +71,19 @@
                 <ComboBox
                     Grid.Column="3"
                     HorizontalAlignment="Center"
-                    ItemsSource="{x:Bind Certificates, Mode=OneWay}"
-                    SelectedItem="{Binding SelectedSigningCertificate, Mode=TwoWay}"
                     DisplayMemberPath="Subject"
-                    PlaceholderText="{x:Bind domain:Translator.SettingsSignatureAndEncryption_SigningCertificatePlaceholder}"
                     DropDownClosed="SigningCertificateDropDownClosed"
-                    />
+                    IsEnabled="{x:Bind IsSmimeEncryptionEnabled}"
+                    ItemsSource="{x:Bind Certificates, Mode=OneWay}"
+                    PlaceholderText="{x:Bind domain:Translator.SettingsSignatureAndEncryption_SigningCertificatePlaceholder}"
+                    SelectedItem="{Binding SelectedSigningCertificate, Mode=TwoWay}" />
 
                 <CheckBox
                     Grid.Column="4"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Checked="SmimeEncryptionChecked"
-                    Unchecked="SmimeEncryptionChecked"
-                    IsChecked="{Binding IsSmimeEncryptionEnabled, Mode=OneWay}" />
+                    Click="SmimeClicked"
+                    IsChecked="{x:Bind IsSmimeEncryptionEnabled, Mode=OneTime}" />
 
                 <Button
                     Grid.Column="5"
@@ -201,7 +200,7 @@
                     Grid.Row="2"
                     Grid.Column="3"
                     Text="{x:Bind domain:Translator.SettingsSignatureAndEncryption_SigningCertificate}" />
-                
+
                 <TextBlock
                     Grid.Row="2"
                     Grid.Column="4"

@@ -8,15 +8,15 @@ using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
+using MimeKit.Cryptography;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
-using Wino.Mail.WinUI;
-using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 using Wino.Services;
@@ -31,6 +31,10 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        // Note: by registering our custom context it becomes the default S/MIME context
+        // instantiated by MimeKit when methods such as Encrypt(), Decrypt(), Sign(), and
+        // Verify() are used without an explicit context.
+        CryptographyContext.Register(typeof(MySecureMimeContext));
 
         RegisterRecipients();
     }
@@ -83,6 +87,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         services.AddTransient(typeof(AppPreferencesPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
+        services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
     }
 
     #endregion

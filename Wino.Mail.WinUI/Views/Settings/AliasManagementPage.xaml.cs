@@ -37,20 +37,20 @@ public sealed partial class AliasManagementPage : AliasManagementPageAbstract
         }
     }
 
-    private async void SmimeEncryptionChecked(object sender, object e)
+    private static (MailAccountAlias alias, X509Certificate2 cert) GetAliasAndSelectedCertificateForCombobox(object sender)
+    {
+        var comboBox = sender as ComboBox;
+        var alias = comboBox?.DataContext as MailAccountAlias;
+        var selected = comboBox?.SelectedItem as X509Certificate2;
+
+        return (alias, selected);
+    }
+    private async void SmimeClicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
         var checkBox = sender as CheckBox;
         if (checkBox?.DataContext is MailAccountAlias alias)
         {
             await ViewModel.SetAliasSmimeEncryption(alias, checkBox.IsChecked ?? false);
         }
-    }
-
-    private static (MailAccountAlias alias, X509Certificate2 cert) GetAliasAndSelectedCertificateForCombobox(object sender)
-    {
-        var comboBox = sender as ComboBox;
-        var alias = comboBox?.DataContext as MailAccountAlias;
-        var selected = comboBox?.SelectedItem as X509Certificate2;
-        return (alias, selected);
     }
 }
