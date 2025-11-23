@@ -178,8 +178,6 @@ public partial class ComposePageViewModel : MailBaseViewModel
         IsSmimeSignatureEnabled = value != null;
     }
 
-
-
     [RelayCommand]
     private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
     {

@@ -65,7 +65,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
     public bool IsSmimeSigned => (CurrentRenderModel?.Signatures?.Count ?? 0) > 0;
     public bool IsSmimeEncrypted => CurrentRenderModel?.IsSmimeEncrypted ?? false;
-    public bool IsJunkMail => initializedMailItemViewModel?.AssignedFolder != null && initializedMailItemViewModel.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
+    public bool IsJunkMail => initializedMailItemViewModel?.MailCopy.AssignedFolder != null && initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
     public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
     public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
 
@@ -141,19 +141,19 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public IPrintService PrintService { get; }
 
     public MailRenderingPageViewModel(IMailDialogService dialogService,
-                                      INativeAppService nativeAppService,
-                                      IUnderlyingThemeService underlyingThemeService,
-                                      IMimeFileService mimeFileService,
-                                      IMailService mailService,
-                                      IFileService fileService,
-                                      IWinoRequestDelegator requestDelegator,
-                                      IStatePersistanceService statePersistenceService,
-                                      IContactService contactService,
-                                      IClipboardService clipboardService,
-                                      IUnsubscriptionService unsubscriptionService,
-                                      IPreferencesService preferencesService,
-                                      IPrintService printService,
-                                      IApplicationConfiguration applicationConfiguration)
+        INativeAppService nativeAppService,
+        IUnderlyingThemeService underlyingThemeService,
+        IMimeFileService mimeFileService,
+        IMailService mailService,
+        IFileService fileService,
+        IWinoRequestDelegator requestDelegator,
+        IStatePersistanceService statePersistenceService,
+        IContactService contactService,
+        IClipboardService clipboardService,
+        IUnsubscriptionService unsubscriptionService,
+        IPreferencesService preferencesService,
+        IPrintService printService,
+        IApplicationConfiguration applicationConfiguration)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;

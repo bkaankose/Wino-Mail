@@ -61,6 +61,9 @@ internal class QResyncSynchronizer : ImapSynchronizationStrategyBase
 
             // Perform QRESYNC synchronization.
             var localHighestModSeq = (ulong)folder.HighestModeSeq;
+            // HIGHESTMODSEQ must be a positive integer, 0 is illegal.
+            // It's harmless to set it to 1, as RFC-compliant server without mod-seq would ignore this parameter.
+            if (localHighestModSeq == 0) localHighestModSeq = 1;
 
             remoteFolder.MessagesVanished += OnMessagesVanished;
             remoteFolder.MessageFlagsChanged += OnMessageFlagsChanged;
@@ -115,6 +118,7 @@ internal class QResyncSynchronizer : ImapSynchronizationStrategyBase
     internal override async Task<IList<UniqueId>> GetChangedUidsAsync(IImapClient client, IMailFolder remoteFolder, IImapSynchronizer synchronizer, CancellationToken cancellationToken = default)
     {
         var localHighestModSeq = (ulong)Folder.HighestModeSeq;
+        if (localHighestModSeq == 0) localHighestModSeq = 1;
         return await remoteFolder.SearchAsync(SearchQuery.ChangedSince(localHighestModSeq), cancellationToken).ConfigureAwait(false);
     }
 }
