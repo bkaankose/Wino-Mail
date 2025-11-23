@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
+using MimeKit.Cryptography;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -68,19 +70,26 @@ public partial class ComposePageViewModel : MailBaseViewModel
     private MailAccount composingAccount;
 
     [ObservableProperty]
-    private List<MailAccountAlias> availableAliases;
+    public partial List<MailAccountAlias> AvailableAliases { get; set; }
+    [ObservableProperty]
+    public partial MailAccountAlias SelectedAlias { get; set; }
+    [ObservableProperty]
+    public partial bool IsDraggingOverComposerGrid { get; set; }
+    [ObservableProperty]
+    public partial bool IsDraggingOverFilesDropZone { get; set; }
+    [ObservableProperty]
+    public partial bool IsDraggingOverImagesDropZone { get; set; }
+    [ObservableProperty]
+    public partial bool IsSmimeSignatureEnabled { get; set; }
+    [ObservableProperty]
+    public partial bool IsSmimeEncryptionEnabled { get; set; }
 
     [ObservableProperty]
-    private MailAccountAlias selectedAlias;
+    public partial X509Certificate2 SelectedSigningCertificate { get; set; }
 
-    [ObservableProperty]
-    private bool isDraggingOverComposerGrid;
+    public ObservableCollection<X509Certificate2> AvailableCertificates = [];
 
-    [ObservableProperty]
-    private bool isDraggingOverFilesDropZone;
-
-    [ObservableProperty]
-    private bool isDraggingOverImagesDropZone;
+    public bool AreCertificatesAvailable => AvailableCertificates.Count > 0;
 
     public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
     public ObservableCollection<MailAccount> Accounts { get; set; } = [];
@@ -102,6 +111,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
     public readonly IFontService FontService;
     public readonly IPreferencesService PreferencesService;
     public readonly IContactService ContactService;
+    public readonly ISmimeCertificateService _smimeCertificateService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -113,7 +123,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
                                 IWinoRequestDelegator worker,
                                 IContactService contactService,
                                 IFontService fontService,
-                                IPreferencesService preferencesService)
+                                IPreferencesService preferencesService,
+                                ISmimeCertificateService smimeCertificateService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -127,6 +138,38 @@ public partial class ComposePageViewModel : MailBaseViewModel
         _fileService = fileService;
         _accountService = accountService;
         _worker = worker;
+        _smimeCertificateService = smimeCertificateService;
+
+        foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
+        {
+            if (cert != null)
+            {
+                AvailableCertificates.Add(cert);
+            }
+        }
+    }
+
+    partial void OnSelectedAliasChanged(MailAccountAlias value)
+    {
+        if (value != null)
+        {
+            IsSmimeSignatureEnabled = value.SelectedSigningCertificateThumbprint != null;
+            IsSmimeEncryptionEnabled = value.IsSmimeEncryptionEnabled;
+
+            AvailableCertificates.Clear();
+            var certs = _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias.AliasAddress);
+            foreach (var cert in certs)
+            {
+                AvailableCertificates.Add(cert);
+            }
+            SelectedSigningCertificate = AvailableCertificates
+                .Where(c => c.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint).FirstOrDefault() ?? AvailableCertificates.FirstOrDefault();
+        }
+    }
+
+    partial void OnSelectedSigningCertificateChanged(X509Certificate2 value)
+    {
+        IsSmimeSignatureEnabled = value != null;
     }
 
     [RelayCommand]
@@ -212,6 +255,47 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         var assignedAccount = CurrentMailDraftItem.MailCopy.AssignedAccount;
         var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
+
+
+        // Load alias certs
+        var certs = _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias.AliasAddress);
+
+        if (IsSmimeSignatureEnabled)
+        {
+            var signingCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedSigningCertificateThumbprint)
+                ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint)
+                : null;
+
+            var signer = new CmsSigner(signingCertificate) { DigestAlgorithm = DigestAlgorithm.Sha1 };
+
+            if (IsSmimeEncryptionEnabled)
+            {
+                var recipients = new CmsRecipientCollection();
+                var cmsRecipients = CurrentMimeMessage.To.Mailboxes
+                    .Select(mailbox => new CmsRecipient(
+                        _smimeCertificateService.GetCertificates(emailAddress: mailbox.Address).FirstOrDefault() ?? _smimeCertificateService.GetCertificates(StoreName.AddressBook, emailAddress: mailbox.Address).FirstOrDefault()
+                    ));
+                foreach (var recipient in cmsRecipients)
+                {
+                    recipients.Add(recipient);
+                }
+
+                CurrentMimeMessage.Body = ApplicationPkcs7Mime.SignAndEncrypt(signer, recipients, CurrentMimeMessage.Body);
+            }
+            else
+            {
+                // CurrentMimeMessage.Body = MultipartSigned.Create(signer, CurrentMimeMessage.Body);
+                CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(signer, CurrentMimeMessage.Body);
+            }
+        }
+        else if (IsSmimeEncryptionEnabled)
+        {
+            // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
+            //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)
+            //     : null;
+            // Encrypt the message if encryption certificate is selected.
+            CurrentMimeMessage.Body = ApplicationPkcs7Mime.Encrypt(CurrentMimeMessage.To.Mailboxes, CurrentMimeMessage.Body);
+        }
 
         using MemoryStream memoryStream = new();
         CurrentMimeMessage.WriteTo(FormatOptions.Default, memoryStream);

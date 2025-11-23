@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -15,9 +16,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Printing;
+using Wino.Dialogs;
 using Wino.Mail.WinUI.Dialogs;
 using Wino.Mail.WinUI.Extensions;
-using Wino.Dialogs;
 using Wino.Messaging.Client.Shell;
 using WinRT.Interop;
 
@@ -48,7 +49,7 @@ public class DialogServiceBase : IDialogServiceBase
     {
         var picker = new FolderPicker()
         {
-            SuggestedStartLocation = PickerLocationId.Desktop
+            SuggestedStartLocation = PickerLocationId.Desktop,
         };
 
         picker.FileTypeFilter.Add("*");
@@ -61,7 +62,7 @@ public class DialogServiceBase : IDialogServiceBase
 
         StorageApplicationPermissions.FutureAccessList.Add(folder);
 
-        return folder.Path;
+        return $"{Path.Combine(folder.Path, saveFileName)}";
 
         //var picker = new FileSavePicker
         //{

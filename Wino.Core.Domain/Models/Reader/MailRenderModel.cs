@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using MimeKit;
+using MimeKit.Cryptography;
 
 namespace Wino.Core.Domain.Models.Reader;
 
@@ -14,6 +15,11 @@ public class MailRenderModel
     public List<MimePart> Attachments { get; set; } = [];
 
     public UnsubscribeInfo UnsubscribeInfo { get; set; }
+
+    public Dictionary<IDigitalSignature, bool> Signatures = [];
+
+    // Indicates if the mail is S/MIME encrypted
+    public bool IsSmimeEncrypted { get; set; }
 
     public MailRenderModel(string renderHtml, MailRenderingOptions mailRenderingOptions = null)
     {

@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 
 using MimeKit;
+using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -62,7 +63,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     public bool ShouldDisplayDownloadProgress => IsIndetermineProgress || (CurrentDownloadPercentage > 0 && CurrentDownloadPercentage <= 100);
     public bool CanUnsubscribe => CurrentRenderModel?.UnsubscribeInfo?.CanUnsubscribe ?? false;
+    public bool IsSmimeSigned => (CurrentRenderModel?.Signatures?.Count ?? 0) > 0;
+    public bool IsSmimeEncrypted => CurrentRenderModel?.IsSmimeEncrypted ?? false;
     public bool IsJunkMail => initializedMailItemViewModel?.MailCopy.AssignedFolder != null && initializedMailItemViewModel.MailCopy.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk;
+    public bool SmimeSignaturesValid => CurrentRenderModel?.Signatures?.Any(x => x.Value) ?? false;
+    public bool SmimeSignaturesInvalid => !SmimeSignaturesValid;
 
     public bool IsImageRenderingDisabled
     {
@@ -102,6 +107,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanUnsubscribe))]
+    [NotifyPropertyChangedFor(nameof(IsSmimeSigned))]
+    [NotifyPropertyChangedFor(nameof(IsSmimeEncrypted))]
+    [NotifyPropertyChangedFor(nameof(SmimeSignaturesValid))]
+    [NotifyPropertyChangedFor(nameof(SmimeSignaturesInvalid))]
     public partial MailRenderModel CurrentRenderModel { get; set; }
 
     [ObservableProperty]
@@ -132,19 +141,19 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public IPrintService PrintService { get; }
 
     public MailRenderingPageViewModel(IMailDialogService dialogService,
-                                      INativeAppService nativeAppService,
-                                      IUnderlyingThemeService underlyingThemeService,
-                                      IMimeFileService mimeFileService,
-                                      IMailService mailService,
-                                      IFileService fileService,
-                                      IWinoRequestDelegator requestDelegator,
-                                      IStatePersistanceService statePersistenceService,
-                                      IContactService contactService,
-                                      IClipboardService clipboardService,
-                                      IUnsubscriptionService unsubscriptionService,
-                                      IPreferencesService preferencesService,
-                                      IPrintService printService,
-                                      IApplicationConfiguration applicationConfiguration)
+        INativeAppService nativeAppService,
+        IUnderlyingThemeService underlyingThemeService,
+        IMimeFileService mimeFileService,
+        IMailService mailService,
+        IFileService fileService,
+        IWinoRequestDelegator requestDelegator,
+        IStatePersistanceService statePersistenceService,
+        IContactService contactService,
+        IClipboardService clipboardService,
+        IUnsubscriptionService unsubscriptionService,
+        IPreferencesService preferencesService,
+        IPrintService printService,
+        IApplicationConfiguration applicationConfiguration)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -716,8 +725,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             if (isSaved)
             {
                 _dialogService.InfoBarMessage(Translator.Info_PDFSaveSuccessTitle,
-                                              string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
-                                              InfoBarMessageType.Success);
+                    string.Format(Translator.Info_PDFSaveSuccessMessage, pdfFilePath),
+                    InfoBarMessageType.Success);
             }
         }
         catch (Exception ex)
@@ -798,6 +807,72 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 }
             }
         });
+    }
+
+    [RelayCommand]
+    private async Task ShowSmimeSigningCertificateInfoAsync()
+    {
+        if (IsSmimeSigned)
+        {
+            MimePart signaturePart;
+            if (initializedMimeMessageInformation?.MimeMessage?.Body is MultipartSigned signed && signed[1] is MimePart signaturePart1)
+            {
+                signaturePart = signaturePart1;
+            }
+            else if (initializedMimeMessageInformation?.MimeMessage?.Body is ApplicationPkcs7Mime pkcs7)
+            {
+                signaturePart = null;
+            }
+            else
+            {
+                //_dialogService.InfoBarMessage(Translator.Info_SmimeSignatureNotFoundTitle, Translator.Info_SmimeSignatureNotFoundMessage, InfoBarMessageType.Error);
+                return;
+            }
+
+            string info = $"{Translator.SmimeSignaturesInMessage}:\n";
+            foreach (var (signature, valid) in CurrentRenderModel.Signatures)
+            {
+                info += string.Format(Translator.SmimeSignatureEntry, valid ? "✅" : "❌", signature.SignerCertificate.Name, signature.SignerCertificate.Fingerprint, signature.SignerCertificate.CreationDate, signature.SignerCertificate.ExpirationDate);
+            }
+            await ShowSmimeCertificateInfoAsync(signaturePart, info, Translator.SmimeSigningCertificateInfoTitle);
+        }
+
+    }
+
+    private async Task ShowSmimeCertificateInfoAsync(MimePart certificateAttachment, string additionalInfo = "", string title = null)
+    {
+        {
+            if (certificateAttachment == null)
+            {
+                await _dialogService.ShowConfirmationDialogAsync(
+                    $"{additionalInfo}\n{Translator.SmimeNoCertificateFileFound}", title ?? Translator.SmimeCertificateInfoTitle, Translator.Buttons_OK);
+                return;
+            }
+            var fileName = certificateAttachment.FileName ?? "smime.p7s";
+            var contentType = certificateAttachment.ContentType?.MimeType ?? "application/pkcs7-signature";
+            var size = certificateAttachment.Content?.Stream?.Length ?? 0;
+            var info = string.Format(Translator.SmimeCertificateFileInfo, fileName, contentType, size);
+
+            var result = await _dialogService.ShowConfirmationDialogAsync(
+                $"{additionalInfo}\n{info}", title ?? Translator.SmimeCertificateInfoTitle,
+                Translator.SmimeSaveCertificate);
+            if (result)
+            {
+                var pickedPath = await _dialogService.PickFilePathAsync(fileName);
+                if (!string.IsNullOrEmpty(pickedPath))
+                {
+                    var pickedDirectory = Path.GetDirectoryName(pickedPath);
+                    var pickedFileName = Path.GetFileName(pickedPath);
+                    await using (var stream = await _fileService.GetFileStreamAsync(pickedDirectory, pickedFileName))
+                    {
+                        await certificateAttachment.Content!.DecodeToAsync(stream);
+                    }
+
+                    _dialogService.InfoBarMessage(Translator.SmimeCertificate, string.Format(Translator.SmimeCertificateSavedTo, pickedPath),
+                        InfoBarMessageType.Success);
+                }
+            }
+        }
     }
 
     protected override void RegisterRecipients()

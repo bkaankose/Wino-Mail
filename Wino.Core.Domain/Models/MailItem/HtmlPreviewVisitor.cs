@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using MimeKit;
+using MimeKit.Cryptography;
 using MimeKit.Text;
 using MimeKit.Tnef;
 
@@ -18,6 +19,7 @@ public class HtmlPreviewVisitor : MimeVisitor
     readonly string tempDir;
 
     public string Body { get; set; }
+    public Dictionary<IDigitalSignature, bool> Signatures = [];
 
     /// <summary>
     /// Creates a new HtmlPreviewVisitor.
@@ -63,6 +65,12 @@ public class HtmlPreviewVisitor : MimeVisitor
 
         // pop this multipart/related off our stack
         stack.RemoveAt(stack.Count - 1);
+    }
+
+    protected override void VisitMultipartSigned(MultipartSigned signed)
+    {
+        VerifySignatures(signed.Verify());
+        VisitMultipart(signed);
     }
 
     // look up the image based on the img src url within our multipart/related stack
@@ -247,8 +255,46 @@ public class HtmlPreviewVisitor : MimeVisitor
 
     protected override void VisitMimePart(MimePart entity)
     {
-        // realistically, if we've gotten this far, then we can treat this as an attachment
-        // even if the IsAttachment property is false.
-        attachments.Add(entity);
+        if (entity is ApplicationPkcs7Mime { SecureMimeType: SecureMimeType.EnvelopedData } encrypted)
+        {
+            encrypted.Decrypt().Accept(this);
+        }
+        else if (entity is ApplicationPkcs7Mime { SecureMimeType: SecureMimeType.SignedData } signed)
+        {
+            MimeEntity extracted;
+
+            VerifySignatures(signed.Verify(out extracted));
+
+            extracted.Accept(this);
+        }
+        else
+        {
+            // realistically, if we've gotten this far, then we can treat this as an attachment
+            // even if the IsAttachment property is false.
+            attachments.Add(entity);
+        }
+    }
+
+    private void VerifySignatures(DigitalSignatureCollection signatures)
+    {
+        foreach (var signature in signatures)
+        {
+            try
+            {
+                bool valid = signature.Verify();
+                Signatures.Add(signature, valid);
+
+                // If valid is true, then it signifies that the signed content has not
+                // been modified since this particular signer signed the content.
+                //
+                // However, if it is false, then it indicates that the signed content
+                // has been modified.
+            }
+            catch (DigitalSignatureVerifyException)
+            {
+                // There was an error verifying the signature.
+                Signatures.Add(signature, false);
+            }
+        }
     }
 }

@@ -13,6 +13,7 @@
 		<PackageReference Include="EmailValidation" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Sentry.Serilog" />
+		<PackageReference Include="MimeKit" />
 		<PackageReference Include="System.Reactive" />
 	</ItemGroup>
 	<ItemGroup>

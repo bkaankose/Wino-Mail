@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
+using Wino.Core.WinUI.Services;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
 
@@ -19,6 +20,8 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IPreferencesService, PreferencesService>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
+        services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
+
         services.AddSingleton<IThumbnailService, ThumbnailService>();
         services.AddSingleton<IDialogServiceBase, DialogServiceBase>();
         services.AddTransient<IConfigurationService, ConfigurationService>();

@@ -61,6 +61,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.EditAccountDetailsPage => typeof(EditAccountDetailsPage),
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),
+            WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
             _ => null,
         };
     }

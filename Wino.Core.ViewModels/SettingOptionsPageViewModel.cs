@@ -38,6 +38,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                 WinoPage.LanguageTimePage => Translator.SettingsLanguageTime_Title,
                 WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
                 WinoPage.CalendarSettingsPage => Translator.SettingsCalendarSettings_Title,
+                WinoPage.SignatureAndEncryptionPage => Translator.SettingsSignatureAndEncryption_Title,
                 WinoPage.KeyboardShortcutsPage => "Keyboard Shortcuts",
                 _ => throw new NotImplementedException()
             };
