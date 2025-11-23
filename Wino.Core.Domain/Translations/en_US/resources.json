@@ -779,7 +779,6 @@
     "Composer_EnableSmimeEncryption": "Enable/disable S/MIME encryption",
     "Composer_CertificateExpires": "Expires on: ",
     "Composer_SmimeSignature": "S/MIME Signature",
-    "Composer_SmimeEncryption": "S/MIME Encryption"
     "Composer_SmimeEncryption": "S/MIME Encryption",
     "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
     "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail.",
@@ -816,5 +815,3 @@
     "ContactsPage_EmptyState": "No contacts to display",
     "ContactsPage_AddFirstContact": "Add your first contact"
 }
-
-

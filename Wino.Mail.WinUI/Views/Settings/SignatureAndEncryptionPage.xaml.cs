@@ -1,7 +1,7 @@
 using System.Linq;
-using Wino.Views.Abstract;
-using Windows.UI.Xaml.Controls;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.UI.Xaml.Controls;
+using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
 

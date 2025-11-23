@@ -70,28 +70,22 @@ public partial class ComposePageViewModel : MailBaseViewModel
     private MailAccount composingAccount;
 
     [ObservableProperty]
-    private List<MailAccountAlias> availableAliases;
+    public partial List<MailAccountAlias> AvailableAliases { get; set; }
+    [ObservableProperty]
+    public partial MailAccountAlias SelectedAlias { get; set; }
+    [ObservableProperty]
+    public partial bool IsDraggingOverComposerGrid { get; set; }
+    [ObservableProperty]
+    public partial bool IsDraggingOverFilesDropZone { get; set; }
+    [ObservableProperty]
+    public partial bool IsDraggingOverImagesDropZone { get; set; }
+    [ObservableProperty]
+    public partial bool IsSmimeSignatureEnabled { get; set; }
+    [ObservableProperty]
+    public partial bool IsSmimeEncryptionEnabled { get; set; }
 
     [ObservableProperty]
-    private MailAccountAlias selectedAlias;
-
-    [ObservableProperty]
-    private bool isDraggingOverComposerGrid;
-
-    [ObservableProperty]
-    private bool isDraggingOverFilesDropZone;
-
-    [ObservableProperty]
-    private bool isDraggingOverImagesDropZone;
-
-    [ObservableProperty]
-    private bool isSmimeSignatureEnabled;
-
-    [ObservableProperty]
-    private bool isSmimeEncryptionEnabled;
-
-    [ObservableProperty]
-    private X509Certificate2 selectedSigningCertificate;
+    public partial X509Certificate2 SelectedSigningCertificate { get; set; }
 
     public ObservableCollection<X509Certificate2> AvailableCertificates = [];
 
@@ -266,7 +260,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
         // Load alias certs
         var certs = _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias.AliasAddress);
 
-        if (isSmimeSignatureEnabled)
+        if (IsSmimeSignatureEnabled)
         {
             var signingCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedSigningCertificateThumbprint)
                 ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedSigningCertificateThumbprint)
@@ -274,7 +268,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
             var signer = new CmsSigner(signingCertificate) { DigestAlgorithm = DigestAlgorithm.Sha1 };
 
-            if (isSmimeEncryptionEnabled)
+            if (IsSmimeEncryptionEnabled)
             {
                 var recipients = new CmsRecipientCollection();
                 var cmsRecipients = CurrentMimeMessage.To.Mailboxes
@@ -294,7 +288,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
                 CurrentMimeMessage.Body = ApplicationPkcs7Mime.Sign(signer, CurrentMimeMessage.Body);
             }
         }
-        else if (isSmimeEncryptionEnabled)
+        else if (IsSmimeEncryptionEnabled)
         {
             // var encryptionCertificate = !string.IsNullOrEmpty(SelectedAlias.SelectedEncryptionCertificateThumbprint)
             //     ? certs.FirstOrDefault(c => c?.Thumbprint == SelectedAlias.SelectedEncryptionCertificateThumbprint)

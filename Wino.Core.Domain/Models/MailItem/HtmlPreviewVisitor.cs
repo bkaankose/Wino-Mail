@@ -266,7 +266,8 @@ public class HtmlPreviewVisitor : MimeVisitor
             VerifySignatures(signed.Verify(out extracted));
 
             extracted.Accept(this);
-        } else
+        }
+        else
         {
             // realistically, if we've gotten this far, then we can treat this as an attachment
             // even if the IsAttachment property is false.
@@ -289,7 +290,7 @@ public class HtmlPreviewVisitor : MimeVisitor
                 // However, if it is false, then it indicates that the signed content
                 // has been modified.
             }
-            catch (DigitalSignatureVerifyException e)
+            catch (DigitalSignatureVerifyException)
             {
                 // There was an error verifying the signature.
                 Signatures.Add(signature, false);

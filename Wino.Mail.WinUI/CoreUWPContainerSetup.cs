@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
+using Wino.Core.WinUI.Services;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
 
