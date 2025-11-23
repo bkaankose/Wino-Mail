@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Models.Folders;
-using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -18,12 +18,12 @@ public interface IContextMenuProvider
     /// </summary>
     /// <param name="folderInformation">Current folder that asks for the menu items.</param>
     /// <param name="selectedMailItems">Selected menu items in the given folder.</param>
-    IEnumerable<MailOperationMenuItem> GetMailItemContextMenuActions(IMailItemFolder folderInformation, IEnumerable<IMailItem> selectedMailItems);
+    IEnumerable<MailOperationMenuItem> GetMailItemContextMenuActions(IMailItemFolder folderInformation, IEnumerable<MailCopy> selectedMailItems);
 
     /// <summary>
     /// Calculates and returns available mail operations for mail rendering CommandBar.
     /// </summary>
     /// <param name="mailItem">Rendered mail item.</param>
     /// <param name="activeFolder">Folder that mail item belongs to.</param>
-    IEnumerable<MailOperationMenuItem> GetMailItemRenderMenuActions(IMailItem mailItem, IMailItemFolder activeFolder, bool isDarkEditor);
+    IEnumerable<MailOperationMenuItem> GetMailItemRenderMenuActions(MailCopy mailItem, IMailItemFolder activeFolder, bool isDarkEditor);
 }

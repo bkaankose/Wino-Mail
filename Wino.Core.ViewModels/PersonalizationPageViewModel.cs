@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -9,6 +8,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels.Data;
 
@@ -20,7 +20,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public IPreferencesService PreferencesService { get; }
 
     private readonly IDialogServiceBase _dialogService;
-    private readonly IThemeService _themeService;
+    private readonly INewThemeService _newThemeService;
 
     private bool isPropChangeDisabled = false;
 
@@ -119,6 +119,13 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         }
     }
 
+    // Backdrop selection properties
+    [ObservableProperty]
+    public partial List<BackdropTypeWrapper> AvailableBackdropTypes { get; set; }
+
+    [ObservableProperty]
+    public partial BackdropTypeWrapper SelectedBackdropType { get; set; }
+
     #endregion
 
     [RelayCommand]
@@ -131,11 +138,11 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public AsyncRelayCommand CreateCustomThemeCommand { get; set; }
     public PersonalizationPageViewModel(IDialogServiceBase dialogService,
                                         IStatePersistanceService statePersistanceService,
-                                        IThemeService themeService,
+                                        INewThemeService newThemeService,
                                         IPreferencesService preferencesService)
     {
         _dialogService = dialogService;
-        _themeService = themeService;
+        _newThemeService = newThemeService;
 
         StatePersistenceService = statePersistanceService;
         PreferencesService = preferencesService;
@@ -175,7 +182,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
         // Add system accent color as last item.
 
-        Colors.Add(new AppColorViewModel(_themeService.GetSystemAccentColorHex(), true));
+        Colors.Add(new AppColorViewModel(_newThemeService.GetSystemAccentColorHex(), true));
     }
 
     /// <summary>
@@ -183,10 +190,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     /// </summary>
     private void SetInitialValues()
     {
-        SelectedElementTheme = ElementThemes.Find(a => a.NativeTheme == _themeService.RootTheme);
+        SelectedElementTheme = ElementThemes.Find(a => a.NativeTheme == _newThemeService.RootTheme);
         SelectedInfoDisplayMode = PreferencesService.MailItemDisplayMode;
 
-        var currentAccentColor = _themeService.AccentColor;
+        var currentAccentColor = _newThemeService.AccentColor;
 
         bool isWindowsColor = string.IsNullOrEmpty(currentAccentColor);
 
@@ -198,14 +205,18 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         else
             SelectedAppColor = Colors.FirstOrDefault(a => a.Hex == currentAccentColor);
 
-        SelectedAppTheme = AppThemes.Find(a => a.Id == _themeService.CurrentApplicationThemeId);
+        // Find selected theme, handling backward compatibility where theme ID might not exist
+        var currentThemeId = _newThemeService.CurrentApplicationThemeId;
+        SelectedAppTheme = currentThemeId.HasValue ? AppThemes.Find(a => a.Id == currentThemeId.Value) : null;
+
+        // Set the current backdrop from service - backdrop should be independent of theme selection
+        var currentBackdropType = _newThemeService.CurrentBackdropType;
+        SelectedBackdropType = AvailableBackdropTypes?.FirstOrDefault(x => x.BackdropType == currentBackdropType);
     }
 
-    [RequiresDynamicCode("AOT")]
-    [RequiresUnreferencedCode("AOT")]
-    protected override async void OnActivated()
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnActivated();
+        base.OnNavigatedTo(mode, parameters);
 
         await InitializeSettingsAsync();
     }
@@ -214,9 +225,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     {
         Deactivate();
 
-        AppThemes = await _themeService.GetAvailableThemesAsync();
+        AppThemes = await _newThemeService.GetAvailableThemesAsync();
 
         OnPropertyChanged(nameof(AppThemes));
+
+        // Initialize backdrop types
+        AvailableBackdropTypes = _newThemeService.GetAvailableBackdropTypes();
 
         InitializeColors();
         SetInitialValues();
@@ -224,11 +238,11 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         PropertyChanged -= PersonalizationSettingsUpdated;
         PropertyChanged += PersonalizationSettingsUpdated;
 
-        _themeService.AccentColorChanged -= AccentColorChanged;
-        _themeService.ElementThemeChanged -= ElementThemeChanged;
+        _newThemeService.AccentColorChanged -= AccentColorChanged;
+        _newThemeService.ElementThemeChanged -= ElementThemeChanged;
 
-        _themeService.AccentColorChanged += AccentColorChanged;
-        _themeService.ElementThemeChanged += ElementThemeChanged;
+        _newThemeService.AccentColorChanged += AccentColorChanged;
+        _newThemeService.ElementThemeChanged += ElementThemeChanged;
     }
 
     private void AccentColorChanged(object sender, string e)
@@ -260,8 +274,8 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     {
         PropertyChanged -= PersonalizationSettingsUpdated;
 
-        _themeService.AccentColorChanged -= AccentColorChanged;
-        _themeService.ElementThemeChanged -= ElementThemeChanged;
+        _newThemeService.AccentColorChanged -= AccentColorChanged;
+        _newThemeService.ElementThemeChanged -= ElementThemeChanged;
 
         if (AppThemes != null)
         {
@@ -277,18 +291,25 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
         if (e.PropertyName == nameof(SelectedElementTheme) && SelectedElementTheme != null)
         {
-            _themeService.RootTheme = SelectedElementTheme.NativeTheme;
+            _newThemeService.RootTheme = SelectedElementTheme.NativeTheme;
         }
         else if (e.PropertyName == nameof(SelectedAppTheme))
         {
-            _themeService.CurrentApplicationThemeId = SelectedAppTheme.Id;
+            // Set the theme ID, can be null if no theme is selected
+            _newThemeService.CurrentApplicationThemeId = SelectedAppTheme?.Id;
+
+            // Theme selection should not affect backdrop - they are independent settings
+        }
+        else if (e.PropertyName == nameof(SelectedBackdropType) && SelectedBackdropType != null)
+        {
+            _newThemeService.CurrentBackdropType = SelectedBackdropType.BackdropType;
         }
         else
         {
             if (e.PropertyName == nameof(SelectedInfoDisplayMode))
                 PreferencesService.MailItemDisplayMode = SelectedInfoDisplayMode;
             else if (e.PropertyName == nameof(SelectedAppColor))
-                _themeService.AccentColor = SelectedAppColor.Hex;
+                _newThemeService.AccentColor = SelectedAppColor.Hex;
         }
     }
 }

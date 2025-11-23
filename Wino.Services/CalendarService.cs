@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
-using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
@@ -29,29 +28,24 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task InsertAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        await Connection.InsertAsync(accountCalendar);
+        await Connection.InsertAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListAdded(accountCalendar));
     }
 
     public async Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        await Connection.UpdateAsync(accountCalendar);
+        await Connection.UpdateAsync(accountCalendar, typeof(AccountCalendar));
 
         WeakReferenceMessenger.Default.Send(new CalendarListUpdated(accountCalendar));
     }
 
     public async Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
     {
-        var deleteCalendarItemsQuery = new Query()
-            .From(nameof(CalendarItem))
-            .Where(nameof(CalendarItem.CalendarId), accountCalendar.Id)
-            .Where(nameof(AccountCalendar.AccountId), accountCalendar.AccountId);
-
-        var rawQuery = deleteCalendarItemsQuery.GetRawQuery();
-
-        await Connection.ExecuteAsync(rawQuery);
-        await Connection.DeleteAsync(accountCalendar);
+        await Connection.ExecuteAsync(
+            "DELETE FROM CalendarItem WHERE CalendarId = ? AND AccountId = ?",
+            accountCalendar.Id, accountCalendar.AccountId);
+        await Connection.DeleteAsync<AccountCalendar>(accountCalendar);
 
         WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
     }
@@ -85,11 +79,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         await Connection.RunInTransactionAsync((conn) =>
            {
-               conn.Insert(calendarItem);
+               conn.Insert(calendarItem, typeof(CalendarItem));
 
                if (attendees != null)
                {
-                   conn.InsertAll(attendees);
+                   conn.InsertAll(attendees, typeof(CalendarEventAttendee));
                }
            });
 
@@ -182,24 +176,16 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public Task<CalendarItem> GetCalendarItemAsync(Guid id)
     {
-        var query = new Query()
-            .From(nameof(CalendarItem))
-            .Where(nameof(CalendarItem.Id), id);
-
-        var rawQuery = query.GetRawQuery();
-        return Connection.FindWithQueryAsync<CalendarItem>(rawQuery);
+        return Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE Id = ?",
+            id);
     }
 
     public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
     {
-        var query = new Query()
-            .From(nameof(CalendarItem))
-            .Where(nameof(CalendarItem.CalendarId), accountCalendarId)
-            .Where(nameof(CalendarItem.RemoteEventId), remoteEventId);
-
-        var rawQuery = query.GetRawQuery();
-
-        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(rawQuery);
+        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
+            accountCalendarId, remoteEventId);
 
         // Load assigned calendar.
         if (calendarItem != null)
@@ -212,12 +198,9 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
     {
-        var query = new Query()
-            .From(nameof(AccountCalendar))
-            .Where(nameof(AccountCalendar.Id), calendarId)
-            .AsUpdate(new { SynchronizationDeltaToken = deltaToken });
-
-        return Connection.ExecuteAsync(query.GetRawQuery());
+        return Connection.ExecuteAsync(
+            "UPDATE AccountCalendar SET SynchronizationDeltaToken = ? WHERE Id = ?",
+            deltaToken, calendarId);
     }
 
     public Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId)
@@ -228,15 +211,12 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         await Connection.RunInTransactionAsync((connection) =>
         {
             // Clear all attendees.
-            var query = new Query()
-                .From(nameof(CalendarEventAttendee))
-                .Where(nameof(CalendarEventAttendee.CalendarItemId), calendarItemId)
-                .AsDelete();
-
-            connection.Execute(query.GetRawQuery());
+            connection.Execute(
+                "DELETE FROM CalendarEventAttendee WHERE CalendarItemId = ?",
+                calendarItemId);
 
             // Insert new attendees.
-            connection.InsertAll(allAttendees);
+            connection.InsertAll(allAttendees, typeof(CalendarEventAttendee));
         });
 
         return await Connection.Table<CalendarEventAttendee>().Where(a => a.CalendarItemId == calendarItemId).ToListAsync();

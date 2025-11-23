@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 		<Platforms>x86;x64;arm64</Platforms>
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
-		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Remove="Models\Communication\**" />
@@ -57,7 +59,6 @@
 		<PackageReference Include="MimeKit" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="sqlite-net-pcl" />
-		<PackageReference Include="System.Text.Json" />
 		<PackageReference Include="TimePeriodLibrary.NET" />
 	</ItemGroup>
 	<ItemGroup>

@@ -1,0 +1,72 @@
+<Page
+    x:Class="Wino.Views.ImapSetup.ImapConnectionFailedPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:local="using:Wino.Views.ImapSetup"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="24" RowSpacing="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.IMAPSetupDialog_ConnectionFailedTitle}" />
+
+        <TextBlock
+            x:Name="ConnectionFailedMessage"
+            Grid.Row="1"
+            Style="{StaticResource BodyTextBlockStyle}" />
+
+        <!--  Protocol Log Area  -->
+        <Grid
+            x:Name="ProtocolLogGrid"
+            Grid.Row="2"
+            ColumnSpacing="12"
+            Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock
+                x:Name="ProtocolLogHeader"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                Text="{x:Bind domain:Translator.ProtocolLogAvailable_Message}" />
+
+            <Button
+                Grid.Column="1"
+                Click="CopyProtocolLogButtonClicked"
+                Content="{x:Bind domain:Translator.Buttons_Copy}" />
+        </Grid>
+
+        <!--  Dismis / GoBack  -->
+        <Grid
+            Grid.Row="3"
+            VerticalAlignment="Bottom"
+            ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                HorizontalAlignment="Stretch"
+                Click="CloseClicked"
+                Content="{x:Bind domain:Translator.Buttons_Close}" />
+
+            <Button
+                Grid.Column="1"
+                HorizontalAlignment="Stretch"
+                Click="TryAgainClicked"
+                Content="{x:Bind domain:Translator.Buttons_TryAgain}"
+                Style="{ThemeResource AccentButtonStyle}" />
+        </Grid>
+    </Grid>
+</Page>

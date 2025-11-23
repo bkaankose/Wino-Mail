@@ -50,4 +50,18 @@ public sealed partial class AppShell : AppShellAbstract,
 
     private void AppBarBackButtonClicked(Core.UWP.Controls.WinoAppTitleBar sender, RoutedEventArgs args)
         => ViewModel.NavigationService.GoBack();
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        WeakReferenceMessenger.Default.Register<CalendarDisplayTypeChangedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        WeakReferenceMessenger.Default.Unregister<CalendarDisplayTypeChangedMessage>(this);
+    }
 }

@@ -1,0 +1,21 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:xaml="using:Microsoft.UI.Xaml">
+
+    <x:String x:Key="ThemeName">Default</x:String>
+
+    <SolidColorBrush x:Key="WinoApplicationBackgroundColor">Transparent</SolidColorBrush>
+    <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
+
+    <!--  Mica Template  -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Name="Light">
+            <!--  Reading Page Date/Name Group Header Background  -->
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

@@ -10,5 +10,5 @@ public class ApplicationConfiguration : IApplicationConfiguration
     public string PublisherSharedFolderPath { get; set; }
     public string ApplicationTempFolderPath { get; set; }
 
-    public string ApplicationInsightsInstrumentationKey => "a5a07c2f-6e24-4055-bfc9-88e87eef873a";
+    public string SentryDNS => "https://81365d32d74c6f223a0674a2fb7bade5@o4509722249134080.ingest.de.sentry.io/4509722259095632";
 }

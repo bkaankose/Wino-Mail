@@ -6,7 +6,7 @@ using Wino.Core.Domain.Models.Reader;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IPreferencesService: INotifyPropertyChanged
+public interface IPreferencesService : INotifyPropertyChanged
 {
     /// <summary>
     /// When any of the preferences are changed.
@@ -31,11 +31,6 @@ public interface IPreferencesService: INotifyPropertyChanged
     bool IsNavigationPaneOpened { get; set; }
 
     /// <summary>
-    /// Setting: Gets or sets what should happen to server app when the client is terminated.
-    /// </summary>
-    ServerBackgroundMode ServerTerminationBehavior { get; set; }
-
-    /// <summary>
     /// Setting: Preferred time format for mail or calendar header display.
     /// </summary>
     bool Prefer24HourTimeFormat { get; set; }
@@ -51,6 +46,12 @@ public interface IPreferencesService: INotifyPropertyChanged
     /// Local search will still offer online search at the end of local search results.
     /// </summary>
     SearchMode DefaultSearchMode { get; set; }
+
+    /// <summary>
+    /// Setting: Interval in minutes for background email synchronization.
+    /// </summary>
+    int EmailSyncIntervalMinutes { get; set; }
+
     #endregion
 
     #region Mail

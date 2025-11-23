@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Typ účtu",
     "IMAPSetupDialog_ValidationSuccess_Title": "Success",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validation successful",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP Server validation failed.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "This server is requesting a SSL handshake to continue. Please confirm the certificate details below.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Allow the handshake to continue setting up your account.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Vlastní motiv",
     "SettingsDeleteAccount_Description": "Odstranit všechny e-maily a přihlašovací údaje spojené s tímto účtem.",
     "SettingsDeleteAccount_Title": "Smazat tento účet",
-    "SettingsDeleteProtection_Description": "Měl by vás Wino požádat o potvrzení pokaždé, když se pokoušíte trvale smazat e-mail pomocí kláves Shift + Del?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Ochrana proti trvalému smazání",
     "SettingsDiagnostics_Description": "Pro vývojáře",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Zobrazit náhled textu",
     "SettingsShowSenderPictures_Description": "Skrýt/zobrazit náhled obrázku odesílatele.",
     "SettingsShowSenderPictures_Title": "Zobrazit avatary odesílatele",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Add signature",
     "SettingsSignature_AddCustomSignature_Title": "Add custom signature",
     "SettingsSignature_DeleteSignature_Title": "Delete signature",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Vlákna konverzací",
     "SettingsUnlinkAccounts_Description": "Remove the link between accounts. his will not delete your accounts.",
     "SettingsUnlinkAccounts_Title": "Rozpojit účty",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Are you sure you want to delete \"{0}\" signature?",
     "SignatureDeleteDialog_Title": "Delete signature",
     "SignatureEditorDialog_SignatureName_Placeholder": "Name your signature",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino nabízí 3 účty zdarma. Pokud potřebujete více než 3 účty, upgradujte prosím.",
     "WinoUpgradeMessage": "Přejít na neomezený počet účtů",
     "WinoUpgradeRemainingAccountsMessage": "{0} z {1} použitých bezplatných účtů.",
-    "Yesterday": "Včera"
+    "Yesterday": "Včera",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

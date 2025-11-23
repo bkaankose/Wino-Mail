@@ -18,7 +18,7 @@ namespace Wino.Mail.ViewModels;
 public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
-    private readonly IThemeService _themeService;
+    private readonly INewThemeService _themeService;
     private readonly IImapTestService _imapTestService;
     private readonly IMailDialogService _mailDialogService;
 
@@ -76,7 +76,7 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
     public bool IsImapServer => ServerInformation != null;
 
     public EditAccountDetailsPageViewModel(IAccountService accountService,
-                                           IThemeService themeService,
+                                           INewThemeService themeService,
                                            IImapTestService imapTestService,
                                            IMailDialogService mailDialogService)
     {
@@ -99,18 +99,12 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private Task SaveWithoutGoBackAsync()
-    {
-        return UpdateAccountAsync();
-    }
-
-    [RelayCommand]
     private async Task ValidateImapSettingsAsync()
     {
         try
         {
             await _imapTestService.TestImapConnectionAsync(ServerInformation, true);
-            _mailDialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, Core.Domain.Enums.InfoBarMessageType.Success); ;
+            _mailDialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationSuccess_Title, Translator.IMAPSetupDialog_ValidationSuccess_Message, Core.Domain.Enums.InfoBarMessageType.Success);
         }
         catch (Exception ex)
         {
@@ -118,12 +112,9 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
         }
     }
 
-    private Task UpdateAccountAsync()
+    [RelayCommand]
+    private async Task UpdateCustomServerInformationAsync()
     {
-        Account.Name = AccountName;
-        Account.SenderName = SenderName;
-        Account.AccountColorHex = SelectedColor == null ? string.Empty : SelectedColor.Hex;
-
         if (ServerInformation != null)
         {
             ServerInformation.IncomingAuthenticationMethod = AvailableAuthenticationMethods[SelectedIncomingServerAuthenticationMethodIndex].ImapAuthenticationMethod;
@@ -134,6 +125,17 @@ public partial class EditAccountDetailsPageViewModel : MailBaseViewModel
 
             Account.ServerInformation = ServerInformation;
         }
+
+        await _accountService.UpdateAccountCustomServerInformationAsync(Account.ServerInformation);
+
+        _mailDialogService.InfoBarMessage(Translator.IMAPSetupDialog_SaveImapSuccess_Title, Translator.IMAPSetupDialog_SaveImapSuccess_Message, Core.Domain.Enums.InfoBarMessageType.Success);
+    }
+
+    private Task UpdateAccountAsync()
+    {
+        Account.Name = AccountName;
+        Account.SenderName = SenderName;
+        Account.AccountColorHex = SelectedColor == null ? string.Empty : SelectedColor.Hex;
 
         return _accountService.UpdateAccountAsync(Account);
     }

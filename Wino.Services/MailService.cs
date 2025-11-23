@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using MimeKit;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -13,7 +15,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Comparers;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -28,7 +29,6 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
     private readonly ISignatureService _signatureService;
-    private readonly IThreadingStrategyProvider _threadingStrategyProvider;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
 
@@ -39,7 +39,6 @@ public class MailService : BaseDatabaseService, IMailService
                        IContactService contactService,
                        IAccountService accountService,
                        ISignatureService signatureService,
-                       IThreadingStrategyProvider threadingStrategyProvider,
                        IMimeFileService mimeFileService,
                        IPreferencesService preferencesService) : base(databaseService)
     {
@@ -47,7 +46,6 @@ public class MailService : BaseDatabaseService, IMailService
         _contactService = contactService;
         _accountService = accountService;
         _signatureService = signatureService;
-        _threadingStrategyProvider = threadingStrategyProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
     }
@@ -101,7 +99,7 @@ public class MailService : BaseDatabaseService, IMailService
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
         }
 
-        await Connection.InsertAsync(copy);
+        await Connection.InsertAsync(copy, typeof(MailCopy));
 
         await _mimeFileService.SaveMimeMessageAsync(copy.FileId, createdDraftMimeMessage, composerAccount.Id);
 
@@ -146,69 +144,83 @@ public class MailService : BaseDatabaseService, IMailService
         return unreadMails;
     }
 
-    private static string BuildMailFetchQuery(MailListInitializationOptions options)
+    private static (string Query, object[] Parameters) BuildMailFetchQuery(MailListInitializationOptions options)
     {
-        // If the search query is there, we should ignore some properties and trim it.
-        //if (!string.IsNullOrEmpty(options.SearchQuery))
-        //{
-        //    options.IsFocusedOnly = null;
-        //    filterType = FilterOptionType.All;
-
-        //    searchQuery = searchQuery.Trim();
-        //}
-
-        // SQLite PCL doesn't support joins.
-        // We make the query using SqlKata and execute it directly on SQLite-PCL.
-
-        var query = new Query("MailCopy")
-                    .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                    .WhereIn("MailCopy.FolderId", options.Folders.Select(a => a.Id))
-                    .Take(ItemLoadCount)
-                    .SelectRaw("MailCopy.*");
-
-        if (options.SortingOptionType == SortingOptionType.ReceiveDate)
-            query.OrderByDesc("CreationDate");
-        else if (options.SortingOptionType == SortingOptionType.Sender)
-            query.OrderBy("FromName");
-
-        // Conditional where.
+        var sql = new StringBuilder();
+        sql.Append("SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
+        
+        var whereClauses = new List<string>();
+        var parameters = new List<object>();
+        
+        // Folder filter
+        var folderPlaceholders = string.Join(",", options.Folders.Select(_ => "?"));
+        whereClauses.Add($"MailCopy.FolderId IN ({folderPlaceholders})");
+        parameters.AddRange(options.Folders.Select(f => (object)f.Id));
+        
+        // Filter type
         switch (options.FilterType)
         {
             case FilterOptionType.Unread:
-                query.Where("MailCopy.IsRead", false);
+                whereClauses.Add("MailCopy.IsRead = 0");
                 break;
             case FilterOptionType.Flagged:
-                query.Where("MailCopy.IsFlagged", true);
+                whereClauses.Add("MailCopy.IsFlagged = 1");
                 break;
             case FilterOptionType.Files:
-                query.Where("MailCopy.HasAttachments", true);
+                whereClauses.Add("MailCopy.HasAttachments = 1");
                 break;
         }
-
+        
+        // Focused filter
         if (options.IsFocusedOnly != null)
-            query.Where("MailCopy.IsFocused", options.IsFocusedOnly.Value);
-
+        {
+            whereClauses.Add($"MailCopy.IsFocused = {(options.IsFocusedOnly.Value ? "1" : "0")}");
+        }
+        
+        // Search query
         if (!string.IsNullOrEmpty(options.SearchQuery))
-            query.Where(a =>
-                        a.OrWhereContains("MailCopy.PreviewText", options.SearchQuery)
-                        .OrWhereContains("MailCopy.Subject", options.SearchQuery)
-                        .OrWhereContains("MailCopy.FromName", options.SearchQuery)
-                        .OrWhereContains("MailCopy.FromAddress", options.SearchQuery));
-
+        {
+            whereClauses.Add("(MailCopy.PreviewText LIKE ? OR MailCopy.Subject LIKE ? OR MailCopy.FromName LIKE ? OR MailCopy.FromAddress LIKE ?)");
+            var searchPattern = $"%{options.SearchQuery}%";
+            parameters.Add(searchPattern);
+            parameters.Add(searchPattern);
+            parameters.Add(searchPattern);
+            parameters.Add(searchPattern);
+        }
+        
+        // Exclude existing items
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
-            query.WhereNotIn("MailCopy.UniqueId", options.ExistingUniqueIds);
+            var excludePlaceholders = string.Join(",", options.ExistingUniqueIds.Select(_ => "?"));
+            whereClauses.Add($"MailCopy.UniqueId NOT IN ({excludePlaceholders})");
+            parameters.AddRange(options.ExistingUniqueIds.Select(id => (object)id));
         }
-
-        //if (options.Skip > 0)
-        //{
-        //    query.Skip(options.Skip);
-        //}
-
-        return query.GetRawQuery();
+        
+        if (whereClauses.Any())
+        {
+            sql.Append(" WHERE ");
+            sql.Append(string.Join(" AND ", whereClauses));
+        }
+        
+        // Sorting
+        if (options.SortingOptionType == SortingOptionType.ReceiveDate)
+            sql.Append(" ORDER BY CreationDate DESC");
+        else if (options.SortingOptionType == SortingOptionType.Sender)
+            sql.Append(" ORDER BY FromName ASC");
+        
+        // Pagination
+        var limit = options.Take > 0 ? options.Take : ItemLoadCount;
+        sql.Append($" LIMIT {limit}");
+        
+        if (options.Skip > 0)
+        {
+            sql.Append($" OFFSET {options.Skip}");
+        }
+        
+        return (sql.ToString(), parameters.ToArray());
     }
 
-    public async Task<List<IMailItem>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
+    public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
         List<MailCopy> mails = null;
 
@@ -220,14 +232,13 @@ public class MailService : BaseDatabaseService, IMailService
         else
         {
             // If not just do the query.
-            var query = BuildMailFetchQuery(options);
-
-            mails = await Connection.QueryAsync<MailCopy>(query);
+            var (query, parameters) = BuildMailFetchQuery(options);
+            mails = await Connection.QueryAsync<MailCopy>(query, parameters);
         }
 
-        Dictionary<Guid, MailItemFolder> folderCache = [];
-        Dictionary<Guid, MailAccount> accountCache = [];
-        Dictionary<string, AccountContact> contactCache = [];
+        ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
+        ConcurrentDictionary<Guid, MailAccount> accountCache = new();
+        ConcurrentDictionary<string, AccountContact> contactCache = new();
 
         // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
         // This is needed to execute threading strategy by account type.
@@ -240,68 +251,85 @@ public class MailService : BaseDatabaseService, IMailService
         // Remove items that has no assigned account or folder.
         mails.RemoveAll(a => a.AssignedAccount == null || a.AssignedFolder == null);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // If CreateThreads is false, just return the mails as-is
         if (!options.CreateThreads)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // Threading is disabled. Just return everything as it is.
-            mails.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
-
             return [.. mails];
         }
 
-        // Populate threaded items.
+        // Include other mails in the same threads - batch process to reduce DB calls
+        var expandedMails = new List<MailCopy>(mails);
+        var uniqueThreadIds = mails
+            .Where(m => !string.IsNullOrEmpty(m.ThreadId))
+            .Select(m => m.ThreadId)
+            .Distinct()
+            .ToList();
 
-        List<IMailItem> threadedItems = [];
-
-        // Each account items must be threaded separately.
-        foreach (var group in mails.GroupBy(a => a.AssignedAccount.Id))
+        if (uniqueThreadIds.Count > 0)
         {
+            // Get all thread mails in a single DB call
+            var existingMailIds = expandedMails.Select(m => m.Id).ToHashSet();
+            var allThreadMails = await GetMailsByThreadIdsAsync(uniqueThreadIds, existingMailIds).ConfigureAwait(false);
+
+            if (allThreadMails?.Count > 0)
+            {
+                // Process thread mails in parallel to improve performance
+                var tasks = allThreadMails.Select(async threadMail =>
+                {
+                    await LoadAssignedPropertiesWithCacheAsync(threadMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
+                    return threadMail;
+                });
+
+                var processedThreadMails = await Task.WhenAll(tasks).ConfigureAwait(false);
+                
+                // Filter out items with no assigned account or folder
+                var validThreadMails = processedThreadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null);
+                
+                expandedMails.AddRange(validThreadMails);
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
-
-            var accountId = group.Key;
-            var groupAccount = mails.First(a => a.AssignedAccount.Id == accountId).AssignedAccount;
-
-            var threadingStrategy = _threadingStrategyProvider.GetStrategy(groupAccount.ProviderType);
-
-            // Only thread items from Draft and Sent folders must present here.
-            // Otherwise this strategy will fetch the items that are in Deleted folder as well.
-            var accountThreadedItems = await threadingStrategy.ThreadItemsAsync([.. group], options.Folders.First());
-
-            // Populate threaded items with folder and account assignments.
-            // Almost everything already should be in cache from initial population.
-            foreach (var mail in accountThreadedItems)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await LoadAssignedPropertiesWithCacheAsync(mail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-            }
-
-            if (accountThreadedItems != null)
-            {
-                threadedItems.AddRange(accountThreadedItems);
-            }
         }
 
-        threadedItems.Sort(options.SortingOptionType == SortingOptionType.ReceiveDate ? new DateComparer() : new NameComparer());
-        cancellationToken.ThrowIfCancellationRequested();
+        return [.. expandedMails];
+    }
 
-        return threadedItems;
+    private async Task<List<MailCopy>> GetMailsByThreadIdAsync(string threadId, HashSet<string> excludeMailIds)
+    {
+        if (string.IsNullOrEmpty(threadId))
+            return [];
+
+        var placeholders = string.Join(",", excludeMailIds.Select(_ => "?"));
+        var sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId = ? AND Id NOT IN ({placeholders})";
+        var parameters = new List<object> { threadId };
+        parameters.AddRange(excludeMailIds.Cast<object>());
+
+        return await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray());
+    }
+
+    private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(List<string> threadIds, HashSet<string> excludeMailIds)
+    {
+        if (threadIds?.Count == 0)
+            return [];
+
+        var threadPlaceholders = string.Join(",", threadIds.Select(_ => "?"));
+        var excludePlaceholders = string.Join(",", excludeMailIds.Select(_ => "?"));
+        var sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders}) AND Id NOT IN ({excludePlaceholders})";
+        var parameters = new List<object>();
+        parameters.AddRange(threadIds.Cast<object>());
+        parameters.AddRange(excludeMailIds.Cast<object>());
+
+        return await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false);
     }
 
     /// <summary>
     /// This method should used for operations with multiple mailItems. Don't use this for single mail items.
     /// Called method should provide own instances for caches.
     /// </summary>
-    private async Task LoadAssignedPropertiesWithCacheAsync(IMailItem mail, Dictionary<Guid, MailItemFolder> folderCache, Dictionary<Guid, MailAccount> accountCache, Dictionary<string, AccountContact> contactCache)
+    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, ConcurrentDictionary<Guid, MailItemFolder> folderCache, ConcurrentDictionary<Guid, MailAccount> accountCache, ConcurrentDictionary<string, AccountContact> contactCache)
     {
-        if (mail is ThreadMailItem threadMailItem)
-        {
-            foreach (var childMail in threadMailItem.ThreadItems)
-            {
-                await LoadAssignedPropertiesWithCacheAsync(childMail, folderCache, accountCache, contactCache).ConfigureAwait(false);
-            }
-        }
-
         if (mail is MailCopy mailCopy)
         {
             var isFolderCached = folderCache.TryGetValue(mailCopy.FolderId, out MailItemFolder folderAssignment);
@@ -429,12 +457,9 @@ public class MailService : BaseDatabaseService, IMailService
     /// <param name="mailCopyId">Mail copy id.</param>
     public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId)
     {
-        var query = new Query("MailCopy")
-                       .Where("MailCopy.Id", mailCopyId)
-                       .SelectRaw("MailCopy.*")
-                       .GetRawQuery();
-
-        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(query);
+        var mailCopy = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy WHERE MailCopy.Id = ?",
+            mailCopyId);
         if (mailCopy == null) return null;
 
         await LoadAssignedPropertiesAsync(mailCopy).ConfigureAwait(false);
@@ -444,14 +469,9 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<MailCopy> GetSingleMailItemAsync(string mailCopyId, string remoteFolderId)
     {
-        var query = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .Where("MailCopy.Id", mailCopyId)
-                        .Where("MailItemFolder.RemoteFolderId", remoteFolderId)
-                        .SelectRaw("MailCopy.*")
-                        .GetRawQuery();
-
-        var mailItem = await Connection.FindWithQueryAsync<MailCopy>(query);
+        var mailItem = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id = ? AND MailItemFolder.RemoteFolderId = ?",
+            mailCopyId, remoteFolderId);
 
         if (mailItem == null) return null;
 
@@ -505,7 +525,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.InsertAsync(mailCopy).ConfigureAwait(false);
+        await Connection.InsertAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
         ReportUIChange(new MailAddedMessage(mailCopy));
     }
@@ -521,7 +541,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
 
-        await Connection.UpdateAsync(mailCopy).ConfigureAwait(false);
+        await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
         ReportUIChange(new MailUpdatedMessage(mailCopy));
     }
@@ -537,7 +557,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.DeleteAsync(mailCopy).ConfigureAwait(false);
+        await Connection.DeleteAsync<MailCopy>(mailCopy).ConfigureAwait(false);
 
         // If there are no more copies exists of the same mail, delete the MIME file as well.
         var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
@@ -584,6 +604,10 @@ public class MailService : BaseDatabaseService, IMailService
             if (item.IsRead == isRead) return false;
 
             item.IsRead = isRead;
+            if (isRead && item.UniqueId != Guid.Empty)
+            {
+                WeakReferenceMessenger.Default.Send(new MailReadStatusChanged(item.UniqueId));
+            }
 
             return true;
         });
@@ -688,6 +712,11 @@ public class MailService : BaseDatabaseService, IMailService
         await Task.WhenAll(mimeSaveTask, contactSaveTask, insertMailTask).ConfigureAwait(false);
     }
 
+    public async Task CreateMailAsyncEx(Guid accountId, NewMailItemPackage package)
+    {
+
+    }
+
     public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
     {
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
@@ -725,21 +754,25 @@ public class MailService : BaseDatabaseService, IMailService
         // This is because 1 mail may have multiple copies in different folders.
         // but only single MIME to represent all.
 
-        // Save mime file to disk.
-        var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
+        // Save mime file to disk if provided.
 
-        if (!isMimeExists)
+        if (mimeMessage != null)
         {
-            bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
+            var isMimeExists = await _mimeFileService.IsMimeExistAsync(accountId, mailCopy.FileId).ConfigureAwait(false);
 
-            if (!isMimeSaved)
+            if (!isMimeExists)
             {
-                _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
-            }
-        }
+                bool isMimeSaved = await _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, accountId).ConfigureAwait(false);
 
-        // Save contact information.
-        await _contactService.SaveAddressInformationAsync(mimeMessage).ConfigureAwait(false);
+                if (!isMimeSaved)
+                {
+                    _logger.Warning("Failed to save mime file for {MailCopyId}.", mailCopy.Id);
+                }
+            }
+
+            // Save contact information.
+            await _contactService.SaveAddressInformationAsync(mimeMessage).ConfigureAwait(false);
+        }
 
         // Create mail copy in the database.
         // Update if exists.
@@ -901,11 +934,42 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
             // Manage "ThreadId-ConversationId"
+            // CRITICAL: In-Reply-To and References headers are essential for threading
+            // They must reference the original message's Message-ID from the MIME headers
             if (!string.IsNullOrEmpty(referenceMessage.MessageId))
             {
                 message.InReplyTo = referenceMessage.MessageId;
-                message.References.AddRange(referenceMessage.References);
+                
+                // Add all previous References first
+                if (referenceMessage.References != null && referenceMessage.References.Count > 0)
+                {
+                    message.References.AddRange(referenceMessage.References);
+                }
+                
+                // Then add the message we're replying to
                 message.References.Add(referenceMessage.MessageId);
+            }
+            else
+            {
+                // WARNING: Reference message has no Message-ID!
+                // This will break threading. Try to use the MessageId from MailCopy if available.
+                var referenceMailCopy = draftCreationOptions.ReferencedMessage.MailCopy;
+                if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
+                {
+                    message.InReplyTo = referenceMailCopy.MessageId;
+                    
+                    if (!string.IsNullOrEmpty(referenceMailCopy.References))
+                    {
+                        // Parse the References string and add them
+                        var references = referenceMailCopy.References.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var reference in references)
+                        {
+                            message.References.Add(reference.Trim());
+                        }
+                    }
+                    
+                    message.References.Add(referenceMailCopy.MessageId);
+                }
             }
 
             message.Headers.Add("Thread-Topic", referenceMessage.Subject);
@@ -964,14 +1028,9 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
     {
-        var query = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .Where("MailCopy.UniqueId", localDraftCopyUniqueId)
-                        .Where("MailItemFolder.MailAccountId", accountId)
-                        .SelectRaw("MailCopy.*")
-                        .GetRawQuery();
-
-        var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(query);
+        var localDraftCopy = await Connection.FindWithQueryAsync<MailCopy>(
+            "SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.UniqueId = ? AND MailItemFolder.MailAccountId = ?",
+            localDraftCopyUniqueId, accountId);
 
         if (localDraftCopy == null)
         {
@@ -1019,28 +1078,22 @@ public class MailService : BaseDatabaseService, IMailService
 
     public Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
     {
-        var rawQuery = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .WhereIn("MailCopy.Id", downloadedMailCopyIds)
-                        .Where("MailCopy.IsRead", false)
-                        .Where("MailItemFolder.MailAccountId", accountId)
-                        .Where("MailItemFolder.SpecialFolderType", SpecialFolderType.Inbox)
-                        .SelectRaw("MailCopy.*")
-                        .GetRawQuery();
+        var placeholders = string.Join(",", downloadedMailCopyIds.Select(_ => "?"));
+        var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ? AND MailItemFolder.SpecialFolderType = ?";
+        var parameters = new List<object>();
+        parameters.AddRange(downloadedMailCopyIds.Cast<object>());
+        parameters.Add(false);
+        parameters.Add(accountId);
+        parameters.Add((int)SpecialFolderType.Inbox);
 
-        return Connection.QueryAsync<MailCopy>(rawQuery);
+        return Connection.QueryAsync<MailCopy>(sql, parameters.ToArray());
     }
 
     public Task<MailAccount> GetMailAccountByUniqueIdAsync(Guid uniqueMailId)
     {
-        var query = new Query("MailCopy")
-                        .Join("MailItemFolder", "MailCopy.FolderId", "MailItemFolder.Id")
-                        .Join("MailAccount", "MailItemFolder.MailAccountId", "MailAccount.Id")
-                        .Where("MailCopy.UniqueId", uniqueMailId)
-                        .SelectRaw("MailAccount.*")
-                        .GetRawQuery();
-
-        return Connection.FindWithQueryAsync<MailAccount>(query);
+        return Connection.FindWithQueryAsync<MailAccount>(
+            "SELECT MailAccount.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailAccount ON MailItemFolder.MailAccountId = MailAccount.Id WHERE MailCopy.UniqueId = ?",
+            uniqueMailId);
     }
 
     public Task<bool> IsMailExistsAsync(string mailCopyId)
@@ -1048,13 +1101,12 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<MailCopy>> GetExistingMailsAsync(Guid folderId, IEnumerable<MailKit.UniqueId> uniqueIds)
     {
-        var localMailIds = uniqueIds.Where(a => a != null).Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
+        var localMailIds = uniqueIds.Select(a => MailkitClientExtensions.CreateUid(folderId, a.Id)).ToArray();
 
-        var query = new Query(nameof(MailCopy))
-                        .WhereIn("Id", localMailIds)
-                        .GetRawQuery();
+        var placeholders = string.Join(",", localMailIds.Select(_ => "?"));
+        var sql = $"SELECT * FROM MailCopy WHERE Id IN ({placeholders})";
 
-        return await Connection.QueryAsync<MailCopy>(query);
+        return await Connection.QueryAsync<MailCopy>(sql, localMailIds.Cast<object>().ToArray());
     }
 
     public Task<bool> IsMailExistsAsync(string mailCopyId, Guid folderId)
@@ -1076,17 +1128,15 @@ public class MailService : BaseDatabaseService, IMailService
     {
         if (!mailCopyIds.Any()) return [];
 
-        var query = new Query("MailCopy")
-                       .WhereIn("MailCopy.Id", mailCopyIds)
-                       .SelectRaw("MailCopy.*")
-                       .GetRawQuery();
+        var placeholders = string.Join(",", mailCopyIds.Select(_ => "?"));
+        var sql = $"SELECT MailCopy.* FROM MailCopy WHERE MailCopy.Id IN ({placeholders})";
 
-        var mailCopies = await Connection.QueryAsync<MailCopy>(query);
+        var mailCopies = await Connection.QueryAsync<MailCopy>(sql, mailCopyIds.Cast<object>().ToArray());
         if (mailCopies?.Count == 0) return [];
 
-        Dictionary<Guid, MailItemFolder> folderCache = [];
-        Dictionary<Guid, MailAccount> accountCache = [];
-        Dictionary<string, AccountContact> contactCache = [];
+        ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
+        ConcurrentDictionary<Guid, MailAccount> accountCache = new();
+        ConcurrentDictionary<string, AccountContact> contactCache = new();
 
         foreach (var mail in mailCopies)
         {
@@ -1098,11 +1148,9 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
     {
-        var query = new Query(nameof(MailCopy))
-                        .WhereIn("Id", mailCopyIds)
-                        .Select("Id")
-                        .GetRawQuery();
+        var placeholders = string.Join(",", mailCopyIds.Select(_ => "?"));
+        var sql = $"SELECT Id FROM MailCopy WHERE Id IN ({placeholders})";
 
-        return await Connection.QueryScalarsAsync<string>(query);
+        return await Connection.QueryScalarsAsync<string>(sql, mailCopyIds.Cast<object>().ToArray());
     }
 }

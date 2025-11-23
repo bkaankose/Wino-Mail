@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1.Data;
-using MimeKit;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Misc;
 using Wino.Services;
-using Wino.Services.Extensions;
 
 namespace Wino.Core.Extensions;
 
@@ -119,41 +116,6 @@ public static class GoogleIntegratorExtensions
         var lastPart = parts[parts.Length - 1];
 
         return GetNormalizedLabelName(lastPart);
-    }
-
-    /// <summary>
-    /// Returns MailCopy out of native Gmail message and converted MimeMessage of that native messaage.
-    /// </summary>
-    /// <param name="gmailMessage">Gmail Message</param>
-    /// <param name="mimeMessage">MimeMessage representation of that native message.</param>
-    /// <returns>MailCopy object that is ready to be inserted to database.</returns>
-    public static MailCopy AsMailCopy(this Message gmailMessage, MimeMessage mimeMessage)
-    {
-        bool isUnread = gmailMessage.GetIsUnread();
-        bool isFocused = gmailMessage.GetIsFocused();
-        bool isFlagged = gmailMessage.GetIsFlagged();
-        bool isDraft = gmailMessage.GetIsDraft();
-
-        return new MailCopy()
-        {
-            CreationDate = mimeMessage.Date.UtcDateTime,
-            Subject = HttpUtility.HtmlDecode(mimeMessage.Subject),
-            FromName = MailkitClientExtensions.GetActualSenderName(mimeMessage),
-            FromAddress = MailkitClientExtensions.GetActualSenderAddress(mimeMessage),
-            PreviewText = HttpUtility.HtmlDecode(gmailMessage.Snippet),
-            ThreadId = gmailMessage.ThreadId,
-            Importance = (MailImportance)mimeMessage.Importance,
-            Id = gmailMessage.Id,
-            IsDraft = isDraft,
-            HasAttachments = mimeMessage.Attachments.Any(),
-            IsRead = !isUnread,
-            IsFlagged = isFlagged,
-            IsFocused = isFocused,
-            InReplyTo = mimeMessage.InReplyTo,
-            MessageId = mimeMessage.MessageId,
-            References = mimeMessage.References.GetReferences(),
-            FileId = Guid.NewGuid()
-        };
     }
 
     public static List<RemoteAccountAlias> GetRemoteAliases(this ListSendAsResponse response)

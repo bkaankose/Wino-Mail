@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Тип учетной записи",
     "IMAPSetupDialog_ValidationSuccess_Title": "Success",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validation successful",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP Server validation failed.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "This server is requesting a SSL handshake to continue. Please confirm the certificate details below.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Allow the handshake to continue setting up your account.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Пользовательская тема",
     "SettingsDeleteAccount_Description": "Удалите все письма и учетные данные, связанные с этой учетной записью.",
     "SettingsDeleteAccount_Title": "Удалить эту учетную запись",
-    "SettingsDeleteProtection_Description": "Должен ли Wino запрашивать у вас подтверждение каждый раз, когда вы пытаетесь окончательно удалить письмо с помощью клавиш Shift + Del?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Защита от окончательного удаления",
     "SettingsDiagnostics_Description": "Для разработчиков",
     "SettingsDiagnostics_DiagnosticId_Description": "Share this ID with the developers when asked to get help for the issues you experience in Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Показать текст предпросмотра",
     "SettingsShowSenderPictures_Description": "Скрыть/показать миниатюру изображения отправителя.",
     "SettingsShowSenderPictures_Title": "Показывать аватары отправителя",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Добавить подпись",
     "SettingsSignature_AddCustomSignature_Title": "Добавить свою подпись",
     "SettingsSignature_DeleteSignature_Title": "Удалить подпись",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Беседы",
     "SettingsUnlinkAccounts_Description": "Remove the link between accounts. his will not delete your accounts.",
     "SettingsUnlinkAccounts_Title": "Отвязать учетные записи",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Вы уверены, что хотите удалить подпись \"{0}\"?",
     "SignatureDeleteDialog_Title": "Удалить подпись",
     "SignatureEditorDialog_SignatureName_Placeholder": "Имя вашей подписи",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino предлагает 3 аккаунта для начала бесплатно. Если вам нужно больше 3 аккаунтов, пожалуйста, обновитесь",
     "WinoUpgradeMessage": "Улучшить до неограниченного количества учетных записей",
     "WinoUpgradeRemainingAccountsMessage": "Использовано {0} из {1} бесплатных учетных записей.",
-    "Yesterday": "Вчера"
+    "Yesterday": "Вчера",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

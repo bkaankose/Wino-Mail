@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Tip cont",
     "IMAPSetupDialog_ValidationSuccess_Title": "Succes",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validare reușită",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
     "IMAPSetupDialog_ValidationFailed_Title": "Validarea serverului IMAP a eșuat.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Acest server solicită un SSL handshake pentru a continua. Vă rugăm să confirmați detaliile certificatului de mai jos.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Permiteți handshake-ului să continue configurarea contului.",
@@ -519,7 +521,7 @@
     "SettingsCustomTheme_Title": "Temă Personalizată",
     "SettingsDeleteAccount_Description": "Ștergeți toate e-mail-urile și acreditările asociate cu acest cont.",
     "SettingsDeleteAccount_Title": "Ștergeți acest cont",
-    "SettingsDeleteProtection_Description": "Ar trebui ca Wino să vă ceară o confirmare de fiecare dată când încercați să ștergeți definitiv un e-mail folosind tastele Shift + Del?",
+    "SettingsDeleteProtection_Description": "Should Wino ask you for confirmation every time you try to permanently delete a mail using Shift + Del keys?",
     "SettingsDeleteProtection_Title": "Protecție Ștergere Permanentă",
     "SettingsDiagnostics_Description": "Pentru dezvoltatori",
     "SettingsDiagnostics_DiagnosticId_Description": "Partajați acest ID cu dezvoltatorii atunci când le cereți ajutor pentru problemele pe care le întâmpinați în Wino Mail.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Afișează textul de previzualizare",
     "SettingsShowSenderPictures_Description": "Ascundeți/afișați miniaturi imagini expeditor.",
     "SettingsShowSenderPictures_Title": "Afișați avatarele expeditorului",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Use gravatar (if available) as sender picture",
+    "SettingsEnableFavicons_Title": "Domain icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Use domain favicons (if available) as sender picture",
+    "SettingsMailList_ClearAvatarsCache_Button": "Clear cached avatars",
     "SettingsSignature_AddCustomSignature_Button": "Adăugare semnătură",
     "SettingsSignature_AddCustomSignature_Title": "Adăugare semnătură personalizată",
     "SettingsSignature_DeleteSignature_Title": "Ștergere semnătură",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Aranjare mesaje în conversație",
     "SettingsUnlinkAccounts_Description": "Eliminați legătura dintre conturi. Acest lucru nu va șterge conturile dvs.",
     "SettingsUnlinkAccounts_Title": "Deasociere Conturi",
+    "SettingsMailRendering_ActionLabels_Title": "Action labels",
+    "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SignatureDeleteDialog_Message": "Sigur doriți să ștergeți semnătura „{0}”?",
     "SignatureDeleteDialog_Title": "Ștergeți semnătura",
     "SignatureEditorDialog_SignatureName_Placeholder": "Numiți-vă semnătura",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino oferă 3 conturi pentru început gratuit. Dacă aveți nevoie de mai mult de 3 conturi, vă rugăm să faceți upgrade",
     "WinoUpgradeMessage": "Upgrade la Conturi Nelimitate",
     "WinoUpgradeRemainingAccountsMessage": "{0} din {1} conturi gratuite folosite.",
-    "Yesterday": "Ieri"
+    "Yesterday": "Ieri",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
 }
 
 

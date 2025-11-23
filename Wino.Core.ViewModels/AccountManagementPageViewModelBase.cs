@@ -40,7 +40,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
 
     public int FREE_ACCOUNT_COUNT { get; } = 3;
     protected IDialogServiceBase DialogService { get; }
-    protected IWinoServerConnectionManager WinoServerConnectionManager { get; }
     protected INavigationService NavigationService { get; }
     protected IAccountService AccountService { get; }
     protected IProviderService ProviderService { get; }
@@ -49,7 +48,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     protected IPreferencesService PreferencesService { get; }
 
     public AccountManagementPageViewModelBase(IDialogServiceBase dialogService,
-                                              IWinoServerConnectionManager winoServerConnectionManager,
                                               INavigationService navigationService,
                                               IAccountService accountService,
                                               IProviderService providerService,
@@ -58,7 +56,6 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                               IPreferencesService preferencesService)
     {
         DialogService = dialogService;
-        WinoServerConnectionManager = winoServerConnectionManager;
         NavigationService = navigationService;
         AccountService = accountService;
         ProviderService = providerService;

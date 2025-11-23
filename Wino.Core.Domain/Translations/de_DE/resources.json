@@ -262,6 +262,8 @@
     "IMAPSetupDialog_AccountType": "Kontotyp",
     "IMAPSetupDialog_ValidationSuccess_Title": "Erfolgreich",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validierung erfolgreich",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Erfolg",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP-Einstellungen erfolgreich gespeichert.",
     "IMAPSetupDialog_ValidationFailed_Title": "IMAP-Server-Validierung fehlgeschlagen.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Dieser Server fordert einen SSL-Handshake an, um fortzufahren. Bitte bestätigen Sie die Details des Zertifikats unten.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Erlaube dem Handshake, die Einrichtung deines Kontos fortzusetzen.",
@@ -623,6 +625,11 @@
     "SettingsShowPreviewText_Title": "Vorschautext anzeigen",
     "SettingsShowSenderPictures_Description": "Absender-Profilbilder ausblenden/anzeigen.",
     "SettingsShowSenderPictures_Title": "Absender-Profilbilder anzeigen",
+    "SettingsEnableGravatarAvatars_Title": "Gravatar",
+    "SettingsEnableGravatarAvatars_Description": "Gravatar (falls verfügbar) als Absenderbild verwenden",
+    "SettingsEnableFavicons_Title": "Domain-Icons (Favicons)",
+    "SettingsEnableFavicons_Description": "Domain-Favicons (falls verfügbar) als Absenderbild verwenden",
+    "SettingsMailList_ClearAvatarsCache_Button": "Lösche Avatare im Cache",
     "SettingsSignature_AddCustomSignature_Button": "Signatur hinzufügen",
     "SettingsSignature_AddCustomSignature_Title": "Eigene Signatur hinzufügen",
     "SettingsSignature_DeleteSignature_Title": "Signatur löschen",
@@ -644,6 +651,8 @@
     "SettingsThreads_Title": "Unterhaltungsthreading",
     "SettingsUnlinkAccounts_Description": "Entfernen Sie den Link zwischen den Konten. Dies wird Ihre Konten nicht löschen.",
     "SettingsUnlinkAccounts_Title": "Konten trennen",
+    "SettingsMailRendering_ActionLabels_Title": "Aktions-Labels",
+    "SettingsMailRendering_ActionLabels_Description": "Zeige Aktions-Labels.",
     "SignatureDeleteDialog_Message": "Wollen Sie Signatur \"{0}\" wirklich löschen?",
     "SignatureDeleteDialog_Title": "Signatur löschen",
     "SignatureEditorDialog_SignatureName_Placeholder": "Fügen Sie Ihre Signatur ein",
@@ -689,7 +698,9 @@
     "WinoUpgradeDescription": "Wino bietet 3 Accounts zum kostenlosen Start an. Wenn Sie mehr als 3 Accounts benötigen, upgraden Sie bitte.",
     "WinoUpgradeMessage": "Auf unbegrenzte Konten upgraden",
     "WinoUpgradeRemainingAccountsMessage": "{0} von {1} kostenlosen Konten verwendet.",
-    "Yesterday": "Gestern"
+    "Yesterday": "Gestern",
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Intervall für E-Mail-Synchronisierung",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Intervall für die automatisches E-Mail-Synchronisierung (Minuten). Diese Einstellung wird erst nach einem Neustart von Wino Mail angewendet."
 }
 
 

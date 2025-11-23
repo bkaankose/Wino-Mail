@@ -1,20 +1,27 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<Platforms>x86;x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
+	<ItemGroup>
+	  <Compile Remove="Misc\**" />
+	  <EmbeddedResource Remove="Misc\**" />
+	  <None Remove="Misc\**" />
+	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="Serilog" />
 		<PackageReference Include="Serilog.Sinks.Debug" />
 		<PackageReference Include="Serilog.Sinks.File" />
 		<PackageReference Include="Serilog.Exceptions" />
-		<PackageReference Include="Serilog.Sinks.ApplicationInsights" />
-		<PackageReference Include="SqlKata" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />

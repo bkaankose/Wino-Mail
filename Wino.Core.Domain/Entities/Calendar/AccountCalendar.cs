@@ -4,6 +4,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Entities.Calendar;
 
+[Preserve]
 public class AccountCalendar : IAccountCalendar
 {
     [PrimaryKey]

@@ -39,4 +39,34 @@ public class MailBaseViewModel : CoreBaseViewModel,
 
     void IRecipient<FolderRenamed>.Receive(FolderRenamed message) => OnFolderRenamed(message.MailItemFolder);
     void IRecipient<FolderSynchronizationEnabled>.Receive(FolderSynchronizationEnabled message) => OnFolderSynchronizationEnabled(message.MailItemFolder);
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        
+        Messenger.Register<MailAddedMessage>(this);
+        Messenger.Register<MailRemovedMessage>(this);
+        Messenger.Register<MailUpdatedMessage>(this);
+        Messenger.Register<MailDownloadedMessage>(this);
+        Messenger.Register<DraftCreated>(this);
+        Messenger.Register<DraftFailed>(this);
+        Messenger.Register<DraftMapped>(this);
+        Messenger.Register<FolderRenamed>(this);
+        Messenger.Register<FolderSynchronizationEnabled>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+        
+        Messenger.Unregister<MailAddedMessage>(this);
+        Messenger.Unregister<MailRemovedMessage>(this);
+        Messenger.Unregister<MailUpdatedMessage>(this);
+        Messenger.Unregister<MailDownloadedMessage>(this);
+        Messenger.Unregister<DraftCreated>(this);
+        Messenger.Unregister<DraftFailed>(this);
+        Messenger.Unregister<DraftMapped>(this);
+        Messenger.Unregister<FolderRenamed>(this);
+        Messenger.Unregister<FolderSynchronizationEnabled>(this);
+    }
 }

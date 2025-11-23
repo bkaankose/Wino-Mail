@@ -11,8 +11,8 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Services;
 using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.Server;
 
 namespace Wino.Mail.ViewModels;
 
@@ -20,7 +20,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
-    private readonly IWinoServerConnectionManager _serverConnectionManager;
     private readonly IFolderService _folderService;
     private bool isLoaded = false;
 
@@ -50,12 +49,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     public AccountDetailsPageViewModel(IMailDialogService dialogService,
         IAccountService accountService,
-        IWinoServerConnectionManager serverConnectionManager,
         IFolderService folderService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
-        _serverConnectionManager = serverConnectionManager;
         _folderService = folderService;
     }
 
@@ -95,19 +92,14 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             return;
 
 
-        var isSynchronizerKilledResponse = await _serverConnectionManager.GetResponseAsync<bool, KillAccountSynchronizerRequested>(new KillAccountSynchronizerRequested(Account.Id));
+        await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
 
-        if (isSynchronizerKilledResponse.IsSuccess)
-        {
-            await _accountService.DeleteAccountAsync(Account);
+        await _accountService.DeleteAccountAsync(Account);
 
-            _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+        _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
 
-            Messenger.Send(new BackBreadcrumNavigationRequested());
-        }
+        Messenger.Send(new BackBreadcrumNavigationRequested());
     }
-
-
 
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using MimeKit;
 using Serilog;
-using SqlKata;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services.Extensions;
@@ -19,7 +18,7 @@ public class ContactService : BaseDatabaseService, IContactService
     {
         var contact = new AccountContact() { Address = address, Name = displayName };
 
-        await Connection.InsertAsync(contact).ConfigureAwait(false);
+        await Connection.InsertAsync(contact, typeof(AccountContact)).ConfigureAwait(false);
 
         return contact;
     }
@@ -29,13 +28,9 @@ public class ContactService : BaseDatabaseService, IContactService
         if (queryText == null || queryText.Length < 2)
             return Task.FromResult<List<AccountContact>>(null);
 
-        var query = new Query(nameof(AccountContact));
-        query.WhereContains("Address", queryText);
-        query.OrWhereContains("Name", queryText);
-
-        var rawLikeQuery = query.GetRawQuery();
-
-        return Connection.QueryAsync<AccountContact>(rawLikeQuery);
+        const string query = "SELECT * FROM AccountContact WHERE Address LIKE ? OR Name LIKE ?";
+        var pattern = $"%{queryText}%";
+        return Connection.QueryAsync<AccountContact>(query, pattern, pattern);
     }
 
     public Task<AccountContact> GetAddressInformationByAddressAsync(string address)
@@ -57,17 +52,60 @@ public class ContactService : BaseDatabaseService, IContactService
             {
                 if (currentContact == null)
                 {
-                    await Connection.InsertAsync(info).ConfigureAwait(false);
+                    await Connection.InsertAsync(info, typeof(AccountContact)).ConfigureAwait(false);
                 }
-                else if (!currentContact.IsRootContact) // Don't update root contacts. They belong to accounts.
+                else if (!currentContact.IsRootContact && !currentContact.IsOverridden) // Don't update root contacts or overridden contacts.
                 {
-                    await Connection.InsertOrReplaceAsync(info).ConfigureAwait(false);
+                    await Connection.InsertOrReplaceAsync(info, typeof(AccountContact)).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("Failed to add contact information to the database.", ex);
             }
+        }
+    }
+
+    public Task<List<AccountContact>> GetAllContactsAsync()
+    {
+        return Connection.Table<AccountContact>().ToListAsync();
+    }
+
+    public Task<List<AccountContact>> SearchContactsAsync(string searchQuery)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+            return GetAllContactsAsync();
+
+        const string query = "SELECT * FROM AccountContact WHERE Address LIKE ? OR Name LIKE ?";
+        var pattern = $"%{searchQuery.Trim()}%";
+        return Connection.QueryAsync<AccountContact>(query, pattern, pattern);
+    }
+
+    public async Task<AccountContact> UpdateContactAsync(AccountContact contact)
+    {
+        // Mark the contact as overridden when manually updated
+        contact.IsOverridden = true;
+        
+        await Connection.UpdateAsync(contact, typeof(AccountContact)).ConfigureAwait(false);
+        
+        return contact;
+    }
+
+    public async Task DeleteContactAsync(string address)
+    {
+        var contact = await GetAddressInformationByAddressAsync(address).ConfigureAwait(false);
+        
+        if (contact != null && !contact.IsRootContact)
+        {
+            await Connection.DeleteAsync<AccountContact>(contact).ConfigureAwait(false);
+        }
+    }
+
+    public async Task DeleteContactsAsync(IEnumerable<string> addresses)
+    {
+        foreach (var address in addresses)
+        {
+            await DeleteContactAsync(address).ConfigureAwait(false);
         }
     }
 }

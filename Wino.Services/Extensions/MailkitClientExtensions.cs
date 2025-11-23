@@ -108,10 +108,13 @@ public static class MailkitClientExtensions
         var messageUid = CreateUid(folder.Id, messageSummary.UniqueId.Id);
         var previewText = mime.GetPreviewText();
 
+        // Use InternalDate (server received date) if available, otherwise fall back to Date header (sent date)
+        var creationDate = messageSummary.InternalDate?.UtcDateTime ?? mime.Date.UtcDateTime;
+
         var copy = new MailCopy()
         {
             Id = messageUid,
-            CreationDate = mime.Date.UtcDateTime,
+            CreationDate = creationDate,
             ThreadId = messageSummary.GetThreadId(),
             MessageId = mime.GetMessageId(),
             Subject = mime.Subject,

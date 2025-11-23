@@ -1,11 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<RootNamespace>Wino.Core</RootNamespace>
 		<Platforms>x86;x64;arm64</Platforms>
 		<AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
 		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	</PropertyGroup>
 	
 	<ItemGroup>
@@ -26,9 +29,8 @@
 		<PackageReference Include="morelinq" />
 		<PackageReference Include="Nito.AsyncEx.Tasks" />
 		<PackageReference Include="NodaTime" />
+		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
-		<PackageReference Include="SqlKata" />
-		<PackageReference Include="System.Text.Encoding.CodePages" />
 	</ItemGroup>
 	
 	<ItemGroup>

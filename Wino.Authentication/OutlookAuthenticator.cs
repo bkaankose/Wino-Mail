@@ -24,12 +24,14 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
     public override MailProviderType ProviderType => MailProviderType.Outlook;
 
     private readonly IPublicClientApplication _publicClientApplication;
+    private readonly INativeAppService _nativeAppService;
     private readonly IApplicationConfiguration _applicationConfiguration;
 
     public OutlookAuthenticator(INativeAppService nativeAppService,
                                 IApplicationConfiguration applicationConfiguration,
                                 IAuthenticatorConfig authenticatorConfig) : base(authenticatorConfig)
     {
+        _nativeAppService = nativeAppService;
         _applicationConfiguration = applicationConfiguration;
 
         var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
@@ -40,11 +42,25 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
             ListOperatingSystemAccounts = true,
         };
 
-        var outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
-            .WithParentActivityOrWindow(nativeAppService.GetCoreWindowHwnd)
-            .WithBroker(options)
-            .WithDefaultRedirectUri()
-            .WithAuthority(Authority);
+        PublicClientApplicationBuilder outlookAppBuilder = null;
+
+        // Being created from an app notification.
+        // This is where we avoid all interactive shit for authentication.
+        if (nativeAppService.GetCoreWindowHwnd == null)
+        {
+            outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
+                .WithDefaultRedirectUri()
+                .WithBroker(options)
+                .WithAuthority(Authority);
+        }
+        else
+        {
+            outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
+                .WithBroker(options)
+                .WithParentActivityOrWindow(_nativeAppService.GetCoreWindowHwnd)
+                .WithDefaultRedirectUri()
+                .WithAuthority(Authority);
+        }
 
         _publicClientApplication = outlookAppBuilder.Build();
     }
@@ -98,7 +114,13 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         {
             await EnsureTokenCacheAttachedAsync();
 
-            var authResult = await _publicClientApplication
+            // Interactive authentication required but window doesn't exist.
+            // This can happen when being called from a notification background task and the token is expired.
+            // Force account attention;
+
+            if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
+
+            AuthenticationResult authResult = await _publicClientApplication
                 .AcquireTokenInteractive(Scope)
                 .ExecuteAsync();
 

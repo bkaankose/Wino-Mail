@@ -1,7 +1,6 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using SQLite;
-using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -44,21 +43,23 @@ public class DatabaseService : IDatabaseService
 
     private async Task CreateTablesAsync()
     {
-        await Connection.CreateTablesAsync(CreateFlags.None,
-            typeof(MailCopy),
-            typeof(MailItemFolder),
-            typeof(MailAccount),
-            typeof(AccountContact),
-            typeof(CustomServerInformation),
-            typeof(AccountSignature),
-            typeof(MergedInbox),
-            typeof(MailAccountPreferences),
-            typeof(MailAccountAlias),
-            typeof(AccountCalendar),
-            typeof(CalendarEventAttendee),
-            typeof(CalendarItem),
-            typeof(Reminder),
-            typeof(Thumbnail)
+        //typeof(AccountCalendar),
+        //    typeof(CalendarEventAttendee),
+        //    typeof(CalendarItem),
+        //    typeof(Reminder),
+
+        await Task.WhenAll(
+            Connection.CreateTableAsync<MailCopy>(),
+            Connection.CreateTableAsync<MailItemFolder>(),
+            Connection.CreateTableAsync<MailAccount>(),
+            Connection.CreateTableAsync<AccountContact>(),
+            Connection.CreateTableAsync<CustomServerInformation>(),
+            Connection.CreateTableAsync<AccountSignature>(),
+            Connection.CreateTableAsync<MergedInbox>(),
+            Connection.CreateTableAsync<MailAccountPreferences>(),
+            Connection.CreateTableAsync<MailAccountAlias>(),
+            Connection.CreateTableAsync<Thumbnail>(),
+            Connection.CreateTableAsync<KeyboardShortcut>()
             );
     }
 }

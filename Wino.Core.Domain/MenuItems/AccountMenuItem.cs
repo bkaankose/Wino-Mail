@@ -14,18 +14,57 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     [ObservableProperty]
     private int unreadItemCount;
 
+    /// <summary>
+    /// Total items to sync. 0 means indeterminate progress.
+    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible))]
-    private double synchronizationProgress;
+    [NotifyPropertyChangedFor(nameof(IsSynchronizationProgressVisible), nameof(SynchronizationProgress), nameof(IsProgressIndeterminate))]
+    public partial int TotalItemsToSync { get; set; }
+
+    /// <summary>
+    /// Remaining items to sync.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SynchronizationProgress))]
+    public partial int RemainingItemsToSync { get; set; }
+
+    /// <summary>
+    /// Current synchronization status message.
+    /// </summary>
+    [ObservableProperty]
+    public partial string SynchronizationStatus { get; set; } = string.Empty;
 
     [ObservableProperty]
     private bool _isEnabled = true;
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
-    public bool IsSynchronizationProgressVisible => SynchronizationProgress > 0 && SynchronizationProgress < 100;
 
-    // We can't  determine the progress for gmail synchronization since it is based on history changes.
-    public bool IsProgressIndeterminate => Parameter?.ProviderType == MailProviderType.Gmail;
+    /// <summary>
+    /// Calculates synchronization progress percentage (0-100).
+    /// Returns -1 for indeterminate progress when TotalItemsToSync is 0.
+    /// </summary>
+    public double SynchronizationProgress
+    {
+        get
+        {
+            if (TotalItemsToSync == 0 || RemainingItemsToSync == 0)
+                return -1; // Indeterminate
+
+            return ((double)(TotalItemsToSync - RemainingItemsToSync) / TotalItemsToSync) * 100;
+        }
+    }
+
+    /// <summary>
+    /// Whether synchronization progress should be visible.
+    /// Visible when there's active synchronization (TotalItemsToSync > 0 or RemainingItemsToSync > 0).
+    /// </summary>
+    public bool IsSynchronizationProgressVisible => TotalItemsToSync > 0 || RemainingItemsToSync > 0;
+
+    /// <summary>
+    /// Whether progress should be indeterminate (when total is 0 but there's still synchronization happening).
+    /// </summary>
+    public bool IsProgressIndeterminate => TotalItemsToSync == 0 && RemainingItemsToSync == 0 && IsSynchronizationProgressVisible;
+
     public Guid AccountId => Parameter.Id;
 
     private AccountAttentionReason attentionReason;

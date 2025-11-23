@@ -34,7 +34,9 @@ namespace Wino.Core.Synchronizers.Mail;
 
 public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object>, IImapSynchronizer
 {
-    [Obsolete("N/A")]
+    /// <summary>
+    /// N/A for IMAP as it doesn't support batch modifications natively.
+    /// </summary>
     public override uint BatchModificationSize => 1000;
     public override uint InitialMessageDownloadCountPerFolder => 500;
 
@@ -54,7 +56,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
                             IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
-                            IApplicationConfiguration applicationConfiguration) : base(account)
+                            IApplicationConfiguration applicationConfiguration) : base(account, WeakReferenceMessenger.Default)
     {
         // Create client pool with account protocol log.
         _imapChangeProcessor = imapChangeProcessor;
@@ -219,7 +221,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, request, request);
     }
 
-    public override async Task DownloadMissingMimeMessageAsync(IMailItem mailItem,
+    public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,
                                                            ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
@@ -293,7 +295,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _logger.Information("Internal synchronization started for {Name}", Account.Name);
         _logger.Information("Options: {Options}", options);
 
-        PublishSynchronizationProgress(1);
+        // Set indeterminate progress initially
+        UpdateSyncProgress(0, 0, "Synchronizing...");
 
         bool shouldDoFolderSync = options.Type == MailSynchronizationType.FullFolders || options.Type == MailSynchronizationType.FoldersOnly;
 
@@ -306,12 +309,14 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         {
             var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
-            for (int i = 0; i < synchronizationFolders.Count; i++)
+            var totalFolders = synchronizationFolders.Count;
+
+            for (int i = 0; i < totalFolders; i++)
             {
                 var folder = synchronizationFolders[i];
-                var progress = (int)Math.Round((double)(i + 1) / synchronizationFolders.Count * 100);
 
-                PublishSynchronizationProgress(progress);
+                // Update progress based on folder completion
+                UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
 
                 var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
 
@@ -324,7 +329,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
         }
 
-        PublishSynchronizationProgress(100);
+        // Reset progress
+        ResetSyncProgress();
 
         // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
@@ -857,7 +863,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             Type = MailSynchronizationType.IMAPIdle
         };
 
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options, SynchronizationSource.Client));
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
     }
 
     private void IdleNotificationTriggered(object sender, EventArgs e)

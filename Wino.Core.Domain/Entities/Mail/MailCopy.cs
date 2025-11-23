@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using SQLite;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Entities.Mail;
 
@@ -11,7 +10,7 @@ namespace Wino.Core.Domain.Entities.Mail;
 /// Summary of the parsed MIME messages.
 /// Wino will do non-network operations on this table and others from the original MIME.
 /// </summary>
-public class MailCopy : IMailItem
+public class MailCopy
 {
     /// <summary>
     /// Unique Id of the mail.
