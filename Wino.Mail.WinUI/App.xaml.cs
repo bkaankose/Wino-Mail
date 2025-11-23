@@ -31,10 +31,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        // Note: by registering our custom context it becomes the default S/MIME context
-        // instantiated by MimeKit when methods such as Encrypt(), Decrypt(), Sign(), and
-        // Verify() are used without an explicit context.
-        CryptographyContext.Register(typeof(MySecureMimeContext));
+        CryptographyContext.Register(typeof(WindowsSecureMimeContext));
 
         RegisterRecipients();
     }
