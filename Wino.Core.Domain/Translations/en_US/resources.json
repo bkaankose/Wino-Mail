@@ -77,6 +77,8 @@
     "Buttons_SyncAliases": "Synchronize Aliases",
     "Buttons_TryAgain": "Try Again",
     "Buttons_Yes": "Yes",
+    "Sync_SynchronizingFolder": "Synchronizing {0} {1}%",
+    "Sync_DownloadedMessages": "Downloaded {0} messages from {1}",
     "CalendarAllDayEventSummary": "all-day events",
     "CalendarDisplayOptions_Color": "Color",
     "CalendarDisplayOptions_Expand": "Expand",

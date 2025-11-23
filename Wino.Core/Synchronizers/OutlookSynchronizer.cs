@@ -164,7 +164,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     var folder = synchronizationFolders[i];
 
                     // Update progress based on folder completion
-                    UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
+                    var progressPercentage = (int)Math.Round((double)(i + 1) / totalFolders * 100);
+                    var statusMessage = string.Format(Translator.Sync_SynchronizingFolder, folder.FolderName, progressPercentage);
+                    UpdateSyncProgress(totalFolders, totalFolders - (i + 1), statusMessage);
 
                     var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
                     downloadedMessageIds.AddRange(folderDownloadedMessageIds);
@@ -310,7 +312,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                     // Update progress periodically
                                     if (totalProcessed % 50 == 0)
                                     {
-                                        UpdateSyncProgress(0, 0, $"Downloaded {totalProcessed} messages from {folder.FolderName}");
+                                        var statusMessage = string.Format(Translator.Sync_DownloadedMessages, totalProcessed, folder.FolderName);
+                                        UpdateSyncProgress(0, 0, statusMessage);
                                     }
                                 }
                             }
