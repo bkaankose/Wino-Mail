@@ -461,10 +461,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             // TODO: FromName and FromAddress is probably not correct here for mail lists.
             FromAddress = message.From.Mailboxes.FirstOrDefault()?.Address ?? Translator.UnknownAddress;
             FromName = message.From.Mailboxes.FirstOrDefault()?.Name ?? Translator.UnknownSender;
-            
+
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
-            
+
             ContactPicture = initializedMailItemViewModel?.MailCopy.SenderContact?.Base64ContactPicture;
 
             // Automatically disable images for Junk folder to prevent pixel tracking.
@@ -535,7 +535,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedFrom(mode, parameters);
 
-        renderCancellationTokenSource.Cancel();
+        renderCancellationTokenSource?.Cancel();
+        renderCancellationTokenSource?.Dispose();
+        renderCancellationTokenSource = null;
+
         CurrentDownloadPercentage = 0d;
 
         initializedMailItemViewModel = null;
@@ -878,7 +881,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-        
+
         Messenger.Register<NewMailItemRenderingRequestedEvent>(this);
         Messenger.Register<ThumbnailAdded>(this);
     }
@@ -886,7 +889,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
-        
+
         Messenger.Unregister<NewMailItemRenderingRequestedEvent>(this);
         Messenger.Unregister<ThumbnailAdded>(this);
     }

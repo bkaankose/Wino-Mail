@@ -14,9 +14,9 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Printing;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
@@ -148,6 +148,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         // Disposing the page.
         // Make sure the WebView2 is disposed properly.
+
+        ViewModel.SaveHTMLasPDFFunc = null;
+        ViewModel.DirectPrintFuncAsync = null;
 
         DisposeWebView2();
     }
@@ -325,7 +328,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-        
+
         WeakReferenceMessenger.Default.Register<HtmlRenderingRequested>(this);
         WeakReferenceMessenger.Default.Register<CancelRenderingContentRequested>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
@@ -334,7 +337,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
-        
+
         WeakReferenceMessenger.Default.Unregister<HtmlRenderingRequested>(this);
         WeakReferenceMessenger.Default.Unregister<CancelRenderingContentRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
