@@ -50,7 +50,7 @@ public class SignatureService(IDatabaseService databaseService) : BaseDatabaseSe
 
     public async Task<AccountSignature> DeleteSignatureAsync(AccountSignature signature)
     {
-        await Connection.DeleteAsync<AccountSignature>(signature);
+        await Connection.DeleteAsync<AccountSignature>(signature.Id);
 
         return signature;
     }

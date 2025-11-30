@@ -13,7 +13,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
 
     private void EditContact_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is AccountContact contact)
+        if (sender is Button button && button.CommandParameter is Contact contact)
         {
             ViewModel.EditContactCommand.Execute(contact);
         }
@@ -21,7 +21,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
 
     private void PickContactPhoto_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is AccountContact contact)
+        if (sender is Button button && button.CommandParameter is Contact contact)
         {
             ViewModel.PickContactPhotoCommand.Execute(contact);
         }
@@ -29,7 +29,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract
 
     private void DeleteContact_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is AccountContact contact)
+        if (sender is Button button && button.CommandParameter is Contact contact)
         {
             ViewModel.DeleteContactCommand.Execute(contact);
         }

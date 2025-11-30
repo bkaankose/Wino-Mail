@@ -18,10 +18,9 @@ using Windows.Foundation;
 using Windows.Storage;
 using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
-using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Views.Abstract;
@@ -67,15 +66,15 @@ public sealed partial class ComposePage : ComposePageAbstract,
                     {
                         if (t.Sender is AutoSuggestBox senderBox && senderBox.Text.Length >= 2)
                         {
-                            _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
-                            {
-                                _ = ViewModel.ExecuteUIThread(() =>
-                                {
-                                    var addresses = x.Result;
+                            //_ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(x =>
+                            //{
+                            //    _ = ViewModel.ExecuteUIThread(() =>
+                            //    {
+                            //        var addresses = x.Result;
 
-                                    senderBox.ItemsSource = addresses;
-                                });
-                            });
+                            //        senderBox.ItemsSource = addresses;
+                            //    });
+                            //});
                         }
                     }
                 });
@@ -308,8 +307,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
         if (sender is Button senderButton && senderButton.Tag is MessageImportance importance)
         {
             ViewModel.SelectedMessageImportance = importance;
-            if (ImportanceSplitButton.Content is Viewbox viewbox && 
-                viewbox.Child is SymbolIcon symbolIcon && 
+            if (ImportanceSplitButton.Content is Viewbox viewbox &&
+                viewbox.Child is SymbolIcon symbolIcon &&
                 senderButton.Content is SymbolIcon contentIcon)
             {
                 symbolIcon.Symbol = contentIcon.Symbol;
@@ -337,7 +336,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                     _ => null
                 };
 
-                AccountContact? addedItem = null;
+                ContactDisplayModel? addedItem = null;
 
                 if (addressCollection != null)
                     addedItem = await ViewModel.GetAddressInformationAsync(currentText, addressCollection);

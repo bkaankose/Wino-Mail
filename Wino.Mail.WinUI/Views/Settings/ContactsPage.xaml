@@ -15,7 +15,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="ContactTemplate" x:DataType="entities:AccountContact">
+        <DataTemplate x:Key="ContactTemplate" x:DataType="entities:Contact">
             <Grid Margin="0,4" Padding="16,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -29,20 +29,23 @@
                     Width="48"
                     Height="48"
                     Margin="0,0,16,0"
-                    DisplayName="{x:Bind Name}"
+                    DisplayName="{x:Bind DisplayName}"
                     ProfilePicture="{x:Bind helpers:XamlHelpers.Base64ToBitmapImage(Base64ContactPicture)}" />
 
                 <!--  Contact Info  -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock
                         FontWeight="SemiBold"
-                        Text="{x:Bind Name}"
+                        Text="{x:Bind DisplayName}"
                         TextTrimming="CharacterEllipsis" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind Address}"
-                        TextTrimming="CharacterEllipsis" />
+                        TextTrimming="CharacterEllipsis">
+                        <Run Text="{x:Bind CompanyName}" />
+                        <!--<Run Text="•" Visibility="{x:Bind helpers:XamlHelpers.IsNotNullOrEmptyToVisibilityConverter(CompanyName)}" />-->
+                        <Run Text="{x:Bind JobTitle}" />
+                    </TextBlock>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Border
                             Padding="4,2"
@@ -57,7 +60,7 @@
                         <Border
                             Padding="4,2"
                             CornerRadius="2"
-                            Visibility="{x:Bind IsOverridden}">
+                            Visibility="{x:Bind HasLocalModifications}">
                             <TextBlock FontSize="10" Text="{x:Bind domain:Translator.ContactStatus_Modified, Mode=OneTime}" />
                         </Border>
                     </StackPanel>

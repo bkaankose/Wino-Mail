@@ -210,7 +210,7 @@ public class DialogService : DialogServiceBase, IMailDialogService
         return dialog.Result;
     }
 
-    public async Task<Core.Domain.Entities.Shared.AccountContact?> ShowEditContactDialogAsync(Core.Domain.Entities.Shared.AccountContact? contact = null)
+    public async Task<Core.Domain.Entities.Shared.Contact?> ShowEditContactDialogAsync(Core.Domain.Entities.Shared.Contact? contact = null)
     {
         var dialog = new ContactEditDialog(contact, this)
         {
@@ -221,6 +221,8 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
         if (result == ContentDialogResult.Primary)
         {
+            // TODO: Save related entities (emails, phones, addresses) to database
+            // For now, just return the contact
             return dialog.Contact;
         }
 

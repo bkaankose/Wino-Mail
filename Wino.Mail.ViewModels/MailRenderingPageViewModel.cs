@@ -9,7 +9,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
-
 using MimeKit;
 using MimeKit.Cryptography;
 using Serilog;
@@ -25,6 +24,7 @@ using Wino.Core.Domain.Models.Printing;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Extensions;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
@@ -503,10 +503,24 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             if (item is MailboxAddress mailboxAddress)
             {
-                var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
-                    ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+                var foundContact = await _contactService.GetContactByEmailAsync(mailboxAddress.Address).ConfigureAwait(false);
+                
+                ContactDisplayModel displayModel;
+                if (foundContact != null)
+                {
+                    displayModel = new ContactDisplayModel(foundContact, mailboxAddress.Address);
+                }
+                else
+                {
+                    // Create temporary Contact for display with minimal info
+                    var tempContact = new Contact 
+                    { 
+                        DisplayName = mailboxAddress.Name ?? mailboxAddress.Address
+                    };
+                    displayModel = new ContactDisplayModel(tempContact, mailboxAddress.Address);
+                }
 
-                var contactViewModel = new AccountContactViewModel(foundContact);
+                var contactViewModel = new AccountContactViewModel(displayModel);
 
                 // Make sure that user account first in the list.
                 if (string.Equals(contactViewModel.Address, initializedMailItemViewModel?.MailCopy.AssignedAccount?.Address, StringComparison.OrdinalIgnoreCase))

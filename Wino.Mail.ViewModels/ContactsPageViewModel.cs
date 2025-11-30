@@ -17,7 +17,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     private readonly IContactService _contactService;
     private readonly IMailDialogService _dialogService;
 
-    private List<AccountContact> _allContacts = new();
+    private List<Contact> _allContacts = new();
+    private Dictionary<Guid, List<ContactEmail>> _contactEmails = new();
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
@@ -31,8 +32,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int SelectedContactsCount { get; set; } = 0;
 
-    public ObservableCollection<AccountContact> Contacts { get; } = new();
-    public ObservableCollection<AccountContact> SelectedContacts { get; } = new();
+    public ObservableCollection<Contact> Contacts { get; } = new();
+    public ObservableCollection<Contact> SelectedContacts { get; } = new();
 
     public ContactsPageViewModel(IContactService contactService, IMailDialogService dialogService)
     {
@@ -90,7 +91,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
     private async Task FilterContactsAsync()
     {
-        List<AccountContact> filteredContacts;
+        List<Contact> filteredContacts;
 
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
@@ -104,7 +105,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         await ExecuteUIThread(() =>
         {
             Contacts.Clear();
-            foreach (var contact in filteredContacts.OrderBy(c => c.Name ?? c.Address))
+            foreach (var contact in filteredContacts.OrderBy(c => c.DisplayName))
             {
                 Contacts.Add(contact);
             }
@@ -120,15 +121,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         {
             try
             {
-                var newContact = await _contactService.CreateNewContactAsync(result.Address, result.Name);
-
-                if (!string.IsNullOrEmpty(result.Base64ContactPicture))
-                {
-                    newContact.Base64ContactPicture = result.Base64ContactPicture;
-                    await _contactService.UpdateContactAsync(newContact);
-                }
-
-                _allContacts.Add(newContact);
+                await _contactService.CreateContactAsync(result);
+                _allContacts.Add(result);
                 await FilterContactsAsync();
 
                 _dialogService.InfoBarMessage("Success", "Contact added successfully", InfoBarMessageType.Success);
@@ -141,7 +135,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task EditContactAsync(AccountContact contact)
+    private async Task EditContactAsync(Contact contact)
     {
         if (contact == null) return;
 
@@ -151,18 +145,13 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         {
             try
             {
-                // Update the contact properties
-                contact.Name = result.Name;
-                contact.Base64ContactPicture = result.Base64ContactPicture;
-                contact.IsOverridden = result.IsOverridden;
-
-                await _contactService.UpdateContactAsync(contact);
+                await _contactService.UpdateContactAsync(result);
 
                 // Update the UI
-                var index = _allContacts.FindIndex(c => c.Address == contact.Address);
+                var index = _allContacts.FindIndex(c => c.Id == result.Id);
                 if (index >= 0)
                 {
-                    _allContacts[index] = contact;
+                    _allContacts[index] = result;
                 }
 
                 await FilterContactsAsync();
@@ -177,7 +166,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task DeleteContactAsync(AccountContact contact)
+    private async Task DeleteContactAsync(Contact contact)
     {
         if (contact == null || contact.IsRootContact)
         {
@@ -186,7 +175,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         }
 
         var result = await _dialogService.ShowConfirmationDialogAsync(
-            $"Are you sure you want to delete the contact '{contact.Name ?? contact.Address}'?",
+            $"Are you sure you want to delete the contact '{contact.DisplayName}'?",
             "Delete Contact",
             "Delete");
 
@@ -220,12 +209,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         }
     }
 
-    private async Task DeleteContactsInternalAsync(IEnumerable<AccountContact> contactsToDelete)
+    private async Task DeleteContactsInternalAsync(IEnumerable<Contact> contactsToDelete)
     {
         try
         {
-            var addresses = contactsToDelete.Select(c => c.Address);
-            await _contactService.DeleteContactsAsync(addresses);
+            var contactIds = contactsToDelete.Select(c => c.Id);
+            await _contactService.DeleteContactsAsync(contactIds);
 
             // Update local collections
             foreach (var contact in contactsToDelete.ToList())
@@ -272,7 +261,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task PickContactPhotoAsync(AccountContact contact)
+    private async Task PickContactPhotoAsync(Contact contact)
     {
         if (contact == null) return;
 

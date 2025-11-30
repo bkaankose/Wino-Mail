@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Extensions;
 using Wino.Messaging.Client.Mails;
 
 namespace Wino.Mail.ViewModels;
@@ -93,9 +94,9 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
     public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
     public ObservableCollection<MailAccount> Accounts { get; set; } = [];
-    public ObservableCollection<AccountContact> ToItems { get; set; } = [];
-    public ObservableCollection<AccountContact> CCItems { get; set; } = [];
-    public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
+    public ObservableCollection<ContactDisplayModel> ToItems { get; set; } = [];
+    public ObservableCollection<ContactDisplayModel> CCItems { get; set; } = [];
+    public ObservableCollection<ContactDisplayModel> BCCItems { get; set; } = [];
 
     #endregion
 
@@ -559,16 +560,16 @@ public partial class ComposePageViewModel : MailBaseViewModel
         }
     }
 
-    private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<AccountContact> collection)
+    private async Task LoadAddressInfoAsync(InternetAddressList list, ObservableCollection<ContactDisplayModel> collection)
     {
         foreach (var item in list)
         {
             if (item is MailboxAddress mailboxAddress)
             {
-                var foundContact = await ContactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
-                    ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+                var foundContact = await ContactService.GetOrCreateContactFromEmailAsync(mailboxAddress.Address, mailboxAddress.Name).ConfigureAwait(false);
+                var displayModel = new ContactDisplayModel(foundContact, mailboxAddress.Address);
 
-                await ExecuteUIThread(() => { collection.Add(foundContact); });
+                await ExecuteUIThread(() => { collection.Add(displayModel); });
             }
             else if (item is GroupAddress groupAddress)
                 await LoadAddressInfoAsync(groupAddress.Members, collection);
@@ -601,7 +602,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
         }
     }
 
-    private void SaveAddressInfo(IEnumerable<AccountContact> addresses, InternetAddressList list)
+    private void SaveAddressInfo(IEnumerable<ContactDisplayModel> addresses, InternetAddressList list)
     {
         list.Clear();
 
@@ -609,18 +610,17 @@ public partial class ComposePageViewModel : MailBaseViewModel
             list.Add(new MailboxAddress(item.Name, item.Address));
     }
 
-    public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
+    public async Task<ContactDisplayModel> GetAddressInformationAsync(string tokenText, ObservableCollection<ContactDisplayModel> collection)
     {
-        // Get model from the service. This will make sure the name is properly included if there is any record.
-
-        var info = await ContactService.GetAddressInformationByAddressAsync(tokenText)
-            ?? new AccountContact() { Name = tokenText, Address = tokenText };
+        // Get or create contact from the service
+        var contact = await ContactService.GetOrCreateContactFromEmailAsync(tokenText, tokenText).ConfigureAwait(false);
+        var displayModel = new ContactDisplayModel(contact, tokenText);
 
         // Don't add if there is already that address in the collection.
-        if (collection.Any(a => a.Address == info.Address))
+        if (collection.Any(a => a.Address == displayModel.Address))
             return null;
 
-        return info;
+        return displayModel;
     }
 
     public void NotifyAddressExists()

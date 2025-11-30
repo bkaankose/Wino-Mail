@@ -65,5 +65,5 @@ public interface IMailDialogService : IDialogServiceBase
     /// </summary>
     /// <param name="contact">Existing contact to edit, or null for new contact.</param>
     /// <returns>Contact information. Null if canceled.</returns>
-    Task<AccountContact> ShowEditContactDialogAsync(AccountContact contact = null);
+    Task<Contact> ShowEditContactDialogAsync(Contact contact = null);
 }

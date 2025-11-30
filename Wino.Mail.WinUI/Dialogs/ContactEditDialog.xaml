@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Edit Contact"
     HorizontalContentAlignment="Stretch"
@@ -17,82 +18,378 @@
     mc:Ignorable="d">
 
     <ContentDialog.Resources>
-        <x:Double x:Key="ContentDialogMaxWidth">400</x:Double>
+        <x:Double x:Key="ContentDialogMaxWidth">550</x:Double>
+        <x:Double x:Key="ContentDialogMaxHeight">700</x:Double>
     </ContentDialog.Resources>
 
-    <StackPanel Spacing="16">
-        <!--  Contact Name  -->
-        <TextBox
-            x:Name="ContactNameTextBox"
-            Header="Name"
-            PlaceholderText="Contact name"
-            TextChanged="ValidateInput" />
+    <ScrollViewer>
+        <StackPanel Spacing="16">
+            <!--  Contact Photo  -->
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,8"
+                    FontWeight="SemiBold"
+                    Text="Photo" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-        <!--  Email Address  -->
-        <TextBox
-            x:Name="EmailAddressTextBox"
-            Header="Email Address"
-            PlaceholderText="contact@example.com"
-            TextChanged="ValidateInput" />
+                    <PersonPicture
+                        x:Name="ContactPhotoPersonPicture"
+                        Grid.Column="0"
+                        Width="80"
+                        Height="80"
+                        Margin="0,0,16,0" />
 
-        <!--  Contact Photo  -->
-        <StackPanel>
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="8">
+                        <Button
+                            x:Name="ChoosePhotoButton"
+                            Click="ChoosePhotoClicked"
+                            Content="Choose Photo" />
+                        <Button
+                            x:Name="RemovePhotoButton"
+                            Click="RemovePhotoClicked"
+                            Content="Remove Photo"
+                            Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!--  Basic Information  -->
             <TextBlock
-                Margin="0,0,0,8"
+                FontSize="16"
                 FontWeight="SemiBold"
-                Text="Photo" />
-            <Grid>
+                Text="Basic Information" />
+
+            <TextBox
+                x:Name="DisplayNameTextBox"
+                Header="Display Name"
+                PlaceholderText="John Doe"
+                TextChanged="ValidateInput" />
+
+            <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-
-                <PersonPicture
-                    x:Name="ContactPhotoPersonPicture"
+                <TextBox
+                    x:Name="GivenNameTextBox"
                     Grid.Column="0"
-                    Width="64"
-                    Height="64"
-                    Margin="0,0,16,0" />
-
-                <StackPanel
+                    Header="First Name"
+                    PlaceholderText="John" />
+                <TextBox
+                    x:Name="FamilyNameTextBox"
                     Grid.Column="1"
-                    VerticalAlignment="Center"
-                    Spacing="8">
-                    <Button
-                        x:Name="ChoosePhotoButton"
-                        Click="ChoosePhotoClicked"
-                        Content="Choose Photo" />
-                    <Button
-                        x:Name="RemovePhotoButton"
-                        Click="RemovePhotoClicked"
-                        Content="Remove Photo" />
-                </StackPanel>
+                    Header="Last Name"
+                    PlaceholderText="Doe" />
             </Grid>
+
+            <TextBox
+                x:Name="NicknameTextBox"
+                Header="Nickname (Optional)"
+                PlaceholderText="Johnny" />
+
+            <!--  Company Information  -->
+            <TextBlock
+                Margin="0,8,0,0"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Text="Work Information" />
+
+            <TextBox
+                x:Name="CompanyNameTextBox"
+                Header="Company"
+                PlaceholderText="Acme Corporation" />
+
+            <TextBox
+                x:Name="JobTitleTextBox"
+                Header="Job Title"
+                PlaceholderText="Software Engineer" />
+
+            <TextBox
+                x:Name="DepartmentTextBox"
+                Header="Department (Optional)"
+                PlaceholderText="Engineering" />
+
+            <!--  Email Addresses  -->
+            <StackPanel>
+                <Grid Margin="0,8,0,8">
+                    <TextBlock
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Email Addresses" />
+                    <Button
+                        HorizontalAlignment="Right"
+                        Click="AddEmailClicked"
+                        Content="Add Email"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </Grid>
+                <ItemsControl x:Name="EmailsItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="entities:ContactEmail">
+                            <Grid
+                                Margin="0,0,0,8"
+                                ColumnSpacing="8"
+                                RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                
+                                <TextBox
+                                    Grid.Row="0"
+                                    Grid.Column="0"
+                                    Header="Email Address"
+                                    PlaceholderText="john@example.com"
+                                    Text="{x:Bind Address, Mode=TwoWay}" />
+                                    
+                                <ComboBox
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    Header="Type"
+                                    SelectedItem="{x:Bind Type, Mode=TwoWay}">
+                                    <x:String>work</x:String>
+                                    <x:String>home</x:String>
+                                    <x:String>other</x:String>
+                                </ComboBox>
+                                
+                                <Button
+                                    Grid.Row="0"
+                                    Grid.Column="2"
+                                    Margin="0,24,0,0"
+                                    VerticalAlignment="Top"
+                                    Click="RemoveEmailClicked"
+                                    Content="&#xE74D;"
+                                    FontFamily="Segoe MDL2 Assets"
+                                    Tag="{x:Bind}" />
+                                    
+                                <CheckBox
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    Content="Primary email"
+                                    IsChecked="{x:Bind IsPrimary, Mode=TwoWay}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!--  Phone Numbers  -->
+            <StackPanel>
+                <Grid Margin="0,8,0,8">
+                    <TextBlock
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Phone Numbers" />
+                    <Button
+                        HorizontalAlignment="Right"
+                        Click="AddPhoneClicked"
+                        Content="Add Phone" />
+                </Grid>
+                <ItemsControl x:Name="PhonesItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="entities:ContactPhone">
+                            <Grid
+                                Margin="0,0,0,8"
+                                ColumnSpacing="8"
+                                RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                
+                                <TextBox
+                                    Grid.Row="0"
+                                    Grid.Column="0"
+                                    Header="Phone Number"
+                                    PlaceholderText="+1 555 123 4567"
+                                    Text="{x:Bind Number, Mode=TwoWay}" />
+                                    
+                                <ComboBox
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    Header="Type"
+                                    SelectedItem="{x:Bind Type, Mode=TwoWay}">
+                                    <x:String>mobile</x:String>
+                                    <x:String>work</x:String>
+                                    <x:String>home</x:String>
+                                    <x:String>fax</x:String>
+                                    <x:String>other</x:String>
+                                </ComboBox>
+                                
+                                <Button
+                                    Grid.Row="0"
+                                    Grid.Column="2"
+                                    Margin="0,24,0,0"
+                                    VerticalAlignment="Top"
+                                    Click="RemovePhoneClicked"
+                                    Content="&#xE74D;"
+                                    FontFamily="Segoe MDL2 Assets"
+                                    Tag="{x:Bind}" />
+                                    
+                                <CheckBox
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    Content="Primary phone"
+                                    IsChecked="{x:Bind IsPrimary, Mode=TwoWay}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!--  Addresses  -->
+            <StackPanel>
+                <Grid Margin="0,8,0,8">
+                    <TextBlock
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        Text="Addresses" />
+                    <Button
+                        HorizontalAlignment="Right"
+                        Click="AddAddressClicked"
+                        Content="Add Address" />
+                </Grid>
+                <ItemsControl x:Name="AddressesItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="entities:ContactAddress">
+                            <Border
+                                Margin="0,0,0,12"
+                                Padding="12"
+                                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                                <StackPanel Spacing="8">
+                                    <Grid>
+                                        <ComboBox
+                                            Header="Type"
+                                            SelectedItem="{x:Bind Type, Mode=TwoWay}">
+                                            <x:String>home</x:String>
+                                            <x:String>work</x:String>
+                                            <x:String>other</x:String>
+                                        </ComboBox>
+                                        <Button
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Top"
+                                            Click="RemoveAddressClicked"
+                                            Content="&#xE74D;"
+                                            FontFamily="Segoe MDL2 Assets"
+                                            Tag="{x:Bind}" />
+                                    </Grid>
+                                    
+                                    <TextBox
+                                        Header="Street"
+                                        PlaceholderText="123 Main St"
+                                        Text="{x:Bind Street, Mode=TwoWay}" />
+                                        
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox
+                                            Grid.Column="0"
+                                            Header="City"
+                                            PlaceholderText="New York"
+                                            Text="{x:Bind City, Mode=TwoWay}" />
+                                        <TextBox
+                                            Grid.Column="1"
+                                            Header="State"
+                                            PlaceholderText="NY"
+                                            Text="{x:Bind State, Mode=TwoWay}" />
+                                    </Grid>
+                                    
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox
+                                            Grid.Column="0"
+                                            Header="Postal Code"
+                                            PlaceholderText="10001"
+                                            Text="{x:Bind PostalCode, Mode=TwoWay}" />
+                                        <TextBox
+                                            Grid.Column="1"
+                                            Header="Country"
+                                            PlaceholderText="USA"
+                                            Text="{x:Bind Country, Mode=TwoWay}" />
+                                    </Grid>
+                                    
+                                    <CheckBox
+                                        Content="Primary address"
+                                        IsChecked="{x:Bind IsPrimary, Mode=TwoWay}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!--  Additional Information  -->
+            <TextBlock
+                Margin="0,8,0,0"
+                FontSize="16"
+                FontWeight="SemiBold"
+                Text="Additional Information" />
+
+            <TextBox
+                x:Name="WebsiteTextBox"
+                Header="Website (Optional)"
+                PlaceholderText="https://example.com" />
+
+            <DatePicker
+                x:Name="BirthdayDatePicker"
+                Header="Birthday (Optional)" />
+
+            <TextBox
+                x:Name="NotesTextBox"
+                AcceptsReturn="True"
+                Header="Notes (Optional)"
+                Height="100"
+                PlaceholderText="Additional notes about this contact"
+                TextWrapping="Wrap" />
+
+            <!--  Contact Status Info  -->
+            <Border
+                x:Name="RootContactInfoBorder"
+                Padding="12,8"
+                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                CornerRadius="4"
+                Visibility="Collapsed">
+                <TextBlock
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Text="This is a root contact (account owner) and cannot be deleted."
+                    TextWrapping="Wrap" />
+            </Border>
+
+            <Border
+                x:Name="LocalModificationsInfoBorder"
+                Padding="12,8"
+                Background="{ThemeResource SystemFillColorCautionBrush}"
+                CornerRadius="4"
+                Visibility="Collapsed">
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                    Text="This contact has been manually modified and won't be updated automatically."
+                    TextWrapping="Wrap" />
+            </Border>
         </StackPanel>
-
-        <!--  Contact Status Info  -->
-        <Border
-            x:Name="RootContactInfoBorder"
-            Padding="12,8"
-            Background="{ThemeResource AccentFillColorDefaultBrush}"
-            CornerRadius="4"
-            Visibility="Collapsed">
-            <TextBlock
-                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                Text="This is a root contact and cannot be deleted."
-                TextWrapping="Wrap" />
-        </Border>
-
-        <Border
-            x:Name="OverriddenContactInfoBorder"
-            Padding="12,8"
-            Background="{ThemeResource SystemFillColorCautionBrush}"
-            CornerRadius="4"
-            Visibility="Collapsed">
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                Text="This contact has been manually modified."
-                TextWrapping="Wrap" />
-        </Border>
-    </StackPanel>
+    </ScrollViewer>
 </ContentDialog>

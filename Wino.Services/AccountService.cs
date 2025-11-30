@@ -23,17 +23,20 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly ISignatureService _signatureService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IContactService _contactService;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
     public AccountService(IDatabaseService databaseService,
                           ISignatureService signatureService,
                           IMimeFileService mimeFileService,
-                          IPreferencesService preferencesService) : base(databaseService)
+                          IPreferencesService preferencesService,
+                          IContactService contactService) : base(databaseService)
     {
         _signatureService = signatureService;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
+        _contactService = contactService;
     }
 
 
@@ -83,7 +86,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         await Connection.ExecuteAsync("UPDATE MailAccount SET MergedInboxId = NULL WHERE MergedInboxId = ?", mergedInboxId).ConfigureAwait(false);
-        await Connection.DeleteAsync<MergedInbox>(mergedInbox).ConfigureAwait(false);
+        await Connection.DeleteAsync<MergedInbox>(mergedInbox.Id).ConfigureAwait(false);
 
         // Change the startup entity id if it was the merged inbox.
         // Take the first account as startup account.
@@ -290,9 +293,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
 
         if (account.Preferences != null)
-            await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences);
+            await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
 
-        await Connection.DeleteAsync<MailAccount>(account);
+        await Connection.DeleteAsync<MailAccount>(account.Id);
 
         await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
 
@@ -329,17 +332,51 @@ public class AccountService : BaseDatabaseService, IAccountService
             {
                 account.Address = profileInformation.AccountAddress;
             }
+            
             // Forcefully add or update a contact data with the provided information.
-
-            var accountContact = new AccountContact()
+            // Create Contact with primary email
+            var contact = new Contact()
             {
-                Address = account.Address,
-                Name = account.SenderName,
+                Id = Guid.NewGuid(),
+                DisplayName = account.SenderName,
                 Base64ContactPicture = account.Base64ProfilePictureData,
-                IsRootContact = true
+                Source = ContactSource.EmailExtraction,
+                IsRootContact = true,
+                AccountId = account.Id,
+                CreatedDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                SyncStatus = ContactSyncStatus.Synced
             };
 
-            await Connection.InsertOrReplaceAsync(accountContact, typeof(AccountContact)).ConfigureAwait(false);
+            // Check if contact already exists
+            var existingContact = await _contactService.GetContactByEmailAsync(account.Address).ConfigureAwait(false);
+            
+            if (existingContact != null)
+            {
+                // Update existing contact
+                existingContact.DisplayName = account.SenderName;
+                existingContact.Base64ContactPicture = account.Base64ProfilePictureData;
+                existingContact.IsRootContact = true;
+                existingContact.ModifiedDate = DateTime.UtcNow;
+                await Connection.UpdateAsync(existingContact, typeof(Contact)).ConfigureAwait(false);
+            }
+            else
+            {
+                // Insert new contact
+                await Connection.InsertAsync(contact, typeof(Contact)).ConfigureAwait(false);
+                
+                // Create ContactEmail entry
+                var contactEmail = new ContactEmail()
+                {
+                    Id = Guid.NewGuid(),
+                    ContactId = contact.Id,
+                    Address = account.Address,
+                    IsPrimary = true,
+                    Order = 0
+                };
+                
+                await Connection.InsertAsync(contactEmail, typeof(ContactEmail)).ConfigureAwait(false);
+            }
 
             await UpdateAccountAsync(account).ConfigureAwait(false);
         }

@@ -148,15 +148,15 @@ public class MailService : BaseDatabaseService, IMailService
     {
         var sql = new StringBuilder();
         sql.Append("SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
-        
+
         var whereClauses = new List<string>();
         var parameters = new List<object>();
-        
+
         // Folder filter
         var folderPlaceholders = string.Join(",", options.Folders.Select(_ => "?"));
         whereClauses.Add($"MailCopy.FolderId IN ({folderPlaceholders})");
         parameters.AddRange(options.Folders.Select(f => (object)f.Id));
-        
+
         // Filter type
         switch (options.FilterType)
         {
@@ -170,13 +170,13 @@ public class MailService : BaseDatabaseService, IMailService
                 whereClauses.Add("MailCopy.HasAttachments = 1");
                 break;
         }
-        
+
         // Focused filter
         if (options.IsFocusedOnly != null)
         {
             whereClauses.Add($"MailCopy.IsFocused = {(options.IsFocusedOnly.Value ? "1" : "0")}");
         }
-        
+
         // Search query
         if (!string.IsNullOrEmpty(options.SearchQuery))
         {
@@ -187,7 +187,7 @@ public class MailService : BaseDatabaseService, IMailService
             parameters.Add(searchPattern);
             parameters.Add(searchPattern);
         }
-        
+
         // Exclude existing items
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
@@ -195,28 +195,28 @@ public class MailService : BaseDatabaseService, IMailService
             whereClauses.Add($"MailCopy.UniqueId NOT IN ({excludePlaceholders})");
             parameters.AddRange(options.ExistingUniqueIds.Select(id => (object)id));
         }
-        
+
         if (whereClauses.Any())
         {
             sql.Append(" WHERE ");
             sql.Append(string.Join(" AND ", whereClauses));
         }
-        
+
         // Sorting
         if (options.SortingOptionType == SortingOptionType.ReceiveDate)
             sql.Append(" ORDER BY CreationDate DESC");
         else if (options.SortingOptionType == SortingOptionType.Sender)
             sql.Append(" ORDER BY FromName ASC");
-        
+
         // Pagination
         var limit = options.Take > 0 ? options.Take : ItemLoadCount;
         sql.Append($" LIMIT {limit}");
-        
+
         if (options.Skip > 0)
         {
             sql.Append($" OFFSET {options.Skip}");
         }
-        
+
         return (sql.ToString(), parameters.ToArray());
     }
 
@@ -233,12 +233,14 @@ public class MailService : BaseDatabaseService, IMailService
         {
             // If not just do the query.
             var (query, parameters) = BuildMailFetchQuery(options);
-            mails = await Connection.QueryAsync<MailCopy>(query, parameters);
+
+            // TODO: This throws not supported exception.
+            mails = await Connection.QueryAsync<MailCopy>(query, parameters).ConfigureAwait(false);
         }
 
         ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
         ConcurrentDictionary<Guid, MailAccount> accountCache = new();
-        ConcurrentDictionary<string, AccountContact> contactCache = new();
+        ConcurrentDictionary<string, Contact> contactCache = new();
 
         // Populate Folder Assignment for each single mail, to be able later group by "MailAccountId".
         // This is needed to execute threading strategy by account type.
@@ -283,10 +285,10 @@ public class MailService : BaseDatabaseService, IMailService
                 });
 
                 var processedThreadMails = await Task.WhenAll(tasks).ConfigureAwait(false);
-                
+
                 // Filter out items with no assigned account or folder
                 var validThreadMails = processedThreadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null);
-                
+
                 expandedMails.AddRange(validThreadMails);
             }
 
@@ -328,7 +330,7 @@ public class MailService : BaseDatabaseService, IMailService
     /// This method should used for operations with multiple mailItems. Don't use this for single mail items.
     /// Called method should provide own instances for caches.
     /// </summary>
-    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, ConcurrentDictionary<Guid, MailItemFolder> folderCache, ConcurrentDictionary<Guid, MailAccount> accountCache, ConcurrentDictionary<string, AccountContact> contactCache)
+    private async Task LoadAssignedPropertiesWithCacheAsync(MailCopy mail, ConcurrentDictionary<Guid, MailItemFolder> folderCache, ConcurrentDictionary<Guid, MailAccount> accountCache, ConcurrentDictionary<string, Contact> contactCache)
     {
         if (mail is MailCopy mailCopy)
         {
@@ -351,7 +353,7 @@ public class MailService : BaseDatabaseService, IMailService
                 }
             }
 
-            AccountContact contactAssignment = null;
+            Contact contactAssignment = null;
 
             bool isContactCached = !string.IsNullOrEmpty(mailCopy.FromAddress) &&
                 contactCache.TryGetValue(mailCopy.FromAddress, out contactAssignment);
@@ -372,24 +374,24 @@ public class MailService : BaseDatabaseService, IMailService
         }
     }
 
-    private static AccountContact CreateUnknownContact(string fromName, string fromAddress)
+    private static Contact CreateUnknownContact(string fromName, string fromAddress)
     {
         if (string.IsNullOrEmpty(fromName) && string.IsNullOrEmpty(fromAddress))
         {
-            return new AccountContact()
+            return new Contact()
             {
-                Name = Translator.UnknownSender,
-                Address = Translator.UnknownAddress
+                DisplayName = Translator.UnknownSender,
+                Source = ContactSource.EmailExtraction
             };
         }
         else
         {
             if (string.IsNullOrEmpty(fromName)) fromName = fromAddress;
 
-            return new AccountContact()
+            return new Contact()
             {
-                Name = fromName,
-                Address = fromAddress
+                DisplayName = fromName,
+                Source = ContactSource.EmailExtraction
             };
         }
     }
@@ -406,16 +408,23 @@ public class MailService : BaseDatabaseService, IMailService
         return mailCopies;
     }
 
-    private Task<AccountContact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
+    private async Task<Contact> GetSenderContactForAccountAsync(MailAccount account, string fromAddress)
     {
         // Make sure to return the latest up to date contact information for the original account.
         if (fromAddress == account.Address)
         {
-            return Task.FromResult(new AccountContact() { Address = account.Address, Name = account.SenderName, Base64ContactPicture = account.Base64ProfilePictureData });
+            // Create a temporary Contact representing the account owner
+            return new Contact()
+            {
+                DisplayName = account.SenderName,
+                Base64ContactPicture = account.Base64ProfilePictureData,
+                Source = ContactSource.EmailExtraction,
+                IsRootContact = true
+            };
         }
         else
         {
-            return _contactService.GetAddressInformationByAddressAsync(fromAddress);
+            return await _contactService.GetContactByEmailAsync(fromAddress).ConfigureAwait(false);
         }
     }
 
@@ -557,7 +566,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.DeleteAsync<MailCopy>(mailCopy).ConfigureAwait(false);
+        await Connection.DeleteAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
 
         // If there are no more copies exists of the same mail, delete the MIME file as well.
         var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);
@@ -939,13 +948,13 @@ public class MailService : BaseDatabaseService, IMailService
             if (!string.IsNullOrEmpty(referenceMessage.MessageId))
             {
                 message.InReplyTo = referenceMessage.MessageId;
-                
+
                 // Add all previous References first
                 if (referenceMessage.References != null && referenceMessage.References.Count > 0)
                 {
                     message.References.AddRange(referenceMessage.References);
                 }
-                
+
                 // Then add the message we're replying to
                 message.References.Add(referenceMessage.MessageId);
             }
@@ -957,7 +966,7 @@ public class MailService : BaseDatabaseService, IMailService
                 if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
                 {
                     message.InReplyTo = referenceMailCopy.MessageId;
-                    
+
                     if (!string.IsNullOrEmpty(referenceMailCopy.References))
                     {
                         // Parse the References string and add them
@@ -967,7 +976,7 @@ public class MailService : BaseDatabaseService, IMailService
                             message.References.Add(reference.Trim());
                         }
                     }
-                    
+
                     message.References.Add(referenceMailCopy.MessageId);
                 }
             }
@@ -1136,7 +1145,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         ConcurrentDictionary<Guid, MailItemFolder> folderCache = new();
         ConcurrentDictionary<Guid, MailAccount> accountCache = new();
-        ConcurrentDictionary<string, AccountContact> contactCache = new();
+        ConcurrentDictionary<string, Contact> contactCache = new();
 
         foreach (var mail in mailCopies)
         {

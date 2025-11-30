@@ -148,7 +148,7 @@ public class MailCopy
     /// Services or View Models are responsible for populating this field.
     /// </summary>
     [Ignore]
-    public AccountContact SenderContact { get; set; }
+    public Contact SenderContact { get; set; }
 
     public IEnumerable<Guid> GetContainingIds() => [UniqueId];
     public override string ToString() => $"{Subject} <-> {Id}";

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -12,7 +13,7 @@ public partial class AccountContactViewModel : ObservableObject
     public string Base64ContactPicture { get; set; }
     public bool IsRootContact { get; set; }
 
-    public AccountContactViewModel(AccountContact contact)
+    public AccountContactViewModel(ContactDisplayModel contact)
     {
         Address = contact.Address;
         Name = contact.Name;
