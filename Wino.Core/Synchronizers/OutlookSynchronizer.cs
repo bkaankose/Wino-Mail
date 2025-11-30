@@ -893,6 +893,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         {
             throw;
         }
+        //catch (ServiceException retryAfterException) when (retryAfterException.ResponseStatusCode == 429 && retryAfterException.ResponseHeaders.Contains("Retry-After"))
+        //{
+        //    // This request must be retried after some time.
+        //    var retryAfterValue = retryAfterException.ResponseHeaders.GetValues("Retry-After").FirstOrDefault();
+
+        //    if (int.TryParse(retryAfterValue, out int seconds))
+        //    {
+        //        await Task.Delay(seconds);
+        //    }
+        //}
         catch (ServiceException serviceException)
         {
             // TODO: AOT Comaptible inner exception deserialization.
