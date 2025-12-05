@@ -77,7 +77,7 @@ public interface IPreferencesService: INotifyPropertyChanged
     int MarkAsDelay { get; set; }
 
     /// <summary>
-    /// Setting: Ask comfirmation from the user during permanent delete.
+    /// Setting: Ask confirmation from the user during permanent delete.
     /// </summary>
     bool IsHardDeleteProtectionEnabled { get; set; }
 
