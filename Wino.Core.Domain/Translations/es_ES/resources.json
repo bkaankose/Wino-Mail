@@ -699,8 +699,8 @@
     "WinoUpgradeMessage": "Actualizar a Cuentas Ilimitadas",
     "WinoUpgradeRemainingAccountsMessage": "{0} de {1} cuentas gratuitas usadas.",
     "Yesterday": "Ayer",
-    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
-    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
+    "SettingsAppPreferences_EmailSyncInterval_Title": "Intervalo de sincronización de email",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Intervalo de sincronización automática de correo electrónico (minutos). Esta configuración se aplicará sólo después de reiniciar Wino Mail."
 }
 
 

@@ -29,7 +29,7 @@
     "AddHyperlink": "Přidat",
     "AppCloseBackgroundSynchronizationWarningTitle": "Synchronizace na pozadí",
     "AppCloseStartupLaunchDisabledWarningMessageFirstLine": "Application has not been set to launch on Windows startup.",
-    "AppCloseStartupLaunchDisabledWarningMessageSecondLine": "This will cause you to miss notifications when you restart your computer.",
+    "AppCloseStartupLaunchDisabledWarningMessageSecondLine": "To způsobí zmeškání oznámení když restartujete počítač.",
     "AppCloseStartupLaunchDisabledWarningMessageThirdLine": "Do you want to go to App Preferences page to enable it?",
     "AppCloseTerminateBehaviorWarningMessageFirstLine": "You are terminating Wino Mail and your app close behavior is set to 'Terminate'.",
     "AppCloseTerminateBehaviorWarningMessageSecondLine": "This will stop all background synchronizations and notifications.",
