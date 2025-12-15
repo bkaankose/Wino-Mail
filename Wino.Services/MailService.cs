@@ -148,15 +148,15 @@ public class MailService : BaseDatabaseService, IMailService
     {
         var sql = new StringBuilder();
         sql.Append("SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
-        
+
         var whereClauses = new List<string>();
         var parameters = new List<object>();
-        
+
         // Folder filter
         var folderPlaceholders = string.Join(",", options.Folders.Select(_ => "?"));
         whereClauses.Add($"MailCopy.FolderId IN ({folderPlaceholders})");
         parameters.AddRange(options.Folders.Select(f => (object)f.Id));
-        
+
         // Filter type
         switch (options.FilterType)
         {
@@ -170,13 +170,13 @@ public class MailService : BaseDatabaseService, IMailService
                 whereClauses.Add("MailCopy.HasAttachments = 1");
                 break;
         }
-        
+
         // Focused filter
         if (options.IsFocusedOnly != null)
         {
             whereClauses.Add($"MailCopy.IsFocused = {(options.IsFocusedOnly.Value ? "1" : "0")}");
         }
-        
+
         // Search query
         if (!string.IsNullOrEmpty(options.SearchQuery))
         {
@@ -187,36 +187,36 @@ public class MailService : BaseDatabaseService, IMailService
             parameters.Add(searchPattern);
             parameters.Add(searchPattern);
         }
-        
+
         // Exclude existing items
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
             var excludePlaceholders = string.Join(",", options.ExistingUniqueIds.Select(_ => "?"));
             whereClauses.Add($"MailCopy.UniqueId NOT IN ({excludePlaceholders})");
-            parameters.AddRange(options.ExistingUniqueIds.Select(id => (object)id));
+            parameters.AddRange(options.ExistingUniqueIds.Keys.Select(id => (object)id));
         }
-        
+
         if (whereClauses.Any())
         {
             sql.Append(" WHERE ");
             sql.Append(string.Join(" AND ", whereClauses));
         }
-        
+
         // Sorting
         if (options.SortingOptionType == SortingOptionType.ReceiveDate)
             sql.Append(" ORDER BY CreationDate DESC");
         else if (options.SortingOptionType == SortingOptionType.Sender)
             sql.Append(" ORDER BY FromName ASC");
-        
+
         // Pagination
         var limit = options.Take > 0 ? options.Take : ItemLoadCount;
         sql.Append($" LIMIT {limit}");
-        
+
         if (options.Skip > 0)
         {
             sql.Append($" OFFSET {options.Skip}");
         }
-        
+
         return (sql.ToString(), parameters.ToArray());
     }
 
@@ -283,10 +283,10 @@ public class MailService : BaseDatabaseService, IMailService
                 });
 
                 var processedThreadMails = await Task.WhenAll(tasks).ConfigureAwait(false);
-                
+
                 // Filter out items with no assigned account or folder
                 var validThreadMails = processedThreadMails.Where(m => m.AssignedAccount != null && m.AssignedFolder != null);
-                
+
                 expandedMails.AddRange(validThreadMails);
             }
 
@@ -939,13 +939,13 @@ public class MailService : BaseDatabaseService, IMailService
             if (!string.IsNullOrEmpty(referenceMessage.MessageId))
             {
                 message.InReplyTo = referenceMessage.MessageId;
-                
+
                 // Add all previous References first
                 if (referenceMessage.References != null && referenceMessage.References.Count > 0)
                 {
                     message.References.AddRange(referenceMessage.References);
                 }
-                
+
                 // Then add the message we're replying to
                 message.References.Add(referenceMessage.MessageId);
             }
@@ -957,7 +957,7 @@ public class MailService : BaseDatabaseService, IMailService
                 if (referenceMailCopy != null && !string.IsNullOrEmpty(referenceMailCopy.MessageId))
                 {
                     message.InReplyTo = referenceMailCopy.MessageId;
-                    
+
                     if (!string.IsNullOrEmpty(referenceMailCopy.References))
                     {
                         // Parse the References string and add them
@@ -967,7 +967,7 @@ public class MailService : BaseDatabaseService, IMailService
                             message.References.Add(reference.Trim());
                         }
                     }
-                    
+
                     message.References.Add(referenceMailCopy.MessageId);
                 }
             }
