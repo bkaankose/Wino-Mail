@@ -262,8 +262,8 @@
     "IMAPSetupDialog_AccountType": "Accounttype",
     "IMAPSetupDialog_ValidationSuccess_Title": "Voltooid",
     "IMAPSetupDialog_ValidationSuccess_Message": "Validatie voltooid",
-    "IMAPSetupDialog_SaveImapSuccess_Title": "Success",
-    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP settings saved successfuly.",
+    "IMAPSetupDialog_SaveImapSuccess_Title": "Voltooid",
+    "IMAPSetupDialog_SaveImapSuccess_Message": "IMAP-instellingen zijn succesvol opgeslagen.",
     "IMAPSetupDialog_ValidationFailed_Title": "Validatie van IMAP-server is mislukt.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row0": "Deze server vraagt naar een SSL-verificatie om door te kunnen gaan. Bevestig de certificaatdetails hieronder.",
     "IMAPSetupDialog_CertificateAllowanceRequired_Row1": "Verificatie toestaan om door te gaan met het instellen van uw account.",
@@ -354,9 +354,9 @@
     "Info_ReviewUnknownErrorTitle": "Onbekende fout",
     "Info_ReviewUpdatedMessage": "Hartelijk dank voor de bijgewerkte beoordeling.",
     "Info_SignatureDisabledMessage": "Handtekening voor dit account uitschakelen",
-    "Info_SignatureDisabledTitle": "Gelukt",
+    "Info_SignatureDisabledTitle": "Voltooid",
     "Info_SignatureSavedMessage": "Nieuwe handtekening is opgeslagen",
-    "Info_SignatureSavedTitle": "Gelukt",
+    "Info_SignatureSavedTitle": "Voltooid",
     "Info_SyncCanceledMessage": "Geannuleerd",
     "Info_SyncCanceledTitle": "Synchronisatie",
     "Info_SyncFailedTitle": "Synchronisatie is mislukt",
@@ -699,8 +699,8 @@
     "WinoUpgradeMessage": "Upgraden naar Onbeperkte aantal accounts",
     "WinoUpgradeRemainingAccountsMessage": "{0} van de {1} gratis accounts gebruikt.",
     "Yesterday": "Gisteren",
-    "SettingsAppPreferences_EmailSyncInterval_Title": "Email sync interval",
-    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatic email synchronization interval (minutes). This setting will be applied only after restarting Wino Mail."
+    "SettingsAppPreferences_EmailSyncInterval_Title": "E-mail synchronisatie-interval",
+    "SettingsAppPreferences_EmailSyncInterval_Description": "Automatische e-mail synchronisatie-interval (minuten). Deze instelling zal alleen toegepast worden na herstarten van Wino Mail."
 }
 
 
