@@ -45,7 +45,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         await Connection.ExecuteAsync(
             "DELETE FROM CalendarItem WHERE CalendarId = ? AND AccountId = ?",
             accountCalendar.Id, accountCalendar.AccountId);
-        await Connection.DeleteAsync<AccountCalendar>(accountCalendar);
+        await Connection.DeleteAsync<AccountCalendar>(accountCalendar.Id);
 
         WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
     }

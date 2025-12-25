@@ -97,7 +97,7 @@ public class ContactService : BaseDatabaseService, IContactService
         
         if (contact != null && !contact.IsRootContact)
         {
-            await Connection.DeleteAsync<AccountContact>(contact).ConfigureAwait(false);
+            await Connection.DeleteAsync<AccountContact>(contact.Address).ConfigureAwait(false);
         }
     }
 

@@ -557,7 +557,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.DeleteAsync<MailCopy>(mailCopy).ConfigureAwait(false);
+        await Connection.DeleteAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
 
         // If there are no more copies exists of the same mail, delete the MIME file as well.
         var isMailExists = await IsMailExistsAsync(mailCopy.Id).ConfigureAwait(false);

@@ -508,7 +508,7 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         _logger.Debug("Deleting folder {FolderName}", folder.FolderName);
 
-        await Connection.DeleteAsync<MailItemFolder>(folder).ConfigureAwait(false);
+        await Connection.DeleteAsync<MailItemFolder>(folder.Id).ConfigureAwait(false);
 
         // Delete all existing mails from this folder.
         await Connection.ExecuteAsync("DELETE FROM MailCopy WHERE FolderId = ?", folder.Id);

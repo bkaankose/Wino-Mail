@@ -83,7 +83,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         await Connection.ExecuteAsync("UPDATE MailAccount SET MergedInboxId = NULL WHERE MergedInboxId = ?", mergedInboxId).ConfigureAwait(false);
-        await Connection.DeleteAsync<MergedInbox>(mergedInbox).ConfigureAwait(false);
+        await Connection.DeleteAsync<MergedInbox>(mergedInbox.Id).ConfigureAwait(false);
 
         // Change the startup entity id if it was the merged inbox.
         // Take the first account as startup account.
@@ -290,9 +290,9 @@ public class AccountService : BaseDatabaseService, IAccountService
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
 
         if (account.Preferences != null)
-            await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences);
+            await Connection.DeleteAsync<MailAccountPreferences>(account.Preferences.Id);
 
-        await Connection.DeleteAsync<MailAccount>(account);
+        await Connection.DeleteAsync<MailAccount>(account.Id);
 
         await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
 
