@@ -102,6 +102,10 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     DurationInSeconds = totalDurationInSeconds,
                     Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
 
+                    // Store timezone information
+                    StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start) ?? parentRecurringEvent.StartTimeZone,
+                    EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End) ?? parentRecurringEvent.EndTimeZone,
+
                     // Leave it empty if it's not populated.
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) == null ? string.Empty : GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
                     Status = GetStatus(calendarEvent.Status),
@@ -137,6 +141,11 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     EndDateOffset = eventEndDateTimeOffset.Value.Offset,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = calendarEvent.Location,
+
+                    // Store timezone information from Google Calendar event
+                    StartTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.Start),
+                    EndTimeZone = GoogleIntegratorExtensions.GetEventTimeZone(calendarEvent.End),
+
                     Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent),
                     Status = GetStatus(calendarEvent.Status),
                     Title = calendarEvent.Summary,

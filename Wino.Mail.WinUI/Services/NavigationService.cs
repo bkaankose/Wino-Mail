@@ -3,18 +3,21 @@ using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Mail.WinUI;
-using Wino.Mail.WinUI.Interfaces;
-using Wino.Mail.WinUI.Services;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Mails;
 using Wino.Views;
 using Wino.Views.Account;
+using Wino.Views.Mail;
 using Wino.Views.Settings;
 
 namespace Wino.Services;
@@ -62,6 +65,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),
             WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
+            WinoPage.CalendarPage => typeof(CalendarPage),
+            WinoPage.EventDetailsPage => typeof(EventDetailsPage),
             _ => null,
         };
     }
@@ -71,16 +76,36 @@ public class NavigationService : NavigationServiceBase, INavigationService
         if (WinoApplication.MainWindow is not IWinoShellWindow shellWindow) throw new ArgumentException("MainWindow must implement IWinoShellWindow");
         if (shellWindow.GetMainFrame() is not Frame mainFrame) throw new ArgumentException("MainFrame cannot be null.");
 
+        if (frameType == NavigationReferenceFrame.ShellFrame) return shellWindow.GetMainFrame();
+
         return WinoVisualTreeHelper.GetChildObject<Frame>(mainFrame.Content as UIElement, frameType.ToString());
+    }
+
+    public bool ChangeApplicationMode(WinoApplicationMode mode)
+    {
+        var coreFrame = GetCoreFrame(NavigationReferenceFrame.ShellFrame);
+
+        if (coreFrame == null) return false;
+
+        if (mode == WinoApplicationMode.Mail)
+        {
+            coreFrame.Navigate(typeof(MailAppShell), null);
+        }
+        else
+        {
+            coreFrame.Navigate(typeof(CalendarAppShell), null);
+        }
+
+        return true;
     }
 
     public bool Navigate(WinoPage page,
                          object? parameter = null,
-                         NavigationReferenceFrame frame = NavigationReferenceFrame.ShellFrame,
+                         NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
                          NavigationTransitionType transition = NavigationTransitionType.None)
     {
         var pageType = GetPageType(page);
-        Frame shellFrame = GetCoreFrame(NavigationReferenceFrame.ShellFrame);
+        Frame shellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
 
         _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
 

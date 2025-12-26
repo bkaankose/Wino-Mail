@@ -178,6 +178,15 @@ public static class GoogleIntegratorExtensions
     }
 
     /// <summary>
+    /// Extracts the timezone string from EventDateTime.
+    /// Returns null for all-day events or if timezone is not specified.
+    /// </summary>
+    public static string GetEventTimeZone(EventDateTime eventDateTime)
+    {
+        return eventDateTime?.TimeZone;
+    }
+
+    /// <summary>
     /// RRULE, EXRULE, RDATE and EXDATE lines for a recurring event, as specified in RFC5545.
     /// </summary>
     /// <returns>___ separated lines.</returns>

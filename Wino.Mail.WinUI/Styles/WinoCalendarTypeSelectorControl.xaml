@@ -1,0 +1,83 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Calendar.Controls"
+    xmlns:controls1="using:Wino.Mail.WinUI.Controls"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <Style TargetType="controls:WinoCalendarTypeSelectorControl">
+        <Style.Setters>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="controls:WinoCalendarTypeSelectorControl">
+                        <CommandBar
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            DefaultLabelPosition="Right">
+
+                            <CommandBar.PrimaryCommands>
+                                <!--  Today  -->
+                                <AppBarButton
+                                    x:Name="PART_TodayButton"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Today">
+                                    <AppBarButton.Icon>
+                                        <controls1:WinoFontIcon Icon="CalendarToday" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+
+                                <AppBarSeparator />
+
+                                <!--  Day  -->
+                                <!--  TODO: Specific days  -->
+                                <AppBarToggleButton
+                                    x:Name="PART_DayToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Day">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:WinoFontIcon Icon="CalendarDay" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                                <!--  Week  -->
+                                <!--  TODO: Work week  -->
+
+                                <AppBarToggleButton
+                                    x:Name="PART_WeekToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Week">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:WinoFontIcon Icon="CalendarWeek" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                                <!--  Month  -->
+                                <AppBarToggleButton
+                                    x:Name="PART_MonthToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Month">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:WinoFontIcon FontSize="44" Icon="CalendarMonth" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                                <!--  Year  -->
+                                <AppBarToggleButton
+                                    x:Name="PART_YearToggle"
+                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
+                                    Label="Year">
+                                    <AppBarToggleButton.Icon>
+                                        <controls1:WinoFontIcon Icon="CalendarYear" />
+                                    </AppBarToggleButton.Icon>
+                                </AppBarToggleButton>
+
+                            </CommandBar.PrimaryCommands>
+                        </CommandBar>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style.Setters>
+
+    </Style>
+</ResourceDictionary>
+

@@ -1,0 +1,400 @@
+﻿<abstract:CalendarPageAbstract
+    x:Class="Wino.Calendar.Views.CalendarPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Calendar.Views.Abstract"
+    xmlns:animations="using:CommunityToolkit.WinUI.Animations"
+    xmlns:calendarControls="using:Wino.Calendar.Controls"
+    xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:local="using:Wino.Calendar.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <CollectionViewSource
+            x:Key="GroupedCalendarEnumerableViewSource"
+            IsSourceGrouped="True"
+            Source="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendarsEnumerable, Mode=OneWay}" />
+    </Page.Resources>
+
+    <Border
+        Margin="4,0,7,7"
+        BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="7">
+        <Grid>
+            <!--  Calendar control  -->
+            <calendarControls:WinoCalendarControl
+                x:Name="CalendarControl"
+                DayRanges="{x:Bind ViewModel.DayRanges}"
+                DisplayType="{x:Bind ViewModel.StatePersistanceService.CalendarDisplayType, Mode=OneWay}"
+                IsHitTestVisible="{x:Bind ViewModel.IsCalendarEnabled, Mode=OneWay}"
+                Orientation="{x:Bind ViewModel.CalendarOrientation, Mode=OneWay}"
+                ScrollPositionChanging="CalendarScrolling"
+                SelectedFlipViewDayRange="{x:Bind ViewModel.SelectedDayRange, Mode=TwoWay}"
+                SelectedFlipViewIndex="{x:Bind ViewModel.SelectedDateRangeIndex, Mode=TwoWay}"
+                TimelineCellSelected="CellSelected"
+                TimelineCellUnselected="CellUnselected" />
+
+            <!--  Popup canvas  -->
+            <Canvas x:Name="CalendarOverlayCanvas" IsHitTestVisible="False">
+                <!--  Invisible target UI element for teaching tip display.  -->
+                <Grid
+                    x:Name="TeachingTipPositionerGrid"
+                    Background="Transparent"
+                    IsHitTestVisible="False"
+                    Visibility="Visible" />
+
+                <!--  Popup to display create event dialog.  -->
+                <Popup
+                    x:Name="QuickEventPopupDialog"
+                    ActualPlacementChanged="PopupPlacementChanged"
+                    Closed="QuickEventPopupClosed"
+                    DesiredPlacement="{x:Bind helpers:XamlHelpers.GetPlaccementModeForCalendarType(ViewModel.StatePersistanceService.CalendarDisplayType), Mode=OneWay}"
+                    HorizontalOffset="16"
+                    IsLightDismissEnabled="True"
+                    IsOpen="{x:Bind ViewModel.IsQuickEventDialogOpen, Mode=TwoWay}"
+                    PlacementTarget="{x:Bind TeachingTipPositionerGrid}"
+                    VerticalOffset="16">
+                    <Popup.ChildTransitions>
+                        <TransitionCollection>
+                            <PopupThemeTransition />
+                        </TransitionCollection>
+                    </Popup.ChildTransitions>
+
+                    <Grid
+                        MinWidth="500"
+                        MinHeight="300"
+                        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                        BorderBrush="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay, TargetNullValue='LightGray'}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!--  Title and close button area.  -->
+                        <Grid VerticalAlignment="Top" Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay, TargetNullValue='LightGray'}">
+                            <Button
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                Background="Transparent">
+                                <Button.Content>
+                                    <Grid Height="30" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}"
+                                            Text="{x:Bind ViewModel.SelectedQuickEventAccountCalendar.Account.Name, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}"
+                                            Text="{x:Bind ViewModel.SelectedQuickEventAccountCalendarName, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+
+                                        <Viewbox Grid.Column="2" Width="14">
+                                            <PathIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Data="F1 M 18.935547 4.560547 L 19.814453 5.439453 L 10 15.253906 L 0.185547 5.439453 L 1.064453 4.560547 L 10 13.496094 Z "
+                                                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}" />
+                                        </Viewbox>
+                                    </Grid>
+                                </Button.Content>
+                                <Button.Flyout>
+                                    <Flyout x:Name="QuickEventAccountSelectorFlyout" Placement="Bottom">
+                                        <ListView
+                                            MaxHeight="300"
+                                            HorizontalAlignment="Stretch"
+                                            ItemsSource="{Binding Source={StaticResource GroupedCalendarEnumerableViewSource}}"
+                                            SelectedItem="{x:Bind ViewModel.SelectedQuickEventAccountCalendar, Mode=TwoWay}"
+                                            SelectionChanged="QuickEventAccountSelectorSelectionChanged">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                                    <StackPanel
+                                                        Margin="0,0,16,0"
+                                                        Orientation="Horizontal"
+                                                        Spacing="6">
+                                                        <Ellipse
+                                                            Width="16"
+                                                            Height="16"
+                                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                                            Stroke="White"
+                                                            StrokeThickness="1" />
+                                                        <TextBlock
+                                                            VerticalAlignment="Center"
+                                                            FontSize="14"
+                                                            Text="{x:Bind Name, Mode=OneWay}"
+                                                            TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                            <ListView.GroupStyle>
+                                                <GroupStyle>
+                                                    <GroupStyle.HeaderTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock
+                                                                FontSize="14"
+                                                                FontWeight="SemiBold"
+                                                                Text="{Binding Key.Name}" />
+                                                        </DataTemplate>
+                                                    </GroupStyle.HeaderTemplate>
+                                                </GroupStyle>
+                                            </ListView.GroupStyle>
+                                        </ListView>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </Grid>
+
+                        <!--  Rest of the content  -->
+                        <Grid
+                            Grid.Row="1"
+                            Padding="12"
+                            RowSpacing="20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!--  Event name  -->
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox
+                                    HorizontalAlignment="Stretch"
+                                    VerticalContentAlignment="Center"
+                                    FontSize="16"
+                                    FontWeight="SemiLight"
+                                    PlaceholderText="{x:Bind domain:Translator.QuickEventDialog_EventName}"
+                                    Text="{x:Bind ViewModel.EventName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <CheckBox
+                                    Grid.Column="1"
+                                    MinWidth="10"
+                                    VerticalAlignment="Center"
+                                    Content="{x:Bind domain:Translator.QuickEventDialog_IsAllDay}"
+                                    IsChecked="{x:Bind ViewModel.IsAllDay, Mode=TwoWay}" />
+                            </Grid>
+
+                            <!--  Start - end time  -->
+                            <Grid Grid.Row="1" ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <PathIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Data="F1 M 7.900391 17.5 C 8.011067 17.721354 8.129883 17.936197 8.256836 18.144531 C 8.383789 18.352865 8.522135 18.554688 8.671875 18.75 L 4.921875 18.75 C 4.433594 18.75 3.966471 18.650717 3.520508 18.452148 C 3.074544 18.25358 2.683919 17.986654 2.348633 17.651367 C 2.013346 17.31608 1.746419 16.925455 1.547852 16.479492 C 1.349284 16.033529 1.25 15.566406 1.25 15.078125 L 1.25 4.921875 C 1.25 4.433594 1.349284 3.966473 1.547852 3.520508 C 1.746419 3.074545 2.013346 2.68392 2.348633 2.348633 C 2.683919 2.013348 3.074544 1.74642 3.520508 1.547852 C 3.966471 1.349285 4.433594 1.25 4.921875 1.25 L 15.078125 1.25 C 15.566406 1.25 16.033527 1.349285 16.479492 1.547852 C 16.925455 1.74642 17.31608 2.013348 17.651367 2.348633 C 17.986652 2.68392 18.25358 3.074545 18.452148 3.520508 C 18.650715 3.966473 18.75 4.433594 18.75 4.921875 L 18.75 8.671875 C 18.554688 8.522136 18.352863 8.383789 18.144531 8.256836 C 17.936197 8.129883 17.721354 8.011068 17.5 7.900391 L 17.5 6.25 L 2.5 6.25 L 2.5 15.048828 C 2.5 15.38737 2.568359 15.704753 2.705078 16.000977 C 2.841797 16.297201 3.024088 16.55599 3.251953 16.777344 C 3.479818 16.998697 3.745117 17.174479 4.047852 17.304688 C 4.350586 17.434896 4.667969 17.5 5 17.5 Z M 4.951172 2.5 C 4.619141 2.5 4.303385 2.568359 4.003906 2.705078 C 3.704427 2.841797 3.44401 3.02409 3.222656 3.251953 C 3.001302 3.479818 2.825521 3.745117 2.695312 4.047852 C 2.565104 4.350587 2.5 4.66797 2.5 5 L 17.5 5 L 17.5 4.951172 C 17.5 4.625651 17.433268 4.314779 17.299805 4.018555 C 17.16634 3.722332 16.987305 3.461914 16.762695 3.237305 C 16.538086 3.012695 16.277668 2.83366 15.981445 2.700195 C 15.685221 2.566732 15.374349 2.5 15.048828 2.5 Z M 20 14.375 C 20 15.14974 19.851887 15.878906 19.555664 16.5625 C 19.259439 17.246094 18.857422 17.841797 18.349609 18.349609 C 17.841797 18.857422 17.246094 19.259439 16.5625 19.555664 C 15.878906 19.851889 15.149739 20 14.375 20 C 13.59375 20 12.861328 19.853516 12.177734 19.560547 C 11.494141 19.267578 10.898438 18.867188 10.390625 18.359375 C 9.882812 17.851562 9.482422 17.255859 9.189453 16.572266 C 8.896484 15.888672 8.75 15.15625 8.75 14.375 C 8.75 13.600261 8.898111 12.871094 9.194336 12.1875 C 9.49056 11.503906 9.892578 10.908203 10.400391 10.400391 C 10.908203 9.892578 11.503906 9.490561 12.1875 9.194336 C 12.871093 8.898112 13.60026 8.75 14.375 8.75 C 14.889322 8.75 15.385741 8.816732 15.864258 8.950195 C 16.342773 9.083659 16.790363 9.272461 17.207031 9.516602 C 17.623697 9.760742 18.004557 10.055339 18.349609 10.400391 C 18.69466 10.745443 18.989258 11.126303 19.233398 11.542969 C 19.477539 11.959636 19.66634 12.407227 19.799805 12.885742 C 19.933268 13.364258 20 13.860678 20 14.375 Z M 16.25 15 C 16.41927 15 16.565754 14.938151 16.689453 14.814453 C 16.81315 14.690756 16.875 14.544271 16.875 14.375 C 16.875 14.205729 16.81315 14.059245 16.689453 13.935547 C 16.565754 13.81185 16.41927 13.75 16.25 13.75 L 15 13.75 L 15 11.875 C 14.999999 11.705729 14.93815 11.559245 14.814453 11.435547 C 14.690755 11.31185 14.544271 11.25 14.375 11.25 C 14.205729 11.25 14.059244 11.31185 13.935547 11.435547 C 13.811849 11.559245 13.75 11.705729 13.75 11.875 L 13.75 14.375 C 13.75 14.544271 13.811849 14.690756 13.935547 14.814453 C 14.059244 14.938151 14.205729 15 14.375 15 Z " />
+
+                                <ComboBox
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    IsEditable="True"
+                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAllDay), Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.HourSelectionStrings, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedStartTimeString, Mode=TwoWay}"
+                                    TextSubmitted="StartTimeDurationSubmitted" />
+
+                                <TextBlock
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Text="-" />
+
+                                <ComboBox
+                                    Grid.Column="3"
+                                    HorizontalAlignment="Stretch"
+                                    IsEditable="True"
+                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAllDay), Mode=OneWay}"
+                                    ItemsSource="{x:Bind ViewModel.HourSelectionStrings, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedEndTimeString, Mode=TwoWay}"
+                                    TextSubmitted="EndTimeDurationSubmitted" />
+                            </Grid>
+
+                            <!--  Location  -->
+                            <Grid Grid.Row="2" ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <PathIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Data="F1 M 0 10 C 0 9.082031 0.118815 8.196615 0.356445 7.34375 C 0.594076 6.490886 0.93099 5.694987 1.367188 4.956055 C 1.803385 4.217123 2.325846 3.543295 2.93457 2.93457 C 3.543294 2.325848 4.217122 1.803387 4.956055 1.367188 C 5.694986 0.93099 6.490885 0.594076 7.34375 0.356445 C 8.196614 0.118816 9.082031 0 10 0 C 10.917969 0 11.803385 0.118816 12.65625 0.356445 C 13.509114 0.594076 14.305013 0.93099 15.043945 1.367188 C 15.782877 1.803387 16.456705 2.325848 17.06543 2.93457 C 17.674152 3.543295 18.196613 4.217123 18.632812 4.956055 C 19.06901 5.694987 19.405924 6.490886 19.643555 7.34375 C 19.881184 8.196615 20 9.082031 20 10 C 20 10.917969 19.881184 11.803386 19.643555 12.65625 C 19.405924 13.509115 19.06901 14.305014 18.632812 15.043945 C 18.196613 15.782878 17.674152 16.456705 17.06543 17.06543 C 16.456705 17.674154 15.782877 18.196615 15.043945 18.632812 C 14.305013 19.06901 13.509114 19.405924 12.65625 19.643555 C 11.803385 19.881186 10.917969 20 10 20 C 9.082031 20 8.196614 19.881186 7.34375 19.643555 C 6.490885 19.405924 5.694986 19.06901 4.956055 18.632812 C 4.217122 18.196615 3.543294 17.674154 2.93457 17.06543 C 2.325846 16.456705 1.803385 15.782878 1.367188 15.043945 C 0.93099 14.305014 0.594076 13.509115 0.356445 12.65625 C 0.118815 11.803386 0 10.917969 0 10 Z M 18.75 10 C 18.75 9.199219 18.645832 8.426107 18.4375 7.680664 C 18.229166 6.935222 17.93457 6.238607 17.553711 5.59082 C 17.172852 4.943035 16.715494 4.352215 16.181641 3.818359 C 15.647785 3.284506 15.056965 2.827148 14.40918 2.446289 C 13.761393 2.06543 13.064778 1.770834 12.319336 1.5625 C 11.573893 1.354168 10.800781 1.25 10 1.25 C 9.192708 1.25 8.416341 1.354168 7.670898 1.5625 C 6.925456 1.770834 6.228841 2.06543 5.581055 2.446289 C 4.933268 2.827148 4.344075 3.282879 3.813477 3.813477 C 3.282877 4.344076 2.827148 4.933269 2.446289 5.581055 C 2.06543 6.228842 1.770833 6.925457 1.5625 7.670898 C 1.354167 8.416342 1.25 9.192709 1.25 10 C 1.25 10.807292 1.354167 11.583659 1.5625 12.329102 C 1.770833 13.074545 2.06543 13.771159 2.446289 14.418945 C 2.827148 15.066732 3.282877 15.655925 3.813477 16.186523 C 4.344075 16.717123 4.933268 17.172852 5.581055 17.553711 C 6.228841 17.93457 6.925456 18.229166 7.670898 18.4375 C 8.416341 18.645834 9.192708 18.75 10 18.75 C 10.807291 18.75 11.583658 18.645834 12.329102 18.4375 C 13.074543 18.229166 13.771158 17.93457 14.418945 17.553711 C 15.066731 17.172852 15.655924 16.717123 16.186523 16.186523 C 16.717121 15.655925 17.172852 15.066732 17.553711 14.418945 C 17.93457 13.771159 18.229166 13.074545 18.4375 12.329102 C 18.645832 11.583659 18.75 10.807292 18.75 10 Z M 5 9.902344 C 5 9.225261 5.135091 8.588867 5.405273 7.993164 C 5.675456 7.397461 6.040039 6.878256 6.499023 6.435547 C 6.958008 5.992839 7.488606 5.642904 8.09082 5.385742 C 8.693033 5.128582 9.329427 5.000001 10 5 C 10.690104 5.000001 11.339518 5.130209 11.948242 5.390625 C 12.556965 5.651042 13.087564 6.007487 13.540039 6.459961 C 13.992513 6.912436 14.348958 7.443035 14.609375 8.051758 C 14.869791 8.660482 14.999999 9.309896 15 10 C 14.999999 10.690104 14.869791 11.339519 14.609375 11.948242 C 14.348958 12.556967 13.992513 13.087565 13.540039 13.540039 C 13.087564 13.992514 12.556965 14.348959 11.948242 14.609375 C 11.339518 14.869792 10.690104 15 10 15 C 9.290364 15 8.631185 14.866537 8.022461 14.599609 C 7.413737 14.332683 6.884766 13.9681 6.435547 13.505859 C 5.986328 13.04362 5.634766 12.503256 5.380859 11.884766 C 5.126953 11.266276 5 10.605469 5 9.902344 Z " />
+
+                                <!--  TODO: Auto suggest box for searching addresses later on.  -->
+                                <TextBox Grid.Column="1" PlaceholderText="{x:Bind domain:Translator.QuickEventDialog_Location}" />
+                            </Grid>
+
+                            <!--  Reminder  -->
+                            <Grid Grid.Row="3" ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <PathIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Data="F1 M 10 1.25 C 10.572916 1.25 11.126302 1.324871 11.660156 1.474609 C 12.19401 1.62435 12.692057 1.834311 13.154297 2.104492 C 13.616536 2.374676 14.038086 2.700195 14.418945 3.081055 C 14.799805 3.461914 15.125325 3.883465 15.395508 4.345703 C 15.665689 4.807943 15.87565 5.30599 16.025391 5.839844 C 16.175129 6.373699 16.25 6.927084 16.25 7.5 L 16.25 12.099609 L 17.871094 14.248047 C 17.949219 14.358725 18.011066 14.477539 18.056641 14.604492 C 18.102213 14.731445 18.125 14.860026 18.125 14.990234 C 18.125 15.166016 18.092447 15.330404 18.027344 15.483398 C 17.962238 15.636394 17.872721 15.769857 17.758789 15.883789 C 17.644855 15.997722 17.511393 16.08724 17.358398 16.152344 C 17.205402 16.217449 17.041016 16.25 16.865234 16.25 L 13.066406 16.25 C 12.98828 16.614584 12.854816 16.949869 12.666016 17.255859 C 12.477213 17.56185 12.247721 17.825521 11.977539 18.046875 C 11.707356 18.268229 11.402994 18.440756 11.064453 18.564453 C 10.725911 18.68815 10.371094 18.75 10 18.75 C 9.628906 18.75 9.274088 18.68815 8.935547 18.564453 C 8.597005 18.440756 8.292643 18.268229 8.022461 18.046875 C 7.752278 17.825521 7.522786 17.56185 7.333984 17.255859 C 7.145182 16.949869 7.011719 16.614584 6.933594 16.25 L 3.134766 16.25 C 2.958984 16.25 2.794596 16.217449 2.641602 16.152344 C 2.488607 16.08724 2.355143 15.997722 2.241211 15.883789 C 2.127279 15.769857 2.03776 15.636394 1.972656 15.483398 C 1.907552 15.330404 1.875 15.166016 1.875 14.990234 C 1.875 14.860026 1.897786 14.731445 1.943359 14.604492 C 1.988932 14.477539 2.050781 14.358725 2.128906 14.248047 L 3.75 12.099609 L 3.75 7.5 C 3.75 6.927084 3.82487 6.373699 3.974609 5.839844 C 4.124349 5.30599 4.33431 4.807943 4.604492 4.345703 C 4.874674 3.883465 5.200195 3.461914 5.581055 3.081055 C 5.961914 2.700195 6.383463 2.374676 6.845703 2.104492 C 7.307942 1.834311 7.805989 1.62435 8.339844 1.474609 C 8.873697 1.324871 9.427083 1.25 10 1.25 Z M 10 2.5 C 9.309896 2.5 8.660481 2.630209 8.051758 2.890625 C 7.443034 3.151043 6.912435 3.507488 6.459961 3.959961 C 6.007487 4.412436 5.651042 4.943034 5.390625 5.551758 C 5.130208 6.160482 5 6.809896 5 7.5 L 5 12.207031 C 5 12.304688 4.983724 12.403972 4.951172 12.504883 C 4.91862 12.605795 4.873047 12.695312 4.814453 12.773438 L 3.134766 15 L 16.865234 15 L 15.185547 12.773438 C 15.126953 12.695312 15.08138 12.605795 15.048828 12.504883 C 15.016275 12.403972 14.999999 12.304688 15 12.207031 L 15 7.5 C 14.999999 6.809896 14.869791 6.160482 14.609375 5.551758 C 14.348958 4.943034 13.992513 4.412436 13.540039 3.959961 C 13.087564 3.507488 12.556965 3.151043 11.948242 2.890625 C 11.339518 2.630209 10.690104 2.5 10 2.5 Z M 8.232422 16.25 C 8.297525 16.438803 8.388672 16.609701 8.505859 16.762695 C 8.623047 16.915689 8.759766 17.047525 8.916016 17.158203 C 9.072266 17.268881 9.243164 17.353516 9.428711 17.412109 C 9.614258 17.470703 9.804688 17.5 10 17.5 C 10.195312 17.5 10.385742 17.470703 10.571289 17.412109 C 10.756836 17.353516 10.927734 17.268881 11.083984 17.158203 C 11.240234 17.047525 11.376953 16.915689 11.494141 16.762695 C 11.611328 16.609701 11.702474 16.438803 11.767578 16.25 Z " />
+                                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" />
+                            </Grid>
+
+                            <!--  Buttons  -->
+                            <Grid Grid.Row="4" ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button
+                                    HorizontalAlignment="Stretch"
+                                    Command="{x:Bind ViewModel.MoreDetailsCommand}"
+                                    Content="{x:Bind domain:Translator.QuickEventDialogMoreDetailsButtonText}" />
+                                <Button
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    Command="{x:Bind ViewModel.SaveQuickEventCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_Save}"
+                                    Style="{ThemeResource AccentButtonStyle}" />
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Popup>
+
+                <!--  Popup to display event details.  -->
+                <Popup
+                    x:Name="EventDetailsPopup"
+                    ActualPlacementChanged="PopupPlacementChanged"
+                    Closed="EventDetailsPopupClosed"
+                    DesiredPlacement="{x:Bind calendarHelpers:CalendarXamlHelpers.GetDesiredPlacementModeForEventsDetailsPopup(ViewModel.DisplayDetailsCalendarItemViewModel, ViewModel.StatePersistanceService.CalendarDisplayType), Mode=OneWay}"
+                    HorizontalOffset="16"
+                    IsLightDismissEnabled="True"
+                    IsOpen="{x:Bind ViewModel.IsEventDetailsVisible, Mode=OneWay}"
+                    PlacementTarget="{x:Bind TeachingTipPositionerGrid}"
+                    VerticalOffset="16">
+                    <Popup.ChildTransitions>
+                        <TransitionCollection>
+                            <PopupThemeTransition />
+                        </TransitionCollection>
+                    </Popup.ChildTransitions>
+                    <Grid
+                        MinWidth="300"
+                        Padding="20"
+                        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                        BorderBrush="{ThemeResource CalendarSeperatorBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock
+                            FontWeight="Normal"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.Title, Mode=OneWay}" />
+
+                        <Grid
+                            Grid.Row="1"
+                            ColumnSpacing="8"
+                            RowSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <muxc:PersonPicture
+                                Width="46"
+                                Height="46"
+                                DisplayName="BK" />
+
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="0">
+                                <TextBlock Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetDetailsPopupDurationString(ViewModel.DisplayDetailsCalendarItemViewModel, ViewModel.CurrentSettings), Mode=OneWay, TargetNullValue=''}" />
+                                <TextBlock Text="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.CalendarItem.OrganizerDisplayName, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <!--  TODO: HtmlLink visibility  -->
+                            <HyperlinkButton
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Data="F1 M 20 10 C 20 10.917969 19.881184 11.803386 19.643555 12.65625 C 19.405924 13.509115 19.06901 14.305014 18.632812 15.043945 C 18.196613 15.782878 17.674152 16.456705 17.06543 17.06543 C 16.456705 17.674154 15.782877 18.196615 15.043945 18.632812 C 14.305013 19.06901 13.509114 19.405924 12.65625 19.643555 C 11.803385 19.881186 10.917969 20 10 20 C 9.082031 20 8.196614 19.881186 7.34375 19.643555 C 6.490885 19.405924 5.694986 19.06901 4.956055 18.632812 C 4.217122 18.196615 3.543294 17.674154 2.93457 17.06543 C 2.325846 16.456705 1.803385 15.782878 1.367188 15.043945 C 0.93099 14.305014 0.594076 13.509115 0.356445 12.65625 C 0.118815 11.803386 0 10.917969 0 10 C 0 9.082031 0.118815 8.196615 0.356445 7.34375 C 0.594076 6.490886 0.93099 5.694987 1.367188 4.956055 C 1.803385 4.217123 2.325846 3.543295 2.93457 2.93457 C 3.543294 2.325848 4.217122 1.803387 4.956055 1.367188 C 5.694986 0.93099 6.490885 0.594076 7.34375 0.356445 C 8.196614 0.118816 9.082031 0 10 0 C 10.917969 0 11.803385 0.118816 12.65625 0.356445 C 13.509114 0.594076 14.305013 0.93099 15.043945 1.367188 C 15.782877 1.803387 16.456705 2.325848 17.06543 2.93457 C 17.674152 3.543295 18.196613 4.217123 18.632812 4.956055 C 19.06901 5.694987 19.405924 6.490886 19.643555 7.34375 C 19.881184 8.196615 20 9.082031 20 10 Z M 3.515625 15.869141 C 3.932292 16.331381 4.388021 16.741537 4.882812 17.099609 C 5.377604 17.457682 5.901692 17.758789 6.455078 18.00293 C 7.008463 18.24707 7.583008 18.432617 8.178711 18.55957 C 8.774414 18.686523 9.38151 18.75 10 18.75 C 10.813802 18.75 11.612955 18.639322 12.397461 18.417969 C 13.181966 18.196615 13.919271 17.871094 14.609375 17.441406 C 14.479166 17.317709 14.352213 17.18099 14.228516 17.03125 C 14.104817 16.881512 13.995768 16.725262 13.901367 16.5625 C 13.806966 16.39974 13.732096 16.228842 13.676758 16.049805 C 13.621418 15.870769 13.593749 15.68685 13.59375 15.498047 C 13.593749 15.224609 13.64746 14.969076 13.754883 14.731445 C 13.862304 14.493815 13.997395 14.275717 14.160156 14.077148 C 14.322916 13.878581 14.500325 13.693034 14.692383 13.520508 C 14.884439 13.347982 15.061849 13.185222 15.224609 13.032227 C 15.387369 12.879232 15.52246 12.734375 15.629883 12.597656 C 15.737304 12.460938 15.791015 12.327475 15.791016 12.197266 C 15.791015 12.080078 15.740559 11.977539 15.639648 11.889648 C 15.538736 11.801758 15.432942 11.757812 15.322266 11.757812 C 15.198567 11.757812 15.076497 11.785482 14.956055 11.84082 C 14.835611 11.896159 14.716797 11.958008 14.599609 12.026367 C 14.482422 12.094727 14.365234 12.156576 14.248047 12.211914 C 14.130859 12.267253 14.016927 12.294922 13.90625 12.294922 C 13.691406 12.294922 13.51888 12.231445 13.388672 12.104492 C 13.258463 11.977539 13.170572 11.813151 13.125 11.611328 C 13.092447 11.4681 13.064778 11.292318 13.041992 11.083984 C 13.019205 10.875651 12.991535 10.664062 12.958984 10.449219 C 12.926432 10.234375 12.888997 10.029297 12.84668 9.833984 C 12.804361 9.638672 12.75065 9.482422 12.685547 9.365234 C 12.496744 9.026693 12.280273 8.709311 12.036133 8.413086 C 11.791992 8.116862 11.565755 7.80599 11.357422 7.480469 C 11.285807 7.363281 11.232096 7.254232 11.196289 7.15332 C 11.160481 7.052409 11.142578 6.933594 11.142578 6.796875 C 11.142578 6.608073 11.183268 6.435547 11.264648 6.279297 C 11.346028 6.123047 11.455078 5.979818 11.591797 5.849609 C 11.728516 5.719401 11.868489 5.595703 12.011719 5.478516 L 12.285156 5.224609 C 12.428385 5.100912 12.568359 4.977214 12.705078 4.853516 C 13.076172 4.508464 13.432617 4.153646 13.774414 3.789062 C 14.116211 3.42448 14.453125 3.053387 14.785156 2.675781 C 14.075521 2.213543 13.313802 1.860352 12.5 1.616211 C 11.686197 1.37207 10.852864 1.25 10 1.25 C 9.947916 1.25 9.897461 1.25 9.848633 1.25 C 9.799805 1.25 9.749349 1.253256 9.697266 1.259766 C 9.807942 1.455078 9.915364 1.682943 10.019531 1.943359 C 10.123697 2.203777 10.216471 2.472332 10.297852 2.749023 C 10.379231 3.025717 10.444336 3.30241 10.493164 3.579102 C 10.541992 3.855795 10.566406 4.104818 10.566406 4.326172 C 10.566406 4.632162 10.525716 4.933269 10.444336 5.229492 C 10.362955 5.525717 10.23763 5.800782 10.068359 6.054688 C 9.918619 6.276042 9.760742 6.458334 9.594727 6.601562 C 9.428711 6.744793 9.248047 6.865235 9.052734 6.962891 C 8.857422 7.060548 8.650716 7.140301 8.432617 7.202148 C 8.214518 7.263998 7.981771 7.317709 7.734375 7.363281 C 7.584635 7.395834 7.436523 7.444662 7.290039 7.509766 C 7.143555 7.574871 7.027995 7.675782 6.943359 7.8125 C 6.884765 7.903646 6.845703 8.004558 6.826172 8.115234 C 6.80664 8.225912 6.796875 8.336589 6.796875 8.447266 C 6.796875 8.6556 6.824544 8.85905 6.879883 9.057617 C 6.935221 9.256186 6.995442 9.453125 7.060547 9.648438 C 7.125651 9.84375 7.185872 10.039062 7.241211 10.234375 C 7.296549 10.429688 7.324218 10.631511 7.324219 10.839844 C 7.324218 11.171875 7.254231 11.44694 7.114258 11.665039 C 6.974284 11.883139 6.79362 12.062175 6.572266 12.202148 C 6.350911 12.342123 6.103515 12.4528 5.830078 12.53418 C 5.556641 12.615561 5.286458 12.685547 5.019531 12.744141 C 4.902344 12.770183 4.781901 12.804362 4.658203 12.84668 C 4.534505 12.888998 4.418945 12.944336 4.311523 13.012695 C 4.204102 13.081055 4.1097 13.162436 4.02832 13.256836 C 3.94694 13.351237 3.896484 13.466797 3.876953 13.603516 Z M 1.25 10 C 1.25 10.787761 1.354167 11.559245 1.5625 12.314453 C 1.770833 13.069662 2.073568 13.785808 2.470703 14.462891 C 2.496745 14.326172 2.519531 14.189453 2.539062 14.052734 L 2.578125 13.779297 C 2.597656 13.642578 2.620443 13.505859 2.646484 13.369141 C 2.698568 13.095703 2.792969 12.856445 2.929688 12.651367 C 3.066406 12.446289 3.232422 12.267253 3.427734 12.114258 C 3.623047 11.961264 3.839518 11.835938 4.077148 11.738281 C 4.314778 11.640625 4.560547 11.565756 4.814453 11.513672 C 4.899088 11.494141 5.013021 11.471354 5.15625 11.445312 C 5.299479 11.419271 5.439453 11.380209 5.576172 11.328125 C 5.712891 11.276042 5.830078 11.210938 5.927734 11.132812 C 6.025391 11.054688 6.074219 10.957031 6.074219 10.839844 C 6.074219 10.755209 6.061198 10.65918 6.035156 10.551758 C 6.009114 10.444336 5.979817 10.336914 5.947266 10.229492 C 5.914713 10.12207 5.878906 10.016276 5.839844 9.912109 C 5.800781 9.807943 5.768229 9.713542 5.742188 9.628906 C 5.611979 9.238281 5.546875 8.844401 5.546875 8.447266 C 5.546875 7.789715 5.725911 7.268881 6.083984 6.884766 C 6.442057 6.500651 6.933593 6.246745 7.558594 6.123047 C 7.825521 6.070964 8.068033 6.004232 8.286133 5.922852 C 8.504231 5.841472 8.689778 5.732422 8.842773 5.595703 C 8.995768 5.458984 9.112955 5.288086 9.194336 5.083008 C 9.275716 4.87793 9.316406 4.622396 9.316406 4.316406 C 9.316406 4.160156 9.298502 3.982748 9.262695 3.78418 C 9.226888 3.585613 9.181314 3.383789 9.125977 3.178711 C 9.070638 2.973633 9.007161 2.776693 8.935547 2.587891 C 8.863932 2.39909 8.792317 2.233074 8.720703 2.089844 C 8.67513 1.998699 8.626302 1.914062 8.574219 1.835938 L 8.476562 1.660156 C 8.424479 1.575521 8.37565 1.490887 8.330078 1.40625 C 7.301432 1.608074 6.355794 1.972656 5.493164 2.5 C 4.630534 3.027344 3.883463 3.671875 3.251953 4.433594 C 2.620443 5.195312 2.128906 6.051433 1.777344 7.001953 C 1.425781 7.952475 1.25 8.951823 1.25 10 Z M 18.75 10 C 18.75 9.375 18.684895 8.759766 18.554688 8.154297 C 18.424479 7.548828 18.232422 6.964519 17.978516 6.401367 C 17.724609 5.838217 17.413736 5.30599 17.045898 4.804688 C 16.678059 4.303386 16.25651 3.847656 15.78125 3.4375 C 15.507812 3.75 15.23763 4.051107 14.970703 4.34082 C 14.703775 4.630534 14.431966 4.913737 14.155273 5.19043 C 13.87858 5.467123 13.595377 5.738933 13.305664 6.005859 C 13.01595 6.272787 12.711588 6.539715 12.392578 6.806641 C 12.503255 6.93685 12.607422 7.07194 12.705078 7.211914 C 12.802734 7.351889 12.900391 7.490234 12.998047 7.626953 C 13.245442 7.972006 13.439127 8.251953 13.579102 8.466797 C 13.719075 8.681641 13.829752 8.889975 13.911133 9.091797 C 13.992512 9.29362 14.057616 9.521484 14.106445 9.775391 C 14.155272 10.029297 14.212238 10.364584 14.277344 10.78125 C 14.446613 10.703125 14.624022 10.638021 14.80957 10.585938 C 14.995116 10.533854 15.182291 10.507812 15.371094 10.507812 C 15.592447 10.507812 15.804035 10.553386 16.005859 10.644531 C 16.207682 10.735678 16.386719 10.859375 16.542969 11.015625 C 16.699219 11.171875 16.822916 11.350912 16.914062 11.552734 C 17.005207 11.754558 17.050781 11.966146 17.050781 12.1875 C 17.050781 12.441406 16.99707 12.677409 16.889648 12.895508 C 16.782227 13.113607 16.645508 13.318686 16.479492 13.510742 C 16.313477 13.7028 16.136066 13.885092 15.947266 14.057617 C 15.758463 14.230144 15.581055 14.396159 15.415039 14.555664 C 15.249023 14.71517 15.112305 14.873047 15.004883 15.029297 C 14.897461 15.185547 14.84375 15.345053 14.84375 15.507812 C 14.84375 15.61849 14.871419 15.729167 14.926758 15.839844 C 14.982096 15.950521 15.048828 16.057943 15.126953 16.162109 C 15.205078 16.266275 15.289713 16.363932 15.380859 16.455078 C 15.472005 16.546225 15.556641 16.62435 15.634766 16.689453 C 16.129557 16.272787 16.56901 15.810547 16.953125 15.302734 C 17.337238 14.794922 17.66276 14.256186 17.929688 13.686523 C 18.196613 13.116862 18.400064 12.522787 18.540039 11.904297 C 18.680012 11.285808 18.75 10.651042 18.75 10 Z " />
+                                    <TextBlock Text="{x:Bind domain:Translator.CalendarItem_DetailsPopup_JoinOnline}" />
+                                </StackPanel>
+                            </HyperlinkButton>
+                        </Grid>
+
+                        <!--  Buttons  -->
+                        <Grid
+                            Grid.Row="2"
+                            VerticalAlignment="Bottom"
+                            ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!--  View series  -->
+                            <Button
+                                HorizontalAlignment="Stretch"
+                                Command="{x:Bind ViewModel.NavigateSeriesCommand}"
+                                Content="{x:Bind domain:Translator.CalendarItem_DetailsPopup_ViewSeriesButton}"
+                                Visibility="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.IsRecurringEvent, Mode=OneWay}" />
+
+                            <Button
+                                Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                Command="{x:Bind ViewModel.NavigateEventDetailsCommand}"
+                                Content="{x:Bind domain:Translator.CalendarItem_DetailsPopup_ViewEventButton}"
+                                Style="{ThemeResource AccentButtonStyle}" />
+                        </Grid>
+                    </Grid>
+                </Popup>
+            </Canvas>
+        </Grid>
+    </Border>
+
+</abstract:CalendarPageAbstract>
+
+

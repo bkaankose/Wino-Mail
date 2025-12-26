@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using SQLite;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -43,11 +44,6 @@ public class DatabaseService : IDatabaseService
 
     private async Task CreateTablesAsync()
     {
-        //typeof(AccountCalendar),
-        //    typeof(CalendarEventAttendee),
-        //    typeof(CalendarItem),
-        //    typeof(Reminder),
-
         await Task.WhenAll(
             Connection.CreateTableAsync<MailCopy>(),
             Connection.CreateTableAsync<MailItemFolder>(),
@@ -59,7 +55,11 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<MailAccountPreferences>(),
             Connection.CreateTableAsync<MailAccountAlias>(),
             Connection.CreateTableAsync<Thumbnail>(),
-            Connection.CreateTableAsync<KeyboardShortcut>()
+            Connection.CreateTableAsync<KeyboardShortcut>(),
+            Connection.CreateTableAsync<AccountCalendar>(),
+            Connection.CreateTableAsync<CalendarEventAttendee>(),
+            Connection.CreateTableAsync<CalendarItem>(),
+            Connection.CreateTableAsync<Reminder>()
             );
     }
 }

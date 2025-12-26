@@ -711,7 +711,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    partial void OnSelectedStartTimeStringChanged(string newValue)
+    partial void OnSelectedStartTimeStringChanged(string oldValue, string newValue)
     {
         var parsedTime = CurrentSettings.GetTimeSpan(newValue);
 
@@ -725,7 +725,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    partial void OnSelectedEndTimeStringChanged(string newValue)
+    partial void OnSelectedEndTimeStringChanged(string oldValue, string newValue)
     {
         var parsedTime = CurrentSettings.GetTimeSpan(newValue);
 

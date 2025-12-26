@@ -2,12 +2,12 @@ using System;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -21,6 +21,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 {
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
+    public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
 
     public ICommand ShowWinoCommand { get; set; }
     public ICommand ExitWinoCommand { get; set; }
@@ -70,7 +71,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
     {
         // TODO: Handle protocol activations.
 
-        MainShellFrame.Navigate(typeof(AppShell));
+        MainShellFrame.Navigate(typeof(MailAppShell));
     }
 
     public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
@@ -98,7 +99,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     public void Receive(TitleBarShellContentUpdated message)
     {
-        if (MainShellFrame.Content is AppShell shellPage)
+        if (MainShellFrame.Content is MailAppShell shellPage)
         {
             ShellTitleBar.Content = shellPage.TopShellContent;
         }
@@ -161,6 +162,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     private void RestoreFromTray()
     {
+
         this.Show();
         BringToFront();
     }
@@ -192,5 +194,20 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
     {
         WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+    }
+
+    private void SegmentedChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is Segmented segmentedControl)
+        {
+            if (segmentedControl.SelectedIndex == 0)
+            {
+                NavigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
+            }
+            else
+            {
+                NavigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
+            }
+        }
     }
 }

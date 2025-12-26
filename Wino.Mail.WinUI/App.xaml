@@ -18,7 +18,14 @@
                 <ResourceDictionary Source="Styles/WebViewEditorControl.xaml" />
                 <ResourceDictionary Source="Controls/ListView/WinoListViewStyles.xaml" />
 
+                <ResourceDictionary Source="Styles/CalendarThemeResources.xaml" />
+
+                <ResourceDictionary Source="Styles/WinoDayTimelineCanvas.xaml" />
+                <ResourceDictionary Source="Styles/WinoCalendarView.xaml" />
+                <ResourceDictionary Source="Styles/WinoCalendarTypeSelectorControl.xaml" />
+
                 <styles:WinoExpanderStyle />
+                <styles:WinoCalendarResources />
                 <ResourceDictionary Source="AppThemes/Default.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

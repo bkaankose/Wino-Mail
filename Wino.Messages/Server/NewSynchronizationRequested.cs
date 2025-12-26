@@ -13,4 +13,4 @@ public record NewMailSynchronizationRequested(MailSynchronizationOptions Options
 /// Triggers a new calendar synchronization if possible.
 /// </summary>
 /// <param name="Options">Options for synchronization.</param>
-public record NewCalendarSynchronizationRequested(CalendarSynchronizationOptions Options) : IClientMessage;
+public record NewCalendarSynchronizationRequested(CalendarSynchronizationOptions Options) : IClientMessage, IUIMessage;

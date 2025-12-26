@@ -229,23 +229,37 @@ public static class OutlookIntegratorExtensions
 
     public static DateTimeOffset GetDateTimeOffsetFromDateTimeTimeZone(DateTimeTimeZone dateTimeTimeZone)
     {
-        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime) || string.IsNullOrEmpty(dateTimeTimeZone.TimeZone))
+        if (dateTimeTimeZone == null || string.IsNullOrEmpty(dateTimeTimeZone.DateTime))
         {
-            throw new ArgumentException("DateTimeTimeZone is null or empty.");
+            throw new ArgumentException("DateTimeTimeZone or DateTime is null or empty.");
         }
 
         try
         {
             // Parse the DateTime string
-            if (DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+            if (!DateTime.TryParse(dateTimeTimeZone.DateTime, out DateTime parsedDateTime))
+            {
+                throw new ArgumentException("DateTime string is not in a valid format.");
+            }
+
+            // If no timezone is provided, assume UTC
+            if (string.IsNullOrEmpty(dateTimeTimeZone.TimeZone))
+            {
+                return new DateTimeOffset(parsedDateTime, TimeSpan.Zero);
+            }
+
+            try
             {
                 // Get TimeZoneInfo to get the offset
                 TimeZoneInfo timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(dateTimeTimeZone.TimeZone);
                 TimeSpan offset = timeZoneInfo.GetUtcOffset(parsedDateTime);
                 return new DateTimeOffset(parsedDateTime, offset);
             }
-            else
-                throw new ArgumentException("DateTime string is not in a valid format.");
+            catch (TimeZoneNotFoundException)
+            {
+                // If timezone is not found, assume UTC as fallback
+                return new DateTimeOffset(parsedDateTime, TimeSpan.Zero);
+            }
         }
         catch (Exception)
         {

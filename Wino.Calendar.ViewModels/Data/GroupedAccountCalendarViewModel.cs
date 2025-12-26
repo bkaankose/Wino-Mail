@@ -98,7 +98,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
         _isExternalPropChangeBlocked = false;
     }
 
-    partial void OnIsCheckedStateChanged(bool? newValue)
+    partial void OnIsCheckedStateChanged(bool? oldValue, bool? newValue)
     {
         if (_isExternalPropChangeBlocked) return;
 

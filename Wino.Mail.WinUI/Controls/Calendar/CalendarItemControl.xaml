@@ -1,0 +1,160 @@
+﻿<UserControl
+    x:Class="Wino.Calendar.Controls.CalendarItemControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:local="using:Wino.Calendar.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    d:DesignHeight="300"
+    d:DesignWidth="400"
+    CanDrag="True"
+    DragStarting="ControlDragStarting"
+    DropCompleted="ControlDropped"
+    mc:Ignorable="d">
+
+    <Grid
+        x:Name="MainGrid"
+        CornerRadius="4"
+        DoubleTapped="ControlDoubleTapped"
+        RightTapped="ControlRightTapped"
+        Tapped="ControlTapped"
+        ToolTipService.ToolTip="{x:Bind CalendarItemTitle, Mode=OneWay}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <Grid.ContextFlyout>
+            <local:CalendarItemCommandBarFlyout Placement="Top">
+                <local:CalendarItemCommandBarFlyout.PrimaryCommands>
+                    <AppBarButton Icon="Save" Label="save" />
+                    <AppBarButton Icon="Delete" Label="Delet" />
+                </local:CalendarItemCommandBarFlyout.PrimaryCommands>
+            </local:CalendarItemCommandBarFlyout>
+        </Grid.ContextFlyout>
+
+        <Grid
+            x:Name="MainBackground"
+            Grid.ColumnSpan="2"
+            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}" />
+
+        <Rectangle
+            x:Name="MainBorder"
+            Grid.ColumnSpan="2"
+            Canvas.ZIndex="2"
+            Stroke="{ThemeResource CalendarItemBorderBrush}"
+            StrokeThickness="0" />
+
+        <TextBlock
+            x:Name="EventTitleTextblock"
+            Margin="2,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center"
+            CharacterSpacing="8"
+            FontSize="13"
+            Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+            HorizontalTextAlignment="Center"
+            Text="{x:Bind CalendarItemTitle, Mode=OneWay}"
+            TextTrimming="CharacterEllipsis" />
+
+        <!--  TODO: Event attributes  -->
+        <StackPanel
+            x:Name="AttributeStack"
+            Grid.Column="1"
+            Margin="0,4,0,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Orientation="Horizontal"
+            Spacing="6">
+            <controls:WinoFontIcon
+                FontSize="12"
+                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                Icon="CalendarEventRepeat"
+                Visibility="{x:Bind CalendarItem.IsRecurringEvent, Mode=OneWay}" />
+
+            <controls:WinoFontIcon
+                FontSize="12"
+                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                Icon="CalendarEventMuiltiDay"
+                Visibility="{x:Bind CalendarItem.IsMultiDayEvent, Mode=OneWay}" />
+        </StackPanel>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="SelectionStates">
+                <VisualState x:Name="NonSelected" />
+                <VisualState x:Name="Selected">
+                    <VisualState.Setters>
+                        <Setter Target="MainBorder.StrokeThickness" Value="1" />
+                        <Setter Target="MainBorder.Margin" Value="1" />
+                        <Setter Target="MainBorder.Stroke" Value="{ThemeResource CalendarItemSelectedBorderBrush}" />
+                    </VisualState.Setters>
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind CalendarItem.IsSelected, Mode=OneWay, FallbackValue=False}" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="DraggingStates">
+                <VisualState x:Name="NotDragging" />
+                <VisualState x:Name="Dragging">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind IsDragging, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="MainBorder.StrokeThickness" Value="2" />
+                        <Setter Target="MainBorder.Stroke" Value="{ThemeResource CalendarItemDraggingBorderBrush}" />
+                        <Setter Target="MainBorder.StrokeDashArray" Value="2.5" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+            <VisualStateGroup x:Name="EventDurationStates">
+                <!--  Regular event template in the panel.  -->
+                <VisualState x:Name="RegularEvent" />
+
+                <!--  All-Day template for top area.  -->
+                <VisualState x:Name="AllDayEvent">
+                    <VisualState.Setters>
+
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="MainGrid.MinHeight" Value="30" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <!--  Multi-Day template for top area.  -->
+                <VisualState x:Name="CustomAreaMultiDayEvent">
+                    <VisualState.Setters>
+                        <Setter Target="MainBackground.Opacity" Value="1" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
+                        <Setter Target="AttributeStack.Visibility" Value="Visible" />
+                        <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
+                        <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
+                        <Setter Target="MainGrid.MinHeight" Value="30" />
+                        <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
+                        <Setter Target="EventTitleTextblock.Margin" Value="6,0" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <!--
+                    Ghost rendering for multi-day events in the panel.
+                    All-Multi day area template is CustomAreaMultiDayEvent
+                -->
+
+                <VisualState x:Name="MultiDayEvent">
+                    <VisualState.Setters>
+                        <Setter Target="MainGrid.CornerRadius" Value="0" />
+                        <Setter Target="MainBackground.Opacity" Value="0.2" />
+                        <Setter Target="MainGrid.IsHitTestVisible" Value="False" />
+                        <Setter Target="MainBorder.StrokeThickness" Value="0" />
+                        <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
+                        <Setter Target="EventTitleTextblock.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    </Grid>
+</UserControl>
+

@@ -65,6 +65,12 @@ public interface ISynchronizationManager
                                                             CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Handles calendar synchronization for the given account.
+    /// </summary>
+    Task<CalendarSynchronizationResult> SynchronizeCalendarAsync(CalendarSynchronizationOptions options,
+                                                                  CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Downloads a MIME message for the given mail item.
     /// </summary>
     Task<string> DownloadMimeMessageAsync(MailCopy mailItem, Guid accountId,

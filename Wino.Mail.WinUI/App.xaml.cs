@@ -9,6 +9,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
+using Wino.Calendar.ViewModels;
+using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -17,12 +20,15 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 using Wino.Services;
 namespace Wino.Mail.WinUI;
 
-public partial class App : WinoApplication, IRecipient<NewMailSynchronizationRequested>
+public partial class App : WinoApplication,
+    IRecipient<NewMailSynchronizationRequested>,
+    IRecipient<NewCalendarSynchronizationRequested>
 {
     private ISynchronizationManager? _synchronizationManager;
 
@@ -60,11 +66,13 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
     }
 
     private void RegisterViewModels(IServiceCollection services)
     {
-        services.AddSingleton(typeof(AppShellViewModel));
+        services.AddSingleton(typeof(MailAppShellViewModel));
+        services.AddSingleton(typeof(CalendarAppShellViewModel));
 
         services.AddTransient(typeof(MailListPageViewModel));
         services.AddTransient(typeof(MailRenderingPageViewModel));
@@ -85,6 +93,10 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
+
+        services.AddTransient(typeof(CalendarPageViewModel));
+        services.AddTransient(typeof(CalendarSettingsPageViewModel));
+        services.AddTransient(typeof(EventDetailsPageViewModel));
     }
 
     #endregion
@@ -93,7 +105,7 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
     {
         var services = new ServiceCollection();
 
-        services.RegisterViewModelService();
+        services.RegisterCoreServices();
         services.RegisterSharedServices();
         services.RegisterCoreUWPServices();
         services.RegisterCoreViewModels();
@@ -347,12 +359,11 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
     private void RegisterRecipients()
     {
         WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
+        WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
     }
 
-    public void Receive(NewMailSynchronizationRequested message)
-    {
-        _synchronizationManager?.SynchronizeMailAsync(message.Options);
-    }
+    public void Receive(NewMailSynchronizationRequested message) => _synchronizationManager?.SynchronizeMailAsync(message.Options);
+    public void Receive(NewCalendarSynchronizationRequested message) => _synchronizationManager?.SynchronizeCalendarAsync(message.Options);
 
     /// <summary>
     /// Handles activation redirected from another instance (single-instancing).
@@ -378,4 +389,5 @@ public partial class App : WinoApplication, IRecipient<NewMailSynchronizationReq
             }
         });
     }
+
 }

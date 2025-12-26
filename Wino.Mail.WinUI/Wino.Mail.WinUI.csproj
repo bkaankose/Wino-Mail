@@ -90,6 +90,15 @@
   <ItemGroup>
     <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
     <None Remove="ShellWindow.xaml" />
+    <None Remove="Styles\CalendarThemeResources.xaml" />
+    <None Remove="Styles\DayHeaderControl.xaml" />
+    <None Remove="Styles\WinoCalendarResources.xaml" />
+    <None Remove="Styles\WinoCalendarTypeSelectorControl.xaml" />
+    <None Remove="Styles\WinoCalendarView.xaml" />
+    <None Remove="Styles\WinoDayTimelineCanvas.xaml" />
+    <None Remove="Views\Calendar\CalendarAppShell.xaml" />
+    <None Remove="Views\Calendar\CalendarPage.xaml" />
+    <None Remove="Views\Calendar\EventDetailsPage.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
 
@@ -152,6 +161,7 @@
 	<PackageReference Include="H.NotifyIcon.WinUI" />
   </ItemGroup>
   <ItemGroup>
+	<ProjectReference Include="..\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
@@ -173,7 +183,7 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Page Update="AppShell.xaml">
+    <Page Update="MailAppShell.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Controls\MailItemDisplayInformationControl.xaml">
@@ -277,6 +287,40 @@
     </Page>
     <Page Update="Views\WelcomePage.xaml">
       <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Views\Mail\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Styles\CalendarThemeResources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\DayHeaderControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\WinoCalendarResources.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\WinoCalendarTypeSelectorControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\WinoCalendarView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Styles\WinoDayTimelineCanvas.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Calendar\CalendarAppShell.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Calendar\CalendarPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Views\Calendar\EventDetailsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
 

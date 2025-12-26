@@ -43,7 +43,9 @@ public class MailBaseViewModel : CoreBaseViewModel,
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-        
+
+        UnregisterRecipients();
+
         Messenger.Register<MailAddedMessage>(this);
         Messenger.Register<MailRemovedMessage>(this);
         Messenger.Register<MailUpdatedMessage>(this);
@@ -58,7 +60,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
     protected override void UnregisterRecipients()
     {
         base.UnregisterRecipients();
-        
+
         Messenger.Unregister<MailAddedMessage>(this);
         Messenger.Unregister<MailRemovedMessage>(this);
         Messenger.Unregister<MailUpdatedMessage>(this);

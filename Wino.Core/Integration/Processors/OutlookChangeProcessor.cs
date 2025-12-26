@@ -69,6 +69,11 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
         savingItem.DurationInSeconds = durationInSeconds;
 
+        // Store the timezone information from the event
+        // This preserves the original timezone from Outlook, allowing proper reconstruction later
+        savingItem.StartTimeZone = calendarEvent.Start?.TimeZone;
+        savingItem.EndTimeZone = calendarEvent.End?.TimeZone;
+
         savingItem.Title = calendarEvent.Subject;
         savingItem.Description = calendarEvent.Body?.Content;
         savingItem.Location = calendarEvent.Location?.DisplayName;
@@ -102,6 +107,34 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
         savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;
         savingItem.IsHidden = false;
+
+        // Set timestamps
+        if (calendarEvent.CreatedDateTime.HasValue)
+            savingItem.CreatedAt = calendarEvent.CreatedDateTime.Value;
+        
+        if (calendarEvent.LastModifiedDateTime.HasValue)
+            savingItem.UpdatedAt = calendarEvent.LastModifiedDateTime.Value;
+
+        // Set visibility
+        if (calendarEvent.Sensitivity != null)
+        {
+            savingItem.Visibility = calendarEvent.Sensitivity.Value switch
+            {
+                Sensitivity.Normal => CalendarItemVisibility.Public,
+                Sensitivity.Personal => CalendarItemVisibility.Private,
+                Sensitivity.Private => CalendarItemVisibility.Private,
+                Sensitivity.Confidential => CalendarItemVisibility.Confidential,
+                _ => CalendarItemVisibility.Public
+            };
+        }
+        else
+        {
+            savingItem.Visibility = CalendarItemVisibility.Public;
+        }
+
+        // Set IsLocked based on whether the user is the organizer
+        // Read-only events are those where the current user is not the organizer
+        savingItem.IsLocked = calendarEvent.IsOrganizer.HasValue && !calendarEvent.IsOrganizer.Value;
 
         if (calendarEvent.ResponseStatus?.Response != null)
         {

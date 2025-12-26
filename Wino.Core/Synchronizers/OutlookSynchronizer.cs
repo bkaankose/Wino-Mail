@@ -1631,8 +1631,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
 
-                var startDate = DateTime.UtcNow.AddYears(-2).ToString("u");
-                var endDate = DateTime.UtcNow.ToString("u");
+                var startDate = DateTimeOffset.UtcNow.AddYears(-2).ToString("o");
+                var endDate = DateTimeOffset.UtcNow.ToString("o");
 
                 eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                 {
@@ -1658,20 +1658,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 _logger.Information("Performing delta sync for calendar {Name}.", calendar.Name);
 
-                var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation((requestConfiguration) =>
-                {
-
-                    //requestConfiguration.QueryParameters.StartDateTime = startDate;
-                    //requestConfiguration.QueryParameters.EndDateTime = endDate;
-                });
-
-                //var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation((config) =>
-                //{
-                //    config.QueryParameters.Top = (int)InitialMessageDownloadCountPerFolder;
-                //    config.QueryParameters.Select = outlookMessageSelectParameters;
-                //    config.QueryParameters.Orderby = ["receivedDateTime desc"];
-                //});
-
+                var requestInformation = _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.ToGetRequestInformation();
 
                 requestInformation.UrlTemplate = requestInformation.UrlTemplate.Insert(requestInformation.UrlTemplate.Length - 1, ",%24deltatoken");
                 requestInformation.QueryParameters.Add("%24deltatoken", currentDeltaToken);
@@ -1726,11 +1713,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
 
-                await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                /// await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
             }
         }
 
-        return default;
+        // TODO: Return proper results.
+        return CalendarSynchronizationResult.Empty;
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)

@@ -30,6 +30,18 @@ public class CalendarItem : ICalendarItem
     public TimeSpan StartDateOffset { get; set; }
     public TimeSpan EndDateOffset { get; set; }
 
+    /// <summary>
+    /// IANA timezone identifier for the start time (e.g., "America/New_York", "Europe/London").
+    /// If null or empty, UTC is assumed.
+    /// </summary>
+    public string StartTimeZone { get; set; }
+
+    /// <summary>
+    /// IANA timezone identifier for the end time (e.g., "America/New_York", "Europe/London").
+    /// If null or empty, UTC is assumed.
+    /// </summary>
+    public string EndTimeZone { get; set; }
+
     private ITimePeriod _period;
     public ITimePeriod Period
     {
@@ -170,10 +182,70 @@ public class CalendarItem : ICalendarItem
             HtmlLink = HtmlLink,
             StartDateOffset = StartDateOffset,
             EndDateOffset = EndDateOffset,
+            StartTimeZone = StartTimeZone,
+            EndTimeZone = EndTimeZone,
             RemoteEventId = RemoteEventId,
             IsHidden = IsHidden,
             IsLocked = IsLocked,
             IsOccurrence = true
         };
+    }
+
+    /// <summary>
+    /// Gets the start date as a DateTimeOffset with the correct timezone.
+    /// If StartTimeZone is available, uses it to calculate the offset.
+    /// Otherwise, uses the stored StartDateOffset or assumes UTC.
+    /// </summary>
+    [Ignore]
+    public DateTimeOffset StartDateTimeOffset
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(StartTimeZone))
+            {
+                try
+                {
+                    var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(StartTimeZone);
+                    var offset = timeZoneInfo.GetUtcOffset(StartDate);
+                    return new DateTimeOffset(StartDate, offset);
+                }
+                catch
+                {
+                    // If timezone lookup fails, fall back to stored offset
+                }
+            }
+
+            // Fall back to stored offset, or UTC if offset is zero
+            return new DateTimeOffset(StartDate, StartDateOffset);
+        }
+    }
+
+    /// <summary>
+    /// Gets the end date as a DateTimeOffset with the correct timezone.
+    /// If EndTimeZone is available, uses it to calculate the offset.
+    /// Otherwise, uses the stored EndDateOffset or assumes UTC.
+    /// </summary>
+    [Ignore]
+    public DateTimeOffset EndDateTimeOffset
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(EndTimeZone))
+            {
+                try
+                {
+                    var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(EndTimeZone);
+                    var offset = timeZoneInfo.GetUtcOffset(EndDate);
+                    return new DateTimeOffset(EndDate, offset);
+                }
+                catch
+                {
+                    // If timezone lookup fails, fall back to stored offset
+                }
+            }
+
+            // Fall back to stored offset, or UTC if offset is zero
+            return new DateTimeOffset(EndDate, EndDateOffset);
+        }
     }
 }

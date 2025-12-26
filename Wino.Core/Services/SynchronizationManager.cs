@@ -300,6 +300,56 @@ public class SynchronizationManager : ISynchronizationManager
     }
 
     /// <summary>
+    /// Handles calendar synchronization for the given account.
+    /// </summary>
+    /// <param name="options">Calendar synchronization options</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Synchronization result</returns>
+    public async Task<CalendarSynchronizationResult> SynchronizeCalendarAsync(CalendarSynchronizationOptions options,
+                                                                               CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(options.AccountId);
+        if (synchronizer == null)
+        {
+            _logger.Error("Could not find or create synchronizer for account {AccountId}", options.AccountId);
+            return CalendarSynchronizationResult.Failed;
+        }
+
+        _logger.Information("Starting calendar synchronization for account {AccountId} with type {SyncType}",
+                          options.AccountId, options.Type);
+
+        try
+        {
+            var result = await synchronizer.SynchronizeCalendarEventsAsync(options, cancellationToken);
+
+            _logger.Information("Calendar synchronization completed for account {AccountId} with state {State}",
+                              options.AccountId, result.CompletedState);
+
+            // TODO: Create notifications for new calendar events when INotificationBuilder supports it
+            // if (result.DownloadedEvents?.Any() ?? false)
+            //     await _notificationBuilder.CreateCalendarNotificationsAsync(result.DownloadedEvents);
+
+            return result;
+        }
+        catch (AuthenticationAttentionException authEx)
+        {
+            _logger.Warning("Account {AccountId} requires attention due to authentication issues", options.AccountId);
+            
+            // Create app notification for authentication attention
+            _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
+
+            return CalendarSynchronizationResult.Failed;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Calendar synchronization failed for account {AccountId}", options.AccountId);
+            return CalendarSynchronizationResult.Failed;
+        }
+    }
+
+    /// <summary>
     /// Downloads a MIME message for the given mail item.
     /// </summary>
     /// <param name="mailItem">Mail item to download</param>
