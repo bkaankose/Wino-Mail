@@ -69,9 +69,41 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     public void HandleAppActivation(LaunchActivatedEventArgs args)
     {
-        // TODO: Handle protocol activations.
+        // Parse launch arguments to determine the application mode
+        var launchArguments = args?.Arguments?.ToLower() ?? string.Empty;
 
-        MainShellFrame.Navigate(typeof(MailAppShell));
+        Core.Domain.Enums.WinoApplicationMode targetMode;
+
+        if (launchArguments.Contains("wino-calendar"))
+        {
+            targetMode = Core.Domain.Enums.WinoApplicationMode.Calendar;
+        }
+        else if (launchArguments.Contains("wino-mail"))
+        {
+            targetMode = Core.Domain.Enums.WinoApplicationMode.Mail;
+        }
+        else if (!string.IsNullOrEmpty(launchArguments))
+        {
+            // TODO: Handle other protocol activations (e.g., .eml files)
+            // For now, default to Mail mode for unknown protocols
+            targetMode = Core.Domain.Enums.WinoApplicationMode.Mail;
+        }
+        else
+        {
+            // Default to Mail mode when no arguments provided
+            targetMode = Core.Domain.Enums.WinoApplicationMode.Mail;
+        }
+
+        // Use NavigationService to change application mode with proper navigation
+
+        if (targetMode == Core.Domain.Enums.WinoApplicationMode.Mail)
+        {
+            AppModeSegmentedControl.SelectedIndex = 0;
+        }
+        else
+        {
+            AppModeSegmentedControl.SelectedIndex = 1;
+        }
     }
 
     public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
@@ -88,7 +120,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
-        if (e.Content is BasePage basePage)
+        // Mail shell has shell content only for mail list page
+        // Thus, we check if the current content is MailAppShell
+
+        if (sender is Frame mainFrame && mainFrame.Content is MailAppShell mailAppShellPage)
+            ShellTitleBar.Content = mailAppShellPage.TopShellContent;
+        else if (e.Content is BasePage basePage)
             ShellTitleBar.Content = basePage.ShellContent;
     }
 

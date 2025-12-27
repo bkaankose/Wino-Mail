@@ -37,6 +37,86 @@
         </Style>
     </Page.Resources>
 
+    <abstract:CalendarAppShellAbstract.ShellContent>
+        <Grid
+            Margin="4,0,0,0"
+            Background="Transparent"
+            ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid x:Name="ShellContentArea" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+
+                <StackPanel
+                    x:Name="NavigationTitleStack"
+                    Grid.Column="0"
+                    Margin="0,0,12,4"
+                    Orientation="Horizontal"
+                    Spacing="6">
+                    <Button
+                        x:Name="PreviousDateButton"
+                        Click="PreviousDateClicked"
+                        Style="{StaticResource CalendarNavigationButtonStyle}">
+                        <PathIcon x:Name="PreviousDateButtonPathIcon" Data="F1 M 8.72 18.599998 C 8.879999 18.733334 9.059999 18.799999 9.26 18.799999 C 9.459999 18.799999 9.633332 18.719999 9.78 18.559999 C 9.926666 18.4 10 18.219999 10 18.019999 C 10 17.82 9.92 17.653332 9.76 17.52 L 4.52 12.559999 L 17.24 12.559999 C 17.453333 12.559999 17.633331 12.486667 17.779999 12.339999 C 17.926666 12.193334 18 12.013333 18 11.799999 C 18 11.586666 17.926666 11.406667 17.779999 11.259999 C 17.633331 11.113333 17.453333 11.039999 17.24 11.039999 L 4.52 11.039999 L 9.76 6.08 C 9.973333 5.893333 10.046666 5.653332 9.98 5.359999 C 9.913333 5.066666 9.74 4.880001 9.46 4.799999 C 9.179999 4.720001 8.933332 4.786667 8.72 5 L 2.32 11.08 C 2.16 11.24 2.053333 11.426666 2 11.639999 C 1.973333 11.746666 1.973333 11.853333 2 11.959999 C 2.053333 12.173333 2.16 12.360001 2.32 12.52 Z " />
+                    </Button>
+
+                    <Button
+                        x:Name="NextDateButton"
+                        Click="NextDateClicked"
+                        Style="{StaticResource CalendarNavigationButtonStyle}">
+                        <PathIcon x:Name="NextDateButtonPathIcon" Data="F1 M 11.28 5 C 11.12 4.866667 10.94 4.806667 10.74 4.82 C 10.539999 4.833334 10.366666 4.913334 10.219999 5.059999 C 10.073333 5.206665 10 5.379999 10 5.58 C 10 5.779999 10.08 5.946667 10.24 6.08 L 15.48 11.039999 L 2.76 11.039999 C 2.546667 11.039999 2.366667 11.113333 2.22 11.259999 C 2.073333 11.406667 2 11.586666 2 11.799999 C 2 12.013333 2.073333 12.193334 2.22 12.339999 C 2.366667 12.486667 2.546667 12.559999 2.76 12.559999 L 15.48 12.559999 L 10.24 17.52 C 10.026667 17.706665 9.953333 17.946667 10.02 18.24 C 10.086666 18.533333 10.259999 18.719999 10.54 18.799999 C 10.82 18.879999 11.066667 18.813334 11.28 18.599998 L 17.68 12.52 C 17.84 12.360001 17.946667 12.173333 18 11.959999 C 18 11.853333 18 11.746666 18 11.639999 C 17.946667 11.426666 17.84 11.24 17.68 11.08 Z " />
+                    </Button>
+
+                    <calendarControls:CustomCalendarFlipView
+                        x:Name="DayHeaderNavigationItemsFlipView"
+                        MaxHeight="30"
+                        Margin="8,4,0,0"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        HorizontalContentAlignment="Left"
+                        Background="Transparent"
+                        FontSize="14"
+                        FontWeight="Normal"
+                        IsHitTestVisible="False"
+                        ItemsSource="{x:Bind ViewModel.DateNavigationHeaderItems}"
+                        SelectedIndex="{x:Bind ViewModel.SelectedDateNavigationHeaderIndex, Mode=OneWay}">
+                        <FlipView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontSize="18"
+                                    Style="{StaticResource BodyTextBlockStyle}"
+                                    Text="{x:Bind}" />
+                            </DataTemplate>
+                        </FlipView.ItemTemplate>
+                    </calendarControls:CustomCalendarFlipView>
+                </StackPanel>
+                <AutoSuggestBox
+                    x:Name="SearchBox"
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    BorderBrush="Transparent"
+                    PlaceholderText="Search" />
+
+            </Grid>
+
+            <calendarControls:WinoCalendarTypeSelectorControl
+                x:Name="CalendarTypeSelector"
+                Grid.Column="2"
+                HorizontalAlignment="Right"
+                DisplayDayCount="{x:Bind ViewModel.StatePersistenceService.DayDisplayCount, Mode=OneWay}"
+                SelectedType="{x:Bind ViewModel.StatePersistenceService.CalendarDisplayType, Mode=TwoWay}"
+                TodayClickedCommand="{x:Bind ViewModel.TodayClickedCommand}" />
+        </Grid>
+    </abstract:CalendarAppShellAbstract.ShellContent>
     <Grid
         x:Name="RootGrid"
         Padding="0"
@@ -46,107 +126,9 @@
             <ColumnDefinition Width="48" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="48" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
 
-        <!--  CoreWindowText="{x:Bind ViewModel.StatePersistenceService.CoreWindowTitle, Mode=OneWay}"  -->
-        <!--<coreControls:WinoAppTitleBar
-            x:Name="RealAppBar"
-            Grid.ColumnSpan="2"
-            BackButtonClicked="AppBarBackButtonClicked"
-            Canvas.ZIndex="150"
-            CoreWindowText="Wino Calendar"
-            IsBackButtonVisible="{x:Bind ViewModel.StatePersistenceService.IsBackButtonVisible, Mode=OneWay}"
-            IsNavigationPaneOpen="{x:Bind MainSplitView.IsPaneOpen, Mode=TwoWay}"
-            NavigationViewDisplayMode="{x:Bind helpers:XamlHelpers.NavigationViewDisplayModeConverter(MainSplitView.DisplayMode), Mode=OneWay}"
-            OpenPaneLength="{x:Bind ViewModel.StatePersistenceService.OpenPaneLength, Mode=OneWay}"
-            ShrinkShellContentOnExpansion="False"
-            SystemReserved="180">
-            <coreControls:WinoAppTitleBar.ShellFrameContent>
-                <Grid Margin="4,0,0,0" ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Grid
-                        x:Name="DragArea"
-                        Grid.ColumnSpan="3"
-                        Background="Transparent" />
-
-                    <Grid x:Name="ShellContentArea" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="3*" />
-                            <ColumnDefinition Width="7*" />
-                        </Grid.ColumnDefinitions>
-                        <AutoSuggestBox
-                            x:Name="SearchBox"
-                            HorizontalAlignment="Stretch"
-                            VerticalAlignment="Center"
-                            BorderBrush="Transparent"
-                            PlaceholderText="Search" />
-
-                        <StackPanel
-                            x:Name="NavigationTitleStack"
-                            Grid.Column="1"
-                            Margin="0,0,12,4"
-                            Orientation="Horizontal"
-                            Spacing="6">
-                            <Button
-                                x:Name="PreviousDateButton"
-                                Click="PreviousDateClicked"
-                                Style="{StaticResource CalendarNavigationButtonStyle}">
-                                <PathIcon x:Name="PreviousDateButtonPathIcon" Data="F1 M 8.72 18.599998 C 8.879999 18.733334 9.059999 18.799999 9.26 18.799999 C 9.459999 18.799999 9.633332 18.719999 9.78 18.559999 C 9.926666 18.4 10 18.219999 10 18.019999 C 10 17.82 9.92 17.653332 9.76 17.52 L 4.52 12.559999 L 17.24 12.559999 C 17.453333 12.559999 17.633331 12.486667 17.779999 12.339999 C 17.926666 12.193334 18 12.013333 18 11.799999 C 18 11.586666 17.926666 11.406667 17.779999 11.259999 C 17.633331 11.113333 17.453333 11.039999 17.24 11.039999 L 4.52 11.039999 L 9.76 6.08 C 9.973333 5.893333 10.046666 5.653332 9.98 5.359999 C 9.913333 5.066666 9.74 4.880001 9.46 4.799999 C 9.179999 4.720001 8.933332 4.786667 8.72 5 L 2.32 11.08 C 2.16 11.24 2.053333 11.426666 2 11.639999 C 1.973333 11.746666 1.973333 11.853333 2 11.959999 C 2.053333 12.173333 2.16 12.360001 2.32 12.52 Z " />
-                            </Button>
-
-                            <Button
-                                x:Name="NextDateButton"
-                                Click="NextDateClicked"
-                                Style="{StaticResource CalendarNavigationButtonStyle}">
-                                <PathIcon x:Name="NextDateButtonPathIcon" Data="F1 M 11.28 5 C 11.12 4.866667 10.94 4.806667 10.74 4.82 C 10.539999 4.833334 10.366666 4.913334 10.219999 5.059999 C 10.073333 5.206665 10 5.379999 10 5.58 C 10 5.779999 10.08 5.946667 10.24 6.08 L 15.48 11.039999 L 2.76 11.039999 C 2.546667 11.039999 2.366667 11.113333 2.22 11.259999 C 2.073333 11.406667 2 11.586666 2 11.799999 C 2 12.013333 2.073333 12.193334 2.22 12.339999 C 2.366667 12.486667 2.546667 12.559999 2.76 12.559999 L 15.48 12.559999 L 10.24 17.52 C 10.026667 17.706665 9.953333 17.946667 10.02 18.24 C 10.086666 18.533333 10.259999 18.719999 10.54 18.799999 C 10.82 18.879999 11.066667 18.813334 11.28 18.599998 L 17.68 12.52 C 17.84 12.360001 17.946667 12.173333 18 11.959999 C 18 11.853333 18 11.746666 18 11.639999 C 17.946667 11.426666 17.84 11.24 17.68 11.08 Z " />
-                            </Button>
-
-                            <calendarControls:CustomCalendarFlipView
-                                x:Name="DayHeaderNavigationItemsFlipView"
-                                MaxHeight="30"
-                                Margin="8,4,0,0"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Center"
-                                HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                FontSize="14"
-                                FontWeight="Normal"
-                                IsHitTestVisible="False"
-                                ItemsSource="{x:Bind ViewModel.DateNavigationHeaderItems}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedDateNavigationHeaderIndex, Mode=OneWay}">
-                                <FlipView.ItemTemplate>
-                                    <DataTemplate x:DataType="x:String">
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontSize="18"
-                                            Style="{StaticResource BodyTextBlockStyle}"
-                                            Text="{x:Bind}" />
-                                    </DataTemplate>
-                                </FlipView.ItemTemplate>
-                            </calendarControls:CustomCalendarFlipView>
-                        </StackPanel>
-                    </Grid>
-
-                    <calendarControls:WinoCalendarTypeSelectorControl
-                        x:Name="CalendarTypeSelector"
-                        Grid.Column="2"
-                        HorizontalAlignment="Right"
-                        DisplayDayCount="{x:Bind ViewModel.StatePersistenceService.DayDisplayCount, Mode=OneWay}"
-                        SelectedType="{x:Bind ViewModel.StatePersistenceService.CalendarDisplayType, Mode=TwoWay}"
-                        TodayClickedCommand="{x:Bind ViewModel.TodayClickedCommand}" />
-                </Grid>
-            </coreControls:WinoAppTitleBar.ShellFrameContent>
-        </coreControls:WinoAppTitleBar>-->
 
         <Grid
-            Grid.RowSpan="2"
             Grid.ColumnSpan="2"
             Background="{ThemeResource WinoApplicationBackgroundColor}"
             IsHitTestVisible="False">
@@ -164,9 +146,8 @@
             IsPaneOpen="{x:Bind ViewModel.PreferencesService.IsNavigationPaneOpened, Mode=TwoWay}"
             PaneBackground="Transparent">
             <SplitView.Pane>
-                <Grid Padding="0,20,0,6">
+                <Grid Padding="0,0,0,6">
                     <Grid.RowDefinitions>
-
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />

@@ -255,7 +255,7 @@ public partial class WinoCalendarControl : Control
         // Total height of the FlipViewItem is the same as vertical ScrollViewer to position day headers.
 
         await Task.Yield();
-        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
+        await DispatcherQueue.EnqueueAsync(() =>
         {
             double hourHeght = 60;
             double totalHeight = ActiveScrollViewer.ScrollableHeight;

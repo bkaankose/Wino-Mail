@@ -25,7 +25,7 @@
         <TitleBar
             x:Name="ShellTitleBar"
             Title="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}"
-            MinHeight="48"
+            Margin="-2"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             BackRequested="BackButtonClicked"
@@ -35,7 +35,7 @@
             PaneToggleRequested="PaneButtonClicked">
             <TitleBar.RightHeader>
                 <Grid>
-                    <controls:Segmented SelectionChanged="SegmentedChanged">
+                    <controls:Segmented x:Name="AppModeSegmentedControl" SelectionChanged="SegmentedChanged">
                         <controls:SegmentedItem>
                             <controls:SegmentedItem.Icon>
                                 <PathIcon
@@ -60,6 +60,7 @@
         <Frame
             x:Name="MainShellFrame"
             Grid.Row="1"
+            CacheSize="2"
             Navigated="MainFrameNavigated" />
 
         <notifyicon:TaskbarIcon

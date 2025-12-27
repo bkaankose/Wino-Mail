@@ -87,15 +87,38 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (coreFrame == null) return false;
 
-        if (mode == WinoApplicationMode.Mail)
+        var targetPageType = mode == WinoApplicationMode.Mail ? typeof(MailAppShell) : typeof(CalendarAppShell);
+        var currentPageType = coreFrame.Content?.GetType();
+        var transitionInfo = GetNavigationTransitionInfo(NavigationTransitionType.DrillIn);
+
+        // If already on the target page, do nothing
+        if (currentPageType == targetPageType)
+            return true;
+
+        // Check if we can go back to the target page
+        if (coreFrame.CanGoBack && coreFrame.BackStack.Count > 0)
         {
-            coreFrame.Navigate(typeof(MailAppShell), null);
-        }
-        else
-        {
-            coreFrame.Navigate(typeof(CalendarAppShell), null);
+            var previousPage = coreFrame.BackStack[coreFrame.BackStack.Count - 1];
+            if (previousPage.SourcePageType == targetPageType)
+            {
+                coreFrame.GoBack(transitionInfo);
+                return true;
+            }
         }
 
+        // Check if we can go forward to the target page
+        if (coreFrame.CanGoForward && coreFrame.ForwardStack.Count > 0)
+        {
+            var nextPage = coreFrame.ForwardStack[coreFrame.ForwardStack.Count - 1];
+            if (nextPage.SourcePageType == targetPageType)
+            {
+                coreFrame.GoForward();
+                return true;
+            }
+        }
+
+        // Navigate to the target page only if it's not in the navigation stack
+        coreFrame.Navigate(targetPageType, null, transitionInfo);
         return true;
     }
 
@@ -112,7 +135,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
         if (shellFrame != null)
         {
             var currentFrameType = GetCurrentFrameType(ref shellFrame);
-
+            bool isCalendarShellActive = shellFrame.Content != null && shellFrame.Content.GetType() == typeof(CalendarAppShell);
+            if (isCalendarShellActive)
+            {
+                return shellFrame.Navigate(pageType, parameter);
+            }
             bool isMailListingPageActive = currentFrameType != null && currentFrameType == typeof(MailListPage);
 
             // Active page is mail list page and we are refreshing the folder.

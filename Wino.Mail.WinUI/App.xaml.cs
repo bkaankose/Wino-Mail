@@ -341,7 +341,7 @@ public partial class App : WinoApplication,
     /// Creates the main window without activating it.
     /// Used for both normal launch and startup task launch (tray only).
     /// </summary>
-    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    private void CreateWindow(LaunchActivatedEventArgs args)
     {
         LogActivation("Creating main window.");
 

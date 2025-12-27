@@ -3,4 +3,10 @@ using Wino.Mail.WinUI;
 
 namespace Wino.Mail.Views.Abstract;
 
-public abstract class CalendarAppShellAbstract : BasePage<CalendarAppShellViewModel> { }
+public abstract class CalendarAppShellAbstract : BasePage<CalendarAppShellViewModel>
+{
+    protected CalendarAppShellAbstract()
+    {
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Enabled;
+    }
+}

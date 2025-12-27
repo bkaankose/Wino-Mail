@@ -29,6 +29,7 @@ public class CoreBaseViewModel : ObservableRecipient, INavigationAware
 
     public virtual void OnNavigatedTo(NavigationMode mode, object parameters)
     {
+        UnregisterRecipients();
         RegisterRecipients();
     }
 

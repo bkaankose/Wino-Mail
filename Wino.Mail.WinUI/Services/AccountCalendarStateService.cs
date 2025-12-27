@@ -73,9 +73,9 @@ public partial class AccountCalendarStateService : ObservableObject, IAccountCal
 
     public void ClearGroupedAccountCalendar()
     {
-        foreach (var groupedAccountCalendar in _internalGroupedAccountCalendars)
+        while (_internalGroupedAccountCalendars.Any())
         {
-            RemoveGroupedAccountCalendar(groupedAccountCalendar);
+            RemoveGroupedAccountCalendar(_internalGroupedAccountCalendars[0]);
         }
     }
 

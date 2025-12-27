@@ -161,6 +161,29 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
     }
 
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<LoadCalendarMessage>(this);
+        Messenger.Register<CalendarItemDeleted>(this);
+        Messenger.Register<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Register<CalendarItemTappedMessage>(this);
+        Messenger.Register<CalendarItemDoubleTappedMessage>(this);
+        Messenger.Register<CalendarItemRightTappedMessage>(this);
+    }
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<LoadCalendarMessage>(this);
+        Messenger.Unregister<CalendarItemDeleted>(this);
+        Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Unregister<CalendarItemTappedMessage>(this);
+        Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
+        Messenger.Unregister<CalendarItemRightTappedMessage>(this);
+    }
+
     private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
         => FilterActiveCalendars(DayRanges);
 

@@ -88,8 +88,6 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         }
 
         return ContainerFromIndex(SelectedIndex) as FlipViewItem;
-
-
     }
 
     private void UpdateActiveScrollViewer()
@@ -104,7 +102,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
                 {
                     var flipViewItem = task.Result;
 
-                    _ = Dispatcher.TryRunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    _ = DispatcherQueue.TryEnqueue(() =>
                     {
                         ActiveVerticalScrollViewer = flipViewItem.FindDescendant<ScrollViewer>();
                     });
@@ -125,7 +123,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
                 {
                     var flipViewItem = task.Result;
 
-                    _ = Dispatcher.TryRunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    _ = DispatcherQueue.TryEnqueue(() =>
                     {
                         ActiveCanvas = flipViewItem.FindDescendant<WinoDayTimelineCanvas>();
                     });
@@ -142,7 +140,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
     {
         await Task.Yield();
 
-        await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.High, () =>
+        await DispatcherQueue.EnqueueAsync(() =>
         {
             // Find the day range that contains the date.
             var dayRange = GetItemsSource()?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));

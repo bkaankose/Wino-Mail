@@ -111,6 +111,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
+        if (mode == NavigationMode.Back) return;
+
         UpdateDateNavigationHeaderItems();
 
         await InitializeAccountCalendarsAsync();

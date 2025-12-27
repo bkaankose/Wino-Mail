@@ -220,6 +220,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
+
+        if (mode == NavigationMode.Back) return;
+
         await CreateFooterItemsAsync();
 
         await RecreateMenuItemsAsync();

@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -43,6 +44,13 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
     public MailAppShell() : base()
     {
         InitializeComponent();
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+
+        Bindings.StopTracking();
     }
 
     private async void ItemDroppedOnFolder(object sender, DragEventArgs e)
