@@ -69,7 +69,7 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
             && container.Item != mailItemViewModel)
         {
             container.Item = mailItemViewModel;
-            container.IsSelected = mailItemViewModel.IsSelected;
+            container.IsCustomSelected = mailItemViewModel.IsSelected;
         }
         else if (item is ThreadMailItemViewModel threadMailItemViewModel
             && element is WinoThreadMailItemViewModelListViewItem threadContainer
@@ -88,7 +88,7 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         if (item is MailItemViewModel mailItemViewModel && element is WinoMailItemViewModelListViewItem container)
         {
             container.Item = null;
-            container.IsSelected = false;
+            container.IsCustomSelected = false;
         }
         else if (item is ThreadMailItemViewModel threadMailItemViewModel && element is WinoThreadMailItemViewModelListViewItem threadContainer)
         {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,13 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Views.Abstract;
+using WinRT;
+
+// object, IMailListItem
+// Register generic types from CommunityToolkit.Mvvm for AOT compatibility when passed across WinRT boundary
+[assembly: GeneratedWinRTExposedExternalType(typeof(ObservableGroup<object, IMailListItem>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ReadOnlyObservableGroup<object, IMailListItem>))]
+[assembly: GeneratedWinRTExposedExternalType(typeof(ReadOnlyObservableGroupedCollection<object, IMailListItem>))]
 
 namespace Wino.Views.Mail;
 
