@@ -241,7 +241,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
             {
                 NavigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             }
-            else
+            else if (segmentedControl.SelectedIndex == 1)
             {
                 NavigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
             }
