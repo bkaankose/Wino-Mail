@@ -41,7 +41,7 @@ public partial class BasePage : Page, IRecipient<LanguageChanged>
 
 public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
 {
-    public T ViewModel { get; } = WinoApplication.Current.Services.GetService<T>();
+    public T ViewModel { get; } = WinoApplication.Current.Services.GetService<T>() ?? throw new ArgumentException($"Can't resolve '{typeof(T)}' as view model.");
 
     protected BasePage()
     {
