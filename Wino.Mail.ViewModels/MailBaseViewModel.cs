@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
+﻿using System.Collections.Generic;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Folders;
@@ -11,6 +12,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
     IRecipient<MailAddedMessage>,
     IRecipient<MailRemovedMessage>,
     IRecipient<MailUpdatedMessage>,
+    IRecipient<BulkMailUpdatedMessage>,
     IRecipient<MailDownloadedMessage>,
     IRecipient<DraftCreated>,
     IRecipient<DraftFailed>,
@@ -21,6 +23,17 @@ public class MailBaseViewModel : CoreBaseViewModel,
     protected virtual void OnMailAdded(MailCopy addedMail) { }
     protected virtual void OnMailRemoved(MailCopy removedMail) { }
     protected virtual void OnMailUpdated(MailCopy updatedMail) { }
+
+    protected virtual void OnMailUpdated(IReadOnlyList<MailCopy> updatedMails)
+    {
+        if (updatedMails == null) return;
+
+        foreach (var mail in updatedMails)
+        {
+            OnMailUpdated(mail);
+        }
+    }
+
     protected virtual void OnMailDownloaded(MailCopy downloadedMail) { }
     protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
     protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
@@ -31,6 +44,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
     void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
     void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);
     void IRecipient<MailUpdatedMessage>.Receive(MailUpdatedMessage message) => OnMailUpdated(message.UpdatedMail);
+    void IRecipient<BulkMailUpdatedMessage>.Receive(BulkMailUpdatedMessage message) => OnMailUpdated(message.UpdatedMails);
     void IRecipient<MailDownloadedMessage>.Receive(MailDownloadedMessage message) => OnMailDownloaded(message.DownloadedMail);
 
     void IRecipient<DraftMapped>.Receive(DraftMapped message) => OnDraftMapped(message.LocalDraftCopyId, message.RemoteDraftCopyId);
