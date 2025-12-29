@@ -1631,8 +1631,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
 
-                var startDate = DateTimeOffset.UtcNow.AddYears(-2).ToString("o");
-                var endDate = DateTimeOffset.UtcNow.ToString("o");
+                // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
+                var startDate = DateTimeOffset.UtcNow.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var endDate = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
                 eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                 {
