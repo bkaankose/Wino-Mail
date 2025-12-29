@@ -293,6 +293,30 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     #endregion
 
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        UnregisterRecipients();
+
+        Messenger.Register<VisibleDateRangeChangedMessage>(this);
+        Messenger.Register<CalendarEnableStatusChangedMessage>(this);
+        Messenger.Register<NavigateManageAccountsRequested>(this);
+        Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
+        Messenger.Register<DetailsPageStateChangedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<VisibleDateRangeChangedMessage>(this);
+        Messenger.Unregister<CalendarEnableStatusChangedMessage>(this);
+        Messenger.Unregister<NavigateManageAccountsRequested>(this);
+        Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
+        Messenger.Unregister<DetailsPageStateChangedMessage>(this);
+    }
+
     public void Receive(VisibleDateRangeChangedMessage message) => HighlightedDateRange = message.DateRange;
 
     /// <summary>

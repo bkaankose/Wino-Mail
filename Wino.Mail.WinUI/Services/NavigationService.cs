@@ -87,6 +87,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (coreFrame == null) return false;
 
+        // Update the application mode in state persistence service
+        _statePersistanceService.ApplicationMode = mode;
+
         var targetPageType = mode == WinoApplicationMode.Mail ? typeof(MailAppShell) : typeof(CalendarAppShell);
         var currentPageType = coreFrame.Content?.GetType();
         var transitionInfo = GetNavigationTransitionInfo(NavigationTransitionType.DrillIn);
@@ -128,73 +131,104 @@ public class NavigationService : NavigationServiceBase, INavigationService
                          NavigationTransitionType transition = NavigationTransitionType.None)
     {
         var pageType = GetPageType(page);
-        Frame shellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
+
+        var currentApplicationMode = GetCoreFrame(NavigationReferenceFrame.ShellFrame)?.Content?.GetType() == typeof(MailAppShell)
+            ? WinoApplicationMode.Mail
+            : WinoApplicationMode.Calendar;
 
         _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
+        _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage;
 
-        if (shellFrame != null)
+        Frame innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
+
+        if (innerShellFrame != null)
         {
-            var currentFrameType = GetCurrentFrameType(ref shellFrame);
-            bool isCalendarShellActive = shellFrame.Content != null && shellFrame.Content.GetType() == typeof(CalendarAppShell);
-            if (isCalendarShellActive)
+            // Calendar navigations.
+            if (currentApplicationMode == WinoApplicationMode.Calendar)
             {
-                return shellFrame.Navigate(pageType, parameter);
+                return innerShellFrame.Navigate(pageType, parameter);
             }
-            bool isMailListingPageActive = currentFrameType != null && currentFrameType == typeof(MailListPage);
-
-            // Active page is mail list page and we are refreshing the folder.
-            if (isMailListingPageActive && currentFrameType == pageType && parameter is NavigateMailFolderEventArgs folderNavigationArgs)
+            else
             {
-                // No need for new navigation, just refresh the folder.
-                WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
-                WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+                // Mail navigations.
+                var currentFrameType = GetCurrentFrameType(ref innerShellFrame);
+                bool isMailListingPageActive = currentFrameType != null && currentFrameType == typeof(MailListPage);
 
-                return true;
-            }
-
-            var transitionInfo = GetNavigationTransitionInfo(transition);
-
-            // This page must be opened in the Frame placed in MailListingPage.
-            if (isMailListingPageActive && frame == NavigationReferenceFrame.RenderingFrame)
-            {
-                var listingFrame = GetCoreFrame(NavigationReferenceFrame.RenderingFrame);
-
-                if (listingFrame == null) return false;
-
-                // Active page is mail list page and we are opening a mail item.
-                // No navigation needed, just refresh the rendered mail item.
-                if (listingFrame.Content != null
-                    && listingFrame.Content.GetType() == GetPageType(WinoPage.MailRenderingPage)
-                    && parameter is MailItemViewModel mailItemViewModel
-                    && page != WinoPage.ComposePage)
+                // Active page is mail list page and we are refreshing the folder.
+                if (isMailListingPageActive && currentFrameType == pageType && parameter is NavigateMailFolderEventArgs folderNavigationArgs)
                 {
-                    WeakReferenceMessenger.Default.Send(new NewMailItemRenderingRequestedEvent(mailItemViewModel));
-                }
-                else if (listingFrame.Content != null
-                    && listingFrame.Content.GetType() == GetPageType(WinoPage.IdlePage)
-                    && pageType == typeof(IdlePage))
-                {
-                    // Idle -> Idle navigation. Ignore.
+                    // No need for new navigation, just refresh the folder.
+                    WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
+                    WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+
                     return true;
                 }
-                else
+
+                var transitionInfo = GetNavigationTransitionInfo(transition);
+
+                // This page must be opened in the Frame placed in MailListingPage.
+                if (isMailListingPageActive && frame == NavigationReferenceFrame.RenderingFrame)
                 {
-                    listingFrame.Navigate(pageType, parameter, transitionInfo);
+                    var listingFrame = GetCoreFrame(NavigationReferenceFrame.RenderingFrame);
+
+                    if (listingFrame == null) return false;
+
+                    // Active page is mail list page and we are opening a mail item.
+                    // No navigation needed, just refresh the rendered mail item.
+                    if (listingFrame.Content != null
+                        && listingFrame.Content.GetType() == GetPageType(WinoPage.MailRenderingPage)
+                        && parameter is MailItemViewModel mailItemViewModel
+                        && page != WinoPage.ComposePage)
+                    {
+                        WeakReferenceMessenger.Default.Send(new NewMailItemRenderingRequestedEvent(mailItemViewModel));
+                    }
+                    else if (listingFrame.Content != null
+                        && listingFrame.Content.GetType() == GetPageType(WinoPage.IdlePage)
+                        && pageType == typeof(IdlePage))
+                    {
+                        // Idle -> Idle navigation. Ignore.
+                        return true;
+                    }
+                    else
+                    {
+                        listingFrame.Navigate(pageType, parameter, transitionInfo);
+                    }
+
+                    return true;
                 }
 
-                return true;
-            }
-
-            if ((currentFrameType != null && currentFrameType != pageType) || currentFrameType == null)
-            {
-                return shellFrame.Navigate(pageType, parameter, transitionInfo);
+                if ((currentFrameType != null && currentFrameType != pageType) || currentFrameType == null)
+                {
+                    return innerShellFrame.Navigate(pageType, parameter, transitionInfo);
+                }
             }
         }
 
         return false;
     }
 
-    public void GoBack() => throw new NotImplementedException("GoBack method is not implemented in Wino Mail.");
+    public void GoBack()
+    {
+        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar)
+        {
+            var innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
+            if (innerShellFrame?.CanGoBack == true)
+            {
+                innerShellFrame.GoBack();
+
+                // Calendar mode: Navigate back from EventDetailsPage
+                _statePersistanceService.IsEventDetailsVisible = false;
+            }
+        }
+        else
+        {
+            // Mail mode: Clear selections and dispose rendering frame
+            _statePersistanceService.IsReadingMail = false;
+
+            WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+            WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+        }
+    }
 
     // Standalone EML viewer.
     //public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)

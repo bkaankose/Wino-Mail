@@ -18,9 +18,9 @@
 
     <Page.Resources>
         <CollectionViewSource
-            x:Key="GroupedCalendarEnumerableViewSource"
+            x:Name="GroupedCalendarEnumerableViewSource"
             IsSourceGrouped="True"
-            Source="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendarsEnumerable, Mode=OneWay}" />
+            Source="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendars, Mode=OneWay}" />
     </Page.Resources>
 
     <Border
@@ -124,7 +124,7 @@
                                         <ListView
                                             MaxHeight="300"
                                             HorizontalAlignment="Stretch"
-                                            ItemsSource="{Binding Source={StaticResource GroupedCalendarEnumerableViewSource}}"
+                                            ItemsSource="{x:Bind GroupedCalendarEnumerableViewSource.View, Mode=OneWay}"
                                             SelectedItem="{x:Bind ViewModel.SelectedQuickEventAccountCalendar, Mode=TwoWay}"
                                             SelectionChanged="QuickEventAccountSelectorSelectionChanged">
                                             <ListView.ItemTemplate>

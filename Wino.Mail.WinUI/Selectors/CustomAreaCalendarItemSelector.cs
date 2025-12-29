@@ -6,10 +6,10 @@ namespace Wino.Calendar.Selectors;
 
 public partial class CustomAreaCalendarItemSelector : DataTemplateSelector
 {
-    public DataTemplate AllDayTemplate { get; set; }
-    public DataTemplate MultiDayTemplate { get; set; }
+    public DataTemplate? AllDayTemplate { get; set; }
+    public DataTemplate? MultiDayTemplate { get; set; }
 
-    protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
+    protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
     {
         if (item is CalendarItemViewModel calendarItemViewModel)
         {

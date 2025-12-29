@@ -18,6 +18,8 @@ public class DayRangeRenderModel
     public List<DayHeaderRenderModel> DayHeaders { get; } = [];
     public CalendarRenderOptions CalendarRenderOptions { get; }
 
+    public int TotalDays => CalendarRenderOptions.TotalDayCount;
+
     public DayRangeRenderModel(CalendarRenderOptions calendarRenderOptions)
     {
         CalendarRenderOptions = calendarRenderOptions;

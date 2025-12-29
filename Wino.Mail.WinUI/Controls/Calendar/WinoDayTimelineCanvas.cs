@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
+using CommunityToolkit.WinUI;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI.Input;
@@ -109,6 +111,11 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
         var hourHeight = RenderOptions.CalendarSettings.HourHeight;
 
         // When users click to cell we need to find the day, hour and minutes (first 30 minutes or second 30 minutes) that it represents on the timeline.
+
+        if (PositionerUIElement == null)
+        {
+            PositionerUIElement = this.FindParents().LastOrDefault(a => a is Grid);
+        }
 
         PointerPoint positionerRootPoint = e.GetCurrentPoint(PositionerUIElement);
         PointerPoint canvasPointerPoint = e.GetCurrentPoint(Canvas);

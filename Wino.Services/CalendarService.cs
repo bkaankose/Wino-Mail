@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
+using Itenso.TimePeriod;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
@@ -90,82 +91,115 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
     }
 
-    public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel)
+    /// <summary>
+    /// Retrieves calendar events for a given calendar within the specified time period.
+    /// This includes regular events and expanded recurring event occurrences based on RFC 5545 patterns.
+    /// </summary>
+    /// <param name="calendar">The calendar to retrieve events from.</param>
+    /// <param name="period">The time period to query events for.</param>
+    /// <returns>List of calendar items including regular events and recurring event occurrences.</returns>
+    public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period)
     {
-        // TODO: We might need to implement caching here.
-        // I don't know how much of the events we'll have in total, but this logic scans all events every time for given calendar.
+        // TODO: Implement caching strategy for better performance with large event sets.
+        // Consider using a cache keyed by calendar ID and time period.
 
         var accountEvents = await Connection.Table<CalendarItem>()
-            .Where(x => x.CalendarId == calendar.Id && !x.IsHidden).ToListAsync();
+            .Where(x => x.CalendarId == calendar.Id && !x.IsHidden)
+            .ToListAsync();
 
         var result = new List<CalendarItem>();
 
-        foreach (var ev in accountEvents)
+        foreach (var calendarItem in accountEvents)
         {
-            ev.AssignedCalendar = calendar;
+            calendarItem.AssignedCalendar = calendar;
 
-            // Parse recurrence rules
-            var calendarEvent = new CalendarEvent
+            // Skip exception instances - they will be handled by their parent recurring event
+            if (calendarItem.RecurringCalendarItemId.HasValue)
             {
-                Start = new CalDateTime(ev.StartDate),
-                End = new CalDateTime(ev.EndDate),
-            };
+                continue;
+            }
 
-            if (string.IsNullOrEmpty(ev.Recurrence))
+            if (string.IsNullOrEmpty(calendarItem.Recurrence))
             {
-                // No recurrence, only check if we fall into the given period.
-
-                if (ev.Period.OverlapsWith(dayRangeRenderModel.Period))
+                // Regular non-recurring event - simply check if it overlaps with the requested period.
+                if (calendarItem.Period.OverlapsWith(period))
                 {
-                    result.Add(ev);
+                    result.Add(calendarItem);
                 }
             }
             else
             {
-                // This event has recurrences.
-                // Wino stores exceptional recurrent events as a separate calendar item, without the recurrence rule.
-                // Because each instance of recurrent event can have different attendees, properties etc.
-                // Even though the event is recurrent, each updated instance is a separate calendar item.
-                // Calculate the all recurrences, and remove the exceptional instances like hidden ones.
-
-                var recurrenceLines = Regex.Split(ev.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
-
-                foreach (var line in recurrenceLines)
-                {
-                    calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
-                }
-
-                // Calculate occurrences in the range.
-                var occurrences = calendarEvent.GetOccurrences(dayRangeRenderModel.Period.Start, dayRangeRenderModel.Period.End);
-
-                // Get all recurrent exceptional calendar events.
-                var exceptionalRecurrences = await Connection.Table<CalendarItem>()
-                    .Where(a => a.RecurringCalendarItemId == ev.Id)
-                    .ToListAsync()
-                    .ConfigureAwait(false);
-
-                foreach (var occurrence in occurrences)
-                {
-                    var exactInstanceCheck = exceptionalRecurrences.FirstOrDefault(a =>
-                    a.Period.OverlapsWith(dayRangeRenderModel.Period));
-
-                    if (exactInstanceCheck == null)
-                    {
-                        // There is no exception for the period.
-                        // Change the instance StartDate and Duration.
-
-                        var recurrence = ev.CreateRecurrence(occurrence.Period.StartTime.Value, occurrence.Period.Duration.TotalSeconds);
-
-                        result.Add(recurrence);
-                    }
-                    else
-                    {
-                        // There is a single instance of this recurrent event.
-                        // It will be added as single item if it's not hidden.
-                        // We don't need to do anything here.
-                    }
-                }
+                // Recurring event - expand occurrences within the period.
+                // Wino stores recurring events as a series master with RFC 5545 recurrence rules.
+                // Exception instances (modified or cancelled) are stored separately and linked via RecurringCalendarItemId.
+                var expandedOccurrences = await ExpandRecurringEventAsync(calendarItem, period);
+                result.AddRange(expandedOccurrences);
             }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Expands a recurring event into its occurrences within the specified period.
+    /// Handles exception instances (modified or cancelled occurrences) by excluding them from the expansion.
+    /// </summary>
+    /// <param name="recurringEvent">The recurring event series master.</param>
+    /// <param name="period">The time period to expand occurrences within.</param>
+    /// <returns>List of calendar items representing individual occurrences in the period.</returns>
+    private async Task<List<CalendarItem>> ExpandRecurringEventAsync(CalendarItem recurringEvent, ITimePeriod period)
+    {
+        var result = new List<CalendarItem>();
+
+        // Parse the RFC 5545 recurrence pattern.
+        var calendarEvent = new CalendarEvent
+        {
+            Start = new CalDateTime(recurringEvent.StartDate),
+            End = new CalDateTime(recurringEvent.EndDate),
+        };
+
+        var recurrenceLines = Regex.Split(recurringEvent.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
+        foreach (var line in recurrenceLines)
+        {
+            calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
+        }
+
+        // Calculate all occurrences in the requested period using iCal.NET.
+        var occurrences = calendarEvent.GetOccurrences(period.Start, period.End);
+
+        // Retrieve exception instances (modified or cancelled occurrences).
+        // These are stored as separate CalendarItem records with RecurringCalendarItemId set.
+        var exceptionInstances = await Connection.Table<CalendarItem>()
+            .Where(a => a.RecurringCalendarItemId == recurringEvent.Id)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        foreach (var occurrence in occurrences)
+        {
+            // Check if this occurrence has been modified/cancelled (exception instance exists).
+            // Compare by checking if an exception instance overlaps with this occurrence's time window.
+            var occurrenceStart = occurrence.Period.StartTime.Value;
+            var occurrenceEnd = occurrence.Period.EndTime?.Value ?? occurrenceStart.Add(occurrence.Period.Duration);
+            
+            var exceptionInstance = exceptionInstances.FirstOrDefault(a =>
+                a.StartDate <= occurrenceEnd && a.EndDate >= occurrenceStart);
+
+            if (exceptionInstance == null)
+            {
+                // No exception - create a virtual occurrence from the series master.
+                var occurrenceItem = recurringEvent.CreateRecurrence(
+                    occurrenceStart,
+                    occurrence.Period.Duration.TotalSeconds);
+
+                result.Add(occurrenceItem);
+            }
+            else if (!exceptionInstance.IsHidden && exceptionInstance.Period.OverlapsWith(period))
+            {
+                // Exception exists and is not hidden - include the modified version.
+                exceptionInstance.AssignedCalendar = recurringEvent.AssignedCalendar;
+                result.Add(exceptionInstance);
+            }
+            // If exception is hidden, skip this occurrence entirely.
         }
 
         return result;

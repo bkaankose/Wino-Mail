@@ -215,7 +215,9 @@ public static class OutlookIntegratorExtensions
         {
             if (recurrence.Range.Type == RecurrenceRangeType.EndDate && recurrence.Range.EndDate != null)
             {
-                ruleBuilder.Append($"UNTIL={recurrence.Range.EndDate.Value:yyyyMMddTHHmmssZ};");
+                // RFC 5545 requires YYYYMMDD or YYYYMMDDTHHMMSSinvalid format (no dashes or colons)
+                var untilDate = recurrence.Range.EndDate.Value.DateTime.ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+                ruleBuilder.Append($"UNTIL={untilDate};");
             }
             else if (recurrence.Range.Type == RecurrenceRangeType.Numbered && recurrence.Range.NumberOfOccurrences.HasValue)
             {

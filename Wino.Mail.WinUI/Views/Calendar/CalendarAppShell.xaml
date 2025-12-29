@@ -156,6 +156,7 @@
                     <calendarControls:WinoCalendarView
                         x:Name="CalendarView"
                         Grid.Row="0"
+                        Margin="0,12,0,0"
                         HorizontalAlignment="Center"
                         DateClickedCommand="{x:Bind ViewModel.DateClickedCommand}"
                         HighlightedDateRange="{x:Bind ViewModel.HighlightedDateRange, Mode=OneWay}"

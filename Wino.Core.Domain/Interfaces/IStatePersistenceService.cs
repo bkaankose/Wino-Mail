@@ -28,6 +28,16 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     /// </summary>
     bool IsBackButtonVisible { get; }
 
+    /// <summary>
+    /// Current application mode (Mail or Calendar).
+    /// Not persisted to configuration, only kept in memory.
+    /// </summary>
+    WinoApplicationMode ApplicationMode { get; set; }
+
+    /// <summary>
+    /// Whether event details page is visible in Calendar mode.
+    /// </summary>
+    bool IsEventDetailsVisible { get; set; }
 
     /// <summary>
     /// Setting: Opened pane length for the navigation view.

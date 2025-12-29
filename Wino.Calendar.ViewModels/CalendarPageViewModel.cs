@@ -658,7 +658,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             // Check all the events for the given date range and calendar.
             // Then find the day representation for all the events returned, and add to the collection.
 
-            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, dayRangeRenderModel).ConfigureAwait(false);
+            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, dayRangeRenderModel.Period).ConfigureAwait(false);
 
             foreach (var @event in events)
             {

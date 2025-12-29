@@ -12,6 +12,6 @@ public interface INavigationService
                          NavigationTransitionType transition = NavigationTransitionType.None);
 
     Type GetPageType(WinoPage winoPage);
-    void GoBack();
     bool ChangeApplicationMode(WinoApplicationMode mode);
+    void GoBack();
 }

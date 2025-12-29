@@ -63,14 +63,14 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
 
         var durationInSeconds = (eventEndDateTimeOffset - eventStartDateTimeOffset).TotalSeconds;
 
+        // Store dates as UTC in the database
         savingItem.RemoteEventId = calendarEvent.Id;
-        savingItem.StartDate = eventStartDateTimeOffset.DateTime;
-        savingItem.StartDateOffset = eventStartDateTimeOffset.Offset;
-        savingItem.EndDateOffset = eventEndDateTimeOffset.Offset;
+        savingItem.StartDate = eventStartDateTimeOffset.UtcDateTime;
         savingItem.DurationInSeconds = durationInSeconds;
 
         // Store the timezone information from the event
         // This preserves the original timezone from Outlook, allowing proper reconstruction later
+        // If no timezone is provided, null will indicate UTC
         savingItem.StartTimeZone = calendarEvent.Start?.TimeZone;
         savingItem.EndTimeZone = calendarEvent.End?.TimeZone;
 

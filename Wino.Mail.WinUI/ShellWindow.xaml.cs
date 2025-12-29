@@ -9,7 +9,6 @@ using Microsoft.UI.Xaml.Controls;
 using Windows.UI;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
-using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Views;
@@ -114,8 +113,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     private void BackButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
     {
-        WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
-        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+        NavigationService.GoBack();
     }
 
     private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)

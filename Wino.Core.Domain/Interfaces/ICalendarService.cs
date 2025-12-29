@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Calendar;
 
@@ -16,7 +17,15 @@ public interface ICalendarService
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
     Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
-    Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, DayRangeRenderModel dayRangeRenderModel);
+    
+    /// <summary>
+    /// Retrieves calendar events for a given calendar within the specified time period.
+    /// </summary>
+    /// <param name="calendar">The calendar to retrieve events from.</param>
+    /// <param name="period">The time period to query events for.</param>
+    /// <returns>List of calendar items including regular events and recurring event occurrences.</returns>
+    Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
+    
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 

@@ -27,9 +27,6 @@ public class CalendarItem : ICalendarItem
         }
     }
 
-    public TimeSpan StartDateOffset { get; set; }
-    public TimeSpan EndDateOffset { get; set; }
-
     /// <summary>
     /// IANA timezone identifier for the start time (e.g., "America/New_York", "Europe/London").
     /// If null or empty, UTC is assumed.
@@ -180,8 +177,6 @@ public class CalendarItem : ICalendarItem
             Status = Status,
             CustomEventColorHex = CustomEventColorHex,
             HtmlLink = HtmlLink,
-            StartDateOffset = StartDateOffset,
-            EndDateOffset = EndDateOffset,
             StartTimeZone = StartTimeZone,
             EndTimeZone = EndTimeZone,
             RemoteEventId = RemoteEventId,
@@ -194,7 +189,7 @@ public class CalendarItem : ICalendarItem
     /// <summary>
     /// Gets the start date as a DateTimeOffset with the correct timezone.
     /// If StartTimeZone is available, uses it to calculate the offset.
-    /// Otherwise, uses the stored StartDateOffset or assumes UTC.
+    /// Otherwise, assumes UTC (StartDate is stored as UTC in database).
     /// </summary>
     [Ignore]
     public DateTimeOffset StartDateTimeOffset
@@ -206,24 +201,27 @@ public class CalendarItem : ICalendarItem
                 try
                 {
                     var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(StartTimeZone);
-                    var offset = timeZoneInfo.GetUtcOffset(StartDate);
-                    return new DateTimeOffset(StartDate, offset);
+                    // StartDate is stored in UTC, convert to the specified timezone
+                    var utcDateTime = DateTime.SpecifyKind(StartDate, DateTimeKind.Utc);
+                    var zonedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZoneInfo);
+                    var offset = timeZoneInfo.GetUtcOffset(zonedDateTime);
+                    return new DateTimeOffset(zonedDateTime, offset);
                 }
                 catch
                 {
-                    // If timezone lookup fails, fall back to stored offset
+                    // If timezone lookup fails, assume UTC
                 }
             }
 
-            // Fall back to stored offset, or UTC if offset is zero
-            return new DateTimeOffset(StartDate, StartDateOffset);
+            // Assume UTC (StartDate is stored as UTC in database)
+            return new DateTimeOffset(StartDate, TimeSpan.Zero);
         }
     }
 
     /// <summary>
     /// Gets the end date as a DateTimeOffset with the correct timezone.
     /// If EndTimeZone is available, uses it to calculate the offset.
-    /// Otherwise, uses the stored EndDateOffset or assumes UTC.
+    /// Otherwise, assumes UTC (EndDate is stored as UTC in database).
     /// </summary>
     [Ignore]
     public DateTimeOffset EndDateTimeOffset
@@ -235,17 +233,20 @@ public class CalendarItem : ICalendarItem
                 try
                 {
                     var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(EndTimeZone);
-                    var offset = timeZoneInfo.GetUtcOffset(EndDate);
-                    return new DateTimeOffset(EndDate, offset);
+                    // EndDate is stored in UTC, convert to the specified timezone
+                    var utcDateTime = DateTime.SpecifyKind(EndDate, DateTimeKind.Utc);
+                    var zonedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZoneInfo);
+                    var offset = timeZoneInfo.GetUtcOffset(zonedDateTime);
+                    return new DateTimeOffset(zonedDateTime, offset);
                 }
                 catch
                 {
-                    // If timezone lookup fails, fall back to stored offset
+                    // If timezone lookup fails, assume UTC
                 }
             }
 
-            // Fall back to stored offset, or UTC if offset is zero
-            return new DateTimeOffset(EndDate, EndDateOffset);
+            // Assume UTC (EndDate is stored as UTC in database)
+            return new DateTimeOffset(EndDate, TimeSpan.Zero);
         }
     }
 }

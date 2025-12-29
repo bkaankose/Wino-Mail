@@ -55,6 +55,11 @@
     </Project>
     <Project Path="Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
   </Folder>
+  <Project Path="Wino.Core.Tests/Wino.Core.Tests.csproj">
+    <Platform Solution="*|arm64" Project="arm64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
   <Project Path="Wino.Mail.WinUI/Wino.Mail.WinUI.csproj" Id="bf340564-2cc8-486d-924d-8474cb5f3316">
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />

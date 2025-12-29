@@ -96,9 +96,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description ?? parentRecurringEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.DateTime,
-                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
-                    EndDateOffset = eventEndDateTimeOffset?.Offset ?? parentRecurringEvent.EndDateOffset,
+                    StartDate = eventStartDateTimeOffset.Value.UtcDateTime,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent.Location : calendarEvent.Location,
 
@@ -136,9 +134,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     CreatedAt = DateTimeOffset.UtcNow,
                     Description = calendarEvent.Description,
                     Id = Guid.NewGuid(),
-                    StartDate = eventStartDateTimeOffset.Value.DateTime,
-                    StartDateOffset = eventStartDateTimeOffset.Value.Offset,
-                    EndDateOffset = eventEndDateTimeOffset.Value.Offset,
+                    StartDate = eventStartDateTimeOffset.Value.UtcDateTime,
                     DurationInSeconds = totalDurationInSeconds,
                     Location = calendarEvent.Location,
 

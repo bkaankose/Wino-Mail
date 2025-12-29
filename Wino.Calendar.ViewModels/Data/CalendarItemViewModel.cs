@@ -17,13 +17,71 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
     public IAccountCalendar AssignedCalendar => CalendarItem.AssignedCalendar;
 
-    public DateTime StartDate { get => CalendarItem.StartDate; set => CalendarItem.StartDate = value; }
+    /// <summary>
+    /// Gets or sets the start date in local time based on the event's timezone.
+    /// The underlying CalendarItem stores dates in UTC.
+    /// </summary>
+    public DateTime StartDate
+    {
+        get
+        {
+            // Convert from UTC stored in database to local time using the event's timezone
+            var startDateTimeOffset = CalendarItem.StartDateTimeOffset;
+            return startDateTimeOffset.LocalDateTime;
+        }
+        set
+        {
+            // When setting, convert from local time to UTC for storage
+            // Preserve the timezone information
+            if (!string.IsNullOrEmpty(CalendarItem.StartTimeZone))
+            {
+                try
+                {
+                    var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(CalendarItem.StartTimeZone);
+                    var utcDateTime = TimeZoneInfo.ConvertTimeToUtc(value, timeZoneInfo);
+                    CalendarItem.StartDate = utcDateTime;
+                }
+                catch
+                {
+                    // If timezone lookup fails, assume value is already in UTC
+                    CalendarItem.StartDate = value;
+                }
+            }
+            else
+            {
+                // No timezone info, assume UTC
+                CalendarItem.StartDate = value;
+            }
+        }
+    }
 
-    public DateTime EndDate => CalendarItem.EndDate;
+    /// <summary>
+    /// Gets the end date in local time based on the event's timezone.
+    /// The underlying CalendarItem stores dates in UTC.
+    /// </summary>
+    public DateTime EndDate
+    {
+        get
+        {
+            // Convert from UTC stored in database to local time using the event's timezone
+            var endDateTimeOffset = CalendarItem.EndDateTimeOffset;
+            return endDateTimeOffset.LocalDateTime;
+        }
+    }
 
     public double DurationInSeconds { get => CalendarItem.DurationInSeconds; set => CalendarItem.DurationInSeconds = value; }
 
-    public ITimePeriod Period => CalendarItem.Period;
+    /// <summary>
+    /// Gets the time period in local time.
+    /// </summary>
+    public ITimePeriod Period
+    {
+        get
+        {
+            // Return a period using local times for UI display
+            return new TimeRange(StartDate, EndDate);
+        }
+    }
 
     public bool IsAllDayEvent => CalendarItem.IsAllDayEvent;
     public bool IsMultiDayEvent => CalendarItem.IsMultiDayEvent;
@@ -32,7 +90,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public bool IsRecurringParent => CalendarItem.IsRecurringParent;
 
     [ObservableProperty]
-    private bool _isSelected;
+    public partial bool IsSelected { get; set; }
 
     public ObservableCollection<CalendarEventAttendee> Attendees { get; } = new ObservableCollection<CalendarEventAttendee>();
 

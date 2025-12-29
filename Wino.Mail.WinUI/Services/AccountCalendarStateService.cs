@@ -5,7 +5,6 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
-using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -33,16 +32,16 @@ public partial class AccountCalendarStateService : ObservableObject, IAccountCal
         }
     }
 
-    public IEnumerable<IGrouping<MailAccount, AccountCalendarViewModel>> GroupedAccountCalendarsEnumerable
-    {
-        get
-        {
-            return GroupedAccountCalendars
-            .Select(a => a.AccountCalendars)
-            .SelectMany(b => b)
-            .GroupBy(c => c.Account);
-        }
-    }
+    //public IEnumerable<IGrouping<MailAccount, AccountCalendarViewModel>> GroupedAccountCalendarsEnumerable
+    //{
+    //    get
+    //    {
+    //        return GroupedAccountCalendars
+    //        .Select(a => a.AccountCalendars)
+    //        .SelectMany(b => b)
+    //        .GroupBy(c => c.Account);
+    //    }
+    //}
 
     public AccountCalendarStateService()
     {

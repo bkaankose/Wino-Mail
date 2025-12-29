@@ -22,7 +22,6 @@ public sealed partial class CalendarPage : CalendarPageAbstract,
     public CalendarPage()
     {
         InitializeComponent();
-        NavigationCacheMode = NavigationCacheMode.Enabled;
 
         ViewModel.DetailsShowCalendarItemChanged += CalendarItemDetailContextChanged;
     }
@@ -38,6 +37,26 @@ public sealed partial class CalendarPage : CalendarPageAbstract,
                 EventDetailsPopup.PlacementTarget = control;
             }
         }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        WeakReferenceMessenger.Default.Register<ScrollToDateMessage>(this);
+        WeakReferenceMessenger.Default.Register<ScrollToHourMessage>(this);
+        WeakReferenceMessenger.Default.Register<GoNextDateRequestedMessage>(this);
+        WeakReferenceMessenger.Default.Register<GoPreviousDateRequestedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        WeakReferenceMessenger.Default.Unregister<ScrollToDateMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<ScrollToHourMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<GoNextDateRequestedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<GoPreviousDateRequestedMessage>(this);
     }
 
     public void Receive(ScrollToHourMessage message) => CalendarControl.NavigateToHour(message.TimeSpan);

@@ -9,7 +9,7 @@ namespace Wino.Services;
 
 public class StatePersistenceService : ObservableObject, IStatePersistanceService
 {
-    public event EventHandler<string> StatePropertyChanged;
+    public event EventHandler<string?>? StatePropertyChanged;
 
     private const string OpenPaneLengthKey = nameof(OpenPaneLengthKey);
     private const string MailListPaneLengthKey = nameof(MailListPaneLengthKey);
@@ -28,9 +28,40 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         PropertyChanged += ServicePropertyChanged;
     }
 
-    private void ServicePropertyChanged(object sender, PropertyChangedEventArgs e) => StatePropertyChanged?.Invoke(this, e.PropertyName);
+    private void ServicePropertyChanged(object? sender, PropertyChangedEventArgs e) => StatePropertyChanged?.Invoke(this, e?.PropertyName ?? string.Empty);
 
-    public bool IsBackButtonVisible => IsReadingMail && IsReaderNarrowed;
+    public bool IsBackButtonVisible =>
+        ApplicationMode == WinoApplicationMode.Mail
+            ? IsReadingMail && IsReaderNarrowed
+            : IsEventDetailsVisible;
+
+    private WinoApplicationMode applicationMode = WinoApplicationMode.Mail;
+
+    public WinoApplicationMode ApplicationMode
+    {
+        get => applicationMode;
+        set
+        {
+            if (SetProperty(ref applicationMode, value))
+            {
+                OnPropertyChanged(nameof(IsBackButtonVisible));
+            }
+        }
+    }
+
+    private bool isEventDetailsVisible;
+
+    public bool IsEventDetailsVisible
+    {
+        get => isEventDetailsVisible;
+        set
+        {
+            if (SetProperty(ref isEventDetailsVisible, value))
+            {
+                OnPropertyChanged(nameof(IsBackButtonVisible));
+            }
+        }
+    }
 
     private bool isReadingMail;
 
@@ -68,7 +99,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         }
     }
 
-    private string coreWindowTitle;
+    private string coreWindowTitle = string.Empty;
 
     public string CoreWindowTitle
     {
