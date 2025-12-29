@@ -166,7 +166,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.RegisterRecipients();
 
         Messenger.Register<LoadCalendarMessage>(this);
-        Messenger.Register<CalendarItemDeleted>(this);
         Messenger.Register<CalendarSettingsUpdatedMessage>(this);
         Messenger.Register<CalendarItemTappedMessage>(this);
         Messenger.Register<CalendarItemDoubleTappedMessage>(this);
@@ -177,7 +176,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.UnregisterRecipients();
 
         Messenger.Unregister<LoadCalendarMessage>(this);
-        Messenger.Unregister<CalendarItemDeleted>(this);
         Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
         Messenger.Unregister<CalendarItemTappedMessage>(this);
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
@@ -613,30 +611,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-    protected override async void OnCalendarItemAdded(CalendarItem calendarItem)
-    {
-        base.OnCalendarItemAdded(calendarItem);
 
-        // Check if event falls into the current date range.
-
-
-        if (DayRanges.DisplayRange == null) return;
-
-        // Check whether this event falls into any of the loaded date ranges.
-        var allDaysForEvent = DayRanges.SelectMany(a => a.CalendarDays).Where(a => a.Period.OverlapsWith(calendarItem.Period));
-
-        foreach (var calendarDay in allDaysForEvent)
-        {
-            var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
-
-            await ExecuteUIThread(() =>
-            {
-                calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
-            });
-        }
-
-        FilterActiveCalendars(DayRanges);
-    }
 
     private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel)
     {
@@ -871,23 +846,36 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public void Receive(CalendarItemDoubleTappedMessage message) => NavigateEvent(message.CalendarItemViewModel, CalendarEventTargetType.Single);
 
-    public void Receive(CalendarItemRightTappedMessage message)
-    {
+    public void Receive(CalendarItemRightTappedMessage message) { }
 
+    protected override void OnCalendarItemDeleted(CalendarItem calendarItem)
+    {
+        base.OnCalendarItemDeleted(calendarItem);
+
+        Debug.WriteLine($"Calendar item deleted: {calendarItem.Id}");
     }
 
-    public async void Receive(CalendarItemDeleted message)
+    protected override async void OnCalendarItemAdded(CalendarItem calendarItem)
     {
-        // Each deleted recurrence will report for it's own.
+        base.OnCalendarItemAdded(calendarItem);
+        Debug.WriteLine($"Calendar item added: {calendarItem.Id}");
 
-        await ExecuteUIThread(() =>
+        // Check if event falls into the current date range.
+        if (DayRanges.DisplayRange == null) return;
+
+        // Check whether this event falls into any of the loaded date ranges.
+        var allDaysForEvent = DayRanges.SelectMany(a => a.CalendarDays).Where(a => a.Period.OverlapsWith(calendarItem.Period));
+
+        foreach (var calendarDay in allDaysForEvent)
         {
-            var deletedItem = message.CalendarItem;
+            var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
 
-            // Event might be spreaded into multiple days.
-            // Remove from all.
+            await ExecuteUIThread(() =>
+            {
+                calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
+            });
+        }
 
-            // var calendarItems = GetCalendarItems(deletedItem.Id);
-        });
+        FilterActiveCalendars(DayRanges);
     }
 }

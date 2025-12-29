@@ -133,7 +133,6 @@ public partial class WinoCalendarControl : Control
         }
     }
 
-
     private static void OnActiveVerticalScrollViewerChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
     {
         if (calendar is WinoCalendarControl calendarControl)
@@ -151,7 +150,6 @@ public partial class WinoCalendarControl : Control
             calendarControl.ManageHighlightedDateRange();
         }
     }
-
 
     private static void OnActiveCanvasChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
     {
@@ -189,6 +187,8 @@ public partial class WinoCalendarControl : Control
         canvas.SelectedDateTime = null;
         canvas.TimelineCellSelected -= ActiveTimelineCellSelected;
         canvas.TimelineCellUnselected -= ActiveTimelineCellUnselected;
+
+        canvas.Dispose();
     }
 
     private void RegisterCanvas(WinoDayTimelineCanvas canvas)

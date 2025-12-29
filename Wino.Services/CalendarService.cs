@@ -8,13 +8,13 @@ using CommunityToolkit.Mvvm.Messaging;
 using Ical.Net.CalendarComponents;
 using Ical.Net.DataTypes;
 using Itenso.TimePeriod;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
-using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
@@ -78,17 +78,49 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     public async Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
     {
-        await Connection.RunInTransactionAsync((conn) =>
-           {
-               conn.Insert(calendarItem, typeof(CalendarItem));
+        try
+        {
+            await Connection.RunInTransactionAsync((conn) =>
+            {
+                conn.Insert(calendarItem, typeof(CalendarItem));
 
-               if (attendees != null)
-               {
-                   conn.InsertAll(attendees, typeof(CalendarEventAttendee));
-               }
-           });
+                if (attendees != null)
+                {
+                    conn.InsertAll(attendees, typeof(CalendarEventAttendee));
+                }
+            });
 
-        WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
+            WeakReferenceMessenger.Default.Send(new CalendarItemAdded(calendarItem));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error creating new calendar item");
+        }
+    }
+
+    public async Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
+    {
+        try
+        {
+            await Connection.RunInTransactionAsync((conn) =>
+            {
+                conn.Update(calendarItem, typeof(CalendarItem));
+
+                // Clear existing attendees and add new ones
+                conn.Table<CalendarEventAttendee>().Delete(a => a.CalendarItemId == calendarItem.Id);
+
+                if (attendees != null)
+                {
+                    conn.InsertAll(attendees, typeof(CalendarEventAttendee));
+                }
+            });
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error updating calendar item");
+        }
     }
 
     /// <summary>
@@ -180,7 +212,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             // Compare by checking if an exception instance overlaps with this occurrence's time window.
             var occurrenceStart = occurrence.Period.StartTime.Value;
             var occurrenceEnd = occurrence.Period.EndTime?.Value ?? occurrenceStart.Add(occurrence.Period.Duration);
-            
+
             var exceptionInstance = exceptionInstances.FirstOrDefault(a =>
                 a.StartDate <= occurrenceEnd && a.EndDate >= occurrenceStart);
 

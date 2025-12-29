@@ -37,4 +37,5 @@ public interface ICalendarService
     Task<CalendarItem> GetCalendarItemAsync(Guid id);
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
+    Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
 }

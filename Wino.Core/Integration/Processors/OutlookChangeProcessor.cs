@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Graph.Models;
@@ -49,6 +50,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
 
         Guid savingItemId = Guid.Empty;
+        bool isNewItem = savingItem == null;
 
         if (savingItem != null)
             savingItemId = savingItem.Id;
@@ -111,7 +113,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         // Set timestamps
         if (calendarEvent.CreatedDateTime.HasValue)
             savingItem.CreatedAt = calendarEvent.CreatedDateTime.Value;
-        
+
         if (calendarEvent.LastModifiedDateTime.HasValue)
             savingItem.UpdatedAt = calendarEvent.LastModifiedDateTime.Value;
 
@@ -164,15 +166,23 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             savingItem.Status = CalendarItemStatus.Confirmed;
         }
 
-        // Upsert the event.
-        await Connection.InsertOrReplaceAsync(savingItem, typeof(CalendarItem));
-
-        // Manage attendees.
+        // Prepare attendees list
+        List<CalendarEventAttendee> attendees = null;
         if (calendarEvent.Attendees != null)
         {
-            // Clear all attendees for this event.
-            var attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
-            await CalendarService.ManageEventAttendeesAsync(savingItemId, attendees).ConfigureAwait(false);
+            attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
+        }
+
+        // Use CalendarService to create or update the event
+        if (isNewItem)
+        {
+            // New item - use CreateNewCalendarItemAsync
+            await CalendarService.CreateNewCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
+        }
+        else
+        {
+            // Existing item - use UpdateCalendarItemAsync
+            await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
         }
     }
 }
