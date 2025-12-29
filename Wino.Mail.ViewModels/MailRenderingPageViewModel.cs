@@ -596,11 +596,20 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         // This is done with UniqueId to include FolderId into calculations.
         if (initializedMailItemViewModel.UniqueId != updatedMail.UniqueId) return;
 
-        // Mail operation might change the mail item like mark read/unread or change flag.
-        // So we need to update the mail item view model when this happens.
-        // Also command bar items must be re-initialized since the items loaded based on the mail item.
-
         await ExecuteUIThread(() => { InitializeCommandBarItems(); });
+    }
+
+    protected override async void OnMailUpdated(IReadOnlyList<MailCopy> updatedMails)
+    {
+        base.OnMailUpdated(updatedMails);
+
+        if (initializedMailItemViewModel == null || updatedMails == null || updatedMails.Count == 0) return;
+
+        // Only care about the currently rendered item.
+        if (updatedMails.Any(m => m?.UniqueId == initializedMailItemViewModel.UniqueId))
+        {
+            await ExecuteUIThread(() => { InitializeCommandBarItems(); });
+        }
     }
 
     [RelayCommand]

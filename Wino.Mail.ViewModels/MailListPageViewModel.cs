@@ -685,6 +685,37 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() => { SetupTopBarActions(); });
     }
 
+    protected override async void OnMailUpdated(IReadOnlyList<MailCopy> updatedMails)
+    {
+        base.OnMailUpdated(updatedMails);
+
+        if (updatedMails == null || updatedMails.Count == 0) return;
+
+        // Bulk update: do all changes in a single UI-thread invocation to avoid UI lockups when
+        // thousands of MailUpdatedMessage events would otherwise be processed one by one.
+        await ExecuteUIThread(() =>
+        {
+            foreach (var mail in updatedMails)
+            {
+                if (mail == null) continue;
+
+                // Avoid work for items not in the list.
+                if (!MailCollection.MailCopyIdHashSet.Contains(mail.UniqueId))
+                    continue;
+
+                var container = MailCollection.GetMailItemContainer(mail.UniqueId);
+
+                if (container?.ItemViewModel != null)
+                {
+                    container.ItemViewModel.MailCopy = mail;
+                    container.ThreadViewModel?.NotifyPropertyChanges();
+                }
+            }
+
+            SetupTopBarActions();
+        });
+    }
+
     protected override async void OnMailRemoved(MailCopy removedMail)
     {
         base.OnMailRemoved(removedMail);

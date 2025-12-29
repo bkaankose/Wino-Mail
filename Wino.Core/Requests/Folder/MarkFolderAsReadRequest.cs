@@ -13,22 +13,26 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
 {
     public override void ApplyUIChanges()
     {
+        if (MailsToMarkRead == null || MailsToMarkRead.Count == 0) return;
+
         foreach (var item in MailsToMarkRead)
         {
             item.IsRead = true;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
         }
+
+        WeakReferenceMessenger.Default.Send(new BulkMailUpdatedMessage(MailsToMarkRead));
     }
 
     public override void RevertUIChanges()
     {
+        if (MailsToMarkRead == null || MailsToMarkRead.Count == 0) return;
+
         foreach (var item in MailsToMarkRead)
         {
             item.IsRead = false;
-
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
         }
+
+        WeakReferenceMessenger.Default.Send(new BulkMailUpdatedMessage(MailsToMarkRead));
     }
 
     public List<Guid> SynchronizationFolderIds => [Folder.Id];
