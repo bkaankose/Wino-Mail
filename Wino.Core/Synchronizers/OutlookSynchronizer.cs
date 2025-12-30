@@ -1633,7 +1633,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
                 var startDate = DateTimeOffset.Now.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var endDate = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var endDate = DateTimeOffset.Now.AddYears(2).ToString("yyyy-MM-ddTHH:mm:sszzz");
 
                 eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                 {
