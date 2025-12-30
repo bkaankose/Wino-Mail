@@ -1,8 +1,8 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
-    xmlns:controls="using:Wino.Calendar.Controls">
+    xmlns:controls="using:Wino.Calendar.Controls"
+    xmlns:skia="using:SkiaSharp.Views.Windows">
 
     <!--  Background Timeline Canvas  -->
     <Style TargetType="controls:WinoDayTimelineCanvas">
@@ -10,7 +10,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="controls:WinoDayTimelineCanvas">
-                        <canvas:CanvasControl x:Name="PART_InternalCanvas" />
+                        <skia:SKXamlCanvas x:Name="PART_InternalCanvas" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>

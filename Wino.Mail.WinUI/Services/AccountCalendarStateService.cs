@@ -5,6 +5,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -14,44 +15,43 @@ namespace Wino.Mail.WinUI.Services;
 /// </summary>
 public partial class AccountCalendarStateService : ObservableObject, IAccountCalendarStateService
 {
-    public event EventHandler<GroupedAccountCalendarViewModel> CollectiveAccountGroupSelectionStateChanged;
-    public event EventHandler<AccountCalendarViewModel> AccountCalendarSelectionStateChanged;
+    public event EventHandler<GroupedAccountCalendarViewModel>? CollectiveAccountGroupSelectionStateChanged;
+    public event EventHandler<AccountCalendarViewModel>? AccountCalendarSelectionStateChanged;
+
+    private readonly ObservableCollection<GroupedAccountCalendarViewModel> _internalGroupedAccountCalendars;
 
     [ObservableProperty]
     public partial ReadOnlyObservableCollection<GroupedAccountCalendarViewModel> GroupedAccountCalendars { get; set; }
-
-    private ObservableCollection<GroupedAccountCalendarViewModel> _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
 
     public IEnumerable<AccountCalendarViewModel> ActiveCalendars
     {
         get
         {
-            return GroupedAccountCalendars
-            .SelectMany(a => a.AccountCalendars)
-            .Where(b => b.IsChecked);
+            return _internalGroupedAccountCalendars
+                .SelectMany(a => a.AccountCalendars)
+                .Where(b => b.IsChecked);
         }
     }
 
-    //public IEnumerable<IGrouping<MailAccount, AccountCalendarViewModel>> GroupedAccountCalendarsEnumerable
-    //{
-    //    get
-    //    {
-    //        return GroupedAccountCalendars
-    //        .Select(a => a.AccountCalendars)
-    //        .SelectMany(b => b)
-    //        .GroupBy(c => c.Account);
-    //    }
-    //}
+    public IEnumerable<AccountCalendarViewModel> AllCalendars
+    {
+        get
+        {
+            return _internalGroupedAccountCalendars
+                .SelectMany(a => a.AccountCalendars);
+        }
+    }
 
     public AccountCalendarStateService()
     {
+        _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
         GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_internalGroupedAccountCalendars);
     }
 
-    private void SingleGroupCalendarCollectiveStateChanged(object sender, EventArgs e)
-        => CollectiveAccountGroupSelectionStateChanged?.Invoke(this, sender as GroupedAccountCalendarViewModel);
+    private void SingleGroupCalendarCollectiveStateChanged(object? sender, EventArgs e)
+        => CollectiveAccountGroupSelectionStateChanged?.Invoke(this, sender as GroupedAccountCalendarViewModel ?? throw new InvalidOperationException("Sender must be GroupedAccountCalendarViewModel"));
 
-    private void SingleCalendarSelectionStateChanged(object sender, AccountCalendarViewModel e)
+    private void SingleCalendarSelectionStateChanged(object? sender, AccountCalendarViewModel e)
         => AccountCalendarSelectionStateChanged?.Invoke(this, e);
 
     public void AddGroupedAccountCalendar(GroupedAccountCalendarViewModel groupedAccountCalendar)
@@ -70,7 +70,7 @@ public partial class AccountCalendarStateService : ObservableObject, IAccountCal
         _internalGroupedAccountCalendars.Remove(groupedAccountCalendar);
     }
 
-    public void ClearGroupedAccountCalendar()
+    public void ClearGroupedAccountCalendars()
     {
         while (_internalGroupedAccountCalendars.Any())
         {

@@ -20,9 +20,9 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
     /// Gets or sets the active canvas that is currently displayed in the flip view.
     /// Each day-range of flip view item has a canvas that displays the day timeline.
     /// </summary>
-    public WinoDayTimelineCanvas ActiveCanvas
+    public WinoDayTimelineCanvas? ActiveCanvas
     {
-        get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
+        get { return (WinoDayTimelineCanvas?)GetValue(ActiveCanvasProperty); }
         set { SetValue(ActiveCanvasProperty, value); }
     }
 
@@ -31,9 +31,9 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
     /// It's the vertical scroll that scrolls the timeline only, not the header part that belongs
     /// to parent FlipView control.
     /// </summary>
-    public ScrollViewer ActiveVerticalScrollViewer
+    public ScrollViewer? ActiveVerticalScrollViewer
     {
-        get { return (ScrollViewer)GetValue(ActiveVerticalScrollViewerProperty); }
+        get { return (ScrollViewer?)GetValue(ActiveVerticalScrollViewerProperty); }
         set { SetValue(ActiveVerticalScrollViewerProperty, value); }
     }
 
@@ -45,7 +45,6 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
 
     public WinoCalendarFlipView()
     {
-        RegisterPropertyChangedCallback(SelectedIndexProperty, new DependencyPropertyChangedCallback(OnSelectedIndexUpdated));
         RegisterPropertyChangedCallback(ItemsSourceProperty, new DependencyPropertyChangedCallback(OnItemsSourceChanged));
     }
 
@@ -57,15 +56,6 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         }
     }
 
-    private static void OnSelectedIndexUpdated(DependencyObject d, DependencyProperty e)
-    {
-        if (d is WinoCalendarFlipView flipView)
-        {
-            flipView.UpdateActiveCanvas();
-            flipView.UpdateActiveScrollViewer();
-        }
-    }
-
     private void RegisterItemsSourceChange()
     {
         if (GetItemsSource() is INotifyCollectionChanged notifyCollectionChanged)
@@ -74,61 +64,51 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         }
     }
 
+    protected override void OnSelectedItemChanged(object oldValue, object newValue)
+    {
+        base.OnSelectedItemChanged(oldValue, newValue);
+
+        UpdateActiveElements();
+    }
+
+    protected override void OnContainerPrepared(DependencyObject element, object item)
+    {
+        base.OnContainerPrepared(element, item);
+
+        // Check if this is the currently selected item's container
+        var index = IndexFromContainer(element);
+        if (index >= 0 && index == SelectedIndex)
+        {
+            // Container for selected item is now ready, update active elements
+            UpdateActiveElements();
+        }
+    }
+
     private void ItemsSourceUpdated(object sender, NotifyCollectionChangedEventArgs e)
     {
         IsIdle = e.Action == NotifyCollectionChangedAction.Reset || e.Action == NotifyCollectionChangedAction.Replace;
     }
 
-    private async Task<FlipViewItem> GetCurrentFlipViewItem()
-    {
-        // TODO: Refactor this mechanism by listening to PrepareContainerForItemOverride and Loaded events together.
-        while (ContainerFromIndex(SelectedIndex) == null)
-        {
-            await Task.Delay(100);
-        }
-
-        return ContainerFromIndex(SelectedIndex) as FlipViewItem;
-    }
-
-    private void UpdateActiveScrollViewer()
+    private void UpdateActiveElements()
     {
         if (SelectedIndex < 0)
-            ActiveVerticalScrollViewer = null;
-        else
         {
-            GetCurrentFlipViewItem().ContinueWith(task =>
-            {
-                if (task.IsCompletedSuccessfully)
-                {
-                    var flipViewItem = task.Result;
-
-                    _ = DispatcherQueue.TryEnqueue(() =>
-                    {
-                        ActiveVerticalScrollViewer = flipViewItem.FindDescendant<ScrollViewer>();
-                    });
-                }
-            });
-        }
-    }
-
-    public void UpdateActiveCanvas()
-    {
-        if (SelectedIndex < 0)
             ActiveCanvas = null;
+            ActiveVerticalScrollViewer = null;
+            return;
+        }
+
+        // Get container from index - respects virtualization
+        if (ContainerFromIndex(SelectedIndex) is FlipViewItem container)
+        {
+            ActiveCanvas = container.FindDescendant<WinoDayTimelineCanvas>();
+            ActiveVerticalScrollViewer = container.FindDescendant<ScrollViewer>();
+        }
         else
         {
-            GetCurrentFlipViewItem().ContinueWith(task =>
-            {
-                if (task.IsCompletedSuccessfully)
-                {
-                    var flipViewItem = task.Result;
-
-                    _ = DispatcherQueue.TryEnqueue(() =>
-                    {
-                        ActiveCanvas = flipViewItem.FindDescendant<WinoDayTimelineCanvas>();
-                    });
-                }
-            });
+            // Container not ready yet - will be updated when OnContainerPrepared is called
+            ActiveCanvas = null;
+            ActiveVerticalScrollViewer = null;
         }
     }
 

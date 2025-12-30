@@ -24,6 +24,7 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
 
     partial void OnItemPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
+        // TODO: This slows down. Optimize later.
         Debug.WriteLine("WinoMailItemViewModelListViewItem item changed");
 
         if (e.OldValue is MailItemViewModel oldMailItemViewModel) UnregisterPropertyChanged(oldMailItemViewModel);

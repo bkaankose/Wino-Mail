@@ -15,7 +15,7 @@ public interface IAccountCalendarStateService : INotifyPropertyChanged
 
     public void AddGroupedAccountCalendar(GroupedAccountCalendarViewModel groupedAccountCalendar);
     public void RemoveGroupedAccountCalendar(GroupedAccountCalendarViewModel groupedAccountCalendar);
-    public void ClearGroupedAccountCalendar();
+    public void ClearGroupedAccountCalendars();
 
     public void AddAccountCalendar(AccountCalendarViewModel accountCalendar);
     public void RemoveAccountCalendar(AccountCalendarViewModel accountCalendar);
@@ -24,5 +24,5 @@ public interface IAccountCalendarStateService : INotifyPropertyChanged
     /// Enumeration of currently selected calendars.
     /// </summary>
     IEnumerable<AccountCalendarViewModel> ActiveCalendars { get; }
-    // IEnumerable<IGrouping<MailAccount, AccountCalendarViewModel>> GroupedAccountCalendarsEnumerable { get; }
+    IEnumerable<AccountCalendarViewModel> AllCalendars { get; }
 }

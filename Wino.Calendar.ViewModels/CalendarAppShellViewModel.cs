@@ -150,7 +150,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private async Task InitializeAccountCalendarsAsync()
     {
-        await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.ClearGroupedAccountCalendar());
+        await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.ClearGroupedAccountCalendars());
 
         var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 

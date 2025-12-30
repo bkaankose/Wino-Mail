@@ -2,13 +2,13 @@
 using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.WinUI;
-using Microsoft.Graphics.Canvas.Geometry;
-using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using SkiaSharp;
+using SkiaSharp.Views.Windows;
 using Windows.Foundation;
 using Wino.Calendar.Args;
 using Wino.Core.Domain.Models.Calendar;
@@ -21,7 +21,7 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
     public event EventHandler<TimelineCellUnselectedArgs> TimelineCellUnselected;
 
     private const string PART_InternalCanvas = nameof(PART_InternalCanvas);
-    private CanvasControl Canvas;
+    private SKXamlCanvas Canvas;
 
     public static readonly DependencyProperty RenderOptionsProperty = DependencyProperty.Register(nameof(RenderOptions), typeof(CalendarRenderOptions), typeof(WinoDayTimelineCanvas), new PropertyMetadata(null, new PropertyChangedCallback(OnRenderingPropertiesChanged)));
     public static readonly DependencyProperty SeperatorColorProperty = DependencyProperty.Register(nameof(SeperatorColor), typeof(SolidColorBrush), typeof(WinoDayTimelineCanvas), new PropertyMetadata(null, new PropertyChangedCallback(OnRenderingPropertiesChanged)));
@@ -77,11 +77,13 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
     {
         base.OnApplyTemplate();
 
-        Canvas = GetTemplateChild(PART_InternalCanvas) as CanvasControl;
+        Canvas = GetTemplateChild(PART_InternalCanvas) as SKXamlCanvas;
 
-        // TODO: These will leak. Dispose them properly when needed.
-        Canvas.Draw += OnCanvasDraw;
-        Canvas.PointerPressed += OnCanvasPointerPressed;
+        if (Canvas != null)
+        {
+            Canvas.PaintSurface += OnCanvasPaintSurface;
+            Canvas.PointerPressed += OnCanvasPointerPressed;
+        }
 
         ForceDraw();
     }
@@ -179,21 +181,23 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
     {
         return RenderOptions != null
             && Canvas != null
-            && Canvas.ReadyToDraw
             && WorkingHourCellBackgroundColor != null
             && SeperatorColor != null
             && HalfHourSeperatorColor != null
             && SelectedCellBackgroundBrush != null;
     }
 
-    private void OnCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
     {
         if (!CanDrawTimeline()) return;
 
+        var canvas = e.Surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
         int hours = 24;
 
-        double canvasWidth = Canvas.ActualWidth;
-        double canvasHeight = Canvas.ActualHeight;
+        double canvasWidth = e.Info.Width;
+        double canvasHeight = e.Info.Height;
 
         if (canvasWidth == 0 || canvasHeight == 0) return;
 
@@ -205,8 +209,32 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
         double rectHeight = RenderOptions.CalendarSettings.HourHeight;
 
         // Define stroke and fill colors
-        var strokeColor = SeperatorColor.Color;
+        var strokeColor = ToSKColor(SeperatorColor.Color);
         float strokeThickness = 0.5f;
+
+        // Create paints for drawing
+        using var strokePaint = new SKPaint
+        {
+            Color = strokeColor,
+            StrokeWidth = strokeThickness,
+            Style = SKPaintStyle.Stroke,
+            IsAntialias = true
+        };
+
+        using var fillPaint = new SKPaint
+        {
+            Style = SKPaintStyle.Fill,
+            IsAntialias = true
+        };
+
+        using var dashedPaint = new SKPaint
+        {
+            Color = ToSKColor(HalfHourSeperatorColor.Color),
+            StrokeWidth = strokeThickness,
+            Style = SKPaintStyle.Stroke,
+            PathEffect = SKPathEffect.CreateDash([2f, 2f], 0),
+            IsAntialias = true
+        };
 
         for (int day = 0; day < RenderOptions.TotalDayCount; day++)
         {
@@ -222,32 +250,31 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
                 var representingDateTime = currentDay.AddHours(hour);
 
                 // Calculate the position and size of the rectangle
-                double x = day * rectWidth;
-                double y = hour * rectHeight;
+                float x = (float)(day * rectWidth);
+                float y = (float)(hour * rectHeight);
+                float width = (float)rectWidth;
+                float height = (float)rectHeight;
 
-                var rectangle = new Rect(x, y, rectWidth, rectHeight);
+                var rectangle = new SKRect(x, y, x + width, y + height);
 
                 // Draw the rectangle border.
                 // This is the main rectangle.
-                args.DrawingSession.DrawRectangle(rectangle, strokeColor, strokeThickness);
+                canvas.DrawRect(rectangle, strokePaint);
 
                 // Fill another rectangle with the working hour background color
                 // This rectangle must be placed with -1 margin to prevent invisible borders of the main rectangle.
                 if (isWorkingDay && renderTime >= RenderOptions.CalendarSettings.WorkingHourStart && renderTime <= RenderOptions.CalendarSettings.WorkingHourEnd)
                 {
-                    var backgroundRectangle = new Rect(x + 1, y + 1, rectWidth - 1, rectHeight - 1);
+                    var backgroundRectangle = new SKRect(x + 1, y + 1, x + width - 1, y + height - 1);
 
-                    args.DrawingSession.DrawRectangle(backgroundRectangle, strokeColor, strokeThickness);
-                    args.DrawingSession.FillRectangle(backgroundRectangle, WorkingHourCellBackgroundColor.Color);
+                    canvas.DrawRect(backgroundRectangle, strokePaint);
+                    fillPaint.Color = ToSKColor(WorkingHourCellBackgroundColor.Color);
+                    canvas.DrawRect(backgroundRectangle, fillPaint);
                 }
 
                 // Draw a line in the center of the rectangle for representing half hours.
-                double lineY = y + rectHeight / 2;
-
-                args.DrawingSession.DrawLine((float)x, (float)lineY, (float)(x + rectWidth), (float)lineY, HalfHourSeperatorColor.Color, strokeThickness, new CanvasStrokeStyle()
-                {
-                    DashStyle = CanvasDashStyle.Dot
-                });
+                float lineY = y + height / 2;
+                canvas.DrawLine(x, lineY, x + width, lineY, dashedPaint);
             }
 
             // Draw selected item background color for the date if possible.
@@ -265,20 +292,30 @@ public partial class WinoDayTimelineCanvas : Control, IDisposable
                         selectedY += rectHeight / 2;
                     }
 
-                    var selectedRectangle = new Rect(day * rectWidth, selectedY, rectWidth, selectionRectHeight);
-                    args.DrawingSession.FillRectangle(selectedRectangle, SelectedCellBackgroundBrush.Color);
+                    var selectedRectangle = new SKRect(
+                        (float)(day * rectWidth),
+                        (float)selectedY,
+                        (float)(day * rectWidth + rectWidth),
+                        (float)(selectedY + selectionRectHeight));
+
+                    fillPaint.Color = ToSKColor(SelectedCellBackgroundBrush.Color);
+                    canvas.DrawRect(selectedRectangle, fillPaint);
                 }
             }
         }
+    }
+
+    private static SKColor ToSKColor(Windows.UI.Color color)
+    {
+        return new SKColor(color.R, color.G, color.B, color.A);
     }
 
     public void Dispose()
     {
         if (Canvas == null) return;
 
-        Canvas.Draw -= OnCanvasDraw;
+        Canvas.PaintSurface -= OnCanvasPaintSurface;
         Canvas.PointerPressed -= OnCanvasPointerPressed;
-        Canvas.RemoveFromVisualTree();
 
         Canvas = null;
     }

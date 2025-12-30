@@ -187,8 +187,6 @@ public partial class WinoCalendarControl : Control
         canvas.SelectedDateTime = null;
         canvas.TimelineCellSelected -= ActiveTimelineCellSelected;
         canvas.TimelineCellUnselected -= ActiveTimelineCellUnselected;
-
-        canvas.Dispose();
     }
 
     private void RegisterCanvas(WinoDayTimelineCanvas canvas)

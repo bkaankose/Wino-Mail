@@ -611,8 +611,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
-
-
     private async Task InitializeCalendarEventsForDayRangeAsync(DayRangeRenderModel dayRangeRenderModel)
     {
         // Clear all events first for all days.
@@ -626,9 +624,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         // Initialization is done for all calendars, regardless whether they are actively selected or not.
         // This is because the filtering is cached internally of the calendar items in CalendarEventCollection.
-        var allCalendars = AccountCalendarStateService.GroupedAccountCalendars.SelectMany(a => a.AccountCalendars);
 
-        foreach (var calendarViewModel in allCalendars)
+        foreach (var calendarViewModel in AccountCalendarStateService.AllCalendars)
         {
             // Check all the events for the given date range and calendar.
             // Then find the day representation for all the events returned, and add to the collection.

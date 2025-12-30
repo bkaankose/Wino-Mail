@@ -150,11 +150,11 @@
                                             <ListView.GroupStyle>
                                                 <GroupStyle>
                                                     <GroupStyle.HeaderTemplate>
-                                                        <DataTemplate>
+                                                        <DataTemplate x:DataType="data:GroupedAccountCalendarViewModel">
                                                             <TextBlock
                                                                 FontSize="14"
                                                                 FontWeight="SemiBold"
-                                                                Text="{Binding Key.Name}" />
+                                                                Text="{x:Bind Account.Name}" />
                                                         </DataTemplate>
                                                     </GroupStyle.HeaderTemplate>
                                                 </GroupStyle>

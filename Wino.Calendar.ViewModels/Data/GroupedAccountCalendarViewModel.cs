@@ -69,10 +69,10 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private bool _isExpanded = true;
+    public partial bool IsExpanded { get; set; } = true;
 
     [ObservableProperty]
-    private bool? isCheckedState = true;
+    public partial bool? IsCheckedState { get; set; } = true;
 
     private bool _isExternalPropChangeBlocked = false;
 
