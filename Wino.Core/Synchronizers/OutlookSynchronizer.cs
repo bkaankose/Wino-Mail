@@ -1635,23 +1635,13 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 var startDate = DateTimeOffset.Now.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
                 var endDate = DateTimeOffset.Now.AddYears(2).ToString("yyyy-MM-ddTHH:mm:sszzz");
 
+                // Get Id only. We will always download the full event.
                 eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                 {
+                    requestConfiguration.QueryParameters.Select = ["id", "type"];
                     requestConfiguration.QueryParameters.StartDateTime = startDate;
                     requestConfiguration.QueryParameters.EndDateTime = endDate;
                 }, cancellationToken: cancellationToken);
-
-                // No delta link. Performing initial sync.
-                //eventsDeltaResponse = await _graphClient.Me.CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
-                //{
-                //    requestConfiguration.QueryParameters.StartDateTime = startDate;
-                //    requestConfiguration.QueryParameters.EndDateTime = endDate;
-
-                //    // TODO: Expand does not work.
-                //    // https://github.com/microsoftgraph/msgraph-sdk-dotnet/issues/2358
-
-                //    requestConfiguration.QueryParameters.Expand = new string[] { "calendar($select=name,id)" }; // Expand the calendar and select name and id. Customize as needed.
-                //}, cancellationToken: cancellationToken);
             }
             else
             {
@@ -1702,22 +1692,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                         // Check if the event has complete information
                         // Sometimes delta sync returns events with only Id available
-                        Event fullEvent = item;
-                        if (string.IsNullOrEmpty(item.Subject) || item.Start == null || item.End == null)
-                        {
-                            _logger.Information("Event {Id} has incomplete data. Downloading full event details.", item.Id);
-
-                            try
-                            {
-                                fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-                            }
-                            catch (Exception downloadEx)
-                            {
-                                _logger.Error(downloadEx, "Failed to download full event details for {Id}. Using partial data.", item.Id);
-                                fullEvent = item; // Fallback to partial data
-                            }
-                        }
-
+                        Event fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false); ;
                         await _outlookChangeProcessor.ManageCalendarEventAsync(fullEvent, calendar, Account).ConfigureAwait(false);
                     }
                     catch (Exception ex)
