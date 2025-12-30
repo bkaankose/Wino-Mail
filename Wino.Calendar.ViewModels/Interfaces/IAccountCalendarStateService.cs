@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using CommunityToolkit.Mvvm.Collections;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Calendar.ViewModels.Interfaces;
 
@@ -25,4 +27,5 @@ public interface IAccountCalendarStateService : INotifyPropertyChanged
     /// </summary>
     IEnumerable<AccountCalendarViewModel> ActiveCalendars { get; }
     IEnumerable<AccountCalendarViewModel> AllCalendars { get; }
+    ReadOnlyObservableGroupedCollection<MailAccount, AccountCalendarViewModel> GroupedCalendars { get; set; }
 }

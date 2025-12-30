@@ -13,14 +13,14 @@
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared" xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     mc:Ignorable="d">
 
     <Page.Resources>
         <CollectionViewSource
             x:Name="GroupedCalendarEnumerableViewSource"
             IsSourceGrouped="True"
-            Source="{x:Bind ViewModel.AccountCalendarStateService.GroupedAccountCalendars, Mode=OneWay}" />
+            Source="{x:Bind ViewModel.AccountCalendarStateService.GroupedCalendars, Mode=OneWay}" />
     </Page.Resources>
 
     <Border
@@ -150,11 +150,11 @@
                                             <ListView.GroupStyle>
                                                 <GroupStyle>
                                                     <GroupStyle.HeaderTemplate>
-                                                        <DataTemplate x:DataType="data:GroupedAccountCalendarViewModel">
+                                                        <DataTemplate x:DataType="collections:IReadOnlyObservableGroup">
                                                             <TextBlock
                                                                 FontSize="14"
                                                                 FontWeight="SemiBold"
-                                                                Text="{x:Bind Account.Name}" />
+                                                                Text="{x:Bind Key.ToString()}" />
                                                         </DataTemplate>
                                                     </GroupStyle.HeaderTemplate>
                                                 </GroupStyle>
