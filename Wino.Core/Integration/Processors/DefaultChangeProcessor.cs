@@ -44,6 +44,7 @@ public interface IDefaultChangeProcessor
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
 
     Task DeleteCalendarItemAsync(Guid calendarItemId);
+    Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId);
 
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
@@ -187,6 +188,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task DeleteCalendarItemAsync(Guid calendarItemId)
         => CalendarService.DeleteCalendarItemAsync(calendarItemId);
+
+    public Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
+        => CalendarService.DeleteCalendarItemAsync(calendarRemoteEventId, calendarId);
 
     public Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
         => CalendarService.DeleteAccountCalendarAsync(accountCalendar);

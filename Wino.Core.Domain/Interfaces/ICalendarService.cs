@@ -12,6 +12,7 @@ public interface ICalendarService
     Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId);
     Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId);
     Task DeleteCalendarItemAsync(Guid calendarItemId);
+    Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId);
 
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);

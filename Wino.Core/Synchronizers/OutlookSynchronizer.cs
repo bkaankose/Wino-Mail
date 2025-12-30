@@ -49,8 +49,6 @@ namespace Wino.Core.Synchronizers.Mail;
 [JsonSerializable(typeof(OutlookFileAttachment))]
 public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
-
-
 /// <summary>
 /// Outlook synchronizer implementation with delta token synchronization.
 /// 
@@ -102,6 +100,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     ];
 
     private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
+    private readonly SemaphoreSlim _handleCalendarEventRetrievalSemaphore = new(1);
 
     private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
@@ -1633,8 +1632,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
 
                 // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
-                var startDate = DateTimeOffset.UtcNow.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
-                var endDate = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var startDate = DateTimeOffset.Now.AddYears(-2).ToString("yyyy-MM-ddTHH:mm:sszzz");
+                var endDate = DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
 
                 eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                 {
@@ -1691,18 +1690,44 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             foreach (var item in events)
             {
-                try
+                if (IsResourceDeleted(item.AdditionalData))
                 {
-                    await _handleItemRetrievalSemaphore.WaitAsync();
-                    await _outlookChangeProcessor.ManageCalendarEventAsync(item, calendar, Account).ConfigureAwait(false);
+                    await _outlookChangeProcessor.DeleteCalendarItemAsync(item.Id, calendar.Id).ConfigureAwait(false);
                 }
-                catch (Exception)
+                else
                 {
-                    // _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
-                }
-                finally
-                {
-                    _handleItemRetrievalSemaphore.Release();
+                    try
+                    {
+                        await _handleCalendarEventRetrievalSemaphore.WaitAsync();
+
+                        // Check if the event has complete information
+                        // Sometimes delta sync returns events with only Id available
+                        Event fullEvent = item;
+                        if (string.IsNullOrEmpty(item.Subject) || item.Start == null || item.End == null)
+                        {
+                            _logger.Information("Event {Id} has incomplete data. Downloading full event details.", item.Id);
+
+                            try
+                            {
+                                fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                            }
+                            catch (Exception downloadEx)
+                            {
+                                _logger.Error(downloadEx, "Failed to download full event details for {Id}. Using partial data.", item.Id);
+                                fullEvent = item; // Fallback to partial data
+                            }
+                        }
+
+                        await _outlookChangeProcessor.ManageCalendarEventAsync(fullEvent, calendar, Account).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
+                    }
+                    finally
+                    {
+                        _handleCalendarEventRetrievalSemaphore.Release();
+                    }
                 }
             }
 
@@ -1715,7 +1740,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                 var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
 
-                /// await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
             }
         }
 

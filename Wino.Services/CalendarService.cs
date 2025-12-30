@@ -76,6 +76,17 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         }
     }
 
+    public async Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
+    {
+        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
+            calendarId, calendarRemoteEventId);
+
+        if (calendarItem == null) return;
+
+        await DeleteCalendarItemAsync(calendarItem.Id);
+    }
+
     public async Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees)
     {
         try
