@@ -8,9 +8,11 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
 
@@ -133,6 +135,21 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueSynchronizationAsync(sendDraftPreperationRequest.MailItem.AssignedAccount.Id);
     }
 
+    public async Task ExecuteAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
+    {
+        IRequestBase request = calendarPreparationRequest.Operation switch
+        {
+            CalendarSynchronizerOperation.CreateEvent => new CreateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
+            // Future support for update and delete operations
+            // CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
+            // CalendarSynchronizerOperation.DeleteEvent => new DeleteCalendarEventRequest(calendarPreparationRequest.CalendarItem),
+            _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
+        };
+
+        await QueueRequestAsync(request, calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId);
+        await QueueCalendarSynchronizationAsync(calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId);
+    }
+
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
         // Don't trigger synchronization for individual requests - we'll trigger it once for all requests
@@ -148,6 +165,18 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         };
 
         WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        return Task.CompletedTask;
+    }
+
+    private Task QueueCalendarSynchronizationAsync(Guid accountId)
+    {
+        var options = new CalendarSynchronizationOptions()
+        {
+            AccountId = accountId,
+            Type = CalendarSynchronizationType.ExecuteRequests
+        };
+
+        WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(options));
         return Task.CompletedTask;
     }
 }

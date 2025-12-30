@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
@@ -337,10 +338,67 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <param name="options">Synchronization options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Synchronization result that contains summary of the sync.</returns>
-    public Task<CalendarSynchronizationResult> SynchronizeCalendarEventsAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+    public async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        // TODO: Execute requests for calendar events.
-        return SynchronizeCalendarEventsInternalAsync(options, cancellationToken);
+        bool shouldExecuteRequests = changeRequestQueue.Any(r => r is ICalendarActionRequest);
+        bool shouldDelayExecution = false;
+        int maxExecutionDelay = 0;
+
+        if (shouldExecuteRequests)
+        {
+            State = AccountSynchronizerState.ExecutingRequests;
+
+            List<IRequestBundle<TBaseRequest>> nativeRequests = new();
+            List<IRequestBase> requestCopies = new(changeRequestQueue.Where(r => r is ICalendarActionRequest));
+
+            var keys = requestCopies.GroupBy(a => a.GroupingKey());
+
+            foreach (var group in keys)
+            {
+                var key = group.Key;
+
+                if (key is CalendarSynchronizerOperation calendarSynchronizerOperation)
+                {
+                    switch (calendarSynchronizerOperation)
+                    {
+                        case CalendarSynchronizerOperation.CreateEvent:
+                            nativeRequests.AddRange(CreateCalendarEvent(group.ElementAt(0) as CreateCalendarEventRequest));
+                            break;
+                        case CalendarSynchronizerOperation.UpdateEvent:
+                            // TODO: Implement UpdateCalendarEvent
+                            break;
+                        case CalendarSynchronizerOperation.DeleteEvent:
+                            // TODO: Implement DeleteCalendarEvent
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            // Remove processed calendar requests from queue
+            changeRequestQueue.RemoveAll(r => r is ICalendarActionRequest);
+
+            Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
+
+            await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
+
+            // Let servers to finish their job. Sometimes the servers don't respond immediately.
+            shouldDelayExecution = requestCopies.Any(a => a.ResynchronizationDelay > 0);
+
+            if (shouldDelayExecution)
+            {
+                maxExecutionDelay = requestCopies.Aggregate(0, (max, next) => Math.Max(max, next.ResynchronizationDelay));
+            }
+        }
+
+        if (shouldDelayExecution)
+        {
+            await Task.Delay(maxExecutionDelay, cancellationToken);
+        }
+
+        // Execute the actual synchronization
+        return await SynchronizeCalendarEventsInternalAsync(options, cancellationToken);
     }
 
     /// <summary>
@@ -435,6 +493,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     #region Calendar Operations
 
+    public virtual List<IRequestBundle<TBaseRequest>> CreateCalendarEvent(CreateCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     #endregion
 

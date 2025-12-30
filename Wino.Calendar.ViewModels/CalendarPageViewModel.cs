@@ -128,6 +128,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly INavigationService _navigationService;
     private readonly IKeyPressService _keyPressService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IWinoRequestDelegator _winoRequestDelegator;
 
     // Store latest rendered options.
     private CalendarDisplayType _currentDisplayType;
@@ -147,7 +148,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                                  INavigationService navigationService,
                                  IKeyPressService keyPressService,
                                  IAccountCalendarStateService accountCalendarStateService,
-                                 IPreferencesService preferencesService)
+                                 IPreferencesService preferencesService,
+                                 IWinoRequestDelegator winoRequestDelegator)
     {
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -156,6 +158,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _navigationService = navigationService;
         _keyPressService = keyPressService;
         _preferencesService = preferencesService;
+        _winoRequestDelegator = winoRequestDelegator;
 
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
@@ -256,24 +259,47 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [RelayCommand(AllowConcurrentExecutions = false, CanExecute = nameof(CanSaveQuickEvent))]
     private async Task SaveQuickEventAsync()
     {
-        var durationSeconds = (QuickEventEndTime - QuickEventStartTime).TotalSeconds;
-
-        var testCalendarItem = new CalendarItem
+        try
         {
-            CalendarId = SelectedQuickEventAccountCalendar.Id,
-            StartDate = QuickEventStartTime,
-            DurationInSeconds = durationSeconds,
-            CreatedAt = DateTime.UtcNow,
-            Description = string.Empty,
-            Location = Location,
-            Title = EventName,
-            Id = Guid.NewGuid()
-        };
+            var startDate = IsAllDay ? SelectedQuickEventDate.Value.Date : QuickEventStartTime;
+            var endDate = IsAllDay ? SelectedQuickEventDate.Value.Date.AddDays(1) : QuickEventEndTime;
+            var durationSeconds = (endDate - startDate).TotalSeconds;
 
-        IsQuickEventDialogOpen = false;
-        await _calendarService.CreateNewCalendarItemAsync(testCalendarItem, null);
+            // Get the user's current timezone from the system
+            var currentTimeZone = TimeZoneInfo.Local.Id;
 
-        // TODO: Create the request with the synchronizer.
+            var calendarItem = new CalendarItem
+            {
+                Id = Guid.NewGuid(),
+                CalendarId = SelectedQuickEventAccountCalendar.Id,
+                StartDate = startDate,
+                DurationInSeconds = durationSeconds,
+                StartTimeZone = currentTimeZone,
+                EndTimeZone = currentTimeZone,
+                CreatedAt = DateTime.UtcNow,
+                Description = string.Empty,
+                Location = Location ?? string.Empty,
+                Title = EventName,
+                IsHidden = false,
+                AssignedCalendar = SelectedQuickEventAccountCalendar
+            };
+
+            // Close dialog first
+            IsQuickEventDialogOpen = false;
+
+            // Save to local database first
+            // await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+            // Queue the request via delegator
+            var preparationRequest = new CalendarOperationPreparationRequest(CalendarSynchronizerOperation.CreateEvent, calendarItem, null);
+            await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error creating quick event");
+            // Re-open dialog if there was an error
+            IsQuickEventDialogOpen = true;
+        }
     }
 
     [RelayCommand]

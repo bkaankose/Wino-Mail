@@ -39,6 +39,7 @@ using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 
@@ -1803,6 +1804,89 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
     }
+
+    #region Calendar Operations
+
+    public override List<IRequestBundle<RequestInformation>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var attendees = request.Attendees;
+
+        // Get the calendar for this event
+        var calendar = calendarItem.AssignedCalendar;
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        // Convert CalendarItem to Outlook Event
+        var outlookEvent = new Microsoft.Graph.Models.Event
+        {
+            Subject = calendarItem.Title,
+            Body = new Microsoft.Graph.Models.ItemBody
+            {
+                ContentType = Microsoft.Graph.Models.BodyType.Text,
+                Content = calendarItem.Description
+            },
+            Location = new Microsoft.Graph.Models.Location
+            {
+                DisplayName = calendarItem.Location
+            }
+        };
+
+        // Set start and end time using DateTimeTimeZone
+        if (calendarItem.IsAllDayEvent)
+        {
+            // All-day events
+            outlookEvent.IsAllDay = true;
+            outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.StartDate.ToString("yyyy-MM-dd"),
+                TimeZone = "UTC"
+            };
+            outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.EndDate.ToString("yyyy-MM-dd"),
+                TimeZone = "UTC"
+            };
+        }
+        else
+        {
+            // Regular events with time
+            outlookEvent.IsAllDay = false;
+            outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = calendarItem.StartTimeZone ?? "UTC"
+            };
+            outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = calendarItem.EndTimeZone ?? "UTC"
+            };
+        }
+
+        // Add attendees if any
+        if (attendees != null && attendees.Count > 0)
+        {
+            outlookEvent.Attendees = attendees.Select(a => new Microsoft.Graph.Models.Attendee
+            {
+                EmailAddress = new Microsoft.Graph.Models.EmailAddress
+                {
+                    Address = a.Email,
+                    Name = a.Name
+                },
+                Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
+            }).ToList();
+        }
+
+        // Create the event using Graph API
+        var createRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.ToPostRequestInformation(outlookEvent);
+
+        return [new HttpRequestBundle<RequestInformation>(createRequest, request)];
+    }
+
+    #endregion
 
     public override async Task KillSynchronizerAsync()
     {

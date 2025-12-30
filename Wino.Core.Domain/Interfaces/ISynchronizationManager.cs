@@ -79,7 +79,7 @@ public interface ISynchronizationManager
     /// <summary>
     /// Creates a new synchronizer for a newly added account.
     /// </summary>
-    Task<IWinoSynchronizerBase> CreateSynchronizerForAccountAsync(MailAccount account);
+    IWinoSynchronizerBase CreateSynchronizerForAccount(MailAccount account);
 
     /// <summary>
     /// Destroys the synchronizer for the given account.

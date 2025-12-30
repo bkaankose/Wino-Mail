@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -27,6 +28,10 @@ public abstract record FolderRequestBase(MailItemFolder Folder, FolderSynchroniz
     public virtual int ResynchronizationDelay => 0;
 
     public virtual object GroupingKey() { return Operation; }
+}
+
+public abstract record CalendarRequestBase(CalendarItem Item) : RequestBase<CalendarSynchronizerOperation>, ICalendarActionRequest
+{
 }
 
 public class BatchCollection<TRequestType> : List<TRequestType>, IUIChangeRequest where TRequestType : IUIChangeRequest

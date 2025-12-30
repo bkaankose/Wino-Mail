@@ -21,6 +21,13 @@ public enum FolderSynchronizerOperation
     MarkFolderRead,
 }
 
+public enum CalendarSynchronizerOperation
+{
+    CreateEvent,
+    UpdateEvent,
+    DeleteEvent,
+}
+
 // UI requests
 public enum MailOperation
 {

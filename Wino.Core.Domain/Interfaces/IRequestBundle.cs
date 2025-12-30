@@ -1,4 +1,5 @@
-﻿using Wino.Core.Domain.Entities.Mail;
+﻿using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -62,4 +63,10 @@ public interface IFolderActionRequest : IRequestBase
     MailItemFolder Folder { get; }
 
     FolderSynchronizerOperation Operation { get; }
+}
+
+public interface ICalendarActionRequest : IRequestBase
+{
+    CalendarItem Item { get; }
+    CalendarSynchronizerOperation Operation { get; }
 }

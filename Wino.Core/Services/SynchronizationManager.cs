@@ -191,7 +191,8 @@ public class SynchronizationManager : ISynchronizationManager
     }
 
     /// <summary>
-    /// Queues a mail action request to the corresponding account's synchronizer with optional synchronization triggering.
+    /// Queues a request to the corresponding account's synchronizer with optional synchronization triggering.
+    /// Automatically determines whether to trigger mail or calendar synchronization based on the request type.
     /// </summary>
     /// <param name="request">Request to queue</param>
     /// <param name="accountId">Account ID to queue the request for</param>
@@ -214,28 +215,57 @@ public class SynchronizationManager : ISynchronizationManager
 
         if (triggerSynchronization)
         {
-            // Trigger synchronization to execute the queued request
-            _logger.Debug("Triggering synchronization to execute queued request for account {AccountId}", accountId);
+            // Determine if this is a calendar or mail operation
+            bool isCalendarOperation = request is ICalendarActionRequest;
 
-            var synchronizationOptions = new MailSynchronizationOptions()
+            if (isCalendarOperation)
             {
-                AccountId = accountId,
-                Type = MailSynchronizationType.ExecuteRequests
-            };
+                // Trigger calendar synchronization
+                _logger.Debug("Triggering calendar synchronization to execute queued request for account {AccountId}", accountId);
 
-            // Trigger synchronization asynchronously without waiting for completion
-            // This matches the pattern used in WinoRequestDelegator
-            _ = Task.Run(async () =>
+                var calendarSyncOptions = new CalendarSynchronizationOptions()
+                {
+                    AccountId = accountId
+                };
+
+                // Trigger synchronization asynchronously without waiting for completion
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SynchronizeCalendarAsync(calendarSyncOptions);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Failed to execute calendar synchronization after queuing request for account {AccountId}", accountId);
+                    }
+                });
+            }
+            else
             {
-                try
+                // Trigger mail synchronization (includes mail and folder operations)
+                _logger.Debug("Triggering mail synchronization to execute queued request for account {AccountId}", accountId);
+
+                var mailSyncOptions = new MailSynchronizationOptions()
                 {
-                    await SynchronizeMailAsync(synchronizationOptions);
-                }
-                catch (Exception ex)
+                    AccountId = accountId,
+                    Type = MailSynchronizationType.ExecuteRequests
+                };
+
+                // Trigger synchronization asynchronously without waiting for completion
+                // This matches the pattern used in WinoRequestDelegator
+                _ = Task.Run(async () =>
                 {
-                    _logger.Error(ex, "Failed to execute synchronization after queuing request for account {AccountId}", accountId);
-                }
-            });
+                    try
+                    {
+                        await SynchronizeMailAsync(mailSyncOptions);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, "Failed to execute mail synchronization after queuing request for account {AccountId}", accountId);
+                    }
+                });
+            }
         }
     }
 
@@ -387,7 +417,7 @@ public class SynchronizationManager : ISynchronizationManager
     /// </summary>
     /// <param name="account">Account to create synchronizer for</param>
     /// <returns>Created synchronizer</returns>
-    public Task<IWinoSynchronizerBase> CreateSynchronizerForAccountAsync(MailAccount account)
+    public IWinoSynchronizerBase CreateSynchronizerForAccount(MailAccount account)
     {
         EnsureInitialized();
 
@@ -399,13 +429,13 @@ public class SynchronizationManager : ISynchronizationManager
             _logger.Information("Created new synchronizer for account {AccountName} ({AccountId})",
                               account.Name, account.Id);
 
-            return Task.FromResult(synchronizer);
+            return synchronizer;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to create synchronizer for account {AccountName} ({AccountId})",
                         account.Name, account.Id);
-            return Task.FromResult<IWinoSynchronizerBase>(null);
+            return null;
         }
     }
 
@@ -463,7 +493,7 @@ public class SynchronizationManager : ISynchronizationManager
         var account = await _accountService.GetAccountAsync(accountId);
         if (account != null)
         {
-            return await CreateSynchronizerForAccountAsync(account);
+            return CreateSynchronizerForAccount(account);
         }
 
         return null;

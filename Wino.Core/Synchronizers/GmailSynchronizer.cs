@@ -35,6 +35,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.UI;
@@ -1623,6 +1624,76 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         return packageList;
+    }
+
+    #endregion
+
+    #region Calendar Operations
+
+    public override List<IRequestBundle<IClientServiceRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var attendees = request.Attendees;
+
+        // Get the calendar for this event
+        var calendar = calendarItem.AssignedCalendar;
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        // Convert CalendarItem to Google Event
+        var googleEvent = new Event
+        {
+            Summary = calendarItem.Title,
+            Description = calendarItem.Description,
+            Location = calendarItem.Location,
+            Status = calendarItem.Status == CalendarItemStatus.Confirmed ? "confirmed" : "tentative"
+        };
+
+        // Set start and end time
+        if (calendarItem.IsAllDayEvent)
+        {
+            // All-day events use Date instead of DateTime
+            googleEvent.Start = new EventDateTime
+            {
+                Date = calendarItem.StartDate.ToString("yyyy-MM-dd")
+            };
+            googleEvent.End = new EventDateTime
+            {
+                Date = calendarItem.EndDate.ToString("yyyy-MM-dd")
+            };
+        }
+        else
+        {
+            // Regular events with time
+            googleEvent.Start = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, TimeSpan.Zero),
+                TimeZone = calendarItem.StartTimeZone
+            };
+            googleEvent.End = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, TimeSpan.Zero),
+                TimeZone = calendarItem.EndTimeZone
+            };
+        }
+
+        // Add attendees if any
+        if (attendees != null && attendees.Count > 0)
+        {
+            googleEvent.Attendees = attendees.Select(a => new EventAttendee
+            {
+                Email = a.Email,
+                DisplayName = a.Name,
+                Optional = a.IsOptionalAttendee
+            }).ToList();
+        }
+
+        // Create the insert request
+        var insertRequest = _calendarService.Events.Insert(googleEvent, calendar.RemoteCalendarId);
+
+        return [new HttpRequestBundle<IClientServiceRequest>(insertRequest, request)];
     }
 
     #endregion
