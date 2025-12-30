@@ -863,17 +863,29 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         // Check if event falls into the current date range.
         if (DayRanges.DisplayRange == null) return;
 
-        // Check whether this event falls into any of the loaded date ranges.
-        var allDaysForEvent = DayRanges.SelectMany(a => a.CalendarDays).Where(a => a.Period.OverlapsWith(calendarItem.Period));
+        // Get all periods from the visible day ranges
+        var visiblePeriods = DayRanges.Select(dr => dr.Period).ToList();
 
-        foreach (var calendarDay in allDaysForEvent)
+        // For recurring events, expand them to check if any occurrences fall within visible periods
+        // For regular events, just check if they overlap with any period
+        var matchingItems = await _calendarService.GetExpandedRecurringEventsForPeriodsAsync(calendarItem, visiblePeriods);
+
+        foreach (var item in matchingItems)
         {
-            var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
+            // Find the days that the event falls into
+            var allDaysForEvent = DayRanges
+                .SelectMany(a => a.CalendarDays)
+                .Where(a => a.Period.OverlapsWith(item.Period));
 
-            await ExecuteUIThread(() =>
+            foreach (var calendarDay in allDaysForEvent)
             {
-                calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
-            });
+                var calendarItemViewModel = new CalendarItemViewModel(item);
+
+                await ExecuteUIThread(() =>
+                {
+                    calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
+                });
+            }
         }
 
         FilterActiveCalendars(DayRanges);

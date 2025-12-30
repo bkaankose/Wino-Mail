@@ -269,6 +269,70 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             deltaToken, calendarId);
     }
 
+    /// <summary>
+    /// Expands a recurring calendar item to check if any of its occurrences fall within the given periods.
+    /// For non-recurring events, returns the item if it overlaps with any period.
+    /// For recurring events, expands occurrences and returns those that fall within any of the periods.
+    /// </summary>
+    /// <param name="calendarItem">The calendar item to expand (can be recurring or non-recurring).</param>
+    /// <param name="periods">The list of periods to check against.</param>
+    /// <returns>List of calendar items (either the original item or expanded recurrence instances) that fall within the periods.</returns>
+    public async Task<List<CalendarItem>> GetExpandedRecurringEventsForPeriodsAsync(CalendarItem calendarItem, IEnumerable<ITimePeriod> periods)
+    {
+        var result = new List<CalendarItem>();
+
+        if (calendarItem == null || periods == null || !periods.Any())
+        {
+            return result;
+        }
+
+        // Ensure AssignedCalendar is loaded
+        if (calendarItem.AssignedCalendar == null)
+        {
+            calendarItem.AssignedCalendar = await GetAccountCalendarAsync(calendarItem.CalendarId);
+        }
+
+        // For non-recurring events, check if it overlaps with any of the provided periods
+        if (string.IsNullOrEmpty(calendarItem.Recurrence))
+        {
+            foreach (var period in periods)
+            {
+                if (calendarItem.Period.OverlapsWith(period))
+                {
+                    result.Add(calendarItem);
+                    break; // Add it only once
+                }
+            }
+        }
+        else
+        {
+            // For recurring events, expand occurrences for the combined date range of all periods
+            // Find the minimum and maximum dates across all periods
+            var minDate = periods.Min(p => p.Start);
+            var maxDate = periods.Max(p => p.End);
+
+            var combinedPeriod = new TimeRange(minDate, maxDate);
+
+            // Expand the recurring event for the combined period
+            var expandedOccurrences = await ExpandRecurringEventAsync(calendarItem, combinedPeriod);
+
+            // Filter occurrences that fall within any of the individual periods
+            foreach (var occurrence in expandedOccurrences)
+            {
+                foreach (var period in periods)
+                {
+                    if (occurrence.Period.OverlapsWith(period))
+                    {
+                        result.Add(occurrence);
+                        break; // Add it only once even if it overlaps with multiple periods
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
     public Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId)
         => Connection.Table<CalendarEventAttendee>().Where(x => x.CalendarItemId == calendarEventTrackingId).ToListAsync();
 
