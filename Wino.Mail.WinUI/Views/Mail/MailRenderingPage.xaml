@@ -19,6 +19,9 @@
     IsDarkEditor="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
     mc:Ignorable="d">
 
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
+    </Page.KeyboardAccelerators>
     <Page.Resources>
         <DataTemplate x:Key="InternetAddressTemplate" x:DataType="viewModelData:AccountContactViewModel">
             <HyperlinkButton
@@ -472,7 +475,11 @@
             <Grid Margin="1" CornerRadius="{ThemeResource OverlayCornerRadius}">
                 <Grid Background="White" Visibility="{x:Bind IsDarkEditor, Converter={StaticResource ReverseBooleanToVisibilityConverter}, Mode=OneWay}" />
 
-                <WebView2 x:Name="Chromium" NavigationStarting="WebViewNavigationStarting" />
+                <WebView2 x:Name="Chromium" NavigationStarting="WebViewNavigationStarting">
+                    <WebView2.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
+                    </WebView2.KeyboardAccelerators>
+                </WebView2>
 
                 <ProgressRing
                     Width="50"

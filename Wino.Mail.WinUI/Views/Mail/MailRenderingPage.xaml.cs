@@ -342,4 +342,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         WeakReferenceMessenger.Default.Unregister<CancelRenderingContentRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
     }
+
+    private void EscapeInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender, Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+    {
+        WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+    }
 }

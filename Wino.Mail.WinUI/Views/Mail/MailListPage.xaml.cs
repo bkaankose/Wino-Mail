@@ -559,6 +559,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             await ViewModel.MailCollection.ToggleSelectAllAsync();
         }
+        else if (args.Key == VirtualKey.Escape)
+        {
+            // Unselect the selected items.
+            await ViewModel.MailCollection.UnselectAllAsync();
+        }
         else
         {
             // Check keyboard shortcuts from service.
