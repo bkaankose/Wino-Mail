@@ -13,29 +13,28 @@ namespace Wino.Calendar.ViewModels;
 public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
 {
     [ObservableProperty]
-    private double _cellHourHeight;
+    public partial double CellHourHeight { get; set; }
 
     [ObservableProperty]
-    private int _selectedFirstDayOfWeekIndex;
+    public partial int SelectedFirstDayOfWeekIndex { get; set; }
 
     [ObservableProperty]
-    private bool _is24HourHeaders;
+    public partial bool Is24HourHeaders { get; set; }
 
     [ObservableProperty]
-    private TimeSpan _workingHourStart;
+    public partial TimeSpan WorkingHourStart { get; set; }
 
     [ObservableProperty]
-    private TimeSpan _workingHourEnd;
+    public partial TimeSpan WorkingHourEnd { get; set; }
 
     [ObservableProperty]
-    private List<string> _dayNames = [];
+    public partial List<string> DayNames { get; set; } = [];
 
     [ObservableProperty]
-    private int _workingDayStartIndex;
+    public partial int WorkingDayStartIndex { get; set; }
 
     [ObservableProperty]
-    private int _workingDayEndIndex;
-
+    public partial int WorkingDayEndIndex { get; set; }
     public IPreferencesService PreferencesService { get; }
 
     private readonly bool _isLoaded = false;
@@ -51,19 +50,17 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         // Populate the day names list
         for (var i = 0; i < 7; i++)
         {
-            _dayNames.Add(cultureInfo.DateTimeFormat.DayNames[i]);
+            DayNames.Add(cultureInfo.DateTimeFormat.DayNames[i]);
         }
 
         var cultureFirstDayName = cultureInfo.DateTimeFormat.GetDayName(preferencesService.FirstDayOfWeek);
-
-        _selectedFirstDayOfWeekIndex = _dayNames.IndexOf(cultureFirstDayName);
-        _is24HourHeaders = preferencesService.Prefer24HourTimeFormat;
-        _workingHourStart = preferencesService.WorkingHourStart;
-        _workingHourEnd = preferencesService.WorkingHourEnd;
-        _cellHourHeight = preferencesService.HourHeight;
-
-        _workingDayStartIndex = _dayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
-        _workingDayEndIndex = _dayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
+        SelectedFirstDayOfWeekIndex = DayNames.IndexOf(cultureFirstDayName);
+        Is24HourHeaders = preferencesService.Prefer24HourTimeFormat;
+        WorkingHourStart = preferencesService.WorkingHourStart;
+        WorkingHourEnd = preferencesService.WorkingHourEnd;
+        CellHourHeight = preferencesService.HourHeight;
+        WorkingDayStartIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
+        WorkingDayEndIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
 
         _isLoaded = true;
     }

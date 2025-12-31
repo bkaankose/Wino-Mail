@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -14,6 +16,7 @@ namespace Wino.Core.ViewModels;
 public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 {
     private readonly ISettingsBuilderService _settingsBuilderService;
+    private readonly ObservableGroupedCollection<SettingOptionCategory, SettingOption> _internalGroupedSettings;
 
     [RelayCommand]
     private void GoAccountSettings() => Messenger.Send<NavigateManageAccountsRequested>();
@@ -39,7 +42,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
                 WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
                 WinoPage.CalendarSettingsPage => Translator.SettingsCalendarSettings_Title,
                 WinoPage.SignatureAndEncryptionPage => Translator.SettingsSignatureAndEncryption_Title,
-                WinoPage.KeyboardShortcutsPage => "Keyboard Shortcuts",
+                WinoPage.KeyboardShortcutsPage => Translator.Settings_KeyboardShortcuts_Title,
                 _ => throw new NotImplementedException()
             };
 
@@ -48,17 +51,26 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     }
 
     [ObservableProperty]
-    private List<SettingOption> _settingOptions = new();
+    public partial ReadOnlyObservableGroupedCollection<SettingOptionCategory, SettingOption> SettingOptions { get; set; }
 
     public SettingOptionsPageViewModel(ISettingsBuilderService settingsBuilderService)
     {
         _settingsBuilderService = settingsBuilderService;
+        _internalGroupedSettings = new ObservableGroupedCollection<SettingOptionCategory, SettingOption>();
+        SettingOptions = new ReadOnlyObservableGroupedCollection<SettingOptionCategory, SettingOption>(_internalGroupedSettings);
 
         ReloadSettings();
     }
 
     private void ReloadSettings()
     {
-        SettingOptions = _settingsBuilderService.GetSettingItems();
+        var settings = _settingsBuilderService.GetSettingItems();
+        var grouped = settings.GroupBy(x => x.Category);
+        
+        _internalGroupedSettings.Clear();
+        foreach (var group in grouped)
+        {
+            _internalGroupedSettings.AddGroup(group.Key, group);
+        }
     }
 }

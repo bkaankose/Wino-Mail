@@ -25,91 +25,52 @@ public partial class WinoCalendarControl : Control
 
     #region Dependency Properties
 
-    public static readonly DependencyProperty DayRangesProperty = DependencyProperty.Register(nameof(DayRanges), typeof(ObservableCollection<DayRangeRenderModel>), typeof(WinoCalendarControl), new PropertyMetadata(null));
-    public static readonly DependencyProperty SelectedFlipViewIndexProperty = DependencyProperty.Register(nameof(SelectedFlipViewIndex), typeof(int), typeof(WinoCalendarControl), new PropertyMetadata(-1));
-    public static readonly DependencyProperty SelectedFlipViewDayRangeProperty = DependencyProperty.Register(nameof(SelectedFlipViewDayRange), typeof(DayRangeRenderModel), typeof(WinoCalendarControl), new PropertyMetadata(null));
-    public static readonly DependencyProperty ActiveCanvasProperty = DependencyProperty.Register(nameof(ActiveCanvas), typeof(WinoDayTimelineCanvas), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveCanvasChanged)));
-    public static readonly DependencyProperty IsFlipIdleProperty = DependencyProperty.Register(nameof(IsFlipIdle), typeof(bool), typeof(WinoCalendarControl), new PropertyMetadata(true, new PropertyChangedCallback(OnIdleStateChanged)));
-    public static readonly DependencyProperty ActiveScrollViewerProperty = DependencyProperty.Register(nameof(ActiveScrollViewer), typeof(ScrollViewer), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnActiveVerticalScrollViewerChanged)));
+    /// <summary>
+    /// Gets or sets the collection of day ranges to render.
+    /// Each day range usually represents a week, but it may support other ranges.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial ObservableCollection<DayRangeRenderModel>? DayRanges { get; set; }
 
-    public static readonly DependencyProperty VerticalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(VerticalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
-    public static readonly DependencyProperty HorizontalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(HorizontalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
-    public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(nameof(Orientation), typeof(CalendarOrientation), typeof(WinoCalendarControl), new PropertyMetadata(CalendarOrientation.Horizontal, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
-    public static readonly DependencyProperty DisplayTypeProperty = DependencyProperty.Register(nameof(DisplayType), typeof(CalendarDisplayType), typeof(WinoCalendarControl), new PropertyMetadata(CalendarDisplayType.Day));
+    [GeneratedDependencyProperty(DefaultValue = -1)]
+    public partial int SelectedFlipViewIndex { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial DayRangeRenderModel? SelectedFlipViewDayRange { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial WinoDayTimelineCanvas? ActiveCanvas { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool IsFlipIdle { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial ScrollViewer? ActiveScrollViewer { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial ItemsPanelTemplate? VerticalItemsPanelTemplate { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial ItemsPanelTemplate? HorizontalItemsPanelTemplate { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = CalendarOrientation.Horizontal)]
+    public partial CalendarOrientation Orientation { get; set; }
 
     /// <summary>
     /// Gets or sets the day-week-month-year display type.
     /// Orientation is not determined by this property, but Orientation property.
     /// This property is used to determine the template to use for the calendar.
     /// </summary>
-    public CalendarDisplayType DisplayType
-    {
-        get { return (CalendarDisplayType)GetValue(DisplayTypeProperty); }
-        set { SetValue(DisplayTypeProperty, value); }
-    }
-
-    public CalendarOrientation Orientation
-    {
-        get { return (CalendarOrientation)GetValue(OrientationProperty); }
-        set { SetValue(OrientationProperty, value); }
-    }
-
-    public ItemsPanelTemplate VerticalItemsPanelTemplate
-    {
-        get { return (ItemsPanelTemplate)GetValue(VerticalItemsPanelTemplateProperty); }
-        set { SetValue(VerticalItemsPanelTemplateProperty, value); }
-    }
-
-    public ItemsPanelTemplate HorizontalItemsPanelTemplate
-    {
-        get { return (ItemsPanelTemplate)GetValue(HorizontalItemsPanelTemplateProperty); }
-        set { SetValue(HorizontalItemsPanelTemplateProperty, value); }
-    }
-
-    public DayRangeRenderModel SelectedFlipViewDayRange
-    {
-        get { return (DayRangeRenderModel)GetValue(SelectedFlipViewDayRangeProperty); }
-        set { SetValue(SelectedFlipViewDayRangeProperty, value); }
-    }
-
-    public ScrollViewer ActiveScrollViewer
-    {
-        get { return (ScrollViewer)GetValue(ActiveScrollViewerProperty); }
-        set { SetValue(ActiveScrollViewerProperty, value); }
-    }
-
-    public WinoDayTimelineCanvas ActiveCanvas
-    {
-        get { return (WinoDayTimelineCanvas)GetValue(ActiveCanvasProperty); }
-        set { SetValue(ActiveCanvasProperty, value); }
-    }
-
-    public bool IsFlipIdle
-    {
-        get { return (bool)GetValue(IsFlipIdleProperty); }
-        set { SetValue(IsFlipIdleProperty, value); }
-    }
-
-    /// <summary>
-    /// Gets or sets the collection of day ranges to render.
-    /// Each day range usually represents a week, but it may support other ranges.
-    /// </summary>
-    public ObservableCollection<DayRangeRenderModel> DayRanges
-    {
-        get { return (ObservableCollection<DayRangeRenderModel>)GetValue(DayRangesProperty); }
-        set { SetValue(DayRangesProperty, value); }
-    }
-
-    public int SelectedFlipViewIndex
-    {
-        get { return (int)GetValue(SelectedFlipViewIndexProperty); }
-        set { SetValue(SelectedFlipViewIndexProperty, value); }
-    }
+    [GeneratedDependencyProperty(DefaultValue = CalendarDisplayType.Day)]
+    public partial CalendarDisplayType DisplayType { get; set; }
 
     #endregion
 
     private WinoCalendarFlipView InternalFlipView;
     private Grid IdleGrid;
+
+    private ScrollViewer? _previousScrollViewer;
+    private WinoDayTimelineCanvas? _previousCanvas;
 
     public WinoCalendarControl()
     {
@@ -117,57 +78,50 @@ public partial class WinoCalendarControl : Control
         SizeChanged += CalendarSizeChanged;
     }
 
-    private static void OnCalendarOrientationPropertiesUpdated(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+    partial void OnVerticalItemsPanelTemplateChanged(ItemsPanelTemplate? newValue)
+        => ManageCalendarOrientation();
+
+    partial void OnHorizontalItemsPanelTemplateChanged(ItemsPanelTemplate? newValue)
+        => ManageCalendarOrientation();
+
+    partial void OnOrientationChanged(CalendarOrientation newValue)
+        => ManageCalendarOrientation();
+
+    partial void OnIsFlipIdleChanged(bool newValue)
+        => UpdateIdleState();
+
+    partial void OnActiveScrollViewerPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        if (calendar is WinoCalendarControl control)
+        var newValue = e.NewValue as ScrollViewer;
+        if (_previousScrollViewer != null)
         {
-            control.ManageCalendarOrientation();
+            DeregisterScrollChanges(_previousScrollViewer);
         }
+
+        if (newValue != null)
+        {
+            RegisterScrollChanges(newValue);
+        }
+
+        _previousScrollViewer = newValue;
+        ManageHighlightedDateRange();
     }
 
-    private static void OnIdleStateChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+    partial void OnActiveCanvasPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        if (calendar is WinoCalendarControl calendarControl)
+        var newValue = e.NewValue as WinoDayTimelineCanvas;
+        if (_previousCanvas != null)
         {
-            calendarControl.UpdateIdleState();
+            DeregisterCanvas(_previousCanvas);
         }
-    }
 
-    private static void OnActiveVerticalScrollViewerChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
-    {
-        if (calendar is WinoCalendarControl calendarControl)
+        if (newValue != null)
         {
-            if (e.OldValue is ScrollViewer oldScrollViewer)
-            {
-                calendarControl.DeregisterScrollChanges(oldScrollViewer);
-            }
-
-            if (e.NewValue is ScrollViewer newScrollViewer)
-            {
-                calendarControl.RegisterScrollChanges(newScrollViewer);
-            }
-
-            calendarControl.ManageHighlightedDateRange();
+            RegisterCanvas(newValue);
         }
-    }
 
-    private static void OnActiveCanvasChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
-    {
-        if (calendar is WinoCalendarControl calendarControl)
-        {
-            if (e.OldValue is WinoDayTimelineCanvas oldCanvas)
-            {
-                // Dismiss any selection on the old canvas.
-                calendarControl.DeregisterCanvas(oldCanvas);
-            }
-
-            if (e.NewValue is WinoDayTimelineCanvas newCanvas)
-            {
-                calendarControl.RegisterCanvas(newCanvas);
-            }
-
-            calendarControl.ManageHighlightedDateRange();
-        }
+        _previousCanvas = newValue;
+        ManageHighlightedDateRange();
     }
 
     private void ManageCalendarOrientation()
@@ -256,6 +210,8 @@ public partial class WinoCalendarControl : Control
         await Task.Yield();
         await DispatcherQueue.EnqueueAsync(() =>
         {
+            if (ActiveScrollViewer == null) return;
+
             double hourHeght = 60;
             double totalHeight = ActiveScrollViewer.ScrollableHeight;
             double scrollPosition = timeSpan.TotalHours * hourHeght;

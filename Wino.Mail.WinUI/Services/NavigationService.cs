@@ -67,6 +67,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
             WinoPage.CalendarPage => typeof(CalendarPage),
             WinoPage.EventDetailsPage => typeof(EventDetailsPage),
+            WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
             _ => null,
         };
     }

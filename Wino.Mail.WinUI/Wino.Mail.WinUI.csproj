@@ -98,6 +98,7 @@
     <None Remove="Styles\WinoDayTimelineCanvas.xaml" />
     <None Remove="Views\Calendar\CalendarAppShell.xaml" />
     <None Remove="Views\Calendar\CalendarPage.xaml" />
+    <None Remove="Views\Calendar\CalendarSettingsPage.xaml" />
     <None Remove="Views\Calendar\EventDetailsPage.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
@@ -292,6 +293,11 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Views\Mail\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Views\Calendar\CalendarSettingsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Page Update="Styles\CalendarThemeResources.xaml">
