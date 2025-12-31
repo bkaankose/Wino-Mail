@@ -1,75 +1,190 @@
 # Copilot Instructions for Wino-Mail Project
 
+## Project Overview
+
+Wino Mail is a native Windows mail client targeting Windows 10 1809+ and Windows 11. The project is **transitioning from UWP to WinUI 3** - always work with WinUI projects (Wino.Mail.WinUI, Wino.Core.WinUI), never edit the old Wino.Mail UWP project.
+
+### Key Technologies
+- **WinUI 3** for UI (previously UWP/WinUI 2)
+- **MVVM Toolkit** (CommunityToolkit.Mvvm) for ViewModels with source generators
+- **Messenger** pattern (WeakReferenceMessenger.Default) for event pub-sub throughout the codebase
+- **SQLite** database stored in publisher cache folder (not local storage)
+- **WebView2** for mail rendering/composition with custom HTML/JavaScript editors
+- **MimeKit/MailKit** for IMAP/SMTP operations
+- **Microsoft Graph SDK** for Outlook synchronization
+- **Gmail API** for Gmail synchronization
+
+### Solution Structure
+```
+Wino.Core.Domain       → Entities, interfaces, translations, enums (shared contracts)
+Wino.Core              → Synchronization engine, authenticators, request processing
+Wino.Services          → Database, mail, folder, account services
+Wino.Mail.ViewModels   → Mail-specific ViewModels
+Wino.Core.ViewModels   → Shared ViewModels (settings, personalization)
+Wino.Mail.WinUI        → **Active WinUI 3 UI project** (use this)
+Wino.Mail              → **Deprecated UWP project** (DO NOT EDIT)
+```
+
+## Architecture Patterns
+
+### Mail Synchronization Flow
+1. **WinoRequestDelegator** → Validates and delegates user actions (mark read, delete, move)
+2. **WinoRequestProcessor** → Batches requests using RequestComparer, queues to synchronizers
+3. **Synchronizers** (OutlookSynchronizer, GmailSynchronizer, ImapSynchronizer) → Execute batched operations
+4. **ChangeProcessors** (OutlookChangeProcessor, etc.) → Apply changes to local database
+5. Database updates trigger **Messenger** events (MailAddedMessage, MailUpdatedMessage, etc.)
+
+### Queue-Based Sync (New Pattern - See QUEUE_SYNC_IMPLEMENTATION.md)
+- Initial sync now queues mail IDs first (MailItemQueue table), downloads metadata only (no MIME)
+- MIME content downloaded on-demand when user opens mail
+- Synchronizers override `QueueMailIdsForInitialSyncAsync()`, `DownloadMailsFromQueueAsync()`, `CreateMinimalMailCopyAsync()`
+- Check `MailItemFolder.IsInitialSyncCompleted` to determine sync state
+
+### Dependency Injection Setup
+Services registered in extension methods across projects:
+- `RegisterCoreServices()` in Wino.Core/CoreContainerSetup.cs
+- `RegisterSharedServices()` in Wino.Services/ServicesContainerSetup.cs
+- `RegisterCoreUWPServices()` in CoreUWPContainerSetup.cs
+- ViewModels registered in App.xaml.cs with AddTransient/AddSingleton
+
+### Messenger Pattern (Event Pub-Sub)
+- All ViewModels inherit from CoreBaseViewModel or MailBaseViewModel which implement IRecipient<T>
+- Register/unregister message handlers in `RegisterRecipients()` / `UnregisterRecipients()`
+- Send messages via `WeakReferenceMessenger.Default.Send(new MessageType(...))`
+- Common messages: MailAddedMessage, MailUpdatedMessage, NavigationRequested, ThemeChanged
+
 ## ViewModels Development Guidelines
 
-### Observable Properties
-- **ALWAYS** use `public partial` observable properties in ViewModels
+### Observable Properties - Critical Pattern
+- **ALWAYS** use `public partial` observable properties with MVVM Toolkit source generators
 - **NEVER** use private fields with `[ObservableProperty]` attribute
-- **Correct Pattern:**
+- **Correct:**
   ```csharp
   [ObservableProperty]
   public partial string SearchQuery { get; set; } = string.Empty;
   ```
-- **Incorrect Pattern:**
+- **Incorrect:**
   ```csharp
   [ObservableProperty]
-  private string searchQuery = string.Empty;
+  private string searchQuery = string.Empty;  // WRONG - will not work
   ```
 
 ### ViewModels Structure
-- All ViewModels should inherit from appropriate base classes (MailBaseViewModel, CoreBaseViewModel, etc.)
-- Use `[RelayCommand]` for command methods
-- Follow the existing dependency injection patterns
+- Inherit from MailBaseViewModel (for mail features) or CoreBaseViewModel (for shared features)
+- Use `[RelayCommand]` for command methods - source generator creates Command properties
+- Implement IRecipient<TMessage> for message handlers
 - Use `IMailDialogService` for Mail-related dialogs, `IDialogServiceBase` for core dialogs
+- Call `RegisterRecipients()` in constructor/OnNavigatedTo, `UnregisterRecipients()` in OnNavigatedFrom
 
-### Strings and Localization
-- All strings should be added in English to en-US.json file and used via Translator class.
-- Avoid hardcoding strings in the codebase.
-- Use Translator.{TranslationKey} with property to retrieve string in view models.
-- Use Translator as well in the XAML files with x:Bind. Always use OneTime mode.
+## Localization System
 
-### Dialog Services
-- Use `InfoBarMessage()` method for simple notifications
-- Use `ShowConfirmationDialogAsync()` for confirmation dialogs
-- Use `PickFilesAsync()` for file selection
+### Translation Workflow (Custom T4-based System)
+1. Add English strings ONLY to `Wino.Core.Domain/Translations/en_US/resources.json`
+2. Build the project - source generators automatically create Translator properties
+3. Use `Translator.{PropertyName}` in ViewModels, XAML (with x:Bind, OneTime mode)
+4. **NEVER** edit other language files - Crowdin manages translations automatically
+5. **NEVER** hardcode user-facing strings
+
+### Usage Examples
+```csharp
+// ViewModel
+_dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle, message);
+
+// XAML
+<TextBlock Text="{x:Bind Translator.Settings_Title, Mode=OneTime}" />
+```
+
+## UI Data Binding and Converters
+
+### WinUI 3 Automatic Conversions
+- **NEVER** create IValueConverter classes or add them to Converters.xaml
+- **NEVER** use BoolToVisibilityConverter - WinUI 3 SDK automatically converts bool to Visibility
+- Direct binding: `Visibility="{x:Bind IsVisible, Mode=OneWay}"`
+
+### XamlHelpers for Complex Conversions
+- **ALWAYS** use XamlHelpers static methods instead of converters
+- Add xmlns: `xmlns:helpers="using:Wino.Helpers"`
+- Usage: `{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PropertyName), Mode=OneWay}`
+- Available methods: ReverseBoolToVisibilityConverter, CountToBooleanConverter, BoolToSelectionMode, Base64ToBitmapImage
+- Add new methods to XamlHelpers.cs when needed, don't create converters
+
+## WebView2 Mail Rendering
+
+### Architecture
+- **reader.html** (Wino.Mail.WinUI/JS/) for reading mails
+- **editor.html** for composing mails (uses Jodit editor, not Quill as originally planned)
+- WebView2 uses virtual host mapping: `https://wino.mail/reader.html`
+- JavaScript interop via `ExecuteScriptFunctionAsync()` to call functions like `RenderHTML()`
+- MIME content downloaded on-demand, not during sync
+
+### Key Patterns
+- Set environment variables for WebView2 before initialization (overlay scrollbars, cache)
+- Wait for DOMContentLoaded event before script execution
+- Handle theme changes by updating editor CSS dynamically
+- Cancel external navigation, open in browser via Launcher.LaunchUriAsync()
+
+## File Structure and Project Organization
+
+### Critical Rules
+- **NEVER** edit files in Wino.Mail (UWP) project - it's deprecated
+- **ALWAYS** work with Wino.Mail.WinUI for UI components
+- Place ViewModels in Wino.Mail.ViewModels (mail-specific) or Wino.Core.ViewModels (shared)
+- Create abstract base classes in Views/Abstract folders
+- Mail-specific dialog services go in Wino.Mail.WinUI/Services
+
+### Database and Storage
+- SQLite database in publisher cache folder (not app local storage)
+- EML files stored in app local storage, referenced by MailCopy.FileId
+- Paths resolved via MimeFileService.GetMimeMessagePath()
+- Database entities in Wino.Core.Domain/Entities
+
+## Error Handling and User Feedback
+
+### Exception Handling Patterns
+```csharp
+try {
+    await operation();
+} catch (UnavailableSpecialFolderException ex) {
+    _dialogService.InfoBarMessage(title, message, InfoBarMessageType.Warning, buttonText, action);
+} catch (NotImplementedException) {
+    _dialogService.ShowNotSupportedMessage();
+}
+```
+
+### Dialog Service Methods
+- `InfoBarMessage()` - simple notifications with optional action button
+- `ShowConfirmationDialogAsync()` - yes/no dialogs
+- `PickFilesAsync()` - file selection
 - Always check for null/empty results from dialog operations
 
-### File Structure
-- Place ViewModels in appropriate projects (Wino.Mail.ViewModels, Wino.Core.ViewModels, etc.)
-- Create abstract page classes in Views/Abstract folders
-- Follow the existing naming conventions
-- **NEVER** edit files in the old Wino.Mail project folder - it's UWP and deprecated
-- **ALWAYS** work with WinUI projects (Wino.Mail.WinUI, Wino.Core.WinUI) for UI components
+## Code Style and Best Practices
 
-### Error Handling
-- Always wrap async operations in try-catch blocks
-- Use InfoBar messages for user-friendly error notifications
-- Log errors appropriately but don't expose technical details to users
-
-### Collection Management
-- Use ObservableCollection for UI-bound collections
-- Implement proper filtering and search functionality
-- Use virtualization for large datasets (ListView, ItemsView)
-
-### Contact Management Specific
-- Respect IsRootContact property - root contacts cannot be deleted
-- Check IsOverridden property during synchronization
-- Always validate contact data before operations
-- Use PersonPicture controls for contact avatars
-- Support multiple selection where appropriate
-
-### UI Data Binding and Converters
-- **NEVER** create IValueConverter classes or add them to Converters.xaml
-- **NEVER** use BoolToVisibilityConverter - boolean values are automatically converted to Visibility by the WinUI 3 SDK
-- **ALWAYS** use XamlHelpers static methods for data transformations when needed
-- Use XamlHelpers methods with x:Bind syntax: `{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PropertyName), Mode=OneWay}`
-- Available XamlHelpers methods include: ReverseBoolToVisibilityConverter, CountToBooleanConverter, BoolToSelectionMode, Base64ToBitmapImage, etc.
-- If a helper method doesn't exist, add it to XamlHelpers.cs instead of creating a converter
-- For boolean to Visibility binding, use direct binding: `Visibility="{x:Bind BooleanProperty, Mode=OneWay}"`
-
-## Code Style
-- Use var where type is obvious
-- Use string interpolation over string.Format where simple
+- Use `var` where type is obvious from right side
+- String interpolation over string.Format for simple cases
 - Keep methods focused and single-responsibility
-- Use meaningful variable names
 - Add XML documentation for public APIs
+- Avoid introducing new NuGet packages - maximize use of existing libraries
+- Wrap async operations in try-catch blocks
+- Log errors via IWinoLogger but don't expose technical details to users
+
+## Development Workflow
+
+### Building and Running
+- Open WinoMail.slnx in Visual Studio 2022+
+- Target platforms: x86, x64, ARM64 (ARM32 being phased out)
+- Minimum: Windows 10 1809, Target: Windows 11 22H2
+- Set Wino.Mail.WinUI as startup project
+
+### Testing
+- Test suite in Wino.Core.Tests
+- Manual testing required for UI/WebView2 interactions
+- Test synchronization with real accounts when modifying synchronizers
+
+### Common Pitfalls
+- Forgetting to register ViewModels in App.xaml.cs RegisterViewModels()
+- Not calling RegisterRecipients() for message handlers
+- Using private fields with [ObservableProperty] (won't work - must be public partial)
+- Creating IValueConverter classes instead of using XamlHelpers
+- Editing UWP project files instead of WinUI equivalents
+- Hardcoding strings instead of using Translator
+- Forgetting to unregister Messenger recipients (memory leaks)
