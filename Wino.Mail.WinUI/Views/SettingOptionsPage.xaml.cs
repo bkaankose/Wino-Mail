@@ -1,4 +1,5 @@
-using CommunityToolkit.WinUI.Controls;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Views.Abstract;
 
@@ -11,8 +12,17 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
         InitializeComponent();
     }
 
-    private void SettingOptionClicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private void SettingOptionClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is SettingsCard card && card.CommandParameter is WinoPage page) ViewModel.NavigateSubDetailCommand.Execute(page);
+        WinoPage? page = sender switch
+        {
+            Button button when button.Tag is WinoPage p => p,
+            _ => null
+        };
+
+        if (page.HasValue)
+        {
+            ViewModel.NavigateSubDetailCommand.Execute(page.Value);
+        }
     }
 }

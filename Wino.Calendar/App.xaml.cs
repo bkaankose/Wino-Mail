@@ -65,7 +65,6 @@ public sealed partial class App : WinoApplication, IRecipient<NewCalendarSynchro
     {
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<ICalendarDialogService, DialogService>();
-        services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, CalendarAuthenticatorConfig>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();

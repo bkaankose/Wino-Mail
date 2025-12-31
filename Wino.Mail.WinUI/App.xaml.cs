@@ -63,7 +63,6 @@ public partial class App : WinoApplication,
     {
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IMailDialogService, DialogService>();
-        services.AddTransient<ISettingsBuilderService, SettingsBuilderService>();
         services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
