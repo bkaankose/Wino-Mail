@@ -47,4 +47,11 @@ public interface ICalendarService
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
+    Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId);
+    Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders);
+
+    /// <summary>
+    /// Gets predefined reminder options in minutes (1 Hour, 30 Min, 15 Min, 5 Min, 1 Min).
+    /// </summary>
+    int[] GetPredefinedReminderMinutes();
 }

@@ -42,6 +42,7 @@ public static class CalendarXamlHelpers
 
     public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel)
     {
+        // TODO: This is incorrect. 
         if (calendarItemViewModel == null || string.IsNullOrEmpty(calendarItemViewModel.CalendarItem.Recurrence)) return string.Empty;
 
         // Parse recurrence rules

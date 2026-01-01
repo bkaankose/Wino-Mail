@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
@@ -35,13 +36,22 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
 
     [ObservableProperty]
     public partial int WorkingDayEndIndex { get; set; }
+
+    [ObservableProperty]
+    public partial List<string> ReminderOptions { get; set; } = [];
+
+    [ObservableProperty]
+    public partial int SelectedDefaultReminderIndex { get; set; }
+
     public IPreferencesService PreferencesService { get; }
+    private readonly ICalendarService _calendarService;
 
     private readonly bool _isLoaded = false;
 
-    public CalendarSettingsPageViewModel(IPreferencesService preferencesService)
+    public CalendarSettingsPageViewModel(IPreferencesService preferencesService, ICalendarService calendarService)
     {
         PreferencesService = preferencesService;
+        _calendarService = calendarService;
 
         var currentLanguageLanguageCode = WinoTranslationDictionary.GetLanguageFileNameRelativePath(preferencesService.CurrentLanguage);
 
@@ -62,6 +72,31 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         WorkingDayStartIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayStart));
         WorkingDayEndIndex = DayNames.IndexOf(cultureInfo.DateTimeFormat.GetDayName(preferencesService.WorkingDayEnd));
 
+        // Initialize reminder options
+        var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
+        ReminderOptions.Add("None");
+        foreach (var minutes in predefinedMinutes)
+        {
+            var displayText = minutes switch
+            {
+                >= 60 => $"{minutes / 60} Hour{(minutes / 60 > 1 ? "s" : "")}",
+                _ => $"{minutes} Minute{(minutes > 1 ? "s" : "")}"
+            };
+            ReminderOptions.Add(displayText);
+        }
+
+        // Set selected index based on current default reminder setting
+        if (preferencesService.DefaultReminderDurationInSeconds == 0)
+        {
+            SelectedDefaultReminderIndex = 0; // None
+        }
+        else
+        {
+            var minutes = (int)(preferencesService.DefaultReminderDurationInSeconds / 60);
+            var index = Array.IndexOf(predefinedMinutes, minutes);
+            SelectedDefaultReminderIndex = index >= 0 ? index + 1 : 0;
+        }
+
         _isLoaded = true;
     }
 
@@ -72,6 +107,7 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
     partial void OnWorkingHourEndChanged(TimeSpan value) => SaveSettings();
     partial void OnWorkingDayStartIndexChanged(int value) => SaveSettings();
     partial void OnWorkingDayEndIndexChanged(int value) => SaveSettings();
+    partial void OnSelectedDefaultReminderIndexChanged(int value) => SaveSettings();
 
     public void SaveSettings()
     {
@@ -117,6 +153,18 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         PreferencesService.WorkingHourStart = WorkingHourStart;
         PreferencesService.WorkingHourEnd = WorkingHourEnd;
         PreferencesService.HourHeight = CellHourHeight;
+
+        // Save default reminder setting
+        if (SelectedDefaultReminderIndex == 0)
+        {
+            PreferencesService.DefaultReminderDurationInSeconds = 0; // None
+        }
+        else
+        {
+            var predefinedMinutes = _calendarService.GetPredefinedReminderMinutes();
+            var minutes = predefinedMinutes[SelectedDefaultReminderIndex - 1];
+            PreferencesService.DefaultReminderDurationInSeconds = minutes * 60;
+        }
 
         Messenger.Send(new CalendarSettingsUpdatedMessage());
     }

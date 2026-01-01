@@ -223,7 +223,37 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 }
             }
 
+            // Prepare reminders list from Gmail event
+            List<Reminder> reminders = null;
+            if (calendarEvent.Reminders?.Overrides != null && calendarEvent.Reminders.Overrides.Count > 0)
+            {
+                reminders = new List<Reminder>();
+                foreach (var reminderOverride in calendarEvent.Reminders.Overrides)
+                {
+                    if (reminderOverride.Minutes.HasValue)
+                    {
+                        var durationInSeconds = reminderOverride.Minutes.Value * 60; // Convert minutes to seconds
+                        var reminderType = reminderOverride.Method switch
+                        {
+                            "email" => CalendarItemReminderType.Email,
+                            _ => CalendarItemReminderType.Popup
+                        };
+
+                        reminders.Add(new Reminder
+                        {
+                            Id = Guid.NewGuid(),
+                            CalendarItemId = calendarItem.Id,
+                            DurationInSeconds = durationInSeconds,
+                            ReminderType = reminderType
+                        });
+                    }
+                }
+            }
+
             await CalendarService.CreateNewCalendarItemAsync(calendarItem, attendees);
+
+            // Save reminders separately
+            await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
         }
         else
         {
@@ -255,6 +285,36 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
                 // Update the event properties.
             }
+
+            // Prepare reminders list from Gmail event for update
+            List<Reminder> reminders = null;
+            if (calendarEvent.Reminders?.Overrides != null && calendarEvent.Reminders.Overrides.Count > 0)
+            {
+                reminders = new List<Reminder>();
+                foreach (var reminderOverride in calendarEvent.Reminders.Overrides)
+                {
+                    if (reminderOverride.Minutes.HasValue)
+                    {
+                        var durationInSeconds = reminderOverride.Minutes.Value * 60; // Convert minutes to seconds
+                        var reminderType = reminderOverride.Method switch
+                        {
+                            "email" => CalendarItemReminderType.Email,
+                            _ => CalendarItemReminderType.Popup
+                        };
+
+                        reminders.Add(new Reminder
+                        {
+                            Id = Guid.NewGuid(),
+                            CalendarItemId = existingCalendarItem.Id,
+                            DurationInSeconds = durationInSeconds,
+                            ReminderType = reminderType
+                        });
+                    }
+                }
+            }
+
+            // Save reminders
+            await CalendarService.SaveRemindersAsync(existingCalendarItem.Id, reminders).ConfigureAwait(false);
         }
 
         // Upsert the event.

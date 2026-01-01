@@ -10,6 +10,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Extensions;
 using Wino.Services;
+using Reminder = Wino.Core.Domain.Entities.Calendar.Reminder;
 
 namespace Wino.Core.Integration.Processors;
 
@@ -175,6 +176,25 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId, organizerEmail)).ToList();
         }
 
+        // Prepare reminders list from Outlook event
+        List<Reminder> reminders = null;
+        if (calendarEvent.IsReminderOn.GetValueOrDefault() && calendarEvent.ReminderMinutesBeforeStart.HasValue)
+        {
+            var reminderMinutes = calendarEvent.ReminderMinutesBeforeStart.Value;
+            var reminderDurationInSeconds = reminderMinutes * 60; // Convert minutes to seconds
+
+            reminders = new List<Reminder>
+            {
+                new Reminder
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarItemId = savingItemId,
+                    DurationInSeconds = reminderDurationInSeconds,
+                    ReminderType = CalendarItemReminderType.Popup
+                }
+            };
+        }
+
         // Use CalendarService to create or update the event
         if (isNewItem)
         {
@@ -186,5 +206,8 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             // Existing item - use UpdateCalendarItemAsync
             await CalendarService.UpdateCalendarItemAsync(savingItem, attendees).ConfigureAwait(false);
         }
+
+        // Save reminders separately
+        await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
     }
 }

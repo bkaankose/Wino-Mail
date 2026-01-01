@@ -216,6 +216,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     DayOfWeek WorkingDayEnd { get; set; }
     double HourHeight { get; set; }
 
+    /// <summary>
+    /// Setting: Default reminder duration in seconds for new calendar events.
+    /// Set to 0 to disable default reminders.
+    /// </summary>
+    long DefaultReminderDurationInSeconds { get; set; }
 
     CalendarSettings GetCurrentCalendarSettings();
 

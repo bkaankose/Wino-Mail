@@ -284,6 +284,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SaveProperty(propertyName: nameof(WorkingDayEnd), value);
     }
 
+    public long DefaultReminderDurationInSeconds
+    {
+        get => _configurationService.Get(nameof(DefaultReminderDurationInSeconds), 900L); // Default: 15 minutes (900 seconds)
+        set => SaveProperty(propertyName: nameof(DefaultReminderDurationInSeconds), value);
+    }
+
     public int EmailSyncIntervalMinutes
     {
         get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);

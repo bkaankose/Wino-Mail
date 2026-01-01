@@ -27,7 +27,7 @@ public class PreDefinedAppTheme : AppThemeBase
 
     public override async Task<string> GetThemeResourceDictionaryContentAsync()
     {
-        var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///Wino.Mail.WinUI/AppThemes/{ThemeName}.xaml"));
+        var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx://AppThemes/{ThemeName}.xaml"));
         return await FileIO.ReadTextAsync(xamlDictionaryFile);
     }
 }

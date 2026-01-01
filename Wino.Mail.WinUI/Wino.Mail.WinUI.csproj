@@ -88,6 +88,13 @@
     <Content Remove="Assets\Wide310x150Logo.scale-400.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="BackgroundImages\Acrylic.jpg" />
+    <None Remove="BackgroundImages\Clouds.jpg" />
+    <None Remove="BackgroundImages\Forest.jpg" />
+    <None Remove="BackgroundImages\Garden.jpg" />
+    <None Remove="BackgroundImages\Mica.jpg" />
+    <None Remove="BackgroundImages\Nighty.jpg" />
+    <None Remove="BackgroundImages\Snowflake.jpg" />
     <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
     <None Remove="ShellWindow.xaml" />
     <None Remove="Styles\CalendarThemeResources.xaml" />
@@ -102,10 +109,37 @@
     <None Remove="Views\Calendar\EventDetailsPage.xaml" />
     <None Remove="Views\Settings\ContactsPage.xaml" />
   </ItemGroup>
+  <ItemGroup>
+    <Page Remove="AppThemes\Acrylic.xaml" />
+    <Page Remove="AppThemes\Clouds.xaml" />
+    <Page Remove="AppThemes\Custom.xaml" />
+    <Page Remove="AppThemes\Default.xaml" />
+    <Page Remove="AppThemes\Forest.xaml" />
+    <Page Remove="AppThemes\Garden.xaml" />
+    <Page Remove="AppThemes\Nighty.xaml" />
+    <Page Remove="AppThemes\Snowflake.xaml" />
+    <Page Remove="AppThemes\TestTheme.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
+    <Content Include="AppThemes\Acrylic.xaml" />
+    <Content Include="AppThemes\Clouds.xaml" />
+    <Content Include="AppThemes\Custom.xaml" />
+    <Content Include="AppThemes\Default.xaml" />
+    <Content Include="AppThemes\Forest.xaml" />
+    <Content Include="AppThemes\Garden.xaml" />
+    <Content Include="AppThemes\Nighty.xaml" />
+    <Content Include="AppThemes\Snowflake.xaml" />
+    <Content Include="AppThemes\TestTheme.xaml" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Wino_Icon.ico" />
+    <Content Include="BackgroundImages\Acrylic.jpg" />
+    <Content Include="BackgroundImages\Clouds.jpg" />
+    <Content Include="BackgroundImages\Forest.jpg" />
+    <Content Include="BackgroundImages\Garden.jpg" />
+    <Content Include="BackgroundImages\Mica.jpg" />
+    <Content Include="BackgroundImages\Nighty.jpg" />
+    <Content Include="BackgroundImages\Snowflake.jpg" />
     <Content Include="JS\editor.html" />
     <Content Include="JS\editor.js" />
     <Content Include="JS\global.css" />

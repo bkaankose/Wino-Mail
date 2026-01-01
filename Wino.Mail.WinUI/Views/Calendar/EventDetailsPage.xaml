@@ -6,6 +6,7 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
+    xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
@@ -29,8 +30,10 @@
         </Style>
 
         <Style x:Key="EventDetailsPanelGridStyle" TargetType="Grid">
-            <Setter Property="Padding" Value="0,12" />
-            <Setter Property="Margin" Value="12,0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,12" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorSecondaryBrush}" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
         </Style>
 
         <Style
@@ -90,7 +93,7 @@
                 <AppBarSeparator />
 
                 <!--  Response Options  -->
-                
+
                 <AppBarButton
                     Command="{x:Bind ViewModel.RespondCommand}"
                     CommandParameter="{x:Bind enums:CalendarItemStatus.Confirmed}"
@@ -133,17 +136,38 @@
 
                 <!--  Reminder  -->
                 <AppBarElementContainer>
-                    <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
-                        <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
-                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
-                        <ComboBox Width="150" />
-                    </StackPanel>
+                    <Button>
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout>
+                                <ListView
+                                    Width="200"
+                                    MaxHeight="300"
+                                    ItemsSource="{x:Bind ViewModel.ReminderOptions}"
+                                    SelectionMode="None">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="calendarViewModels:ReminderOption">
+                                            <CheckBox Content="{x:Bind DisplayText}" IsChecked="{x:Bind IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                 </AppBarElementContainer>
 
-                <AppBarSeparator />
+                <AppBarSeparator Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}" />
 
                 <!--  Edit Series  -->
-                <AppBarButton Label="{x:Bind domain:Translator.CalendarEventDetails_EditSeries}" Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.ViewSeriesCommand}"
+                    Label="{x:Bind domain:Translator.CalendarEventDetails_EditSeries}"
+                    Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="EventEditSeries" />
                     </AppBarButton.Icon>
@@ -153,7 +177,7 @@
 
         <!--  Event details  -->
         <ScrollViewer Grid.Row="1">
-            <Grid>
+            <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*" />
                     <ColumnDefinition Width="1*" />
@@ -204,7 +228,7 @@
                             <Grid
                                 Grid.Row="3"
                                 ColumnSpacing="6"
-                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringParent}">
+                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringParent, Mode=OneWay}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -239,7 +263,7 @@
 
                     <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_People}" />
 
-                    <Grid Grid.Row="1" RowSpacing="12">
+                    <Grid Grid.Row="1" RowSpacing="6">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -247,10 +271,12 @@
                         <AutoSuggestBox
                             Margin="6,0"
                             BorderThickness="0"
-                            PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}" />
+                            PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}"
+                            Visibility="{x:Bind ViewModel.IsCurrentUserOrganizer, Mode=OneWay}" />
 
                         <ListView
                             Grid.Row="1"
+                            Margin="-12,0"
                             IsItemClickEnabled="True"
                             ItemsSource="{x:Bind ViewModel.CurrentEvent.Attendees, Mode=OneWay}"
                             SelectionMode="None">

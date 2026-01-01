@@ -20,9 +20,14 @@ namespace Wino.Services;
 
 public class CalendarService : BaseDatabaseService, ICalendarService
 {
+    // Predefined reminder options in minutes
+    private static readonly int[] PredefinedReminderMinutes = [60, 30, 15, 5, 1];
+
     public CalendarService(IDatabaseService databaseService) : base(databaseService)
     {
     }
+
+    public int[] GetPredefinedReminderMinutes() => PredefinedReminderMinutes;
 
     public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
         => Connection.Table<AccountCalendar>().Where(x => x.AccountId == accountId).OrderByDescending(a => a.IsPrimary).ToListAsync();
@@ -344,6 +349,10 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return result;
     }
 
+    /// <summary>
+    /// Gets attendees for a calendar item. For recurring event occurrences,
+    /// callers should pass the EventTrackingId which returns the parent's ID.
+    /// </summary>
     public Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId)
         => Connection.Table<CalendarEventAttendee>().Where(x => x.CalendarItemId == calendarEventTrackingId).ToListAsync();
 
@@ -422,5 +431,29 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 return null;
             }
         }
+    }
+
+    /// <summary>
+    /// Gets reminders for a calendar item. For recurring event occurrences,
+    /// callers should pass the EventTrackingId which returns the parent's ID.
+    /// </summary>
+    public Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId)
+        => Connection.Table<Reminder>().Where(r => r.CalendarItemId == calendarItemId).ToListAsync();
+
+    public async Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders)
+    {
+        await Connection.RunInTransactionAsync((connection) =>
+        {
+            // Clear existing reminders for this calendar item
+            connection.Execute(
+                "DELETE FROM Reminder WHERE CalendarItemId = ?",
+                calendarItemId);
+
+            // Insert new reminders if any
+            if (reminders != null && reminders.Count > 0)
+            {
+                connection.InsertAll(reminders, typeof(Reminder));
+            }
+        });
     }
 }
