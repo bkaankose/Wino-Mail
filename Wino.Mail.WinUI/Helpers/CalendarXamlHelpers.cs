@@ -42,7 +42,7 @@ public static class CalendarXamlHelpers
 
     public static string GetRecurrenceString(CalendarItemViewModel calendarItemViewModel)
     {
-        if (calendarItemViewModel == null || !calendarItemViewModel.IsRecurringChild) return string.Empty;
+        if (calendarItemViewModel == null || string.IsNullOrEmpty(calendarItemViewModel.CalendarItem.Recurrence)) return string.Empty;
 
         // Parse recurrence rules
         var calendarEvent = new CalendarEvent
@@ -103,4 +103,10 @@ public static class CalendarXamlHelpers
 
         return XamlHelpers.GetPlaccementModeForCalendarType(calendarDisplayType);
     }
+
+    /// <summary>
+    /// Returns true if the calendar item has an online meeting link.
+    /// </summary>
+    public static bool HasOnlineMeetingLink(CalendarItemViewModel calendarItemViewModel)
+        => calendarItemViewModel != null && !string.IsNullOrEmpty(calendarItemViewModel.CalendarItem?.HtmlLink);
 }

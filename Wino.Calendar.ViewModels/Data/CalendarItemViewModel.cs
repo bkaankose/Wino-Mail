@@ -18,54 +18,51 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public IAccountCalendar AssignedCalendar => CalendarItem.AssignedCalendar;
 
     /// <summary>
-    /// Gets or sets the start date in local time based on the event's timezone.
-    /// The underlying CalendarItem stores dates in UTC.
+    /// Gets or sets the start date converted to user's local timezone for display.
+    /// The underlying CalendarItem stores dates according to their timezone.
     /// </summary>
     public DateTime StartDate
     {
         get
         {
-            // Convert from UTC stored in database to local time using the event's timezone
-            var startDateTimeOffset = CalendarItem.StartDateTimeOffset;
-            return startDateTimeOffset.LocalDateTime;
+            // Get start date in user's local timezone
+            return CalendarItem.LocalStartDate;
         }
         set
         {
-            // When setting, convert from local time to UTC for storage
-            // Preserve the timezone information
+            // When setting from UI (in local time), convert to event's timezone for storage
             if (!string.IsNullOrEmpty(CalendarItem.StartTimeZone))
             {
                 try
                 {
-                    var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(CalendarItem.StartTimeZone);
-                    var utcDateTime = TimeZoneInfo.ConvertTimeToUtc(value, timeZoneInfo);
-                    CalendarItem.StartDate = utcDateTime;
+                    var sourceTimeZone = TimeZoneInfo.Local;
+                    var targetTimeZone = TimeZoneInfo.FindSystemTimeZoneById(CalendarItem.StartTimeZone);
+                    CalendarItem.StartDate = TimeZoneInfo.ConvertTime(value, sourceTimeZone, targetTimeZone);
                 }
                 catch
                 {
-                    // If timezone lookup fails, assume value is already in UTC
+                    // If timezone lookup fails, set as-is
                     CalendarItem.StartDate = value;
                 }
             }
             else
             {
-                // No timezone info, assume UTC
+                // No timezone info, set as-is
                 CalendarItem.StartDate = value;
             }
         }
     }
 
     /// <summary>
-    /// Gets the end date in local time based on the event's timezone.
-    /// The underlying CalendarItem stores dates in UTC.
+    /// Gets the end date converted to user's local timezone for display.
+    /// The underlying CalendarItem stores dates according to their timezone.
     /// </summary>
     public DateTime EndDate
     {
         get
         {
-            // Convert from UTC stored in database to local time using the event's timezone
-            var endDateTimeOffset = CalendarItem.EndDateTimeOffset;
-            return endDateTimeOffset.LocalDateTime;
+            // Get end date in user's local timezone
+            return CalendarItem.LocalEndDate;
         }
     }
 

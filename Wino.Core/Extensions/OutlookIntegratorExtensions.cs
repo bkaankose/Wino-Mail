@@ -283,9 +283,12 @@ public static class OutlookIntegratorExtensions
         };
     }
 
-    public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId)
+    public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId, string organizerEmail = null)
     {
-        bool isOrganizer = attendee?.Status?.Response == ResponseType.Organizer;
+        // Check if this attendee is the organizer by comparing email addresses
+        bool isOrganizer = !string.IsNullOrEmpty(organizerEmail) && 
+                          !string.IsNullOrEmpty(attendee?.EmailAddress?.Address) &&
+                          string.Equals(attendee.EmailAddress.Address, organizerEmail, StringComparison.OrdinalIgnoreCase);
 
         var eventAttendee = new CalendarEventAttendee()
         {

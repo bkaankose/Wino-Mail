@@ -17,6 +17,14 @@ public class CalendarItem : ICalendarItem
     public string Description { get; set; }
     public string Location { get; set; }
 
+    /// <summary>
+    /// Indicates whether this item is a local preview that hasn't been synced to the server yet.
+    /// When true, the item exists only in the local database without a RemoteEventId.
+    /// Used to prevent duplicates when the server returns the newly created event.
+    /// </summary>
+    [Ignore]
+    public bool IsLocalPreview => string.IsNullOrEmpty(RemoteEventId);
+
     public DateTime StartDate { get; set; }
 
     public DateTime EndDate
@@ -187,66 +195,70 @@ public class CalendarItem : ICalendarItem
     }
 
     /// <summary>
-    /// Gets the start date as a DateTimeOffset with the correct timezone.
-    /// If StartTimeZone is available, uses it to calculate the offset.
-    /// Otherwise, assumes UTC (StartDate is stored as UTC in database).
+    /// Gets the start date converted to user's local timezone for display.
+    /// StartDate is stored according to StartTimeZone.
     /// </summary>
     [Ignore]
-    public DateTimeOffset StartDateTimeOffset
+    public DateTime LocalStartDate
     {
         get
         {
-            if (!string.IsNullOrEmpty(StartTimeZone))
+            if (string.IsNullOrEmpty(StartTimeZone))
             {
-                try
-                {
-                    var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(StartTimeZone);
-                    // StartDate is stored in UTC, convert to the specified timezone
-                    var utcDateTime = DateTime.SpecifyKind(StartDate, DateTimeKind.Utc);
-                    var zonedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZoneInfo);
-                    var offset = timeZoneInfo.GetUtcOffset(zonedDateTime);
-                    return new DateTimeOffset(zonedDateTime, offset);
-                }
-                catch
-                {
-                    // If timezone lookup fails, assume UTC
-                }
+                // No timezone info, return as-is
+                return StartDate;
             }
 
-            // Assume UTC (StartDate is stored as UTC in database)
-            return new DateTimeOffset(StartDate, TimeSpan.Zero);
+            try
+            {
+                var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(StartTimeZone);
+                var localTimeZone = TimeZoneInfo.Local;
+                
+                // Ensure DateTime is Unspecified kind before conversion
+                var unspecifiedDateTime = DateTime.SpecifyKind(StartDate, DateTimeKind.Unspecified);
+                
+                // Convert from source timezone to local timezone
+                return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
+            }
+            catch
+            {
+                // If timezone lookup fails, return as-is
+                return StartDate;
+            }
         }
     }
 
     /// <summary>
-    /// Gets the end date as a DateTimeOffset with the correct timezone.
-    /// If EndTimeZone is available, uses it to calculate the offset.
-    /// Otherwise, assumes UTC (EndDate is stored as UTC in database).
+    /// Gets the end date converted to user's local timezone for display.
+    /// EndDate is calculated from StartDate and is in StartTimeZone.
     /// </summary>
     [Ignore]
-    public DateTimeOffset EndDateTimeOffset
+    public DateTime LocalEndDate
     {
         get
         {
-            if (!string.IsNullOrEmpty(EndTimeZone))
+            if (string.IsNullOrEmpty(EndTimeZone))
             {
-                try
-                {
-                    var timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(EndTimeZone);
-                    // EndDate is stored in UTC, convert to the specified timezone
-                    var utcDateTime = DateTime.SpecifyKind(EndDate, DateTimeKind.Utc);
-                    var zonedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZoneInfo);
-                    var offset = timeZoneInfo.GetUtcOffset(zonedDateTime);
-                    return new DateTimeOffset(zonedDateTime, offset);
-                }
-                catch
-                {
-                    // If timezone lookup fails, assume UTC
-                }
+                // No timezone info, return as-is
+                return EndDate;
             }
 
-            // Assume UTC (EndDate is stored as UTC in database)
-            return new DateTimeOffset(EndDate, TimeSpan.Zero);
+            try
+            {
+                var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(EndTimeZone);
+                var localTimeZone = TimeZoneInfo.Local;
+                
+                // Ensure DateTime is Unspecified kind before conversion
+                var unspecifiedDateTime = DateTime.SpecifyKind(EndDate, DateTimeKind.Unspecified);
+                
+                // Convert from source timezone to local timezone
+                return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
+            }
+            catch
+            {
+                // If timezone lookup fails, return as-is
+                return EndDate;
+            }
         }
     }
 }

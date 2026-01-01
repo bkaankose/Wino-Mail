@@ -170,7 +170,9 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         List<CalendarEventAttendee> attendees = null;
         if (calendarEvent.Attendees != null)
         {
-            attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId)).ToList();
+            // Pass the organizer's email address to properly identify the organizer in the attendees list
+            string organizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
+            attendees = calendarEvent.Attendees.Select(a => a.CreateAttendee(savingItemId, organizerEmail)).ToList();
         }
 
         // Use CalendarService to create or update the event

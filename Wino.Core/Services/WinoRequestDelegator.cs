@@ -140,9 +140,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         IRequestBase request = calendarPreparationRequest.Operation switch
         {
             CalendarSynchronizerOperation.CreateEvent => new CreateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
-            // Future support for update and delete operations
+            CalendarSynchronizerOperation.DeleteEvent => new DeleteCalendarEventRequest(calendarPreparationRequest.CalendarItem),
+            // Future support for update operations
             // CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
-            // CalendarSynchronizerOperation.DeleteEvent => new DeleteCalendarEventRequest(calendarPreparationRequest.CalendarItem),
             _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
         };
 

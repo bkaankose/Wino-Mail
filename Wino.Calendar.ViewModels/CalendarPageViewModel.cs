@@ -817,15 +817,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     private IEnumerable<CalendarItemViewModel> GetCalendarItems(CalendarItemViewModel calendarItemViewModel, CalendarDayModel selectedDay)
     {
-        // All-day and multi-day events are selected collectively.
-        // Recurring events must be selected as a single instance.
-        // We need to find the day that the event is in, and then select the event.
+        // Multi-day events, all-day events, and recurring events are rendered across multiple days.
+        // We need to find all instances with the same ID across all visible date ranges.
 
-        if (!calendarItemViewModel.IsRecurringEvent)
-        {
-            return [calendarItemViewModel];
-        }
-        else
+        if (calendarItemViewModel.IsRecurringEvent || calendarItemViewModel.IsMultiDayEvent)
         {
             return DayRanges
                 .SelectMany(a => a.CalendarDays)
@@ -833,6 +828,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 .Where(c => c != null)
                 .Cast<CalendarItemViewModel>()
                 .Distinct();
+        }
+        else
+        {
+            // Single-day, non-recurring events only appear once
+            return [calendarItemViewModel];
         }
     }
 
@@ -876,6 +876,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.OnCalendarItemDeleted(calendarItem);
 
         Debug.WriteLine($"Calendar item deleted: {calendarItem.Id}");
+
+        // Check if the deleted item is currently displayed in details view
+        if (DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id)
+        {
+            // Clear the details view since this item was deleted
+            DisplayDetailsCalendarItemViewModel = null;
+        }
 
         // Remove the event and its occurrences from all visible date ranges.
         await ExecuteUIThread(() =>
@@ -955,6 +962,47 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         // Check if event falls into the current date range.
         if (DayRanges.DisplayRange == null) return;
+
+        // Check if this is a server-synced item that matches a local preview
+        // Local previews don't have RemoteEventId, server-synced items do
+        if (!string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            // Find local preview items that match this event's properties
+            var localPreviewItems = DayRanges
+                .SelectMany(a => a.CalendarDays)
+                .SelectMany(b => b.EventsCollection.RegularEvents.Concat(b.EventsCollection.AllDayEvents))
+                .OfType<CalendarItemViewModel>()
+                .Where(c => c.AssignedCalendar.Id == calendarItem.CalendarId &&
+                           c.CalendarItem.IsLocalPreview && // Local preview (no RemoteEventId)
+                           c.Title == calendarItem.Title &&
+                           Math.Abs((c.StartDate - calendarItem.LocalStartDate).TotalSeconds) < 60 &&
+                           Math.Abs(c.DurationInSeconds - calendarItem.DurationInSeconds) < 1)
+                .ToList();
+
+            if (localPreviewItems.Any())
+            {
+                Debug.WriteLine($"Found {localPreviewItems.Count} matching local preview items for {calendarItem.Title}, removing them.");
+
+                // Remove all matching local preview items
+                await ExecuteUIThread(() =>
+                {
+                    foreach (var dayRange in DayRanges)
+                    {
+                        foreach (var calendarDay in dayRange.CalendarDays)
+                        {
+                            foreach (var localPreview in localPreviewItems)
+                            {
+                                var itemInDay = calendarDay.EventsCollection.GetCalendarItem(localPreview.Id);
+                                if (itemInDay != null)
+                                {
+                                    calendarDay.EventsCollection.RemoveCalendarItem(itemInDay);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
 
         // Get all periods from the visible day ranges
         var visiblePeriods = DayRanges.Select(dr => dr.Period).ToList();

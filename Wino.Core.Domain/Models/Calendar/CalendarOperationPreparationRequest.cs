@@ -11,9 +11,3 @@ namespace Wino.Core.Domain.Models.Calendar;
 /// <param name="CalendarItem">Calendar item to operate on.</param>
 /// <param name="Attendees">List of attendees for the calendar event.</param>
 public record CalendarOperationPreparationRequest(CalendarSynchronizerOperation Operation, CalendarItem CalendarItem, List<CalendarEventAttendee> Attendees);
-//{
-//    public CalendarOperationPreparationRequest(CalendarItem calendarItem) 
-//        : this(calendarItem ?? throw new ArgumentNullException(nameof(calendarItem)), null)
-//    {
-//    }
-//}

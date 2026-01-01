@@ -9,6 +9,7 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -61,14 +62,14 @@
                 OverflowButtonVisibility="Auto">
                 <AppBarToggleButton
                     x:Name="ReadOnlyToggle"
-                    Content="Read-only event"
+                    Content="{x:Bind domain:Translator.CalendarEventDetails_ReadOnlyEvent}"
                     IsChecked="True" />
-                <AppBarButton Label="{x:Bind domain:Translator.Buttons_Save}">
+                <AppBarButton Command="{x:Bind ViewModel.SaveCommand}" Label="{x:Bind domain:Translator.Buttons_Save}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="Save" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarButton Label="{x:Bind domain:Translator.Buttons_Delete}">
+                <AppBarButton Command="{x:Bind ViewModel.DeleteCommand}" Label="{x:Bind domain:Translator.Buttons_Delete}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="Delete" />
                     </AppBarButton.Icon>
@@ -77,7 +78,10 @@
                 <AppBarSeparator />
 
                 <!--  Join Online  -->
-                <AppBarButton Label="Join Online">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.JoinOnlineCommand}"
+                    IsEnabled="{x:Bind calendarHelpers:CalendarXamlHelpers.HasOnlineMeetingLink(ViewModel.CurrentEvent), Mode=OneWay}"
+                    Label="{x:Bind domain:Translator.CalendarEventDetails_JoinOnline}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="EventJoinOnline" />
                     </AppBarButton.Icon>
@@ -85,27 +89,30 @@
 
                 <AppBarSeparator />
 
-                <!--  Join Options  -->
-                <AppBarButton Label="Accept">
+                <!--  Response Options  -->
+                
+                <AppBarButton
+                    Command="{x:Bind ViewModel.RespondCommand}"
+                    CommandParameter="{x:Bind enums:CalendarItemStatus.Confirmed}"
+                    Label="{x:Bind domain:Translator.CalendarEventResponse_Accept}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Foreground="#527257" Icon="EventAccept" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Label="Tentative">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.RespondCommand}"
+                    CommandParameter="{x:Bind enums:CalendarItemStatus.Tentative}"
+                    Label="{x:Bind domain:Translator.CalendarEventResponse_Tentative}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Foreground="#805682" Icon="EventTentative" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Label="Decline">
-                    <AppBarButton.Icon>
-                        <PathIcon Data="F1 M 10.253906 9.375 L 16.064453 15.185547 C 16.18815 15.309245 16.25 15.455729 16.25 15.625 C 16.25 15.794271 16.18815 15.940756 16.064453 16.064453 C 15.940754 16.188152 15.79427 16.25 15.625 16.25 C 15.455729 16.25 15.309244 16.188152 15.185547 16.064453 L 9.375 10.253906 L 3.564453 16.064453 C 3.440755 16.188152 3.294271 16.25 3.125 16.25 C 2.955729 16.25 2.809245 16.188152 2.685547 16.064453 C 2.561849 15.940756 2.5 15.794271 2.5 15.625 C 2.5 15.455729 2.561849 15.309245 2.685547 15.185547 L 8.496094 9.375 L 2.685547 3.564453 C 2.561849 3.440756 2.5 3.294271 2.5 3.125 C 2.5 2.95573 2.561849 2.809246 2.685547 2.685547 C 2.809245 2.56185 2.955729 2.5 3.125 2.5 C 3.294271 2.5 3.440755 2.56185 3.564453 2.685547 L 9.375 8.496094 L 15.185547 2.685547 C 15.309244 2.56185 15.455729 2.5 15.625 2.5 C 15.79427 2.5 15.940754 2.56185 16.064453 2.685547 C 16.18815 2.809246 16.25 2.95573 16.25 3.125 C 16.25 3.294271 16.18815 3.440756 16.064453 3.564453 Z " Foreground="#d94b4e" />
-
-                    </AppBarButton.Icon>
-                </AppBarButton>
-
-                <AppBarButton Label="Respond">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.RespondCommand}"
+                    CommandParameter="{x:Bind enums:CalendarItemStatus.Cancelled}"
+                    Label="{x:Bind domain:Translator.CalendarEventResponse_Decline}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Foreground="#805682" Icon="EventRespond" />
                     </AppBarButton.Icon>
@@ -116,8 +123,11 @@
                 <!--  Show as  -->
                 <AppBarElementContainer>
                     <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
-                        <TextBlock VerticalAlignment="Center" Text="Show as" />
-                        <ComboBox Width="150" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_ShowAs}" />
+                        <ComboBox
+                            Width="150"
+                            ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
+                            SelectedItem="{x:Bind ViewModel.SelectedShowAs, Mode=TwoWay}" />
                     </StackPanel>
                 </AppBarElementContainer>
 
@@ -125,7 +135,7 @@
                 <AppBarElementContainer>
                     <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
                         <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
-                        <TextBlock VerticalAlignment="Center" Text="Reminder" />
+                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
                         <ComboBox Width="150" />
                     </StackPanel>
                 </AppBarElementContainer>
@@ -133,7 +143,7 @@
                 <AppBarSeparator />
 
                 <!--  Edit Series  -->
-                <AppBarButton Label="Edit Series">
+                <AppBarButton Label="{x:Bind domain:Translator.CalendarEventDetails_EditSeries}" Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="EventEditSeries" />
                     </AppBarButton.Icon>
@@ -163,7 +173,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="Details" />
+                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_Details}" />
 
                     <Grid Grid.Row="1">
                         <!--  Read-Only Event  -->
@@ -194,7 +204,7 @@
                             <Grid
                                 Grid.Row="3"
                                 ColumnSpacing="6"
-                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringEvent}">
+                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringParent}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -212,7 +222,7 @@
 
                         <!--  Editable Event  -->
                         <Grid Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(ReadOnlyDetailsGrid.Visibility), Mode=OneWay}">
-                            <TextBlock Text="editing" />
+                            <TextBlock Text="{x:Bind domain:Translator.CalendarEventDetails_Editing}" />
                         </Grid>
                     </Grid>
                 </Grid>
@@ -227,7 +237,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="People" />
+                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_People}" />
 
                     <Grid Grid.Row="1" RowSpacing="12">
                         <Grid.RowDefinitions>
@@ -237,7 +247,7 @@
                         <AutoSuggestBox
                             Margin="6,0"
                             BorderThickness="0"
-                            PlaceholderText="Invite someone" />
+                            PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}" />
 
                         <ListView
                             Grid.Row="1"
@@ -287,7 +297,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="Attachments" />
+                    <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_Attachments}" />
 
                 </Grid>
             </Grid>
