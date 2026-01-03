@@ -162,7 +162,10 @@
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                     <!--  RSVP Button  -->
-                    <Button Command="{x:Bind ViewModel.ToggleRsvpPanelCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                    <Button
+                        Background="{ThemeResource CardBackgroundFillColorDefault}"
+                        Command="{x:Bind ViewModel.ToggleRsvpPanelCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <ContentControl Content="{x:Bind ViewModel.CurrentRsvpStatus, Mode=OneWay}" ContentTemplateSelector="{StaticResource RsvpStatusIconSelector}" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.CurrentRsvpText, Mode=OneWay}" />
@@ -360,9 +363,9 @@
                             Visibility="{x:Bind ReadOnlyToggle.IsChecked, Mode=OneWay}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="16" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
                             <!--  Title  -->
@@ -373,13 +376,13 @@
 
                             <!--  Date and Duration  -->
                             <TextBlock
-                                Grid.Row="2"
+                                Grid.Row="1"
                                 Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventDetailsDateString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
                                 TextWrapping="Wrap" />
 
                             <!--  Recurrence Info  -->
                             <Grid
-                                Grid.Row="3"
+                                Grid.Row="2"
                                 ColumnSpacing="6"
                                 Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringParent, Mode=OneWay}">
                                 <Grid.ColumnDefinitions>
@@ -395,6 +398,8 @@
                                     TextWrapping="Wrap" />
                             </Grid>
 
+                            <!--  WebView  -->
+                            <WebView2 x:Name="EventDetailsWebView" Grid.Row="3" />
                         </Grid>
 
                         <!--  Editable Event  -->
@@ -459,19 +464,29 @@
                                                 FontSize="13"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{x:Bind Email}" />
-                                            <Border
-                                                Grid.Row="2"
-                                                Padding="6,2"
-                                                HorizontalAlignment="Left"
-                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                CornerRadius="4"
-                                                Visibility="{x:Bind IsOrganizer}">
-                                                <TextBlock
-                                                    FontSize="11"
-                                                    FontWeight="SemiBold"
-                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                    Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
-                                            </Border>
+                                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                                <Border
+                                                    Padding="6,2"
+                                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                    CornerRadius="4"
+                                                    Visibility="{x:Bind IsOrganizer}">
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                        Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
+                                                </Border>
+                                                <Border
+                                                    Padding="6,2"
+                                                    Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                    CornerRadius="4"
+                                                    Visibility="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusVisibility(AttendenceStatus)}">
+                                                    <TextBlock
+                                                        FontSize="11"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetAttendeeStatusText(AttendenceStatus)}" />
+                                                </Border>
+                                            </StackPanel>
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
@@ -484,7 +499,8 @@
                 <Grid
                     x:Name="AttachmentsGrid"
                     Grid.Column="2"
-                    Style="{StaticResource EventDetailsPanelGridStyle}">
+                    Style="{StaticResource EventDetailsPanelGridStyle}"
+                    Visibility="{x:Bind ViewModel.HasAttachments, Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -516,6 +532,8 @@
                         <Setter Target="PeopleGrid.(Grid.Row)" Value="0" />
                         <Setter Target="PeopleGrid.(Grid.Column)" Value="1" />
                         <Setter Target="PeopleGrid.(Grid.ColumnSpan)" Value="2" />
+                        <!--  People grid spans both rows when attachments are hidden  -->
+                        <Setter Target="PeopleGrid.(Grid.RowSpan)" Value="2" />
                         <Setter Target="AttachmentsGrid.(Grid.Row)" Value="1" />
                         <Setter Target="AttachmentsGrid.(Grid.Column)" Value="1" />
                         <Setter Target="AttachmentsGrid.(Grid.ColumnSpan)" Value="2" />

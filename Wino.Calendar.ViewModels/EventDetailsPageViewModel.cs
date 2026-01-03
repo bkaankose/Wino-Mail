@@ -27,8 +27,19 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly INavigationService _navigationService;
+    private readonly IUnderlyingThemeService _underlyingThemeService;
 
     public CalendarSettings CurrentSettings { get; }
+    public INativeAppService NativeAppService => _nativeAppService;
+
+    [ObservableProperty]
+    public partial bool IsDarkWebviewRenderer { get; set; }
+
+    /// <summary>
+    /// Returns true if the current event has attachments.
+    /// Currently always returns false until attachments are implemented.
+    /// </summary>
+    public bool HasAttachments => false; // TODO: Implement when CalendarItem attachments are added
 
     #region Details
 
@@ -39,6 +50,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     [NotifyPropertyChangedFor(nameof(CurrentRsvpText))]
     [NotifyPropertyChangedFor(nameof(CurrentRsvpStatus))]
     public partial CalendarItemViewModel CurrentEvent { get; set; }
+
+    partial void OnCurrentEventChanged(CalendarItemViewModel value)
+    {
+        // Notify the view to re-render the description
+        Messenger.Send(new CalendarDescriptionRenderingRequested());
+    }
 
     [ObservableProperty]
     public partial CalendarItemViewModel SeriesParent { get; set; }
@@ -127,7 +144,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      IPreferencesService preferencesService,
                                      IMailDialogService dialogService,
                                      IWinoRequestDelegator winoRequestDelegator,
-                                     INavigationService navigationService)
+                                     INavigationService navigationService,
+                                     IUnderlyingThemeService underlyingThemeService)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
@@ -135,8 +153,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _dialogService = dialogService;
         _winoRequestDelegator = winoRequestDelegator;
         _navigationService = navigationService;
+        _underlyingThemeService = underlyingThemeService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
+        IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
 
         // Initialize RSVP status options
         RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Accepted));

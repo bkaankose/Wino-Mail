@@ -110,4 +110,31 @@ public static class CalendarXamlHelpers
     /// </summary>
     public static bool HasOnlineMeetingLink(CalendarItemViewModel calendarItemViewModel)
         => calendarItemViewModel != null && !string.IsNullOrEmpty(calendarItemViewModel.CalendarItem?.HtmlLink);
+
+    /// <summary>
+    /// Returns the text representation of an attendee's status.
+    /// </summary>
+    public static string GetAttendeeStatusText(AttendeeStatus status)
+    {
+        return status switch
+        {
+            AttendeeStatus.Accepted => Translator.CalendarAttendeeStatus_Accepted,
+            AttendeeStatus.Declined => Translator.CalendarAttendeeStatus_Declined,
+            AttendeeStatus.Tentative => Translator.CalendarAttendeeStatus_Tentative,
+            AttendeeStatus.NeedsAction => Translator.CalendarAttendeeStatus_NeedsAction,
+            _ => string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Returns visibility for attendee status badge.
+    /// Only shows status for non-organizers and when status is not NeedsAction.
+    /// </summary>
+    public static Microsoft.UI.Xaml.Visibility GetAttendeeStatusVisibility(AttendeeStatus status)
+    {
+        // Don't show "Needs Action" status as it's the default
+        return status == AttendeeStatus.NeedsAction 
+            ? Microsoft.UI.Xaml.Visibility.Collapsed 
+            : Microsoft.UI.Xaml.Visibility.Visible;
+    }
 }
