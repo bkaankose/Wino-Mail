@@ -480,4 +480,38 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             }
         });
     }
+
+    #region Attachments
+
+    public Task<List<CalendarAttachment>> GetAttachmentsAsync(Guid calendarItemId)
+        => Connection.Table<CalendarAttachment>().Where(x => x.CalendarItemId == calendarItemId).ToListAsync();
+
+    public async Task InsertOrReplaceAttachmentsAsync(List<CalendarAttachment> attachments)
+    {
+        if (attachments == null || attachments.Count == 0) return;
+
+        foreach (var item in attachments)
+        {
+            await Connection.InsertOrReplaceAsync(item, typeof(CalendarAttachment));
+        }
+    }
+
+    public async Task MarkAttachmentDownloadedAsync(Guid attachmentId, string localFilePath)
+    {
+        var attachment = await Connection.Table<CalendarAttachment>().FirstOrDefaultAsync(x => x.Id == attachmentId);
+
+        if (attachment == null) return;
+
+        attachment.IsDownloaded = true;
+        attachment.LocalFilePath = localFilePath;
+
+        await Connection.UpdateAsync(attachment, typeof(CalendarAttachment));
+    }
+
+    public async Task DeleteAttachmentsAsync(Guid calendarItemId)
+    {
+        await Connection.ExecuteAsync("DELETE FROM CalendarAttachment WHERE CalendarItemId = ?", calendarItemId);
+    }
+
+    #endregion
 }

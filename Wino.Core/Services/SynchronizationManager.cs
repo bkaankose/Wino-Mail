@@ -413,6 +413,53 @@ public class SynchronizationManager : ISynchronizationManager
     }
 
     /// <summary>
+    /// Downloads a calendar attachment using the appropriate synchronizer.
+    /// </summary>
+    public async Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+
+        if (calendarItem == null)
+            throw new ArgumentNullException(nameof(calendarItem));
+
+        if (attachment == null)
+            throw new ArgumentNullException(nameof(attachment));
+
+        var accountId = calendarItem.AssignedCalendar?.AccountId ?? Guid.Empty;
+        if (accountId == Guid.Empty)
+            throw new InvalidOperationException("Calendar item does not have an assigned account.");
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(accountId);
+
+        if (synchronizer == null)
+        {
+            _logger.Error("Could not find or create synchronizer for account {AccountId} to download calendar attachment", accountId);
+            throw new InvalidOperationException("No synchronizer available for downloading calendar attachment.");
+        }
+
+        _logger.Debug("Downloading calendar attachment {AttachmentId} for calendar item {CalendarItemId}",
+                     attachment.Id, calendarItem.Id);
+
+        try
+        {
+            await synchronizer.DownloadCalendarAttachmentAsync(
+                calendarItem,
+                attachment,
+                localFilePath,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to download calendar attachment {AttachmentId}", attachment.Id);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Creates a new synchronizer for a newly added account.
     /// </summary>
     /// <param name="account">Account to create synchronizer for</param>

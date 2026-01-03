@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
@@ -14,6 +16,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 
@@ -35,11 +38,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     [ObservableProperty]
     public partial bool IsDarkWebviewRenderer { get; set; }
 
+    public ObservableCollection<CalendarAttachmentViewModel> Attachments { get; } = new ObservableCollection<CalendarAttachmentViewModel>();
+
     /// <summary>
     /// Returns true if the current event has attachments.
-    /// Currently always returns false until attachments are implemented.
     /// </summary>
-    public bool HasAttachments => false; // TODO: Implement when CalendarItem attachments are added
+    public bool HasAttachments => Attachments.Count > 0;
 
     #region Details
 
@@ -200,6 +204,24 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.EventTrackingId);
 
+            // Check if organizer is in the attendees list
+            var hasOrganizerInList = attendees.Any(a => a.IsOrganizer);
+
+            // If the user is the organizer but not in attendees list, add them
+            if (!hasOrganizerInList && !string.IsNullOrEmpty(currentEventItem.OrganizerEmail))
+            {
+                var organizerAttendee = new CalendarEventAttendee
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarItemId = currentEventItem.Id,
+                    Name = currentEventItem.OrganizerDisplayName ?? currentEventItem.OrganizerEmail,
+                    Email = currentEventItem.OrganizerEmail,
+                    IsOrganizer = true,
+                    AttendenceStatus = AttendeeStatus.Accepted
+                };
+                CurrentEvent.Attendees.Add(organizerAttendee);
+            }
+
             foreach (var item in attendees)
             {
                 CurrentEvent.Attendees.Add(item);
@@ -208,10 +230,34 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             // Load reminders for this calendar item
             Reminders = await _calendarService.GetRemindersAsync(currentEventItem.EventTrackingId);
             InitializeReminderOptions();
+
+            // Load attachments
+            await LoadAttachmentsAsync(currentEventItem.EventTrackingId);
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
+        }
+    }
+
+    private async Task LoadAttachmentsAsync(Guid calendarItemId)
+    {
+        Attachments.Clear();
+
+        try
+        {
+            var attachments = await _calendarService.GetAttachmentsAsync(calendarItemId);
+
+            foreach (var attachment in attachments)
+            {
+                Attachments.Add(new CalendarAttachmentViewModel(attachment));
+            }
+
+            OnPropertyChanged(nameof(HasAttachments));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error loading attachments: {ex.Message}");
         }
     }
 
@@ -428,6 +474,117 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         {
             Debug.WriteLine($"Error loading series: {ex.Message}");
         }
+    }
+
+    [RelayCommand]
+    private async Task OpenAttachmentAsync(CalendarAttachmentViewModel attachmentViewModel)
+    {
+        if (attachmentViewModel == null || CurrentEvent?.CalendarItem == null) return;
+
+        try
+        {
+            attachmentViewModel.IsBusy = true;
+
+            // If not downloaded, download it first
+            if (!attachmentViewModel.IsDownloaded)
+            {
+                await DownloadAttachmentAsync(attachmentViewModel);
+            }
+
+            // Launch the file
+            if (!string.IsNullOrEmpty(attachmentViewModel.Attachment.LocalFilePath) &&
+                File.Exists(attachmentViewModel.Attachment.LocalFilePath))
+            {
+                await _nativeAppService.LaunchFileAsync(attachmentViewModel.Attachment.LocalFilePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open calendar attachment.");
+            _dialogService.InfoBarMessage(
+                Translator.Info_AttachmentOpenFailedTitle,
+                Translator.Info_AttachmentOpenFailedMessage,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            attachmentViewModel.IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveAttachmentAsync(CalendarAttachmentViewModel attachmentViewModel)
+    {
+        if (attachmentViewModel == null) return;
+
+        try
+        {
+            attachmentViewModel.IsBusy = true;
+
+            var pickedPath = await _dialogService.PickWindowsFolderAsync();
+            if (string.IsNullOrEmpty(pickedPath)) return;
+
+            // Download if not already downloaded
+            if (!attachmentViewModel.IsDownloaded)
+            {
+                await DownloadAttachmentAsync(attachmentViewModel);
+            }
+
+            // Copy to selected location
+            if (!string.IsNullOrEmpty(attachmentViewModel.Attachment.LocalFilePath) &&
+                File.Exists(attachmentViewModel.Attachment.LocalFilePath))
+            {
+                var destinationPath = Path.Combine(pickedPath, attachmentViewModel.FileName);
+                File.Copy(attachmentViewModel.Attachment.LocalFilePath, destinationPath, overwrite: true);
+
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AttachmentSaveSuccessTitle,
+                    Translator.Info_AttachmentSaveSuccessMessage,
+                    InfoBarMessageType.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to save calendar attachment.");
+            _dialogService.InfoBarMessage(
+                Translator.Info_AttachmentSaveFailedTitle,
+                Translator.Info_AttachmentSaveFailedMessage,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            attachmentViewModel.IsBusy = false;
+        }
+    }
+
+    private async Task DownloadAttachmentAsync(CalendarAttachmentViewModel attachmentViewModel)
+    {
+        if (CurrentEvent?.CalendarItem == null) return;
+
+        // Create attachments folder for this calendar item
+        var attachmentsFolder = Path.Combine(
+            _nativeAppService.GetCalendarAttachmentsFolderPath(),
+            CurrentEvent.CalendarItem.Id.ToString());
+
+        Directory.CreateDirectory(attachmentsFolder);
+
+        var localFilePath = Path.Combine(attachmentsFolder, attachmentViewModel.FileName);
+
+        // Download attachment using synchronizer
+        await SynchronizationManager.Instance.DownloadCalendarAttachmentAsync(
+            CurrentEvent.CalendarItem,
+            attachmentViewModel.Attachment,
+            localFilePath);
+
+        // Mark as downloaded
+        await _calendarService.MarkAttachmentDownloadedAsync(
+            attachmentViewModel.Id,
+            localFilePath);
+
+        // Update view model
+        attachmentViewModel.Attachment.IsDownloaded = true;
+        attachmentViewModel.Attachment.LocalFilePath = localFilePath;
+        OnPropertyChanged(nameof(attachmentViewModel.IsDownloaded));
     }
 }
 

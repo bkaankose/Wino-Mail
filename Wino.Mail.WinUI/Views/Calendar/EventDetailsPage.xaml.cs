@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Web.WebView2.Core;
 using Windows.System;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
@@ -202,5 +203,29 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         base.UnregisterRecipients();
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
         WeakReferenceMessenger.Default.Unregister<CalendarDescriptionRenderingRequested>(this);
+    }
+
+    private void AttachmentClicked(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is CalendarAttachmentViewModel attachmentViewModel)
+        {
+            ViewModel?.OpenAttachmentCommand.Execute(attachmentViewModel);
+        }
+    }
+
+    private void OpenCalendarAttachment_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is CalendarAttachmentViewModel attachment)
+        {
+            ViewModel?.OpenAttachmentCommand.Execute(attachment);
+        }
+    }
+
+    private void SaveCalendarAttachment_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is CalendarAttachmentViewModel attachment)
+        {
+            ViewModel?.SaveAttachmentCommand.Execute(attachment);
+        }
     }
 }

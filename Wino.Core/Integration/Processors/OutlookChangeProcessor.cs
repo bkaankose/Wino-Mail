@@ -195,6 +195,27 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             };
         }
 
+        // Prepare attachments metadata from Outlook event
+        List<CalendarAttachment> attachments = null;
+        if (calendarEvent.HasAttachments.GetValueOrDefault() && calendarEvent.Attachments != null)
+        {
+            attachments = calendarEvent.Attachments
+                .Where(a => a != null && !string.IsNullOrEmpty(a.Name))
+                .Select(a => new CalendarAttachment
+                {
+                    Id = Guid.NewGuid(),
+                    CalendarItemId = savingItemId,
+                    RemoteAttachmentId = a.Id,
+                    FileName = a.Name,
+                    Size = a.Size ?? 0,
+                    ContentType = a.ContentType ?? "application/octet-stream",
+                    IsDownloaded = false,
+                    LocalFilePath = null,
+                    LastModified = calendarEvent.LastModifiedDateTime ?? DateTimeOffset.UtcNow
+                })
+                .ToList();
+        }
+
         // Use CalendarService to create or update the event
         if (isNewItem)
         {
@@ -209,5 +230,11 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
 
         // Save reminders separately
         await CalendarService.SaveRemindersAsync(savingItemId, reminders).ConfigureAwait(false);
+
+        // Save attachments metadata separately
+        if (attachments != null && attachments.Count > 0)
+        {
+            await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
+        }
     }
 }

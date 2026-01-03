@@ -243,6 +243,18 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _clientPool.Release(client);
     }
 
+    public override Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        // IMAP protocol doesn't support calendar operations natively
+        // Calendar functionality would require CalDAV protocol
+        _logger.Warning("IMAP protocol does not support calendar attachments. CalDAV would be required.");
+        throw new NotSupportedException("IMAP does not support calendar attachments. Use Outlook or Gmail for calendar functionality.");
+    }
+
     public override List<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
     {
         return CreateSingleTaskBundle(async (client, item) =>

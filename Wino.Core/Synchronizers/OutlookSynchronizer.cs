@@ -1337,6 +1337,61 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
     }
 
+    public override async Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var calendar = calendarItem.AssignedCalendar;
+
+            // First, get the attachment metadata to retrieve contentBytes for FileAttachment
+            var attachmentItem = await _graphClient.Me
+                .Calendars[calendar.RemoteCalendarId]
+                .Events[calendarItem.RemoteEventId]
+                .Attachments[attachment.RemoteAttachmentId]
+                .GetAsync(cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            if (attachmentItem == null)
+            {
+                _logger.Error("Failed to retrieve attachment {AttachmentId} for event {EventId}", attachment.RemoteAttachmentId, calendarItem.RemoteEventId);
+                throw new InvalidOperationException("Failed to retrieve attachment.");
+            }
+
+            byte[] contentBytes = null;
+
+            // Handle FileAttachment (has ContentBytes property)
+            if (attachmentItem is FileAttachment fileAttachment && fileAttachment.ContentBytes != null)
+            {
+                contentBytes = fileAttachment.ContentBytes;
+            }
+            // Handle ItemAttachment (embedded items like emails)
+            else if (attachmentItem is ItemAttachment)
+            {
+                _logger.Warning("ItemAttachment type not supported for download. AttachmentId: {AttachmentId}", attachment.RemoteAttachmentId);
+                throw new NotSupportedException("ItemAttachment downloads are not currently supported.");
+            }
+            else
+            {
+                _logger.Error("Unknown attachment type or missing content for {AttachmentId}", attachment.RemoteAttachmentId);
+                throw new InvalidOperationException("Attachment content is not available.");
+            }
+
+            // Save to local file
+            await System.IO.File.WriteAllBytesAsync(localFilePath, contentBytes, cancellationToken).ConfigureAwait(false);
+
+            _logger.Information("Downloaded calendar attachment {FileName} to {LocalPath}", attachment.FileName, localFilePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error downloading calendar attachment {AttachmentId}", attachment.Id);
+            throw;
+        }
+    }
+
     public override List<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
     {
         var requestBody = new MailFolder
@@ -1693,9 +1748,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     {
                         await _handleCalendarEventRetrievalSemaphore.WaitAsync();
 
-                        // Check if the event has complete information
-                        // Sometimes delta sync returns events with only Id available
-                        Event fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false); ;
+                        Event fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id]
+                            .GetAsync(requestConfiguration =>
+                            {
+                                // Expand attachments but only get metadata, not the full content
+                                requestConfiguration.QueryParameters.Expand = new[] { "attachments($select=id,name,contentType,size,isInline)" };
+                            }, cancellationToken: cancellationToken).ConfigureAwait(false);
                         await _outlookChangeProcessor.ManageCalendarEventAsync(fullEvent, calendar, Account).ConfigureAwait(false);
                     }
                     catch (Exception ex)

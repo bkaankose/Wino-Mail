@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Google.Apis.Calendar.v3.Data;
 using Serilog;
@@ -250,10 +251,37 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                 }
             }
 
+            // Prepare attachments metadata from Gmail event
+            List<CalendarAttachment> attachments = null;
+            if (calendarEvent.Attachments != null && calendarEvent.Attachments.Count > 0)
+            {
+                attachments = calendarEvent.Attachments
+                    .Where(a => a != null && !string.IsNullOrEmpty(a.Title))
+                    .Select(a => new CalendarAttachment
+                    {
+                        Id = Guid.NewGuid(),
+                        CalendarItemId = calendarItem.Id,
+                        RemoteAttachmentId = a.FileId ?? a.FileUrl, // Gmail uses FileId or FileUrl
+                        FileName = a.Title,
+                        Size = 0, // Gmail API doesn't provide size in Event.Attachment
+                        ContentType = a.MimeType ?? "application/octet-stream",
+                        IsDownloaded = false,
+                        LocalFilePath = null,
+                        LastModified = DateTimeOffset.UtcNow
+                    })
+                    .ToList();
+            }
+
             await CalendarService.CreateNewCalendarItemAsync(calendarItem, attendees);
 
             // Save reminders separately
             await CalendarService.SaveRemindersAsync(calendarItem.Id, reminders).ConfigureAwait(false);
+
+            // Save attachments metadata separately
+            if (attachments != null && attachments.Count > 0)
+            {
+                await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
+            }
         }
         else
         {
@@ -315,6 +343,33 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
             // Save reminders
             await CalendarService.SaveRemindersAsync(existingCalendarItem.Id, reminders).ConfigureAwait(false);
+
+            // Prepare attachments metadata from Gmail event for update
+            List<CalendarAttachment> attachments = null;
+            if (calendarEvent.Attachments != null && calendarEvent.Attachments.Count > 0)
+            {
+                attachments = calendarEvent.Attachments
+                    .Where(a => a != null && !string.IsNullOrEmpty(a.Title))
+                    .Select(a => new CalendarAttachment
+                    {
+                        Id = Guid.NewGuid(),
+                        CalendarItemId = existingCalendarItem.Id,
+                        RemoteAttachmentId = a.FileId ?? a.FileUrl,
+                        FileName = a.Title,
+                        Size = 0,
+                        ContentType = a.MimeType ?? "application/octet-stream",
+                        IsDownloaded = false,
+                        LocalFilePath = null,
+                        LastModified = DateTimeOffset.UtcNow
+                    })
+                    .ToList();
+            }
+
+            // Save attachments metadata
+            if (attachments != null && attachments.Count > 0)
+            {
+                await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
+            }
         }
 
         // Upsert the event.

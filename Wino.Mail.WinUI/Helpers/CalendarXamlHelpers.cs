@@ -128,13 +128,11 @@ public static class CalendarXamlHelpers
 
     /// <summary>
     /// Returns visibility for attendee status badge.
-    /// Only shows status for non-organizers and when status is not NeedsAction.
+    /// Always shows status for all attendees.
     /// </summary>
     public static Microsoft.UI.Xaml.Visibility GetAttendeeStatusVisibility(AttendeeStatus status)
     {
-        // Don't show "Needs Action" status as it's the default
-        return status == AttendeeStatus.NeedsAction 
-            ? Microsoft.UI.Xaml.Visibility.Collapsed 
-            : Microsoft.UI.Xaml.Visibility.Visible;
+        // Always show status
+        return Microsoft.UI.Xaml.Visibility.Visible;
     }
 }

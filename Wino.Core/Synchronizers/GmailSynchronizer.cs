@@ -1242,6 +1242,39 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
     }
 
+    public override async Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Gmail calendar attachments are stored in Google Drive
+            // RemoteAttachmentId contains either FileId or FileUrl
+            // For simplicity, we'll try to download from the FileId/FileUrl
+            
+            if (string.IsNullOrEmpty(attachment.RemoteAttachmentId))
+            {
+                _logger.Error("RemoteAttachmentId is empty for attachment {AttachmentId}", attachment.Id);
+                throw new InvalidOperationException("RemoteAttachmentId is required to download Gmail calendar attachment.");
+            }
+
+            // Gmail calendar attachments are links to Google Drive files
+            // The attachment.RemoteAttachmentId is either a FileId or FileUrl
+            // Since we can't directly download from Calendar API, this would require Drive API access
+            // For now, throw NotSupportedException as Gmail attachments require additional Drive API setup
+            
+            _logger.Warning("Gmail calendar attachment download requires Google Drive API access. FileId/URL: {RemoteId}", attachment.RemoteAttachmentId);
+            throw new NotSupportedException("Gmail calendar attachments are stored in Google Drive and require additional API configuration to download.");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error downloading Gmail calendar attachment {AttachmentId}", attachment.Id);
+            throw;
+        }
+    }
+
     public override List<IRequestBundle<IClientServiceRequest>> RenameFolder(RenameFolderRequest request)
     {
         var label = new Label()

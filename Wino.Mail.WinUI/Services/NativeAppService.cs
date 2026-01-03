@@ -103,4 +103,14 @@ public class NativeAppService : INativeAppService
 
         //await taskbarManager.RequestPinCurrentAppAsync();
     }
+
+    public bool IsAppRunningInBackground()
+        => !Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().HasThreadAccess;
+
+    public string GetCalendarAttachmentsFolderPath()
+    {
+        var attachmentsFolder = System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, "CalendarAttachments");
+        System.IO.Directory.CreateDirectory(attachmentsFolder);
+        return attachmentsFolder;
+    }
 }

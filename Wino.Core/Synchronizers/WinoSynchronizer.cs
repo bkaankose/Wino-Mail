@@ -527,6 +527,19 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual Task DownloadMissingMimeMessageAsync(MailCopy mailItem, ITransferProgress transferProgress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     /// <summary>
+    /// Downloads a calendar attachment from the provider.
+    /// </summary>
+    /// <param name="calendarItem">Calendar item the attachment belongs to.</param>
+    /// <param name="attachment">Attachment metadata to download.</param>
+    /// <param name="localFilePath">Local file path to save the attachment to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public virtual Task DownloadCalendarAttachmentAsync(
+        Wino.Core.Domain.Entities.Calendar.CalendarItem calendarItem,
+        Wino.Core.Domain.Entities.Calendar.CalendarAttachment attachment,
+        string localFilePath,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    /// <summary>
     /// Performs an online search for the given query text in the given folders.
     /// Downloads the missing messages from the server.
     /// </summary>

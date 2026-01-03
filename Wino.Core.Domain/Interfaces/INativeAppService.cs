@@ -22,4 +22,9 @@ public interface INativeAppService
     /// This is used to display WAM broker dialog on running UWP app called by a windowless server code.
     /// </summary>
     Func<IntPtr> GetCoreWindowHwnd { get; set; }
+
+    /// <summary>
+    /// Gets the folder path where calendar attachments are stored.
+    /// </summary>
+    string GetCalendarAttachmentsFolderPath();
 }

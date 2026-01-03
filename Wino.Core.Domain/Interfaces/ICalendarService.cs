@@ -54,4 +54,28 @@ public interface ICalendarService
     /// Gets predefined reminder options in minutes (1 Hour, 30 Min, 15 Min, 5 Min, 1 Min).
     /// </summary>
     int[] GetPredefinedReminderMinutes();
+
+    #region Attachments
+
+    /// <summary>
+    /// Gets all attachments for a calendar event.
+    /// </summary>
+    Task<List<CalendarAttachment>> GetAttachmentsAsync(Guid calendarItemId);
+
+    /// <summary>
+    /// Inserts or updates calendar attachments.
+    /// </summary>
+    Task InsertOrReplaceAttachmentsAsync(List<CalendarAttachment> attachments);
+
+    /// <summary>
+    /// Marks an attachment as downloaded and updates its local file path.
+    /// </summary>
+    Task MarkAttachmentDownloadedAsync(Guid attachmentId, string localFilePath);
+
+    /// <summary>
+    /// Deletes all attachments for a calendar item.
+    /// </summary>
+    Task DeleteAttachmentsAsync(Guid calendarItemId);
+
+    #endregion
 }
