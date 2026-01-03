@@ -11,6 +11,7 @@ using Itenso.TimePeriod;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
@@ -253,14 +254,33 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return result;
     }
 
-    public Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
-        => Connection.GetAsync<AccountCalendar>(accountCalendarId);
-
-    public Task<CalendarItem> GetCalendarItemAsync(Guid id)
+    public async Task<AccountCalendar> GetAccountCalendarAsync(Guid accountCalendarId)
     {
-        return Connection.FindWithQueryAsync<CalendarItem>(
+        var calendar = await Connection.GetAsync<AccountCalendar>(accountCalendarId);
+        if (calendar != null)
+        {
+            calendar.MailAccount = await Connection.GetAsync<MailAccount>(calendar.AccountId);
+        }
+        return calendar;
+    }
+
+    public async Task<CalendarItem> GetCalendarItemAsync(Guid id)
+    {
+        var calendarItem = await Connection.FindWithQueryAsync<CalendarItem>(
             "SELECT * FROM CalendarItem WHERE Id = ?",
             id);
+
+        // Load assigned calendar and account.
+        if (calendarItem != null)
+        {
+            calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
+            if (calendarItem.AssignedCalendar != null)
+            {
+                calendarItem.AssignedCalendar.MailAccount = await Connection.GetAsync<MailAccount>(calendarItem.AssignedCalendar.AccountId);
+            }
+        }
+
+        return calendarItem;
     }
 
     public async Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId)
@@ -269,10 +289,14 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
             accountCalendarId, remoteEventId);
 
-        // Load assigned calendar.
+        // Load assigned calendar and account.
         if (calendarItem != null)
         {
             calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
+            if (calendarItem.AssignedCalendar != null)
+            {
+                calendarItem.AssignedCalendar.MailAccount = await Connection.GetAsync<MailAccount>(calendarItem.AssignedCalendar.AccountId);
+            }
         }
 
         return calendarItem;

@@ -36,7 +36,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     [NotifyPropertyChangedFor(nameof(CanViewSeries))]
     [NotifyPropertyChangedFor(nameof(CanEditSeries))]
     [NotifyPropertyChangedFor(nameof(IsCurrentUserOrganizer))]
+    [NotifyPropertyChangedFor(nameof(CurrentRsvpText))]
+    [NotifyPropertyChangedFor(nameof(CurrentRsvpStatus))]
     public partial CalendarItemViewModel CurrentEvent { get; set; }
+
     [ObservableProperty]
     public partial CalendarItemViewModel SeriesParent { get; set; }
     [ObservableProperty]
@@ -80,6 +83,45 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     #endregion
 
+    #region RSVP Panel
+
+    [ObservableProperty]
+    public partial bool IsRsvpPanelVisible { get; set; }
+
+    public bool IncludeRsvpMessage => !string.IsNullOrEmpty(RsvpMessage);
+
+    [ObservableProperty]
+    public partial string RsvpMessage { get; set; } = string.Empty;
+
+    public ObservableCollection<RsvpStatusOption> RsvpStatusOptions { get; } = new ObservableCollection<RsvpStatusOption>();
+
+    public CalendarItemStatus CurrentRsvpStatus
+    {
+        get
+        {
+            return CurrentEvent?.CalendarItem?.Status ?? CalendarItemStatus.NotResponded;
+        }
+    }
+
+    public string CurrentRsvpText
+    {
+        get
+        {
+            if (CurrentEvent?.CalendarItem == null) return Translator.CalendarEventResponse_Accept;
+
+            return CurrentEvent.CalendarItem.Status switch
+            {
+                CalendarItemStatus.Accepted => Translator.CalendarEventResponse_AcceptedResponse,
+                CalendarItemStatus.Tentative => Translator.CalendarEventResponse_TentativeResponse,
+                CalendarItemStatus.Cancelled => Translator.CalendarEventResponse_DeclinedResponse,
+                CalendarItemStatus.NotResponded => Translator.CalendarEventResponse_NotResponded,
+                _ => throw new NotImplementedException()
+            };
+        }
+    }
+
+    #endregion
+
     public EventDetailsPageViewModel(ICalendarService calendarService,
                                      INativeAppService nativeAppService,
                                      IPreferencesService preferencesService,
@@ -95,6 +137,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _navigationService = navigationService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
+
+        // Initialize RSVP status options
+        RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Accepted));
+        RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Tentative));
+        RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Cancelled));
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -107,6 +154,17 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             return;
 
         await LoadCalendarItemTargetAsync(args);
+    }
+
+    protected override void OnCalendarItemDeleted(CalendarItem calendarItem)
+    {
+        base.OnCalendarItemDeleted(calendarItem);
+
+        // If the current event was deleted, navigate back
+        if (CurrentEvent?.CalendarItem?.Id == calendarItem.Id || CurrentEvent?.CalendarItem.RecurringCalendarItemId == calendarItem.Id)
+        {
+            _navigationService.GoBack();
+        }
     }
 
     private async Task LoadCalendarItemTargetAsync(CalendarItemTarget target)
@@ -265,11 +323,68 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     }
 
     [RelayCommand]
-    private async Task RespondAsync(CalendarItemStatus status)
+    private void ToggleRsvpPanel()
+    {
+        IsRsvpPanelVisible = !IsRsvpPanelVisible;
+
+        if (IsRsvpPanelVisible && CurrentEvent?.CalendarItem != null)
+        {
+            // Initialize selection based on current status
+            foreach (var item in RsvpStatusOptions)
+            {
+                item.IsSelected = CurrentEvent?.CalendarItem?.Status == item.Status;
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void CloseRsvpPanel()
+    {
+        IsRsvpPanelVisible = false;
+        RsvpMessage = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task SendRsvpResponse(AttendeeStatus status)
     {
         if (CurrentEvent == null) return;
 
-        // TODO: Implement response
+        try
+        {
+            // Get the optional response message if user wants to include it
+            var responseMessage = IncludeRsvpMessage ? RsvpMessage : null;
+
+            // Map status to operation
+            CalendarSynchronizerOperation operation = status switch
+            {
+                AttendeeStatus.Accepted => CalendarSynchronizerOperation.AcceptEvent,
+                AttendeeStatus.Tentative => CalendarSynchronizerOperation.TentativeEvent,
+                AttendeeStatus.Declined => CalendarSynchronizerOperation.DeclineEvent,
+                _ => throw new InvalidOperationException($"Invalid RSVP status: {status}")
+            };
+
+            // Create preparation request with the optional message
+            var preparationRequest = new CalendarOperationPreparationRequest(
+                operation,
+                CurrentEvent.CalendarItem,
+                null,
+                responseMessage);
+
+            await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+
+            OnPropertyChanged(nameof(CurrentRsvpText));
+            OnPropertyChanged(nameof(CurrentRsvpStatus));
+
+            CloseRsvpPanel();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error sending RSVP response: {ex.Message}");
+            _dialogService.InfoBarMessage(
+                Translator.Info_AttachmentSaveFailedTitle,
+                ex.Message,
+                InfoBarMessageType.Error);
+        }
     }
 
     [RelayCommand]
@@ -321,5 +436,32 @@ public partial class ReminderOption : ObservableObject
     {
         Minutes = minutes;
         IsCustom = isCustom;
+    }
+}
+
+public partial class RsvpStatusOption : ObservableObject
+{
+    public CalendarItemStatus Status { get; }
+
+    public string StatusText
+    {
+        get
+        {
+            return Status switch
+            {
+                CalendarItemStatus.Accepted => Translator.CalendarEventResponse_Accept,
+                CalendarItemStatus.Tentative => Translator.CalendarEventResponse_Tentative,
+                CalendarItemStatus.Cancelled => Translator.CalendarEventResponse_Decline,
+                _ => Translator.CalendarEventResponse_Accept
+            };
+        }
+    }
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    public RsvpStatusOption(CalendarItemStatus status)
+    {
+        Status = status;
     }
 }

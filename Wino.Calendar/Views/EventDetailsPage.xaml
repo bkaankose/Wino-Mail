@@ -258,9 +258,9 @@
                                             Height="40"
                                             DisplayName="{x:Bind Name}" />
 
-                                        <!--  TODO: Organizer  -->
-                                        <Grid Grid.Column="1">
+                                        <Grid Grid.Column="1" RowSpacing="4">
                                             <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
@@ -269,7 +269,21 @@
                                             <TextBlock
                                                 Grid.Row="1"
                                                 FontSize="13"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{x:Bind Email}" />
+                                            <Border
+                                                Grid.Row="2"
+                                                Padding="6,2"
+                                                HorizontalAlignment="Left"
+                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                CornerRadius="4"
+                                                Visibility="{x:Bind IsOrganizer}">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="SemiBold"
+                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                    Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
+                                            </Border>
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>

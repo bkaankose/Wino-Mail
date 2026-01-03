@@ -349,10 +349,10 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
     {
         return status switch
         {
-            "confirmed" => CalendarItemStatus.Confirmed,
+            "confirmed" => CalendarItemStatus.Accepted,
             "tentative" => CalendarItemStatus.Tentative,
             "cancelled" => CalendarItemStatus.Cancelled,
-            _ => CalendarItemStatus.Confirmed
+            _ => CalendarItemStatus.Accepted
         };
     }
 

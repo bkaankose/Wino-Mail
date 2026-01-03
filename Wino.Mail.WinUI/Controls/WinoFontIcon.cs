@@ -101,7 +101,15 @@ public enum WinoIconGlyph
     EventJoinOnline,
     ViewMessageSource,
     Apple,
-    Yahoo
+    Yahoo,
+    People,
+    AttachmentNew,
+    CalendarSettings,
+    SettingsNew,
+    ManageAccounts,
+    SendNew,
+    CalendarShowAs,
+    Dismiss
 }
 
 public partial class WinoFontIcon : FontIcon

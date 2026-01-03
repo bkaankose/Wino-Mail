@@ -8,25 +8,69 @@
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
     xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:ctControls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:selectors="using:Wino.Mail.WinUI.Selectors"
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
     <Page.Resources>
+        <selectors:RsvpStatusIconTemplateSelector x:Key="RsvpStatusIconSelector">
+            <selectors:RsvpStatusIconTemplateSelector.NotRespondedTemplate>
+                <DataTemplate>
+                    <coreControls:WinoFontIcon
+                        FontSize="20"
+                        Foreground="{ThemeResource SystemAccentColor}"
+                        Icon="EventRespond" />
+                </DataTemplate>
+            </selectors:RsvpStatusIconTemplateSelector.NotRespondedTemplate>
+            <selectors:RsvpStatusIconTemplateSelector.ConfirmedTemplate>
+                <DataTemplate>
+                    <coreControls:WinoFontIcon
+                        FontSize="20"
+                        Foreground="#527257"
+                        Icon="EventAccept" />
+                </DataTemplate>
+            </selectors:RsvpStatusIconTemplateSelector.ConfirmedTemplate>
+            <selectors:RsvpStatusIconTemplateSelector.TentativeTemplate>
+                <DataTemplate>
+                    <coreControls:WinoFontIcon
+                        FontSize="20"
+                        Foreground="#805682"
+                        Icon="EventTentative" />
+                </DataTemplate>
+            </selectors:RsvpStatusIconTemplateSelector.TentativeTemplate>
+            <selectors:RsvpStatusIconTemplateSelector.CancelledTemplate>
+                <DataTemplate>
+                    <coreControls:WinoFontIcon
+                        FontSize="20"
+                        Foreground="{ThemeResource DeleteBrush}"
+                        Icon="EventDecline" />
+                </DataTemplate>
+            </selectors:RsvpStatusIconTemplateSelector.CancelledTemplate>
+        </selectors:RsvpStatusIconTemplateSelector>
+
+        <Style
+            x:Key="TransparentActionButtonStyle"
+            BasedOn="{StaticResource DefaultButtonStyle}"
+            TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+
         <Style x:Key="ActionBarElementContainerStackStyle" TargetType="StackPanel">
             <Setter Property="Spacing" Value="6" />
             <Setter Property="Padding" Value="10,0,4,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Orientation" Value="Horizontal" />
-        </Style>
-
-        <Style TargetType="AppBarElementContainer">
-            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="EventDetailsPanelGridStyle" TargetType="Grid">
@@ -47,6 +91,7 @@
     <Grid Padding="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -57,92 +102,100 @@
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="7">
-            <CommandBar
-                HorizontalAlignment="Left"
-                Background="Transparent"
-                DefaultLabelPosition="Right"
-                IsSticky="True"
-                OverflowButtonVisibility="Auto">
-                <AppBarToggleButton
-                    x:Name="ReadOnlyToggle"
-                    Content="{x:Bind domain:Translator.CalendarEventDetails_ReadOnlyEvent}"
-                    IsChecked="True" />
-                <AppBarButton Command="{x:Bind ViewModel.SaveCommand}" Label="{x:Bind domain:Translator.Buttons_Save}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Icon="Save" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
-                <AppBarButton Command="{x:Bind ViewModel.DeleteCommand}" Label="{x:Bind domain:Translator.Buttons_Delete}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Icon="Delete" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+            <Grid Padding="8">
+                <ctControls:WrapPanel
+                    x:Name="ActionBarWrapGrid"
+                    HorizontalAlignment="Left"
+                    HorizontalSpacing="4"
+                    VerticalSpacing="4">
 
-                <AppBarSeparator />
+                    <!--  Read Only Toggle  -->
+                    <ToggleButton
+                        x:Name="ReadOnlyToggle"
+                        IsChecked="True"
+                        Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="Blocked" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_ReadOnlyEvent}" />
+                        </StackPanel>
+                    </ToggleButton>
 
-                <!--  Join Online  -->
-                <AppBarButton
-                    Command="{x:Bind ViewModel.JoinOnlineCommand}"
-                    IsEnabled="{x:Bind calendarHelpers:CalendarXamlHelpers.HasOnlineMeetingLink(ViewModel.CurrentEvent), Mode=OneWay}"
-                    Label="{x:Bind domain:Translator.CalendarEventDetails_JoinOnline}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Icon="EventJoinOnline" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+                    <!--  Save  -->
+                    <Button Command="{x:Bind ViewModel.SaveCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="Save" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Save}" />
+                        </StackPanel>
+                    </Button>
 
-                <AppBarSeparator />
+                    <!--  Delete  -->
+                    <Button Command="{x:Bind ViewModel.DeleteCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="Delete" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Delete}" />
+                        </StackPanel>
+                    </Button>
 
-                <!--  Response Options  -->
+                    <Border
+                        Width="1"
+                        Height="24"
+                        Margin="4,0"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-                <AppBarButton
-                    Command="{x:Bind ViewModel.RespondCommand}"
-                    CommandParameter="{x:Bind enums:CalendarItemStatus.Confirmed}"
-                    Label="{x:Bind domain:Translator.CalendarEventResponse_Accept}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Foreground="#527257" Icon="EventAccept" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+                    <!--  Join Online  -->
+                    <Button
+                        Command="{x:Bind ViewModel.JoinOnlineCommand}"
+                        IsEnabled="{x:Bind calendarHelpers:CalendarXamlHelpers.HasOnlineMeetingLink(ViewModel.CurrentEvent), Mode=OneWay}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="EventJoinOnline" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_JoinOnline}" />
+                        </StackPanel>
+                    </Button>
 
-                <AppBarButton
-                    Command="{x:Bind ViewModel.RespondCommand}"
-                    CommandParameter="{x:Bind enums:CalendarItemStatus.Tentative}"
-                    Label="{x:Bind domain:Translator.CalendarEventResponse_Tentative}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Foreground="#805682" Icon="EventTentative" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+                    <Border
+                        Width="1"
+                        Height="24"
+                        Margin="4,0"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-                <AppBarButton
-                    Command="{x:Bind ViewModel.RespondCommand}"
-                    CommandParameter="{x:Bind enums:CalendarItemStatus.Cancelled}"
-                    Label="{x:Bind domain:Translator.CalendarEventResponse_Decline}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Foreground="#805682" Icon="EventRespond" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
+                    <!--  RSVP Button  -->
+                    <Button Command="{x:Bind ViewModel.ToggleRsvpPanelCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ContentControl Content="{x:Bind ViewModel.CurrentRsvpStatus, Mode=OneWay}" ContentTemplateSelector="{StaticResource RsvpStatusIconSelector}" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.CurrentRsvpText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Button>
 
-                <AppBarSeparator />
+                    <Border
+                        Width="1"
+                        Height="24"
+                        Margin="4,0"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-                <!--  Show as  -->
-                <AppBarElementContainer>
-                    <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
-                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_ShowAs}" />
+                    <!--  Show as  -->
+                    <StackPanel
+                        Padding="12,0"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <coreControls:WinoFontIcon FontSize="20" Icon="CalendarShowAs" />
                         <ComboBox
                             Width="150"
+                            VerticalAlignment="Center"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
                             SelectedItem="{x:Bind ViewModel.SelectedShowAs, Mode=TwoWay}" />
                     </StackPanel>
-                </AppBarElementContainer>
 
-                <!--  Reminder  -->
-                <AppBarElementContainer>
-                    <Button>
-                        <Button.Content>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
-                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
-                            </StackPanel>
-                        </Button.Content>
+                    <!--  Reminder  -->
+                    <Button Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_Reminder}" />
+                        </StackPanel>
                         <Button.Flyout>
                             <Flyout>
                                 <ListView
@@ -159,24 +212,124 @@
                             </Flyout>
                         </Button.Flyout>
                     </Button>
-                </AppBarElementContainer>
 
-                <AppBarSeparator Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}" />
+                    <!--  Edit Series  -->
+                    <Border
+                        Width="1"
+                        Height="24"
+                        Margin="4,0"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}" />
 
-                <!--  Edit Series  -->
-                <AppBarButton
-                    Command="{x:Bind ViewModel.ViewSeriesCommand}"
-                    Label="{x:Bind domain:Translator.CalendarEventDetails_EditSeries}"
-                    Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
-                    <AppBarButton.Icon>
-                        <coreControls:WinoFontIcon Icon="EventEditSeries" />
-                    </AppBarButton.Icon>
-                </AppBarButton>
-            </CommandBar>
+                    <Button
+                        Command="{x:Bind ViewModel.ViewSeriesCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}"
+                        Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="16" Icon="EventEditSeries" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_EditSeries}" />
+                        </StackPanel>
+                    </Button>
+                </ctControls:WrapPanel>
+            </Grid>
+        </Border>
+
+        <!--  RSVP Panel  -->
+        <Border
+            Grid.Row="1"
+            Margin="0,8,0,0"
+            Padding="16"
+            VerticalAlignment="Top"
+            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="7"
+            Visibility="{x:Bind ViewModel.IsRsvpPanelVisible, Mode=OneWay}">
+            <Grid RowSpacing="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  Close Button  -->
+                <Button
+                    Grid.Column="1"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Command="{x:Bind ViewModel.CloseRsvpPanelCommand}"
+                    Style="{StaticResource TransparentActionButtonStyle}">
+                    <coreControls:WinoFontIcon FontSize="16" Icon="Dismiss" />
+                </Button>
+
+                <!--  RSVP Buttons  -->
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <!--  Accept  -->
+                    <Button
+                        Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                        CommandParameter="{x:Bind enums:AttendeeStatus.Accepted}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon
+                                FontSize="20"
+                                Foreground="#527257"
+                                Icon="EventAccept" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Accept, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+
+                    <!--  Tentative  -->
+                    <Button
+                        Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                        CommandParameter="{x:Bind enums:AttendeeStatus.Tentative}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon
+                                FontSize="20"
+                                Foreground="#805682"
+                                Icon="EventTentative" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Tentative, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+
+                    <!--  Decline  -->
+                    <Button
+                        Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                        CommandParameter="{x:Bind enums:AttendeeStatus.Declined}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon
+                                FontSize="20"
+                                Foreground="{ThemeResource DeleteBrush}"
+                                Icon="EventDecline" />
+                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Decline, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!--  Reply Message TextBox  -->
+                <TextBox
+                    Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    VerticalAlignment="Center"
+                    AcceptsReturn="True"
+                    PlaceholderText="{x:Bind domain:Translator.CalendarEventRsvpPanel_AddMessage, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.RsvpMessage, Mode=TwoWay}"
+                    TextWrapping="Wrap">
+                    <TextBox.Header>
+                        <StackPanel Orientation="Horizontal" />
+                    </TextBox.Header>
+                </TextBox>
+            </Grid>
         </Border>
 
         <!--  Event details  -->
-        <ScrollViewer Grid.Row="1">
+        <ScrollViewer Grid.Row="2">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*" />
@@ -293,9 +446,9 @@
                                             Height="40"
                                             DisplayName="{x:Bind Name}" />
 
-                                        <!--  TODO: Organizer  -->
-                                        <Grid Grid.Column="1">
+                                        <Grid Grid.Column="1" RowSpacing="4">
                                             <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
@@ -304,7 +457,21 @@
                                             <TextBlock
                                                 Grid.Row="1"
                                                 FontSize="13"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Text="{x:Bind Email}" />
+                                            <Border
+                                                Grid.Row="2"
+                                                Padding="6,2"
+                                                HorizontalAlignment="Left"
+                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                CornerRadius="4"
+                                                Visibility="{x:Bind IsOrganizer}">
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    FontWeight="SemiBold"
+                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                    Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
+                                            </Border>
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
@@ -328,5 +495,50 @@
                 </Grid>
             </Grid>
         </ScrollViewer>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="WindowWidthStates">
+                <VisualState x:Name="WideState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1200" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="MediumState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="800" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <!--  Details takes left side (full height), People and Attachments share right side vertically  -->
+                        <Setter Target="DetailsGrid.(Grid.Row)" Value="0" />
+                        <Setter Target="DetailsGrid.(Grid.Column)" Value="0" />
+                        <Setter Target="DetailsGrid.(Grid.RowSpan)" Value="2" />
+                        <Setter Target="DetailsGrid.(Grid.ColumnSpan)" Value="1" />
+                        <Setter Target="PeopleGrid.(Grid.Row)" Value="0" />
+                        <Setter Target="PeopleGrid.(Grid.Column)" Value="1" />
+                        <Setter Target="PeopleGrid.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="AttachmentsGrid.(Grid.Row)" Value="1" />
+                        <Setter Target="AttachmentsGrid.(Grid.Column)" Value="1" />
+                        <Setter Target="AttachmentsGrid.(Grid.ColumnSpan)" Value="2" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <!--  Stack all panels vertically  -->
+                        <Setter Target="DetailsGrid.(Grid.Row)" Value="0" />
+                        <Setter Target="DetailsGrid.(Grid.Column)" Value="0" />
+                        <Setter Target="DetailsGrid.(Grid.ColumnSpan)" Value="3" />
+                        <Setter Target="PeopleGrid.(Grid.Row)" Value="1" />
+                        <Setter Target="PeopleGrid.(Grid.Column)" Value="0" />
+                        <Setter Target="PeopleGrid.(Grid.ColumnSpan)" Value="3" />
+                        <Setter Target="AttachmentsGrid.(Grid.Row)" Value="2" />
+                        <Setter Target="AttachmentsGrid.(Grid.Column)" Value="0" />
+                        <Setter Target="AttachmentsGrid.(Grid.ColumnSpan)" Value="3" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:EventDetailsPageAbstract>

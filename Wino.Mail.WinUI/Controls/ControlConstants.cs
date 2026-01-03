@@ -100,6 +100,15 @@ public static class ControlConstants
         { WinoIconGlyph.EventJoinOnline, "\uE926" },
         { WinoIconGlyph.ViewMessageSource, "\uE943" },
         { WinoIconGlyph.Apple, "\uE92B" },
-        { WinoIconGlyph.Yahoo, "\uE92C" }
+        { WinoIconGlyph.Yahoo, "\uE92C" },
+        { WinoIconGlyph.People, "\uF007" },
+        { WinoIconGlyph.AttachmentNew, "\uF006" },
+        { WinoIconGlyph.CalendarSettings, "\uF005" },
+        { WinoIconGlyph.SettingsNew, "\uF004" },
+        { WinoIconGlyph.ManageAccounts, "\uF003" },
+        { WinoIconGlyph.SendNew, "\uF002" },
+        { WinoIconGlyph.CalendarShowAs, "\uF001" },
+        { WinoIconGlyph.EventDecline, "\uF000" },
+        { WinoIconGlyph.Dismiss, "\uF008" },
     };
 }

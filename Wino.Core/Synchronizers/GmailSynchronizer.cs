@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Google;
+using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
@@ -1648,7 +1649,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             Summary = calendarItem.Title,
             Description = calendarItem.Description,
             Location = calendarItem.Location,
-            Status = calendarItem.Status == CalendarItemStatus.Confirmed ? "confirmed" : "tentative"
+            Status = calendarItem.Status == CalendarItemStatus.Accepted ? "confirmed" : "tentative"
         };
 
         // Set start and end time
@@ -1694,6 +1695,125 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var insertRequest = _calendarService.Events.Insert(googleEvent, calendar.RemoteCalendarId);
 
         return [new HttpRequestBundle<IClientServiceRequest>(insertRequest, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> AcceptEvent(AcceptEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot accept event without remote event ID");
+        }
+
+        // For Gmail, we need to patch the event with the user's response status
+        // Get the current user's email from the account
+        var userEmail = Account.Address;
+
+        // Create a patch event to update only the attendee response
+        var patchEvent = new Event();
+        
+        // We need to get the event first to update the specific attendee
+        // However, for efficiency, we'll use the patch method with sendUpdates parameter
+        var patchRequest = _calendarService.Events.Patch(new Event
+        {
+            // The API will handle updating the current user's attendee status
+            Attendees = new List<EventAttendee>
+            {
+                new EventAttendee
+                {
+                    Email = userEmail,
+                    ResponseStatus = "accepted"
+                }
+            }
+        }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+
+        // Send updates to other attendees if there's a message
+        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage) 
+            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All 
+            : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+
+        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> DeclineEvent(DeclineEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot decline event without remote event ID");
+        }
+
+        var userEmail = Account.Address;
+
+        var patchRequest = _calendarService.Events.Patch(new Event
+        {
+            Attendees = new List<EventAttendee>
+            {
+                new EventAttendee
+                {
+                    Email = userEmail,
+                    ResponseStatus = "declined",
+                    Comment = request.ResponseMessage
+                }
+            }
+        }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+
+        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage) 
+            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All 
+            : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+
+        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> TentativeEvent(TentativeEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot tentatively accept event without remote event ID");
+        }
+
+        var userEmail = Account.Address;
+
+        var patchRequest = _calendarService.Events.Patch(new Event
+        {
+            Attendees = new List<EventAttendee>
+            {
+                new EventAttendee
+                {
+                    Email = userEmail,
+                    ResponseStatus = "tentative",
+                    Comment = request.ResponseMessage
+                }
+            }
+        }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+
+        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage) 
+            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All 
+            : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
+
+        return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
     }
 
     #endregion

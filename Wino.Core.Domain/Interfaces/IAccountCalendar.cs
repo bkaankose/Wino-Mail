@@ -1,4 +1,5 @@
 ﻿using System;
+using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -12,4 +13,5 @@ public interface IAccountCalendar
     string RemoteCalendarId { get; set; }
     bool IsExtended { get; set; }
     Guid Id { get; set; }
+    MailAccount MailAccount { get; set; }
 }

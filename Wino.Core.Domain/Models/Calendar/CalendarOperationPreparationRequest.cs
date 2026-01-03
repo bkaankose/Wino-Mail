@@ -7,7 +7,8 @@ namespace Wino.Core.Domain.Models.Calendar;
 /// <summary>
 /// Encapsulates the options for preparing calendar operation requests.
 /// </summary>
-/// <param name="Operation">Calendar operation to execute (Create, Update, Delete).</param>
+/// <param name="Operation">Calendar operation to execute (Create, Update, Delete, Accept, Decline, Tentative).</param>
 /// <param name="CalendarItem">Calendar item to operate on.</param>
 /// <param name="Attendees">List of attendees for the calendar event.</param>
-public record CalendarOperationPreparationRequest(CalendarSynchronizerOperation Operation, CalendarItem CalendarItem, List<CalendarEventAttendee> Attendees);
+/// <param name="ResponseMessage">Optional message to include with event responses (Accept, Decline, Tentative).</param>
+public record CalendarOperationPreparationRequest(CalendarSynchronizerOperation Operation, CalendarItem CalendarItem, List<CalendarEventAttendee> Attendees, string ResponseMessage = null);

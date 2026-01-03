@@ -152,7 +152,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
                     break;
                 case ResponseType.Accepted:
                 case ResponseType.Organizer:
-                    savingItem.Status = CalendarItemStatus.Confirmed;
+                    savingItem.Status = CalendarItemStatus.Accepted;
                     break;
                 case ResponseType.Declined:
                     savingItem.Status = CalendarItemStatus.Cancelled;
@@ -164,7 +164,7 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         }
         else
         {
-            savingItem.Status = CalendarItemStatus.Confirmed;
+            savingItem.Status = CalendarItemStatus.Accepted;
         }
 
         // Prepare attendees list

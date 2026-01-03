@@ -364,6 +364,22 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                         case CalendarSynchronizerOperation.CreateEvent:
                             nativeRequests.AddRange(CreateCalendarEvent(group.ElementAt(0) as CreateCalendarEventRequest));
                             break;
+                        case CalendarSynchronizerOperation.AcceptEvent:
+                            nativeRequests.AddRange(AcceptEvent(group.ElementAt(0) as AcceptEventRequest));
+                            break;
+                        case CalendarSynchronizerOperation.DeclineEvent:
+                            if (Account.ProviderType == MailProviderType.Outlook)
+                            {
+                                nativeRequests.AddRange(OutlookDeclineEvent(group.ElementAt(0) as OutlookDeclineEventRequest));
+                            }
+                            else
+                            {
+                                nativeRequests.AddRange(DeclineEvent(group.ElementAt(0) as DeclineEventRequest));
+                            }
+                            break;
+                        case CalendarSynchronizerOperation.TentativeEvent:
+                            nativeRequests.AddRange(TentativeEvent(group.ElementAt(0) as TentativeEventRequest));
+                            break;
                         case CalendarSynchronizerOperation.UpdateEvent:
                             // TODO: Implement UpdateCalendarEvent
                             break;
@@ -494,6 +510,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     #region Calendar Operations
 
     public virtual List<IRequestBundle<TBaseRequest>> CreateCalendarEvent(CreateCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> AcceptEvent(AcceptEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> DeclineEvent(DeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> OutlookDeclineEvent(OutlookDeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> TentativeEvent(TentativeEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     #endregion
 

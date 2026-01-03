@@ -1,5 +1,6 @@
 ﻿using System;
 using SQLite;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Domain.Entities.Calendar;
@@ -22,4 +23,7 @@ public class AccountCalendar : IAccountCalendar
     public string TextColorHex { get; set; }
     public string BackgroundColorHex { get; set; }
     public string TimeZone { get; set; }
+
+    [Ignore]
+    public MailAccount MailAccount { get; set; }
 }

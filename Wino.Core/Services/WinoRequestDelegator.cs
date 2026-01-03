@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
@@ -141,6 +142,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             CalendarSynchronizerOperation.CreateEvent => new CreateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
             CalendarSynchronizerOperation.DeleteEvent => new DeleteCalendarEventRequest(calendarPreparationRequest.CalendarItem),
+            CalendarSynchronizerOperation.AcceptEvent => new AcceptEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
+            CalendarSynchronizerOperation.DeclineEvent => CreateDeclineRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
+            CalendarSynchronizerOperation.TentativeEvent => new TentativeEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.ResponseMessage),
             // Future support for update operations
             // CalendarSynchronizerOperation.UpdateEvent => new UpdateCalendarEventRequest(calendarPreparationRequest.CalendarItem, calendarPreparationRequest.Attendees),
             _ => throw new NotImplementedException($"Calendar operation {calendarPreparationRequest.Operation} is not implemented yet.")
@@ -148,6 +152,18 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         await QueueRequestAsync(request, calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId);
         await QueueCalendarSynchronizationAsync(calendarPreparationRequest.CalendarItem.AssignedCalendar.AccountId);
+    }
+
+    private IRequestBase CreateDeclineRequest(CalendarItem calendarItem, string responseMessage)
+    {
+        // For Outlook accounts, declined events are deleted by the server after synchronization.
+        // Use OutlookDeclineEventRequest to handle UI removal.
+        if (calendarItem.AssignedCalendar?.MailAccount?.ProviderType == MailProviderType.Outlook)
+        {
+            return new OutlookDeclineEventRequest(calendarItem, responseMessage);
+        }
+
+        return new DeclineEventRequest(calendarItem, responseMessage);
     }
 
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)

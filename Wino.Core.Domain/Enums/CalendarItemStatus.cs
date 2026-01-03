@@ -3,7 +3,7 @@
 public enum CalendarItemStatus
 {
     NotResponded,
-    Confirmed,
+    Accepted,
     Tentative,
     Cancelled,
 }

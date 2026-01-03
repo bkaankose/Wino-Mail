@@ -1680,6 +1680,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             foreach (var item in events)
             {
+                // Declined events are returned as Deleted from the API.
+                // There is no way to distinguish unfortunately atm.
+
                 if (IsResourceDeleted(item.AdditionalData))
                 {
                     await _outlookChangeProcessor.DeleteCalendarItemAsync(item.Id, calendar.Id).ConfigureAwait(false);
@@ -1884,6 +1887,80 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var createRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.ToPostRequestInformation(outlookEvent);
 
         return [new HttpRequestBundle<RequestInformation>(createRequest, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> AcceptEvent(AcceptEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot accept event without remote event ID");
+        }
+
+        var acceptRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].Accept.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.Accept.AcceptPostRequestBody
+        {
+            Comment = request.ResponseMessage,
+            SendResponse = !string.IsNullOrEmpty(request.ResponseMessage)
+        });
+
+        return [new HttpRequestBundle<RequestInformation>(acceptRequestInfo, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> OutlookDeclineEvent(OutlookDeclineEventRequest request)
+    {
+        var responseMessage = request.ResponseMessage;
+
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot decline event without remote event ID");
+        }
+
+        var declineRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].Decline.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.Decline.DeclinePostRequestBody
+        {
+            Comment = responseMessage,
+            SendResponse = !string.IsNullOrEmpty(responseMessage)
+        });
+
+        return [new HttpRequestBundle<RequestInformation>(declineRequestInfo, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> TentativeEvent(TentativeEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var calendar = calendarItem.AssignedCalendar;
+
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot tentatively accept event without remote event ID");
+        }
+
+        var tentativelyAcceptRequestInfo = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[calendarItem.RemoteEventId].TentativelyAccept.ToPostRequestInformation(new Microsoft.Graph.Me.Calendars.Item.Events.Item.TentativelyAccept.TentativelyAcceptPostRequestBody
+        {
+            Comment = request.ResponseMessage,
+            SendResponse = !string.IsNullOrEmpty(request.ResponseMessage)
+        });
+
+        return [new HttpRequestBundle<RequestInformation>(tentativelyAcceptRequestInfo, request)];
     }
 
     #endregion
