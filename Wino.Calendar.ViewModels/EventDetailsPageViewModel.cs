@@ -90,17 +90,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
     #region Show As Options
 
-    public List<CalendarItemShowAs> ShowAsOptions { get; } =
-    [
-        CalendarItemShowAs.Free,
-        CalendarItemShowAs.Tentative,
-        CalendarItemShowAs.Busy,
-        CalendarItemShowAs.OutOfOffice,
-        CalendarItemShowAs.WorkingElsewhere
-    ];
+    public ObservableCollection<ShowAsOption> ShowAsOptions { get; } = new ObservableCollection<ShowAsOption>();
 
     [ObservableProperty]
-    public partial CalendarItemShowAs SelectedShowAs { get; set; } = CalendarItemShowAs.Busy;
+    public partial ShowAsOption SelectedShowAsOption { get; set; }
 
     #endregion
 
@@ -162,6 +155,14 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
 
+        // Initialize Show As options
+        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Free));
+        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Tentative));
+        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.Busy));
+        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.OutOfOffice));
+        ShowAsOptions.Add(new ShowAsOption(CalendarItemShowAs.WorkingElsewhere));
+        SelectedShowAsOption = ShowAsOptions[2]; // Default to Busy
+
         // Initialize RSVP status options
         RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Accepted));
         RsvpStatusOptions.Add(new RsvpStatusOption(CalendarItemStatus.Tentative));
@@ -202,30 +203,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             CurrentEvent = new CalendarItemViewModel(currentEventItem);
 
-            var attendees = await _calendarService.GetAttendeesAsync(currentEventItem.EventTrackingId);
-
-            // Check if organizer is in the attendees list
-            var hasOrganizerInList = attendees.Any(a => a.IsOrganizer);
-
-            // If the user is the organizer but not in attendees list, add them
-            if (!hasOrganizerInList && !string.IsNullOrEmpty(currentEventItem.OrganizerEmail))
-            {
-                var organizerAttendee = new CalendarEventAttendee
-                {
-                    Id = Guid.NewGuid(),
-                    CalendarItemId = currentEventItem.Id,
-                    Name = currentEventItem.OrganizerDisplayName ?? currentEventItem.OrganizerEmail,
-                    Email = currentEventItem.OrganizerEmail,
-                    IsOrganizer = true,
-                    AttendenceStatus = AttendeeStatus.Accepted
-                };
-                CurrentEvent.Attendees.Add(organizerAttendee);
-            }
-
-            foreach (var item in attendees)
-            {
-                CurrentEvent.Attendees.Add(item);
-            }
+            await LoadAttendeesAsync(currentEventItem.EventTrackingId, currentEventItem);
 
             // Load reminders for this calendar item
             Reminders = await _calendarService.GetRemindersAsync(currentEventItem.EventTrackingId);
@@ -237,6 +215,36 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
+        }
+    }
+
+    private async Task LoadAttendeesAsync(Guid eventTrackingId, CalendarItem calendarItem)
+    {
+        CurrentEvent.Attendees.Clear();
+        
+        var attendees = await _calendarService.GetAttendeesAsync(eventTrackingId);
+
+        // Check if organizer is in the attendees list
+        var hasOrganizerInList = attendees.Any(a => a.IsOrganizer);
+
+        // If the user is the organizer but not in attendees list, add them
+        if (!hasOrganizerInList && !string.IsNullOrEmpty(calendarItem.OrganizerEmail))
+        {
+            var organizerAttendee = new CalendarEventAttendee
+            {
+                Id = Guid.NewGuid(),
+                CalendarItemId = calendarItem.Id,
+                Name = calendarItem.OrganizerDisplayName ?? calendarItem.OrganizerEmail,
+                Email = calendarItem.OrganizerEmail,
+                IsOrganizer = true,
+                AttendenceStatus = AttendeeStatus.Accepted
+            };
+            CurrentEvent.Attendees.Add(organizerAttendee);
+        }
+
+        foreach (var item in attendees)
+        {
+            CurrentEvent.Attendees.Add(item);
         }
     }
 
@@ -438,6 +446,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
+            // Reload attendees to get the updated status from the server
+            await LoadAttendeesAsync(CurrentEvent.CalendarItem.EventTrackingId, CurrentEvent.CalendarItem);
+
             OnPropertyChanged(nameof(CurrentRsvpText));
             OnPropertyChanged(nameof(CurrentRsvpStatus));
 
@@ -613,6 +624,32 @@ public partial class ReminderOption : ObservableObject
     {
         Minutes = minutes;
         IsCustom = isCustom;
+    }
+}
+
+public partial class ShowAsOption : ObservableObject
+{
+    public CalendarItemShowAs ShowAs { get; }
+
+    public string DisplayText
+    {
+        get
+        {
+            return ShowAs switch
+            {
+                CalendarItemShowAs.Free => Translator.CalendarShowAs_Free,
+                CalendarItemShowAs.Tentative => Translator.CalendarShowAs_Tentative,
+                CalendarItemShowAs.Busy => Translator.CalendarShowAs_Busy,
+                CalendarItemShowAs.OutOfOffice => Translator.CalendarShowAs_OutOfOffice,
+                CalendarItemShowAs.WorkingElsewhere => Translator.CalendarShowAs_WorkingElsewhere,
+                _ => Translator.CalendarShowAs_Busy
+            };
+        }
+    }
+
+    public ShowAsOption(CalendarItemShowAs showAs)
+    {
+        ShowAs = showAs;
     }
 }
 

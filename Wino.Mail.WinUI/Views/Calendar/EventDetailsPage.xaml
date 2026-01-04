@@ -110,17 +110,6 @@
                     HorizontalSpacing="4"
                     VerticalSpacing="4">
 
-                    <!--  Read Only Toggle  -->
-                    <ToggleButton
-                        x:Name="ReadOnlyToggle"
-                        IsChecked="True"
-                        Style="{StaticResource TransparentActionButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <coreControls:WinoFontIcon FontSize="16" Icon="Blocked" />
-                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventDetails_ReadOnlyEvent}" />
-                        </StackPanel>
-                    </ToggleButton>
-
                     <!--  Save  -->
                     <Button Command="{x:Bind ViewModel.SaveCommand}" Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -190,8 +179,9 @@
                         <ComboBox
                             Width="150"
                             VerticalAlignment="Center"
+                            DisplayMemberPath="DisplayText"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
-                            SelectedItem="{x:Bind ViewModel.SelectedShowAs, Mode=TwoWay}" />
+                            SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}" />
                     </StackPanel>
 
                     <!--  Reminder  -->
@@ -356,57 +346,50 @@
 
                     <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_Details}" />
 
-                    <Grid Grid.Row="1">
-                        <!--  Read-Only Event  -->
+                    <!--  Read-Only Event  -->
+                    <Grid
+                        x:Name="ReadOnlyDetailsGrid"
+                        Grid.Row="1"
+                        RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!--  Title  -->
+                        <TextBlock
+                            Style="{StaticResource SubheaderTextBlockStyle}"
+                            Text="{x:Bind ViewModel.CurrentEvent.Title, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+
+                        <!--  Date and Duration  -->
+                        <TextBlock
+                            Grid.Row="1"
+                            Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventDetailsDateString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
+                            TextWrapping="Wrap" />
+
+                        <!--  Recurrence Info  -->
                         <Grid
-                            x:Name="ReadOnlyDetailsGrid"
-                            RowSpacing="6"
-                            Visibility="{x:Bind ReadOnlyToggle.IsChecked, Mode=OneWay}">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
+                            Grid.Row="2"
+                            ColumnSpacing="6"
+                            Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringParent, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
 
-                            <!--  Title  -->
+                            <coreControls:WinoFontIcon FontSize="14" Icon="CalendarEventRepeat" />
                             <TextBlock
-                                Style="{StaticResource SubheaderTextBlockStyle}"
-                                Text="{x:Bind ViewModel.CurrentEvent.Title, Mode=OneWay}"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent), Mode=OneWay}"
                                 TextWrapping="Wrap" />
-
-                            <!--  Date and Duration  -->
-                            <TextBlock
-                                Grid.Row="1"
-                                Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetEventDetailsDateString(ViewModel.CurrentEvent, ViewModel.CurrentSettings), Mode=OneWay}"
-                                TextWrapping="Wrap" />
-
-                            <!--  Recurrence Info  -->
-                            <Grid
-                                Grid.Row="2"
-                                ColumnSpacing="6"
-                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringParent, Mode=OneWay}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <coreControls:WinoFontIcon FontSize="14" Icon="CalendarEventRepeat" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent), Mode=OneWay}"
-                                    TextWrapping="Wrap" />
-                            </Grid>
-
-                            <!--  WebView  -->
-                            <WebView2 x:Name="EventDetailsWebView" Grid.Row="3" />
                         </Grid>
 
-                        <!--  Editable Event  -->
-                        <Grid Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(ReadOnlyDetailsGrid.Visibility), Mode=OneWay}">
-                            <TextBlock Text="{x:Bind domain:Translator.CalendarEventDetails_Editing}" />
-                        </Grid>
+                        <!--  WebView  -->
+                        <WebView2 x:Name="EventDetailsWebView" Grid.Row="3" />
                     </Grid>
                 </Grid>
 
