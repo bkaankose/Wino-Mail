@@ -11,4 +11,12 @@ namespace Wino.Core.Domain.Models.Calendar;
 /// <param name="CalendarItem">Calendar item to operate on.</param>
 /// <param name="Attendees">List of attendees for the calendar event.</param>
 /// <param name="ResponseMessage">Optional message to include with event responses (Accept, Decline, Tentative).</param>
-public record CalendarOperationPreparationRequest(CalendarSynchronizerOperation Operation, CalendarItem CalendarItem, List<CalendarEventAttendee> Attendees, string ResponseMessage = null);
+/// <param name="OriginalItem">Original calendar item state before update (for revert capability).</param>
+/// <param name="OriginalAttendees">Original attendees list before update (for revert capability).</param>
+public record CalendarOperationPreparationRequest(
+    CalendarSynchronizerOperation Operation,
+    CalendarItem CalendarItem,
+    List<CalendarEventAttendee> Attendees,
+    string ResponseMessage = null,
+    CalendarItem OriginalItem = null,
+    List<CalendarEventAttendee> OriginalAttendees = null);

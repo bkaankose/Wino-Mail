@@ -210,6 +210,17 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             config.QueryParameters.Select = outlookMessageSelectParameters;
         }, cancellationToken).ConfigureAwait(false);
 
+        // Check if this is an EventMessage and fetch it separately if needed (only if calendar access granted)
+        if (Account.IsCalendarAccessGranted && message is EventMessage)
+        {
+            message = await FetchEventMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
+            if (message == null)
+            {
+                _logger.Warning("Failed to fetch EventMessage {MessageId}, skipping", messageId);
+                return;
+            }
+        }
+
         var mailPackages = await CreateNewMailPackagesAsync(message, assignedFolder, cancellationToken).ConfigureAwait(false);
 
         if (mailPackages == null) return;
@@ -291,6 +302,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                     if (!IsResourceDeleted(message.AdditionalData) && !IsNotRealMessageType(message))
                     {
+                        // Check if this is an EventMessage and fetch it separately if needed (only if calendar access granted)
+                        if (Account.IsCalendarAccessGranted && message is EventMessage)
+                        {
+                            message = await FetchEventMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
+                            if (message == null)
+                            {
+                                return true; // Skip this message if fetch failed
+                            }
+                        }
+
                         // Check if message already exists
                         bool mailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(message.Id, folder.Id).ConfigureAwait(false);
 
@@ -567,6 +588,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         mailCopy.UniqueId = Guid.NewGuid();
         mailCopy.FileId = Guid.NewGuid();
 
+        // Set ItemType based on calendar access permissions
+        if (Account.IsCalendarAccessGranted && message is EventMessage)
+        {
+            mailCopy.ItemType = message.GetMailItemType();
+        }
+
         // Check for draft mapping if this is a draft with WinoLocalDraftHeader
         if (message.IsDraft.GetValueOrDefault() && message.InternetMessageHeaders != null)
         {
@@ -604,6 +631,28 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private string GetDeltaTokenFromDeltaLink(string deltaLink)
         => Regex.Split(deltaLink, "deltatoken=")[1];
 
+    /// <summary>
+    /// Determines MailItemType based on EventMessage's MeetingMessageType.
+    /// </summary>
+    private static MailItemType GetMailItemType(EventMessage eventMessage)
+    {
+        if (eventMessage.MeetingMessageType.HasValue)
+        {
+            return eventMessage.MeetingMessageType.Value switch
+            {
+                MeetingMessageType.MeetingRequest => MailItemType.CalendarInvitation,
+                MeetingMessageType.MeetingCancelled => MailItemType.CalendarCancellation,
+                MeetingMessageType.MeetingAccepted or
+                MeetingMessageType.MeetingTenativelyAccepted or
+                MeetingMessageType.MeetingDeclined => MailItemType.CalendarResponse,
+                _ => MailItemType.Mail
+            };
+        }
+
+        // Fallback to CalendarInvitation if type is unknown
+        return MailItemType.CalendarInvitation;
+    }
+
     protected override async Task<MailCopy> CreateMinimalMailCopyAsync(Message message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
         // Use centralized method
@@ -614,10 +663,18 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     {
         try
         {
-            return await _graphClient.Me.Messages[messageId].GetAsync((config) =>
+            var message = await _graphClient.Me.Messages[messageId].GetAsync((config) =>
             {
                 config.QueryParameters.Select = outlookMessageSelectParameters;
             }, cancellationToken).ConfigureAwait(false);
+
+            // Check if this is an EventMessage and fetch it separately if needed (only if calendar access granted)
+            if (Account.IsCalendarAccessGranted && message is EventMessage)
+            {
+                message = await FetchEventMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
+            }
+
+            return message;
         }
         catch (ServiceException serviceException)
         {
@@ -738,6 +795,36 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private bool IsResourceDeleted(IDictionary<string, object> additionalData)
         => additionalData != null && additionalData.ContainsKey("@removed");
 
+    /// <summary>
+    /// Fetches an EventMessage with full details including MeetingMessageType from the Messages endpoint.
+    /// This is necessary because MeetingMessageType is not available when fetching as Message type.
+    /// </summary>
+    private async Task<EventMessage> FetchEventMessageAsync(string messageId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var requestInfo = _graphClient.Me.Messages[messageId].ToGetRequestInformation((config) =>
+            {
+                config.QueryParameters.Select = outlookMessageSelectParameters.Concat(["MeetingMessageType"]).ToArray();
+            });
+
+            var eventMessage = await _graphClient.Me.Messages[messageId].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var odataType = eventMessage?.AdditionalData?.ContainsKey("@odata.type") == true
+                ? eventMessage.AdditionalData["@odata.type"]?.ToString()
+                : "unknown";
+
+            _logger.Debug("Fetched EventMessage {MessageId} with type {ODataType}", messageId, odataType);
+
+            return eventMessage as EventMessage;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to fetch EventMessage {MessageId}", messageId);
+            return null;
+        }
+    }
+
     private async Task<bool> HandleFolderRetrievedAsync(MailFolder folder, OutlookSpecialFolderIdInformation outlookSpecialFolderIdInformation, CancellationToken cancellationToken = default)
     {
         if (IsResourceDeleted(folder.AdditionalData))
@@ -785,11 +872,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// Basically deleted item retention items are stored as Message object in Deleted Items folder.
     /// Suprisingly, odatatype will also be the same as Message.
     /// In order to differentiate them from regular messages, we need to check the addresses in the message.
+    /// EventMessage types (calendar invitations/responses) are now processed as regular mail items with appropriate ItemType.
     /// </summary>
     /// <param name="item">Retrieved message.</param>
     /// <returns>Whether the item is non-Message type or not.</returns>
     private bool IsNotRealMessageType(Message item)
-        => item is EventMessage || item.From?.EmailAddress == null;
+        => item.From?.EmailAddress == null;
 
     private async Task<bool> HandleItemRetrievedAsync(Message item, MailItemFolder folder, IList<string> downloadedMessageIds, CancellationToken cancellationToken = default)
     {
@@ -802,6 +890,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
         else
         {
+            // Check if this is an EventMessage and fetch it separately if needed (only if calendar access granted)
+            if (Account.IsCalendarAccessGranted && item is EventMessage)
+            {
+                item = await FetchEventMessageAsync(item.Id, cancellationToken).ConfigureAwait(false);
+                if (item == null)
+                {
+                    return true; // Skip this message if fetch failed
+                }
+            }
+
             // If the item exists in the local database, it means that it's already downloaded. Process as an Update.
 
             var isMailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(item.Id, folder.Id);
@@ -828,15 +926,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 if (IsNotRealMessageType(item))
                 {
-                    if (item is EventMessage eventMessage)
-                    {
-                        Log.Warning("Recieved event message. This is not supported yet. {Id}", eventMessage.Id);
-                    }
-                    else
-                    {
-                        Log.Warning("Recieved either contact or todo item as message This is not supported yet. {Id}", item.Id);
-                    }
-
+                    // EventMessages are handled above if calendar access is granted
+                    // This catches non-message types like contacts or todo items
+                    Log.Warning("Received non-message item type (contact/todo). This is not supported yet. {Id}", item.Id);
                     return true;
                 }
 
@@ -1914,16 +2006,18 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         else
         {
             // Regular events with time
+            // StartDate and EndDate are stored in the event's timezone
+            // We preserve the timezone information during creation
             outlookEvent.IsAllDay = false;
             outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = calendarItem.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                TimeZone = calendarItem.StartTimeZone ?? "UTC"
+                TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
             };
             outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = calendarItem.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                TimeZone = calendarItem.EndTimeZone ?? "UTC"
+                TimeZone = calendarItem.EndTimeZone ?? TimeZoneInfo.Local.Id
             };
         }
 
@@ -2019,6 +2113,96 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
 
         return [new HttpRequestBundle<RequestInformation>(tentativelyAcceptRequestInfo, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var attendees = request.Attendees;
+
+        // Get the calendar for this event
+        var calendar = calendarItem.AssignedCalendar;
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        // Convert CalendarItem to Outlook Event for update
+        var outlookEvent = new Microsoft.Graph.Models.Event
+        {
+            Subject = calendarItem.Title,
+            Body = new Microsoft.Graph.Models.ItemBody
+            {
+                ContentType = Microsoft.Graph.Models.BodyType.Text,
+                Content = calendarItem.Description
+            },
+            Location = new Microsoft.Graph.Models.Location
+            {
+                DisplayName = calendarItem.Location
+            },
+            ShowAs = calendarItem.ShowAs switch
+            {
+                CalendarItemShowAs.Free => Microsoft.Graph.Models.FreeBusyStatus.Free,
+                CalendarItemShowAs.Tentative => Microsoft.Graph.Models.FreeBusyStatus.Tentative,
+                CalendarItemShowAs.Busy => Microsoft.Graph.Models.FreeBusyStatus.Busy,
+                CalendarItemShowAs.OutOfOffice => Microsoft.Graph.Models.FreeBusyStatus.Oof,
+                CalendarItemShowAs.WorkingElsewhere => Microsoft.Graph.Models.FreeBusyStatus.WorkingElsewhere,
+                _ => Microsoft.Graph.Models.FreeBusyStatus.Busy
+            }
+        };
+
+        // Set start and end time using DateTimeTimeZone
+        if (calendarItem.IsAllDayEvent)
+        {
+            // All-day events
+            outlookEvent.IsAllDay = true;
+            outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.StartDate.ToString("yyyy-MM-dd"),
+                TimeZone = "UTC"
+            };
+            outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.EndDate.ToString("yyyy-MM-dd"),
+                TimeZone = "UTC"
+            };
+        }
+        else
+        {
+            // Regular events with time
+            // StartDate and EndDate are stored in the event's timezone
+            // We preserve the timezone information during update
+            outlookEvent.IsAllDay = false;
+            outlookEvent.Start = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
+            };
+            outlookEvent.End = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = calendarItem.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = calendarItem.EndTimeZone ?? TimeZoneInfo.Local.Id
+            };
+        }
+
+        // Add attendees if any
+        if (attendees != null && attendees.Count > 0)
+        {
+            outlookEvent.Attendees = attendees.Select(a => new Microsoft.Graph.Models.Attendee
+            {
+                EmailAddress = new Microsoft.Graph.Models.EmailAddress
+                {
+                    Address = a.Email,
+                    Name = a.Name
+                },
+                Type = a.IsOptionalAttendee ? Microsoft.Graph.Models.AttendeeType.Optional : Microsoft.Graph.Models.AttendeeType.Required
+            }).ToList();
+        }
+
+        // Update the event using Graph API
+        var updateRequest = _graphClient.Me.Events[calendarItem.RemoteEventId].ToPatchRequestInformation(outlookEvent);
+
+        return [new HttpRequestBundle<RequestInformation>(updateRequest, request)];
     }
 
     #endregion

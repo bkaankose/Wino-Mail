@@ -173,12 +173,27 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     {
         base.OnNavigatedTo(mode, parameters);
 
-        Messenger.Send(new DetailsPageStateChangedMessage(true));
-
         if (parameters == null || parameters is not CalendarItemTarget args)
             return;
 
         await LoadCalendarItemTargetAsync(args);
+    }
+
+    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem)
+    {
+        base.OnCalendarItemUpdated(calendarItem);
+
+        // If the current event was updated, reload it
+        if (CurrentEvent?.CalendarItem?.Id == calendarItem.Id || CurrentEvent?.CalendarItem.RecurringCalendarItemId == calendarItem.Id)
+        {
+            // Refresh the current event data by reloading from service
+            var refreshedEvent = await _calendarService.GetCalendarItemAsync(calendarItem.Id);
+            if (refreshedEvent != null)
+            {
+                CurrentEvent = new CalendarItemViewModel(refreshedEvent);
+                await LoadAttendeesAsync(refreshedEvent.EventTrackingId, refreshedEvent);
+            }
+        }
     }
 
     protected override void OnCalendarItemDeleted(CalendarItem calendarItem)
@@ -205,6 +220,9 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             await LoadAttendeesAsync(currentEventItem.EventTrackingId, currentEventItem);
 
+            // Initialize SelectedShowAsOption based on current event's ShowAs
+            SelectedShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == currentEventItem.ShowAs) ?? ShowAsOptions[2];
+
             // Load reminders for this calendar item
             Reminders = await _calendarService.GetRemindersAsync(currentEventItem.EventTrackingId);
             InitializeReminderOptions();
@@ -221,15 +239,21 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private async Task LoadAttendeesAsync(Guid eventTrackingId, CalendarItem calendarItem)
     {
         CurrentEvent.Attendees.Clear();
-        
+
         var attendees = await _calendarService.GetAttendeesAsync(eventTrackingId);
 
-        // Check if organizer is in the attendees list
-        var hasOrganizerInList = attendees.Any(a => a.IsOrganizer);
+        // Separate organizer from other attendees to ensure organizer is always first
+        var organizer = attendees.FirstOrDefault(a => a.IsOrganizer);
+        var nonOrganizerAttendees = attendees.Where(a => !a.IsOrganizer).ToList();
 
-        // If the user is the organizer but not in attendees list, add them
-        if (!hasOrganizerInList && !string.IsNullOrEmpty(calendarItem.OrganizerEmail))
+        // If the organizer is in the list, add them first
+        if (organizer != null)
         {
+            CurrentEvent.Attendees.Add(organizer);
+        }
+        else if (!string.IsNullOrEmpty(calendarItem.OrganizerEmail))
+        {
+            // If the organizer is not in the attendees list, create and add them first
             var organizerAttendee = new CalendarEventAttendee
             {
                 Id = Guid.NewGuid(),
@@ -242,7 +266,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             CurrentEvent.Attendees.Add(organizerAttendee);
         }
 
-        foreach (var item in attendees)
+        // Add all other attendees after the organizer
+        foreach (var item in nonOrganizerAttendees)
         {
             CurrentEvent.Attendees.Add(item);
         }
@@ -321,6 +346,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
         try
         {
+            // Capture original state BEFORE making any changes for potential revert
+            var originalItem = await _calendarService.GetCalendarItemAsync(CurrentEvent.CalendarItem.Id);
+            var originalAttendees = await _calendarService.GetAttendeesAsync(CurrentEvent.CalendarItem.EventTrackingId);
+
             // Get selected reminder options
             var selectedOptions = ReminderOptions.Where(o => o.IsSelected).ToList();
 
@@ -344,12 +373,35 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             await _calendarService.SaveRemindersAsync(CurrentEvent.CalendarItem.EventTrackingId, newReminders);
             Reminders = newReminders;
 
+            // Update ShowAs if changed
+            if (SelectedShowAsOption != null)
+            {
+                CurrentEvent.CalendarItem.ShowAs = SelectedShowAsOption.ShowAs;
+            }
+
+            // Update the calendar item and attendees in database
+            await _calendarService.UpdateCalendarItemAsync(CurrentEvent.CalendarItem, CurrentEvent.Attendees.ToList());
+
+            // Queue the update request to synchronizer with original state for revert capability
+            var preparationRequest = new CalendarOperationPreparationRequest(
+                CalendarSynchronizerOperation.UpdateEvent,
+                CurrentEvent.CalendarItem,
+                CurrentEvent.Attendees.ToList(),
+                ResponseMessage: null,
+                OriginalItem: originalItem,
+                OriginalAttendees: originalAttendees);
+
+            await _winoRequestDelegator.ExecuteAsync(preparationRequest);
+
             _navigationService.GoBack();
-            // TODO: Implement saving other event details
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error saving event: {ex.Message}");
+            _dialogService.InfoBarMessage(
+                Translator.Info_AttachmentSaveFailedTitle,
+                ex.Message,
+                InfoBarMessageType.Error);
         }
     }
 

@@ -79,6 +79,14 @@ public class MailAccount
     public SpecialImapProvider SpecialImapProvider { get; set; }
 
     /// <summary>
+    /// Gets or sets whether calendar access is granted for this account.
+    /// When false, synchronizers will not process EventMessages or calendar invitations.
+    /// Default is false for existing accounts to prevent scope issues.
+    /// New accounts created after this feature will have this set to true.
+    /// </summary>
+    public bool IsCalendarAccessGranted { get; set; }
+
+    /// <summary>
     /// Contains the merged inbox this account belongs to.
     /// Ignored for all SQLite operations.
     /// </summary>

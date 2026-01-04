@@ -60,13 +60,59 @@ public static class OutlookIntegratorExtensions
             FromName = outlookMessage.From?.EmailAddress?.Name,
             FromAddress = outlookMessage.From?.EmailAddress?.Address,
             Subject = outlookMessage.Subject,
-            FileId = Guid.NewGuid()
+            FileId = Guid.NewGuid(),
+            ItemType = MailItemType.Mail // ItemType will be set by caller if calendar access is granted
         };
 
         if (mailCopy.IsDraft)
             mailCopy.DraftId = mailCopy.ThreadId;
 
         return mailCopy;
+    }
+
+    public static MailItemType GetMailItemType(this Message message)
+    {
+        // Check if the message is an EventMessage (calendar-related)
+        if (message is EventMessage eventMessage)
+        {
+            // Try to get MeetingMessageType from the property
+            if (eventMessage.MeetingMessageType.HasValue)
+            {
+                return eventMessage.MeetingMessageType.Value switch
+                {
+                    MeetingMessageType.MeetingRequest => MailItemType.CalendarInvitation,
+                    MeetingMessageType.MeetingCancelled => MailItemType.CalendarCancellation,
+                    MeetingMessageType.MeetingAccepted or
+                    MeetingMessageType.MeetingTenativelyAccepted or
+                    MeetingMessageType.MeetingDeclined => MailItemType.CalendarResponse,
+                    _ => MailItemType.Mail
+                };
+            }
+
+            // Fallback: Check @odata.type in AdditionalData to determine specific type
+            if (message.AdditionalData?.TryGetValue("@odata.type", out var odataType) == true)
+            {
+                var odataTypeString = odataType?.ToString();
+                if (odataTypeString != null)
+                {
+                    // eventMessageRequest -> CalendarInvitation
+                    if (odataTypeString.Contains("eventMessageRequest", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarInvitation;
+
+                    // eventMessageResponse -> CalendarResponse
+                    if (odataTypeString.Contains("eventMessageResponse", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarResponse;
+
+                    // Generic eventMessage without specific type - assume invitation
+                    if (odataTypeString.Contains("eventMessage", StringComparison.OrdinalIgnoreCase))
+                        return MailItemType.CalendarInvitation;
+                }
+            }
+
+            return MailItemType.CalendarInvitation;
+        }
+
+        return MailItemType.Mail;
     }
 
     public static Message AsOutlookMessage(this MimeMessage mime, bool includeInternetHeaders, string conversationId = null)
@@ -286,7 +332,7 @@ public static class OutlookIntegratorExtensions
     public static CalendarEventAttendee CreateAttendee(this Attendee attendee, Guid calendarItemId, string organizerEmail = null)
     {
         // Check if this attendee is the organizer by comparing email addresses
-        bool isOrganizer = !string.IsNullOrEmpty(organizerEmail) && 
+        bool isOrganizer = !string.IsNullOrEmpty(organizerEmail) &&
                           !string.IsNullOrEmpty(attendee?.EmailAddress?.Address) &&
                           string.Equals(attendee.EmailAddress.Address, organizerEmail, StringComparison.OrdinalIgnoreCase);
 

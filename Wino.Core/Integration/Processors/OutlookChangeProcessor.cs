@@ -135,6 +135,24 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             savingItem.Visibility = CalendarItemVisibility.Public;
         }
 
+        // Set ShowAs status
+        if (calendarEvent.ShowAs != null)
+        {
+            savingItem.ShowAs = calendarEvent.ShowAs.Value switch
+            {
+                Microsoft.Graph.Models.FreeBusyStatus.Free => CalendarItemShowAs.Free,
+                Microsoft.Graph.Models.FreeBusyStatus.Tentative => CalendarItemShowAs.Tentative,
+                Microsoft.Graph.Models.FreeBusyStatus.Busy => CalendarItemShowAs.Busy,
+                Microsoft.Graph.Models.FreeBusyStatus.Oof => CalendarItemShowAs.OutOfOffice,
+                Microsoft.Graph.Models.FreeBusyStatus.WorkingElsewhere => CalendarItemShowAs.WorkingElsewhere,
+                _ => CalendarItemShowAs.Busy
+            };
+        }
+        else
+        {
+            savingItem.ShowAs = CalendarItemShowAs.Busy;
+        }
+
         // Set IsLocked based on whether the user is the organizer
         // Read-only events are those where the current user is not the organizer
         savingItem.IsLocked = calendarEvent.IsOrganizer.HasValue && !calendarEvent.IsOrganizer.Value;

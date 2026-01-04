@@ -109,7 +109,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                     Name = accountCreationDialogResult.AccountName,
                     SpecialImapProvider = accountCreationDialogResult.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None,
                     Id = Guid.NewGuid(),
-                    AccountColorHex = accountCreationDialogResult.AccountColorHex
+                    AccountColorHex = accountCreationDialogResult.AccountColorHex,
+                    IsCalendarAccessGranted = true // New accounts have calendar scopes
                 };
 
                 await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);

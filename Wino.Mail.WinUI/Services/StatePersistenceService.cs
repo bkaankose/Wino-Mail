@@ -59,6 +59,9 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
             if (SetProperty(ref isEventDetailsVisible, value))
             {
                 OnPropertyChanged(nameof(IsBackButtonVisible));
+
+                IsReaderNarrowed = value;
+                IsReadingMail = value;
             }
         }
     }

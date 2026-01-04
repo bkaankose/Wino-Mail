@@ -111,6 +111,9 @@ public static class MailkitClientExtensions
         // Use InternalDate (server received date) if available, otherwise fall back to Date header (sent date)
         var creationDate = messageSummary.InternalDate?.UtcDateTime ?? mime.Date.UtcDateTime;
 
+        // Detect calendar invitation based on MIME content type
+        var itemType = GetMailItemTypeFromMime(mime);
+
         var copy = new MailCopy()
         {
             Id = messageUid,
@@ -128,10 +131,47 @@ public static class MailkitClientExtensions
             References = mime.References?.GetReferences(),
             InReplyTo = mime.GetInReplyTo(),
             HasAttachments = mime.Attachments.Any(),
-            FileId = Guid.NewGuid()
+            FileId = Guid.NewGuid(),
+            ItemType = itemType
         };
 
         return copy;
+    }
+
+    /// <summary>
+    /// Determines MailItemType based on MIME message content type.
+    /// Calendar invitations have text/calendar content type with METHOD parameter.
+    /// </summary>
+    private static MailItemType GetMailItemTypeFromMime(MimeMessage mime)
+    {
+        if (mime == null) return MailItemType.Mail;
+
+        // Check if the message contains text/calendar content
+        var calendarPart = mime.BodyParts.OfType<MimePart>()
+            .FirstOrDefault(p => p.ContentType?.MimeType?.Equals("text/calendar", StringComparison.OrdinalIgnoreCase) == true);
+
+        if (calendarPart != null)
+        {
+            // Check the METHOD parameter to determine invitation type
+            var method = calendarPart.ContentType.Parameters
+                .FirstOrDefault(p => p.Name.Equals("method", StringComparison.OrdinalIgnoreCase))?.Value?.ToUpperInvariant();
+
+            if (!string.IsNullOrEmpty(method))
+            {
+                return method switch
+                {
+                    "REQUEST" => MailItemType.CalendarInvitation,
+                    "CANCEL" => MailItemType.CalendarCancellation,
+                    "REPLY" => MailItemType.CalendarResponse,
+                    _ => MailItemType.Mail
+                };
+            }
+
+            // If no method specified, assume it's an invitation
+            return MailItemType.CalendarInvitation;
+        }
+
+        return MailItemType.Mail;
     }
 
     // TODO: Name and Address parsing should be handled better.

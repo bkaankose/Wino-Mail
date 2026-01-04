@@ -104,6 +104,11 @@ public class MailCopy
     public bool HasAttachments { get; set; }
 
     /// <summary>
+    /// Type of mail item (regular mail, calendar invitation, calendar response, etc.).
+    /// </summary>
+    public MailItemType ItemType { get; set; } = MailItemType.Mail;
+
+    /// <summary>
     /// Assigned draft id.
     /// </summary>
     public string DraftId { get; set; }

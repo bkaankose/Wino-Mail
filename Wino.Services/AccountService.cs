@@ -12,7 +12,6 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
-using Wino.Services.Extensions;
 
 namespace Wino.Services;
 
@@ -21,6 +20,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     public IAuthenticator ExternalAuthenticationAuthenticator { get; set; }
 
     private readonly ISignatureService _signatureService;
+    private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
 
@@ -28,10 +28,12 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public AccountService(IDatabaseService databaseService,
                           ISignatureService signatureService,
+                          IAuthenticationProvider authenticationProvider,
                           IMimeFileService mimeFileService,
                           IPreferencesService preferencesService) : base(databaseService)
     {
         _signatureService = signatureService;
+        _authenticationProvider = authenticationProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
     }
@@ -59,7 +61,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         var sql = $"UPDATE MailAccount SET MergedInboxId = ? WHERE Id IN ({placeholders})";
         var parameters = new List<object> { mergedInboxId };
         parameters.AddRange(accountIdList.Cast<object>());
-        
+
         await Connection.ExecuteAsync(sql, parameters.ToArray());
 
         WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested());
@@ -193,13 +195,18 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account == null) return;
 
-        //var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
+        var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
 
-        //// This will re-generate token.
-        //var token = await authenticator.GenerateTokenInformationAsync(account);
+        // This will re-generate token with interactive authentication
+        // New authentication will include calendar scopes
+        var token = await authenticator.GenerateTokenInformationAsync(account);
 
-        // TODO: Rest?
-        // Guard.IsNotNull(token);
+        Guard.IsNotNull(token);
+
+        // Enable calendar access since new token includes calendar scopes
+        account.IsCalendarAccessGranted = true;
+
+        await UpdateAccountAsync(account);
     }
 
     private Task<MailAccountPreferences> GetAccountPreferencesAsync(Guid accountId)

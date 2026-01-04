@@ -111,6 +111,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent.Title : calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent.Visibility : GetVisibility(calendarEvent.Visibility),
+                    ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent.ShowAs : GetShowAs(calendarEvent.Transparency),
                     HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent.HtmlLink : calendarEvent.HtmlLink,
                     RemoteEventId = calendarEvent.Id,
                     IsLocked = calendarEvent.Locked.GetValueOrDefault(),
@@ -148,6 +149,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     Title = calendarEvent.Summary,
                     UpdatedAt = DateTimeOffset.UtcNow,
                     Visibility = GetVisibility(calendarEvent.Visibility),
+                    ShowAs = GetShowAs(calendarEvent.Transparency),
                     HtmlLink = calendarEvent.HtmlLink,
                     RemoteEventId = calendarEvent.Id,
                     IsLocked = calendarEvent.Locked.GetValueOrDefault(),
@@ -426,6 +428,20 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             "private" => CalendarItemVisibility.Private,
             "confidential" => CalendarItemVisibility.Confidential,
             _ => CalendarItemVisibility.Default
+        };
+    }
+
+    private CalendarItemShowAs GetShowAs(string transparency)
+    {
+        /// Google Calendar uses "transparent" for free time (event doesn't block time) 
+        /// and "opaque" for busy time (event blocks time on the calendar).
+        /// If not specified, defaults to opaque (busy).
+
+        return transparency switch
+        {
+            "transparent" => CalendarItemShowAs.Free,
+            "opaque" => CalendarItemShowAs.Busy,
+            _ => CalendarItemShowAs.Busy
         };
     }
 

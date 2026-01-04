@@ -1561,6 +1561,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var fromHeaderValue = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("From", StringComparison.OrdinalIgnoreCase))?.Value ?? "";
         var (fromName, fromAddress) = ExtractNameAndEmailFromHeader(fromHeaderValue);
 
+        // Detect calendar invitation by checking Content-Type header (only if calendar access granted)
+        var itemType = Account.IsCalendarAccessGranted ? GetMailItemTypeFromHeaders(gmailMessage.Payload?.Headers) : MailItemType.Mail;
+
         var copy = new MailCopy()
         {
             CreationDate = creationDate,
@@ -1579,7 +1582,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             InReplyTo = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("In-Reply-To", StringComparison.OrdinalIgnoreCase))?.Value,
             MessageId = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Message-Id", StringComparison.OrdinalIgnoreCase))?.Value,
             References = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("References", StringComparison.OrdinalIgnoreCase))?.Value,
-            FileId = Guid.NewGuid()
+            FileId = Guid.NewGuid(),
+            ItemType = itemType
         };
 
         // Set DraftId if this is a draft
@@ -1587,6 +1591,47 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             copy.DraftId = copy.ThreadId;
 
         return Task.FromResult(copy);
+    }
+
+    /// <summary>
+    /// Determines MailItemType based on Gmail message headers.
+    /// Gmail doesn't have EventMessage type like Outlook, but calendar invitations can be detected
+    /// by checking Content-Type header for text/calendar or multipart/alternative with text/calendar part.
+    /// </summary>
+    private static MailItemType GetMailItemTypeFromHeaders(IList<MessagePartHeader> headers)
+    {
+        if (headers == null) return MailItemType.Mail;
+
+        // Check Content-Type header for text/calendar
+        var contentTypeHeader = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
+        
+        if (!string.IsNullOrEmpty(contentTypeHeader))
+        {
+            // Check if it's a calendar message (text/calendar or multipart with calendar)
+            if (contentTypeHeader.Contains("text/calendar", StringComparison.OrdinalIgnoreCase))
+            {
+                // Check the METHOD parameter to determine invitation type
+                var methodMatch = System.Text.RegularExpressions.Regex.Match(contentTypeHeader, @"method=([^;\s]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                
+                if (methodMatch.Success)
+                {
+                    var method = methodMatch.Groups[1].Value.Trim('"').ToUpperInvariant();
+                    
+                    return method switch
+                    {
+                        "REQUEST" => MailItemType.CalendarInvitation,
+                        "CANCEL" => MailItemType.CalendarCancellation,
+                        "REPLY" => MailItemType.CalendarResponse,
+                        _ => MailItemType.Mail
+                    };
+                }
+                
+                // If no method specified, assume it's an invitation
+                return MailItemType.CalendarInvitation;
+            }
+        }
+
+        return MailItemType.Mail;
     }
 
     /// <summary>
@@ -1847,6 +1892,87 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    {
+        var calendarItem = request.Item;
+        var attendees = request.Attendees;
+
+        // Get the calendar for this event
+        var calendar = calendarItem.AssignedCalendar;
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot update event without remote event ID");
+        }
+
+        // Convert CalendarItem to Google Event for update
+        var googleEvent = new Event
+        {
+            Summary = calendarItem.Title,
+            Description = calendarItem.Description,
+            Location = calendarItem.Location,
+            Status = calendarItem.Status == CalendarItemStatus.Accepted ? "confirmed" : "tentative",
+            Transparency = calendarItem.ShowAs == CalendarItemShowAs.Free ? "transparent" : "opaque"
+        };
+
+        // Set start and end time with proper timezone handling
+        // CalendarItem stores dates in the event's timezone (StartTimeZone/EndTimeZone)
+        // When user edits in local timezone, the dates are already converted and stored correctly
+        if (calendarItem.IsAllDayEvent)
+        {
+            // All-day events use Date instead of DateTime
+            googleEvent.Start = new EventDateTime
+            {
+                Date = calendarItem.StartDate.ToString("yyyy-MM-dd")
+            };
+            googleEvent.End = new EventDateTime
+            {
+                Date = calendarItem.EndDate.ToString("yyyy-MM-dd")
+            };
+        }
+        else
+        {
+            // Regular events with time
+            // StartDate and EndDate are stored in the event's timezone
+            // We preserve the timezone information during update
+            googleEvent.Start = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.StartDate, TimeSpan.Zero),
+                TimeZone = calendarItem.StartTimeZone ?? TimeZoneInfo.Local.Id
+            };
+            googleEvent.End = new EventDateTime
+            {
+                DateTimeDateTimeOffset = new DateTimeOffset(calendarItem.EndDate, TimeSpan.Zero),
+                TimeZone = calendarItem.EndTimeZone ?? TimeZoneInfo.Local.Id
+            };
+        }
+
+        // Add attendees if any
+        if (attendees != null && attendees.Count > 0)
+        {
+            googleEvent.Attendees = attendees.Select(a => new EventAttendee
+            {
+                Email = a.Email,
+                DisplayName = a.Name,
+                Optional = a.IsOptionalAttendee
+            }).ToList();
+        }
+
+        // Update the event using Google Calendar API
+        var updateRequest = _calendarService.Events.Update(googleEvent, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+
+        // Send notifications to attendees if the event has attendees
+        updateRequest.SendUpdates = (attendees != null && attendees.Count > 0) 
+            ? Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.All 
+            : Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
+
+        return [new HttpRequestBundle<IClientServiceRequest>(updateRequest, request)];
     }
 
     #endregion

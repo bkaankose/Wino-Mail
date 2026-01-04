@@ -121,8 +121,32 @@
 
         </DataTemplate>
 
+        <!--  Calendar Mail Item Template (Placeholder for calendar invitations/responses)  -->
+        <DataTemplate x:Key="CalendarMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
+            <Grid>
+                <TextBlock Text="Calendar invitation" />
+            </Grid>
+            <!--<controls:MailItemDisplayInformationControl
+                x:DefaultBindMode="OneWay"
+                ActionItem="{x:Bind}"
+                Base64ContactPicture="{x:Bind MailCopy.SenderContact.Base64ContactPicture, Mode=OneWay, TargetNullValue=''}"
+                ContextRequested="MailItemContextRequested"
+                CreationDate="{x:Bind CreationDate}"
+                FromAddress="{x:Bind FromAddress}"
+                FromName="{x:Bind FromName}"
+                HasAttachments="{x:Bind HasAttachments, Mode=OneWay}"
+                HoverActionExecuted="MailItemDisplayInformationControl_HoverActionExecuted"
+                IsDraft="{x:Bind IsDraft, Mode=OneWay}"
+                IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
+                IsRead="{x:Bind IsRead, Mode=OneWay}"
+                IsThumbnailUpdated="{x:Bind ThumbnailUpdatedEvent, Mode=OneWay}"
+                PreviewText="{x:Bind PreviewText, Mode=OneWay}"
+                Subject="{x:Bind Subject, Mode=OneWay}" />-->
+        </DataTemplate>
+
         <listview:WinoMailItemTemplateSelector
             x:Key="MailItemTemplateSelector"
+            CalendarMailItemTemplate="{StaticResource CalendarMailItemTemplate}"
             SingleMailItemTemplate="{StaticResource SingleMailItemTemplate}"
             ThreadMailItemTemplate="{StaticResource ThreadMailItemTemplate}" />
 

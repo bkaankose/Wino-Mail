@@ -27,16 +27,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     IRecipient<VisibleDateRangeChangedMessage>,
     IRecipient<CalendarEnableStatusChangedMessage>,
     IRecipient<NavigateManageAccountsRequested>,
-    IRecipient<CalendarDisplayTypeChangedMessage>,
-    IRecipient<DetailsPageStateChangedMessage>
+    IRecipient<CalendarDisplayTypeChangedMessage>
 {
     public IPreferencesService PreferencesService { get; }
     public IStatePersistanceService StatePersistenceService { get; }
     public IAccountCalendarStateService AccountCalendarStateService { get; }
     public INavigationService NavigationService { get; }
-
-    [ObservableProperty]
-    private bool _isEventDetailsPageActive;
 
     [ObservableProperty]
     private int _selectedMenuItemIndex = -1;
@@ -303,7 +299,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         Messenger.Register<CalendarEnableStatusChangedMessage>(this);
         Messenger.Register<NavigateManageAccountsRequested>(this);
         Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
-        Messenger.Register<DetailsPageStateChangedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -314,7 +309,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarEnableStatusChangedMessage>(this);
         Messenger.Unregister<NavigateManageAccountsRequested>(this);
         Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
-        Messenger.Unregister<DetailsPageStateChangedMessage>(this);
     }
 
     public void Receive(VisibleDateRangeChangedMessage message) => HighlightedDateRange = message.DateRange;
@@ -369,16 +363,4 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
 
     public void Receive(CalendarDisplayTypeChangedMessage message) => OnPropertyChanged(nameof(IsVerticalCalendar));
-
-    public async void Receive(DetailsPageStateChangedMessage message)
-    {
-        await ExecuteUIThread(() =>
-        {
-            IsEventDetailsPageActive = message.IsActivated;
-
-            // TODO: This is for Wino Mail. Generalize this later on.
-            StatePersistenceService.IsReaderNarrowed = message.IsActivated;
-            StatePersistenceService.IsReadingMail = message.IsActivated;
-        });
-    }
 }

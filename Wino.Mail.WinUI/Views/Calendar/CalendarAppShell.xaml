@@ -373,7 +373,7 @@
                         <Setter Target="CalendarHostListView.IsEnabled" Value="False" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind ViewModel.IsEventDetailsPageActive, Mode=OneWay}" />
+                        <StateTrigger IsActive="{x:Bind ViewModel.StatePersistenceService.IsEventDetailsVisible, Mode=OneWay}" />
                     </VisualState.StateTriggers>
                 </VisualState>
             </VisualStateGroup>

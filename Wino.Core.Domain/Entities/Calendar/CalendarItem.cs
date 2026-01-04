@@ -140,6 +140,12 @@ public class CalendarItem : ICalendarItem
     public string HtmlLink { get; set; }
     public CalendarItemStatus Status { get; set; }
     public CalendarItemVisibility Visibility { get; set; }
+    
+    /// <summary>
+    /// Indicates how the event should be shown in the calendar (Free, Busy, Tentative, etc.).
+    /// </summary>
+    public CalendarItemShowAs ShowAs { get; set; } = CalendarItemShowAs.Busy;
+    
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid CalendarId { get; set; }

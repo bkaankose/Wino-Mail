@@ -98,7 +98,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         catch (MsalUiRequiredException)
         {
             // Somehow MSAL is not able to refresh the token silently.
-            // Force interactive login.
+            // Force interactive login which will include calendar scopes.
+            // The calling code should update account.IsCalendarAccessGranted = true after successful authentication.
 
             return await GenerateTokenInformationAsync(account);
         }
