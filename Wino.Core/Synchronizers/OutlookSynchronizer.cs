@@ -1811,6 +1811,14 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             var messageIteratorAsync = PageIterator<Event, Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse>.CreatePageIterator(_graphClient, eventsDeltaResponse, (item) =>
             {
+                // Skip occurrence events during initial sync - only sync master recurring events and single instances
+                // Occurrences are individual instances of recurring events and will be generated from the seriesMaster
+                if (item.Type == Microsoft.Graph.Models.EventType.Occurrence)
+                {
+                    _logger.Debug("Skipping occurrence event {EventId} during initial sync", item.Id);
+                    return true; // Skip this occurrence
+                }
+
                 events.Add(item);
 
                 return true;
@@ -1827,6 +1835,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             foreach (var item in events)
             {
+                if (item.Id == "f275fdd0-8622-4e14-8f5d-b73d7f68018f")
+                {
+
+                }
                 // Declined events are returned as Deleted from the API.
                 // There is no way to distinguish unfortunately atm.
 
