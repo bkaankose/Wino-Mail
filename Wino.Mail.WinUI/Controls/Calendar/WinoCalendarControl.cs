@@ -199,7 +199,7 @@ public partial class WinoCalendarControl : Control
     private void ActiveTimelineCellSelected(object sender, TimelineCellSelectedArgs e)
         => TimelineCellSelected?.Invoke(this, e);
 
-    public void NavigateToDay(DateTime dateTime) => InternalFlipView.NavigateToDay(dateTime);
+    public void NavigateToDay(DateTime dateTime) => InternalFlipView?.NavigateToDay(dateTime);
 
     public async void NavigateToHour(TimeSpan timeSpan)
     {
