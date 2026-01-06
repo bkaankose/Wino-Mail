@@ -4,6 +4,7 @@ using Itenso.TimePeriod;
 using SQLite;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Entities.Calendar;
 
@@ -72,9 +73,7 @@ public class CalendarItem : ICalendarItem
     }
 
     /// <summary>
-    /// Events that are either an exceptional instance of a recurring event or occurrences.
-    /// IsOccurrence is used to display occurrence instances of parent recurring events.
-    /// IsOccurrence == false && IsRecurringChild == true => exceptional single instance.
+    /// Events that are child instances of a recurring event (occurrences or exceptions).
     /// </summary>
     public bool IsRecurringChild
     {
@@ -85,7 +84,7 @@ public class CalendarItem : ICalendarItem
     }
 
     /// <summary>
-    /// Events that are either an exceptional instance of a recurring event or occurrences.
+    /// Events that are part of a recurring series (either as parent or child).
     /// </summary>
     public bool IsRecurringEvent => IsRecurringChild || IsRecurringParent;
 
@@ -140,12 +139,12 @@ public class CalendarItem : ICalendarItem
     public string HtmlLink { get; set; }
     public CalendarItemStatus Status { get; set; }
     public CalendarItemVisibility Visibility { get; set; }
-    
+
     /// <summary>
     /// Indicates how the event should be shown in the calendar (Free, Busy, Tentative, etc.).
     /// </summary>
     public CalendarItemShowAs ShowAs { get; set; } = CalendarItemShowAs.Busy;
-    
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid CalendarId { get; set; }
@@ -154,51 +153,11 @@ public class CalendarItem : ICalendarItem
     public IAccountCalendar AssignedCalendar { get; set; }
 
     /// <summary>
-    /// Whether this item does not really exist in the database or not.
-    /// These are used to display occurrence instances of parent recurring events.
+    /// Id to load information related to this event (attendees, reminders, etc.).
+    /// For child events, if they have their own data, use their own Id.
+    /// For events that share data with their parent, return parent's Id.
     /// </summary>
-    [Ignore]
-    public bool IsOccurrence { get; set; }
-
-    /// <summary>
-    /// Id to load information related to this event.
-    /// Occurrences tracked by the parent recurring event if they are not exceptional instances.
-    /// Recurring children here are exceptional instances. They have their own info in the database including Id.
-    /// </summary>
-    public Guid EventTrackingId => IsOccurrence ? RecurringCalendarItemId.Value : Id;
-
-    public CalendarItem CreateRecurrence(DateTime startDate, double durationInSeconds)
-    {
-        // Create a copy with the new start date and duration
-
-        return new CalendarItem
-        {
-            Id = Guid.NewGuid(),
-            Title = Title,
-            Description = Description,
-            Location = Location,
-            StartDate = startDate,
-            DurationInSeconds = durationInSeconds,
-            Recurrence = Recurrence,
-            OrganizerDisplayName = OrganizerDisplayName,
-            OrganizerEmail = OrganizerEmail,
-            RecurringCalendarItemId = Id,
-            AssignedCalendar = AssignedCalendar,
-            CalendarId = CalendarId,
-            CreatedAt = CreatedAt,
-            UpdatedAt = UpdatedAt,
-            Visibility = Visibility,
-            Status = Status,
-            CustomEventColorHex = CustomEventColorHex,
-            HtmlLink = HtmlLink,
-            StartTimeZone = StartTimeZone,
-            EndTimeZone = EndTimeZone,
-            RemoteEventId = RemoteEventId,
-            IsHidden = IsHidden,
-            IsLocked = IsLocked,
-            IsOccurrence = true
-        };
-    }
+    public Guid EventTrackingId => Id;
 
     /// <summary>
     /// Gets the start date converted to user's local timezone for display.
@@ -219,10 +178,10 @@ public class CalendarItem : ICalendarItem
             {
                 var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(StartTimeZone);
                 var localTimeZone = TimeZoneInfo.Local;
-                
+
                 // Ensure DateTime is Unspecified kind before conversion
                 var unspecifiedDateTime = DateTime.SpecifyKind(StartDate, DateTimeKind.Unspecified);
-                
+
                 // Convert from source timezone to local timezone
                 return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
             }
@@ -253,10 +212,10 @@ public class CalendarItem : ICalendarItem
             {
                 var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(EndTimeZone);
                 var localTimeZone = TimeZoneInfo.Local;
-                
+
                 // Ensure DateTime is Unspecified kind before conversion
                 var unspecifiedDateTime = DateTime.SpecifyKind(EndDate, DateTimeKind.Unspecified);
-                
+
                 // Convert from source timezone to local timezone
                 return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
             }
@@ -267,4 +226,6 @@ public class CalendarItem : ICalendarItem
             }
         }
     }
+
+    public string GetDisplayTitle(ITimePeriod displayingPeriod, CalendarSettings calendarSettings) => Period.ToString();
 }

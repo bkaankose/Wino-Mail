@@ -906,14 +906,39 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.OnCalendarItemUpdated(calendarItem);
         Debug.WriteLine($"Calendar item updated: {calendarItem.Id}");
 
-        // Updated item might've been from specific time to all-day event, or vice versa.
-        // Remove the event and its occurrences from all visible date ranges first.
+        // Series master events should not be visible on the UI.
+        if (calendarItem.IsRecurringParent)
+        {
+            Debug.WriteLine($"Skipping series master event update: {calendarItem.Title}");
+            return;
+        }
+
+        if (DayRanges.DisplayRange == null) return;
+
+        // Find all days that currently have this item and days that should have it after update
+        var currentDaysWithItem = DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .Where(day => day.EventsCollection.GetCalendarItem(calendarItem.Id) != null)
+            .ToList();
+
+        var targetDaysForItem = DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .Where(a => a.Period.OverlapsWith(calendarItem.Period))
+            .ToList();
+
         await ExecuteUIThread(() =>
         {
-            foreach (var dayRange in DayRanges)
+            // Update existing items in-place where the item should remain
+            foreach (var calendarDay in currentDaysWithItem)
             {
-                foreach (var calendarDay in dayRange.CalendarDays)
+                if (targetDaysForItem.Contains(calendarDay))
                 {
+                    // Item should stay in this day - update in-place
+                    calendarDay.EventsCollection.UpdateCalendarItem(calendarItem);
+                }
+                else
+                {
+                    // Item should no longer be in this day (time changed) - remove it
                     var existingItem = calendarDay.EventsCollection.GetCalendarItem(calendarItem.Id);
                     if (existingItem != null)
                     {
@@ -921,36 +946,17 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                     }
                 }
             }
-        });
 
-        // Re-add to corresponding day ranges to render properly.
-        // Check if event falls into the current date range.
-        if (DayRanges.DisplayRange == null) return;
-
-        // Get all periods from the visible day ranges
-        var visiblePeriods = DayRanges.Select(dr => dr.Period).ToList();
-
-        // For recurring events, expand them to check if any occurrences fall within visible periods
-        // For regular events, just check if they overlap with any period
-        var matchingItems = await _calendarService.GetExpandedRecurringEventsForPeriodsAsync(calendarItem, visiblePeriods);
-
-        foreach (var item in matchingItems)
-        {
-            // Find the days that the event falls into
-            var allDaysForEvent = DayRanges
-                .SelectMany(a => a.CalendarDays)
-                .Where(a => a.Period.OverlapsWith(item.Period));
-
-            foreach (var calendarDay in allDaysForEvent)
+            // Add to new days where the item wasn't present before
+            foreach (var calendarDay in targetDaysForItem)
             {
-                var calendarItemViewModel = new CalendarItemViewModel(item);
-
-                await ExecuteUIThread(() =>
+                if (!currentDaysWithItem.Contains(calendarDay))
                 {
+                    var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
                     calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
-                });
+                }
             }
-        }
+        });
 
         FilterActiveCalendars(DayRanges);
     }
@@ -959,6 +965,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         base.OnCalendarItemAdded(calendarItem);
         Debug.WriteLine($"Calendar item added: {calendarItem.Id}");
+
+        // Series master events should not be visible on the UI.
+        // Their instances are already expanded and synced individually.
+        if (calendarItem.IsRecurringParent)
+        {
+            Debug.WriteLine($"Skipping series master event: {calendarItem.Title}");
+            return;
+        }
 
         // Check if event falls into the current date range.
         if (DayRanges.DisplayRange == null) return;
@@ -1005,28 +1019,20 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
 
         // Get all periods from the visible day ranges
-        var visiblePeriods = DayRanges.Select(dr => dr.Period).ToList();
+        // Note: Recurring event occurrences are now synced from server as individual instances
+        // No local expansion needed - just check if this item overlaps with visible periods
+        var allDaysForEvent = DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .Where(a => a.Period.OverlapsWith(calendarItem.Period));
 
-        // For recurring events, expand them to check if any occurrences fall within visible periods
-        // For regular events, just check if they overlap with any period
-        var matchingItems = await _calendarService.GetExpandedRecurringEventsForPeriodsAsync(calendarItem, visiblePeriods);
-
-        foreach (var item in matchingItems)
+        foreach (var calendarDay in allDaysForEvent)
         {
-            // Find the days that the event falls into
-            var allDaysForEvent = DayRanges
-                .SelectMany(a => a.CalendarDays)
-                .Where(a => a.Period.OverlapsWith(item.Period));
+            var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
 
-            foreach (var calendarDay in allDaysForEvent)
+            await ExecuteUIThread(() =>
             {
-                var calendarItemViewModel = new CalendarItemViewModel(item);
-
-                await ExecuteUIThread(() =>
-                {
-                    calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
-                });
-            }
+                calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
+            });
         }
 
         FilterActiveCalendars(DayRanges);

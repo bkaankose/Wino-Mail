@@ -21,8 +21,6 @@ public sealed partial class CalendarItemControl : UserControl
     public static readonly DependencyProperty CalendarItemProperty = DependencyProperty.Register(nameof(CalendarItem), typeof(CalendarItemViewModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarItemChanged)));
     public static readonly DependencyProperty IsDraggingProperty = DependencyProperty.Register(nameof(IsDragging), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
     public static readonly DependencyProperty IsCustomEventAreaProperty = DependencyProperty.Register(nameof(IsCustomEventArea), typeof(bool), typeof(CalendarItemControl), new PropertyMetadata(false));
-    public static readonly DependencyProperty CalendarItemTitleProperty = DependencyProperty.Register(nameof(CalendarItemTitle), typeof(string), typeof(CalendarItemControl), new PropertyMetadata(string.Empty));
-    public static readonly DependencyProperty DisplayingDateProperty = DependencyProperty.Register(nameof(DisplayingDate), typeof(CalendarDayModel), typeof(CalendarItemControl), new PropertyMetadata(null, new PropertyChangedCallback(OnDisplayDateChanged)));
 
     /// <summary>
     /// Whether the control is displaying as regular event or all-multi day area in the day control.
@@ -31,22 +29,6 @@ public sealed partial class CalendarItemControl : UserControl
     {
         get { return (bool)GetValue(IsCustomEventAreaProperty); }
         set { SetValue(IsCustomEventAreaProperty, value); }
-    }
-
-    /// <summary>
-    /// Day that the calendar item is rendered at.
-    /// It's needed for title manipulation and some other adjustments later on.
-    /// </summary>
-    public CalendarDayModel DisplayingDate
-    {
-        get { return (CalendarDayModel)GetValue(DisplayingDateProperty); }
-        set { SetValue(DisplayingDateProperty, value); }
-    }
-
-    public string CalendarItemTitle
-    {
-        get { return (string)GetValue(CalendarItemTitleProperty); }
-        set { SetValue(CalendarItemTitleProperty, value); }
     }
 
     public CalendarItemViewModel CalendarItem
@@ -66,75 +48,12 @@ public sealed partial class CalendarItemControl : UserControl
         InitializeComponent();
     }
 
-    private static void OnDisplayDateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is CalendarItemControl control)
-        {
-            control.UpdateControlVisuals();
-        }
-    }
-
     private static void OnCalendarItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is CalendarItemControl control)
         {
-            control.UpdateControlVisuals();
+            control.UpdateVisualStates();
         }
-    }
-
-    private void UpdateControlVisuals()
-    {
-        // Depending on the calendar item's duration and attributes, we might need to change the display title.
-        // 1. Multi-Day events should display the start date and end date.
-        // 2. Multi-Day events that occupy the whole day just shows 'all day'.
-        // 3. Other events should display the title.
-
-        if (CalendarItem == null) return;
-        if (DisplayingDate == null) return;
-
-        if (CalendarItem.IsMultiDayEvent)
-        {
-            // Multi day events are divided into 3 categories:
-            // 1. All day events
-            // 2. Events that started after the period.
-            // 3. Events that started before the period and finishes within the period.
-
-            var periodRelation = CalendarItem.Period.GetRelation(DisplayingDate.Period);
-
-            if (periodRelation == Itenso.TimePeriod.PeriodRelation.StartInside ||
-                periodRelation == PeriodRelation.EnclosingStartTouching)
-            {
-                // hour -> title
-                CalendarItemTitle = $"{DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.StartDate.TimeOfDay)} -> {CalendarItem.Title}";
-            }
-            else if (
-                periodRelation == PeriodRelation.EndInside ||
-                periodRelation == PeriodRelation.EnclosingEndTouching)
-            {
-                // title <- hour
-                CalendarItemTitle = $"{CalendarItem.Title} <- {DisplayingDate.CalendarRenderOptions.CalendarSettings.GetTimeString(CalendarItem.EndDate.TimeOfDay)}";
-            }
-            else if (periodRelation == PeriodRelation.Enclosing)
-            {
-                // This event goes all day and it's multi-day.
-                // Item must be hidden in the calendar but displayed on the custom area at the top.
-
-                CalendarItemTitle = $"{Translator.CalendarItemAllDay} {CalendarItem.Title}";
-            }
-            else
-            {
-                // Not expected, but there it is.
-                CalendarItemTitle = CalendarItem.Title;
-            }
-
-            // Debug.WriteLine($"{CalendarItem.Title} Period relation with {DisplayingDate.Period.ToString()}: {periodRelation}");
-        }
-        else
-        {
-            CalendarItemTitle = CalendarItem.Title;
-        }
-
-        UpdateVisualStates();
     }
 
     private void UpdateVisualStates()
@@ -175,9 +94,9 @@ public sealed partial class CalendarItemControl : UserControl
 
         await Task.Delay(100);
 
-        if (isSingleTap)
+        if (isSingleTap && CalendarItem != null)
         {
-            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem, DisplayingDate));
+            WeakReferenceMessenger.Default.Send(new CalendarItemTappedMessage(CalendarItem, null));
         }
     }
 

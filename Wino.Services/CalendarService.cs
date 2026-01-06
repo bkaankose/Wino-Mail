@@ -2,14 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using Ical.Net.CalendarComponents;
-using Ical.Net.DataTypes;
 using Itenso.TimePeriod;
 using Serilog;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -29,6 +25,20 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     }
 
     public int[] GetPredefinedReminderMinutes() => PredefinedReminderMinutes;
+
+    /// <summary>
+    /// Loads the AssignedCalendar (and its MailAccount) for a CalendarItem if not already loaded.
+    /// </summary>
+    private async Task LoadAssignedCalendarAsync(CalendarItem calendarItem)
+    {
+        if (calendarItem == null || calendarItem.AssignedCalendar != null) return;
+
+        calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
+        if (calendarItem.AssignedCalendar != null)
+        {
+            calendarItem.AssignedCalendar.MailAccount = await Connection.GetAsync<MailAccount>(calendarItem.AssignedCalendar.AccountId);
+        }
+    }
 
     public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
         => Connection.Table<AccountCalendar>().Where(x => x.AccountId == accountId).OrderByDescending(a => a.IsPrimary).ToListAsync();
@@ -142,16 +152,16 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
     /// <summary>
     /// Retrieves calendar events for a given calendar within the specified time period.
-    /// This includes regular events and expanded recurring event occurrences based on RFC 5545 patterns.
+    /// Returns all events (single instances and recurring event occurrences) that overlap with the period.
+    /// Note: Recurring events are expected to be synced as individual instances from the server.
+    /// Series master events (parents) are filtered out as they should not be displayed directly.
     /// </summary>
     /// <param name="calendar">The calendar to retrieve events from.</param>
     /// <param name="period">The time period to query events for.</param>
-    /// <returns>List of calendar items including regular events and recurring event occurrences.</returns>
+    /// <returns>List of calendar items that fall within the requested period.</returns>
     public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period)
     {
-        // TODO: Implement caching strategy for better performance with large event sets.
-        // Consider using a cache keyed by calendar ID and time period.
-
+        // Fetch all non-hidden events for this calendar
         var accountEvents = await Connection.Table<CalendarItem>()
             .Where(x => x.CalendarId == calendar.Id && !x.IsHidden)
             .ToListAsync();
@@ -160,95 +170,18 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         foreach (var calendarItem in accountEvents)
         {
+            // Skip series master events - they should not be displayed directly.
+            // Individual instances are synced from the server and displayed instead.
+            if (calendarItem.IsRecurringParent)
+                continue;
+
             calendarItem.AssignedCalendar = calendar;
 
-            // Skip exception instances - they will be handled by their parent recurring event
-            if (calendarItem.RecurringCalendarItemId.HasValue)
+            // Check if the event overlaps with the requested period
+            if (calendarItem.Period.OverlapsWith(period))
             {
-                continue;
+                result.Add(calendarItem);
             }
-
-            if (string.IsNullOrEmpty(calendarItem.Recurrence))
-            {
-                // Regular non-recurring event - simply check if it overlaps with the requested period.
-                if (calendarItem.Period.OverlapsWith(period))
-                {
-                    result.Add(calendarItem);
-                }
-            }
-            else
-            {
-                // Recurring event - expand occurrences within the period.
-                // Wino stores recurring events as a series master with RFC 5545 recurrence rules.
-                // Exception instances (modified or cancelled) are stored separately and linked via RecurringCalendarItemId.
-                var expandedOccurrences = await ExpandRecurringEventAsync(calendarItem, period);
-                result.AddRange(expandedOccurrences);
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Expands a recurring event into its occurrences within the specified period.
-    /// Handles exception instances (modified or cancelled occurrences) by excluding them from the expansion.
-    /// </summary>
-    /// <param name="recurringEvent">The recurring event series master.</param>
-    /// <param name="period">The time period to expand occurrences within.</param>
-    /// <returns>List of calendar items representing individual occurrences in the period.</returns>
-    private async Task<List<CalendarItem>> ExpandRecurringEventAsync(CalendarItem recurringEvent, ITimePeriod period)
-    {
-        var result = new List<CalendarItem>();
-
-        // Parse the RFC 5545 recurrence pattern.
-        var calendarEvent = new CalendarEvent
-        {
-            Start = new CalDateTime(recurringEvent.StartDate),
-            End = new CalDateTime(recurringEvent.EndDate),
-        };
-
-        var recurrenceLines = Regex.Split(recurringEvent.Recurrence, Constants.CalendarEventRecurrenceRuleSeperator);
-        foreach (var line in recurrenceLines)
-        {
-            calendarEvent.RecurrenceRules.Add(new RecurrencePattern(line));
-        }
-
-        // Calculate all occurrences in the requested period using iCal.NET.
-        var occurrences = calendarEvent.GetOccurrences(period.Start, period.End);
-
-        // Retrieve exception instances (modified or cancelled occurrences).
-        // These are stored as separate CalendarItem records with RecurringCalendarItemId set.
-        var exceptionInstances = await Connection.Table<CalendarItem>()
-            .Where(a => a.RecurringCalendarItemId == recurringEvent.Id)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        foreach (var occurrence in occurrences)
-        {
-            // Check if this occurrence has been modified/cancelled (exception instance exists).
-            // Compare by checking if an exception instance overlaps with this occurrence's time window.
-            var occurrenceStart = occurrence.Period.StartTime.Value;
-            var occurrenceEnd = occurrence.Period.EndTime?.Value ?? occurrenceStart.Add(occurrence.Period.Duration);
-
-            var exceptionInstance = exceptionInstances.FirstOrDefault(a =>
-                a.StartDate <= occurrenceEnd && a.EndDate >= occurrenceStart);
-
-            if (exceptionInstance == null)
-            {
-                // No exception - create a virtual occurrence from the series master.
-                var occurrenceItem = recurringEvent.CreateRecurrence(
-                    occurrenceStart,
-                    occurrence.Period.Duration.TotalSeconds);
-
-                result.Add(occurrenceItem);
-            }
-            else if (!exceptionInstance.IsHidden && exceptionInstance.Period.OverlapsWith(period))
-            {
-                // Exception exists and is not hidden - include the modified version.
-                exceptionInstance.AssignedCalendar = recurringEvent.AssignedCalendar;
-                result.Add(exceptionInstance);
-            }
-            // If exception is hidden, skip this occurrence entirely.
         }
 
         return result;
@@ -270,15 +203,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             "SELECT * FROM CalendarItem WHERE Id = ?",
             id);
 
-        // Load assigned calendar and account.
-        if (calendarItem != null)
-        {
-            calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
-            if (calendarItem.AssignedCalendar != null)
-            {
-                calendarItem.AssignedCalendar.MailAccount = await Connection.GetAsync<MailAccount>(calendarItem.AssignedCalendar.AccountId);
-            }
-        }
+        await LoadAssignedCalendarAsync(calendarItem);
 
         return calendarItem;
     }
@@ -289,15 +214,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
             accountCalendarId, remoteEventId);
 
-        // Load assigned calendar and account.
-        if (calendarItem != null)
-        {
-            calendarItem.AssignedCalendar = await Connection.GetAsync<AccountCalendar>(calendarItem.CalendarId);
-            if (calendarItem.AssignedCalendar != null)
-            {
-                calendarItem.AssignedCalendar.MailAccount = await Connection.GetAsync<MailAccount>(calendarItem.AssignedCalendar.AccountId);
-            }
-        }
+        await LoadAssignedCalendarAsync(calendarItem);
 
         return calendarItem;
     }
@@ -310,72 +227,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     }
 
     /// <summary>
-    /// Expands a recurring calendar item to check if any of its occurrences fall within the given periods.
-    /// For non-recurring events, returns the item if it overlaps with any period.
-    /// For recurring events, expands occurrences and returns those that fall within any of the periods.
-    /// </summary>
-    /// <param name="calendarItem">The calendar item to expand (can be recurring or non-recurring).</param>
-    /// <param name="periods">The list of periods to check against.</param>
-    /// <returns>List of calendar items (either the original item or expanded recurrence instances) that fall within the periods.</returns>
-    public async Task<List<CalendarItem>> GetExpandedRecurringEventsForPeriodsAsync(CalendarItem calendarItem, IEnumerable<ITimePeriod> periods)
-    {
-        var result = new List<CalendarItem>();
-
-        if (calendarItem == null || periods == null || !periods.Any())
-        {
-            return result;
-        }
-
-        // Ensure AssignedCalendar is loaded
-        if (calendarItem.AssignedCalendar == null)
-        {
-            calendarItem.AssignedCalendar = await GetAccountCalendarAsync(calendarItem.CalendarId);
-        }
-
-        // For non-recurring events, check if it overlaps with any of the provided periods
-        if (string.IsNullOrEmpty(calendarItem.Recurrence))
-        {
-            foreach (var period in periods)
-            {
-                if (calendarItem.Period.OverlapsWith(period))
-                {
-                    result.Add(calendarItem);
-                    break; // Add it only once
-                }
-            }
-        }
-        else
-        {
-            // For recurring events, expand occurrences for the combined date range of all periods
-            // Find the minimum and maximum dates across all periods
-            var minDate = periods.Min(p => p.Start);
-            var maxDate = periods.Max(p => p.End);
-
-            var combinedPeriod = new TimeRange(minDate, maxDate);
-
-            // Expand the recurring event for the combined period
-            var expandedOccurrences = await ExpandRecurringEventAsync(calendarItem, combinedPeriod);
-
-            // Filter occurrences that fall within any of the individual periods
-            foreach (var occurrence in expandedOccurrences)
-            {
-                foreach (var period in periods)
-                {
-                    if (occurrence.Period.OverlapsWith(period))
-                    {
-                        result.Add(occurrence);
-                        break; // Add it only once even if it overlaps with multiple periods
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Gets attendees for a calendar item. For recurring event occurrences,
-    /// callers should pass the EventTrackingId which returns the parent's ID.
+    /// Gets attendees for a calendar item.
     /// </summary>
     public Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId)
         => Connection.Table<CalendarEventAttendee>().Where(x => x.CalendarItemId == calendarEventTrackingId).ToListAsync();
@@ -400,7 +252,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         var eventId = targetDetails.Item.Id;
 
-        // Get the event by Id first.
+        // Get the event by Id first (this already loads AssignedCalendar).
         var item = await GetCalendarItemAsync(eventId).ConfigureAwait(false);
 
         bool isRecurringChild = targetDetails.Item.IsRecurringChild;
@@ -412,9 +264,9 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             {
                 if (item == null)
                 {
-                    // This is an occurrence of a recurring event.
-                    // They don't exist in db.
-
+                    // This occurrence doesn't exist in db - return the passed item.
+                    // Ensure AssignedCalendar is loaded.
+                    await LoadAssignedCalendarAsync(targetDetails.Item);
                     return targetDetails.Item;
                 }
                 else
@@ -458,8 +310,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     }
 
     /// <summary>
-    /// Gets reminders for a calendar item. For recurring event occurrences,
-    /// callers should pass the EventTrackingId which returns the parent's ID.
+    /// Gets reminders for a calendar item.
     /// </summary>
     public Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId)
         => Connection.Table<Reminder>().Where(r => r.CalendarItemId == calendarItemId).ToListAsync();
@@ -492,6 +343,20 @@ public class CalendarService : BaseDatabaseService, ICalendarService
 
         foreach (var item in attachments)
         {
+            // Check if an attachment with the same RemoteAttachmentId already exists for this calendar item
+            // to avoid re-downloading already existing attachments.
+            var existingAttachment = await Connection.Table<CalendarAttachment>()
+                .FirstOrDefaultAsync(x => x.CalendarItemId == item.CalendarItemId
+                                       && x.RemoteAttachmentId == item.RemoteAttachmentId);
+
+            if (existingAttachment != null)
+            {
+                // Preserve the existing Id, IsDownloaded status, and LocalFilePath
+                item.Id = existingAttachment.Id;
+                item.IsDownloaded = existingAttachment.IsDownloaded;
+                item.LocalFilePath = existingAttachment.LocalFilePath;
+            }
+
             await Connection.InsertOrReplaceAsync(item, typeof(CalendarAttachment));
         }
     }

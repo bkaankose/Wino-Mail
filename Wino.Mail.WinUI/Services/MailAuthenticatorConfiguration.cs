@@ -14,7 +14,12 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
         "mail.send",
         "Mail.Send.Shared",
         "Mail.ReadWrite.Shared",
-        "User.Read"
+        "User.Read",
+        "Calendars.ReadBasic",
+        "Calendars.ReadWrite",
+        "Calendars.ReadWrite.Shared",
+        "Calendars.Read",
+        "Calendars.Read.Shared",
     ];
 
     public string GmailAuthenticatorClientId => "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
@@ -24,7 +29,10 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
         "https://mail.google.com/",
         "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/gmail.labels",
-        "https://www.googleapis.com/auth/userinfo.email"
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/calendar.settings.readonly",
     ];
 
     public string GmailTokenStoreIdentifier => "WinoMailGmailTokenStore";

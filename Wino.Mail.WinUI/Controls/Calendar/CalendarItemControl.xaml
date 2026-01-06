@@ -21,7 +21,7 @@
         DoubleTapped="ControlDoubleTapped"
         RightTapped="ControlRightTapped"
         Tapped="ControlTapped"
-        ToolTipService.ToolTip="{x:Bind CalendarItemTitle, Mode=OneWay}">
+        ToolTipService.ToolTip="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
@@ -57,7 +57,7 @@
             FontSize="13"
             Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
             HorizontalTextAlignment="Center"
-            Text="{x:Bind CalendarItemTitle, Mode=OneWay}"
+            Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
             TextTrimming="CharacterEllipsis" />
 
         <!--  TODO: Event attributes  -->

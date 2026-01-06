@@ -161,6 +161,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             // Hide canceled events.
             calendarItem.IsHidden = calendarItem.Status == CalendarItemStatus.Cancelled;
 
+            // Set assigned calendar for navigation properties to work.
+            calendarItem.AssignedCalendar = assignedCalendar;
+
             // Manage the recurring event id.
             if (parentRecurringEvent != null)
             {

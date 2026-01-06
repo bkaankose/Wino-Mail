@@ -42,11 +42,8 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
 
     public async Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount)
     {
-        // We parse the occurrences based on the parent event.
-        // There is literally no point to store them because
-        // type=Exception events are the exceptional childs of recurrency parent event.
-
-        if (calendarEvent.Type == EventType.Occurrence) return;
+        // All event types are now handled: SingleInstance, SeriesMaster, Occurrence, and Exception.
+        // Occurrences from CalendarView are individual instances that are saved separately.
 
         var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
 
@@ -81,10 +78,12 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         savingItem.Description = calendarEvent.Body?.Content;
         savingItem.Location = calendarEvent.Location?.DisplayName;
 
-        if (calendarEvent.Type == EventType.Exception && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
+        // Handle recurring event relationships for both Exception and Occurrence types
+        if ((calendarEvent.Type == EventType.Exception || calendarEvent.Type == EventType.Occurrence) 
+            && !string.IsNullOrEmpty(calendarEvent.SeriesMasterId))
         {
-            // This is a recurring event exception.
-            // We need to find the parent event and set it as recurring event id.
+            // This is a recurring event instance (either an exception or a regular occurrence).
+            // Link it to the parent series master.
 
             var parentEvent = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterId);
 
@@ -94,12 +93,14 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
             }
             else
             {
-                Log.Warning($"Parent recurring event is missing for event. Skipping creation of {calendarEvent.Id}");
-                return;
+                // Parent not found yet - this can happen if occurrences sync before the series master.
+                // We still save the event but without the parent link for now.
+                Log.Warning($"Parent recurring event (SeriesMasterId: {calendarEvent.SeriesMasterId}) not found for event {calendarEvent.Id}. Event will be saved without parent link.");
             }
         }
 
         // Convert the recurrence pattern to string for parent recurring events.
+        // Note: We store this for reference but don't use it to calculate occurrences.
         if (calendarEvent.Type == EventType.SeriesMaster && calendarEvent.Recurrence != null)
         {
             savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
@@ -233,6 +234,9 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
                 })
                 .ToList();
         }
+
+        // Set assigned calendar for navigation properties to work.
+        savingItem.AssignedCalendar = assignedCalendar;
 
         // Use CalendarService to create or update the event
         if (isNewItem)

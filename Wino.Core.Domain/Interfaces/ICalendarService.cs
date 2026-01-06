@@ -24,16 +24,8 @@ public interface ICalendarService
     /// </summary>
     /// <param name="calendar">The calendar to retrieve events from.</param>
     /// <param name="period">The time period to query events for.</param>
-    /// <returns>List of calendar items including regular events and recurring event occurrences.</returns>
+    /// <returns>List of calendar items that fall within the requested period.</returns>
     Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
-
-    /// <summary>
-    /// Expands a recurring calendar item to check if any of its occurrences fall within the given periods.
-    /// </summary>
-    /// <param name="calendarItem">The calendar item to expand (can be recurring or non-recurring).</param>
-    /// <param name="periods">The list of periods to check against.</param>
-    /// <returns>List of calendar items (either the original item or expanded recurrence instances) that fall within the periods.</returns>
-    Task<List<CalendarItem>> GetExpandedRecurringEventsForPeriodsAsync(CalendarItem calendarItem, IEnumerable<ITimePeriod> periods);
     
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);

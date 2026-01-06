@@ -392,7 +392,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         {
             var request = _calendarService.Events.List(calendar.RemoteCalendarId);
 
-            request.SingleEvents = false;
+            // Fetch individual event instances (including recurring event occurrences) 
+            // rather than recurring event masters. This ensures we get all occurrences
+            // as separate events that can be stored and displayed directly.
+            request.SingleEvents = true;
             request.ShowDeleted = true;
 
             if (!string.IsNullOrEmpty(calendar.SynchronizationDeltaToken))
@@ -1973,6 +1976,31 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             : Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(updateRequest, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    {
+        var calendarItem = request.Item;
+
+        // Get the calendar for this event
+        var calendar = calendarItem.AssignedCalendar;
+        if (calendar == null)
+        {
+            throw new InvalidOperationException("Calendar item must have an assigned calendar");
+        }
+
+        if (string.IsNullOrEmpty(calendarItem.RemoteEventId))
+        {
+            throw new InvalidOperationException("Cannot delete event without remote event ID");
+        }
+
+        // Delete the event using Google Calendar API
+        var deleteRequest = _calendarService.Events.Delete(calendar.RemoteCalendarId, calendarItem.RemoteEventId);
+
+        // Send cancellation notifications to attendees
+        deleteRequest.SendUpdates = Google.Apis.Calendar.v3.EventsResource.DeleteRequest.SendUpdatesEnum.All;
+
+        return [new HttpRequestBundle<IClientServiceRequest>(deleteRequest, request)];
     }
 
     #endregion

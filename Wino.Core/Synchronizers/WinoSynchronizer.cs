@@ -384,7 +384,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                             nativeRequests.AddRange(UpdateCalendarEvent(group.ElementAt(0) as UpdateCalendarEventRequest));
                             break;
                         case CalendarSynchronizerOperation.DeleteEvent:
-                            // TODO: Implement DeleteCalendarEvent
+                            nativeRequests.AddRange(DeleteCalendarEvent(group.ElementAt(0) as DeleteCalendarEventRequest));
                             break;
                         default:
                             break;
@@ -511,6 +511,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     public virtual List<IRequestBundle<TBaseRequest>> CreateCalendarEvent(CreateCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> AcceptEvent(AcceptEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> DeclineEvent(DeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> OutlookDeclineEvent(OutlookDeclineEventRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));

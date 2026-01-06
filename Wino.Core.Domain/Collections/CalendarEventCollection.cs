@@ -13,6 +13,7 @@ public class CalendarEventCollection
 {
     public event EventHandler<ICalendarItem> CalendarItemAdded;
     public event EventHandler<ICalendarItem> CalendarItemRemoved;
+    public event EventHandler<ICalendarItem> CalendarItemUpdated;
 
     public event EventHandler CalendarItemsCleared;
 
@@ -116,8 +117,12 @@ public class CalendarEventCollection
 
     private void AddCalendarItemInternal(ObservableRangeCollection<ICalendarItem> collection, ICalendarItem calendarItem, bool create = true)
     {
-        if (calendarItem is not ICalendarItemViewModel)
+        if (calendarItem is not ICalendarItemViewModel viewModel)
             throw new ArgumentException("CalendarItem must be of type ICalendarItemViewModel", nameof(calendarItem));
+
+        // Set the displaying context for proper title calculation
+        viewModel.DisplayingPeriod = Period;
+        viewModel.CalendarSettings = Settings;
 
         collection.Add(calendarItem);
 
@@ -142,6 +147,53 @@ public class CalendarEventCollection
         }
 
         CalendarItemRemoved?.Invoke(this, calendarItem);
+    }
+
+    /// <summary>
+    /// Updates an existing calendar item in-place. If the item's type changed (all-day vs regular),
+    /// it will be moved to the appropriate collection.
+    /// </summary>
+    /// <param name="calendarItem">The updated calendar item data.</param>
+    /// <returns>True if the item was found and updated; false otherwise.</returns>
+    public bool UpdateCalendarItem(CalendarItem calendarItem)
+    {
+        var existingItem = _allItems.FirstOrDefault(x => x.Id == calendarItem.Id);
+        if (existingItem == null)
+            return false;
+
+        // Get the collections this item is currently in (before update)
+        var oldCollections = GetProperCollectionsForCalendarItem(existingItem).ToList();
+
+        // Update the underlying data
+        if (existingItem is ICalendarItemViewModel viewModel)
+        {
+            viewModel.UpdateFrom(calendarItem);
+        }
+
+        // Get the collections this item should be in (after update)
+        var newCollections = GetProperCollectionsForCalendarItem(existingItem).ToList();
+
+        // Check if the collections changed
+        var collectionsToRemoveFrom = oldCollections.Except(newCollections).ToList();
+        var collectionsToAddTo = newCollections.Except(oldCollections).ToList();
+
+        // Remove from old collections that are no longer applicable
+        foreach (var collection in collectionsToRemoveFrom)
+        {
+            collection.Remove(existingItem);
+        }
+
+        // Add to new collections that are now applicable
+        foreach (var collection in collectionsToAddTo)
+        {
+            if (!collection.Contains(existingItem))
+            {
+                collection.Add(existingItem);
+            }
+        }
+
+        CalendarItemUpdated?.Invoke(this, existingItem);
+        return true;
     }
 
     public void Clear()
