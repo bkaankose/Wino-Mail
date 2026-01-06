@@ -93,19 +93,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     #region Data Initialization
 
     [ObservableProperty]
-    private CalendarOrientation _calendarOrientation = CalendarOrientation.Horizontal;
-
+    public partial CalendarOrientation CalendarOrientation { get; set; } = CalendarOrientation.Horizontal;
     [ObservableProperty]
-    private DayRangeCollection _dayRanges = [];
-
+    public partial DayRangeCollection DayRanges { get; set; } = [];
     [ObservableProperty]
-    private int _selectedDateRangeIndex;
-
+    public partial int SelectedDateRangeIndex { get; set; }
     [ObservableProperty]
-    private DayRangeRenderModel _selectedDayRange;
-
+    public partial DayRangeRenderModel SelectedDayRange { get; set; }
     [ObservableProperty]
-    private bool _isCalendarEnabled = true;
+    public partial bool IsCalendarEnabled { get; set; } = true;
 
     #endregion
 
@@ -113,9 +109,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public event EventHandler DetailsShowCalendarItemChanged;
 
+    public bool CanJoinOnline => DisplayDetailsCalendarItemViewModel != null &&
+                                        !string.IsNullOrEmpty(DisplayDetailsCalendarItemViewModel.CalendarItem.HtmlLink);
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEventDetailsVisible))]
-    private CalendarItemViewModel _displayDetailsCalendarItemViewModel;
+    [NotifyCanExecuteChangedFor(nameof(JoinOnlineCommand))]
+    public partial CalendarItemViewModel DisplayDetailsCalendarItemViewModel { get; set; }
 
     public bool IsEventDetailsVisible => DisplayDetailsCalendarItemViewModel != null;
 
@@ -127,6 +127,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     private readonly ICalendarService _calendarService;
     private readonly INavigationService _navigationService;
     private readonly IKeyPressService _keyPressService;
+    private readonly INativeAppService _nativeAppService;
     private readonly IPreferencesService _preferencesService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
 
@@ -147,6 +148,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                                  ICalendarService calendarService,
                                  INavigationService navigationService,
                                  IKeyPressService keyPressService,
+                                 INativeAppService nativeAppService,
                                  IAccountCalendarStateService accountCalendarStateService,
                                  IPreferencesService preferencesService,
                                  IWinoRequestDelegator winoRequestDelegator)
@@ -157,6 +159,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         _calendarService = calendarService;
         _navigationService = navigationService;
         _keyPressService = keyPressService;
+        _nativeAppService = nativeAppService;
         _preferencesService = preferencesService;
         _winoRequestDelegator = winoRequestDelegator;
 
@@ -201,6 +204,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
             DisplayDetailsCalendarItemViewModel = null;
         });
+    }
+
+    [RelayCommand(CanExecute = nameof(CanJoinOnline))]
+    private async Task JoinOnlineAsync()
+    {
+        if (DisplayDetailsCalendarItemViewModel == null || string.IsNullOrEmpty(DisplayDetailsCalendarItemViewModel.CalendarItem.HtmlLink)) return;
+
+        await _nativeAppService.LaunchUriAsync(new Uri(DisplayDetailsCalendarItemViewModel.CalendarItem.HtmlLink));
     }
 
     // TODO: Replace when calendar settings are updated.

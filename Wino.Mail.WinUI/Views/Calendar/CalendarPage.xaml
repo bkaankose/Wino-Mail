@@ -6,6 +6,7 @@
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:calendarControls="using:Wino.Calendar.Controls"
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
+    xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -13,7 +14,7 @@
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
-    xmlns:shared="using:Wino.Core.Domain.Entities.Shared" xmlns:collections="using:CommunityToolkit.Mvvm.Collections"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -350,11 +351,12 @@
                                 <TextBlock Text="{x:Bind ViewModel.DisplayDetailsCalendarItemViewModel.CalendarItem.OrganizerDisplayName, Mode=OneWay}" />
                             </StackPanel>
 
-                            <!--  TODO: HtmlLink visibility  -->
                             <HyperlinkButton
                                 Grid.Row="1"
                                 Grid.Column="1"
-                                HorizontalAlignment="Right">
+                                HorizontalAlignment="Right"
+                                Command="{x:Bind ViewModel.JoinOnlineCommand}"
+                                Visibility="{x:Bind ViewModel.CanJoinOnline, Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon
                                         HorizontalAlignment="Center"
