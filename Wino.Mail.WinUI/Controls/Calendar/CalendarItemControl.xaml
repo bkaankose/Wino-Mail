@@ -23,6 +23,7 @@
         Tapped="ControlTapped"
         ToolTipService.ToolTip="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}">
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="5" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
@@ -36,20 +37,36 @@
             </local:CalendarItemCommandBarFlyout>
         </Grid.ContextFlyout>
 
+
         <Grid
             x:Name="MainBackground"
+            Grid.Column="1"
             Grid.ColumnSpan="2"
-            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}" />
+            Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+            Opacity="0.9" />
 
         <Rectangle
             x:Name="MainBorder"
+            Grid.Column="1"
             Grid.ColumnSpan="2"
             Canvas.ZIndex="2"
             Stroke="{ThemeResource CalendarItemBorderBrush}"
             StrokeThickness="0" />
 
+        <!--  ShowAs Status Stripe  -->
+        <ContentControl
+            x:Name="ShowAsStripe"
+            Grid.Column="0"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Canvas.ZIndex="10000"
+            Content="{x:Bind CalendarItem}"
+            ContentTemplateSelector="{StaticResource ShowAsStripeSelector}"
+            IsTabStop="False" />
+
         <TextBlock
             x:Name="EventTitleTextblock"
+            Grid.Column="1"
             Margin="2,0"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Center"
@@ -63,7 +80,7 @@
         <!--  TODO: Event attributes  -->
         <StackPanel
             x:Name="AttributeStack"
-            Grid.Column="1"
+            Grid.Column="2"
             Margin="0,4,4,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"

@@ -25,9 +25,42 @@
         </Grid>
     </DataTemplate>
 
+    <!--  ShowAs Status Stripe Templates  -->
+    <DataTemplate x:Key="FreeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#4CAF50" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="TentativeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#FFC107" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="BusyStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#F44336" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="OutOfOfficeStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#9C27B0" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="WorkingElsewhereStripeTemplate" x:DataType="data:CalendarItemViewModel">
+        <Border Background="#2196F3" />
+    </DataTemplate>
+
+    <!--  ShowAs Status Stripe Selector  -->
+    <selectors1:CalendarItemShowAsStripeTemplateSelector
+        x:Key="ShowAsStripeSelector"
+        BusyTemplate="{StaticResource BusyStripeTemplate}"
+        FreeTemplate="{StaticResource FreeStripeTemplate}"
+        OutOfOfficeTemplate="{StaticResource OutOfOfficeStripeTemplate}"
+        TentativeTemplate="{StaticResource TentativeStripeTemplate}"
+        WorkingElsewhereTemplate="{StaticResource WorkingElsewhereStripeTemplate}" />
+
     <!--  Vertical panel that renders items on canvas.  -->
     <DataTemplate x:Key="DayCalendarItemVerticalRenderTemplate" x:DataType="models:CalendarDayModel">
-        <ItemsControl x:Name="RegularEventItemsControl" ItemsSource="{x:Bind EventsCollection.RegularEvents}" Loaded="OnRegularEventItemsControlLoaded">
+        <ItemsControl
+            x:Name="RegularEventItemsControl"
+            ItemsSource="{x:Bind EventsCollection.RegularEvents}"
+            Loaded="OnRegularEventItemsControlLoaded">
             <ItemsControl.ItemTemplate>
                 <!--  Default Calendar Item View Model Template  -->
                 <DataTemplate x:DataType="data:CalendarItemViewModel">
@@ -60,7 +93,11 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <ItemsControl x:Name="DayColumnsItemsControl" Margin="50,0,16,0" ItemsSource="{x:Bind CalendarDays}" Loaded="OnDayColumnsItemsControlLoaded">
+            <ItemsControl
+                x:Name="DayColumnsItemsControl"
+                Margin="50,0,16,0"
+                ItemsSource="{x:Bind CalendarDays}"
+                Loaded="OnDayColumnsItemsControlLoaded">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:CalendarDayModel">
                         <controls:DayColumnControl DayModel="{x:Bind}" />

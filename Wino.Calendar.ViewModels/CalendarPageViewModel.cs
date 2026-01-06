@@ -115,6 +115,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEventDetailsVisible))]
     [NotifyCanExecuteChangedFor(nameof(JoinOnlineCommand))]
+    [NotifyPropertyChangedFor(nameof(CanJoinOnline))]
     public partial CalendarItemViewModel DisplayDetailsCalendarItemViewModel { get; set; }
 
     public bool IsEventDetailsVisible => DisplayDetailsCalendarItemViewModel != null;
@@ -225,12 +226,6 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             CalendarDisplayType.Month => new MonthCalendarDrawingStrategy(CurrentSettings),
             _ => throw new NotImplementedException(),
         };
-    }
-
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
-    {
-        // Do not call base method because that will unregister messenger recipient.
-        // This is a singleton view model and should not be unregistered.
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
