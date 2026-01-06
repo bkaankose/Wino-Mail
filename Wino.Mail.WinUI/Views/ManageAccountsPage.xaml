@@ -43,7 +43,10 @@
                 </winuiControls:BreadcrumbBar.ItemTemplate>
             </winuiControls:BreadcrumbBar>
 
-            <Frame x:Name="AccountPagesFrame" Grid.Row="1" />
+            <Frame
+                x:Name="AccountPagesFrame"
+                Grid.Row="1"
+                Navigated="AccountPagesFrameNavigated" />
         </Grid>
     </Border>
 </abstract:ManageAccountsPageAbstract>

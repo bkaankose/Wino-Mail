@@ -95,6 +95,7 @@ public partial class App : WinoApplication,
 
         services.AddTransient(typeof(CalendarPageViewModel));
         services.AddTransient(typeof(CalendarSettingsPageViewModel));
+        services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));
         services.AddTransient(typeof(EventDetailsPageViewModel));
     }
 

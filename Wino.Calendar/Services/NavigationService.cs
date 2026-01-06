@@ -30,7 +30,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         };
     }
 
-    public void GoBack()
+    public void GoBack(Core.Domain.Enums.SlideNavigationTransitionEffect slideEffect = Core.Domain.Enums.SlideNavigationTransitionEffect.FromRight)
     {
         if (Window.Current.Content is Frame appFrame && appFrame.Content is AppShell shellPage)
         {

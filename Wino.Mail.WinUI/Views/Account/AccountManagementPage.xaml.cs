@@ -1,6 +1,5 @@
 using CommunityToolkit.WinUI.Controls;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Views.Abstract;
@@ -12,8 +11,6 @@ public sealed partial class AccountManagementPage : AccountManagementPageAbstrac
     public AccountManagementPage()
     {
         InitializeComponent();
-
-        NavigationCacheMode = NavigationCacheMode.Enabled;
     }
 
     private void EditMergedAccounts_Click(object sender, RoutedEventArgs e)

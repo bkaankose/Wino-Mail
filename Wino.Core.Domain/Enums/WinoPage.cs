@@ -30,6 +30,7 @@ public enum WinoPage
     KeyboardShortcutsPage,
     CalendarPage,
     CalendarSettingsPage,
+    CalendarAccountSettingsPage,
     EventDetailsPage,
     SignatureAndEncryptionPage
 }

@@ -1,0 +1,86 @@
+<abstract:CalendarAccountSettingsPageAbstract
+    x:Class="Wino.Mail.WinUI.Views.Calendar.CalendarAccountSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Style="{StaticResource PageStyle}"
+    mc:Ignorable="d">
+
+    <Grid Padding="20" RowSpacing="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Page Header  -->
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock
+                Style="{StaticResource TitleTextBlockStyle}"
+                Text="{x:Bind domain:Translator.CalendarAccountSettings_Title, Mode=OneTime}" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="{x:Bind ViewModel.Account.Name, Mode=OneWay}"
+                TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!--  Settings Cards  -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel MaxWidth="900" Spacing="4">
+
+                <!--  Account Color  -->
+                <controls:SettingsCard
+                    Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Border
+                        Width="40"
+                        Height="40"
+                        Background="{x:Bind ViewModel.AccountColorHex, Mode=OneWay}"
+                        CornerRadius="4" />
+                </controls:SettingsCard>
+
+                <!--  Enable Synchronization  -->
+                <controls:SettingsCard
+                    Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE895;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsSyncEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <!--  Primary Calendar  -->
+                <controls:SettingsCard
+                    Description="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendarDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CalendarAccountSettings_PrimaryCalendar, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE735;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsPrimaryCalendar, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <!--  Default Show As Status  -->
+                <controls:SettingsCard
+                    Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE163;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        MinWidth="150"
+                        DisplayMemberPath="DisplayText"
+                        ItemsSource="{x:Bind ViewModel.ShowAsOptions, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedDefaultShowAsOption, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</abstract:CalendarAccountSettingsPageAbstract>

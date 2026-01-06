@@ -1,17 +1,21 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
+using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Mail.ViewModels;
@@ -21,11 +25,17 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
+    private readonly ICalendarService _calendarService;
     private bool isLoaded = false;
 
     public MailAccount Account { get; set; }
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
+    public ObservableCollection<AccountCalendar> AccountCalendars { get; set; } = [];
 
+    [ObservableProperty]
+    public partial int SelectedTabIndex { get; set; } = 1; // Default to Mail tab
+
+    // Mail-related properties
     [ObservableProperty]
     private bool isFocusedInboxEnabled;
 
@@ -49,11 +59,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     public AccountDetailsPageViewModel(IMailDialogService dialogService,
         IAccountService accountService,
-        IFolderService folderService)
+        IFolderService folderService,
+        ICalendarService calendarService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
+        _calendarService = calendarService;
     }
 
     [RelayCommand]
@@ -127,8 +139,31 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 CurrentFolders.Add(folder);
             }
 
+            // Load calendar list
+            await LoadAccountCalendarsAsync();
+
             isLoaded = true;
         }
+    }
+
+    private async Task LoadAccountCalendarsAsync()
+    {
+        var calendars = await _calendarService.GetAccountCalendarsAsync(Account.Id);
+        
+        AccountCalendars.Clear();
+        foreach (var calendar in calendars)
+        {
+            AccountCalendars.Add(calendar);
+        }
+    }
+
+    [RelayCommand]
+    private void CalendarItemClicked(AccountCalendar calendar)
+    {
+        if (calendar == null) return;
+
+        // Navigate to calendar settings page with breadcrumb
+        Messenger.Send(new BreadcrumbNavigationRequested(calendar.Name, WinoPage.CalendarAccountSettingsPage, calendar));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)

@@ -42,6 +42,7 @@ public static class XamlHelpers
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
+    public static bool AreEqual(int value1, int value2) => value1 == value2;
     public static bool ShouldDisplayPreview(string text) => text == null ? false : text.Any(x => char.IsLetter(x));
     public static bool CountToBooleanConverter(int value) => value > 0;
     public static bool ObjectEquals(object obj1, object obj2) => object.Equals(obj1, obj2);

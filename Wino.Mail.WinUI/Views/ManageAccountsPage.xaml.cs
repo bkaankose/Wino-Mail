@@ -6,8 +6,8 @@ using Microsoft.UI.Xaml.Navigation;
 using MoreLinq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Mail.WinUI.Views.Abstract;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Views.Abstract;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 
@@ -37,6 +37,10 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         WeakReferenceMessenger.Default.Register<MergedInboxRenamed>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
 
+        // Register for frame navigation events to track back button visibility
+        AccountPagesFrame.Navigated -= AccountPagesFrameNavigated;
+        AccountPagesFrame.Navigated += AccountPagesFrameNavigated;
+
         var initialRequest = new BreadcrumbNavigationRequested(Translator.MenuManageAccounts, WinoPage.AccountManagementPage);
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(initialRequest, true));
 
@@ -53,6 +57,12 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
         WeakReferenceMessenger.Default.Unregister<MergedInboxRenamed>(this);
         WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
 
+        // Unregister frame navigation event
+        AccountPagesFrame.Navigated -= AccountPagesFrameNavigated;
+
+        // Reset navigation state when leaving ManageAccountsPage
+        ViewModel.StatePersistenceService.IsManageAccountsNavigating = false;
+
         base.OnNavigatingFrom(e);
     }
 
@@ -62,20 +72,42 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
 
         if (pageType == null) return;
 
-        AccountPagesFrame.Navigate(pageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+        AccountPagesFrame.Navigate(pageType, message.Parameter, new SlideNavigationTransitionInfo() { Effect = Microsoft.UI.Xaml.Media.Animation.SlideNavigationTransitionEffect.FromRight });
 
         PageHistory.ForEach(a => a.IsActive = false);
 
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(message, true));
     }
 
-    private void GoBackFrame()
+    private void AccountPagesFrameNavigated(object sender, NavigationEventArgs e)
+    {
+        // Update back button visibility based on whether we can go back within the frame
+        ViewModel.StatePersistenceService.IsManageAccountsNavigating = AccountPagesFrame.CanGoBack;
+    }
+
+    private void GoBackFrame(Core.Domain.Enums.NavigationTransitionEffect slideEffect)
     {
         if (AccountPagesFrame.CanGoBack)
         {
             PageHistory.RemoveAt(PageHistory.Count - 1);
 
-            AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
+            var winuiEffect = slideEffect switch
+            {
+                Core.Domain.Enums.NavigationTransitionEffect.FromLeft => Microsoft.UI.Xaml.Media.Animation.SlideNavigationTransitionEffect.FromLeft,
+                _ => Microsoft.UI.Xaml.Media.Animation.SlideNavigationTransitionEffect.FromRight,
+            };
+
+            AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = winuiEffect });
+
+            // Set the new last item as active
+            if (PageHistory.Count > 0)
+            {
+                PageHistory.ForEach(a => a.IsActive = false);
+                PageHistory[PageHistory.Count - 1].IsActive = true;
+            }
+
+            // Update back button visibility after navigation
+            ViewModel.StatePersistenceService.IsManageAccountsNavigating = AccountPagesFrame.CanGoBack;
         }
     }
 
@@ -83,17 +115,16 @@ public sealed partial class ManageAccountsPage : ManageAccountsPageAbstract,
     {
         var clickedPageHistory = PageHistory[args.Index];
 
+        // Trigger GoBack repeatedly until we reach the clicked breadcrumb item
         while (PageHistory.FirstOrDefault(a => a.IsActive) != clickedPageHistory)
         {
-            AccountPagesFrame.GoBack(new SlideNavigationTransitionInfo() { Effect = SlideNavigationTransitionEffect.FromRight });
-            PageHistory.RemoveAt(PageHistory.Count - 1);
-            PageHistory[PageHistory.Count - 1].IsActive = true;
+            ViewModel.NavigationService.GoBack();
         }
     }
 
     public void Receive(BackBreadcrumNavigationRequested message)
     {
-        GoBackFrame();
+        GoBackFrame(message.SlideEffect);
     }
 
     public void Receive(AccountUpdatedMessage message)

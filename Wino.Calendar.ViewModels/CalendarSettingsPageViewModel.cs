@@ -1,13 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -45,13 +52,17 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
 
     public IPreferencesService PreferencesService { get; }
     private readonly ICalendarService _calendarService;
+    private readonly IAccountService _accountService;
+
+    public ObservableCollection<MailAccount> Accounts { get; } = new ObservableCollection<MailAccount>();
 
     private readonly bool _isLoaded = false;
 
-    public CalendarSettingsPageViewModel(IPreferencesService preferencesService, ICalendarService calendarService)
+    public CalendarSettingsPageViewModel(IPreferencesService preferencesService, ICalendarService calendarService, IAccountService accountService)
     {
         PreferencesService = preferencesService;
         _calendarService = calendarService;
+        _accountService = accountService;
 
         var currentLanguageLanguageCode = WinoTranslationDictionary.GetLanguageFileNameRelativePath(preferencesService.CurrentLanguage);
 
@@ -98,6 +109,34 @@ public partial class CalendarSettingsPageViewModel : CalendarBaseViewModel
         }
 
         _isLoaded = true;
+
+        // Load accounts with calendar support
+        LoadAccountsAsync();
+    }
+
+    private async void LoadAccountsAsync()
+    {
+        var accounts = await _accountService.GetAccountsAsync();
+        
+        await Dispatcher.ExecuteOnUIThread(() =>
+        {
+            Accounts.Clear();
+            foreach (var account in accounts)
+            {
+                Accounts.Add(account);
+            }
+        });
+    }
+
+    [RelayCommand]
+    private void NavigateToAccountSettings(MailAccount account)
+    {
+        if (account == null) return;
+        
+        Messenger.Send(new BreadcrumbNavigationRequested(
+            string.Format(Translator.CalendarAccountSettings_Description, account.Name),
+            WinoPage.CalendarAccountSettingsPage,
+            account.Id));
     }
 
     partial void OnCellHourHeightChanged(double oldValue, double newValue) => SaveSettings();

@@ -43,7 +43,7 @@
                             Text="{x:Bind ViewModel.SenderName, Mode=TwoWay}" />
                     </controls:SettingsCard>
 
-                    <controls:SettingsCard HorizontalContentAlignment="Stretch" Header="{x:Bind domain:Translator.Buttons_Save}">
+                    <controls:SettingsCard HorizontalContentAlignment="Stretch">
                         <Button
                             Command="{x:Bind ViewModel.SaveChangesCommand}"
                             Content="{x:Bind domain:Translator.Buttons_Save}"

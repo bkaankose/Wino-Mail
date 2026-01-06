@@ -15,6 +15,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Navigation;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
@@ -68,6 +69,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.CalendarPage => typeof(CalendarPage),
             WinoPage.EventDetailsPage => typeof(EventDetailsPage),
             WinoPage.CalendarSettingsPage => typeof(CalendarSettingsPage),
+            WinoPage.CalendarAccountSettingsPage => typeof(CalendarAccountSettingsPage),
             _ => null,
         };
     }
@@ -208,8 +210,17 @@ public class NavigationService : NavigationServiceBase, INavigationService
         return false;
     }
 
-    public void GoBack()
+    public void GoBack(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
     {
+        // Check if we're navigating within ManageAccountsPage (applies to both modes)
+        // Check if we're navigating within SettingsPage (applies to both modes)
+        if (_statePersistanceService.IsManageAccountsNavigating || _statePersistanceService.IsSettingsNavigating)
+        {
+            // Send message to ManageAccountsPage to go back within its AccountPagesFrame
+            WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(slideEffect));
+            return;
+        }
+
         if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar)
         {
             var innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);

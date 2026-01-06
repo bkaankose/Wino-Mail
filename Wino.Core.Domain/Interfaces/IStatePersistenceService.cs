@@ -40,6 +40,16 @@ public interface IStatePersistanceService : INotifyPropertyChanged
     bool IsEventDetailsVisible { get; set; }
 
     /// <summary>
+    /// Whether ManageAccountsPage has navigated to a sub-page and can go back.
+    /// </summary>
+    bool IsManageAccountsNavigating { get; set; }
+
+    /// <summary>
+    /// Whether SettingsPage has navigated to a sub-page and can go back.
+    /// </summary>
+    bool IsSettingsNavigating { get; set; }
+
+    /// <summary>
     /// Setting: Opened pane length for the navigation view.
     /// </summary>
     double OpenPaneLength { get; set; }

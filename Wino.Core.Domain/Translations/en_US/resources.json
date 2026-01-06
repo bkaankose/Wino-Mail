@@ -26,6 +26,10 @@
     "AccountDetailsPage_Description": "Change the name of the account in Wino and set desired sender name.",
     "AccountDetailsPage_ColorPicker_Title": "Account color",
     "AccountDetailsPage_ColorPicker_Description": "Assign a new account color to colorize its symbol in the list.",
+    "AccountDetailsPage_TabGeneral": "General",
+    "AccountDetailsPage_TabMail": "Mail",
+    "AccountDetailsPage_TabCalendar": "Calendar",
+    "AccountDetailsPage_CalendarListDescription": "Select a calendar to configure its settings",
     "AddHyperlink": "Add",
     "AppCloseBackgroundSynchronizationWarningTitle": "Background Synchronization",
     "AppCloseStartupLaunchDisabledWarningMessageFirstLine": "Application has not been set to launch on Windows startup.",
@@ -861,5 +865,15 @@
     "ContactSelection_SelectAll": "Select All",
     "ContactSelection_Clear": "Clear Selection",
     "ContactsPage_EmptyState": "No contacts to display",
-    "ContactsPage_AddFirstContact": "Add your first contact"
+    "ContactsPage_AddFirstContact": "Add your first contact",
+    "CalendarAccountSettings_Title": "Calendar Account Settings",
+    "CalendarAccountSettings_Description": "Manage calendar settings for {0}",
+    "CalendarAccountSettings_AccountColor": "Account Color",
+    "CalendarAccountSettings_AccountColorDescription": "Change the display color for this calendar account",
+    "CalendarAccountSettings_SyncEnabled": "Enable Synchronization",
+    "CalendarAccountSettings_SyncEnabledDescription": "Enable or disable calendar synchronization for this account",
+    "CalendarAccountSettings_DefaultShowAs": "Default Show As Status",
+    "CalendarAccountSettings_DefaultShowAsDescription": "Default availability status for new events created with this account",
+    "CalendarAccountSettings_PrimaryCalendar": "Primary Calendar",
+    "CalendarAccountSettings_PrimaryCalendarDescription": "Mark this calendar as the primary calendar for the account"
 }

@@ -7,8 +7,10 @@
     xmlns:controls1="using:Microsoft.UI.Xaml.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
+    x:Name="Root"
     mc:Ignorable="d">
 
     <Grid>
@@ -178,7 +180,52 @@
                     </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
+            <!--  Calendar Accounts  -->
+            <!--<controls:SettingsExpander
+                Description="Manage calendar settings for each account"
+                Header="Calendar Accounts"
+                IsExpanded="True">
+                <controls:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE77B;" />
+                </controls:SettingsExpander.HeaderIcon>
 
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        ContentAlignment="Vertical">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="entities:MailAccount">
+                                    <Button
+                                        Padding="12,8"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Command="{Binding ElementName=Root, Path=ViewModel.NavigateToAccountSettingsCommand}"
+                                        CommandParameter="{x:Bind}"
+                                        Style="{StaticResource SubtleButtonStyle}">
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <FontIcon FontSize="20" Glyph="&#xE8D8;" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Name}" />
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{x:Bind Address}" />
+                                            </StackPanel>
+                                            <FontIcon
+                                                Margin="0,0,8,0"
+                                                HorizontalAlignment="Right"
+                                                FontSize="12"
+                                                Glyph="&#xE76C;" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>-->
             <!--  Default reminder  -->
             <controls:SettingsCard Description="Set a default reminder for all new calendar events." Header="Default reminder">
                 <controls:SettingsCard.HeaderIcon>

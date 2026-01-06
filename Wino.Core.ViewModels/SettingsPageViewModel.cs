@@ -4,10 +4,12 @@ namespace Wino.Core.ViewModels;
 
 public class SettingsPageViewModel : CoreBaseViewModel
 {
-    public SettingsPageViewModel(INavigationService navigationService)
+    public SettingsPageViewModel(INavigationService navigationService, IStatePersistanceService statePersistenceService)
     {
         NavigationService = navigationService;
+        StatePersistenceService = statePersistenceService;
     }
 
     public INavigationService NavigationService { get; }
+    public IStatePersistanceService StatePersistenceService { get; }
 }

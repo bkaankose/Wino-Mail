@@ -8,7 +8,7 @@ namespace Wino.Selectors;
 /// <summary>
 /// DataTemplateSelector that selects the appropriate stripe template based on CalendarItemShowAs status.
 /// </summary>
-public class CalendarItemShowAsStripeTemplateSelector : DataTemplateSelector
+public partial class CalendarItemShowAsStripeTemplateSelector : DataTemplateSelector
 {
     public DataTemplate FreeTemplate { get; set; }
     public DataTemplate TentativeTemplate { get; set; }
