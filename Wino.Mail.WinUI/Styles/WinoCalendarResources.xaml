@@ -27,7 +27,7 @@
 
     <!--  Vertical panel that renders items on canvas.  -->
     <DataTemplate x:Key="DayCalendarItemVerticalRenderTemplate" x:DataType="models:CalendarDayModel">
-        <ItemsControl x:Name="RegularEventItemsControl" ItemsSource="{x:Bind EventsCollection.RegularEvents}">
+        <ItemsControl x:Name="RegularEventItemsControl" ItemsSource="{x:Bind EventsCollection.RegularEvents}" Loaded="OnRegularEventItemsControlLoaded">
             <ItemsControl.ItemTemplate>
                 <!--  Default Calendar Item View Model Template  -->
                 <DataTemplate x:DataType="data:CalendarItemViewModel">
@@ -41,8 +41,7 @@
             </ItemsControl.ItemContainerTransitions>
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <!--  TODO: Make aot safe.  -->
-                    <controls:WinoCalendarPanel HourHeight="{Binding CalendarRenderOptions.CalendarSettings.HourHeight}" Period="{Binding Period}" />
+                    <controls:WinoCalendarPanel />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
         </ItemsControl>
@@ -61,7 +60,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <ItemsControl Margin="50,0,16,0" ItemsSource="{x:Bind CalendarDays}">
+            <ItemsControl x:Name="DayColumnsItemsControl" Margin="50,0,16,0" ItemsSource="{x:Bind CalendarDays}" Loaded="OnDayColumnsItemsControlLoaded">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:CalendarDayModel">
                         <controls:DayColumnControl DayModel="{x:Bind}" />
@@ -69,11 +68,7 @@
                 </ItemsControl.ItemTemplate>
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <!--  TODO: Make aot safe.  -->
-                        <toolkitControls:UniformGrid
-                            Columns="{Binding CalendarRenderOptions.TotalDayCount}"
-                            Orientation="Horizontal"
-                            Rows="1" />
+                        <toolkitControls:UniformGrid Orientation="Horizontal" Rows="1" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
             </ItemsControl>
@@ -103,18 +98,16 @@
 
                     <!--  Each vertical day grids that renders events.  -->
                     <ItemsControl
+                        x:Name="EventGridsItemsControl"
                         Grid.Column="1"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
                         ItemTemplate="{StaticResource DayCalendarItemVerticalRenderTemplate}"
-                        ItemsSource="{x:Bind CalendarDays}">
+                        ItemsSource="{x:Bind CalendarDays}"
+                        Loaded="OnEventGridsItemsControlLoaded">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <!--  TODO: Make AOT SAFE.  -->
-                                <toolkitControls:UniformGrid
-                                    Columns="{Binding CalendarRenderOptions.TotalDayCount}"
-                                    Orientation="Horizontal"
-                                    Rows="1" />
+                                <toolkitControls:UniformGrid Orientation="Horizontal" Rows="1" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
