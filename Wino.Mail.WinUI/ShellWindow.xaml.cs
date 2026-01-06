@@ -41,6 +41,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
         // Use the AppWindow.Closing event to handle the close request
         AppWindow.Closing += OnAppWindowClosing;
 
+        // Register global mouse button listener for back button
+        RegisterMouseBackButtonListener();
+
         ShowWinoCommand = new RelayCommand(RestoreFromTray);
         ExitWinoCommand = new RelayCommand(ForceClose);
 
@@ -63,6 +66,30 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
             {
                 UpdateTitleBarColors(underlyingThemeService.IsUnderlyingThemeDark());
             }
+        }
+    }
+
+    private void RegisterMouseBackButtonListener()
+    {
+        // Subscribe to pointer pressed events on the root content
+        if (Content is UIElement rootElement)
+        {
+            rootElement.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(OnPointerPressed), true);
+        }
+    }
+
+    private void OnPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        // Check if it's the back button (XButton1)
+        var pointerPoint = e.GetCurrentPoint(null);
+        var properties = pointerPoint.Properties;
+
+        // XButton1 is the back button on most mice
+        if (properties.IsXButton1Pressed)
+        {
+            // Call GoBack on NavigationService
+            NavigationService.GoBack();
+            e.Handled = true;
         }
     }
 

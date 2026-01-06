@@ -221,24 +221,29 @@ public class NavigationService : NavigationServiceBase, INavigationService
             return;
         }
 
-        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar)
-        {
-            var innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
-            if (innerShellFrame?.CanGoBack == true)
-            {
-                innerShellFrame.GoBack();
+        var innerShellFrame = GetCoreFrame(NavigationReferenceFrame.InnerShellFrame);
 
-                // Calendar mode: Navigate back from EventDetailsPage
-                _statePersistanceService.IsEventDetailsVisible = false;
-            }
+        if (_statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && innerShellFrame?.CanGoBack == true)
+        {
+            innerShellFrame.GoBack();
+
+            // Calendar mode: Navigate back from EventDetailsPage
+            _statePersistanceService.IsEventDetailsVisible = false;
         }
         else
         {
-            // Mail mode: Clear selections and dispose rendering frame
-            _statePersistanceService.IsReadingMail = false;
+            if (_statePersistanceService.IsReadingMail && _statePersistanceService.IsReaderNarrowed)
+            {
+                // Mail mode: Clear selections and dispose rendering frame
+                _statePersistanceService.IsReadingMail = false;
 
-            WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
-            WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+                WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+                WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+            }
+            else if (innerShellFrame != null && innerShellFrame.CanGoBack)
+            {
+                innerShellFrame.GoBack();
+            }
         }
     }
 
