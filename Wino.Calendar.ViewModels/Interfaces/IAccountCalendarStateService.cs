@@ -5,11 +5,13 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.Collections;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.ViewModels.Interfaces;
 
 public interface IAccountCalendarStateService : INotifyPropertyChanged
 {
+    IDispatcher Dispatcher { get; set; }
     ReadOnlyObservableCollection<GroupedAccountCalendarViewModel> GroupedAccountCalendars { get; }
 
     event EventHandler<GroupedAccountCalendarViewModel> CollectiveAccountGroupSelectionStateChanged;

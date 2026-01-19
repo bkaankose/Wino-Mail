@@ -4,9 +4,12 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
+using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -14,8 +17,14 @@ namespace Wino.Mail.WinUI.Services;
 /// Encapsulated state manager for collectively managing the state of account calendars.
 /// Callers must react to the events to update their state only from this service.
 /// </summary>
-public partial class AccountCalendarStateService : ObservableObject, IAccountCalendarStateService
+public partial class AccountCalendarStateService : ObservableRecipient,
+    IAccountCalendarStateService,
+    IRecipient<CalendarListAdded>,
+    IRecipient<CalendarListUpdated>,
+    IRecipient<CalendarListDeleted>
 {
+    public IDispatcher? Dispatcher { get; set; }
+
     public event EventHandler<GroupedAccountCalendarViewModel>? CollectiveAccountGroupSelectionStateChanged;
     public event EventHandler<AccountCalendarViewModel>? AccountCalendarSelectionStateChanged;
 
@@ -47,13 +56,21 @@ public partial class AccountCalendarStateService : ObservableObject, IAccountCal
         }
     }
 
-    public AccountCalendarStateService()
+    private readonly IAccountService _accountService;
+
+    public AccountCalendarStateService(IAccountService accountService)
     {
+        _accountService = accountService;
+
         _internalGroupedAccountCalendars = new ObservableCollection<GroupedAccountCalendarViewModel>();
         GroupedAccountCalendars = new ReadOnlyObservableCollection<GroupedAccountCalendarViewModel>(_internalGroupedAccountCalendars);
 
         _internalGroupedCalendars = new ObservableGroupedCollection<MailAccount, AccountCalendarViewModel>();
         GroupedCalendars = new ReadOnlyObservableGroupedCollection<MailAccount, AccountCalendarViewModel>(_internalGroupedCalendars);
+
+        Messenger.Register<CalendarListAdded>(this);
+        Messenger.Register<CalendarListUpdated>(this);
+        Messenger.Register<CalendarListDeleted>(this);
     }
 
     private void SingleGroupCalendarCollectiveStateChanged(object? sender, EventArgs e)
@@ -167,6 +184,93 @@ public partial class AccountCalendarStateService : ObservableObject, IAccountCal
         if (group.AccountCalendars.Count == 0)
         {
             RemoveGroupedAccountCalendar(group);
+        }
+    }
+
+    public async void Receive(CalendarListAdded message)
+    {
+        var accountCalendar = message.AccountCalendar;
+        var mailAccount = await _accountService.GetAccountAsync(accountCalendar.AccountId);
+
+        if (mailAccount == null) return;
+
+        var accountCalendarViewModel = new AccountCalendarViewModel(mailAccount, accountCalendar);
+        
+        if (Dispatcher != null)
+        {
+            await Dispatcher.ExecuteOnUIThread(() => AddAccountCalendar(accountCalendarViewModel));
+        }
+        else
+        {
+            AddAccountCalendar(accountCalendarViewModel);
+        }
+    }
+
+    public async void Receive(CalendarListUpdated message)
+    {
+        var accountCalendar = message.AccountCalendar;
+
+        if (Dispatcher != null)
+        {
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                // Find the existing calendar view model
+                var existingCalendar = AllCalendars.FirstOrDefault(c => c.Id == accountCalendar.Id);
+
+                if (existingCalendar != null)
+                {
+                    // Update properties
+                    existingCalendar.Name = accountCalendar.Name;
+                    existingCalendar.TextColorHex = accountCalendar.TextColorHex;
+                    existingCalendar.BackgroundColorHex = accountCalendar.BackgroundColorHex;
+                    existingCalendar.IsExtended = accountCalendar.IsExtended;
+                    existingCalendar.IsPrimary = accountCalendar.IsPrimary;
+                }
+            });
+        }
+        else
+        {
+            // Find the existing calendar view model
+            var existingCalendar = AllCalendars.FirstOrDefault(c => c.Id == accountCalendar.Id);
+
+            if (existingCalendar != null)
+            {
+                // Update properties
+                existingCalendar.Name = accountCalendar.Name;
+                existingCalendar.TextColorHex = accountCalendar.TextColorHex;
+                existingCalendar.BackgroundColorHex = accountCalendar.BackgroundColorHex;
+                existingCalendar.IsExtended = accountCalendar.IsExtended;
+                existingCalendar.IsPrimary = accountCalendar.IsPrimary;
+            }
+        }
+    }
+
+    public async void Receive(CalendarListDeleted message)
+    {
+        var accountCalendar = message.AccountCalendar;
+
+        if (Dispatcher != null)
+        {
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                // Find and remove the calendar view model
+                var existingCalendar = AllCalendars.FirstOrDefault(c => c.Id == accountCalendar.Id);
+
+                if (existingCalendar != null)
+                {
+                    RemoveAccountCalendar(existingCalendar);
+                }
+            });
+        }
+        else
+        {
+            // Find and remove the calendar view model
+            var existingCalendar = AllCalendars.FirstOrDefault(c => c.Id == accountCalendar.Id);
+
+            if (existingCalendar != null)
+            {
+                RemoveAccountCalendar(existingCalendar);
+            }
         }
     }
 }

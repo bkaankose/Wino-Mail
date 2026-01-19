@@ -86,9 +86,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         StatePersistenceService.StatePropertyChanged += PrefefencesChanged;
     }
 
-    private void SelectedCalendarItemsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    protected override void OnDispatcherAssigned()
     {
-        throw new NotImplementedException();
+        base.OnDispatcherAssigned();
+
+        AccountCalendarStateService.Dispatcher = Dispatcher;
     }
 
     private void PrefefencesChanged(object sender, string e)
