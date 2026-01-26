@@ -6,21 +6,33 @@ using CommunityToolkit.WinUI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Serilog;
 using Windows.UI;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
+using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Views;
 using WinUIEx;
 
 namespace Wino.Mail.WinUI;
 
-public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient<ApplicationThemeChanged>, IRecipient<TitleBarShellContentUpdated>
+public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
+    IRecipient<ApplicationThemeChanged>,
+    IRecipient<TitleBarShellContentUpdated>,
+    IRecipient<NewMailSynchronizationRequested>,
+    IRecipient<NewCalendarSynchronizationRequested>
 {
+    private readonly ILogger _logger = Log.ForContext<ShellWindow>();
+
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
+    public ISynchronizationManager SynchronizationManager { get; } = WinoApplication.Current.Services.GetService<ISynchronizationManager>() ?? throw new Exception("SynchronizationManager not registered in DI container.");
+    private readonly IDialogServiceBase _dialogService = WinoApplication.Current.Services.GetService<IDialogServiceBase>() ?? throw new Exception("DialogService not registered in DI container.");
 
     public ICommand ShowWinoCommand { get; set; }
     public ICommand ExitWinoCommand { get; set; }
@@ -250,12 +262,81 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
     {
         WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
+        WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
     }
 
     private void UnregisterRecipients()
     {
         WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<NewMailSynchronizationRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<NewCalendarSynchronizationRequested>(this);
+    }
+
+    public async void Receive(NewMailSynchronizationRequested message)
+    {
+        try
+        {
+            var result = await SynchronizationManager.SynchronizeMailAsync(message.Options);
+
+            if (result.CompletedState == SynchronizationCompletedState.Failed)
+            {
+                var errorMessage = result.Exception?.Message ?? "Unknown synchronization error occurred.";
+                _logger.Error(result.Exception, "Mail synchronization failed for account {AccountId}", message.Options.AccountId);
+
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    _dialogService.InfoBarMessage(
+                        Translator.Info_SyncFailedTitle,
+                        errorMessage,
+                        InfoBarMessageType.Error);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Exception during mail synchronization");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.Info_SyncFailedTitle,
+                    ex.Message,
+                    InfoBarMessageType.Error);
+            });
+        }
+    }
+
+    public async void Receive(NewCalendarSynchronizationRequested message)
+    {
+        try
+        {
+            var result = await SynchronizationManager.SynchronizeCalendarAsync(message.Options);
+
+            if (result.CompletedState == SynchronizationCompletedState.Failed)
+            {
+                _logger.Error("Calendar synchronization failed for account {AccountId}", message.Options.AccountId);
+
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    _dialogService.InfoBarMessage(
+                        Translator.Info_SyncFailedTitle,
+                        "Calendar synchronization failed.",
+                        InfoBarMessageType.Error);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Exception during calendar synchronization");
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.Info_SyncFailedTitle,
+                    ex.Message,
+                    InfoBarMessageType.Error);
+            });
+        }
     }
 
     private void SegmentedChanged(object sender, SelectionChangedEventArgs e)

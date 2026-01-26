@@ -26,9 +26,9 @@ public class SynchronizerErrorContext
     public string ErrorMessage { get; set; }
 
     /// <summary>
-    /// Gets or sets the request bundle associated with the error
+    /// Gets or sets the request associated with the error
     /// </summary>
-    public IRequestBundle RequestBundle { get; set; }
+    public IExecutableRequest Request { get; set; }
 
     /// <summary>
     /// Gets or sets additional data associated with the error

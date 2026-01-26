@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -19,6 +17,7 @@ using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Microsoft.Kiota.Abstractions.Serialization;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
 using MimeKit;
 using MoreLinq.Extensions;
 using Serilog;
@@ -33,6 +32,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
@@ -42,6 +42,8 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Services;
+using Wino.Core.Synchronizers.Adapters;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -106,6 +108,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly GraphServiceClient _graphClient;
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
+    private readonly RequestExecutionEngine _requestExecutionEngine;
+    private readonly OutlookRequestExecutionAdapter _requestExecutionAdapter;
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
 
@@ -121,12 +125,17 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         handlers.Add(GetMicrosoftImmutableIdHandler());
         handlers.Add(GetGraphRateLimitHandler());
+        // handlers.Add(GetGraphChaosHandler());
 
         var httpClient = GraphClientFactory.Create(handlers);
         _graphClient = new GraphServiceClient(httpClient, new BaseBearerTokenAuthenticationProvider(tokenProvider));
 
         _outlookChangeProcessor = outlookChangeProcessor;
         _errorHandlingFactory = errorHandlingFactory;
+
+        // Initialize new request execution system
+        _requestExecutionEngine = new RequestExecutionEngine();
+        _requestExecutionAdapter = new OutlookRequestExecutionAdapter(_graphClient, _requestExecutionEngine);
     }
 
     #region MS Graph Handlers
@@ -135,8 +144,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     private GraphRateLimitHandler GetGraphRateLimitHandler() => new();
 
-    #endregion
+    private ChaosHandler GetGraphChaosHandler() => new();
 
+    #endregion
 
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
@@ -1198,7 +1208,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override bool DelaySendOperationSynchronization() => true;
 
-    public override List<IRequestBundle<RequestInformation>> Move(BatchMoveRequest request)
+    public override List<IExecutableRequest> Move(BatchMoveRequest request)
     {
         return ForEachRequest(request, (item) =>
         {
@@ -1212,7 +1222,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
     }
 
-    public override List<IRequestBundle<RequestInformation>> ChangeFlag(BatchChangeFlagRequest request)
+    public override List<IExecutableRequest> ChangeFlag(BatchChangeFlagRequest request)
     {
         return ForEachRequest(request, (item) =>
         {
@@ -1225,7 +1235,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
     }
 
-    public override List<IRequestBundle<RequestInformation>> MarkRead(BatchMarkReadRequest request)
+    public override List<IExecutableRequest> MarkRead(BatchMarkReadRequest request)
     {
         return ForEachRequest(request, (item) =>
         {
@@ -1238,7 +1248,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
     }
 
-    public override List<IRequestBundle<RequestInformation>> Delete(BatchDeleteRequest request)
+    public override List<IExecutableRequest> Delete(BatchDeleteRequest request)
     {
         return ForEachRequest(request, (item) =>
         {
@@ -1246,7 +1256,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
     }
 
-    public override List<IRequestBundle<RequestInformation>> MoveToFocused(BatchMoveToFocusedRequest request)
+    public override List<IExecutableRequest> MoveToFocused(BatchMoveToFocusedRequest request)
     {
         return ForEachRequest(request, (item) =>
         {
@@ -1264,7 +1274,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
     }
 
-    public override List<IRequestBundle<RequestInformation>> AlwaysMoveTo(BatchAlwaysMoveToRequest request)
+    public override List<IExecutableRequest> AlwaysMoveTo(BatchAlwaysMoveToRequest request)
     {
         return ForEachRequest(request, (item) =>
         {
@@ -1282,7 +1292,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         });
     }
 
-    public override List<IRequestBundle<RequestInformation>> CreateDraft(CreateDraftRequest createDraftRequest)
+    public override List<IExecutableRequest> CreateDraft(CreateDraftRequest createDraftRequest)
     {
         var reason = createDraftRequest.DraftPreperationRequest.Reason;
         var message = createDraftRequest.DraftPreperationRequest.CreatedLocalDraftMimeMessage.AsOutlookMessage(true);
@@ -1319,7 +1329,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
-    public override List<IRequestBundle<RequestInformation>> SendDraft(SendDraftRequest request)
+    public override List<IExecutableRequest> SendDraft(SendDraftRequest request)
     {
         var sendDraftPreparationRequest = request.Request;
 
@@ -1357,7 +1367,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [.. attachmentRequestList, patchDraftRequestBundle, sendDraftRequestBundle];
     }
 
-    private List<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId, IRequestBase sourceRequest)
+    private List<IExecutableRequest> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId, IRequestBase sourceRequest)
     {
         var allAttachments = new List<OutlookFileAttachment>();
 
@@ -1397,7 +1407,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             return requestInformation;
         }
 
-        var retList = new List<IRequestBundle<RequestInformation>>();
+        var retList = new List<IExecutableRequest>();
 
         // Prepare attachment upload requests.
 
@@ -1414,7 +1424,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return retList;
     }
 
-    public override List<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
+    public override List<IExecutableRequest> Archive(BatchArchiveRequest request)
     {
         var batchMoveRequest = new BatchMoveRequest(request.Select(item => new MoveRequest(item.Item, item.FromFolder, item.ToFolder)));
 
@@ -1484,7 +1494,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
-    public override List<IRequestBundle<RequestInformation>> RenameFolder(RenameFolderRequest request)
+    public override List<IExecutableRequest> RenameFolder(RenameFolderRequest request)
     {
         var requestBody = new MailFolder
         {
@@ -1496,150 +1506,65 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(networkCall, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> EmptyFolder(EmptyFolderRequest request)
+    public override List<IExecutableRequest> EmptyFolder(EmptyFolderRequest request)
         => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
 
-    public override List<IRequestBundle<RequestInformation>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+    public override List<IExecutableRequest> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
     #endregion
 
-    public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
+    public override async Task ExecuteNativeRequestsAsync(List<IExecutableRequest> batchedRequests, CancellationToken cancellationToken = default)
     {
-        var batchedGroups = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
+        var context = new RequestExecutionContext(
+            Account.Id,
+            cancellationToken,
+            null); // No service provider needed for Outlook
 
-        foreach (var batch in batchedGroups)
+        try
         {
-            await ExecuteBatchRequestsAsync(batch, cancellationToken);
-        }
-    }
+            // Use new adapter system - includes retry logic, circuit breaker, and error handling
+            var results = await _requestExecutionAdapter.ExecuteBatchAsync(batchedRequests, context).ConfigureAwait(false);
 
-    private async Task ExecuteBatchRequestsAsync(IEnumerable<IRequestBundle<RequestInformation>> batch, CancellationToken cancellationToken)
-    {
-        var batchContent = new BatchRequestContentCollection(_graphClient);
-        var itemCount = batch.Count();
-
-        if (itemCount == 0) return;
-
-        var bundleIdMap = await PrepareBatchContentAsync(batch, batchContent, itemCount);
-
-        // Execute batch to collect responses from network call
-        var batchRequestResponse = await _graphClient.Batch.PostAsync(batchContent, cancellationToken);
-
-        await ProcessBatchResponsesAsync(batch, batchRequestResponse, bundleIdMap);
-    }
-
-    private async Task<Dictionary<string, IRequestBundle<RequestInformation>>> PrepareBatchContentAsync(
-        IEnumerable<IRequestBundle<RequestInformation>> batch,
-        BatchRequestContentCollection batchContent,
-        int itemCount)
-    {
-        var bundleIdMap = new Dictionary<string, IRequestBundle<RequestInformation>>();
-        bool requiresSerial = false;
-
-        for (int i = 0; i < itemCount; i++)
-        {
-            var bundle = batch.ElementAt(i);
-            requiresSerial |= bundle.UIChangeRequest is SendDraftRequest;
-
-            bundle.UIChangeRequest?.ApplyUIChanges();
-            var batchRequestId = await batchContent.AddBatchRequestStepAsync(bundle.NativeRequest);
-            bundle.BundleId = batchRequestId;
-            bundleIdMap[batchRequestId] = bundle;
-        }
-
-        if (requiresSerial)
-        {
-            ConfigureSerialExecution(batchContent);
-        }
-
-        return bundleIdMap;
-    }
-
-    private void ConfigureSerialExecution(BatchRequestContentCollection batchContent)
-    {
-        // Set each step to depend on previous one for serial execution
-        var steps = batchContent.BatchRequestSteps.ToList();
-        for (int i = 1; i < steps.Count; i++)
-        {
-            var currentStep = steps[i].Value;
-            var previousStepKey = steps[i - 1].Key;
-            currentStep.DependsOn = [previousStepKey];
-        }
-    }
-
-    private async Task ProcessBatchResponsesAsync(
-        IEnumerable<IRequestBundle<RequestInformation>> batch,
-        BatchResponseContentCollection batchResponse,
-        Dictionary<string, IRequestBundle<RequestInformation>> bundleIdMap)
-    {
-        var errors = new List<string>();
-
-        foreach (var bundleId in bundleIdMap.Keys)
-        {
-            var bundle = bundleIdMap[bundleId];
-            var response = await batchResponse.GetResponseByIdAsync(bundleId);
-
-            if (response == null) continue;
-
-            using (response)
+            // Handle any failures using error handler factory
+            var failures = results.Where(r => !r.IsSuccess).ToList();
+            if (failures.Any())
             {
-                if (!response.IsSuccessStatusCode)
+                var errors = new List<string>();
+
+                foreach (var failure in failures)
                 {
-                    await HandleFailedResponseAsync(bundle, response, errors);
+                    var errorContext = new SynchronizerErrorContext
+                    {
+                        Account = Account,
+                        ErrorMessage = failure.Error?.Message ?? "Unknown error",
+                        Request = failure.Request as IExecutableRequest,
+                        AdditionalData = new Dictionary<string, object>
+                        {
+                            { "Exception", failure.Error }
+                        }
+                    };
+
+                    var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext);
+
+                    if (!handled)
+                    {
+                        errors.Add($"{failure.Request?.GetType().Name}: {failure.Error?.Message}");
+                    }
+                }
+
+                if (errors.Any())
+                {
+                    var formattedErrors = string.Join("\n", errors.Select((e, i) => $"{i + 1}. {e}"));
+                    throw new SynchronizerException(formattedErrors);
                 }
             }
         }
-
-        if (errors.Any())
+        catch (Exception ex) when (ex is not SynchronizerException)
         {
-            ThrowBatchExecutionException(errors);
+            _logger.Error(ex, "Batch execution failed in Outlook synchronizer");
+            throw new SynchronizerException($"Batch execution failed: {ex.Message}", ex);
         }
-    }
-
-    private async Task HandleFailedResponseAsync(
-        IRequestBundle<RequestInformation> bundle,
-        HttpResponseMessage response,
-        List<string> errors)
-    {
-        var content = await response.Content.ReadAsStringAsync();
-        var errorJson = JsonNode.Parse(content);
-        var errorCode = errorJson["error"]["code"].GetValue<string>();
-        var errorMessage = errorJson["error"]["message"].GetValue<string>();
-        var errorString = $"[{response.StatusCode}] {errorCode} - {errorMessage}\n";
-
-        // Create error context
-        var errorContext = new SynchronizerErrorContext
-        {
-            Account = Account,
-            ErrorCode = (int)response.StatusCode,
-            ErrorMessage = errorMessage,
-            RequestBundle = bundle,
-            AdditionalData = new Dictionary<string, object>
-            {
-                { "ErrorCode", errorCode },
-                { "HttpResponse", response },
-                { "Content", content }
-            }
-        };
-
-        // Try to handle the error with registered handlers
-        var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext);
-
-        // If not handled by any specific handler, revert UI changes and add to error list
-        if (!handled)
-        {
-            bundle.UIChangeRequest?.RevertUIChanges();
-            Debug.WriteLine(errorString);
-            errors.Add(errorString);
-        }
-    }
-
-    private void ThrowBatchExecutionException(List<string> errors)
-    {
-        var formattedErrorString = string.Join("\n",
-            errors.Select((item, index) => $"{index + 1}. {item}"));
-        throw new SynchronizerException(formattedErrorString);
     }
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
@@ -1962,7 +1887,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     #region Calendar Operations
 
-    public override List<IRequestBundle<RequestInformation>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    public override List<IExecutableRequest> CreateCalendarEvent(CreateCalendarEventRequest request)
     {
         var calendarItem = request.Item;
         var attendees = request.Attendees;
@@ -2043,7 +1968,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(createRequest, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> AcceptEvent(AcceptEventRequest request)
+    public override List<IExecutableRequest> AcceptEvent(AcceptEventRequest request)
     {
         var calendarItem = request.Item;
         var calendar = calendarItem.AssignedCalendar;
@@ -2067,7 +1992,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(acceptRequestInfo, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> OutlookDeclineEvent(OutlookDeclineEventRequest request)
+    public override List<IExecutableRequest> OutlookDeclineEvent(OutlookDeclineEventRequest request)
     {
         var responseMessage = request.ResponseMessage;
 
@@ -2093,7 +2018,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(declineRequestInfo, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> TentativeEvent(TentativeEventRequest request)
+    public override List<IExecutableRequest> TentativeEvent(TentativeEventRequest request)
     {
         var calendarItem = request.Item;
         var calendar = calendarItem.AssignedCalendar;
@@ -2117,7 +2042,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(tentativelyAcceptRequestInfo, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    public override List<IExecutableRequest> UpdateCalendarEvent(UpdateCalendarEventRequest request)
     {
         var calendarItem = request.Item;
         var attendees = request.Attendees;
@@ -2207,7 +2132,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [new HttpRequestBundle<RequestInformation>(updateRequest, request)];
     }
 
-    public override List<IRequestBundle<RequestInformation>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    public override List<IExecutableRequest> DeleteCalendarEvent(DeleteCalendarEventRequest request)
     {
         var calendarItem = request.Item;
 

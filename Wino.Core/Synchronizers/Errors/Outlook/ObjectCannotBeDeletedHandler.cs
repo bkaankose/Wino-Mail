@@ -18,12 +18,12 @@ public class ObjectCannotBeDeletedHandler : ISynchronizerErrorHandler
 
     public bool CanHandle(SynchronizerErrorContext error)
     {
-        return error.ErrorMessage.Contains("Object cannot be deleted.") && error.RequestBundle is HttpRequestBundle<RequestInformation>;
+        return error.ErrorMessage.Contains("Object cannot be deleted.") && error.Request is HttpRequestBundle<RequestInformation>;
     }
 
     public async Task<bool> HandleAsync(SynchronizerErrorContext error)
     {
-        var castedBundle = error.RequestBundle as HttpRequestBundle<RequestInformation>;
+        var castedBundle = error.Request as HttpRequestBundle<RequestInformation>;
 
         if (castedBundle?.Request is MailRequestBase mailRequest)
         {

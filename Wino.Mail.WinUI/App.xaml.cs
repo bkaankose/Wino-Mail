@@ -26,9 +26,7 @@ using Wino.Messaging.Server;
 using Wino.Services;
 namespace Wino.Mail.WinUI;
 
-public partial class App : WinoApplication,
-    IRecipient<NewMailSynchronizationRequested>,
-    IRecipient<NewCalendarSynchronizationRequested>
+public partial class App : WinoApplication
 {
     private ISynchronizationManager? _synchronizationManager;
 
@@ -358,12 +356,8 @@ public partial class App : WinoApplication,
 
     private void RegisterRecipients()
     {
-        WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
-        WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
+        // Sync message handling moved to ShellWindow
     }
-
-    public void Receive(NewMailSynchronizationRequested message) => _synchronizationManager?.SynchronizeMailAsync(message.Options);
-    public void Receive(NewCalendarSynchronizationRequested message) => _synchronizationManager?.SynchronizeCalendarAsync(message.Options);
 
     /// <summary>
     /// Handles activation redirected from another instance (single-instancing).

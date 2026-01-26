@@ -19,13 +19,17 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Services;
+using Wino.Core.Synchronizers.Adapters;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -52,6 +56,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly IImapChangeProcessor _imapChangeProcessor;
     private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly RequestExecutionEngine _requestExecutionEngine;
+    private readonly ImapRequestExecutionAdapter _requestExecutionAdapter;
 
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
@@ -67,6 +73,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
 
         _clientPool = new ImapClientPool(poolOptions);
+        
+        // Initialize new request execution system
+        _requestExecutionEngine = new RequestExecutionEngine();
+        _requestExecutionAdapter = new ImapRequestExecutionAdapter(_clientPool, _requestExecutionEngine);
     }
 
     private Stream CreateAccountProtocolLogFileStream()
@@ -92,7 +102,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     // Meaning that all items will come from and to the same folder.
     // It's fine to assume that here.
 
-    public override List<IRequestBundle<ImapRequest>> Move(BatchMoveRequest requests)
+    public override List<IExecutableRequest> Move(BatchMoveRequest requests)
     {
         return CreateTaskBundle(async (client, item) =>
         {
@@ -106,7 +116,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, requests);
     }
 
-    public override List<IRequestBundle<ImapRequest>> ChangeFlag(BatchChangeFlagRequest requests)
+    public override List<IExecutableRequest> ChangeFlag(BatchChangeFlagRequest requests)
     {
         return CreateTaskBundle(async (client, item) =>
         {
@@ -119,7 +129,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, requests);
     }
 
-    public override List<IRequestBundle<ImapRequest>> Delete(BatchDeleteRequest requests)
+    public override List<IExecutableRequest> Delete(BatchDeleteRequest requests)
     {
         return CreateTaskBundle(async (client, request) =>
         {
@@ -133,7 +143,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, requests);
     }
 
-    public override List<IRequestBundle<ImapRequest>> MarkRead(BatchMarkReadRequest requests)
+    public override List<IExecutableRequest> MarkRead(BatchMarkReadRequest requests)
     {
         return CreateTaskBundle(async (client, request) =>
         {
@@ -146,7 +156,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, requests);
     }
 
-    public override List<IRequestBundle<ImapRequest>> CreateDraft(CreateDraftRequest request)
+    public override List<IExecutableRequest> CreateDraft(CreateDraftRequest request)
     {
         return CreateSingleTaskBundle(async (client, item) =>
         {
@@ -158,20 +168,20 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, request, request);
     }
 
-    public override List<IRequestBundle<ImapRequest>> Archive(BatchArchiveRequest request)
+    public override List<IExecutableRequest> Archive(BatchArchiveRequest request)
     {
         var batchMoveRequest = new BatchMoveRequest(request.Select(item => new MoveRequest(item.Item, item.FromFolder, item.ToFolder)));
         return Move(batchMoveRequest);
     }
 
 
-    public override List<IRequestBundle<ImapRequest>> EmptyFolder(EmptyFolderRequest request)
+    public override List<IExecutableRequest> EmptyFolder(EmptyFolderRequest request)
         => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
 
-    public override List<IRequestBundle<ImapRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
+    public override List<IExecutableRequest> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
-    public override List<IRequestBundle<ImapRequest>> SendDraft(SendDraftRequest request)
+    public override List<IExecutableRequest> SendDraft(SendDraftRequest request)
     {
         return CreateSingleTaskBundle(async (client, item) =>
         {
@@ -255,7 +265,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         throw new NotSupportedException("IMAP does not support calendar attachments. Use Outlook or Gmail for calendar functionality.");
     }
 
-    public override List<IRequestBundle<ImapRequest>> RenameFolder(RenameFolderRequest request)
+    public override List<IExecutableRequest> RenameFolder(RenameFolderRequest request)
     {
         return CreateSingleTaskBundle(async (client, item) =>
         {
@@ -352,68 +362,49 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         return MailSynchronizationResult.Completed(unreadNewItems);
     }
 
-    public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<ImapRequest>> batchedRequests, CancellationToken cancellationToken = default)
+    public override async Task ExecuteNativeRequestsAsync(List<IExecutableRequest> batchedRequests, CancellationToken cancellationToken = default)
     {
-        // First apply the UI changes for each bundle.
-        // This is important to reflect changes to the UI before the network call is done.
+        var context = new RequestExecutionContext(
+            Account.Id,
+            cancellationToken,
+            null); // No service provider needed for IMAP
 
-        foreach (var item in batchedRequests)
+        try
         {
-            item.Request.ApplyUIChanges();
-        }
+            // Use new adapter system - handles client pool management and error handling
+            var results = await _requestExecutionAdapter.ExecuteBatchAsync(batchedRequests, context).ConfigureAwait(false);
 
-        // All task bundles will execute on the same client.
-        // Tasks themselves don't pull the client from the pool
-        // because exception handling is easier this way.
-        // Also we might parallelize these bundles later on for additional performance.
-
-        foreach (var item in batchedRequests)
-        {
-            // At this point this client is ready to execute async commands.
-            // Each task bundle will await and execution will continue in case of error.
-
-            IImapClient executorClient = null;
-
-            bool isCrashed = false;
-
-            try
+            // Handle any failures
+            var failures = results.Where(r => !r.IsSuccess).ToList();
+            if (failures.Any())
             {
-                executorClient = await _clientPool.GetClientAsync();
-            }
-            catch (ImapClientPoolException)
-            {
-                // Client pool failed to get a client.
-                // Requests may not be executed at this point.
-
-                item.Request.RevertUIChanges();
-
-                isCrashed = true;
-                throw;
-            }
-            finally
-            {
-                // Make sure that the client is released from the pool for next usages if error occurs.
-                if (isCrashed && executorClient != null)
+                var errors = new List<string>();
+                
+                foreach (var failure in failures)
                 {
-                    _clientPool.Release(executorClient);
+                    var error = failure.Error;
+                    var errorMessage = $"{failure.Request?.GetType().Name}: {error?.Message}";
+                    
+                    _logger.Error(error, "IMAP request failed: {Message}", errorMessage);
+                    errors.Add(errorMessage);
+                }
+
+                if (errors.Any())
+                {
+                    var formattedErrors = string.Join("\n", errors.Select((e, i) => $"{i + 1}. {e}"));
+                    throw new SynchronizerException(formattedErrors);
                 }
             }
-
-            // TODO: Retry pattern.
-            // TODO: Error handling.
-            try
-            {
-                await item.NativeRequest.IntegratorTask(executorClient, item.Request).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                item.Request.RevertUIChanges();
-                throw;
-            }
-            finally
-            {
-                _clientPool.Release(executorClient);
-            }
+        }
+        catch (ImapClientPoolException ex)
+        {
+            _logger.Error(ex, "IMAP client pool failed");
+            throw new SynchronizerException($"IMAP client pool error: {ex.Message}", ex);
+        }
+        catch (Exception ex) when (ex is not SynchronizerException)
+        {
+            _logger.Error(ex, "Batch execution failed in IMAP synchronizer");
+            throw new SynchronizerException($"Batch execution failed: {ex.Message}", ex);
         }
     }
 

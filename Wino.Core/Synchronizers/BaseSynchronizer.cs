@@ -15,6 +15,7 @@ using Wino.Messaging.UI;
 namespace Wino.Core.Synchronizers;
 
 public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject, IBaseSynchronizer
+    where TBaseRequest : class
 {
     protected SemaphoreSlim synchronizationSemaphore = new(1);
     protected CancellationToken activeSynchronizationCancellationToken;
@@ -126,7 +127,7 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     /// </summary>
     /// <param name="batchedRequests">Batched requests to execute. Integrator methods will only receive batched requests.</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    public abstract Task ExecuteNativeRequestsAsync(List<IRequestBundle<TBaseRequest>> batchedRequests, CancellationToken cancellationToken = default);
+    public abstract Task ExecuteNativeRequestsAsync(List<IExecutableRequest> batchedRequests, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Refreshes remote mail account profile if possible.
@@ -171,14 +172,14 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         return Convert.ToBase64String(byteContent);
     }
 
-    public List<IRequestBundle<TBaseRequest>> ForEachRequest<TWinoRequestType>(IEnumerable<TWinoRequestType> requests,
+    public List<IExecutableRequest> ForEachRequest<TWinoRequestType>(IEnumerable<TWinoRequestType> requests,
                 Func<TWinoRequestType, TBaseRequest> action)
                 where TWinoRequestType : IRequestBase
     {
-        List<IRequestBundle<TBaseRequest>> ret = [];
+        List<IExecutableRequest> ret = [];
 
         foreach (var request in requests)
-            ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request, request));
+            ret.Add(new HttpRequestBundle<TBaseRequest>(action(request), request, request) as IExecutableRequest);
 
         return ret;
     }
