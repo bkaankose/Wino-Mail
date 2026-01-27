@@ -17,7 +17,7 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
         {
             item.IsRead = true;
 
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.Client));
         }
     }
 
@@ -27,7 +27,7 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
         {
             item.IsRead = false;
 
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item));
+            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.Client));
         }
     }
 

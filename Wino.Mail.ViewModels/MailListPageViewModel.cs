@@ -664,9 +664,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail)
+    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source)
     {
-        base.OnMailUpdated(updatedMail);
+        base.OnMailUpdated(updatedMail, source);
 
         await MailCollection.UpdateMailCopy(updatedMail);
 

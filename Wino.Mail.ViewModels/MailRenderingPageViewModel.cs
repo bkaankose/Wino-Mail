@@ -618,9 +618,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             MenuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
     }
 
-    protected override async void OnMailUpdated(MailCopy updatedMail)
+    protected override async void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source)
     {
-        base.OnMailUpdated(updatedMail);
+        base.OnMailUpdated(updatedMail, source);
 
         if (initializedMailItemViewModel == null) return;
 

@@ -22,14 +22,14 @@ public record ChangeFlagRequest(MailCopy Item, bool IsFlagged) : MailRequestBase
     {
         Item.IsFlagged = IsFlagged;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.Client));
     }
 
     public override void RevertUIChanges()
     {
         Item.IsFlagged = !IsFlagged;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.Client));
     }
 }
 

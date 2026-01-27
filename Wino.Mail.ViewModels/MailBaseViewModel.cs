@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.ViewModels;
 using Wino.Messaging.UI;
@@ -20,7 +21,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
 {
     protected virtual void OnMailAdded(MailCopy addedMail) { }
     protected virtual void OnMailRemoved(MailCopy removedMail) { }
-    protected virtual void OnMailUpdated(MailCopy updatedMail) { }
+    protected virtual void OnMailUpdated(MailCopy updatedMail, MailUpdateSource source) { }
     protected virtual void OnMailDownloaded(MailCopy downloadedMail) { }
     protected virtual void OnDraftCreated(MailCopy draftMail, MailAccount account) { }
     protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
@@ -30,7 +31,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
 
     void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
     void IRecipient<MailRemovedMessage>.Receive(MailRemovedMessage message) => OnMailRemoved(message.RemovedMail);
-    void IRecipient<MailUpdatedMessage>.Receive(MailUpdatedMessage message) => OnMailUpdated(message.UpdatedMail);
+    void IRecipient<MailUpdatedMessage>.Receive(MailUpdatedMessage message) => OnMailUpdated(message.UpdatedMail, message.Source);
     void IRecipient<MailDownloadedMessage>.Receive(MailDownloadedMessage message) => OnMailDownloaded(message.DownloadedMail);
 
     void IRecipient<DraftMapped>.Receive(DraftMapped message) => OnDraftMapped(message.LocalDraftCopyId, message.RemoteDraftCopyId);

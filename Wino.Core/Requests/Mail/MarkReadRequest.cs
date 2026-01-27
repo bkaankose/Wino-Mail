@@ -21,14 +21,14 @@ public record MarkReadRequest(MailCopy Item, bool IsRead) : MailRequestBase(Item
     {
         Item.IsRead = IsRead;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.Client));
     }
 
     public override void RevertUIChanges()
     {
         Item.IsRead = !IsRead;
 
-        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item));
+        WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(Item, MailUpdateSource.Client));
     }
 }
 

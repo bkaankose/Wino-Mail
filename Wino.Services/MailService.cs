@@ -543,7 +543,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         await Connection.UpdateAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
 
-        ReportUIChange(new MailUpdatedMessage(mailCopy));
+        ReportUIChange(new MailUpdatedMessage(mailCopy, MailUpdateSource.Server));
     }
 
     private async Task DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile)
