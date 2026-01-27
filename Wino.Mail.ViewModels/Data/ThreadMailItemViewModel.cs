@@ -214,6 +214,40 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     }
 
     /// <summary>
+    /// Notifies that a mail item within this thread has been updated.
+    /// This raises PropertyChanged for all thread-level computed properties that depend on child items.
+    /// </summary>
+    /// <param name="updatedMailItem">The mail item that was updated (can be null to refresh all).</param>
+    public void NotifyMailItemUpdated(MailItemViewModel updatedMailItem)
+    {
+        // Raise PropertyChanged for all computed properties that depend on ThreadEmails contents
+        OnPropertyChanged(nameof(Subject));
+        OnPropertyChanged(nameof(FromName));
+        OnPropertyChanged(nameof(CreationDate));
+        OnPropertyChanged(nameof(FromAddress));
+        OnPropertyChanged(nameof(PreviewText));
+        OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(IsFlagged));
+        OnPropertyChanged(nameof(IsFocused));
+        OnPropertyChanged(nameof(IsRead));
+        OnPropertyChanged(nameof(IsDraft));
+        OnPropertyChanged(nameof(DraftId));
+        OnPropertyChanged(nameof(Id));
+        OnPropertyChanged(nameof(Importance));
+        OnPropertyChanged(nameof(ThreadId));
+        OnPropertyChanged(nameof(MessageId));
+        OnPropertyChanged(nameof(References));
+        OnPropertyChanged(nameof(InReplyTo));
+        OnPropertyChanged(nameof(FileId));
+        OnPropertyChanged(nameof(FolderId));
+        OnPropertyChanged(nameof(UniqueId));
+        OnPropertyChanged(nameof(Base64ContactPicture));
+        OnPropertyChanged(nameof(ThumbnailUpdatedEvent));
+        OnPropertyChanged(nameof(SortingDate));
+        OnPropertyChanged(nameof(SortingName));
+    }
+
+    /// <summary>
     /// Checks if this thread contains an email with the specified unique ID
     /// </summary>
     public bool HasUniqueId(Guid uniqueId) => ThreadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);

@@ -643,7 +643,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
         {
             await ExecuteUIThread(() =>
             {
-                CurrentMailDraftItem.MailCopy = updatedMail;
+                CurrentMailDraftItem.UpdateFrom(updatedMail);
                 DiscardCommand.NotifyCanExecuteChanged();
                 SendCommand.NotifyCanExecuteChanged();
             });

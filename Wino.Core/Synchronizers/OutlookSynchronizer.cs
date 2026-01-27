@@ -1506,6 +1506,14 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)
     {
+        // First apply all UI changes immediately before any batching.
+        // This ensures UI reflects changes right away, regardless of batch processing.
+        foreach (var bundle in batchedRequests)
+        {
+            bundle.UIChangeRequest?.ApplyUIChanges();
+        }
+
+        // Now batch and execute the network requests.
         var batchedGroups = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
 
         foreach (var batch in batchedGroups)
@@ -1542,7 +1550,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             var bundle = batch.ElementAt(i);
             requiresSerial |= bundle.UIChangeRequest is SendDraftRequest;
 
-            bundle.UIChangeRequest?.ApplyUIChanges();
+            // UI changes are already applied in ExecuteNativeRequestsAsync before batching.
             var batchRequestId = await batchContent.AddBatchRequestStepAsync(bundle.NativeRequest);
             bundle.BundleId = batchRequestId;
             bundleIdMap[batchRequestId] = bundle;

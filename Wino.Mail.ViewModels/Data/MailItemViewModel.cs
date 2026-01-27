@@ -184,4 +184,67 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
             yield return this;
         }
     }
+
+    /// <summary>
+    /// Updates the MailCopy with new data and notifies all bound properties.
+    /// This method copies values from the source to the existing MailCopy to maintain reference integrity,
+    /// then explicitly raises PropertyChanged for all dependent properties.
+    /// </summary>
+    /// <param name="source">The source MailCopy with updated values.</param>
+    public void UpdateFrom(MailCopy source)
+    {
+        if (source == null) return;
+
+        // Update the underlying MailCopy properties directly to maintain reference integrity
+        // This is important because other parts of the app may hold references to this MailCopy
+        // Note: UniqueId is the primary key and should match - we don't update it
+        MailCopy.Id = source.Id;
+        MailCopy.FolderId = source.FolderId;
+        MailCopy.ThreadId = source.ThreadId;
+        MailCopy.MessageId = source.MessageId;
+        MailCopy.References = source.References;
+        MailCopy.InReplyTo = source.InReplyTo;
+        MailCopy.IsDraft = source.IsDraft;
+        MailCopy.DraftId = source.DraftId;
+        MailCopy.CreationDate = source.CreationDate;
+        MailCopy.Subject = source.Subject;
+        MailCopy.PreviewText = source.PreviewText;
+        MailCopy.FromName = source.FromName;
+        MailCopy.FromAddress = source.FromAddress;
+        MailCopy.HasAttachments = source.HasAttachments;
+        MailCopy.Importance = source.Importance;
+        MailCopy.IsRead = source.IsRead;
+        MailCopy.IsFlagged = source.IsFlagged;
+        MailCopy.IsFocused = source.IsFocused;
+        MailCopy.FileId = source.FileId;
+        MailCopy.ItemType = source.ItemType;
+        MailCopy.SenderContact = source.SenderContact;
+        MailCopy.AssignedAccount = source.AssignedAccount;
+        MailCopy.AssignedFolder = source.AssignedFolder;
+
+        // Raise PropertyChanged for all properties that XAML may bind to
+        OnPropertyChanged(nameof(CreationDate));
+        OnPropertyChanged(nameof(IsFlagged));
+        OnPropertyChanged(nameof(FromName));
+        OnPropertyChanged(nameof(IsFocused));
+        OnPropertyChanged(nameof(IsRead));
+        OnPropertyChanged(nameof(IsDraft));
+        OnPropertyChanged(nameof(DraftId));
+        OnPropertyChanged(nameof(Id));
+        OnPropertyChanged(nameof(Subject));
+        OnPropertyChanged(nameof(PreviewText));
+        OnPropertyChanged(nameof(FromAddress));
+        OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(Importance));
+        OnPropertyChanged(nameof(ThreadId));
+        OnPropertyChanged(nameof(MessageId));
+        OnPropertyChanged(nameof(References));
+        OnPropertyChanged(nameof(InReplyTo));
+        OnPropertyChanged(nameof(FileId));
+        OnPropertyChanged(nameof(FolderId));
+        OnPropertyChanged(nameof(UniqueId));
+        OnPropertyChanged(nameof(Base64ContactPicture));
+        OnPropertyChanged(nameof(SortingDate));
+        OnPropertyChanged(nameof(SortingName));
+    }
 }

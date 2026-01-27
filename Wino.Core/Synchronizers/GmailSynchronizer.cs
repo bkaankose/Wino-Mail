@@ -1309,6 +1309,14 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<IClientServiceRequest>> batchedRequests,
                                                           CancellationToken cancellationToken = default)
     {
+        // First apply all UI changes immediately before any batching.
+        // This ensures UI reflects changes right away, regardless of batch processing.
+        foreach (var bundle in batchedRequests)
+        {
+            bundle.UIChangeRequest?.ApplyUIChanges();
+        }
+
+        // Now batch and execute the network requests.
         var batchedBundles = batchedRequests.Batch((int)MaximumAllowedBatchRequestSize);
         var bundleCount = batchedBundles.Count();
 
@@ -1325,7 +1333,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             for (int k = 0; k < bundleRequestCount; k++)
             {
                 var requestBundle = bundle.ElementAt(k);
-                requestBundle.UIChangeRequest?.ApplyUIChanges();
+                // UI changes are already applied above before batching.
 
                 nativeBatchRequest.Queue<object>(requestBundle.NativeRequest, (content, error, index, message)
                     => bundleTasks.Add(ProcessSingleNativeRequestResponseAsync(requestBundle, error, message, cancellationToken)));

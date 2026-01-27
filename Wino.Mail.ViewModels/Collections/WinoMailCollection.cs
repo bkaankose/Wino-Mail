@@ -444,7 +444,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
         await ExecuteUIThread(() =>
         {
-            existingItem.MailCopy = updatedItem;
+            existingItem.UpdateFrom(updatedItem);
         });
 
         UpdateUniqueIdHashes(existingItem, true);
@@ -574,7 +574,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 foreach (var (existing, updated) in itemsToUpdate)
                 {
                     UpdateUniqueIdHashes(existing, false);
-                    existing.MailCopy = updated;
+                    existing.UpdateFrom(updated);
                     UpdateUniqueIdHashes(existing, true);
                 }
             });
@@ -720,7 +720,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     }
 
     /// <summary>
-    /// Fins the item container that updated mail copy belongs to and updates it.
+    /// Finds the item container that updated mail copy belongs to and updates it.
     /// </summary>
     /// <param name="updatedMailCopy">Updated mail copy.</param>
     /// <returns></returns>
@@ -739,8 +739,9 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             {
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, false);
 
-                // Update the MailCopy - this will automatically notify all dependent properties
-                itemContainer.ItemViewModel.MailCopy = updatedMailCopy;
+                // Update the MailCopy using UpdateFrom to properly notify all XAML bindings
+                // This maintains reference integrity and ensures PropertyChanged is raised for all properties
+                itemContainer.ItemViewModel.UpdateFrom(updatedMailCopy);
 
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, true);
             }
@@ -748,7 +749,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             // Trigger thread property notifications if this item is in a thread
             if (itemContainer.ThreadViewModel != null)
             {
-                itemContainer.ThreadViewModel.ThreadEmails = itemContainer.ThreadViewModel.ThreadEmails;
+                itemContainer.ThreadViewModel.NotifyMailItemUpdated(itemContainer.ItemViewModel);
             }
         });
     }
