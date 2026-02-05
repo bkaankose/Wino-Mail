@@ -668,7 +668,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnMailUpdated(updatedMail, source);
 
-        await MailCollection.UpdateMailCopy(updatedMail);
+        await MailCollection.UpdateMailCopy(updatedMail, source);
 
         await ExecuteUIThread(() => { SetupTopBarActions(); });
     }

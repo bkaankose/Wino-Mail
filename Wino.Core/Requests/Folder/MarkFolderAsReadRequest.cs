@@ -15,9 +15,12 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
     {
         foreach (var item in MailsToMarkRead)
         {
+            // Skip if already read
+            if (item.IsRead) continue;
+
             item.IsRead = true;
 
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.Client));
+            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.ClientUpdated));
         }
     }
 
@@ -25,9 +28,12 @@ public record MarkFolderAsReadRequest(MailItemFolder Folder, List<MailCopy> Mail
     {
         foreach (var item in MailsToMarkRead)
         {
+            // Skip if already unread (wasn't changed by ApplyUIChanges)
+            if (!item.IsRead) continue;
+
             item.IsRead = false;
 
-            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.Client));
+            WeakReferenceMessenger.Default.Send(new MailUpdatedMessage(item, MailUpdateSource.ClientReverted));
         }
     }
 

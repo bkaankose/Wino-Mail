@@ -42,6 +42,13 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [NotifyPropertyChangedRecipients]
     public partial bool IsSelected { get; set; }
 
+    /// <summary>
+    /// Indicates if this mail item is currently being processed by a network operation.
+    /// Used to show loading state in the UI.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
     public DateTime CreationDate
     {
         get => MailCopy.CreationDate;

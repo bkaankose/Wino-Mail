@@ -25,6 +25,9 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsSelected { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
     public bool IsSelectedOrExpanded => IsSelected || IsThreadExpanded;
 
     /// <summary>

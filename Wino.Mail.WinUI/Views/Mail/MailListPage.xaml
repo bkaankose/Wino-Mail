@@ -62,6 +62,7 @@
                 FromName="{x:Bind FromName}"
                 HasAttachments="{x:Bind HasAttachments, Mode=OneWay}"
                 HoverActionExecuted="MailItemDisplayInformationControl_HoverActionExecuted"
+                IsBusy="{x:Bind IsBusy, Mode=OneWay}"
                 IsDraft="{x:Bind IsDraft, Mode=OneWay}"
                 IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
                 IsRead="{x:Bind IsRead, Mode=OneWay}"
@@ -86,6 +87,7 @@
                         FromName="{x:Bind FromName, Mode=OneWay}"
                         HasAttachments="{x:Bind HasAttachments, Mode=OneWay}"
                         HoverActionExecuted="MailItemDisplayInformationControl_HoverActionExecuted"
+                        IsBusy="{x:Bind IsBusy, Mode=OneWay}"
                         IsDraft="{x:Bind IsDraft, Mode=OneWay}"
                         IsFlagged="{x:Bind IsFlagged, Mode=OneWay}"
                         IsRead="{x:Bind IsRead, Mode=OneWay}"
@@ -208,13 +210,14 @@
         <Border
             x:Name="MailListContainer"
             Grid.Column="0"
+            Margin="2"
             Padding="5,5,5,0"
             HorizontalAlignment="Stretch"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="{ThemeResource OverlayCornerRadius}"
-            Translation="0,0,10">
+            Translation="0,0,50">
             <Border.Shadow>
                 <ThemeShadow />
             </Border.Shadow>

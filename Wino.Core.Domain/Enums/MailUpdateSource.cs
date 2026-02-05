@@ -6,9 +6,14 @@ namespace Wino.Core.Domain.Enums;
 public enum MailUpdateSource
 {
     /// <summary>
-    /// Update originated from client-side UI changes (ApplyUIChanges/RevertUIChanges).
+    /// Update originated from client-side UI changes (ApplyUIChanges).
     /// </summary>
-    Client,
+    ClientUpdated,
+
+    /// <summary>
+    /// Update originated from client-side UI revert (RevertUIChanges).
+    /// </summary>
+    ClientReverted,
 
     /// <summary>
     /// Update originated from server synchronization or database operations.

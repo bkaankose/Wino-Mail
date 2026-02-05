@@ -244,6 +244,13 @@
                                     x:Name="IsFlaggedContent"
                                     x:Load="{x:Bind IsFlagged, Mode=OneWay}"
                                     ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
+
+                                <ProgressRing
+                                    Width="3"
+                                    Height="3"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
                     </Grid>

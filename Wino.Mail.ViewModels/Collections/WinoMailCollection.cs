@@ -724,7 +724,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// </summary>
     /// <param name="updatedMailCopy">Updated mail copy.</param>
     /// <returns></returns>
-    public Task UpdateMailCopy(MailCopy updatedMailCopy)
+    public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource)
     {
         // This item doesn't exist in the list.
         if (!MailCopyIdHashSet.ContainsKey(updatedMailCopy.UniqueId)) return Task.CompletedTask;
@@ -743,14 +743,14 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 // This maintains reference integrity and ensures PropertyChanged is raised for all properties
                 itemContainer.ItemViewModel.UpdateFrom(updatedMailCopy);
 
+                // Mark the item view model as busy until the network operation is completed.
+                itemContainer.ItemViewModel.IsBusy = mailUpdateSource == MailUpdateSource.ClientUpdated;
+
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, true);
             }
 
             // Trigger thread property notifications if this item is in a thread
-            if (itemContainer.ThreadViewModel != null)
-            {
-                itemContainer.ThreadViewModel.NotifyMailItemUpdated(itemContainer.ItemViewModel);
-            }
+            itemContainer.ThreadViewModel?.NotifyMailItemUpdated(itemContainer.ItemViewModel);
         });
     }
 

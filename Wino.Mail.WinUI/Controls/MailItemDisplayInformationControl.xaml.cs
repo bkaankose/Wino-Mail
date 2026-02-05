@@ -1,11 +1,12 @@
 using System;
 using System.Linq;
 using System.Numerics;
-using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
@@ -20,6 +21,11 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     public ImagePreviewControl GetImagePreviewControl() => ContactImage;
 
     public bool IsRunningHoverAction { get; set; }
+
+    // Busy animation fields
+    private Compositor? _compositor;
+    private Visual? _contentVisual;
+    private ScalarKeyFrameAnimation? _opacityAnimation;
 
     [GeneratedDependencyProperty(DefaultValue = MailListDisplayMode.Spacious)]
     public partial MailListDisplayMode DisplayMode { get; set; }
@@ -44,6 +50,9 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsHoverActionsEnabled { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsBusy { get; set; }
 
     public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
 
@@ -124,6 +133,55 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         IconsContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
         RootContainerVisualWrapper.SizeChanged += (s, e) => leftBackgroundVisual.Size = e.NewSize.ToVector2();
+
+        // Initialize shimmer effect compositor
+        _compositor = this.Visual().Compositor;
+    }
+
+    partial void OnIsBusyChanged(bool newValue)
+    {
+        if (newValue)
+        {
+            StartBusyAnimation();
+        }
+        else
+        {
+            StopBusyAnimation();
+        }
+    }
+
+    private void StartBusyAnimation()
+    {
+        if (_compositor == null) return;
+
+        // Get the visual for the content area
+        _contentVisual = ElementCompositionPreview.GetElementVisual(MainContentContainer);
+
+        // Create a subtle opacity pulse animation (1.0 -> 0.4 -> 1.0)
+        _opacityAnimation = _compositor.CreateScalarKeyFrameAnimation();
+        _opacityAnimation.InsertKeyFrame(0f, 1f);
+        _opacityAnimation.InsertKeyFrame(0.5f, 0.4f, _compositor.CreateCubicBezierEasingFunction(new Vector2(0.42f, 0f), new Vector2(0.58f, 1f)));
+        _opacityAnimation.InsertKeyFrame(1f, 1f, _compositor.CreateCubicBezierEasingFunction(new Vector2(0.42f, 0f), new Vector2(0.58f, 1f)));
+        _opacityAnimation.Duration = TimeSpan.FromSeconds(1.0);
+        _opacityAnimation.IterationBehavior = AnimationIterationBehavior.Forever;
+
+        // Start animation
+        _contentVisual.StartAnimation("Opacity", _opacityAnimation);
+    }
+
+    private void StopBusyAnimation()
+    {
+        if (_contentVisual != null)
+        {
+            _contentVisual.StopAnimation("Opacity");
+
+            // Reset to default value
+            _contentVisual.Opacity = 1f;
+
+            _contentVisual = null;
+        }
+
+        _opacityAnimation = null;
     }
 
     partial void OnIsFlaggedChanged(bool newValue)
