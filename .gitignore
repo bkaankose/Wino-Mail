@@ -399,3 +399,4 @@ Wino/obj/x86/Debug/XamlSaveStateFile.xml
 Wino/obj/x86/Debug/XamlSaveStateFile.xml
 *.cache
 .vs/Wino/v16/.suo
+/.claude/settings.local.json
