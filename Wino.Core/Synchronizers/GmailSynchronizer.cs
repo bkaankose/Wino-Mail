@@ -243,6 +243,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                     folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, 0));
                 }
             }
+
+            // Map Gmail Draft resource IDs for all drafts.
+            // Gmail's Messages API doesn't expose Draft IDs, so we query the Drafts API separately.
+            // This ensures DraftId is correctly set for both Wino-created and externally-created drafts.
+            await MapDraftIdsAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -1271,6 +1276,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                         foreach (var package in packages)
                         {
+                            // When downloaded with Raw format, Payload.Headers is not populated by Gmail API.
+                            // Enrich the MailCopy fields (Subject, From, MessageId, etc.) from the parsed MIME.
+                            if (downloadRawMime && mimeMessage != null)
+                                EnrichMailCopyFromMime(package.Copy, mimeMessage);
+
                             // Create the mail copy with the MIME (if downloaded)
                             var packageWithMime = downloadRawMime && mimeMessage != null
                                 ? new NewMailItemPackage(package.Copy, mimeMessage, package.AssignedRemoteFolderId)
@@ -1699,11 +1709,63 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             ItemType = itemType
         };
 
-        // Set DraftId if this is a draft
-        if (copy.IsDraft)
-            copy.DraftId = copy.ThreadId;
+        // Note: DraftId is NOT set here. Gmail's Draft resource ID is separate from ThreadId
+        // and can only be obtained from the Drafts API (not Messages API).
+        // DraftId is populated by:
+        // - MapLocalDraftAsync (for Wino-created drafts, from CreateDraft response)
+        // - MapDraftIdsAsync (for all drafts, from Drafts.List API)
 
         return Task.FromResult(copy);
+    }
+
+    /// <summary>
+    /// Enriches a MailCopy with fields extracted from a parsed MimeMessage.
+    /// This is needed when messages are downloaded with Raw format (delta sync),
+    /// because the Gmail API does not populate Payload.Headers in Raw format.
+    /// Fields already populated (non-null/non-empty) are NOT overwritten.
+    /// </summary>
+    private static void EnrichMailCopyFromMime(MailCopy copy, MimeMessage mime)
+    {
+        if (copy == null || mime == null) return;
+
+        if (string.IsNullOrEmpty(copy.Subject))
+            copy.Subject = mime.Subject ?? string.Empty;
+
+        if (string.IsNullOrEmpty(copy.FromName))
+        {
+            var from = mime.From.Mailboxes.FirstOrDefault();
+            if (from != null)
+                copy.FromName = from.Name ?? string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(copy.FromAddress))
+        {
+            var from = mime.From.Mailboxes.FirstOrDefault();
+            if (from != null)
+                copy.FromAddress = from.Address ?? string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(copy.MessageId))
+            copy.MessageId = mime.MessageId;
+
+        if (string.IsNullOrEmpty(copy.InReplyTo))
+            copy.InReplyTo = mime.InReplyTo;
+
+        if (string.IsNullOrEmpty(copy.References) && mime.References?.Count > 0)
+            copy.References = string.Join(";", mime.References);
+
+        if (!copy.HasAttachments && mime.Attachments.Any())
+            copy.HasAttachments = true;
+
+        if (copy.Importance == MailImportance.Normal)
+        {
+            copy.Importance = mime.Importance switch
+            {
+                MessageImportance.High => MailImportance.High,
+                MessageImportance.Low => MailImportance.Low,
+                _ => MailImportance.Normal
+            };
+        }
     }
 
     /// <summary>
@@ -1788,21 +1850,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Create base MailCopy from metadata only - NO MIME download
         var baseMailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
-        // Check for local draft mapping using X-Wino-Draft-Id header from metadata
+        // Check for local draft mapping using X-Wino-Draft-Id header from metadata.
+        // If this is a Wino-created draft, the local copy was already mapped by the CreateDraft response handler
+        // with the correct Gmail Draft ID. We must NOT call MapLocalDraftAsync here because
+        // baseMailCopy.DraftId is derived from CreateMinimalMailCopyAsync (not the real Draft resource ID),
+        // which would overwrite the correctly mapped DraftId and break SendDraft.
         if (baseMailCopy.IsDraft)
         {
             var draftIdHeader = message.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals(Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase))?.Value;
 
-            if (!string.IsNullOrEmpty(draftIdHeader) && Guid.TryParse(draftIdHeader, out Guid localDraftCopyUniqueId))
+            if (!string.IsNullOrEmpty(draftIdHeader) && Guid.TryParse(draftIdHeader, out _))
             {
-                // This message belongs to existing local draft copy.
-                // We don't need to create a new mail copy for this message, just update the existing one.
-
-                bool isMappingSuccesfull = await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, baseMailCopy.Id, baseMailCopy.DraftId, baseMailCopy.ThreadId);
-
-                if (isMappingSuccesfull) return null;
-
-                // Local copy doesn't exists. Continue execution to insert mail copy.
+                // This message belongs to an existing local draft copy.
+                // Skip creating a new mail copy - the local copy was already mapped by the response handler.
+                return null;
             }
         }
 
@@ -1825,7 +1886,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                 // Create a new MailCopy instance for each label to avoid shared reference issues
                 var mailCopyForLabel = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
-                
+
                 // Ensure all copies share the same Id and FileId
                 mailCopyForLabel.Id = sharedId;
                 mailCopyForLabel.FileId = sharedFileId;

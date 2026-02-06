@@ -457,7 +457,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
             primaryAlias = aliases.Find(a => a.AliasAddress == CurrentMailDraftItem.FromAddress);
         }
 
-        primaryAlias ??= await _accountService.GetPrimaryAccountAliasAsync(ComposingAccount.Id).ConfigureAwait(false);
+        primaryAlias ??= await _accountService.GetPrimaryAccountAliasAsync(composingAccount.Id).ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {
@@ -477,7 +477,7 @@ public partial class ComposePageViewModel : MailBaseViewModel
 
         if (!isComposerInitialized) return;
 
-        retry:
+    retry:
 
         // Replying existing message.
         MimeMessageInformation mimeMessageInformation = null;
