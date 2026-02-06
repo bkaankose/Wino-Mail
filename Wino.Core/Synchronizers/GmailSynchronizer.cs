@@ -25,6 +25,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
@@ -1691,9 +1692,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             IsRead = !isUnread,
             IsFlagged = isFlagged,
             IsFocused = isFocused,
-            InReplyTo = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("In-Reply-To", StringComparison.OrdinalIgnoreCase))?.Value,
-            MessageId = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Message-Id", StringComparison.OrdinalIgnoreCase))?.Value,
-            References = gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("References", StringComparison.OrdinalIgnoreCase))?.Value,
+            InReplyTo = MailHeaderExtensions.StripAngleBrackets(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("In-Reply-To", StringComparison.OrdinalIgnoreCase))?.Value),
+            MessageId = MailHeaderExtensions.StripAngleBrackets(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("Message-Id", StringComparison.OrdinalIgnoreCase))?.Value),
+            References = MailHeaderExtensions.NormalizeReferences(gmailMessage.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals("References", StringComparison.OrdinalIgnoreCase))?.Value),
             FileId = Guid.NewGuid(),
             ItemType = itemType
         };

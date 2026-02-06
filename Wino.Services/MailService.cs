@@ -86,14 +86,24 @@ public class MailService : BaseDatabaseService, IMailService
             FileId = Guid.NewGuid()
         };
 
-        // If replying, add In-Reply-To, ThreadId and References.
+        // If replying, add In-Reply-To, ThreadId and References per RFC 5322.
+        // References must include all previous References + the Message-ID of the message being replied to.
         if (draftCreationOptions.ReferencedMessage != null)
         {
-            if (draftCreationOptions.ReferencedMessage.MimeMessage.References != null)
-                copy.References = string.Join(",", draftCreationOptions.ReferencedMessage.MimeMessage.References);
+            var refMime = draftCreationOptions.ReferencedMessage.MimeMessage;
+            var refs = new List<string>();
 
-            if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MimeMessage.MessageId))
-                copy.InReplyTo = draftCreationOptions.ReferencedMessage.MimeMessage.MessageId;
+            if (refMime.References != null)
+                refs.AddRange(refMime.References);
+
+            if (!string.IsNullOrEmpty(refMime.MessageId))
+            {
+                copy.InReplyTo = refMime.MessageId;
+                refs.Add(refMime.MessageId);
+            }
+
+            if (refs.Count > 0)
+                copy.References = string.Join(";", refs);
 
             if (!string.IsNullOrEmpty(draftCreationOptions.ReferencedMessage.MailCopy?.ThreadId))
                 copy.ThreadId = draftCreationOptions.ReferencedMessage.MailCopy.ThreadId;
@@ -960,8 +970,8 @@ public class MailService : BaseDatabaseService, IMailService
 
                     if (!string.IsNullOrEmpty(referenceMailCopy.References))
                     {
-                        // Parse the References string and add them
-                        var references = referenceMailCopy.References.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                        // Parse the References string (supports both ";" and "," separators for backward compatibility)
+                        var references = referenceMailCopy.References.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
                         foreach (var reference in references)
                         {
                             message.References.Add(reference.Trim());

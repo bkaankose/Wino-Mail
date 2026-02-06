@@ -196,6 +196,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             if (!smtpClient.IsAuthenticated)
                 await smtpClient.AuthenticateAsync(Account.ServerInformation.OutgoingServerUsername, Account.ServerInformation.OutgoingServerPassword);
 
+            // Remove local draft header before sending to prevent leaking to recipients.
+            singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+
             // TODO: Transfer progress implementation as popup in the UI.
             await smtpClient.SendAsync(singleRequest.Mime, default);
             await smtpClient.DisconnectAsync(true);
@@ -218,10 +221,6 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 var sentFolder = await client.GetFolderAsync(singleRequest.SentFolder.RemoteFolderId);
 
                 await sentFolder.OpenAsync(FolderAccess.ReadWrite);
-
-                // Delete local Wino draft header. Otherwise mapping will be applied on re-sync.
-                singleRequest.Mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
-
                 await sentFolder.AppendAsync(singleRequest.Mime, MessageFlags.Seen);
                 await sentFolder.CloseAsync();
             }

@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Misc;
 
 namespace Wino.Core.Extensions;
@@ -63,6 +64,20 @@ public static class OutlookIntegratorExtensions
             FileId = Guid.NewGuid(),
             ItemType = MailItemType.Mail // ItemType will be set by caller if calendar access is granted
         };
+
+        // Extract In-Reply-To and References from InternetMessageHeaders for threading.
+        if (outlookMessage.InternetMessageHeaders != null)
+        {
+            var inReplyToHeader = outlookMessage.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, "In-Reply-To", StringComparison.OrdinalIgnoreCase));
+            if (inReplyToHeader != null)
+                mailCopy.InReplyTo = MailHeaderExtensions.StripAngleBrackets(inReplyToHeader.Value);
+
+            var referencesHeader = outlookMessage.InternetMessageHeaders
+                .FirstOrDefault(h => string.Equals(h.Name, "References", StringComparison.OrdinalIgnoreCase));
+            if (referencesHeader != null)
+                mailCopy.References = MailHeaderExtensions.NormalizeReferences(referencesHeader.Value);
+        }
 
         if (mailCopy.IsDraft)
             mailCopy.DraftId = mailCopy.ThreadId;
@@ -134,7 +149,7 @@ public static class OutlookIntegratorExtensions
             CcRecipients = ccAddresses,
             BccRecipients = bccAddresses,
             From = fromAddress,
-            InternetMessageId = GetProperId(mime.MessageId),
+            InternetMessageId = mime.MessageId,
             ReplyTo = replyToAddresses,
             Attachments = []
         };
@@ -429,16 +444,6 @@ public static class OutlookIntegratorExtensions
         return headers;
     }
 
-    private static string GetProperId(string id)
-    {
-        // Outlook requires some identifiers to start with "X-" or "x-".
-        if (string.IsNullOrEmpty(id)) return string.Empty;
-
-        if (!id.StartsWith("x-") || !id.StartsWith("X-"))
-            return $"X-{id}";
-
-        return id;
-    }
 
 
     #endregion
