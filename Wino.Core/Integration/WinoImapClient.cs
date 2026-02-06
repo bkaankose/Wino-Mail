@@ -9,7 +9,7 @@ namespace Wino.Core.Integration;
 /// <summary>
 /// Extended class for ImapClient that is used in Wino.
 /// </summary>
-internal class WinoImapClient : ImapClient
+public class WinoImapClient : ImapClient
 {
     private int _busyCount;
 

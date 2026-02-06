@@ -107,6 +107,12 @@ public class MailAccount
     public MailAccountPreferences Preferences { get; set; }
 
     /// <summary>
+    /// Last time folder structure was synchronized.
+    /// Used for optimization - skip folder sync if synced recently.
+    /// </summary>
+    public DateTime? LastFolderStructureSyncDate { get; set; }
+
+    /// <summary>
     /// Gets whether the account can perform ProfileInformation sync type.
     /// </summary>
     public bool IsProfileInfoSyncSupported => ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Gmail;

@@ -162,4 +162,12 @@ public interface IMailService
     /// <param name="onlineArchiveMailIds">Retrieved MailCopy ids from search result.</param>
     /// <returns>Result model that contains added and removed mail copy ids.</returns>
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
+
+    /// <summary>
+    /// Gets the most recent mail IDs for a folder.
+    /// Used for notification purposes after sync completes.
+    /// </summary>
+    /// <param name="folderId">Folder ID.</param>
+    /// <param name="count">Number of recent mails to return.</param>
+    Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
 }

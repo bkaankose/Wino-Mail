@@ -26,6 +26,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Synchronizers.ImapSync;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -52,16 +53,22 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly IImapChangeProcessor _imapChangeProcessor;
     private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly UnifiedImapSynchronizer _unifiedSynchronizer;
+    private readonly IImapSynchronizerErrorHandlerFactory _errorHandlerFactory;
 
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
                             IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
-                            IApplicationConfiguration applicationConfiguration) : base(account, WeakReferenceMessenger.Default)
+                            IApplicationConfiguration applicationConfiguration,
+                            UnifiedImapSynchronizer unifiedSynchronizer,
+                            IImapSynchronizerErrorHandlerFactory errorHandlerFactory) : base(account, WeakReferenceMessenger.Default)
     {
         // Create client pool with account protocol log.
         _imapChangeProcessor = imapChangeProcessor;
         _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
+        _unifiedSynchronizer = unifiedSynchronizer;
+        _errorHandlerFactory = errorHandlerFactory;
 
         var protocolLogStream = CreateAccountProtocolLogFileStream();
         var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
@@ -303,53 +310,130 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         var downloadedMessageIds = new List<string>();
+        var folderResults = new List<FolderSyncResult>();
 
         _logger.Information("Internal synchronization started for {Name}", Account.Name);
         _logger.Information("Options: {Options}", options);
 
-        // Set indeterminate progress initially
-        UpdateSyncProgress(0, 0, "Synchronizing...");
-
-        bool shouldDoFolderSync = options.Type == MailSynchronizationType.FullFolders || options.Type == MailSynchronizationType.FoldersOnly;
-
-        if (shouldDoFolderSync)
+        try
         {
-            await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
-        }
+            // Set indeterminate progress initially
+            UpdateSyncProgress(0, 0, "Synchronizing...");
 
-        if (options.Type != MailSynchronizationType.FoldersOnly)
-        {
-            var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+            bool shouldDoFolderSync = options.Type == MailSynchronizationType.FullFolders || options.Type == MailSynchronizationType.FoldersOnly;
 
-            var totalFolders = synchronizationFolders.Count;
-
-            for (int i = 0; i < totalFolders; i++)
+            if (shouldDoFolderSync)
             {
-                var folder = synchronizationFolders[i];
+                await SynchronizeFoldersAsync(cancellationToken).ConfigureAwait(false);
+            }
 
-                // Update progress based on folder completion
-                UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
+            if (options.Type != MailSynchronizationType.FoldersOnly)
+            {
+                var synchronizationFolders = await _imapChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
 
-                var folderDownloadedMessageIds = await SynchronizeFolderInternalAsync(folder, cancellationToken).ConfigureAwait(false);
+                var totalFolders = synchronizationFolders.Count;
 
-                if (cancellationToken.IsCancellationRequested) return MailSynchronizationResult.Canceled;
-
-                if (folderDownloadedMessageIds != null)
+                for (int i = 0; i < totalFolders; i++)
                 {
-                    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                    var folder = synchronizationFolders[i];
+
+                    // Update progress based on folder completion
+                    UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
+
+                    try
+                    {
+                        // Use the unified synchronizer for folder sync
+                        IImapClient client = null;
+
+                        try
+                        {
+                            client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+                            var folderResult = await _unifiedSynchronizer.SynchronizeFolderAsync(client, folder, this, cancellationToken).ConfigureAwait(false);
+                            folderResults.Add(folderResult);
+
+                            if (folderResult.Success && folderResult.DownloadedCount > 0)
+                            {
+                                // Get the downloaded message IDs for this folder
+                                var folderDownloadedIds = await GetDownloadedIdsForFolderAsync(folder, folderResult.DownloadedCount).ConfigureAwait(false);
+                                downloadedMessageIds.AddRange(folderDownloadedIds);
+                            }
+                        }
+                        finally
+                        {
+                            if (client != null)
+                            {
+                                _clientPool.Release(client);
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorMessage = ex.Message,
+                            Exception = ex,
+                            FolderId = folder.Id,
+                            FolderName = folder.FolderName,
+                            OperationType = "ImapFolderSync"
+                        };
+
+                        var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+                        if (errorContext.CanContinueSync)
+                        {
+                            _logger.Warning(ex, "Folder {FolderName} sync failed, continuing with other folders", folder.FolderName);
+                            folderResults.Add(FolderSyncResult.Failed(folder.Id, folder.FolderName, errorContext));
+                        }
+                        else
+                        {
+                            _logger.Error(ex, "Folder {FolderName} sync failed with fatal error", folder.FolderName);
+                            folderResults.Add(FolderSyncResult.Failed(folder.Id, folder.FolderName, errorContext));
+                            throw;
+                        }
+                    }
+
+                    if (cancellationToken.IsCancellationRequested) return MailSynchronizationResult.Canceled;
                 }
             }
         }
-
-        // Reset progress
-        ResetSyncProgress();
+        catch (OperationCanceledException)
+        {
+            _logger.Information("Synchronization was canceled for {Name}", Account.Name);
+            return MailSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+            return MailSynchronizationResult.Failed(ex);
+        }
+        finally
+        {
+            // Reset progress
+            ResetSyncProgress();
+        }
 
         // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
 
         var unreadNewItems = await _imapChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-        return MailSynchronizationResult.Completed(unreadNewItems);
+        return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
+    }
+
+    /// <summary>
+    /// Gets the most recent downloaded message IDs for a folder.
+    /// Used for notification purposes after sync completes.
+    /// </summary>
+    private async Task<List<string>> GetDownloadedIdsForFolderAsync(MailItemFolder folder, int count)
+    {
+        // Get the most recent mail IDs from the folder
+        var recentMails = await _imapChangeProcessor.GetRecentMailIdsForFolderAsync(folder.Id, count).ConfigureAwait(false);
+        return recentMails?.ToList() ?? new List<string>();
     }
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<ImapRequest>> batchedRequests, CancellationToken cancellationToken = default)

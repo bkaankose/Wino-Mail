@@ -18,4 +18,7 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
     }
 
     public Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId) => FolderService.GetKnownUidsForFolderAsync(folderId);
+
+    public Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count)
+        => MailService.GetRecentMailIdsForFolderAsync(folderId, count);
 }

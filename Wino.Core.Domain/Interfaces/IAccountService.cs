@@ -171,4 +171,19 @@ public interface IAccountService
     /// <returns>Whether the notifications should be created after sync or not.</returns>
     Task<bool> IsNotificationsEnabled(Guid accountId);
     Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation);
+
+    /// <summary>
+    /// Updates the last folder structure sync date for the given account.
+    /// Used for optimization to skip folder sync if it was done recently.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    Task UpdateLastFolderStructureSyncDateAsync(Guid accountId);
+
+    /// <summary>
+    /// Checks if folder structure should be synced based on the configured interval.
+    /// Returns true if LastFolderStructureSyncDate is null or older than the interval.
+    /// </summary>
+    /// <param name="accountId">Account id.</param>
+    /// <param name="syncInterval">Minimum interval between folder syncs.</param>
+    Task<bool> ShouldSyncFolderStructureAsync(Guid accountId, TimeSpan syncInterval);
 }

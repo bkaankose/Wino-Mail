@@ -4,6 +4,8 @@ using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Services;
+using Wino.Core.Synchronizers.Errors.Gmail;
+using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 
@@ -37,12 +39,29 @@ public static class CoreContainerSetup
         services.AddTransient<CondstoreSynchronizer>();
         services.AddTransient<QResyncSynchronizer>();
         services.AddTransient<UidBasedSynchronizer>();
+        services.AddTransient<UnifiedImapSynchronizer>();
 
-        // Register error factory handlers
+        // Register Outlook error handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();
         services.AddTransient<DeltaTokenExpiredHandler>();
 
+        // Register Gmail error handlers
+        services.AddTransient<GmailQuotaExceededHandler>();
+        services.AddTransient<GmailRateLimitHandler>();
+        services.AddTransient<GmailHistoryExpiredHandler>();
+
+        // Register IMAP error handlers
+        services.AddTransient<ImapConnectionLostHandler>();
+        services.AddTransient<ImapAuthenticationFailedHandler>();
+        services.AddTransient<ImapFolderNotFoundHandler>();
+        services.AddTransient<ImapProtocolErrorHandler>();
+
+        // Register error handler factories
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IImapSynchronizerErrorHandlerFactory, ImapSynchronizerErrorHandlingFactory>();
+
+        // Register retry executor
+        services.AddTransient<IRetryExecutor, RetryExecutor>();
     }
 }

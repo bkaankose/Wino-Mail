@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System.Web;
 using CommunityToolkit.Mvvm.Messaging;
 using Google;
-using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
@@ -28,7 +27,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -51,19 +49,22 @@ namespace Wino.Core.Synchronizers.Mail;
 public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 
 /// <summary>
-/// Gmail synchronizer implementation with per-folder history ID synchronization.
-/// 
+/// Gmail synchronizer implementation using Gmail History API for efficient incremental sync.
+///
 /// SYNCHRONIZATION STRATEGY:
-/// - Uses Gmail History API for both initial and incremental sync
-/// - Initial sync: Downloads top 1500 messages per folder with metadata only
-/// - Incremental sync: Uses history ID to get only changes since last sync
-/// - Messages are downloaded with metadata only (no MIME content during sync)
-/// - MIME files are downloaded on-demand when user explicitly reads a message
-/// 
+/// - Initial sync: Downloads up to 1500 messages PER FOLDER with metadata only.
+///   Uses a global HashSet to track downloaded message IDs, avoiding duplicate downloads
+///   when messages have multiple labels. Each folder gets its full quota of messages.
+/// - Incremental sync: Uses ONLY History API to get changes since last sync.
+///   No per-folder downloads during incremental sync - this is the proper Gmail sync approach.
+/// - Messages are downloaded with metadata only during initial sync (no MIME content)
+/// - New messages during incremental sync are downloaded with full MIME content
+/// - MIME files for initial sync messages are downloaded on-demand when user reads a message
+///
 /// Key implementation details:
-/// - SynchronizeFolderAsync: Main entry point for per-folder synchronization
-/// - DownloadMessagesForFolderAsync: Downloads top 1500 messages for initial sync
-/// - SynchronizeDeltaAsync: Processes incremental changes using history ID
+/// - PerformInitialSyncAsync: Downloads messages per-folder with global deduplication
+/// - SynchronizeDeltaAsync: Processes incremental changes using History API with pagination
+/// - Handles 404/410 errors (history expired) by triggering full resync
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
@@ -153,15 +154,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         _logger.Information("Internal mail synchronization started for {Name}", Account.Name);
 
-        // Make sure that virtual archive folder exists before all.
-        if (!archiveFolderId.HasValue)
-            await InitializeArchiveFolderAsync().ConfigureAwait(false);
+        var downloadedMessageIds = new List<string>();
+        var folderResults = new List<FolderSyncResult>();
 
-        // Gmail must always synchronize folders before because it doesn't have a per-folder sync.
-        bool shouldSynchronizeFolders = true;
-
-        if (shouldSynchronizeFolders)
+        try
         {
+            // Make sure that virtual archive folder exists before all.
+            if (!archiveFolderId.HasValue)
+                await InitializeArchiveFolderAsync().ConfigureAwait(false);
+
+            // Gmail must always synchronize folders before because it doesn't have a per-folder sync.
             _logger.Information("Synchronizing folders for {Name}", Account.Name);
             UpdateSyncProgress(0, 0, "Synchronizing folders...");
 
@@ -173,202 +175,291 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 throw new GmailServiceDisabledException();
             }
-            catch (Exception)
-            {
-                throw;
-            }
 
             _logger.Information("Synchronizing folders for {Name} is completed", Account.Name);
             UpdateSyncProgress(0, 0, "Folders synchronized");
+
+            // Stop synchronization at this point if type is only folder metadata sync.
+            if (options.Type == MailSynchronizationType.FoldersOnly) return MailSynchronizationResult.Empty;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
+
+            _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
+
+            if (isInitialSync)
+            {
+                // INITIAL SYNC: Download all messages globally (not per-folder) to avoid duplicates.
+                // Gmail messages can have multiple labels, so per-folder download would fetch same message multiple times.
+                downloadedMessageIds = await PerformInitialSyncAsync(cancellationToken).ConfigureAwait(false);
+
+                // Set the history ID to the latest value after initial sync
+                UpdateSyncProgress(0, 0, "Finalizing synchronization...");
+                var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync(cancellationToken);
+                if (profile.HistoryId.HasValue)
+                {
+                    await UpdateAccountSyncIdentifierAsync(profile.HistoryId.Value).ConfigureAwait(false);
+                    _logger.Information("Initial sync completed. Set history ID to {HistoryId}", profile.HistoryId.Value);
+                }
+
+                // Create successful folder results for all folders
+                var allFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+                foreach (var folder in allFolders.Where(f => f.RemoteFolderId != ServiceConstants.ARCHIVE_LABEL_ID))
+                {
+                    folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, 0));
+                }
+            }
+            else
+            {
+                // INCREMENTAL SYNC: Use ONLY History API - no per-folder downloads.
+                // This is the proper Gmail sync strategy as recommended by Google.
+                UpdateSyncProgress(0, 0, "Synchronizing changes...");
+                var deltaResult = await SynchronizeDeltaAsync(options, cancellationToken).ConfigureAwait(false);
+                downloadedMessageIds.AddRange(deltaResult.DownloadedMessageIds);
+
+                // If history sync was reset due to expired history ID, we need to do initial sync
+                if (deltaResult.RequiresFullResync)
+                {
+                    _logger.Warning("History ID expired. Performing full resync for {Name}", Account.Name);
+                    downloadedMessageIds = await PerformInitialSyncAsync(cancellationToken).ConfigureAwait(false);
+
+                    // Update history ID after full resync
+                    var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync(cancellationToken);
+                    if (profile.HistoryId.HasValue)
+                    {
+                        await UpdateAccountSyncIdentifierAsync(profile.HistoryId.Value).ConfigureAwait(false);
+                        _logger.Information("Full resync completed. Set history ID to {HistoryId}", profile.HistoryId.Value);
+                    }
+                }
+
+                UpdateSyncProgress(0, 0, "Changes synchronized");
+
+                // Create folder results for incremental sync
+                var allFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
+                foreach (var folder in allFolders.Where(f => f.RemoteFolderId != ServiceConstants.ARCHIVE_LABEL_ID))
+                {
+                    folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, 0));
+                }
+            }
         }
-
-        // There is no specific folder synchronization in Gmail.
-        // Therefore we need to stop the synchronization at this point
-        // if type is only folder metadata sync.
-
-        if (options.Type == MailSynchronizationType.FoldersOnly) return MailSynchronizationResult.Empty;
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
-
-        _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
-
-        var downloadedMessageIds = new List<string>();
-
-        // Get all folders to synchronize
-        var synchronizationFolders = await _gmailChangeProcessor.GetSynchronizationFoldersAsync(options).ConfigureAwait(false);
-
-        _logger.Information("Synchronizing {Count} folders for {Name}", synchronizationFolders.Count, Account.Name);
-
-        var totalFolders = synchronizationFolders.Count;
-
-        for (int i = 0; i < totalFolders; i++)
+        catch (OperationCanceledException)
         {
-            var folder = synchronizationFolders[i];
-
-            // Update progress based on folder completion
-            UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
-
-            var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
-            downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+            _logger.Information("Synchronization was canceled for {Name}", Account.Name);
+            return MailSynchronizationResult.Canceled;
         }
-
-        // Process incremental changes using history API if we have a history ID
-        if (!string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier))
+        catch (Exception ex)
         {
-            UpdateSyncProgress(0, 0, "Synchronizing changes...");
-            await SynchronizeDeltaAsync(options, cancellationToken).ConfigureAwait(false);
-            UpdateSyncProgress(0, 0, "Changes synchronized");
+            _logger.Error(ex, "Synchronization failed for {Name}", Account.Name);
+            return MailSynchronizationResult.Failed(ex);
         }
 
         // Get all unread new downloaded items for notifications
         var unreadNewItems = await _gmailChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-        return MailSynchronizationResult.Completed(unreadNewItems);
+        return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
     }
 
     /// <summary>
-    /// Synchronizes a single folder by downloading top 1500 messages with metadata only.
+    /// Result of delta synchronization using History API.
     /// </summary>
-    private async Task<List<string>> SynchronizeFolderAsync(MailItemFolder folder, CancellationToken cancellationToken)
-    {
-        var downloadedMessageIds = new List<string>();
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        _logger.Debug("Synchronizing folder {FolderName} (label: {LabelId})", folder.FolderName, folder.RemoteFolderId);
-
-        try
-        {
-            // Download top 1500 messages for this folder
-            await DownloadMessagesForFolderAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
-
-            if (downloadedMessageIds.Any())
-            {
-                _logger.Information("Downloaded {Count} messages for folder {FolderName}", downloadedMessageIds.Count, folder.FolderName);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Error synchronizing folder {FolderName}", folder.FolderName);
-            throw;
-        }
-
-        return downloadedMessageIds;
-    }
+    private record DeltaSyncResult(List<string> DownloadedMessageIds, bool RequiresFullResync);
 
     /// <summary>
-    /// Downloads top 1500 messages for a folder using Gmail API with metadata only.
+    /// Performs initial synchronization by downloading messages per-folder.
+    /// Each folder gets up to 1500 messages, but we track already downloaded message IDs globally
+    /// to avoid downloading the same message multiple times (Gmail messages can have multiple labels).
     /// </summary>
-    private async Task DownloadMessagesForFolderAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken)
+    private async Task<List<string>> PerformInitialSyncAsync(CancellationToken cancellationToken)
     {
-        _logger.Debug("Downloading messages for folder {FolderName}", folder.FolderName);
+        // Track all downloaded message IDs globally to avoid duplicate downloads
+        var downloadedMessageIds = new HashSet<string>();
+
+        _logger.Information("Performing initial sync for {Name} - downloading messages per folder", Account.Name);
 
         try
         {
-            var totalDownloaded = 0;
-            string pageToken = null;
+            // Get all folders to sync (exclude virtual ARCHIVE folder)
+            var folders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+            var syncableFolders = folders
+                .Where(f => f.IsSynchronizationEnabled && f.RemoteFolderId != ServiceConstants.ARCHIVE_LABEL_ID)
+                .ToList();
 
-            // Gmail API returns messages newest first by default
-            // We'll download up to 1500 messages per folder
-            var remainingToDownload = (int)InitialMessageDownloadCountPerFolder;
+            var totalFolders = syncableFolders.Count;
+            var totalMessagesDownloaded = 0;
 
-            do
+            for (int i = 0; i < totalFolders; i++)
             {
+                var folder = syncableFolders[i];
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var request = _gmailService.Users.Messages.List("me");
-                request.LabelIds = new Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
-                request.MaxResults = Math.Min(remainingToDownload, 500); // API max is 500
-                request.PageToken = pageToken;
+                UpdateSyncProgress(totalFolders, totalFolders - (i + 1), $"Syncing {folder.FolderName}...");
 
-                var response = await request.ExecuteAsync(cancellationToken);
+                _logger.Debug("Downloading messages for folder {FolderName} (label: {LabelId})", folder.FolderName, folder.RemoteFolderId);
 
-                if (response.Messages != null && response.Messages.Count > 0)
+                var folderDownloaded = 0;
+                string pageToken = null;
+                var remainingToDownload = (int)InitialMessageDownloadCountPerFolder;
+
+                do
                 {
-                    var messageIds = response.Messages.Select(m => m.Id).ToList();
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    // Download metadata in batches
-                    await DownloadMessagesInBatchAsync(messageIds, downloadRawMime: false, cancellationToken).ConfigureAwait(false);
+                    var request = _gmailService.Users.Messages.List("me");
+                    request.LabelIds = new Google.Apis.Util.Repeatable<string>(new[] { folder.RemoteFolderId });
+                    request.MaxResults = Math.Min(remainingToDownload, 500); // API max is 500
+                    request.PageToken = pageToken;
 
-                    downloadedMessageIds.AddRange(messageIds);
-                    totalDownloaded += messageIds.Count;
-                    remainingToDownload -= messageIds.Count;
+                    var response = await request.ExecuteAsync(cancellationToken);
 
-                    _logger.Debug("Downloaded {Count} messages for folder {FolderName} (total: {Total})", messageIds.Count, folder.FolderName, totalDownloaded);
+                    if (response.Messages != null && response.Messages.Count > 0)
+                    {
+                        // Filter out already downloaded messages to avoid duplicates
+                        var newMessageIds = response.Messages
+                            .Select(m => m.Id)
+                            .Where(id => !downloadedMessageIds.Contains(id))
+                            .ToList();
 
-                    // Update progress
-                    UpdateSyncProgress(0, 0, $"Downloaded {totalDownloaded} messages from {folder.FolderName}");
-                }
+                        if (newMessageIds.Count > 0)
+                        {
+                            // Download metadata in batches (no raw MIME during initial sync)
+                            await DownloadMessagesInBatchAsync(newMessageIds, downloadRawMime: false, cancellationToken).ConfigureAwait(false);
 
-                pageToken = response.NextPageToken;
+                            foreach (var id in newMessageIds)
+                            {
+                                downloadedMessageIds.Add(id);
+                            }
 
-                // Stop if we've downloaded enough messages or no more pages
-                if (remainingToDownload <= 0 || string.IsNullOrEmpty(pageToken))
-                    break;
+                            folderDownloaded += newMessageIds.Count;
+                            totalMessagesDownloaded += newMessageIds.Count;
+                        }
 
-            } while (!string.IsNullOrEmpty(pageToken));
+                        // Count all messages (including duplicates) toward the folder limit
+                        remainingToDownload -= response.Messages.Count;
 
-            // Store history ID for future incremental syncs
-            var profile = await _gmailService.Users.GetProfile("me").ExecuteAsync(cancellationToken);
-            Account.SynchronizationDeltaIdentifier = profile.HistoryId.ToString();
-            await _gmailChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+                        _logger.Debug("Folder {FolderName}: Downloaded {New} new messages ({Total} total in folder)",
+                            folder.FolderName, newMessageIds.Count, folderDownloaded);
+                    }
 
-            _logger.Information("Completed downloading {Count} messages for folder {FolderName}", totalDownloaded, folder.FolderName);
+                    pageToken = response.NextPageToken;
+
+                    // Stop if we've processed enough messages for this folder or no more pages
+                    if (remainingToDownload <= 0 || string.IsNullOrEmpty(pageToken))
+                        break;
+
+                } while (!string.IsNullOrEmpty(pageToken));
+
+                _logger.Information("Folder {FolderName}: Downloaded {Count} messages", folder.FolderName, folderDownloaded);
+                UpdateSyncProgress(0, 0, $"Downloaded {totalMessagesDownloaded} messages");
+            }
+
+            _logger.Information("Initial sync completed. Downloaded {Count} unique messages for {Name}", downloadedMessageIds.Count, Account.Name);
         }
         catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            _logger.Warning("Rate limit exceeded while downloading messages for folder {FolderName}. Retrying after delay.", folder.FolderName);
+            _logger.Warning("Rate limit exceeded during initial sync. Retrying after delay.");
             await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error downloading messages for folder {FolderName}", folder.FolderName);
+            _logger.Error(ex, "Error during initial sync for {Name}", Account.Name);
             throw;
         }
+
+        return downloadedMessageIds.ToList();
     }
 
-    private async Task SynchronizeDeltaAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Performs incremental synchronization using Gmail History API.
+    /// This is the recommended approach for Gmail sync after initial sync is complete.
+    /// Returns a result indicating downloaded messages and whether a full resync is needed.
+    /// </summary>
+    private async Task<DeltaSyncResult> SynchronizeDeltaAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        var downloadedMessageIds = new List<string>();
+
         try
         {
-            var historyRequest = _gmailService.Users.History.List("me");
-            historyRequest.StartHistoryId = ulong.Parse(Account.SynchronizationDeltaIdentifier!);
+            string pageToken = null;
 
-            var historyResponse = await historyRequest.ExecuteAsync();
-
-            if (historyResponse.History != null)
+            do
             {
-                var addedMessageIds = new List<string>();
+                cancellationToken.ThrowIfCancellationRequested();
 
-                // Collect all added messages first
-                foreach (var historyRecord in historyResponse.History)
+                var historyRequest = _gmailService.Users.History.List("me");
+                historyRequest.StartHistoryId = ulong.Parse(Account.SynchronizationDeltaIdentifier!);
+
+                if (!string.IsNullOrEmpty(pageToken))
+                    historyRequest.PageToken = pageToken;
+
+                var historyResponse = await historyRequest.ExecuteAsync(cancellationToken);
+
+                if (historyResponse.History != null)
                 {
-                    if (historyRecord.MessagesAdded != null)
+                    var addedMessageIds = new List<string>();
+
+                    // Collect all added messages first
+                    foreach (var historyRecord in historyResponse.History)
                     {
-                        addedMessageIds.AddRange(historyRecord.MessagesAdded.Select(ma => ma.Message.Id));
+                        if (historyRecord.MessagesAdded != null)
+                        {
+                            addedMessageIds.AddRange(historyRecord.MessagesAdded.Select(ma => ma.Message.Id));
+                        }
                     }
-                }
 
-                // Process added messages in batches if any
-                // During delta sync, download with Raw format to get MIME content
-                if (addedMessageIds.Count != 0)
-                {
-                    await DownloadMessagesInBatchAsync(addedMessageIds, downloadRawMime: true, cancellationToken).ConfigureAwait(false);
-                }
+                    // Process added messages in batches if any
+                    // During delta sync, download with Raw format to get MIME content for new messages
+                    if (addedMessageIds.Count != 0)
+                    {
+                        // Deduplicate message IDs
+                        var uniqueAddedIds = addedMessageIds.Distinct().ToList();
+                        await DownloadMessagesInBatchAsync(uniqueAddedIds, downloadRawMime: true, cancellationToken).ConfigureAwait(false);
+                        downloadedMessageIds.AddRange(uniqueAddedIds);
+                    }
 
-                // Process other history changes
-                foreach (var historyRecord in historyResponse.History)
-                {
+                    // Process other history changes (label changes, deletions)
                     await ProcessHistoryChangesAsync(historyResponse).ConfigureAwait(false);
                 }
-            }
-        }
-        catch (Exception)
-        {
 
+                // CRITICAL: Update the history ID to the latest one after processing all changes
+                // History IDs are always incremental, so the response contains the latest history ID
+                if (historyResponse.HistoryId.HasValue)
+                {
+                    await UpdateAccountSyncIdentifierAsync(historyResponse.HistoryId.Value).ConfigureAwait(false);
+                    _logger.Debug("Updated history ID to {HistoryId} after delta sync", historyResponse.HistoryId.Value);
+                }
+
+                pageToken = historyResponse.NextPageToken;
+
+            } while (!string.IsNullOrEmpty(pageToken));
+
+            _logger.Information("Delta sync completed. Downloaded {Count} new messages for {Name}", downloadedMessageIds.Count, Account.Name);
+
+            return new DeltaSyncResult(downloadedMessageIds, RequiresFullResync: false);
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound ||
+                                            (int)ex.HttpStatusCode == 410) // Gone - history expired
+        {
+            // History ID is no longer valid (expired or not found)
+            // This happens when:
+            // 1. The history ID is too old (Gmail keeps history for ~30 days)
+            // 2. The account was reset or history was cleared
+            // Reset the sync identifier and signal that a full resync is needed
+            _logger.Warning("History ID {HistoryId} expired or not found for {Name}. Full resync required. Error: {Error}",
+                Account.SynchronizationDeltaIdentifier, Account.Name, ex.Message);
+
+            // Clear the sync identifier to trigger initial sync
+            Account.SynchronizationDeltaIdentifier = await _gmailChangeProcessor
+                .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, null)
+                .ConfigureAwait(false);
+
+            return new DeltaSyncResult(downloadedMessageIds, RequiresFullResync: true);
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _logger.Warning("Rate limit exceeded during delta sync for {Name}. Retrying after delay.", Account.Name);
+            await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             throw;
         }
     }
@@ -802,6 +893,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         foreach (var labelId in addedLabel.LabelIds)
         {
+            // ARCHIVE is a virtual folder - handle it separately
+            if (labelId == ServiceConstants.ARCHIVE_LABEL_ID)
+            {
+                await HandleArchiveAssignmentAsync(messageId).ConfigureAwait(false);
+                continue;
+            }
+
             // When UNREAD label is added mark the message as un-read.
             if (labelId == ServiceConstants.UNREAD_LABEL_ID)
                 await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, false).ConfigureAwait(false);
@@ -822,6 +920,13 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         foreach (var labelId in removedLabel.LabelIds)
         {
+            // ARCHIVE is a virtual folder - handle it separately
+            if (labelId == ServiceConstants.ARCHIVE_LABEL_ID)
+            {
+                await HandleUnarchiveAssignmentAsync(messageId).ConfigureAwait(false);
+                continue;
+            }
+
             // When UNREAD label is removed mark the message as read.
             if (labelId == ServiceConstants.UNREAD_LABEL_ID)
                 await _gmailChangeProcessor.ChangeMailReadStatusAsync(messageId, true).ConfigureAwait(false);
@@ -1160,15 +1265,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                     if (packages != null)
                     {
-                        // For Gmail, multiple packages can share the same message (different labels/folders)
-                        // They should all share the same FileId so MIME is stored only once
-                        Guid sharedFileId = Guid.NewGuid();
+                        // For Gmail, multiple packages share the same message (different labels/folders)
+                        // They already share the same FileId (set in CreateNewMailPackagesAsync) so MIME is stored only once
 
                         foreach (var package in packages)
                         {
-                            // Set the same FileId for all copies
-                            package.Copy.FileId = sharedFileId;
-
                             // Create the mail copy with the MIME (if downloaded)
                             var packageWithMime = downloadRawMime && mimeMessage != null
                                 ? new NewMailItemPackage(package.Copy, mimeMessage, package.AssignedRemoteFolderId)
@@ -1256,7 +1357,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // Gmail calendar attachments are stored in Google Drive
             // RemoteAttachmentId contains either FileId or FileUrl
             // For simplicity, we'll try to download from the FileId/FileUrl
-            
+
             if (string.IsNullOrEmpty(attachment.RemoteAttachmentId))
             {
                 _logger.Error("RemoteAttachmentId is empty for attachment {AttachmentId}", attachment.Id);
@@ -1267,7 +1368,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // The attachment.RemoteAttachmentId is either a FileId or FileUrl
             // Since we can't directly download from Calendar API, this would require Drive API access
             // For now, throw NotSupportedException as Gmail attachments require additional Drive API setup
-            
+
             _logger.Warning("Gmail calendar attachment download requires Google Drive API access. FileId/URL: {RemoteId}", attachment.RemoteAttachmentId);
             throw new NotSupportedException("Gmail calendar attachments are stored in Google Drive and require additional API configuration to download.");
         }
@@ -1615,7 +1716,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Check Content-Type header for text/calendar
         var contentTypeHeader = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
-        
+
         if (!string.IsNullOrEmpty(contentTypeHeader))
         {
             // Check if it's a calendar message (text/calendar or multipart with calendar)
@@ -1623,11 +1724,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 // Check the METHOD parameter to determine invitation type
                 var methodMatch = System.Text.RegularExpressions.Regex.Match(contentTypeHeader, @"method=([^;\s]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                
+
                 if (methodMatch.Success)
                 {
                     var method = methodMatch.Groups[1].Value.Trim('"').ToUpperInvariant();
-                    
+
                     return method switch
                     {
                         "REQUEST" => MailItemType.CalendarInvitation,
@@ -1636,7 +1737,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                         _ => MailItemType.Mail
                     };
                 }
-                
+
                 // If no method specified, assume it's an invitation
                 return MailItemType.CalendarInvitation;
             }
@@ -1683,11 +1784,11 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     {
         var packageList = new List<NewMailItemPackage>();
 
-        // Create MailCopy from metadata only - NO MIME download
-        var mailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
+        // Create base MailCopy from metadata only - NO MIME download
+        var baseMailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
         // Check for local draft mapping using X-Wino-Draft-Id header from metadata
-        if (mailCopy.IsDraft)
+        if (baseMailCopy.IsDraft)
         {
             var draftIdHeader = message.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals(Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase))?.Value;
 
@@ -1696,7 +1797,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 // This message belongs to existing local draft copy.
                 // We don't need to create a new mail copy for this message, just update the existing one.
 
-                bool isMappingSuccesfull = await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, mailCopy.Id, mailCopy.DraftId, mailCopy.ThreadId);
+                bool isMappingSuccesfull = await _gmailChangeProcessor.MapLocalDraftAsync(Account.Id, localDraftCopyUniqueId, baseMailCopy.Id, baseMailCopy.DraftId, baseMailCopy.ThreadId);
 
                 if (isMappingSuccesfull) return null;
 
@@ -1704,12 +1805,32 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
         }
 
+        // For Gmail, a single mail can have multiple labels (folders).
+        // Each label requires a separate MailCopy entry in the database with:
+        // - Same Id, UniqueId, FileId (shared across all copies)
+        // - Different FolderId (one per label)
+        // ARCHIVE label is excluded here as it's virtual and handled by MapArchivedMailsAsync
         if (message.LabelIds is not null)
         {
+            // Generate shared identifiers that will be the same for all copies of this mail
+            var sharedId = baseMailCopy.Id;
+            var sharedFileId = baseMailCopy.FileId;
+
             foreach (var labelId in message.LabelIds)
             {
+                // Skip ARCHIVE label - it's virtual and handled separately
+                if (labelId == ServiceConstants.ARCHIVE_LABEL_ID)
+                    continue;
+
+                // Create a new MailCopy instance for each label to avoid shared reference issues
+                var mailCopyForLabel = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
+                
+                // Ensure all copies share the same Id and FileId
+                mailCopyForLabel.Id = sharedId;
+                mailCopyForLabel.FileId = sharedFileId;
+
                 // Pass null for MimeMessage - it will be downloaded later when user reads the mail
-                packageList.Add(new NewMailItemPackage(mailCopy, null, labelId));
+                packageList.Add(new NewMailItemPackage(mailCopyForLabel, null, labelId));
             }
         }
 
@@ -1807,7 +1928,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         // Create a patch event to update only the attendee response
         var patchEvent = new Event();
-        
+
         // We need to get the event first to update the specific attendee
         // However, for efficiency, we'll use the patch method with sendUpdates parameter
         var patchRequest = _calendarService.Events.Patch(new Event
@@ -1824,8 +1945,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
 
         // Send updates to other attendees if there's a message
-        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage) 
-            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All 
+        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
+            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
             : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
@@ -1861,8 +1982,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
         }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
 
-        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage) 
-            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All 
+        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
+            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
             : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
@@ -1898,8 +2019,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             }
         }, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
 
-        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage) 
-            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All 
+        patchRequest.SendUpdates = !string.IsNullOrEmpty(request.ResponseMessage)
+            ? Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.All
             : Google.Apis.Calendar.v3.EventsResource.PatchRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(patchRequest, request)];
@@ -1979,8 +2100,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         var updateRequest = _calendarService.Events.Update(googleEvent, calendar.RemoteCalendarId, calendarItem.RemoteEventId);
 
         // Send notifications to attendees if the event has attendees
-        updateRequest.SendUpdates = (attendees != null && attendees.Count > 0) 
-            ? Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.All 
+        updateRequest.SendUpdates = (attendees != null && attendees.Count > 0)
+            ? Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.All
             : Google.Apis.Calendar.v3.EventsResource.UpdateRequest.SendUpdatesEnum.None;
 
         return [new HttpRequestBundle<IClientServiceRequest>(updateRequest, request)];

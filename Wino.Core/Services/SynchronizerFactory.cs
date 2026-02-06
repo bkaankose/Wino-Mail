@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 
 namespace Wino.Core.Services;
@@ -17,10 +18,12 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IOutlookSynchronizerErrorHandlerFactory _outlookSynchronizerErrorHandlerFactory;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
+    private readonly IImapSynchronizerErrorHandlerFactory _imapSynchronizerErrorHandlerFactory;
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
     private readonly IAuthenticationProvider _authenticationProvider;
+    private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
@@ -32,7 +35,9 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                                IApplicationConfiguration applicationConfiguration,
                                IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
-                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory)
+                               IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
+                               IImapSynchronizerErrorHandlerFactory imapSynchronizerErrorHandlerFactory,
+                               UnifiedImapSynchronizer unifiedImapSynchronizer)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -43,6 +48,8 @@ public class SynchronizerFactory : ISynchronizerFactory
         _applicationConfiguration = applicationConfiguration;
         _outlookSynchronizerErrorHandlerFactory = outlookSynchronizerErrorHandlerFactory;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
+        _imapSynchronizerErrorHandlerFactory = imapSynchronizerErrorHandlerFactory;
+        _unifiedImapSynchronizer = unifiedImapSynchronizer;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -78,7 +85,7 @@ public class SynchronizerFactory : ISynchronizerFactory
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
                 return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration);
+                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory);
             default:
                 break;
         }

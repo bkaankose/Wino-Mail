@@ -30,7 +30,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -141,6 +140,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
         var downloadedMessageIds = new List<string>();
+        var folderResults = new List<FolderSyncResult>();
 
         _logger.Information("Internal synchronization started for {Name}", Account.Name);
         _logger.Information("Options: {Options}", options);
@@ -169,17 +169,77 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     var statusMessage = string.Format(Translator.Sync_SynchronizingFolder, folder.FolderName, progressPercentage);
                     UpdateSyncProgress(totalFolders, totalFolders - (i + 1), statusMessage);
 
-                    var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
-                    downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+                    try
+                    {
+                        var folderDownloadedMessageIds = await SynchronizeFolderAsync(folder, cancellationToken).ConfigureAwait(false);
+                        downloadedMessageIds.AddRange(folderDownloadedMessageIds);
+
+                        folderResults.Add(FolderSyncResult.Successful(folder.Id, folder.FolderName, folderDownloadedMessageIds.Count()));
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Cancellation should stop the entire sync
+                        throw;
+                    }
+                    catch (ODataError odataError)
+                    {
+                        // Handle OData errors - determine if we should continue or stop
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorCode = (int?)odataError.ResponseStatusCode,
+                            ErrorMessage = odataError.Error?.Message ?? odataError.Message,
+                            Exception = odataError,
+                            FolderId = folder.Id,
+                            FolderName = folder.FolderName,
+                            OperationType = "FolderSync"
+                        };
+
+                        var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+                        if (errorContext.CanContinueSync)
+                        {
+                            _logger.Warning("Folder {FolderName} sync failed with recoverable error, continuing with other folders. Error: {Error}",
+                                folder.FolderName, odataError.Error?.Message);
+                            folderResults.Add(FolderSyncResult.Failed(folder.Id, folder.FolderName, errorContext));
+                        }
+                        else
+                        {
+                            _logger.Error(odataError, "Folder {FolderName} sync failed with fatal error, stopping sync", folder.FolderName);
+                            folderResults.Add(FolderSyncResult.Failed(folder.Id, folder.FolderName, errorContext));
+                            throw;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // For unexpected exceptions, try to classify and decide if we should continue
+                        var errorContext = new SynchronizerErrorContext
+                        {
+                            Account = Account,
+                            ErrorMessage = ex.Message,
+                            Exception = ex,
+                            FolderId = folder.Id,
+                            FolderName = folder.FolderName,
+                            OperationType = "FolderSync",
+                            Severity = SynchronizerErrorSeverity.Recoverable, // Default to recoverable for individual folders
+                            Category = SynchronizerErrorCategory.Unknown
+                        };
+
+                        _logger.Warning(ex, "Folder {FolderName} sync failed, continuing with other folders", folder.FolderName);
+                        folderResults.Add(FolderSyncResult.Failed(folder.Id, folder.FolderName, errorContext));
+                    }
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Information("Synchronization was canceled for {Name}", Account.Name);
+            return MailSynchronizationResult.Canceled;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Synchronizing folders for {Name}", Account.Name);
-            Debugger.Break();
-
-            throw;
+            return MailSynchronizationResult.Failed(ex);
         }
         finally
         {
@@ -187,12 +247,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             ResetSyncProgress();
         }
 
-        // Get all unred new downloaded items and return in the result.
+        // Get all unread new downloaded items and return in the result.
         // This is primarily used in notifications.
 
         var unreadNewItems = await _outlookChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedMessageIds).ConfigureAwait(false);
 
-        return MailSynchronizationResult.Completed(unreadNewItems);
+        return MailSynchronizationResult.CompletedWithFolderResults(unreadNewItems, folderResults);
     }
 
     public async Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)

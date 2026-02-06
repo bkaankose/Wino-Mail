@@ -107,6 +107,13 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
     /// </summary>
     /// <param name="folderId">Folder id to retrieve uIds for.</param>
     Task<IList<uint>> GetKnownUidsForFolderAsync(Guid folderId);
+
+    /// <summary>
+    /// Gets the most recent mail IDs for a folder (for notification purposes).
+    /// </summary>
+    /// <param name="folderId">Folder ID.</param>
+    /// <param name="count">Number of recent mails to return.</param>
+    Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
 }
 
 public class DefaultChangeProcessor(IDatabaseService databaseService,

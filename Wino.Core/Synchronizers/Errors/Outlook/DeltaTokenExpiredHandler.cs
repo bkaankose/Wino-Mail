@@ -3,7 +3,7 @@ using Microsoft.Graph.Models.ODataErrors;
 using Microsoft.Kiota.Abstractions;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Errors;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 
 namespace Wino.Core.Synchronizers.Errors.Outlook;

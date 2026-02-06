@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Errors;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Bundles;
 
 namespace Wino.Core.Synchronizers.Errors.Outlook;

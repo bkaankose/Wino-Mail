@@ -599,4 +599,24 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         return account?.Preferences?.IsNotificationsEnabled ?? false;
     }
+
+    public async Task UpdateLastFolderStructureSyncDateAsync(Guid accountId)
+    {
+        var account = await GetAccountAsync(accountId);
+        if (account == null) return;
+
+        account.LastFolderStructureSyncDate = DateTime.UtcNow;
+        await Connection.UpdateAsync(account, typeof(MailAccount)).ConfigureAwait(false);
+    }
+
+    public async Task<bool> ShouldSyncFolderStructureAsync(Guid accountId, TimeSpan syncInterval)
+    {
+        var account = await GetAccountAsync(accountId);
+        if (account == null) return true;
+
+        if (!account.LastFolderStructureSyncDate.HasValue)
+            return true;
+
+        return DateTime.UtcNow - account.LastFolderStructureSyncDate.Value > syncInterval;
+    }
 }

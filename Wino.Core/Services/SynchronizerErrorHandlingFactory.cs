@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Errors;
+using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Services;
 

@@ -670,7 +670,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         await MailCollection.UpdateMailCopy(updatedMail, source);
 
-        await ExecuteUIThread(() => { SetupTopBarActions(); });
+        // await ExecuteUIThread(() => { SetupTopBarActions(); });
     }
 
     protected override async void OnMailRemoved(MailCopy removedMail)

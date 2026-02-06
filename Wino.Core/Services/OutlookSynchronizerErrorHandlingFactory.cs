@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Errors;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Synchronizers.Errors.Outlook;
 
 namespace Wino.Core.Services;
