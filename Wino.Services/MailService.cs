@@ -1056,12 +1056,14 @@ public class MailService : BaseDatabaseService, IMailService
         bool isIdChanging = localDraftCopy.Id != newMailCopyId;
 
         localDraftCopy.Id = newMailCopyId;
-        localDraftCopy.DraftId = newDraftId;
-        localDraftCopy.ThreadId = newThreadId;
+        if (!string.IsNullOrEmpty(newDraftId))
+            localDraftCopy.DraftId = newDraftId;
+        if (!string.IsNullOrEmpty(newThreadId))
+            localDraftCopy.ThreadId = newThreadId;
 
         await UpdateMailAsync(localDraftCopy).ConfigureAwait(false);
 
-        ReportUIChange(new DraftMapped(oldLocalDraftId, newDraftId));
+        ReportUIChange(new DraftMapped(oldLocalDraftId, localDraftCopy.DraftId));
 
         return true;
     }
@@ -1070,14 +1072,20 @@ public class MailService : BaseDatabaseService, IMailService
     {
         return UpdateAllMailCopiesAsync(mailCopyId, (item) =>
         {
-            if (item.ThreadId != newThreadId || item.DraftId != newDraftId)
+            var shouldUpdateThreadId = !string.IsNullOrEmpty(newThreadId);
+            var shouldUpdateDraftId = !string.IsNullOrEmpty(newDraftId);
+
+            if ((shouldUpdateThreadId && item.ThreadId != newThreadId) ||
+                (shouldUpdateDraftId && item.DraftId != newDraftId))
             {
                 var oldDraftId = item.DraftId;
 
-                item.DraftId = newDraftId;
-                item.ThreadId = newThreadId;
+                if (shouldUpdateDraftId)
+                    item.DraftId = newDraftId;
+                if (shouldUpdateThreadId)
+                    item.ThreadId = newThreadId;
 
-                ReportUIChange(new DraftMapped(oldDraftId, newDraftId));
+                ReportUIChange(new DraftMapped(oldDraftId, item.DraftId));
 
                 return true;
             }

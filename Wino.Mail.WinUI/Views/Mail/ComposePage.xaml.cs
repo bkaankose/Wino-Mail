@@ -21,6 +21,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -30,7 +31,8 @@ namespace Wino.Views.Mail;
 
 public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<CreateNewComposeMailRequested>,
-    IRecipient<ApplicationThemeChanged>
+    IRecipient<ApplicationThemeChanged>,
+    IRecipient<NewComposeDraftItemRequestedEvent>
 {
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
@@ -300,6 +302,12 @@ public sealed partial class ComposePage : ComposePageAbstract,
         WebViewEditor.IsEditorDarkMode = message.IsUnderlyingThemeDark;
     }
 
+    void IRecipient<NewComposeDraftItemRequestedEvent>.Receive(NewComposeDraftItemRequestedEvent message)
+    {
+        // Reset the initial focus flag so ToBox gets focus for the new draft.
+        isInitialFocusHandled = false;
+    }
+
     private void ImportanceClicked(object sender, RoutedEventArgs e)
     {
         ImportanceFlyout.Hide();
@@ -415,6 +423,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         WeakReferenceMessenger.Default.Register<CreateNewComposeMailRequested>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<NewComposeDraftItemRequestedEvent>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -423,6 +432,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         WeakReferenceMessenger.Default.Unregister<CreateNewComposeMailRequested>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<NewComposeDraftItemRequestedEvent>(this);
     }
 
     // TODO: Save mime on closing the app.

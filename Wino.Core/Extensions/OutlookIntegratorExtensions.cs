@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.Graph.Models;
@@ -138,36 +139,37 @@ public static class OutlookIntegratorExtensions
         var bccAddresses = GetRecipients(mime.Bcc).ToList();
         var replyToAddresses = GetRecipients(mime.ReplyTo).ToList();
 
+        // Prefer HTML body, fall back to plain text.
+        var (bodyContent, bodyType) = mime.HtmlBody != null
+            ? (mime.HtmlBody, BodyType.Html)
+            : (mime.TextBody ?? string.Empty, BodyType.Text);
+
         var message = new Message()
         {
             Subject = mime.Subject,
             Importance = GetImportance(mime.Importance),
-            Body = new ItemBody() { ContentType = BodyType.Html, Content = mime.HtmlBody },
+            Body = new ItemBody() { ContentType = bodyType, Content = bodyContent },
             IsDraft = false,
-            IsRead = true, // Sent messages are always read.
+            IsRead = true,
             ToRecipients = toAddresses,
             CcRecipients = ccAddresses,
             BccRecipients = bccAddresses,
             From = fromAddress,
             InternetMessageId = mime.MessageId,
             ReplyTo = replyToAddresses,
-            Attachments = []
         };
 
-        // Set ConversationId if provided to maintain threading
         if (!string.IsNullOrEmpty(conversationId))
         {
             message.ConversationId = conversationId;
         }
 
         // Headers are only included when creating the draft.
-        // When sending, they are not included. Graph will throw an error.
-
+        // Graph API throws an error if headers are included in send/patch operations.
         if (includeInternetHeaders)
         {
             message.InternetMessageHeaders = GetHeaderList(mime);
         }
-
 
         return message;
     }
@@ -367,6 +369,40 @@ public static class OutlookIntegratorExtensions
 
     #region Mime to Outlook Message Helpers
 
+    /// <summary>
+    /// Extracts all attachments (inline and regular) from a MimeMessage
+    /// and returns them as Graph SDK FileAttachment objects.
+    /// </summary>
+    public static List<FileAttachment> ExtractAttachments(this MimeMessage mime)
+    {
+        var attachments = new List<FileAttachment>();
+
+        foreach (var part in mime.BodyParts)
+        {
+            bool isInline = part.ContentDisposition?.Disposition == "inline";
+
+            if (!part.IsAttachment && !isInline)
+                continue;
+
+            if (part is not MimePart mimePart || mimePart.Content == null)
+                continue;
+
+            using var memory = new MemoryStream();
+            mimePart.Content.DecodeTo(memory);
+
+            attachments.Add(new FileAttachment()
+            {
+                Name = part.ContentDisposition?.FileName ?? part.ContentType.Name,
+                ContentBytes = memory.ToArray(),
+                ContentType = part.ContentType.MimeType,
+                ContentId = part.ContentId,
+                IsInline = isInline
+            });
+        }
+
+        return attachments;
+    }
+
     private static IEnumerable<Recipient> GetRecipients(this InternetAddressList internetAddresses)
     {
         foreach (var address in internetAddresses)
@@ -399,46 +435,46 @@ public static class OutlookIntegratorExtensions
     private static List<InternetMessageHeader> GetHeaderList(this MimeMessage mime)
     {
         // Graph API only allows max of 5 headers.
-        // Here we'll try to ignore some headers that are not neccessary.
-        // Outlook API will generate them automatically.
+        // Prioritize threading headers to keep reply grouping intact.
 
-        // Some headers also require to start with X- or x-.
-
+        const int headerLimit = 5;
         string[] headersToIgnore = ["Date", "To", "Cc", "Bcc", "MIME-Version", "From", "Subject", "Message-Id"];
-        string[] headersToModify = ["In-Reply-To", "Reply-To", "References", "Thread-Topic"];
 
         var headers = new List<InternetMessageHeader>();
 
-        // PRIORITY: Always include WinoLocalDraftHeader first if it exists
-        // This is critical for draft mapping functionality
-        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.WinoLocalDraftHeader);
-        int includedHeaderCount = 0;
-
-        if (winoDraftHeader != null)
+        void AddHeader(string name, string value)
         {
-            var headerValue = winoDraftHeader.Value.Length >= 995 ? winoDraftHeader.Value.Substring(0, 995) : winoDraftHeader.Value;
-            headers.Add(new InternetMessageHeader() { Name = winoDraftHeader.Field, Value = headerValue });
-            includedHeaderCount++;
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value)) return;
+            if (headers.Count >= headerLimit) return;
+            if (headers.Any(h => string.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase))) return;
+
+            // No header value should exceed 995 characters.
+            var headerValue = value.Length >= 995 ? value.Substring(0, 995) : value;
+            headers.Add(new InternetMessageHeader() { Name = name, Value = headerValue });
         }
 
-        // Include other headers up to the limit (excluding the already added WinoLocalDraftHeader)
+        // PRIORITY: Always include WinoLocalDraftHeader first if it exists.
+        var winoDraftHeader = mime.Headers.FirstOrDefault(h => h.Field == Domain.Constants.WinoLocalDraftHeader);
+        if (winoDraftHeader != null)
+            AddHeader(winoDraftHeader.Field, winoDraftHeader.Value);
+
+        // Threading headers must be preserved with their real RFC names.
+        AddHeader("In-Reply-To", mime.Headers[HeaderId.InReplyTo]);
+        AddHeader("References", mime.Headers[HeaderId.References]);
+
+        // Fill remaining slots with custom headers only (avoid Graph restrictions).
         foreach (var header in mime.Headers)
         {
-            if (header.Field == Domain.Constants.WinoLocalDraftHeader)
-                continue; // Already processed above
+            if (headers.Count >= headerLimit) break;
+            if (header.Field == Domain.Constants.WinoLocalDraftHeader) continue;
+            if (headersToIgnore.Contains(header.Field)) continue;
+            if (string.Equals(header.Field, "In-Reply-To", StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(header.Field, "References", StringComparison.OrdinalIgnoreCase)) continue;
 
-            if (!headersToIgnore.Contains(header.Field))
-            {
-                var headerName = headersToModify.Contains(header.Field) ? $"X-{header.Field}" : header.Field;
+            // Only include custom headers beyond the core threading ones.
+            if (!header.Field.StartsWith("X-", StringComparison.OrdinalIgnoreCase)) continue;
 
-                // No header value should exceed 995 characters.
-                var headerValue = header.Value.Length >= 995 ? header.Value.Substring(0, 995) : header.Value;
-
-                headers.Add(new InternetMessageHeader() { Name = headerName, Value = headerValue });
-                includedHeaderCount++;
-            }
-
-            if (includedHeaderCount >= 5) break;
+            AddHeader(header.Field, header.Value);
         }
 
         return headers;

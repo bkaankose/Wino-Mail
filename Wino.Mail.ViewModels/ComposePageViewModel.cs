@@ -21,11 +21,13 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class ComposePageViewModel : MailBaseViewModel
+public partial class ComposePageViewModel : MailBaseViewModel,
+    IRecipient<NewComposeDraftItemRequestedEvent>
 {
     public Func<Task<string>> GetHTMLBodyFunction;
 
@@ -432,6 +434,35 @@ public partial class ComposePageViewModel : MailBaseViewModel
         }
     }
 
+    public async void Receive(NewComposeDraftItemRequestedEvent message)
+    {
+        // Save current draft before switching.
+        await UpdateMimeChangesAsync();
+
+        // Reset state for the new draft.
+        isUpdatingMimeBlocked = false;
+        ComposingAccount = null;
+        IncludedAttachments.Clear();
+
+        // Set the new draft item and prepare it.
+        CurrentMailDraftItem = message.MailItemViewModel;
+        await TryPrepareComposeAsync(true);
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+
+        Messenger.Register<NewComposeDraftItemRequestedEvent>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        base.UnregisterRecipients();
+
+        Messenger.Unregister<NewComposeDraftItemRequestedEvent>(this);
+    }
+
     private async Task<bool> InitializeComposerAccountAsync()
     {
         if (CurrentMailDraftItem == null) return false;
@@ -549,6 +580,8 @@ public partial class ComposePageViewModel : MailBaseViewModel
     private void LoadAttachments()
     {
         if (CurrentMimeMessage == null) return;
+
+        IncludedAttachments.Clear();
 
         foreach (var attachment in CurrentMimeMessage.Attachments)
         {

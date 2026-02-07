@@ -262,8 +262,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 }
                 else if (IsComposingPageActive())
                 {
-                    // Composer is already active. Prepare composer WebView2 animation.
-                    PrepareComposePageWebViewTransition();
+                    // Composer is already active. Skip connected animation since the page
+                    // will be reused in-place (no navigation occurs).
+                    // NavigationService will send NewComposeDraftItemRequestedEvent instead.
                 }
                 else
                     composerPageTransition = NavigationTransitionType.DrillIn;

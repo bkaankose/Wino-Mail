@@ -36,7 +36,6 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
-using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
@@ -45,7 +44,6 @@ using Wino.Core.Requests.Mail;
 namespace Wino.Core.Synchronizers.Mail;
 
 [JsonSerializable(typeof(Microsoft.Graph.Me.Messages.Item.Move.MovePostRequestBody))]
-[JsonSerializable(typeof(OutlookFileAttachment))]
 public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 
 /// <summary>
@@ -1382,96 +1380,43 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override List<IRequestBundle<RequestInformation>> SendDraft(SendDraftRequest request)
     {
         var sendDraftPreparationRequest = request.Request;
-
-        // 1. Delete draft
-        // 2. Create new Message with new MIME.
-        // 3. Make sure that conversation id is tagged correctly for replies.
-
         var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
         var mimeMessage = sendDraftPreparationRequest.Mime;
 
-        // Convert mime message to Outlook message.
-        // Outlook synchronizer does not send MIME messages directly anymore.
-        // Alias support is lacking with direct MIMEs.
-        // Therefore we convert the MIME message to Outlook message and use proper APIs.
-
-        // Pass the ConversationId (ThreadId) to maintain threading for replies/forwards
+        // Graph API ignores the From header in direct MIME uploads, so we must convert
+        // to a JSON Message object to properly support sending from aliases.
         var conversationId = sendDraftPreparationRequest.MailItem.ThreadId;
         var outlookMessage = mimeMessage.AsOutlookMessage(false, conversationId);
 
-        // Create attachment requests.
-        // TODO: We need to support large file attachments with sessioned upload at some point.
-
-        var attachmentRequestList = CreateAttachmentUploadBundles(mimeMessage, mailCopyId, request).ToList();
-
-        // Update draft.
+        // Build the request sequence: upload attachments -> patch draft -> send.
+        // These execute serially via batch DependsOn (see ConfigureSerialExecution).
+        var attachmentBundles = CreateAttachmentUploadBundles(mimeMessage, mailCopyId);
 
         var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
-        var patchDraftRequestBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request);
+        var patchDraftBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request);
 
-        // Send draft.
+        var sendRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
+        var sendBundle = new HttpRequestBundle<RequestInformation>(sendRequest, request);
 
-        var sendDraftRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
-        var sendDraftRequestBundle = new HttpRequestBundle<RequestInformation>(sendDraftRequest, request);
-
-        return [.. attachmentRequestList, patchDraftRequestBundle, sendDraftRequestBundle];
+        return [.. attachmentBundles, patchDraftBundle, sendBundle];
     }
 
-    private List<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId, IRequestBase sourceRequest)
+    /// <summary>
+    /// Extracts attachments from the MIME message and creates individual
+    /// Graph API upload requests using the SDK's FileAttachment type.
+    /// </summary>
+    private List<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId)
     {
-        var allAttachments = new List<OutlookFileAttachment>();
+        var attachments = mime.ExtractAttachments();
+        var bundles = new List<IRequestBundle<RequestInformation>>(attachments.Count);
 
-        foreach (var part in mime.BodyParts)
+        foreach (var attachment in attachments)
         {
-            var isAttachmentOrInline = part.IsAttachment ? true : part.ContentDisposition?.Disposition == "inline";
-
-            if (!isAttachmentOrInline) continue;
-
-            using var memory = new MemoryStream();
-            ((MimePart)part).Content.DecodeTo(memory);
-
-            var base64String = Convert.ToBase64String(memory.ToArray());
-
-            var attachment = new OutlookFileAttachment()
-            {
-                Base64EncodedContentBytes = base64String,
-                FileName = part.ContentDisposition?.FileName ?? part.ContentType.Name,
-                ContentId = part.ContentId,
-                ContentType = part.ContentType.MimeType,
-                IsInline = part.ContentDisposition?.Disposition == "inline"
-            };
-
-            allAttachments.Add(attachment);
+            var uploadRequest = _graphClient.Me.Messages[mailCopyId].Attachments.ToPostRequestInformation(attachment);
+            bundles.Add(new HttpRequestBundle<RequestInformation>(uploadRequest, null));
         }
 
-        static RequestInformation PrepareUploadAttachmentRequest(RequestInformation requestInformation, OutlookFileAttachment outlookFileAttachment)
-        {
-            requestInformation.Headers.Clear();
-
-            string contentJson = JsonSerializer.Serialize(outlookFileAttachment, OutlookSynchronizerJsonContext.Default.OutlookFileAttachment);
-
-            requestInformation.Content = new MemoryStream(Encoding.UTF8.GetBytes(contentJson));
-            requestInformation.HttpMethod = Method.POST;
-            requestInformation.Headers.Add("Content-Type", "application/json");
-
-            return requestInformation;
-        }
-
-        var retList = new List<IRequestBundle<RequestInformation>>();
-
-        // Prepare attachment upload requests.
-
-        foreach (var attachment in allAttachments)
-        {
-            var emptyPostRequest = _graphClient.Me.Messages[mailCopyId].Attachments.ToPostRequestInformation(new Attachment());
-            var modifiedAttachmentUploadRequest = PrepareUploadAttachmentRequest(emptyPostRequest, attachment);
-
-            var bundle = new HttpRequestBundle<RequestInformation>(modifiedAttachmentUploadRequest, null);
-
-            retList.Add(bundle);
-        }
-
-        return retList;
+        return bundles;
     }
 
     public override List<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)

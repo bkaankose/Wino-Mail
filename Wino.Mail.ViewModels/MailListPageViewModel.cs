@@ -635,6 +635,56 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             if (isFromDraftOrSentFolder)
             {
+                // Fix for draft duplication: When a draft is created for reply/forward, it's first added as local draft.
+                // Then the server sync fetches it back. We should skip adding remote drafts if a local draft already exists
+                // with the same ThreadId. The mapping system (DraftMapped) will handle updating the existing local draft.
+                if (addedMail.IsDraft && !addedMail.IsLocalDraft && !string.IsNullOrEmpty(addedMail.ThreadId))
+                {
+                    // Check if collection already has a local draft with the same ThreadId in the same folder
+                    bool hasLocalDraftInSameThread = false;
+                    
+                    foreach (var group in MailCollection.MailItems)
+                    {
+                        foreach (var item in group)
+                        {
+                            if (item is MailItemViewModel mailItem)
+                            {
+                                if (mailItem.IsDraft &&
+                                    mailItem.MailCopy.IsLocalDraft &&
+                                    mailItem.MailCopy.ThreadId == addedMail.ThreadId &&
+                                    mailItem.MailCopy.FolderId == addedMail.FolderId)
+                                {
+                                    hasLocalDraftInSameThread = true;
+                                    break;
+                                }
+                            }
+                            else if (item is ThreadMailItemViewModel threadItem)
+                            {
+                                foreach (var threadEmail in threadItem.ThreadEmails)
+                                {
+                                    if (threadEmail.IsDraft &&
+                                        threadEmail.MailCopy.IsLocalDraft &&
+                                        threadEmail.MailCopy.ThreadId == addedMail.ThreadId &&
+                                        threadEmail.MailCopy.FolderId == addedMail.FolderId)
+                                    {
+                                        hasLocalDraftInSameThread = true;
+                                        break;
+                                    }
+                                }
+                                if (hasLocalDraftInSameThread) break;
+                            }
+                        }
+                        if (hasLocalDraftInSameThread) break;
+                    }
+
+                    if (hasLocalDraftInSameThread)
+                    {
+                        // Local draft exists in the same thread - skip adding remote duplicate
+                        // The mapping system will update the local draft with remote IDs when DraftMapped message is received
+                        return;
+                    }
+                }
+
                 // Only add if the ThreadId exists in the collection (can be threaded with existing items)
                 if (!ThreadIdExistsInCollection(addedMail)) return;
             }
@@ -755,6 +805,17 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             listManipulationSemepahore.Release();
         }
+    }
+
+    protected override void OnDraftMapped(string localDraftCopyId, string remoteDraftCopyId)
+    {
+        base.OnDraftMapped(localDraftCopyId, remoteDraftCopyId);
+
+        // When a draft is mapped from local to remote, the database has been updated
+        // but the UI collection still references the MailCopy object with old IDs.
+        // The MailCollection.AddAsync method checks UniqueId (which doesn't change during mapping)
+        // so if mapping worked correctly, no duplicate should appear.
+        // This method is here for future enhancements if additional UI updates are needed.
     }
 
     private async Task<List<MailItemViewModel>> PrepareMailViewModelsAsync(IEnumerable<MailCopy> mailItems, CancellationToken cancellationToken = default)
