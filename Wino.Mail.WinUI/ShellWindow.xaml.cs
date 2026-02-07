@@ -1,4 +1,6 @@
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -7,7 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -16,7 +20,11 @@ using WinUIEx;
 
 namespace Wino.Mail.WinUI;
 
-public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient<ApplicationThemeChanged>, IRecipient<TitleBarShellContentUpdated>
+public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
+    IRecipient<ApplicationThemeChanged>,
+    IRecipient<TitleBarShellContentUpdated>,
+    IRecipient<SynchronizationActionsAdded>,
+    IRecipient<SynchronizationActionsCompleted>
 {
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
@@ -24,6 +32,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
 
     public ICommand ShowWinoCommand { get; set; }
     public ICommand ExitWinoCommand { get; set; }
+
+    public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
 
     public ShellWindow()
     {
@@ -172,6 +182,46 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
         UpdateTitleBarColors(message.IsUnderlyingThemeDark);
     }
 
+    public void Receive(SynchronizationActionsAdded message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            foreach (var action in message.Actions)
+                SyncActionItems.Add(action);
+
+            UpdateSyncStatusVisibility();
+        });
+    }
+
+    public void Receive(SynchronizationActionsCompleted message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            var toRemove = SyncActionItems.Where(a => a.AccountId == message.AccountId).ToList();
+
+            foreach (var item in toRemove)
+                SyncActionItems.Remove(item);
+
+            UpdateSyncStatusVisibility();
+        });
+    }
+
+    private void UpdateSyncStatusVisibility()
+    {
+        SyncStatusButton.Visibility = SyncActionItems.Any()
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        var distinctAccounts = SyncActionItems.Select(a => a.AccountId).Distinct().Count();
+
+        SyncStatusText.Text = distinctAccounts switch
+        {
+            0 => string.Empty,
+            1 => string.Format(Translator.SyncAction_SynchronizingAccount, SyncActionItems.First().AccountName),
+            _ => string.Format(Translator.SyncAction_SynchronizingAccounts, distinctAccounts)
+        };
+    }
+
     private void UpdateTitleBarColors(bool isDarkTheme)
     {
         DispatcherQueue.TryEnqueue(() =>
@@ -250,12 +300,16 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow, IRecipient
     {
         WeakReferenceMessenger.Default.Register<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Register<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Register<SynchronizationActionsAdded>(this);
+        WeakReferenceMessenger.Default.Register<SynchronizationActionsCompleted>(this);
     }
 
     private void UnregisterRecipients()
     {
         WeakReferenceMessenger.Default.Unregister<TitleBarShellContentUpdated>(this);
         WeakReferenceMessenger.Default.Unregister<ApplicationThemeChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<SynchronizationActionsAdded>(this);
+        WeakReferenceMessenger.Default.Unregister<SynchronizationActionsCompleted>(this);
     }
 
     private void SegmentedChanged(object sender, SelectionChangedEventArgs e)

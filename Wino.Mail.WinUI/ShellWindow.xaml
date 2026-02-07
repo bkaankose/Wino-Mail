@@ -9,6 +9,7 @@
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:notifyicon="using:H.NotifyIcon"
+    xmlns:syncModels="using:Wino.Core.Domain.Models.Synchronization"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
     mc:Ignorable="d">
@@ -34,7 +35,58 @@
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="PaneButtonClicked">
             <TitleBar.RightHeader>
-                <Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!--  Sync Status Button  -->
+                    <Button
+                        x:Name="SyncStatusButton"
+                        Padding="8,4"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ProgressRing
+                                Width="16"
+                                Height="16"
+                                IsActive="True" />
+                            <TextBlock
+                                x:Name="SyncStatusText"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource CaptionTextBlockStyle}" />
+                        </StackPanel>
+                        <Button.Flyout>
+                            <Flyout x:Name="SyncStatusFlyout" Placement="Bottom">
+                                <ItemsRepeater x:Name="SyncActionsRepeater" ItemsSource="{x:Bind SyncActionItems}">
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="syncModels:SynchronizationActionItem">
+                                            <Grid
+                                                MinWidth="280"
+                                                MaxWidth="400"
+                                                Padding="0,6"
+                                                ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <ProgressRing
+                                                    Width="16"
+                                                    Height="16"
+                                                    IsActive="True" />
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="{x:Bind AccountName}" />
+                                                    <TextBlock Text="{x:Bind Description}" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <!--  Mail/Calendar Mode Switcher  -->
                     <controls:Segmented x:Name="AppModeSegmentedControl" SelectionChanged="SegmentedChanged">
                         <controls:SegmentedItem>
                             <controls:SegmentedItem.Icon>
@@ -53,7 +105,7 @@
                             </controls:SegmentedItem.Icon>
                         </controls:SegmentedItem>
                     </controls:Segmented>
-                </Grid>
+                </StackPanel>
             </TitleBar.RightHeader>
         </TitleBar>
 

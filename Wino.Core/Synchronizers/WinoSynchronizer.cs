@@ -215,6 +215,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
 
+                Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+
                 PublishUnreadItemChanges();
 
                 // Execute request sync options should be re-calculated after execution.
@@ -398,6 +400,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
 
             await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
+
+            Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
 
             // Let servers to finish their job. Sometimes the servers don't respond immediately.
             shouldDelayExecution = requestCopies.Any(a => a.ResynchronizationDelay > 0);
