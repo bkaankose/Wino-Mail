@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -25,10 +24,13 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
     partial void OnItemPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         // TODO: This slows down. Optimize later.
-        Debug.WriteLine("WinoMailItemViewModelListViewItem item changed");
-
         if (e.OldValue is MailItemViewModel oldMailItemViewModel) UnregisterPropertyChanged(oldMailItemViewModel);
         if (e.NewValue is MailItemViewModel newMailItemViewModel) RegisterPropertyChanged(newMailItemViewModel);
+
+        if (e.NewValue is MailItemViewModel mailItemViewModel)
+            IsCustomSelected = mailItemViewModel.IsSelected;
+        else
+            IsCustomSelected = false;
     }
 
     private void RegisterPropertyChanged(MailItemViewModel model) => model.PropertyChanged += ModelPropertyChanged;

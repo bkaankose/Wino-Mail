@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
@@ -41,8 +40,6 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 
     partial void OnItemPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        Debug.WriteLine("WinoMailItemViewModelListViewItem item changed");
-
         if (e.OldValue is ThreadMailItemViewModel oldMailItemViewModel) UnregisterPropertyChanged(oldMailItemViewModel);
         if (e.NewValue is ThreadMailItemViewModel newMailItemViewModel) RegisterPropertyChanged(newMailItemViewModel);
     }
