@@ -1074,6 +1074,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             case SynchronizationCompletedState.Success:
                 UpdateBarMessage(InfoBarMessageType.Success, ActiveFolder.FolderName, Translator.SynchronizationFolderReport_Success);
                 break;
+            case SynchronizationCompletedState.PartiallyCompleted:
+                UpdateBarMessage(InfoBarMessageType.Warning, ActiveFolder.FolderName, Translator.SynchronizationFolderReport_Failed);
+                break;
             case SynchronizationCompletedState.Failed:
                 UpdateBarMessage(InfoBarMessageType.Error, ActiveFolder.FolderName, Translator.SynchronizationFolderReport_Failed);
                 break;

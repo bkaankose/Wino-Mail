@@ -130,6 +130,11 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         await QueueRequestAsync(request, accountId);
         await SendSyncActionsAddedAsync([request], accountId);
         await QueueSynchronizationAsync(accountId);
+
+        if (folderRequest.Action is FolderOperation.Delete or FolderOperation.CreateSubFolder)
+        {
+            await QueueFoldersOnlySynchronizationAsync(accountId);
+        }
     }
 
     public async Task ExecuteAsync(DraftPreparationRequest draftPreperationRequest)
@@ -197,6 +202,18 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         {
             AccountId = accountId,
             Type = MailSynchronizationType.ExecuteRequests
+        };
+
+        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
+        return Task.CompletedTask;
+    }
+
+    private Task QueueFoldersOnlySynchronizationAsync(Guid accountId)
+    {
+        var options = new MailSynchronizationOptions()
+        {
+            AccountId = accountId,
+            Type = MailSynchronizationType.FoldersOnly
         };
 
         WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));

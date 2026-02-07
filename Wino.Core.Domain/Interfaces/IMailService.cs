@@ -170,4 +170,9 @@ public interface IMailService
     /// <param name="folderId">Folder ID.</param>
     /// <param name="count">Number of recent mails to return.</param>
     Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
+
+    /// <summary>
+    /// Returns all mail copies for the account created before the given UTC date.
+    /// </summary>
+    Task<List<MailCopy>> GetMailCopiesBeforeDateAsync(Guid accountId, DateTime cutoffDateUtc);
 }

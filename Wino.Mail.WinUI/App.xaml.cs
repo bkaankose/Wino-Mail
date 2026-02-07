@@ -21,6 +21,7 @@ using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
+using Wino.Messaging.UI;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
 using Wino.Services;
@@ -92,7 +93,6 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
-
         services.AddTransient(typeof(CalendarPageViewModel));
         services.AddTransient(typeof(CalendarSettingsPageViewModel));
         services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));
@@ -362,8 +362,70 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
     }
 
-    public void Receive(NewMailSynchronizationRequested message) => _synchronizationManager?.SynchronizeMailAsync(message.Options);
-    public void Receive(NewCalendarSynchronizationRequested message) => _synchronizationManager?.SynchronizeCalendarAsync(message.Options);
+    public async void Receive(NewMailSynchronizationRequested message)
+    {
+        if (_synchronizationManager == null) return;
+
+        MailSynchronizationResult syncResult;
+
+        try
+        {
+            syncResult = await _synchronizationManager.SynchronizeMailAsync(message.Options);
+        }
+        catch (Exception ex)
+        {
+            // Defensive fallback to guarantee completion message emission.
+            syncResult = MailSynchronizationResult.Failed(ex);
+        }
+
+        WeakReferenceMessenger.Default.Send(new AccountSynchronizationCompleted(
+            message.Options.AccountId,
+            syncResult.CompletedState,
+            message.Options.GroupedSynchronizationTrackingId));
+
+        if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
+            syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted)
+        {
+            var dialogService = Services.GetRequiredService<IMailDialogService>();
+            var errorMessage = GetSynchronizationFailureMessage(message.Options.Type, syncResult.Exception?.Message);
+            var severity = syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
+                ? InfoBarMessageType.Warning
+                : InfoBarMessageType.Error;
+
+            dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, errorMessage, severity);
+        }
+    }
+
+    public async void Receive(NewCalendarSynchronizationRequested message)
+    {
+        if (_synchronizationManager == null) return;
+
+        var calendarSyncResult = await _synchronizationManager.SynchronizeCalendarAsync(message.Options);
+
+        if (calendarSyncResult.CompletedState == SynchronizationCompletedState.Failed)
+        {
+            var dialogService = Services.GetRequiredService<IMailDialogService>();
+            dialogService.InfoBarMessage(
+                Translator.Info_SyncFailedTitle,
+                Translator.Exception_FailedToSynchronizeFolders,
+                InfoBarMessageType.Error);
+        }
+    }
+
+    private static string GetSynchronizationFailureMessage(MailSynchronizationType synchronizationType, string? exceptionMessage)
+    {
+        if (!string.IsNullOrWhiteSpace(exceptionMessage))
+        {
+            return exceptionMessage;
+        }
+
+        return synchronizationType switch
+        {
+            MailSynchronizationType.Alias => Translator.Exception_FailedToSynchronizeAliases,
+            MailSynchronizationType.UpdateProfile => Translator.Exception_FailedToSynchronizeProfileInformation,
+            _ => Translator.Exception_FailedToSynchronizeFolders
+        };
+    }
 
     /// <summary>
     /// Handles activation redirected from another instance (single-instancing).

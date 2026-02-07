@@ -19,6 +19,8 @@ public enum FolderSynchronizerOperation
     RenameFolder,
     EmptyFolder,
     MarkFolderRead,
+    DeleteFolder,
+    CreateSubFolder,
 }
 
 public enum CalendarSynchronizerOperation

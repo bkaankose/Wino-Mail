@@ -255,15 +255,29 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                     change = new MarkFolderAsReadRequest(folder, unreadItems);
 
                 break;
-                //case FolderOperation.Delete:
-                //    var isConfirmed = await _dialogService.ShowConfirmationDialogAsync($"'{folderStructure.FolderName}' is going to be deleted. Do you want to continue?", "Are you sure?", "Yes delete.");
+            case FolderOperation.Delete:
+                var deleteQuestion = string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, folder.FolderName);
+                var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(deleteQuestion, Translator.FolderOperation_Delete, Translator.FolderOperation_Delete);
 
-                //    if (isConfirmed)
-                //        change = new DeleteFolderRequest(accountId, folderStructure.RemoteFolderId, folderStructure.FolderId);
+                if (shouldDelete)
+                {
+                    change = new DeleteFolderRequest(folder);
+                }
 
-                //    break;
-                //default:
-                //    throw new NotImplementedException();
+                break;
+            case FolderOperation.CreateSubFolder:
+                var subFolderName = await _dialogService.ShowTextInputDialogAsync(
+                    string.Empty,
+                    Translator.FolderOperation_CreateSubFolder,
+                    Translator.DialogMessage_RenameFolderMessage,
+                    Translator.FolderOperation_CreateSubFolder);
+
+                if (!string.IsNullOrWhiteSpace(subFolderName))
+                {
+                    change = new CreateSubFolderRequest(folder, subFolderName.Trim());
+                }
+
+                break;
         }
 
         return change;

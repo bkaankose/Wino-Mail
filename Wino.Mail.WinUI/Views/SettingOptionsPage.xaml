@@ -409,6 +409,38 @@
                                     Glyph="&#xE76C;" />
                             </Grid>
                         </Button>
+
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="SettingOptionClicked"
+                            CornerRadius="4"
+                            Tag="{x:Bind enums:WinoPage.StoragePage}">
+                            <Grid Padding="4,10" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="16"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Glyph="&#xE81C;" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Text="{x:Bind domain:Translator.SettingsStorage_Title}" />
+                                <FontIcon
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    FontSize="12"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Glyph="&#xE76C;" />
+                            </Grid>
+                        </Button>
                     </StackPanel>
                 </Grid>
 

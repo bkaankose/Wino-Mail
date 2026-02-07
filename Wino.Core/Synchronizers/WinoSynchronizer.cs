@@ -203,6 +203,12 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                             case FolderSynchronizerOperation.MarkFolderRead:
                                 nativeRequests.AddRange(MarkFolderAsRead(group.ElementAt(0) as MarkFolderAsReadRequest));
                                 break;
+                            case FolderSynchronizerOperation.DeleteFolder:
+                                nativeRequests.AddRange(DeleteFolder(group.ElementAt(0) as DeleteFolderRequest));
+                                break;
+                            case FolderSynchronizerOperation.CreateSubFolder:
+                                nativeRequests.AddRange(CreateSubFolder(group.ElementAt(0) as CreateSubFolderRequest));
+                                break;
                             default:
                                 break;
                         }
@@ -508,6 +514,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual List<IRequestBundle<TBaseRequest>> RenameFolder(RenameFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> EmptyFolder(EmptyFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> DeleteFolder(DeleteFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    public virtual List<IRequestBundle<TBaseRequest>> CreateSubFolder(CreateSubFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
     #endregion
 

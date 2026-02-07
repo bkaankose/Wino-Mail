@@ -47,6 +47,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                 case WinoPage.PersonalizationPage:
                     WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsPersonalization_Title, WinoPage.PersonalizationPage));
                     break;
+                case WinoPage.StoragePage:
+                    WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(Translator.SettingsStorage_Title, WinoPage.StoragePage));
+                    break;
             }
         }
     }

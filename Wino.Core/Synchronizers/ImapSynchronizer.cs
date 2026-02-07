@@ -270,6 +270,24 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }, request, request);
     }
 
+    public override List<IRequestBundle<ImapRequest>> DeleteFolder(DeleteFolderRequest request)
+    {
+        return CreateSingleTaskBundle(async (client, item) =>
+        {
+            var folder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
+            await folder.DeleteAsync().ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> CreateSubFolder(CreateSubFolderRequest request)
+    {
+        return CreateSingleTaskBundle(async (client, item) =>
+        {
+            var parentFolder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
+            await parentFolder.CreateAsync(request.NewFolderName, true).ConfigureAwait(false);
+        }, request, request);
+    }
+
     #endregion
 
     public override async Task<List<NewMailItemPackage>> CreateNewMailPackagesAsync(ImapMessageCreationPackage message, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)

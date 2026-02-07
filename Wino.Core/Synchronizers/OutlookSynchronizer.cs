@@ -1507,6 +1507,23 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override List<IRequestBundle<RequestInformation>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
 
+    public override List<IRequestBundle<RequestInformation>> DeleteFolder(DeleteFolderRequest request)
+    {
+        var networkCall = _graphClient.Me.MailFolders[request.Folder.RemoteFolderId].ToDeleteRequestInformation();
+        return [new HttpRequestBundle<RequestInformation>(networkCall, request)];
+    }
+
+    public override List<IRequestBundle<RequestInformation>> CreateSubFolder(CreateSubFolderRequest request)
+    {
+        var requestBody = new MailFolder
+        {
+            DisplayName = request.NewFolderName
+        };
+
+        var networkCall = _graphClient.Me.MailFolders[request.Folder.RemoteFolderId].ChildFolders.ToPostRequestInformation(requestBody);
+        return [new HttpRequestBundle<RequestInformation>(networkCall, request)];
+    }
+
     #endregion
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<RequestInformation>> batchedRequests, CancellationToken cancellationToken = default)

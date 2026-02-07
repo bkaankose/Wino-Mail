@@ -1253,40 +1253,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 try
                 {
-                    MimeMessage mimeMessage = null;
-
-                    // Extract MIME if we downloaded raw format
-                    if (downloadRawMime)
-                    {
-                        mimeMessage = gmailMessage.GetGmailMimeMessage();
-
-                        if (mimeMessage == null)
-                        {
-                            _logger.Warning("Failed to parse MIME for message {MessageId}", gmailMessage.Id);
-                        }
-                    }
-
-                    // Create mail packages from metadata (or raw if downloaded)
+                    // Create mail packages from metadata/raw.
+                    // If Gmail response is Raw format, CreateNewMailPackagesAsync will parse MIME and
+                    // include it in package(s) so it can be saved to disk.
                     var packages = await CreateNewMailPackagesAsync(gmailMessage, null, cancellationToken).ConfigureAwait(false);
 
                     if (packages != null)
                     {
-                        // For Gmail, multiple packages share the same message (different labels/folders)
-                        // They already share the same FileId (set in CreateNewMailPackagesAsync) so MIME is stored only once
-
                         foreach (var package in packages)
                         {
-                            // When downloaded with Raw format, Payload.Headers is not populated by Gmail API.
-                            // Enrich the MailCopy fields (Subject, From, MessageId, etc.) from the parsed MIME.
-                            if (downloadRawMime && mimeMessage != null)
-                                EnrichMailCopyFromMime(package.Copy, mimeMessage);
-
-                            // Create the mail copy with the MIME (if downloaded)
-                            var packageWithMime = downloadRawMime && mimeMessage != null
-                                ? new NewMailItemPackage(package.Copy, mimeMessage, package.AssignedRemoteFolderId)
-                                : package;
-
-                            await _gmailChangeProcessor.CreateMailAsync(Account.Id, packageWithMime).ConfigureAwait(false);
+                            await _gmailChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
                         }
                     }
 
@@ -1413,6 +1389,38 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     public override List<IRequestBundle<IClientServiceRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
         => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
+
+    public override List<IRequestBundle<IClientServiceRequest>> DeleteFolder(DeleteFolderRequest request)
+    {
+        var networkCall = _gmailService.Users.Labels.Delete("me", request.Folder.RemoteFolderId);
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+    }
+
+    public override List<IRequestBundle<IClientServiceRequest>> CreateSubFolder(CreateSubFolderRequest request)
+    {
+        var parentLabelName = request.Folder.FolderName;
+
+        try
+        {
+            var parentLabel = _gmailService.Users.Labels.Get("me", request.Folder.RemoteFolderId).Execute();
+            if (!string.IsNullOrWhiteSpace(parentLabel?.Name))
+            {
+                parentLabelName = parentLabel.Name;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to resolve full parent label name for {FolderId}. Falling back to local folder name.", request.Folder.RemoteFolderId);
+        }
+
+        var label = new Label()
+        {
+            Name = $"{parentLabelName}/{request.NewFolderName}"
+        };
+
+        var networkCall = _gmailService.Users.Labels.Create(label, "me");
+        return [new HttpRequestBundle<IClientServiceRequest>(networkCall, request, request)];
+    }
 
     #endregion
 
@@ -1834,8 +1842,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     /// <summary>
     /// Creates new mail packages for the given message.
     /// AssignedFolder is null since the LabelId is parsed out of the Message.
-    /// NOTE: This method does NOT download MIME content during synchronization.
-    /// MIME is only downloaded when user explicitly reads the message.
+    /// If Gmail Message includes Raw payload, MIME is parsed and attached to packages.
     /// </summary>
     /// <param name="message">Gmail message to create package for (must have Metadata format).</param>
     /// <param name="assignedFolder">Null, not used.</param>
@@ -1846,24 +1853,74 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                                                               CancellationToken cancellationToken = default)
     {
         var packageList = new List<NewMailItemPackage>();
+        MimeMessage mimeMessage = null;
+
+        // Raw format is used in delta sync and does not populate Payload.Headers.
+        // Parse MIME from Raw so we can resolve draft mapping header and persist mime content.
+        if (!string.IsNullOrEmpty(message?.Raw))
+        {
+            try
+            {
+                mimeMessage = message.GetGmailMimeMessage();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to parse MIME from raw Gmail message {MessageId}", message?.Id);
+            }
+        }
 
         // Create base MailCopy from metadata only - NO MIME download
         var baseMailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
-        // Check for local draft mapping using X-Wino-Draft-Id header from metadata.
-        // If this is a Wino-created draft, the local copy was already mapped by the CreateDraft response handler
-        // with the correct Gmail Draft ID. We must NOT call MapLocalDraftAsync here because
-        // baseMailCopy.DraftId is derived from CreateMinimalMailCopyAsync (not the real Draft resource ID),
-        // which would overwrite the correctly mapped DraftId and break SendDraft.
+        if (mimeMessage != null)
+        {
+            // Raw responses don't include metadata headers. Backfill important fields from MIME.
+            EnrichMailCopyFromMime(baseMailCopy, mimeMessage);
+        }
+
+        // Check for local draft mapping using X-Wino-Draft-Id header.
+        // For Metadata format we read from Payload.Headers.
+        // For Raw format (Payload is null), we read from parsed MIME headers.
         if (baseMailCopy.IsDraft)
         {
-            var draftIdHeader = message.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals(Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase))?.Value;
+            var draftIdHeader = message.Payload?.Headers?.FirstOrDefault(h => h.Name.Equals(Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase))?.Value
+                                ?? mimeMessage?.Headers?.FirstOrDefault(h => h.Field.Equals(Domain.Constants.WinoLocalDraftHeader, StringComparison.OrdinalIgnoreCase))?.Value;
 
             if (!string.IsNullOrEmpty(draftIdHeader) && Guid.TryParse(draftIdHeader, out _))
             {
-                // This message belongs to an existing local draft copy.
-                // Skip creating a new mail copy - the local copy was already mapped by the response handler.
-                return null;
+                if (Guid.TryParse(draftIdHeader, out Guid localDraftCopyUniqueId))
+                {
+                    // This message belongs to existing local draft copy.
+                    // Map remote ids to local copy and skip creating duplicate rows.
+                    bool isMappingSuccessful = await _gmailChangeProcessor.MapLocalDraftAsync(
+                        Account.Id,
+                        localDraftCopyUniqueId,
+                        baseMailCopy.Id,
+                        baseMailCopy.DraftId,
+                        baseMailCopy.ThreadId).ConfigureAwait(false);
+
+                    if (isMappingSuccessful)
+                    {
+                        // Keep local draft MIME in sync with the fetched remote raw MIME if available.
+                        if (mimeMessage != null)
+                        {
+                            var mappedDraftCopies = await _gmailChangeProcessor.GetMailCopiesAsync([baseMailCopy.Id]).ConfigureAwait(false);
+                            if (mappedDraftCopies != null)
+                            {
+                                var savedFileIds = new HashSet<Guid>();
+                                foreach (var mappedCopy in mappedDraftCopies)
+                                {
+                                    if (mappedCopy.FileId == Guid.Empty || !savedFileIds.Add(mappedCopy.FileId))
+                                        continue;
+
+                                    await _gmailChangeProcessor.SaveMimeFileAsync(mappedCopy.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+                                }
+                            }
+                        }
+
+                        return null;
+                    }
+                }
             }
         }
 
@@ -1887,12 +1944,16 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 // Create a new MailCopy instance for each label to avoid shared reference issues
                 var mailCopyForLabel = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
+                if (mimeMessage != null)
+                {
+                    EnrichMailCopyFromMime(mailCopyForLabel, mimeMessage);
+                }
+
                 // Ensure all copies share the same Id and FileId
                 mailCopyForLabel.Id = sharedId;
                 mailCopyForLabel.FileId = sharedFileId;
 
-                // Pass null for MimeMessage - it will be downloaded later when user reads the mail
-                packageList.Add(new NewMailItemPackage(mailCopyForLabel, null, labelId));
+                packageList.Add(new NewMailItemPackage(mailCopyForLabel, mimeMessage, labelId));
             }
         }
 

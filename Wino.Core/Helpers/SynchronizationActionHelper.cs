@@ -102,6 +102,8 @@ public static class SynchronizationActionHelper
             RenameFolderRequest => Translator.SyncAction_RenamingFolder,
             EmptyFolderRequest => Translator.SyncAction_EmptyingFolder,
             MarkFolderAsReadRequest => Translator.SyncAction_MarkingFolderAsRead,
+            DeleteFolderRequest => Translator.FolderOperation_Delete,
+            CreateSubFolderRequest => Translator.FolderOperation_CreateSubFolder,
             _ => null
         };
     }

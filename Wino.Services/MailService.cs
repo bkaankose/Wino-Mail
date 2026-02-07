@@ -1183,4 +1183,17 @@ public class MailService : BaseDatabaseService, IMailService
 
         return await Connection.QueryScalarsAsync<string>(sql, mailCopyIds.Cast<object>().ToArray());
     }
+
+    public Task<List<MailCopy>> GetMailCopiesBeforeDateAsync(Guid accountId, DateTime cutoffDateUtc)
+    {
+        const string query = """
+                             SELECT MailCopy.*
+                             FROM MailCopy
+                             INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id
+                             WHERE MailItemFolder.MailAccountId = ?
+                               AND MailCopy.CreationDate < ?
+                             """;
+
+        return Connection.QueryAsync<MailCopy>(query, accountId, cutoffDateUtc);
+    }
 }
