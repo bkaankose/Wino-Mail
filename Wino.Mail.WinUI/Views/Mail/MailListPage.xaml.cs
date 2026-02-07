@@ -192,10 +192,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (sender is MailItemDisplayInformationControl control && args.TryGetPosition(sender, out Point p))
         {
             IEnumerable<MailItemViewModel> targetItems;
-            if (!ViewModel.MailCollection.SelectedItems.Contains(control.ActionItem))
+
+            if (control.ActionItem is ThreadMailItemViewModel threadItem)
+            {
+                await SelectThreadForContextMenuAsync(threadItem);
+            }
+            else if (control.ActionItem is MailItemViewModel mailItem && !ViewModel.MailCollection.SelectedItems.Contains(mailItem))
             {
                 // Right clicked item is not selected. Select.
-                await WinoClickItemInternalAsync(control.ActionItem, true);
+                await WinoClickItemInternalAsync(mailItem, true);
             }
 
             // Default to all selected items.
@@ -211,6 +216,36 @@ public sealed partial class MailListPage : MailListPageAbstract,
             var prepRequest = new MailOperationPreperationRequest(clickedOperation.Operation, targetItems.Select(a => a.MailCopy));
 
             await ViewModel.ExecuteMailOperationAsync(prepRequest);
+        }
+    }
+
+    private async Task SelectThreadForContextMenuAsync(ThreadMailItemViewModel threadItem)
+    {
+        bool isThreadFullySelected = threadItem.IsSelected && threadItem.ThreadEmails.All(a => a.IsSelected);
+        bool hasSelectionsOutsideThread = ViewModel.MailCollection.SelectedItems.Any(a => !threadItem.ThreadEmails.Contains(a));
+
+        // No-op to avoid visual collapse/re-expand flicker on right-click.
+        if (threadItem.IsThreadExpanded && isThreadFullySelected && !hasSelectionsOutsideThread)
+        {
+            return;
+        }
+
+        // Context menu on a thread should target the whole thread and keep it expanded.
+        await ViewModel.MailCollection.UnselectAllAsync();
+        await ViewModel.MailCollection.ExecuteWithoutRaiseSelectionChangedAsync(item =>
+        {
+            if (item is ThreadMailItemViewModel thread && !ReferenceEquals(thread, threadItem))
+            {
+                thread.IsThreadExpanded = false;
+            }
+        }, true);
+
+        threadItem.IsSelected = true;
+        threadItem.IsThreadExpanded = true;
+
+        foreach (var threadMail in threadItem.ThreadEmails)
+        {
+            threadMail.IsSelected = true;
         }
     }
 
