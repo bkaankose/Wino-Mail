@@ -33,6 +33,9 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     // Cache uniqueId to MailItemViewModel for faster GetMailItemContainer lookups
     private readonly ConcurrentDictionary<Guid, MailItemViewModel> _uniqueIdToMailItemMap = new();
 
+    // Cache uniqueId to ThreadMailItemViewModel for O(1) thread membership checks
+    private readonly ConcurrentDictionary<Guid, ThreadMailItemViewModel> _uniqueIdToThreadMap = new();
+
     public event EventHandler<MailItemViewModel> MailItemRemoved;
     public event EventHandler ItemSelectionChanged;
 
@@ -110,6 +113,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             _threadIdToItemsMap.Clear();
             _itemToGroupMap.Clear();
             _uniqueIdToMailItemMap.Clear();
+            _uniqueIdToThreadMap.Clear();
         });
     }
 
@@ -123,25 +127,30 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private void UpdateUniqueIdHashes(IMailHashContainer itemContainer, bool isAdd)
     {
-        foreach (var item in itemContainer.GetContainingIds())
+        if (isAdd)
         {
-            if (isAdd)
+            if (itemContainer is MailItemViewModel mailItemVM)
             {
-                if (MailCopyIdHashSet.TryAdd(item, true))
+                MailCopyIdHashSet.TryAdd(mailItemVM.MailCopy.UniqueId, true);
+                _uniqueIdToMailItemMap[mailItemVM.MailCopy.UniqueId] = mailItemVM;
+            }
+            else if (itemContainer is ThreadMailItemViewModel threadVM)
+            {
+                foreach (var email in threadVM.ThreadEmails)
                 {
-                    // Update the uniqueId to MailItemViewModel cache
-                    if (itemContainer is MailItemViewModel mailItemVM)
-                    {
-                        _uniqueIdToMailItemMap[item] = mailItemVM;
-                    }
+                    MailCopyIdHashSet.TryAdd(email.MailCopy.UniqueId, true);
+                    _uniqueIdToMailItemMap[email.MailCopy.UniqueId] = email;
+                    _uniqueIdToThreadMap[email.MailCopy.UniqueId] = threadVM;
                 }
             }
-            else
+        }
+        else
+        {
+            foreach (var id in itemContainer.GetContainingIds())
             {
-                if (MailCopyIdHashSet.TryRemove(item, out _))
-                {
-                    _uniqueIdToMailItemMap.TryRemove(item, out _);
-                }
+                MailCopyIdHashSet.TryRemove(id, out _);
+                _uniqueIdToMailItemMap.TryRemove(id, out _);
+                _uniqueIdToThreadMap.TryRemove(id, out _);
             }
         }
     }
@@ -156,19 +165,15 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
             if (isAdd)
             {
-                // TODO: Sometimes the key is not present in the dict.
-                if (!_threadIdToItemsMap.ContainsKey(threadId))
-                {
-                    _threadIdToItemsMap[threadId] = new List<IMailListItem>();
-                }
-                _threadIdToItemsMap[threadId].Add(item);
+                var list = _threadIdToItemsMap.GetOrAdd(threadId, _ => new List<IMailListItem>());
+                list.Add(item);
             }
             else
             {
-                if (_threadIdToItemsMap.ContainsKey(threadId))
+                if (_threadIdToItemsMap.TryGetValue(threadId, out var list))
                 {
-                    _threadIdToItemsMap[threadId].Remove(item);
-                    if (_threadIdToItemsMap[threadId].Count == 0)
+                    list.Remove(item);
+                    if (list.Count == 0)
                     {
                         _threadIdToItemsMap.TryRemove(threadId, out _);
                     }
@@ -199,12 +204,12 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private IMailListItem FindThreadableItem(string threadId)
     {
-        if (string.IsNullOrEmpty(threadId) || !_threadIdToItemsMap.ContainsKey(threadId))
+        if (string.IsNullOrEmpty(threadId) || !_threadIdToItemsMap.TryGetValue(threadId, out var items))
         {
             return null;
         }
 
-        return _threadIdToItemsMap[threadId].FirstOrDefault();
+        return items.FirstOrDefault();
     }
 
     /// <summary>
@@ -224,19 +229,20 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// <returns>The MailItemViewModel if found, otherwise null.</returns>
     public MailItemViewModel Find(Guid uniqueId)
     {
-        // First check the cache for fast lookup
+        // Fast path: check the cache for O(1) lookup
         if (_uniqueIdToMailItemMap.TryGetValue(uniqueId, out var cachedMailItem))
         {
             return cachedMailItem;
         }
 
-        // If not in cache, search through all groups
+        // Fallback: scan all groups and populate caches
         foreach (var group in _mailItemSource)
         {
             foreach (var item in group)
             {
                 if (item is MailItemViewModel mailItem && mailItem.MailCopy.UniqueId == uniqueId)
                 {
+                    _uniqueIdToMailItemMap[uniqueId] = mailItem;
                     return mailItem;
                 }
                 else if (item is ThreadMailItemViewModel threadItem)
@@ -244,6 +250,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                     var foundInThread = threadItem.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == uniqueId);
                     if (foundInThread != null)
                     {
+                        _uniqueIdToMailItemMap[uniqueId] = foundInThread;
+                        _uniqueIdToThreadMap[uniqueId] = threadItem;
                         return foundInThread;
                     }
                 }
@@ -320,14 +328,20 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         // Update ThreadId cache before modifying the thread
         UpdateThreadIdCache(threadViewModel, false);
 
+        var newMailItem = new MailItemViewModel(addedItem);
+
         await ExecuteUIThread(() =>
         {
-            var newMailItem = new MailItemViewModel(addedItem);
             threadViewModel.AddEmail(newMailItem);
         });
 
         // Update ThreadId cache after modifying the thread
         UpdateThreadIdCache(threadViewModel, true);
+
+        // Update caches for the new mail item (use the actual instance, not a throwaway)
+        MailCopyIdHashSet.TryAdd(addedItem.UniqueId, true);
+        _uniqueIdToMailItemMap[addedItem.UniqueId] = newMailItem;
+        _uniqueIdToThreadMap[addedItem.UniqueId] = threadViewModel;
 
         var newGroupKey = GetGroupingKey(threadViewModel);
 
@@ -339,8 +353,6 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             await ExecuteUIThread(() => { threadViewModel.ThreadEmails = threadViewModel.ThreadEmails; });
         }
-
-        UpdateUniqueIdHashes(new MailItemViewModel(addedItem), true);
     }
 
     private async Task HandleNewThreadAsync(ObservableGroup<object, IMailListItem> group, MailItemViewModel item, MailCopy addedItem)
@@ -459,6 +471,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             MailCopyIdHashSet.Clear();
             _threadIdToItemsMap.Clear();
+            _uniqueIdToThreadMap.Clear();
         }
 
         var itemsList = items as List<MailItemViewModel> ?? items.ToList();
@@ -630,34 +643,19 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     public MailItemContainer GetMailItemContainer(Guid uniqueMailId)
     {
-        // Try cache first for fast lookup
+        // Fast path: use caches for O(1) lookup
         if (_uniqueIdToMailItemMap.TryGetValue(uniqueMailId, out var cachedMailItem))
         {
-            // Check if it's in a thread
-            if (_itemToGroupMap.TryGetValue(cachedMailItem, out var cachedGroup))
+            if (_uniqueIdToThreadMap.TryGetValue(uniqueMailId, out var threadVM))
             {
-                return new MailItemContainer(cachedMailItem);
-            }
-
-            // Check all threads for this mail item
-            foreach (var group in _mailItemSource)
-            {
-                foreach (var item in group)
-                {
-                    if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(uniqueMailId))
-                    {
-                        return new MailItemContainer(cachedMailItem, threadMailItemViewModel);
-                    }
-                }
+                return new MailItemContainer(cachedMailItem, threadVM);
             }
 
             return new MailItemContainer(cachedMailItem);
         }
 
-        // Fallback to full search if not in cache
-        var groupCount = _mailItemSource.Count;
-
-        for (int i = 0; i < groupCount; i++)
+        // Fallback: scan all groups and populate caches
+        for (int i = 0; i < _mailItemSource.Count; i++)
         {
             var group = _mailItemSource[i];
 
@@ -677,6 +675,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                     if (singleItemViewModel != null)
                     {
                         _uniqueIdToMailItemMap[uniqueMailId] = singleItemViewModel;
+                        _uniqueIdToThreadMap[uniqueMailId] = threadMailItemViewModel;
                     }
 
                     return new MailItemContainer(singleItemViewModel, threadMailItemViewModel);
@@ -824,96 +823,88 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         // This item doesn't exist in the list.
         if (!MailCopyIdHashSet.ContainsKey(removeItem.UniqueId)) return;
 
-        // Check all items for whether this item should be threaded with them.
-        bool shouldExit = false;
-
-        var groupCount = _mailItemSource.Count;
-
-        for (int i = 0; i < groupCount; i++)
+        if (_uniqueIdToThreadMap.TryGetValue(removeItem.UniqueId, out var threadMailItemViewModel))
         {
-            if (shouldExit) break;
+            // Item is inside a thread - use cached lookups instead of scanning all groups.
+            var group = FindGroupContainingItem(threadMailItemViewModel);
+            if (group == null) return;
 
-            var group = _mailItemSource[i];
+            var removalItem = threadMailItemViewModel.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == removeItem.UniqueId);
+            if (removalItem == null) return;
 
-            for (int k = 0; k < group.Count; k++)
+            // Update ThreadId cache before modifying the thread
+            UpdateThreadIdCache(threadMailItemViewModel, false);
+
+            await ExecuteUIThread(() => { threadMailItemViewModel.RemoveEmail(removalItem); });
+
+            // Always clean up the removed item's hashes (fixes leak when thread converts to single)
+            UpdateUniqueIdHashes(removalItem, false);
+
+            // Update ThreadId cache after modifying the thread
+            if (threadMailItemViewModel.EmailCount > 0)
             {
-                var item = group[k];
+                UpdateThreadIdCache(threadMailItemViewModel, true);
+            }
 
-                if (item is ThreadMailItemViewModel threadMailItemViewModel && threadMailItemViewModel.HasUniqueId(removeItem.UniqueId))
+            if (threadMailItemViewModel.EmailCount == 1)
+            {
+                // Convert to single item.
+                var singleViewModel = threadMailItemViewModel.ThreadEmails.First();
+                var groupKey = GetGroupingKey(singleViewModel);
+
+                await RemoveItemInternalAsync(group, threadMailItemViewModel);
+                await InsertItemInternalAsync(groupKey, singleViewModel);
+
+                // If thread->single conversion is being done, we should ignore it for non-draft items.
+                // eg. Deleting a reply message from draft folder. Single non-draft item should not be re-added.
+                if (PruneSingleNonDraftItems && !singleViewModel.IsDraft)
                 {
-                    var removalItem = threadMailItemViewModel.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == removeItem.UniqueId);
-
-                    if (removalItem == null) return;
-
-                    // Threads' Id is equal to the last item they hold.
-                    // We can't do Id check here because that'd remove the whole thread.
-
-                    /* Remove item from the thread.
-                     * If thread had 1 item inside:
-                     * -> Remove the thread and insert item as single item.
-                     * If thread had 0 item inside:
-                     * -> Remove the thread.
-                     */
-
-                    var oldGroupKey = GetGroupingKey(threadMailItemViewModel);
-
-                    // Update ThreadId cache before modifying the thread
-                    UpdateThreadIdCache(threadMailItemViewModel, false);
-
-                    await ExecuteUIThread(() => { threadMailItemViewModel.RemoveEmail(removalItem); });
-
-                    // Update ThreadId cache after modifying the thread
-                    if (threadMailItemViewModel.EmailCount > 0)
+                    var newGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
+                    if (newGroup != null)
                     {
-                        UpdateThreadIdCache(threadMailItemViewModel, true);
+                        await RemoveItemInternalAsync(newGroup, singleViewModel);
                     }
+                }
+            }
+            else if (threadMailItemViewModel.EmailCount == 0)
+            {
+                await RemoveItemInternalAsync(group, threadMailItemViewModel);
+            }
+        }
+        else
+        {
+            // Standalone item - use cached lookup.
+            IMailListItem mailItem = null;
+            ObservableGroup<object, IMailListItem> group = null;
 
-                    if (threadMailItemViewModel.EmailCount == 1)
+            if (_uniqueIdToMailItemMap.TryGetValue(removeItem.UniqueId, out var cachedItem))
+            {
+                mailItem = cachedItem;
+                group = FindGroupContainingItem(mailItem);
+            }
+
+            // Fallback to scan if not in cache
+            if (mailItem == null || group == null)
+            {
+                for (int i = 0; i < _mailItemSource.Count; i++)
+                {
+                    var g = _mailItemSource[i];
+                    for (int k = 0; k < g.Count; k++)
                     {
-                        // Convert to single item.
-
-                        var singleViewModel = threadMailItemViewModel.ThreadEmails.First();
-                        var groupKey = GetGroupingKey(singleViewModel);
-
-                        await RemoveItemInternalAsync(group, threadMailItemViewModel);
-                        await InsertItemInternalAsync(groupKey, singleViewModel);
-
-                        // If thread->single conversion is being done, we should ignore it for non-draft items.
-                        // eg. Deleting a reply message from draft folder. Single non-draft item should not be re-added.
-
-                        if (PruneSingleNonDraftItems && !singleViewModel.IsDraft)
+                        if (g[k] is MailItemViewModel mvm && mvm.MailCopy.UniqueId == removeItem.UniqueId)
                         {
-                            // This item should not be here anymore.
-                            // It's basically a reply mail in Draft folder.
-                            var newGroup = _mailItemSource.FirstGroupByKeyOrDefault(groupKey);
-
-                            if (newGroup != null)
-                            {
-                                await RemoveItemInternalAsync(newGroup, singleViewModel);
-                            }
+                            mailItem = mvm;
+                            group = g;
+                            break;
                         }
                     }
-                    else if (threadMailItemViewModel.EmailCount == 0)
-                    {
-                        await RemoveItemInternalAsync(group, threadMailItemViewModel);
-                    }
-                    else
-                    {
-                        // Item inside the thread is removed - update hash
-                        UpdateUniqueIdHashes(removalItem, false);
-                    }
-
-                    shouldExit = true;
-                    break;
+                    if (mailItem != null) break;
                 }
-                else if (item is MailItemViewModel mailItemViewModel && mailItemViewModel.MailCopy.UniqueId == removeItem.UniqueId)
-                {
-                    await RemoveItemInternalAsync(group, item);
+            }
 
-                    shouldExit = true;
-
-                    break;
-                }
+            if (mailItem != null && group != null)
+            {
+                await RemoveItemInternalAsync(group, mailItem);
             }
         }
 
@@ -1045,7 +1036,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     }
 
     public Task SelectAllAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = true, true);
-    public Task UnselectAllAsync(IMailListItem exceptItem = null) => ExecuteWithoutRaiseSelectionChangedAsync(a => a.IsSelected = false && a != exceptItem, true);
+    public Task UnselectAllAsync(IMailListItem exceptItem = null) => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a != exceptItem) a.IsSelected = false; }, true);
     public Task CollapseAllThreadsAsync() => ExecuteWithoutRaiseSelectionChangedAsync(a => { if (a is ThreadMailItemViewModel thread) thread.IsThreadExpanded = false; }, true);
 
     private Task ExecuteUIThread(Action action) => CoreDispatcher?.ExecuteOnUIThread(action);
