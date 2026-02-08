@@ -405,6 +405,11 @@ public class SynchronizationManager : ISynchronizationManager
             await synchronizer.DownloadMissingMimeMessageAsync(mailItem, null, cancellationToken);
             return mailItem.Id.ToString(); // Return some identifier, actual implementation might be different
         }
+        catch (SynchronizerEntityNotFoundException)
+        {
+            _logger.Warning("MIME message for mail item {MailItemId} no longer exists on server. Removed locally.", mailItem.Id);
+            return null;
+        }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to download MIME message for mail item {MailItemId}", mailItem.Id);

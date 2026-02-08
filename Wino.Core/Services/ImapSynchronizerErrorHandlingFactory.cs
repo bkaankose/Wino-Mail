@@ -1,4 +1,5 @@
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Synchronizers.Errors;
 using Wino.Core.Synchronizers.Errors.Imap;
 
 namespace Wino.Core.Services;
@@ -12,11 +13,13 @@ public class ImapSynchronizerErrorHandlingFactory : SynchronizerErrorHandlingFac
     public ImapSynchronizerErrorHandlingFactory(
         ImapConnectionLostHandler connectionLostHandler,
         ImapAuthenticationFailedHandler authFailedHandler,
+        EntityNotFoundHandler entityNotFoundHandler,
         ImapFolderNotFoundHandler folderNotFoundHandler,
         ImapProtocolErrorHandler protocolErrorHandler)
     {
         // Order matters - more specific handlers should be registered first
         RegisterHandler(authFailedHandler);
+        RegisterHandler(entityNotFoundHandler);
         RegisterHandler(folderNotFoundHandler);
         RegisterHandler(connectionLostHandler);
         RegisterHandler(protocolErrorHandler); // Most generic, registered last

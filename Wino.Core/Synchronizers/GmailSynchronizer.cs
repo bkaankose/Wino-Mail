@@ -1318,19 +1318,28 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                                                            ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
-        var request = _gmailService.Users.Messages.Get("me", mailItem.Id);
-        request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
-
-        var gmailMessage = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-        var mimeMessage = gmailMessage.GetGmailMimeMessage();
-
-        if (mimeMessage == null)
+        try
         {
-            _logger.Warning("Tried to download Gmail Raw Mime with {Id} id and server responded without a data.", mailItem.Id);
-            return;
-        }
+            var request = _gmailService.Users.Messages.Get("me", mailItem.Id);
+            request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
 
-        await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+            var gmailMessage = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var mimeMessage = gmailMessage.GetGmailMimeMessage();
+
+            if (mimeMessage == null)
+            {
+                _logger.Warning("Tried to download Gmail Raw Mime with {Id} id and server responded without a data.", mailItem.Id);
+                return;
+            }
+
+            await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+        }
+        catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _logger.Warning("Gmail message {MailId} not found (404) during MIME download. Deleting locally.", mailItem.Id);
+            await _gmailChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
+            throw new SynchronizerEntityNotFoundException(ex.Message);
+        }
     }
 
     public override async Task DownloadCalendarAttachmentAsync(
@@ -1472,12 +1481,12 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Create error context
         var errorContext = new SynchronizerErrorContext
         {
+            Account = Account,
             ErrorCode = error.Code,
             ErrorMessage = error.Message,
             RequestBundle = bundle,
             AdditionalData = new Dictionary<string, object>
             {
-                { "Account", Account },
                 { "Error", error }
             }
         };

@@ -988,6 +988,21 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         UpdateFolderCollection(mailItemFolder);
     }
 
+    protected override async void OnFolderDeleted(MailItemFolder folder)
+    {
+        base.OnFolderDeleted(folder);
+
+        bool wasSelected = SelectedMenuItem is IBaseFolderMenuItem selectedFolder &&
+            selectedFolder.HandlingFolders.Any(a => a.Id == folder.Id);
+
+        await ExecuteUIThread(() => MenuItems.RemoveFolderMenuItem(folder.Id));
+
+        if (wasSelected && latestSelectedAccountMenuItem != null)
+        {
+            await NavigateInboxAsync(latestSelectedAccountMenuItem);
+        }
+    }
+
     protected override void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder)
     {
         base.OnFolderSynchronizationEnabled(mailItemFolder);

@@ -780,6 +780,20 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
+    protected override async void OnFolderDeleted(MailItemFolder folder)
+    {
+        base.OnFolderDeleted(folder);
+
+        if (ActiveFolder == null) return;
+
+        bool isActiveFolder = ActiveFolder.HandlingFolders.Any(a => a.Id == folder.Id);
+
+        if (isActiveFolder)
+        {
+            await MailCollection.ClearAsync();
+        }
+    }
+
     protected override async void OnDraftCreated(MailCopy draftMail, MailAccount account)
     {
         base.OnDraftCreated(draftMail, account);

@@ -1430,8 +1430,17 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                                            MailKit.ITransferProgress transferProgress = null,
                                                            CancellationToken cancellationToken = default)
     {
-        var mimeMessage = await DownloadMimeMessageAsync(mailItem.Id, cancellationToken).ConfigureAwait(false);
-        await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+        try
+        {
+            var mimeMessage = await DownloadMimeMessageAsync(mailItem.Id, cancellationToken).ConfigureAwait(false);
+            await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+        }
+        catch (ODataError ex) when (ex.ResponseStatusCode == 404)
+        {
+            _logger.Warning("Outlook message {MailId} not found (404) during MIME download. Deleting locally.", mailItem.Id);
+            await _outlookChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
+            throw new SynchronizerEntityNotFoundException(ex.Message);
+        }
     }
 
     public override async Task DownloadCalendarAttachmentAsync(

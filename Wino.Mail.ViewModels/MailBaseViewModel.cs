@@ -17,6 +17,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
     IRecipient<DraftFailed>,
     IRecipient<DraftMapped>,
     IRecipient<FolderRenamed>,
+    IRecipient<FolderDeleted>,
     IRecipient<FolderSynchronizationEnabled>
 {
     protected virtual void OnMailAdded(MailCopy addedMail) { }
@@ -27,6 +28,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
     protected virtual void OnDraftFailed(MailCopy draftMail, MailAccount account) { }
     protected virtual void OnDraftMapped(string localDraftCopyId, string remoteDraftCopyId) { }
     protected virtual void OnFolderRenamed(IMailItemFolder mailItemFolder) { }
+    protected virtual void OnFolderDeleted(MailItemFolder folder) { }
     protected virtual void OnFolderSynchronizationEnabled(IMailItemFolder mailItemFolder) { }
 
     void IRecipient<MailAddedMessage>.Receive(MailAddedMessage message) => OnMailAdded(message.AddedMail);
@@ -39,6 +41,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
     void IRecipient<DraftCreated>.Receive(DraftCreated message) => OnDraftCreated(message.DraftMail, message.Account);
 
     void IRecipient<FolderRenamed>.Receive(FolderRenamed message) => OnFolderRenamed(message.MailItemFolder);
+    void IRecipient<FolderDeleted>.Receive(FolderDeleted message) => OnFolderDeleted(message.MailItemFolder);
     void IRecipient<FolderSynchronizationEnabled>.Receive(FolderSynchronizationEnabled message) => OnFolderSynchronizationEnabled(message.MailItemFolder);
 
     protected override void RegisterRecipients()
@@ -55,6 +58,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
         Messenger.Register<DraftFailed>(this);
         Messenger.Register<DraftMapped>(this);
         Messenger.Register<FolderRenamed>(this);
+        Messenger.Register<FolderDeleted>(this);
         Messenger.Register<FolderSynchronizationEnabled>(this);
     }
 
@@ -70,6 +74,7 @@ public class MailBaseViewModel : CoreBaseViewModel,
         Messenger.Unregister<DraftFailed>(this);
         Messenger.Unregister<DraftMapped>(this);
         Messenger.Unregister<FolderRenamed>(this);
+        Messenger.Unregister<FolderDeleted>(this);
         Messenger.Unregister<FolderSynchronizationEnabled>(this);
     }
 }

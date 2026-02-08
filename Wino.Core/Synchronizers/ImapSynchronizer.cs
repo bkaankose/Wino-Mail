@@ -235,18 +235,36 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var remoteFolderId = folder.RemoteFolderId;
 
         var client = await _clientPool.GetClientAsync().ConfigureAwait(false);
-        var remoteFolder = await client.GetFolderAsync(remoteFolderId, cancellationToken).ConfigureAwait(false);
 
-        var uniqueId = new UniqueId(MailkitClientExtensions.ResolveUid(mailItem.Id));
+        try
+        {
+            var remoteFolder = await client.GetFolderAsync(remoteFolderId, cancellationToken).ConfigureAwait(false);
 
-        await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
+            var uniqueId = new UniqueId(MailkitClientExtensions.ResolveUid(mailItem.Id));
 
-        var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
+            await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
-        await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
-        await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
+            var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
 
-        _clientPool.Release(client);
+            await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
+            await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
+        }
+        catch (FolderNotFoundException ex)
+        {
+            _logger.Warning("IMAP folder {FolderId} not found during MIME download for {MailId}. Deleting locally.", remoteFolderId, mailItem.Id);
+            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
+            throw new SynchronizerEntityNotFoundException(ex.Message);
+        }
+        catch (ImapCommandException ex) when (ex.Response == ImapCommandResponse.No)
+        {
+            _logger.Warning("IMAP message {MailId} not found during MIME download (NO response). Deleting locally.", mailItem.Id);
+            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
+            throw new SynchronizerEntityNotFoundException(ex.Message);
+        }
+        finally
+        {
+            _clientPool.Release(client);
+        }
     }
 
     public override Task DownloadCalendarAttachmentAsync(
@@ -500,16 +518,29 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 }
             }
 
-            // TODO: Retry pattern.
-            // TODO: Error handling.
             try
             {
                 await item.NativeRequest.IntegratorTask(executorClient, item.Request).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                item.Request.RevertUIChanges();
-                throw;
+                var errorContext = new SynchronizerErrorContext
+                {
+                    Account = Account,
+                    ErrorCode = ex is FolderNotFoundException ? 404 : null,
+                    ErrorMessage = ex.Message,
+                    Exception = ex,
+                    RequestBundle = item,
+                    OperationType = "RequestExecution"
+                };
+
+                var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+                if (!handled)
+                {
+                    item.Request.RevertUIChanges();
+                    throw;
+                }
             }
             finally
             {
