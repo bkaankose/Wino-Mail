@@ -133,6 +133,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
     private const string PART_WebView = "WebView";
     private WebView2 _chromium = null!;
     private bool _disposedValue;
+    private bool? _lastAppliedDarkTheme;
     private readonly TaskCompletionSource<bool> _domLoadedTask = new();
 
     public WebViewEditorControl()
@@ -153,8 +154,9 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
 
     private async Task InitializeComponent()
     {
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-        Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation");
+        WebViewExtensions.EnsureWebView2Environment();
+
+        _chromium.CoreWebView2Initialized -= ChromiumInitialized;
         _chromium.CoreWebView2Initialized += ChromiumInitialized;
 
         await _chromium.EnsureCoreWebView2Async();
@@ -218,7 +220,7 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         int composerFontSize = _preferencesService.ComposerFontSize;
         var readerFont = _preferencesService.ReaderFont;
         int readerFontSize = _preferencesService.ReaderFontSize;
-        return await _chromium.ExecuteScriptFunctionAsync("initializeJodit", false,
+        return await _chromium.ExecuteScriptFunctionAsync("initializeJodit",
             JsonSerializer.Serialize(fonts, BasicTypesJsonContext.Default.ListString),
             JsonSerializer.Serialize(composerFont, BasicTypesJsonContext.Default.String),
             JsonSerializer.Serialize(composerFontSize, BasicTypesJsonContext.Default.Int32),
@@ -233,16 +235,24 @@ public sealed partial class WebViewEditorControl : Control, IDisposable
         _chromium.CoreWebView2.SetVirtualHostNameToFolderMapping("app.editor", editorBundlePath, CoreWebView2HostResourceAccessKind.Allow);
         _chromium.Source = new Uri("https://app.editor/editor.html");
 
+        _chromium.CoreWebView2.DOMContentLoaded -= DomLoaded;
         _chromium.CoreWebView2.DOMContentLoaded += DomLoaded;
 
+        _chromium.CoreWebView2.WebMessageReceived -= ScriptMessageReceived;
         _chromium.CoreWebView2.WebMessageReceived += ScriptMessageReceived;
     }
 
-    public async Task UpdateEditorThemeAsync()
+    public async Task UpdateEditorThemeAsync(bool force = false)
     {
         await _domLoadedTask.Task;
 
-        if (IsEditorDarkMode)
+        var isDark = IsEditorDarkMode;
+
+        if (!force && _lastAppliedDarkTheme == isDark) return;
+
+        _lastAppliedDarkTheme = isDark;
+
+        if (isDark)
         {
             _chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
             await _chromium.ExecuteScriptFunctionSafeAsync("SetDarkEditor");

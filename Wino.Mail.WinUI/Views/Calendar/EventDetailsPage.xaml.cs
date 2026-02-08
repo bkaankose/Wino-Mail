@@ -24,14 +24,12 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
-    private bool isChromiumDisposed = false;
 
     public EventDetailsPage()
     {
         InitializeComponent();
 
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-        Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
+        WebViewExtensions.EnsureWebView2Environment();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -91,11 +89,11 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
 
         if (string.IsNullOrEmpty(description))
         {
-            await EventDetailsWebView.ExecuteScriptFunctionAsync("RenderHTML", isChromiumDisposed, JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
+            await EventDetailsWebView.ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
         }
         else
         {
-            await EventDetailsWebView.ExecuteScriptFunctionAsync("RenderHTML", isChromiumDisposed,
+            await EventDetailsWebView.ExecuteScriptFunctionAsync("RenderHTML",
                 JsonSerializer.Serialize(description, BasicTypesJsonContext.Default.String),
                 JsonSerializer.Serialize(true, BasicTypesJsonContext.Default.Boolean));
         }
@@ -138,8 +136,6 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
             EventDetailsWebView.CoreWebView2.NewWindowRequested -= WindowRequested;
         }
 
-        isChromiumDisposed = true;
-
         EventDetailsWebView.Close();
     }
 
@@ -150,34 +146,23 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         if (ViewModel.IsDarkWebviewRenderer)
         {
             EventDetailsWebView.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
-            await InvokeScriptSafeAsync("SetDarkEditor();");
+            await EventDetailsWebView.ExecuteScriptSafeAsync("SetDarkEditor();");
         }
         else
         {
             EventDetailsWebView.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
-            await InvokeScriptSafeAsync("SetLightEditor();");
+            await EventDetailsWebView.ExecuteScriptSafeAsync("SetLightEditor();");
         }
     }
 
     private async Task UpdateReaderFontPropertiesAsync()
     {
-        await EventDetailsWebView.ExecuteScriptFunctionAsync("ChangeFontSize", isChromiumDisposed, JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
+        await EventDetailsWebView.ExecuteScriptFunctionAsync("ChangeFontSize", JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
 
         var fontName = _preferencesService.ReaderFont;
         fontName += ", sans-serif";
 
-        await EventDetailsWebView.ExecuteScriptFunctionAsync("ChangeFontFamily", isChromiumDisposed, JsonSerializer.Serialize(fontName, BasicTypesJsonContext.Default.String));
-    }
-
-    private async Task<string> InvokeScriptSafeAsync(string function)
-    {
-        try
-        {
-            return await EventDetailsWebView.ExecuteScriptAsync(function);
-        }
-        catch (Exception) { }
-
-        return string.Empty;
+        await EventDetailsWebView.ExecuteScriptFunctionAsync("ChangeFontFamily", JsonSerializer.Serialize(fontName, BasicTypesJsonContext.Default.String));
     }
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)

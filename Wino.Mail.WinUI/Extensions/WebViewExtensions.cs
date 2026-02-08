@@ -5,16 +5,34 @@ namespace Wino.Mail.WinUI.Extensions;
 
 public static class WebViewExtensions
 {
+    private static bool _environmentInitialized;
+
+    /// <summary>
+    /// Sets WebView2 environment variables once per process.
+    /// Must be called before any WebView2 is initialized.
+    /// </summary>
+    public static void EnsureWebView2Environment()
+    {
+        if (_environmentInitialized) return;
+
+        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
+        Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+            "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
+
+        _environmentInitialized = true;
+    }
+
     /// <summary>
     /// Executes a script function in the WebView2 control.
     /// </summary>
-    /// <param name="isChromiumDisposed">Weird parameter that needed in mailRendering page. TODO: should be reconsidered.</param>
     /// <param name="parameters">Parameters should be serialized to json</param>
-    public static async Task<string> ExecuteScriptFunctionAsync(this Microsoft.UI.Xaml.Controls.WebView2 Chromium, string functionName, bool isChromiumDisposed = false, params string[] parameters)
+    public static async Task<string> ExecuteScriptFunctionAsync(this Microsoft.UI.Xaml.Controls.WebView2 Chromium, string functionName, params string[] parameters)
     {
+        if (Chromium?.CoreWebView2 == null) return string.Empty;
+
         string script = functionName + "(" + string.Join(", ", parameters) + ");";
 
-        return isChromiumDisposed ? string.Empty : await Chromium.ExecuteScriptAsync(script);
+        return await Chromium.ExecuteScriptAsync(script);
     }
 
     public static async Task<string> ExecuteScriptFunctionSafeAsync(this Microsoft.UI.Xaml.Controls.WebView2 Chromium, string functionName, params string[] parameters)

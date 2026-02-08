@@ -32,9 +32,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
 
     private bool isRenderingInProgress = false;
+    private bool? _lastAppliedDarkTheme;
     private TaskCompletionSource<bool> DOMLoadedTask = new TaskCompletionSource<bool>();
-
-    private bool isChromiumDisposed = false;
 
     public WebView2 GetWebView() => Chromium;
 
@@ -42,8 +41,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         InitializeComponent();
 
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00FFFFFF");
-        Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--enable-features=OverlayScrollbar,msOverlayScrollbarWinStyle,msOverlayScrollbarWinStyleAnimation,msWebView2CodeCache");
+        WebViewExtensions.EnsureWebView2Environment();
 
         ViewModel.DirectPrintFuncAsync = DirectPrintAsync;
 
@@ -81,17 +79,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         await UpdateEditorThemeAsync();
     }
 
-    private async Task<string> InvokeScriptSafeAsync(string function)
-    {
-        try
-        {
-            return await Chromium.ExecuteScriptAsync(function);
-        }
-        catch (Exception) { }
-
-        return string.Empty;
-    }
-
     private async Task RenderInternalAsync(string htmlBody)
     {
         isRenderingInProgress = true;
@@ -103,12 +90,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         if (string.IsNullOrEmpty(htmlBody))
         {
-            await Chromium.ExecuteScriptFunctionAsync("RenderHTML", isChromiumDisposed, JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
+            await Chromium.ExecuteScriptFunctionAsync("RenderHTML", JsonSerializer.Serialize(" ", BasicTypesJsonContext.Default.String));
         }
         else
         {
             var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
-            await Chromium.ExecuteScriptFunctionAsync("RenderHTML", isChromiumDisposed,
+            await Chromium.ExecuteScriptFunctionAsync("RenderHTML",
                 JsonSerializer.Serialize(htmlBody, BasicTypesJsonContext.Default.String),
                 JsonSerializer.Serialize(shouldLinkifyText, BasicTypesJsonContext.Default.Boolean));
         }
@@ -131,13 +118,16 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     async void IRecipient<HtmlRenderingRequested>.Receive(HtmlRenderingRequested message)
     {
+        // Ensure WebView2 is fully initialized before first render.
+        // OnNavigatedTo starts initialization fire-and-forget; this await
+        // guarantees the core is ready before we invoke any script.
+        await Chromium.EnsureCoreWebView2Async();
+
         if (message == null || string.IsNullOrEmpty(message.HtmlBody))
         {
             await RenderInternalAsync(string.Empty);
             return;
         }
-
-        await Chromium.EnsureCoreWebView2Async();
 
         await RenderInternalAsync(message.HtmlBody);
     }
@@ -167,8 +157,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             Chromium.CoreWebView2.DOMContentLoaded -= DOMContentLoaded;
             Chromium.CoreWebView2.NewWindowRequested -= WindowRequested;
         }
-
-        isChromiumDisposed = true;
 
         Chromium.Close();
         GC.Collect();
@@ -261,23 +249,29 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         await DOMLoadedTask.Task;
 
-        if (ViewModel.IsDarkWebviewRenderer)
+        var isDark = ViewModel.IsDarkWebviewRenderer;
+
+        if (_lastAppliedDarkTheme == isDark) return;
+
+        _lastAppliedDarkTheme = isDark;
+
+        if (isDark)
         {
             Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Dark;
 
-            await InvokeScriptSafeAsync("SetDarkEditor();");
+            await Chromium.ExecuteScriptSafeAsync("SetDarkEditor();");
         }
         else
         {
             Chromium.CoreWebView2.Profile.PreferredColorScheme = CoreWebView2PreferredColorScheme.Light;
 
-            await InvokeScriptSafeAsync("SetLightEditor();");
+            await Chromium.ExecuteScriptSafeAsync("SetLightEditor();");
         }
     }
 
     private async Task UpdateReaderFontPropertiesAsync()
     {
-        await Chromium.ExecuteScriptFunctionAsync("ChangeFontSize", isChromiumDisposed, JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
+        await Chromium.ExecuteScriptFunctionAsync("ChangeFontSize", JsonSerializer.Serialize(_preferencesService.ReaderFontSize, BasicTypesJsonContext.Default.Int32));
 
         // Prepare font family name with fallback to sans-serif by default.
         var fontName = _preferencesService.ReaderFont;
@@ -285,7 +279,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // If font family name is not supported by the browser, fallback to sans-serif.
         fontName += ", sans-serif";
 
-        await Chromium.ExecuteScriptFunctionAsync("ChangeFontFamily", isChromiumDisposed, JsonSerializer.Serialize(fontName, BasicTypesJsonContext.Default.String));
+        await Chromium.ExecuteScriptFunctionAsync("ChangeFontFamily", JsonSerializer.Serialize(fontName, BasicTypesJsonContext.Default.String));
     }
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
