@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Linq;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
@@ -40,20 +39,17 @@ public partial class WinoThreadMailItemViewModelListViewItem : ListViewItem
 
     partial void OnItemPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        if (e.OldValue is ThreadMailItemViewModel oldMailItemViewModel) UnregisterPropertyChanged(oldMailItemViewModel);
-        if (e.NewValue is ThreadMailItemViewModel newMailItemViewModel) RegisterPropertyChanged(newMailItemViewModel);
-    }
+        if (e.OldValue is ThreadMailItemViewModel oldItem)
+            oldItem.OnSelectionChanged = null;
 
-    private void RegisterPropertyChanged(ThreadMailItemViewModel model) => model.PropertyChanged += ModelPropertyChanged;
-    private void UnregisterPropertyChanged(ThreadMailItemViewModel model) => model.PropertyChanged -= ModelPropertyChanged;
-
-    private void ModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (sender is not ThreadMailItemViewModel mailItemViewModel) return;
-
-        if (e.PropertyName == nameof(ThreadMailItemViewModel.IsSelected))
+        if (e.NewValue is ThreadMailItemViewModel newItem)
         {
-            IsCustomSelected = mailItemViewModel.IsSelected;
+            newItem.OnSelectionChanged = (selected) => IsCustomSelected = selected;
+            IsCustomSelected = newItem.IsSelected;
+        }
+        else
+        {
+            IsCustomSelected = false;
         }
     }
 }

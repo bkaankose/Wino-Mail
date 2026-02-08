@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -23,26 +22,17 @@ public partial class WinoMailItemViewModelListViewItem : ListViewItem
 
     partial void OnItemPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        // TODO: This slows down. Optimize later.
-        if (e.OldValue is MailItemViewModel oldMailItemViewModel) UnregisterPropertyChanged(oldMailItemViewModel);
-        if (e.NewValue is MailItemViewModel newMailItemViewModel) RegisterPropertyChanged(newMailItemViewModel);
+        if (e.OldValue is MailItemViewModel oldItem)
+            oldItem.OnSelectionChanged = null;
 
-        if (e.NewValue is MailItemViewModel mailItemViewModel)
-            IsCustomSelected = mailItemViewModel.IsSelected;
-        else
-            IsCustomSelected = false;
-    }
-
-    private void RegisterPropertyChanged(MailItemViewModel model) => model.PropertyChanged += ModelPropertyChanged;
-    private void UnregisterPropertyChanged(MailItemViewModel model) => model.PropertyChanged -= ModelPropertyChanged;
-
-    private void ModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (sender is not MailItemViewModel mailItemViewModel) return;
-
-        if (e.PropertyName == nameof(MailItemViewModel.IsSelected))
+        if (e.NewValue is MailItemViewModel newItem)
         {
-            IsCustomSelected = mailItemViewModel.IsSelected;
+            newItem.OnSelectionChanged = (selected) => IsCustomSelected = selected;
+            IsCustomSelected = newItem.IsSelected;
+        }
+        else
+        {
+            IsCustomSelected = false;
         }
     }
 }

@@ -14,6 +14,8 @@ namespace Wino.Mail.ViewModels.Data;
 public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListItem
 {
     private readonly string _threadId;
+    private readonly HashSet<Guid> _uniqueIdSet = [];
+    private MailItemViewModel _cachedLatestMailViewModel;
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
@@ -24,6 +26,15 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedRecipients]
     [NotifyPropertyChangedFor(nameof(IsSelectedOrExpanded))]
     public partial bool IsSelected { get; set; }
+
+    /// <summary>
+    /// Direct callback invoked when <see cref="IsSelected"/> changes.
+    /// Used by the ListViewItem container to update its IsCustomSelected DP
+    /// without subscribing to INotifyPropertyChanged (faster, AOT-safe).
+    /// </summary>
+    public Action<bool> OnSelectionChanged { get; set; }
+
+    partial void OnIsSelectedChanged(bool value) => OnSelectionChanged?.Invoke(value);
 
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
@@ -168,7 +179,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
     public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
-    private MailItemViewModel latestMailViewModel => ThreadEmails.OrderByDescending(e => e.MailCopy?.CreationDate).FirstOrDefault()!;
+    private MailItemViewModel latestMailViewModel => _cachedLatestMailViewModel;
 
     public DateTime SortingDate => CreationDate;
 
@@ -200,6 +211,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         }
 
         ThreadEmails.Insert(insertIndex, email);
+        _uniqueIdSet.Add(email.MailCopy.UniqueId);
+        _cachedLatestMailViewModel = ThreadEmails[0];
         // Reassign to trigger property change notifications
         ThreadEmails = ThreadEmails;
     }
@@ -211,6 +224,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     {
         if (ThreadEmails.Remove(email))
         {
+            _uniqueIdSet.Remove(email.MailCopy.UniqueId);
+            _cachedLatestMailViewModel = ThreadEmails.Count > 0 ? ThreadEmails[0] : null;
             // Reassign to trigger property change notifications
             ThreadEmails = ThreadEmails;
         }
@@ -253,7 +268,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     /// <summary>
     /// Checks if this thread contains an email with the specified unique ID
     /// </summary>
-    public bool HasUniqueId(Guid uniqueId) => ThreadEmails.Any(email => email.MailCopy.UniqueId == uniqueId);
+    public bool HasUniqueId(Guid uniqueId) => _uniqueIdSet.Contains(uniqueId);
 
     public IEnumerable<Guid> GetContainingIds() => ThreadEmails.Select(a => a.MailCopy.UniqueId);
 
