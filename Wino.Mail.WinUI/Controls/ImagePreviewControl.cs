@@ -1,241 +1,402 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Text.RegularExpressions;
+using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
-using Fernandezja.ColorHashSharp;
+using CommunityToolkit.WinUI;
+using EmailValidation;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Microsoft.UI.Xaml.Shapes;
-using Windows.UI;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
 
 namespace Wino.Controls;
 
-public partial class ImagePreviewControl : Control
+/// <summary>
+/// Contact avatar control built on top of PersonPicture.
+/// Priority:
+/// 1) AccountContact/Base64 picture
+/// 2) Gravatar thumbnail (if enabled)
+/// 3) Initials from display name fallback
+/// </summary>
+public sealed partial class ImagePreviewControl : PersonPicture
 {
-    private const string PART_EllipseInitialsGrid = "EllipseInitialsGrid";
-    private const string PART_InitialsTextBlock = "InitialsTextBlock";
-    private const string PART_KnownHostImage = "KnownHostImage";
-    private const string PART_Ellipse = "Ellipse";
-    private const string PART_FaviconSquircle = "FaviconSquircle";
-    private const string PART_FaviconImage = "FaviconImage";
+    private sealed record RefreshSnapshot(string DisplayName, string Address, string Base64Picture);
 
-    #region Dependency Properties
+    private static readonly TimeSpan RefreshDebounceDuration = TimeSpan.FromMilliseconds(40);
 
-    public static readonly DependencyProperty FromNameProperty = DependencyProperty.Register(nameof(FromName), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnInformationChanged));
-    public static readonly DependencyProperty FromAddressProperty = DependencyProperty.Register(nameof(FromAddress), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, OnInformationChanged));
-    public static readonly DependencyProperty SenderContactPictureProperty = DependencyProperty.Register(nameof(SenderContactPicture), typeof(string), typeof(ImagePreviewControl), new PropertyMetadata(string.Empty, new PropertyChangedCallback(OnInformationChanged)));
-    public static readonly DependencyProperty ThumbnailUpdatedEventProperty = DependencyProperty.Register(nameof(ThumbnailUpdatedEvent), typeof(bool), typeof(ImagePreviewControl), new PropertyMetadata(false, new PropertyChangedCallback(OnInformationChanged)));
+    [GeneratedDependencyProperty]
+    public partial IMailItemDisplayInformation? MailItemInformation { get; set; }
 
-    public bool ThumbnailUpdatedEvent
-    {
-        get { return (bool)GetValue(ThumbnailUpdatedEventProperty); }
-        set { SetValue(ThumbnailUpdatedEventProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? FromName { get; set; }
 
-    /// <summary>
-    /// Gets or sets base64 string of the sender contact picture.
-    /// </summary>
-    public string SenderContactPicture
-    {
-        get { return (string)GetValue(SenderContactPictureProperty); }
-        set { SetValue(SenderContactPictureProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? FromAddress { get; set; }
 
-    public string FromName
-    {
-        get { return (string)GetValue(FromNameProperty); }
-        set { SetValue(FromNameProperty, value); }
-    }
+    [GeneratedDependencyProperty]
+    public partial string? SenderContactPicture { get; set; }
 
-    public string FromAddress
-    {
-        get { return (string)GetValue(FromAddressProperty); }
-        set { SetValue(FromAddressProperty, value); }
-    }
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool ThumbnailUpdatedEvent { get; set; }
 
-    #endregion
-
-    private Ellipse Ellipse = null!;
-    private Grid InitialsGrid = null!;
-    private TextBlock InitialsTextblock = null!;
-    private Image KnownHostImage = null!;
-    private Border FaviconSquircle = null!;
-    private Image FaviconImage = null!;
-    private CancellationTokenSource contactPictureLoadingCancellationTokenSource = null!;
+    private readonly IThumbnailService? _thumbnailService;
+    private readonly IPreferencesService? _preferencesService;
+    private CancellationTokenSource? _refreshCancellationTokenSource;
+    private CancellationTokenSource? _scheduledRefreshCancellationTokenSource;
+    private long _refreshVersion;
 
     public ImagePreviewControl()
     {
-        DefaultStyleKey = nameof(ImagePreviewControl);
+        DefaultStyleKey = typeof(PersonPicture);
+
+        try
+        {
+            _thumbnailService = App.Current.Services.GetService<IThumbnailService>();
+            _preferencesService = App.Current.Services.GetService<IPreferencesService>();
+        }
+        catch
+        {
+            // Keep control functional in design-time/test contexts without service provider.
+        }
+
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
-    protected override void OnApplyTemplate()
+    partial void OnMailItemInformationPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        base.OnApplyTemplate();
-
-        InitialsGrid = (GetTemplateChild(PART_EllipseInitialsGrid) as Grid)!;
-        InitialsTextblock = (GetTemplateChild(PART_InitialsTextBlock) as TextBlock)!;
-        KnownHostImage = (GetTemplateChild(PART_KnownHostImage) as Image)!;
-        Ellipse = (GetTemplateChild(PART_Ellipse) as Ellipse)!;
-        FaviconSquircle = (GetTemplateChild(PART_FaviconSquircle) as Border)!;
-        FaviconImage = (GetTemplateChild(PART_FaviconImage) as Image)!;
-
-        UpdateInformation();
+        RequestRefresh();
     }
 
-    private static void OnInformationChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
+    partial void OnFromNameChanged(string? newValue) => RequestRefresh();
+
+    partial void OnFromAddressChanged(string? newValue) => RequestRefresh();
+
+    partial void OnSenderContactPictureChanged(string? newValue) => RequestRefresh();
+
+    partial void OnThumbnailUpdatedEventChanged(bool newValue) => RequestRefresh();
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (obj is ImagePreviewControl control)
-            control.UpdateInformation();
+        RequestRefresh();
     }
 
-    private async void UpdateInformation()
+    private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        if ((KnownHostImage == null && FaviconSquircle == null) || InitialsGrid == null || InitialsTextblock == null || (string.IsNullOrEmpty(FromName) && string.IsNullOrEmpty(FromAddress)))
+        CancelScheduledRefresh();
+        CancelActiveRefresh();
+    }
+
+    private void RequestRefresh()
+    {
+        if (DispatcherQueue == null || DispatcherQueue.HasThreadAccess)
+        {
+            QueueRefresh();
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(QueueRefresh);
+    }
+
+    private void QueueRefresh()
+    {
+        if (!IsLoaded)
             return;
 
-        // Cancel active image loading if exists.
-        if (!contactPictureLoadingCancellationTokenSource?.IsCancellationRequested ?? false)
-        {
-            contactPictureLoadingCancellationTokenSource!.Cancel();
-        }
+        CancelScheduledRefresh();
 
-        string contactPicture = SenderContactPicture;
+        var cts = new CancellationTokenSource();
+        _scheduledRefreshCancellationTokenSource = cts;
 
-        var isAvatarThumbnail = false;
-
-        if (string.IsNullOrEmpty(contactPicture) && !string.IsNullOrEmpty(FromAddress))
-        {
-            contactPicture = await App.Current.ThumbnailService.GetThumbnailAsync(FromAddress);
-            isAvatarThumbnail = true;
-        }
-
-        if (!string.IsNullOrEmpty(contactPicture))
-        {
-            if (isAvatarThumbnail && FaviconSquircle != null && FaviconImage != null)
-            {
-                // Show favicon in squircle
-                FaviconSquircle.Visibility = Visibility.Visible;
-                if (InitialsGrid != null)
-                    InitialsGrid.Visibility = Visibility.Collapsed;
-                if (KnownHostImage != null)
-                    KnownHostImage.Visibility = Visibility.Collapsed;
-
-                var bitmapImage = await GetBitmapImageAsync(contactPicture);
-
-                if (bitmapImage != null)
-                {
-                    FaviconImage.Source = bitmapImage;
-                }
-            }
-            else
-            {
-                // Show normal avatar (tondo)
-                if (FaviconSquircle != null)
-                    FaviconSquircle.Visibility = Visibility.Collapsed;
-                if (KnownHostImage != null)
-                    KnownHostImage.Visibility = Visibility.Collapsed;
-                if (InitialsGrid != null)
-                    InitialsGrid.Visibility = Visibility.Visible;
-                contactPictureLoadingCancellationTokenSource = new CancellationTokenSource();
-                try
-                {
-                    var brush = await GetContactImageBrushAsync(contactPicture);
-
-                    if (brush != null)
-                    {
-                        if (!contactPictureLoadingCancellationTokenSource?.Token.IsCancellationRequested ?? false)
-                        {
-                            if (Ellipse != null)
-                                Ellipse.Fill = brush;
-                            if (InitialsTextblock != null)
-                                InitialsTextblock.Text = string.Empty;
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                    Debugger.Break();
-                }
-            }
-        }
-        else
-        {
-            if (FaviconSquircle != null)
-                FaviconSquircle.Visibility = Visibility.Collapsed;
-            if (KnownHostImage != null)
-                KnownHostImage.Visibility = Visibility.Collapsed;
-            if (InitialsGrid != null)
-                InitialsGrid.Visibility = Visibility.Visible;
-
-            var colorHash = new ColorHash();
-            var rgb = colorHash.Rgb(FromAddress);
-
-            if (Ellipse != null)
-                Ellipse.Fill = new SolidColorBrush(Color.FromArgb(rgb.A, rgb.R, rgb.G, rgb.B));
-            if (InitialsTextblock != null)
-                InitialsTextblock.Text = ExtractInitialsFromName(FromName);
-        }
+        _ = DebounceAndRefreshAsync(cts.Token);
     }
 
-    private static async Task<ImageBrush?> GetContactImageBrushAsync(string base64)
-    {
-        // Load the image from base64 string.
-
-        var bitmapImage = await GetBitmapImageAsync(base64);
-
-        if (bitmapImage == null) return null;
-
-        return new ImageBrush() { ImageSource = bitmapImage };
-    }
-
-    private static async Task<BitmapImage?> GetBitmapImageAsync(string base64)
+    private async Task DebounceAndRefreshAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var bitmapImage = new BitmapImage();
-            var imageArray = Convert.FromBase64String(base64);
-            var imageStream = new MemoryStream(imageArray);
-            var randomAccessImageStream = imageStream.AsRandomAccessStream();
-            randomAccessImageStream.Seek(0);
-            await bitmapImage.SetSourceAsync(randomAccessImageStream);
-            return bitmapImage;
+            await Task.Delay(RefreshDebounceDuration, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception) { }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
 
-        return null;
+        StartRefresh();
     }
 
-    public string ExtractInitialsFromName(string name)
+    private void StartRefresh()
     {
-        // Change from name to from address in case of name doesn't exists.
-        if (string.IsNullOrEmpty(name))
+        CancelActiveRefresh();
+
+        var cts = new CancellationTokenSource();
+        _refreshCancellationTokenSource = cts;
+        var refreshVersion = Interlocked.Increment(ref _refreshVersion);
+        _ = RefreshAsync(refreshVersion, cts.Token);
+    }
+
+    private void CancelScheduledRefresh()
+    {
+        var cts = _scheduledRefreshCancellationTokenSource;
+        _scheduledRefreshCancellationTokenSource = null;
+
+        if (cts != null && !cts.IsCancellationRequested)
         {
-            name = FromAddress;
+            cts.Cancel();
         }
 
-        // first remove all: punctuation, separator chars, control chars, and numbers (unicode style regexes)
-        string initials = Regex.Replace(name, @"[\p{P}\p{S}\p{C}\p{N}]+", "");
+        cts?.Dispose();
+    }
 
-        // Replacing all possible whitespace/separator characters (unicode style), with a single, regular ascii space.
-        initials = Regex.Replace(initials, @"\p{Z}+", " ");
+    private void CancelActiveRefresh()
+    {
+        var cts = _refreshCancellationTokenSource;
+        _refreshCancellationTokenSource = null;
 
-        // Remove all Sr, Jr, I, II, III, IV, V, VI, VII, VIII, IX at the end of names
-        initials = Regex.Replace(initials.Trim(), @"\s+(?:[JS]R|I{1,3}|I[VX]|VI{0,3})$", "", RegexOptions.IgnoreCase);
-
-        // Extract up to 2 initials from the remaining cleaned name.
-        initials = Regex.Replace(initials, @"^(\p{L})[^\s]*(?:\s+(?:\p{L}+\s+(?=\p{L}))?(?:(\p{L})\p{L}*)?)?$", "$1$2").Trim();
-
-        if (initials.Length > 2)
+        if (cts != null && !cts.IsCancellationRequested)
         {
-            // Worst case scenario, everything failed, just grab the first two letters of what we have left.
-            initials = initials.Substring(0, 2);
+            cts.Cancel();
         }
 
-        return initials.ToUpperInvariant();
+        cts?.Dispose();
+    }
+
+    private async Task RefreshAsync(long refreshVersion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var snapshot = await CaptureSnapshotAsync(refreshVersion, cancellationToken).ConfigureAwait(false);
+            if (snapshot == null)
+                return;
+
+            await ApplyInitialVisualStateAsync(snapshot.DisplayName, refreshVersion, cancellationToken).ConfigureAwait(false);
+
+            // 1) Explicit contact picture.
+            if (!string.IsNullOrWhiteSpace(snapshot.Base64Picture))
+            {
+                var localBitmap = await CreateBitmapFromBase64Async(snapshot.Base64Picture, cancellationToken).ConfigureAwait(false);
+                if (localBitmap != null)
+                {
+                    await ApplyProfilePictureAsync(localBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+            }
+
+            // 2) Gravatar lookup through thumbnail service (if enabled).
+            if (_preferencesService?.IsGravatarEnabled == true &&
+                _thumbnailService != null &&
+                !string.IsNullOrWhiteSpace(snapshot.Address) &&
+                EmailValidator.Validate(snapshot.Address))
+            {
+                var thumbnailBase64 = await _thumbnailService
+                    .GetThumbnailAsync(snapshot.Address.Trim().ToLowerInvariant(), awaitLoad: true)
+                    .ConfigureAwait(false);
+
+                if (!string.IsNullOrWhiteSpace(thumbnailBase64))
+                {
+                    var thumbnailBitmap = await CreateBitmapFromBase64Async(thumbnailBase64, cancellationToken).ConfigureAwait(false);
+                    if (thumbnailBitmap != null)
+                    {
+                        await ApplyProfilePictureAsync(thumbnailBitmap, refreshVersion, cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
+                }
+            }
+
+            // 3) Initials fallback is already in place via DisplayName + ProfilePicture = null.
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected during virtualization/recycling.
+        }
+        catch
+        {
+            // Keep fallback initials if decoding/network fails.
+        }
+    }
+
+    // DependencyProperty-backed values must be read on UI thread once, then used off-thread.
+    private async Task<RefreshSnapshot?> CaptureSnapshotAsync(long refreshVersion, CancellationToken cancellationToken)
+    {
+        return await ExecuteOnUiThreadAsync(() =>
+        {
+            if (!IsActiveRefresh(refreshVersion, cancellationToken))
+                return null;
+
+            var address = ResolveAddress();
+            var displayName = ResolveDisplayName(address);
+            var base64Picture = ResolveBase64Picture();
+
+            return new RefreshSnapshot(displayName, address, base64Picture);
+        }).ConfigureAwait(false);
+    }
+
+    private string ResolveAddress()
+    {
+        var contactAddress = MailItemInformation?.SenderContact?.Address;
+        if (!string.IsNullOrWhiteSpace(contactAddress))
+            return contactAddress.Trim();
+
+        if (!string.IsNullOrWhiteSpace(MailItemInformation?.FromAddress))
+            return MailItemInformation.FromAddress.Trim();
+
+        return FromAddress?.Trim() ?? string.Empty;
+    }
+
+    private string ResolveDisplayName(string resolvedAddress)
+    {
+        var contactName = MailItemInformation?.SenderContact?.Name;
+        if (!string.IsNullOrWhiteSpace(contactName))
+            return contactName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(MailItemInformation?.FromName))
+            return MailItemInformation.FromName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(FromName))
+            return FromName.Trim();
+
+        return resolvedAddress.Trim();
+    }
+
+    private string ResolveBase64Picture()
+    {
+        if (!string.IsNullOrWhiteSpace(MailItemInformation?.SenderContact?.Base64ContactPicture))
+            return MailItemInformation.SenderContact.Base64ContactPicture;
+
+        if (!string.IsNullOrWhiteSpace(MailItemInformation?.Base64ContactPicture))
+            return MailItemInformation.Base64ContactPicture;
+
+        return SenderContactPicture ?? string.Empty;
+    }
+
+    private async Task ApplyInitialVisualStateAsync(string displayName, long refreshVersion, CancellationToken cancellationToken)
+    {
+        await ExecuteOnUiThreadAsync(() =>
+        {
+            if (!IsActiveRefresh(refreshVersion, cancellationToken))
+                return;
+
+            DisplayName = displayName;
+            ProfilePicture = null;
+        }).ConfigureAwait(false);
+    }
+
+    private async Task ApplyProfilePictureAsync(BitmapImage bitmapImage, long refreshVersion, CancellationToken cancellationToken)
+    {
+        await ExecuteOnUiThreadAsync(() =>
+        {
+            if (!IsActiveRefresh(refreshVersion, cancellationToken))
+                return;
+
+            ProfilePicture = bitmapImage;
+        }).ConfigureAwait(false);
+    }
+
+    private bool IsActiveRefresh(long refreshVersion, CancellationToken cancellationToken)
+        => !cancellationToken.IsCancellationRequested && refreshVersion == _refreshVersion;
+
+    private async Task ExecuteOnUiThreadAsync(Action action)
+    {
+        if (DispatcherQueue == null || DispatcherQueue.HasThreadAccess)
+        {
+            action();
+            return;
+        }
+
+        var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var enqueued = DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                action();
+                completion.TrySetResult(null);
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        });
+
+        if (!enqueued)
+        {
+            completion.TrySetException(new InvalidOperationException("Failed to dispatch UI update."));
+        }
+
+        await completion.Task.ConfigureAwait(false);
+    }
+
+    private async Task<T> ExecuteOnUiThreadAsync<T>(Func<T> func)
+    {
+        if (DispatcherQueue == null || DispatcherQueue.HasThreadAccess)
+        {
+            return func();
+        }
+
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var enqueued = DispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                completion.TrySetResult(func());
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        });
+
+        if (!enqueued)
+        {
+            completion.TrySetException(new InvalidOperationException("Failed to dispatch UI update."));
+        }
+
+        return await completion.Task.ConfigureAwait(false);
+    }
+
+    private async Task<BitmapImage?> CreateBitmapFromBase64Async(string base64, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(base64))
+            return null;
+
+        byte[] bytes;
+
+        try
+        {
+            bytes = await Task.Run(() => Convert.FromBase64String(base64), cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return await ExecuteOnUiThreadAsync(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var memoryStream = new MemoryStream(bytes);
+            var bitmapImage = new BitmapImage();
+            bitmapImage.SetSource(memoryStream.AsRandomAccessStream());
+            return bitmapImage;
+        }).ConfigureAwait(false);
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            _ = new MailAddress(email);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

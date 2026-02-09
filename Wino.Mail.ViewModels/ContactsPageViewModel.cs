@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -14,22 +17,44 @@ namespace Wino.Mail.ViewModels;
 
 public partial class ContactsPageViewModel : MailBaseViewModel
 {
+    private const int ContactPageSize = 50;
+
     private readonly IContactService _contactService;
     private readonly IMailDialogService _dialogService;
 
-    private List<AccountContact> _allContacts = new();
+    private CancellationTokenSource _searchDebounceCancellationTokenSource;
+    private int _currentOffset = 0;
+    private int _currentQueryVersion = 0;
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreContactsCommand))]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     public partial bool IsLoading { get; set; } = false;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreContactsCommand))]
+    public partial bool IsLoadingMore { get; set; } = false;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadMoreContactsCommand))]
+    public partial bool HasMoreContacts { get; set; } = false;
 
     [ObservableProperty]
     public partial bool IsSelectionMode { get; set; } = false;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DeleteSelectedContactsCommand))]
     public partial int SelectedContactsCount { get; set; } = 0;
+
+    [ObservableProperty]
+    public partial int TotalContactsCount { get; set; } = 0;
+
+    public bool IsEmpty => !IsLoading && Contacts.Count == 0;
+    public bool CanLoadMoreContacts => HasMoreContacts && !IsLoading && !IsLoadingMore;
+    public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
 
     public ObservableCollection<AccountContact> Contacts { get; } = new();
     public ObservableCollection<AccountContact> SelectedContacts { get; } = new();
@@ -39,7 +64,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         _contactService = contactService;
         _dialogService = dialogService;
 
-
+        Contacts.CollectionChanged += ContactsCollectionChanged;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -49,7 +74,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
         SelectedContacts.CollectionChanged += SelectedContactsChanged;
 
-        await LoadContactsAsync();
+        await ReloadContactsAsync();
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
@@ -57,58 +82,105 @@ public partial class ContactsPageViewModel : MailBaseViewModel
         base.OnNavigatedFrom(mode, parameters);
 
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
+
+        _searchDebounceCancellationTokenSource?.Cancel();
+        _searchDebounceCancellationTokenSource?.Dispose();
+        _searchDebounceCancellationTokenSource = null;
     }
 
-    private void SelectedContactsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        => SelectedContactsCount = SelectedContacts.Count;
+    private async void SelectedContactsChanged(object sender, NotifyCollectionChangedEventArgs e)
+        => await ExecuteUIThread(() => { SelectedContactsCount = SelectedContacts.Count; });
+
+    private async void ContactsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        => await ExecuteUIThread(() => { OnPropertyChanged(nameof(IsEmpty)); });
 
     [RelayCommand]
-    private async Task LoadContactsAsync()
+    private async Task ReloadContactsAsync()
     {
-        IsLoading = true;
-
-        try
-        {
-            _allContacts = await _contactService.GetAllContactsAsync();
-            await FilterContactsAsync();
-        }
-        catch (Exception ex)
-        {
-            _dialogService.InfoBarMessage("Error", $"Failed to load contacts: {ex.Message}", InfoBarMessageType.Error);
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task SearchContactsAsync()
-    {
-        await FilterContactsAsync();
-    }
-
-    private async Task FilterContactsAsync()
-    {
-        List<AccountContact> filteredContacts;
-
-        if (string.IsNullOrWhiteSpace(SearchQuery))
-        {
-            filteredContacts = _allContacts;
-        }
-        else
-        {
-            filteredContacts = await _contactService.SearchContactsAsync(SearchQuery);
-        }
+        var queryVersion = ++_currentQueryVersion;
+        _currentOffset = 0;
 
         await ExecuteUIThread(() =>
         {
+            HasMoreContacts = false;
             Contacts.Clear();
-            foreach (var contact in filteredContacts.OrderBy(c => c.Name ?? c.Address))
-            {
-                Contacts.Add(contact);
-            }
+            SelectedContacts.Clear();
         });
+
+        await LoadContactsPageAsync(queryVersion, reset: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanLoadMoreContacts))]
+    private async Task LoadMoreContactsAsync()
+    {
+        await LoadContactsPageAsync(_currentQueryVersion, reset: false);
+    }
+
+    private async Task LoadContactsPageAsync(int queryVersion, bool reset)
+    {
+        if (IsLoading || IsLoadingMore)
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            if (reset)
+                IsLoading = true;
+            else
+                IsLoadingMore = true;
+        });
+
+        try
+        {
+            var searchQuery = string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery.Trim();
+            var page = await _contactService.GetContactsPageAsync(
+                _currentOffset,
+                ContactPageSize,
+                searchQuery,
+                excludeRootContacts: true).ConfigureAwait(false);
+
+            if (queryVersion != _currentQueryVersion)
+                return;
+
+            await ExecuteUIThread(() =>
+            {
+                if (reset)
+                {
+                    Contacts.Clear();
+                }
+
+                foreach (var contact in page.Contacts)
+                {
+                    Contacts.Add(contact);
+                }
+
+                TotalContactsCount = page.TotalCount;
+                HasMoreContacts = page.HasMore;
+                _currentOffset = Contacts.Count;
+            });
+        }
+        catch (Exception ex)
+        {
+            if (queryVersion != _currentQueryVersion)
+                return;
+
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_ErrorTitle,
+                string.Format(Translator.ContactInfoBar_FailedToLoadContacts, ex.Message),
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            if (queryVersion == _currentQueryVersion)
+            {
+                await ExecuteUIThread(() =>
+                {
+                    if (reset)
+                        IsLoading = false;
+                    else
+                        IsLoadingMore = false;
+                });
+            }
+        }
     }
 
     [RelayCommand]
@@ -116,27 +188,31 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     {
         var result = await _dialogService.ShowEditContactDialogAsync(null);
 
-        if (result != null)
+        if (result == null) return;
+
+        try
         {
-            try
+            var newContact = await _contactService.CreateNewContactAsync(result.Address, result.Name);
+
+            if (!string.IsNullOrEmpty(result.Base64ContactPicture))
             {
-                var newContact = await _contactService.CreateNewContactAsync(result.Address, result.Name);
-
-                if (!string.IsNullOrEmpty(result.Base64ContactPicture))
-                {
-                    newContact.Base64ContactPicture = result.Base64ContactPicture;
-                    await _contactService.UpdateContactAsync(newContact);
-                }
-
-                _allContacts.Add(newContact);
-                await FilterContactsAsync();
-
-                _dialogService.InfoBarMessage("Success", "Contact added successfully", InfoBarMessageType.Success);
+                newContact.Base64ContactPicture = result.Base64ContactPicture;
+                await _contactService.UpdateContactAsync(newContact);
             }
-            catch (Exception ex)
-            {
-                _dialogService.InfoBarMessage("Error", $"Failed to add contact: {ex.Message}", InfoBarMessageType.Error);
-            }
+
+            await ReloadContactsAsync();
+
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_SuccessTitle,
+                Translator.ContactInfoBar_ContactAdded,
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_ErrorTitle,
+                string.Format(Translator.ContactInfoBar_FailedToAddContact, ex.Message),
+                InfoBarMessageType.Error);
         }
     }
 
@@ -147,32 +223,28 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
         var result = await _dialogService.ShowEditContactDialogAsync(contact);
 
-        if (result != null)
+        if (result == null) return;
+
+        try
         {
-            try
-            {
-                // Update the contact properties
-                contact.Name = result.Name;
-                contact.Base64ContactPicture = result.Base64ContactPicture;
-                contact.IsOverridden = result.IsOverridden;
+            contact.Name = result.Name;
+            contact.Base64ContactPicture = result.Base64ContactPicture;
+            contact.IsOverridden = result.IsOverridden;
 
-                await _contactService.UpdateContactAsync(contact);
+            await _contactService.UpdateContactAsync(contact);
+            await ReloadContactsAsync();
 
-                // Update the UI
-                var index = _allContacts.FindIndex(c => c.Address == contact.Address);
-                if (index >= 0)
-                {
-                    _allContacts[index] = contact;
-                }
-
-                await FilterContactsAsync();
-
-                _dialogService.InfoBarMessage("Success", "Contact updated successfully", InfoBarMessageType.Success);
-            }
-            catch (Exception ex)
-            {
-                _dialogService.InfoBarMessage("Error", $"Failed to update contact: {ex.Message}", InfoBarMessageType.Error);
-            }
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_SuccessTitle,
+                Translator.ContactInfoBar_ContactUpdated,
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_ErrorTitle,
+                string.Format(Translator.ContactInfoBar_FailedToUpdateContact, ex.Message),
+                InfoBarMessageType.Error);
         }
     }
 
@@ -181,40 +253,50 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     {
         if (contact == null || contact.IsRootContact)
         {
-            _dialogService.InfoBarMessage("Cannot Delete", "Root contacts cannot be deleted", InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_WarningTitle,
+                Translator.ContactInfoBar_CannotDeleteRoot,
+                InfoBarMessageType.Warning);
             return;
         }
 
-        var result = await _dialogService.ShowConfirmationDialogAsync(
-            $"Are you sure you want to delete the contact '{contact.Name ?? contact.Address}'?",
-            "Delete Contact",
-            "Delete");
+        var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.ContactConfirmDialog_DeleteMessage, contact.Name ?? contact.Address),
+            Translator.ContactConfirmDialog_DeleteTitle,
+            Translator.ContactConfirmDialog_DeleteButton);
 
-        if (result)
+        if (confirmed)
         {
             await DeleteContactsInternalAsync(new[] { contact });
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanDeleteSelectedContacts))]
     private async Task DeleteSelectedContactsAsync()
     {
         if (SelectedContacts.Count == 0) return;
 
-        var deletableContacts = SelectedContacts.Where(c => !c.IsRootContact).ToList();
+        var deletableContacts = SelectedContacts
+            .Where(c => c != null && !c.IsRootContact)
+            .GroupBy(c => c.Address, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
 
         if (deletableContacts.Count == 0)
         {
-            _dialogService.InfoBarMessage("Cannot Delete", "Root contacts cannot be deleted", InfoBarMessageType.Warning);
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_WarningTitle,
+                Translator.ContactInfoBar_CannotDeleteRoot,
+                InfoBarMessageType.Warning);
             return;
         }
 
-        var result = await _dialogService.ShowConfirmationDialogAsync(
-            $"Are you sure you want to delete {deletableContacts.Count} contact(s)?",
-            "Delete Contacts",
-            "Delete");
+        var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.ContactConfirmDialog_DeleteMultipleMessage, deletableContacts.Count),
+            Translator.ContactConfirmDialog_DeleteTitle,
+            Translator.ContactConfirmDialog_DeleteButton);
 
-        if (result)
+        if (confirmed)
         {
             await DeleteContactsInternalAsync(deletableContacts);
         }
@@ -224,51 +306,63 @@ public partial class ContactsPageViewModel : MailBaseViewModel
     {
         try
         {
-            var addresses = contactsToDelete.Select(c => c.Address);
+            var addresses = contactsToDelete
+                .Select(c => c.Address)
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (addresses.Count == 0) return;
+
             await _contactService.DeleteContactsAsync(addresses);
+            await ReloadContactsAsync();
 
-            // Update local collections
-            foreach (var contact in contactsToDelete.ToList())
-            {
-                _allContacts.Remove(contact);
-                SelectedContacts.Remove(contact);
-            }
-
-            await FilterContactsAsync();
-
-            _dialogService.InfoBarMessage("Success", "Contacts deleted successfully", InfoBarMessageType.Success);
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_SuccessTitle,
+                Translator.ContactInfoBar_ContactsDeleted,
+                InfoBarMessageType.Success);
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage("Error", $"Failed to delete contacts: {ex.Message}", InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_ErrorTitle,
+                string.Format(Translator.ContactInfoBar_FailedToDeleteContacts, ex.Message),
+                InfoBarMessageType.Error);
         }
     }
 
     [RelayCommand]
-    private void ToggleSelection()
+    private async Task ToggleSelection()
     {
-        IsSelectionMode = !IsSelectionMode;
+        await ExecuteUIThread(() =>
+        {
+            IsSelectionMode = !IsSelectionMode;
 
-        if (!IsSelectionMode)
+            if (!IsSelectionMode)
+            {
+                SelectedContacts.Clear();
+            }
+        });
+    }
+
+    [RelayCommand]
+    private async Task SelectAllContacts()
+    {
+        await ExecuteUIThread(() =>
         {
             SelectedContacts.Clear();
-        }
+
+            foreach (var contact in Contacts)
+            {
+                SelectedContacts.Add(contact);
+            }
+        });
     }
 
     [RelayCommand]
-    private void SelectAllContacts()
+    private async Task ClearSelection()
     {
-        SelectedContacts.Clear();
-        foreach (var contact in Contacts)
-        {
-            SelectedContacts.Add(contact);
-        }
-    }
-
-    [RelayCommand]
-    private void ClearSelection()
-    {
-        SelectedContacts.Clear();
+        await ExecuteUIThread(() => { SelectedContacts.Clear(); });
     }
 
     [RelayCommand]
@@ -287,20 +381,77 @@ public partial class ContactsPageViewModel : MailBaseViewModel
 
                 contact.Base64ContactPicture = base64Image;
                 await _contactService.UpdateContactAsync(contact);
+                await RefreshContactInUiAsync(contact);
 
-                await FilterContactsAsync();
-                _dialogService.InfoBarMessage("Success", "Contact photo updated successfully", InfoBarMessageType.Success);
+                _dialogService.InfoBarMessage(
+                    Translator.ContactInfoBar_SuccessTitle,
+                    Translator.ContactInfoBar_ContactPhotoUpdated,
+                    InfoBarMessageType.Success);
             }
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage("Error", $"Failed to update photo: {ex.Message}", InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_ErrorTitle,
+                string.Format(Translator.ContactInfoBar_FailedToUpdatePhoto, ex.Message),
+                InfoBarMessageType.Error);
         }
     }
 
+    private async Task RefreshContactInUiAsync(AccountContact contact)
+    {
+        if (contact == null || string.IsNullOrWhiteSpace(contact.Address))
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            ReplaceContactByAddress(Contacts, contact);
+            ReplaceContactByAddress(SelectedContacts, contact);
+        });
+    }
+
+    private static void ReplaceContactByAddress(ObservableCollection<AccountContact> source, AccountContact updatedContact)
+    {
+        var index = source
+            .Select((item, i) => new { item, i })
+            .FirstOrDefault(x => string.Equals(x.item.Address, updatedContact.Address, StringComparison.OrdinalIgnoreCase))
+            ?.i ?? -1;
+
+        if (index < 0) return;
+
+        source[index] = CloneContact(updatedContact);
+    }
+
+    private static AccountContact CloneContact(AccountContact contact)
+        => new()
+        {
+            Address = contact.Address,
+            Name = contact.Name,
+            Base64ContactPicture = contact.Base64ContactPicture,
+            IsRootContact = contact.IsRootContact,
+            IsOverridden = contact.IsOverridden
+        };
+
     partial void OnSearchQueryChanged(string value)
     {
-        // Debounce search - implement if needed
-        SearchContactsCommand.ExecuteAsync(null);
+        DebounceSearchAndReload();
+    }
+
+    private async void DebounceSearchAndReload()
+    {
+        _searchDebounceCancellationTokenSource?.Cancel();
+        _searchDebounceCancellationTokenSource?.Dispose();
+
+        _searchDebounceCancellationTokenSource = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(250, _searchDebounceCancellationTokenSource.Token);
+            await ReloadContactsAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore stale search input.
+        }
     }
 }

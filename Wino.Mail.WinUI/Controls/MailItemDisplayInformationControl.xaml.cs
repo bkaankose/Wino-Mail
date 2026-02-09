@@ -51,9 +51,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsHoverActionsEnabled { get; set; }
 
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool IsBusy { get; set; }
-
     public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
 
     [GeneratedDependencyProperty(DefaultValue = false)]
@@ -62,48 +59,11 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     [GeneratedDependencyProperty]
     public partial IMailListItem? ActionItem { get; set; }
 
-    #region Display Properties
-
     [GeneratedDependencyProperty]
-    public partial string? Subject { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial string? FromName { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial string? FromAddress { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial string? PreviewText { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsRead { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsDraft { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool HasAttachments { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial bool IsFlagged { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial DateTime CreationDate { get; set; }
-
-    [GeneratedDependencyProperty]
-    public partial string? Base64ContactPicture { get; set; }
+    public partial IMailItemDisplayInformation? MailItemInformation { get; set; }
 
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool IsThreadExpanderVisible { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool IsThreadExpanded { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = false)]
-    public partial bool IsThumbnailUpdated { get; set; }
-
-    #endregion
 
     public MailItemDisplayInformationControl()
     {
@@ -138,16 +98,14 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         _compositor = this.Visual().Compositor;
     }
 
-    partial void OnIsBusyChanged(bool newValue)
+    partial void OnMailItemInformationPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
-        if (newValue)
+        if (ActionItem == null && MailItemInformation is IMailListItem mailListItem)
         {
-            StartBusyAnimation();
+            ActionItem = mailListItem;
         }
-        else
-        {
-            StopBusyAnimation();
-        }
+
+        UpdateBusyAnimationState();
     }
 
     private void StartBusyAnimation()
@@ -184,9 +142,15 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         _opacityAnimation = null;
     }
 
-    partial void OnIsFlaggedChanged(bool newValue)
+    private void UpdateBusyAnimationState()
     {
+        if (MailItemInformation?.IsBusy == true)
+        {
+            StartBusyAnimation();
+            return;
+        }
 
+        StopBusyAnimation();
     }
 
     private void ControlPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)

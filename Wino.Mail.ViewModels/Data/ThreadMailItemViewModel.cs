@@ -4,14 +4,16 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Thread mail item (multiple IMailItem) view model representation.
 /// </summary>
-public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListItem
+public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
     private readonly string _threadId;
     private readonly HashSet<Guid> _uniqueIdSet = [];
@@ -150,6 +152,8 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
     public bool ThumbnailUpdatedEvent => latestMailViewModel?.ThumbnailUpdatedEvent ?? false;
 
+    public AccountContact SenderContact => latestMailViewModel?.MailCopy?.SenderContact;
+
     /// <summary>
     /// Gets all emails in this thread (observable)
     /// </summary>
@@ -177,6 +181,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(FolderId))]
     [NotifyPropertyChangedFor(nameof(UniqueId))]
     [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
+    [NotifyPropertyChangedFor(nameof(SenderContact))]
     public partial ObservableCollection<MailItemViewModel> ThreadEmails { get; set; } = [];
 
     private MailItemViewModel latestMailViewModel => _cachedLatestMailViewModel;
@@ -260,6 +265,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         OnPropertyChanged(nameof(FolderId));
         OnPropertyChanged(nameof(UniqueId));
         OnPropertyChanged(nameof(Base64ContactPicture));
+        OnPropertyChanged(nameof(SenderContact));
         OnPropertyChanged(nameof(ThumbnailUpdatedEvent));
         OnPropertyChanged(nameof(SortingDate));
         OnPropertyChanged(nameof(SortingName));

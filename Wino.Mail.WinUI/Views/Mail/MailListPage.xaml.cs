@@ -633,7 +633,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         //   * Clicking a single (non-thread) item OR a child item: collapse & unselect all others then toggle that item's selection.
         //       If it was selected, result is nothing selected.
 
-        bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed();
+        // Treat toolbar multi-select mode the same as holding CTRL for click selection behavior.
+        bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed() || ViewModel.IsMultiSelectionModeEnabled;
 
         // Helper local to collapse all other threads (we always collapse ALL then possibly re-expand the active thread per rules)
         async Task CollapseAllThreadsExceptAsync(ThreadMailItemViewModel? except)
@@ -645,6 +646,36 @@ public sealed partial class MailListPage : MailListPageAbstract,
             {
                 // We'll expand explicitly when required by logic below.
                 except.IsThreadExpanded = true;
+            }
+        }
+
+        ThreadMailItemViewModel? FindParentThread(MailItemViewModel mail)
+        {
+            foreach (var group in ViewModel.MailCollection.MailItems)
+            {
+                foreach (var item in group)
+                {
+                    if (item is ThreadMailItemViewModel thread && thread.ThreadEmails.Contains(mail))
+                    {
+                        return thread;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        static void SyncThreadSelectionFromChildren(ThreadMailItemViewModel? thread)
+        {
+            if (thread == null) return;
+
+            bool hasSelectedChildren = thread.ThreadEmails.Any(child => child.IsSelected);
+            thread.IsSelected = hasSelectedChildren;
+
+            // Keep thread open while it has selected children.
+            if (hasSelectedChildren)
+            {
+                thread.IsThreadExpanded = true;
             }
         }
 
@@ -678,6 +709,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                     {
                         // Toggle just this item; no collapse/unselect of others in multi-select mode.
                         mail.IsSelected = !mail.IsSelected;
+                        SyncThreadSelectionFromChildren(FindParentThread(mail));
                         break;
                     }
             }
@@ -730,20 +762,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             // Determine if this mail belongs to an already selected & expanded thread.
             // If so, we only want to switch the selection inside that thread without collapsing or unselecting the thread header.
-            ThreadMailItemViewModel? parentThread = null;
-
-            foreach (var group in ViewModel.MailCollection.MailItems)
-            {
-                foreach (var item in group)
-                {
-                    if (item is ThreadMailItemViewModel thread && thread.ThreadEmails.Contains(clickedMail))
-                    {
-                        parentThread = thread;
-                        break;
-                    }
-                }
-                if (parentThread != null) break;
-            }
+            ThreadMailItemViewModel? parentThread = FindParentThread(clickedMail);
 
             bool isInSelectedExpandedThread = parentThread != null && parentThread.IsSelected && parentThread.IsThreadExpanded;
 
@@ -758,20 +777,31 @@ public sealed partial class MailListPage : MailListPageAbstract,
                     }
                 }
 
-                if (wasSelected && parentThread != null)
-                {
-                    // Clicking the already selected child should leave the thread header selected (canonical state: thread + first child previously).
-                    // Decide whether to keep a child selected; spec wants toggle off allowed, so leave no child selected.
-                    // Ensure parent thread stays selected & expanded.
-                    parentThread.IsSelected = true;
-                    parentThread.IsThreadExpanded = true;
-                }
+                SyncThreadSelectionFromChildren(parentThread);
                 return; // Done.
             }
 
             // Normal single-item (non-thread or entering a thread via child) behavior.
             await ViewModel.MailCollection.UnselectAllAsync();
-            await ViewModel.MailCollection.CollapseAllThreadsAsync();
+
+            // If parent thread is already expanded, keep it as-is to avoid collapse/expand animation.
+            if (parentThread != null && parentThread.IsThreadExpanded)
+            {
+                foreach (var group in ViewModel.MailCollection.MailItems)
+                {
+                    foreach (var item in group)
+                    {
+                        if (item is ThreadMailItemViewModel thread && !ReferenceEquals(thread, parentThread))
+                        {
+                            thread.IsThreadExpanded = false;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                await ViewModel.MailCollection.CollapseAllThreadsAsync();
+            }
 
             if (parentThread != null && selectExpandThread)
             {
@@ -784,6 +814,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
             {
                 clickedMail.IsSelected = true; // Toggle on
             }
+
+            SyncThreadSelectionFromChildren(parentThread);
         }
     }
 

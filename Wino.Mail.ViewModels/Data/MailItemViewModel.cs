@@ -2,14 +2,16 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
 /// Single view model for IMailItem representation.
 /// </summary>
-public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient, IMailListItem
+public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient, IMailListItem, IMailItemDisplayInformation
 {
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CreationDate))]
@@ -33,6 +35,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [NotifyPropertyChangedFor(nameof(FolderId))]
     [NotifyPropertyChangedFor(nameof(UniqueId))]
     [NotifyPropertyChangedFor(nameof(Base64ContactPicture))]
+    [NotifyPropertyChangedFor(nameof(SenderContact))]
     public partial MailCopy MailCopy { get; set; } = mailCopy;
 
     [ObservableProperty]
@@ -57,6 +60,10 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     /// </summary>
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
+
+    public bool IsThreadExpanded => false;
+
+    public AccountContact SenderContact => MailCopy.SenderContact;
 
     public DateTime CreationDate
     {
@@ -260,6 +267,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         OnPropertyChanged(nameof(FolderId));
         OnPropertyChanged(nameof(UniqueId));
         OnPropertyChanged(nameof(Base64ContactPicture));
+        OnPropertyChanged(nameof(SenderContact));
         OnPropertyChanged(nameof(SortingDate));
         OnPropertyChanged(nameof(SortingName));
     }

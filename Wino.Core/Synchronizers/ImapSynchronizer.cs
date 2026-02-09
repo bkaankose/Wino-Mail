@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
+using MimeKit;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
@@ -334,12 +335,57 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             // Local copy doesn't exists. Continue execution to insert mail copy.
         }
 
-        var package = new NewMailItemPackage(mailCopy, message.MimeMessage, assignedFolder.RemoteFolderId);
+        var contacts = ExtractContactsFromMimeMessage(message.MimeMessage);
+        var package = new NewMailItemPackage(mailCopy, message.MimeMessage, assignedFolder.RemoteFolderId, contacts);
 
         return
         [
             package
         ];
+    }
+
+    private static IReadOnlyList<AccountContact> ExtractContactsFromMimeMessage(MimeMessage mimeMessage)
+    {
+        if (mimeMessage == null) return [];
+
+        var contacts = new Dictionary<string, AccountContact>(StringComparer.OrdinalIgnoreCase);
+
+        AddFromInternetAddressList(mimeMessage.From);
+        AddFromInternetAddressList(mimeMessage.To);
+        AddFromInternetAddressList(mimeMessage.Cc);
+        AddFromInternetAddressList(mimeMessage.Bcc);
+        AddFromInternetAddressList(mimeMessage.ReplyTo);
+
+        if (mimeMessage.Sender is MailboxAddress senderMailbox)
+        {
+            AddContact(senderMailbox.Address, senderMailbox.Name);
+        }
+
+        return contacts.Values.ToList();
+
+        void AddFromInternetAddressList(InternetAddressList addresses)
+        {
+            if (addresses == null) return;
+
+            foreach (var mailbox in addresses.Mailboxes)
+            {
+                AddContact(mailbox.Address, mailbox.Name);
+            }
+        }
+
+        void AddContact(string address, string name)
+        {
+            var trimmedAddress = address?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedAddress)) return;
+
+            var displayName = string.IsNullOrWhiteSpace(name) ? trimmedAddress : name.Trim();
+
+            contacts[trimmedAddress] = new AccountContact
+            {
+                Address = trimmedAddress,
+                Name = displayName
+            };
+        }
     }
 
     protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)

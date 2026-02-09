@@ -49,7 +49,7 @@
                     VerticalAlignment="Top"
                     Canvas.ZIndex="0"
                     Fill="{ThemeResource SystemAccentColor}"
-                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(MailItemInformation.IsRead), Mode=OneWay}" />
             </Grid>
 
 
@@ -73,10 +73,7 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     FontSize="14"
-                    FromAddress="{x:Bind FromAddress, Mode=OneWay}"
-                    FromName="{x:Bind FromName, Mode=OneWay}"
-                    SenderContactPicture="{x:Bind Base64ContactPicture, Mode=OneWay}"
-                    ThumbnailUpdatedEvent="{x:Bind IsThumbnailUpdated, Mode=OneWay}"
+                    MailItemInformation="{x:Bind MailItemInformation, Mode=OneWay}"
                     Visibility="{x:Bind IsAvatarVisible, Mode=OneWay}" />
 
                 <Grid
@@ -104,7 +101,7 @@
                             <TextBlock
                                 x:Name="DraftTitle"
                                 Margin="0,0,4,0"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
+                                x:Load="{x:Bind MailItemInformation.IsDraft, Mode=OneWay}"
                                 Foreground="{StaticResource DeleteBrush}">
 
                                 <Run Text="[" /><Run Text="{x:Bind domain:Translator.Draft}" /><Run Text="]" /> <Run Text=" " />
@@ -114,17 +111,17 @@
                             <TextBlock
                                 x:Name="SenderTextFromName"
                                 Grid.Column="1"
-                                Text="{x:Bind FromName, Mode=OneWay}"
+                                Text="{x:Bind MailItemInformation.FromName, Mode=OneWay}"
                                 TextTrimming="WordEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(MailItemInformation.FromName), Mode=OneWay}" />
 
                             <!--  Sender  -->
                             <TextBlock
                                 x:Name="SenderTextFromAddress"
                                 Grid.Column="1"
-                                Text="{x:Bind FromAddress}"
+                                Text="{x:Bind MailItemInformation.FromAddress}"
                                 TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItemInformation.FromName), Mode=OneWay}" />
 
                             <!--  Hover button  -->
                             <StackPanel
@@ -194,7 +191,7 @@
                                 x:Name="TitleText"
                                 Grid.Column="1"
                                 MaxLines="1"
-                                Text="{x:Bind Subject, Mode=OneWay}"
+                                Text="{x:Bind MailItemInformation.Subject, Mode=OneWay}"
                                 TextTrimming="CharacterEllipsis" />
 
                             <TextBlock
@@ -204,7 +201,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="11"
                                 Opacity="0.7"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, Prefer24HourTimeFormat), Mode=OneWay}" />
+                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(MailItemInformation.IsDraft, MailItemInformation.CreationDate, Prefer24HourTimeFormat), Mode=OneWay}" />
                         </Grid>
 
                         <!--  Message  -->
@@ -220,10 +217,10 @@
                             <Grid x:Name="PreviewTextContainer">
                                 <TextBlock
                                     x:Name="PreviewTextblock"
-                                    x:Load="{x:Bind helpers:XamlHelpers.ShouldDisplayPreview(PreviewText), Mode=OneWay}"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ShouldDisplayPreview(MailItemInformation.PreviewText), Mode=OneWay}"
                                     MaxLines="1"
                                     Opacity="0.7"
-                                    Text="{x:Bind PreviewText, Mode=OneWay}"
+                                    Text="{x:Bind MailItemInformation.PreviewText, Mode=OneWay}"
                                     TextTrimming="CharacterEllipsis" />
                             </Grid>
 
@@ -237,12 +234,12 @@
 
                                 <ContentPresenter
                                     x:Name="HasAttachmentContent"
-                                    x:Load="{x:Bind HasAttachments, Mode=OneWay}"
+                                    x:Load="{x:Bind MailItemInformation.HasAttachments, Mode=OneWay}"
                                     ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
 
                                 <ContentPresenter
                                     x:Name="IsFlaggedContent"
-                                    x:Load="{x:Bind IsFlagged, Mode=OneWay}"
+                                    x:Load="{x:Bind MailItemInformation.IsFlagged, Mode=OneWay}"
                                     ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
 
                                 <ProgressRing
@@ -250,7 +247,7 @@
                                     Height="3"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Bottom"
-                                    IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                                    IsActive="{x:Bind MailItemInformation.IsBusy, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
                     </Grid>
@@ -263,7 +260,7 @@
             <VisualStateGroup x:Name="ReadStates">
                 <VisualState x:Name="Unread">
                     <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind IsRead, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}" />
+                        <StateTrigger IsActive="{x:Bind MailItemInformation.IsRead, Converter={StaticResource ReverseBooleanConverter}, Mode=OneWay}" />
                     </VisualState.StateTriggers>
 
                     <VisualState.Setters>
@@ -335,7 +332,7 @@
                         <Setter Target="ExpandCollapseChevron.(controls:AnimatedIcon.State)" Value="NormalOn" />
                     </VisualState.Setters>
                     <VisualState.StateTriggers>
-                        <StateTrigger IsActive="{x:Bind IsThreadExpanded, Mode=OneWay}" />
+                        <StateTrigger IsActive="{x:Bind MailItemInformation.IsThreadExpanded, Mode=OneWay}" />
                     </VisualState.StateTriggers>
                 </VisualState>
             </VisualStateGroup>

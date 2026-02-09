@@ -289,6 +289,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             var folders = await _gmailChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
             var syncableFolders = folders
                 .Where(f => f.IsSynchronizationEnabled && f.RemoteFolderId != ServiceConstants.ARCHIVE_LABEL_ID)
+                .OrderByDescending(f => f.SpecialFolderType == SpecialFolderType.Draft || f.RemoteFolderId == ServiceConstants.DRAFT_LABEL_ID)
                 .ToList();
 
             var totalFolders = syncableFolders.Count;
@@ -328,8 +329,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
                         if (newMessageIds.Count > 0)
                         {
-                            // Download metadata in batches (no raw MIME during initial sync)
-                            await DownloadMessagesInBatchAsync(newMessageIds, downloadRawMime: false, cancellationToken).ConfigureAwait(false);
+                            // Draft folder needs MIME during initial sync so compose can open immediately.
+                            bool shouldDownloadRawMime = folder.SpecialFolderType == SpecialFolderType.Draft || folder.RemoteFolderId == ServiceConstants.DRAFT_LABEL_ID;
+                            await DownloadMessagesInBatchAsync(newMessageIds, downloadRawMime: shouldDownloadRawMime, cancellationToken).ConfigureAwait(false);
 
                             foreach (var id in newMessageIds)
                             {
@@ -1848,6 +1850,88 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return ("", emailOnly);
     }
 
+    private static IReadOnlyList<AccountContact> ExtractContactsFromGmailMessage(Message message, MimeMessage mimeMessage)
+    {
+        var contacts = new Dictionary<string, AccountContact>(StringComparer.OrdinalIgnoreCase);
+
+        AddFromHeaders(message?.Payload?.Headers);
+
+        if (mimeMessage != null)
+        {
+            AddFromInternetAddressList(mimeMessage.From);
+            AddFromInternetAddressList(mimeMessage.To);
+            AddFromInternetAddressList(mimeMessage.Cc);
+            AddFromInternetAddressList(mimeMessage.Bcc);
+            AddFromInternetAddressList(mimeMessage.ReplyTo);
+
+            if (mimeMessage.Sender is MailboxAddress senderMailbox)
+            {
+                AddContact(senderMailbox.Address, senderMailbox.Name);
+            }
+        }
+
+        return contacts.Values.ToList();
+
+        void AddFromHeaders(IList<MessagePartHeader> headers)
+        {
+            if (headers == null || headers.Count == 0) return;
+
+            AddFromHeader("From");
+            AddFromHeader("Sender");
+            AddFromHeader("To");
+            AddFromHeader("Cc");
+            AddFromHeader("Bcc");
+            AddFromHeader("Reply-To");
+
+            void AddFromHeader(string headerName)
+            {
+                var headerValue = headers
+                    .FirstOrDefault(h => h.Name.Equals(headerName, StringComparison.OrdinalIgnoreCase))
+                    ?.Value;
+
+                if (string.IsNullOrWhiteSpace(headerValue)) return;
+
+                try
+                {
+                    var addresses = InternetAddressList.Parse(headerValue);
+                    foreach (var mailbox in addresses.Mailboxes)
+                    {
+                        AddContact(mailbox.Address, mailbox.Name);
+                    }
+                }
+                catch
+                {
+                    var (name, email) = ExtractNameAndEmailFromHeader(headerValue);
+                    AddContact(email, name);
+                }
+            }
+        }
+
+        void AddFromInternetAddressList(InternetAddressList addresses)
+        {
+            if (addresses == null) return;
+
+            foreach (var mailbox in addresses.Mailboxes)
+            {
+                AddContact(mailbox.Address, mailbox.Name);
+            }
+        }
+
+        void AddContact(string address, string name)
+        {
+            var trimmedAddress = address?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedAddress)) return;
+
+            var displayName = string.IsNullOrWhiteSpace(name) ? trimmedAddress : name.Trim();
+
+            contacts[trimmedAddress] = new AccountContact
+            {
+                Address = trimmedAddress,
+                Name = displayName
+            };
+        }
+    }
+
     /// <summary>
     /// Creates new mail packages for the given message.
     /// AssignedFolder is null since the LabelId is parsed out of the Message.
@@ -1886,6 +1970,8 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // Raw responses don't include metadata headers. Backfill important fields from MIME.
             EnrichMailCopyFromMime(baseMailCopy, mimeMessage);
         }
+
+        var extractedContacts = ExtractContactsFromGmailMessage(message, mimeMessage);
 
         // Check for local draft mapping using X-Wino-Draft-Id header.
         // For Metadata format we read from Payload.Headers.
@@ -1962,7 +2048,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
                 mailCopyForLabel.Id = sharedId;
                 mailCopyForLabel.FileId = sharedFileId;
 
-                packageList.Add(new NewMailItemPackage(mailCopyForLabel, mimeMessage, labelId));
+                packageList.Add(new NewMailItemPackage(mailCopyForLabel, mimeMessage, labelId, extractedContacts));
             }
         }
 

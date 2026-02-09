@@ -129,3 +129,4 @@ private string searchQuery = string.Empty;
 - String interpolation over string.Format
 - Wrap async operations in try-catch
 - Log errors via IWinoLogger
+- In ViewModels, update all UI-bound properties/collections via `ExecuteUIThread(...)` (especially after awaited calls and any use of `ConfigureAwait(false)`).

@@ -715,11 +715,12 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = mailItemFolder.Id;
 
+        await SaveContactsForPackageAsync(package).ConfigureAwait(false);
+
         var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
-        var contactSaveTask = _contactService.SaveAddressInformationAsync(mimeMessage);
         var insertMailTask = InsertMailAsync(mailCopy);
 
-        await Task.WhenAll(mimeSaveTask, contactSaveTask, insertMailTask).ConfigureAwait(false);
+        await Task.WhenAll(mimeSaveTask, insertMailTask).ConfigureAwait(false);
     }
 
     public async Task CreateMailAsyncEx(Guid accountId, NewMailItemPackage package)
@@ -780,9 +781,10 @@ public class MailService : BaseDatabaseService, IMailService
                 }
             }
 
-            // Save contact information.
-            await _contactService.SaveAddressInformationAsync(mimeMessage).ConfigureAwait(false);
         }
+
+        // Save contact information extracted from provider API or MIME before insert/update.
+        await SaveContactsForPackageAsync(package).ConfigureAwait(false);
 
         // Create mail copy in the database.
         // Update if exists.
@@ -812,6 +814,35 @@ public class MailService : BaseDatabaseService, IMailService
 
             return true;
         }
+    }
+
+    private async Task SaveContactsForPackageAsync(NewMailItemPackage package)
+    {
+        if (package == null) return;
+
+        if (package.Mime != null)
+        {
+            await _contactService.SaveAddressInformationAsync(package.Mime).ConfigureAwait(false);
+            return;
+        }
+
+        var contacts = package.ExtractedContacts?
+            .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Address))
+            .ToList() ?? new List<AccountContact>();
+
+        var senderAddress = package.Copy?.FromAddress;
+        if (!string.IsNullOrWhiteSpace(senderAddress))
+        {
+            contacts.Add(new AccountContact
+            {
+                Address = senderAddress,
+                Name = string.IsNullOrWhiteSpace(package.Copy?.FromName) ? senderAddress : package.Copy.FromName
+            });
+        }
+
+        if (contacts.Count == 0) return;
+
+        await _contactService.SaveAddressInformationAsync(contacts).ConfigureAwait(false);
     }
 
     private async Task<MimeMessage> CreateDraftMimeAsync(MailAccount account, DraftCreationOptions draftCreationOptions)

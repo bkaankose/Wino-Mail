@@ -90,6 +90,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         "Id",
         "ConversationId",
         "From",
+        "Sender",
+        "ToRecipients",
+        "CcRecipients",
+        "BccRecipients",
+        "ReplyTo",
         "Subject",
         "ParentFolderId",
         "InternetMessageId",
@@ -375,27 +380,49 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                         if (!mailExists)
                         {
-                            // Create MailCopy from metadata
-                            var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
-
-                            if (mailCopy != null)
+                            // For drafts, download MIME during initial sync like delta sync.
+                            if (folder.SpecialFolderType == SpecialFolderType.Draft)
                             {
-                                // Create package without MIME
-                                var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
-                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                                var draftPackages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
 
-                                if (isInserted)
+                                if (draftPackages != null)
                                 {
-                                    downloadedMessageIds.Add(mailCopy.Id);
-                                    totalProcessed++;
-
-                                    // Update progress periodically
-                                    if (totalProcessed % 50 == 0)
+                                    foreach (var package in draftPackages)
                                     {
-                                        var statusMessage = string.Format(Translator.Sync_DownloadedMessages, totalProcessed, folder.FolderName);
-                                        UpdateSyncProgress(0, 0, statusMessage);
+                                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                                        if (isInserted)
+                                        {
+                                            downloadedMessageIds.Add(package.Copy.Id);
+                                            totalProcessed++;
+                                        }
                                     }
                                 }
+                            }
+                            else
+                            {
+                                // Create MailCopy from metadata
+                                var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
+
+                                if (mailCopy != null)
+                                {
+                                    // Create package without MIME
+                                    var contacts = ExtractContactsFromOutlookMessage(message);
+                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts);
+                                    bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                                    if (isInserted)
+                                    {
+                                        downloadedMessageIds.Add(mailCopy.Id);
+                                        totalProcessed++;
+                                    }
+                                }
+                            }
+
+                            // Update progress periodically
+                            if (totalProcessed > 0 && totalProcessed % 50 == 0)
+                            {
+                                var statusMessage = string.Format(Translator.Sync_DownloadedMessages, totalProcessed, folder.FolderName);
+                                UpdateSyncProgress(0, 0, statusMessage);
                             }
                         }
                         else
@@ -551,7 +578,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                             if (mailCopy != null)
                             {
                                 // Create package without MIME
-                                var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId);
+                                var contacts = ExtractContactsFromOutlookMessage(message);
+                                var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts);
                                 bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
 
                                 if (isInserted)
@@ -684,6 +712,64 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
 
         return mailCopy;
+    }
+
+    private static IReadOnlyList<AccountContact> ExtractContactsFromOutlookMessage(Message message)
+    {
+        if (message == null) return [];
+
+        var contacts = new Dictionary<string, AccountContact>(StringComparer.OrdinalIgnoreCase);
+
+        AddRecipient(message.From?.EmailAddress);
+        AddRecipient(message.Sender?.EmailAddress);
+
+        if (message.ToRecipients != null)
+        {
+            foreach (var recipient in message.ToRecipients)
+            {
+                AddRecipient(recipient?.EmailAddress);
+            }
+        }
+
+        if (message.CcRecipients != null)
+        {
+            foreach (var recipient in message.CcRecipients)
+            {
+                AddRecipient(recipient?.EmailAddress);
+            }
+        }
+
+        if (message.BccRecipients != null)
+        {
+            foreach (var recipient in message.BccRecipients)
+            {
+                AddRecipient(recipient?.EmailAddress);
+            }
+        }
+
+        if (message.ReplyTo != null)
+        {
+            foreach (var recipient in message.ReplyTo)
+            {
+                AddRecipient(recipient?.EmailAddress);
+            }
+        }
+
+        return contacts.Values.ToList();
+
+        void AddRecipient(EmailAddress emailAddress)
+        {
+            var address = emailAddress?.Address?.Trim();
+            if (string.IsNullOrWhiteSpace(address)) return;
+
+            var displayName = string.IsNullOrWhiteSpace(emailAddress.Name) ? address : emailAddress.Name.Trim();
+
+            contacts[address] = new AccountContact
+            {
+                Address = address,
+                Name = displayName
+            };
+        }
     }
 
     private string GetDeltaTokenFromDeltaLink(string deltaLink)
@@ -1790,7 +1876,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         // Outlook messages can only be assigned to 1 folder at a time.
         // Therefore we don't need to create multiple copies of the same message for different folders.
-        var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId);
+        var contacts = ExtractContactsFromOutlookMessage(message);
+        var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId, contacts);
 
         return [package];
     }

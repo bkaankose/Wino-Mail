@@ -5,14 +5,13 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="Edit Contact"
     HorizontalContentAlignment="Stretch"
     DefaultButton="Primary"
     IsPrimaryButtonEnabled="True"
     PrimaryButtonClick="SaveClicked"
-    PrimaryButtonText="Save"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
     SecondaryButtonClick="CancelClicked"
-    SecondaryButtonText="Cancel"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
 
@@ -24,15 +23,15 @@
         <!--  Contact Name  -->
         <TextBox
             x:Name="ContactNameTextBox"
-            Header="Name"
-            PlaceholderText="Contact name"
+            Header="{x:Bind domain:Translator.ContactEditDialog_NameHeader, Mode=OneTime}"
+            PlaceholderText="{x:Bind domain:Translator.ContactEditDialog_NamePlaceholder, Mode=OneTime}"
             TextChanged="ValidateInput" />
 
         <!--  Email Address  -->
         <TextBox
             x:Name="EmailAddressTextBox"
-            Header="Email Address"
-            PlaceholderText="contact@example.com"
+            Header="{x:Bind domain:Translator.ContactEditDialog_EmailHeader, Mode=OneTime}"
+            PlaceholderText="{x:Bind domain:Translator.ContactEditDialog_EmailPlaceholder, Mode=OneTime}"
             TextChanged="ValidateInput" />
 
         <!--  Contact Photo  -->
@@ -40,7 +39,7 @@
             <TextBlock
                 Margin="0,0,0,8"
                 FontWeight="SemiBold"
-                Text="Photo" />
+                Text="{x:Bind domain:Translator.ContactEditDialog_PhotoSection, Mode=OneTime}" />
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -61,11 +60,12 @@
                     <Button
                         x:Name="ChoosePhotoButton"
                         Click="ChoosePhotoClicked"
-                        Content="Choose Photo" />
+                        Content="{x:Bind domain:Translator.ContactEditDialog_ChoosePhoto, Mode=OneTime}" />
                     <Button
                         x:Name="RemovePhotoButton"
                         Click="RemovePhotoClicked"
-                        Content="Remove Photo" />
+                        Content="{x:Bind domain:Translator.ContactEditDialog_RemovePhoto, Mode=OneTime}"
+                        Visibility="Collapsed" />
                 </StackPanel>
             </Grid>
         </StackPanel>
@@ -79,7 +79,7 @@
             Visibility="Collapsed">
             <TextBlock
                 Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                Text="This is a root contact and cannot be deleted."
+                Text="{x:Bind domain:Translator.ContactEditDialog_RootContactInfo, Mode=OneTime}"
                 TextWrapping="Wrap" />
         </Border>
 
@@ -91,7 +91,7 @@
             Visibility="Collapsed">
             <TextBlock
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                Text="This contact has been manually modified."
+                Text="{x:Bind domain:Translator.ContactEditDialog_OverriddenContactInfo, Mode=OneTime}"
                 TextWrapping="Wrap" />
         </Border>
     </StackPanel>

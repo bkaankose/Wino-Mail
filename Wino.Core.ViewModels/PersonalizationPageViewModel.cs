@@ -1,11 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
@@ -28,9 +31,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public MailCopy DemoPreviewMailCopy { get; } = new MailCopy()
     {
         FromName = "Sender Name",
+        FromAddress = "sender@wino.mail",
         Subject = "Mail Subject",
         PreviewText = "Thank you for using Wino Mail. We hope you enjoy the experience.",
     };
+
+    public IMailItemDisplayInformation DemoPreviewMailItemInformation { get; }
 
     #region Personalization
 
@@ -146,6 +152,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
         StatePersistenceService = statePersistanceService;
         PreferencesService = preferencesService;
+
+        DemoPreviewMailItemInformation = new DemoMailItemDisplayInformation(
+            DemoPreviewMailCopy.FromName,
+            DemoPreviewMailCopy.FromAddress,
+            DemoPreviewMailCopy.Subject,
+            DemoPreviewMailCopy.PreviewText);
 
         CreateCustomThemeCommand = new AsyncRelayCommand(CreateCustomThemeAsync);
     }
@@ -310,6 +322,33 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
                 PreferencesService.MailItemDisplayMode = SelectedInfoDisplayMode;
             else if (e.PropertyName == nameof(SelectedAppColor))
                 _newThemeService.AccentColor = SelectedAppColor.Hex;
+        }
+    }
+
+    private sealed class DemoMailItemDisplayInformation(
+        string fromName,
+        string fromAddress,
+        string subject,
+        string previewText) : IMailItemDisplayInformation
+    {
+        public string Subject { get; } = subject;
+        public string FromName { get; } = fromName;
+        public string FromAddress { get; } = fromAddress;
+        public string PreviewText { get; } = previewText;
+        public bool IsRead { get; } = false;
+        public bool IsDraft { get; } = false;
+        public bool HasAttachments { get; } = false;
+        public bool IsFlagged { get; } = false;
+        public DateTime CreationDate { get; } = DateTime.Now;
+        public string Base64ContactPicture { get; } = string.Empty;
+        public bool ThumbnailUpdatedEvent { get; } = false;
+        public bool IsBusy { get; } = false;
+        public bool IsThreadExpanded { get; } = false;
+        public AccountContact SenderContact { get; } = null;
+        event PropertyChangedEventHandler INotifyPropertyChanged.PropertyChanged
+        {
+            add { }
+            remove { }
         }
     }
 }
