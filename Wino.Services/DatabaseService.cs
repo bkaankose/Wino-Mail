@@ -60,7 +60,8 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<CalendarEventAttendee>(),
             Connection.CreateTableAsync<CalendarItem>(),
             Connection.CreateTableAsync<CalendarAttachment>(),
-            Connection.CreateTableAsync<Reminder>()
+            Connection.CreateTableAsync<Reminder>(),
+            Connection.CreateTableAsync<MailInvitationCalendarMapping>()
             );
     }
 }

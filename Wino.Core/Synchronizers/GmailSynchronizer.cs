@@ -1965,11 +1965,34 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         // Create base MailCopy from metadata only - NO MIME download
         var baseMailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
+        // Initial sync metadata flow does not include MIME, but calendar invitations need MIME
+        // for date rendering and invitation-to-calendar mapping.
+        if (mimeMessage == null && baseMailCopy?.ItemType == MailItemType.CalendarInvitation && !string.IsNullOrEmpty(message?.Id))
+        {
+            try
+            {
+                var rawRequest = _gmailService.Users.Messages.Get("me", message.Id);
+                rawRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Raw;
+
+                var rawMessage = await rawRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(rawMessage?.Raw))
+                {
+                    mimeMessage = rawMessage.GetGmailMimeMessage();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to fetch raw MIME for calendar invitation {MessageId}", message.Id);
+            }
+        }
+
         if (mimeMessage != null)
         {
             // Raw responses don't include metadata headers. Backfill important fields from MIME.
             EnrichMailCopyFromMime(baseMailCopy, mimeMessage);
         }
+
+        await TryMapCalendarInvitationAsync(baseMailCopy, mimeMessage, cancellationToken).ConfigureAwait(false);
 
         var extractedContacts = ExtractContactsFromGmailMessage(message, mimeMessage);
 
@@ -2053,6 +2076,59 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         return packageList;
+    }
+
+    private async Task TryMapCalendarInvitationAsync(MailCopy baseMailCopy, MimeMessage mimeMessage, CancellationToken cancellationToken)
+    {
+        if (baseMailCopy == null || baseMailCopy.ItemType != MailItemType.CalendarInvitation || mimeMessage == null)
+            return;
+
+        var invitationUid = mimeMessage.ExtractInvitationUid();
+        if (string.IsNullOrWhiteSpace(invitationUid))
+            return;
+
+        var calendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        if (calendars == null || calendars.Count == 0)
+            return;
+
+        foreach (var calendar in calendars)
+        {
+            try
+            {
+                var listRequest = _calendarService.Events.List(calendar.RemoteCalendarId);
+                listRequest.ICalUID = invitationUid;
+                listRequest.MaxResults = 1;
+                listRequest.SingleEvents = false;
+
+                var listResponse = await listRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                var matchedEvent = listResponse?.Items?.FirstOrDefault();
+                if (matchedEvent == null || string.IsNullOrWhiteSpace(matchedEvent.Id))
+                    continue;
+
+                await _gmailChangeProcessor.ManageCalendarEventAsync(matchedEvent, calendar, Account).ConfigureAwait(false);
+
+                var localCalendarItem = await _gmailChangeProcessor.GetCalendarItemAsync(calendar.Id, matchedEvent.Id).ConfigureAwait(false);
+                if (localCalendarItem == null)
+                    return;
+
+                await _gmailChangeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping()
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = Account.Id,
+                    MailCopyId = baseMailCopy.Id,
+                    InvitationUid = invitationUid,
+                    CalendarId = calendar.Id,
+                    CalendarItemId = localCalendarItem.Id,
+                    CalendarRemoteEventId = matchedEvent.Id
+                }).ConfigureAwait(false);
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to map Gmail calendar invitation mail {MailCopyId} for calendar {CalendarId}", baseMailCopy.Id, calendar.Id);
+            }
+        }
     }
 
     #endregion

@@ -48,9 +48,22 @@ public class HtmlPreviewVisitor : MimeVisitor
 
     protected override void VisitMultipartAlternative(MultipartAlternative alternative)
     {
-        // walk the multipart/alternative children backwards from greatest level of faithfulness to the least faithful
+        // Prefer rich body alternatives first, and only fall back to calendar text if nothing else exists.
         for (int i = alternative.Count - 1; i >= 0 && Body == null; i--)
+        {
+            if (IsCalendarText(alternative[i]))
+                continue;
+
             alternative[i].Accept(this);
+        }
+
+        for (int i = alternative.Count - 1; i >= 0 && Body == null; i--)
+        {
+            if (!IsCalendarText(alternative[i]))
+                continue;
+
+            alternative[i].Accept(this);
+        }
     }
 
     protected override void VisitMultipartRelated(MultipartRelated related)
@@ -240,6 +253,10 @@ public class HtmlPreviewVisitor : MimeVisitor
 
         Body = converter.Convert(entity.Text);
     }
+
+    private static bool IsCalendarText(MimeEntity entity)
+        => entity is TextPart textPart &&
+           textPart.ContentType?.MimeType?.Equals("text/calendar", StringComparison.OrdinalIgnoreCase) == true;
 
     protected override void VisitTnefPart(TnefPart entity)
     {

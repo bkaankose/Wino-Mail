@@ -380,8 +380,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                         if (!mailExists)
                         {
-                            // For drafts, download MIME during initial sync like delta sync.
-                            if (folder.SpecialFolderType == SpecialFolderType.Draft)
+                            // For drafts and calendar invitations, download MIME during initial sync like delta sync.
+                            var itemType = Account.IsCalendarAccessGranted ? message.GetMailItemType() : MailItemType.Mail;
+                            if (folder.SpecialFolderType == SpecialFolderType.Draft || itemType == MailItemType.CalendarInvitation)
                             {
                                 var draftPackages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
 
@@ -1874,12 +1875,82 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // If draft mapping was successful, mailCopy will be null
         if (mailCopy == null) return null;
 
+        await TryMapCalendarInvitationAsync(mailCopy, mimeMessage, cancellationToken).ConfigureAwait(false);
+
         // Outlook messages can only be assigned to 1 folder at a time.
         // Therefore we don't need to create multiple copies of the same message for different folders.
         var contacts = ExtractContactsFromOutlookMessage(message);
         var package = new NewMailItemPackage(mailCopy, mimeMessage, assignedFolder.RemoteFolderId, contacts);
 
         return [package];
+    }
+
+    private async Task TryMapCalendarInvitationAsync(MailCopy mailCopy, MimeMessage mimeMessage, CancellationToken cancellationToken)
+    {
+        if (mailCopy.ItemType != MailItemType.CalendarInvitation || mimeMessage == null)
+            return;
+
+        var invitationUid = mimeMessage.ExtractInvitationUid();
+        if (string.IsNullOrWhiteSpace(invitationUid))
+            return;
+
+        var calendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        if (calendars == null || calendars.Count == 0)
+            return;
+
+        string escapedUid = invitationUid.Replace("'", "''", StringComparison.Ordinal);
+
+        foreach (var calendar in calendars)
+        {
+            try
+            {
+                var eventsResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events
+                    .GetAsync(requestConfiguration =>
+                    {
+                        requestConfiguration.QueryParameters.Filter = $"iCalUId eq '{escapedUid}'";
+                        requestConfiguration.QueryParameters.Select = ["id"];
+                        requestConfiguration.QueryParameters.Top = 1;
+                    }, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                var matchedEvent = eventsResponse?.Value?.FirstOrDefault();
+                if (matchedEvent == null || string.IsNullOrWhiteSpace(matchedEvent.Id))
+                    continue;
+
+                var fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[matchedEvent.Id]
+                    .GetAsync(requestConfiguration =>
+                    {
+                        requestConfiguration.QueryParameters.Expand = ["attachments($select=id,name,contentType,size,isInline)"];
+                    }, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (fullEvent == null)
+                    continue;
+
+                await _outlookChangeProcessor.ManageCalendarEventAsync(fullEvent, calendar, Account).ConfigureAwait(false);
+
+                var localCalendarItem = await _outlookChangeProcessor.GetCalendarItemAsync(calendar.Id, fullEvent.Id).ConfigureAwait(false);
+                if (localCalendarItem == null)
+                    return;
+
+                await _outlookChangeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping()
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = Account.Id,
+                    MailCopyId = mailCopy.Id,
+                    InvitationUid = invitationUid,
+                    CalendarId = calendar.Id,
+                    CalendarItemId = localCalendarItem.Id,
+                    CalendarRemoteEventId = fullEvent.Id
+                }).ConfigureAwait(false);
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to map Outlook calendar invitation mail {MailCopyId} for calendar {CalendarId}", mailCopy.Id, calendar.Id);
+            }
+        }
     }
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)

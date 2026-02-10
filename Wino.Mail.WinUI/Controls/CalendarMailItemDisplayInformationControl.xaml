@@ -1,0 +1,69 @@
+<UserControl
+    x:Class="Wino.Controls.CalendarMailItemDisplayInformationControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Controls"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:helpers="using:Wino.Helpers"
+    HorizontalAlignment="Stretch"
+    VerticalAlignment="Stretch">
+
+    <Grid x:DefaultBindMode="OneWay">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <controls:MailItemDisplayInformationControl
+            x:Name="BaseMailControl"
+            ActionItem="{x:Bind MailItem, Mode=OneWay}"
+            DisplayMode="{x:Bind DisplayMode, Mode=OneWay}"
+            HoverActionExecuted="BaseMailControlHoverActionExecuted"
+            MailItemInformation="{x:Bind MailItem, Mode=OneWay}"
+            Prefer24HourTimeFormat="{x:Bind Prefer24HourTimeFormat, Mode=OneWay}"
+            ShowPreviewText="False" />
+
+        <TextBlock
+            x:Name="EventDateText"
+            Grid.Row="1"
+            Margin="53,0,12,8"
+            FontSize="12"
+            Opacity="0.75"
+            Text="{x:Bind EventDateRangeText, Mode=OneWay}"
+            TextTrimming="CharacterEllipsis" />
+    </Grid>
+
+    <VisualStateManager.VisualStateGroups>
+        <VisualStateGroup x:Name="SizingStates">
+            <VisualState x:Name="Compact">
+                <VisualState.Setters>
+                    <Setter Target="EventDateText.Margin" Value="53,0,12,6" />
+                    <Setter Target="EventDateText.FontSize" Value="11" />
+                </VisualState.Setters>
+                <VisualState.StateTriggers>
+                    <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ObjectEquals(DisplayMode, enums:MailListDisplayMode.Compact), Mode=OneWay}" />
+                </VisualState.StateTriggers>
+            </VisualState>
+
+            <VisualState x:Name="Medium">
+                <VisualState.Setters>
+                    <Setter Target="EventDateText.Margin" Value="53,0,12,8" />
+                    <Setter Target="EventDateText.FontSize" Value="12" />
+                </VisualState.Setters>
+                <VisualState.StateTriggers>
+                    <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ObjectEquals(DisplayMode, enums:MailListDisplayMode.Medium), Mode=OneWay}" />
+                </VisualState.StateTriggers>
+            </VisualState>
+
+            <VisualState x:Name="Spacious">
+                <VisualState.Setters>
+                    <Setter Target="EventDateText.Margin" Value="59,0,12,10" />
+                    <Setter Target="EventDateText.FontSize" Value="12" />
+                </VisualState.Setters>
+                <VisualState.StateTriggers>
+                    <StateTrigger IsActive="{x:Bind helpers:XamlHelpers.ObjectEquals(DisplayMode, enums:MailListDisplayMode.Spacious), Mode=OneWay}" />
+                </VisualState.StateTriggers>
+            </VisualState>
+        </VisualStateGroup>
+    </VisualStateManager.VisualStateGroups>
+</UserControl>

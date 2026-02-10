@@ -45,6 +45,7 @@ public interface IDefaultChangeProcessor
 
     Task DeleteCalendarItemAsync(Guid calendarItemId);
     Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId);
+    Task<CalendarItem> GetCalendarItemAsync(Guid calendarId, string remoteEventId);
 
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
@@ -54,6 +55,8 @@ public interface IDefaultChangeProcessor
     Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
     Task DeleteUserMailCacheAsync(Guid accountId);
+    Task UpsertMailInvitationCalendarMappingAsync(MailInvitationCalendarMapping mapping);
+    Task<MailInvitationCalendarMapping> GetMailInvitationCalendarMappingAsync(Guid accountId, string mailCopyId);
 
     /// <summary>
     /// Checks whether the mail exists in the folder.
@@ -199,6 +202,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
         => CalendarService.DeleteCalendarItemAsync(calendarRemoteEventId, calendarId);
 
+    public Task<CalendarItem> GetCalendarItemAsync(Guid calendarId, string remoteEventId)
+        => CalendarService.GetCalendarItemAsync(calendarId, remoteEventId);
+
     public Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar)
         => CalendarService.DeleteAccountCalendarAsync(accountCalendar);
 
@@ -215,6 +221,43 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     {
         await _mimeFileService.DeleteUserMimeCacheAsync(accountId).ConfigureAwait(false);
         await AccountService.DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.ExpiredCache).ConfigureAwait(false);
+    }
+
+    public async Task UpsertMailInvitationCalendarMappingAsync(MailInvitationCalendarMapping mapping)
+    {
+        if (mapping == null || mapping.AccountId == Guid.Empty || string.IsNullOrWhiteSpace(mapping.MailCopyId))
+            return;
+
+        var existing = await Connection.Table<MailInvitationCalendarMapping>()
+            .FirstOrDefaultAsync(x => x.AccountId == mapping.AccountId && x.MailCopyId == mapping.MailCopyId)
+            .ConfigureAwait(false);
+
+        if (existing == null)
+        {
+            if (mapping.Id == Guid.Empty)
+                mapping.Id = Guid.NewGuid();
+
+            mapping.UpdatedAtUtc = DateTime.UtcNow;
+            await Connection.InsertAsync(mapping, typeof(MailInvitationCalendarMapping)).ConfigureAwait(false);
+            return;
+        }
+
+        existing.InvitationUid = mapping.InvitationUid;
+        existing.CalendarId = mapping.CalendarId;
+        existing.CalendarItemId = mapping.CalendarItemId;
+        existing.CalendarRemoteEventId = mapping.CalendarRemoteEventId;
+        existing.UpdatedAtUtc = DateTime.UtcNow;
+
+        await Connection.UpdateAsync(existing, typeof(MailInvitationCalendarMapping)).ConfigureAwait(false);
+    }
+
+    public Task<MailInvitationCalendarMapping> GetMailInvitationCalendarMappingAsync(Guid accountId, string mailCopyId)
+    {
+        if (accountId == Guid.Empty || string.IsNullOrWhiteSpace(mailCopyId))
+            return Task.FromResult<MailInvitationCalendarMapping>(null);
+
+        return Connection.Table<MailInvitationCalendarMapping>()
+            .FirstOrDefaultAsync(x => x.AccountId == accountId && x.MailCopyId == mailCopyId);
     }
 
     public Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId)
