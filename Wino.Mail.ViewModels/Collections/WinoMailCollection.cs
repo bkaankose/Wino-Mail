@@ -108,6 +108,17 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     {
         await ExecuteUIThread(() =>
         {
+            foreach (var group in _mailItemSource)
+            {
+                foreach (var item in group)
+                {
+                    if (item is ThreadMailItemViewModel threadItem)
+                    {
+                        threadItem.UnregisterThreadEmailPropertyChangedHandlers();
+                    }
+                }
+            }
+
             _mailItemSource.Clear();
             MailCopyIdHashSet.Clear();
             _threadIdToItemsMap.Clear();
@@ -278,7 +289,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         });
     }
 
-    private async Task RemoveItemInternalAsync(ObservableGroup<object, IMailListItem> group, IMailListItem mailItem)
+    private async Task RemoveItemInternalAsync(ObservableGroup<object, IMailListItem> group, IMailListItem mailItem, bool detachThreadHandlers = true)
     {
         UpdateUniqueIdHashes(mailItem, false);
         UpdateThreadIdCache(mailItem, false);
@@ -292,6 +303,11 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
             foreach (var threadMailItem in threadViewModel.ThreadEmails)
             {
                 MailItemRemoved?.Invoke(this, threadMailItem);
+            }
+
+            if (detachThreadHandlers)
+            {
+                threadViewModel.UnregisterThreadEmailPropertyChangedHandlers();
             }
         }
 
@@ -369,7 +385,7 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     private async Task MoveThreadToNewGroupAsync(ObservableGroup<object, IMailListItem> currentGroup, ThreadMailItemViewModel threadViewModel, object newGroupKey)
     {
-        await RemoveItemInternalAsync(currentGroup, threadViewModel);
+        await RemoveItemInternalAsync(currentGroup, threadViewModel, detachThreadHandlers: false);
         await InsertItemInternalAsync(newGroupKey, threadViewModel);
     }
 

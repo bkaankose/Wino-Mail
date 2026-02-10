@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
@@ -216,10 +217,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         }
 
         ThreadEmails.Insert(insertIndex, email);
+        email.PropertyChanged += ThreadEmailPropertyChanged;
         _uniqueIdSet.Add(email.MailCopy.UniqueId);
         _cachedLatestMailViewModel = ThreadEmails[0];
-        // Reassign to trigger property change notifications
-        ThreadEmails = ThreadEmails;
+        OnPropertyChanged(nameof(EmailCount));
+        NotifyMailItemUpdated(email);
     }
 
     /// <summary>
@@ -229,13 +231,36 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     {
         if (ThreadEmails.Remove(email))
         {
+            email.PropertyChanged -= ThreadEmailPropertyChanged;
             _uniqueIdSet.Remove(email.MailCopy.UniqueId);
             _cachedLatestMailViewModel = ThreadEmails.Count > 0 ? ThreadEmails[0] : null;
-            // Reassign to trigger property change notifications
-            ThreadEmails = ThreadEmails;
+            OnPropertyChanged(nameof(EmailCount));
+            NotifyMailItemUpdated(email);
         }
     }
 
+    public void UnregisterThreadEmailPropertyChangedHandlers()
+    {
+        foreach (var email in ThreadEmails)
+        {
+            email.PropertyChanged -= ThreadEmailPropertyChanged;
+        }
+    }
+
+
+    private void ThreadEmailPropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MailItemViewModel.IsSelected) || e.PropertyName == nameof(MailItemViewModel.IsDisplayedInThread))
+            return;
+
+        if (e.PropertyName == nameof(MailItemViewModel.IsRead))
+        {
+            OnPropertyChanged(nameof(IsRead));
+            return;
+        }
+
+        NotifyMailItemUpdated(sender as MailItemViewModel);
+    }
     /// <summary>
     /// Notifies that a mail item within this thread has been updated.
     /// This raises PropertyChanged for all thread-level computed properties that depend on child items.
@@ -292,3 +317,4 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         }
     }
 }
+
