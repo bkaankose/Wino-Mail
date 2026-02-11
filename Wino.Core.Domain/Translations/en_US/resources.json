@@ -484,6 +484,7 @@
     "MailOperation_Unarchive": "Unarchive",
     "MailOperation_ViewMessageSource": "View message source",
     "MailOperation_Zoom": "Zoom",
+    "MailsDragging": "Dragging {0} item(s)",
     "MailsSelected": "{0} item(s) selected",
     "MarkFlagUnflag": "Mark as flagged/unflagged",
     "MarkReadUnread": "Mark as read/unread",

@@ -69,10 +69,14 @@
                     <controls:MailItemDisplayInformationControl
                         x:DefaultBindMode="OneWay"
                         ActionItem="{x:Bind}"
+                        CanDrag="True"
                         ContextRequested="MailItemContextRequested"
+                        DragStarting="ThreadHeaderDragStart"
+                        DropCompleted="ThreadHeaderDragFinished"
                         HoverActionExecuted="MailItemDisplayInformationControl_HoverActionExecuted"
                         IsThreadExpanderVisible="True"
-                        MailItemInformation="{x:Bind}" />
+                        MailItemInformation="{x:Bind}"
+                        Tapped="ThreadHeaderTapped" />
                 </controls:WinoExpander.Header>
                 <controls:WinoExpander.Content>
                     <listview:WinoListView
@@ -80,6 +84,7 @@
                         HorizontalContentAlignment="Stretch"
                         toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                         toolkitExt:ScrollViewerExtensions.VerticalScrollBarMargin="0"
+                        CanDragItems="True"
                         ChoosingItemContainer="WinoListViewChoosingItemContainer"
                         IsItemClickEnabled="True"
                         IsThreadListView="True"
@@ -413,6 +418,24 @@
                             <GroupStyle HeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}" HidesIfEmpty="True" />
                         </listview:WinoListView.GroupStyle>
                     </listview:WinoListView>
+
+                    <Border
+                        x:Name="DraggingMessageBorder"
+                        Grid.Row="0"
+                        Margin="14"
+                        Padding="10,6"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        x:Load="{x:Bind ViewModel.IsDragInProgress, Mode=OneWay}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <TextBlock
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.DraggingMessageText, Mode=OneWay}" />
+                    </Border>
 
                     <!--  Try online search panel.  -->
                     <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IsOnlineSearchButtonVisible, Mode=OneWay}">

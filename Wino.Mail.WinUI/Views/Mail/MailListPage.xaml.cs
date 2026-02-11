@@ -63,6 +63,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         Bindings.Update();
 
         ViewModel.MailCollection.ItemSelectionChanged += WinoMailCollectionSelectionChanged;
+        MailListView.MailDragStateChanged += MailListViewMailDragStateChanged;
 
         UpdateSelectAllButtonStatus();
         UpdateAdaptiveness();
@@ -82,8 +83,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
         this.Bindings.StopTracking();
 
         ViewModel.MailCollection.ItemSelectionChanged -= WinoMailCollectionSelectionChanged;
+        MailListView.MailDragStateChanged -= MailListViewMailDragStateChanged;
         SelectAllCheckbox.Checked -= SelectAllCheckboxChecked;
         SelectAllCheckbox.Unchecked -= SelectAllCheckboxUnchecked;
+        ViewModel.SetDragState(false);
 
         MailListView.Cleanup();
 
@@ -430,29 +433,51 @@ public sealed partial class MailListPage : MailListPageAbstract,
     /// </summary>
     private void ThreadHeaderDragStart(UIElement sender, DragStartingEventArgs args)
     {
-        //if (sender is MailItemDisplayInformationControl control
-        //    && control.ConnectedExpander?.Content is WinoListView contentListView)
-        //{
-        //    var allItems = contentListView.Items.Where(a => a is MailCopy);
+        if (sender is MailItemDisplayInformationControl control && control.ActionItem is ThreadMailItemViewModel threadItem)
+        {
+            args.AllowedOperations = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
 
-        //    // Highlight all items.
-        //    allItems.Cast<MailItemViewModel>().ForEach(a => a.IsCustomFocused = true);
+            // Dragging a thread header should move all mails in that thread.
+            var draggedThreadItems = threadItem.ThreadEmails.Cast<IMailListItem>().ToList();
+            var dragCount = draggedThreadItems.Count;
+            var draggingText = string.Format(Translator.MailsDragging, dragCount);
 
-        //    // Set native drag arg properties.
-        //    args.AllowedOperations = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+            ViewModel.SetDragState(true, dragCount);
 
-        //    var dragPackage = new MailDragPackage(allItems.Cast<MailCopy>());
+            var dragPackage = new MailDragPackage(draggedThreadItems);
 
-        //    args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
-        //    args.DragUI.SetContentFromDataPackage();
-
-        //    control.ConnectedExpander.IsExpanded = true;
-        //}
+            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
+            args.Data.SetText(draggingText);
+            args.Data.Properties.Title = draggingText;
+            args.DragUI.SetContentFromDataPackage();
+        }
     }
 
     private void ThreadHeaderDragFinished(UIElement sender, DropCompletedEventArgs args)
     {
+        ViewModel.SetDragState(false);
+    }
 
+    private void MailListViewMailDragStateChanged(object? sender, MailDragStateChangedEventArgs e)
+    {
+        ViewModel.SetDragState(e.IsDragging, e.DraggedItemCount);
+    }
+
+    private async void ThreadHeaderTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is not MailItemDisplayInformationControl control) return;
+
+        // Hover action button clicks bubble a tap as well; skip selecting in that case.
+        if (control.IsRunningHoverAction)
+        {
+            control.IsRunningHoverAction = false;
+            return;
+        }
+
+        if (control.ActionItem is ThreadMailItemViewModel threadItem)
+        {
+            await WinoClickItemInternalAsync(threadItem);
+        }
     }
 
     private async void LeftSwipeItemInvoked(Microsoft.UI.Xaml.Controls.SwipeItem sender, Microsoft.UI.Xaml.Controls.SwipeItemInvokedEventArgs args)
@@ -636,44 +661,74 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // Treat toolbar multi-select mode the same as holding CTRL for click selection behavior.
         bool isCtrlPressed = KeyPressService.IsCtrlKeyPressed() || ViewModel.IsMultiSelectionModeEnabled;
 
-        // Helper local to collapse all other threads (we always collapse ALL then possibly re-expand the active thread per rules)
-        async Task CollapseAllThreadsExceptAsync(ThreadMailItemViewModel? except)
-        {
-            bool wasExpanded = except != null && except.IsThreadExpanded;
+        // Lazily built caches for this invocation.
+        List<ThreadMailItemViewModel>? threadItems = null;
+        Dictionary<string, ThreadMailItemViewModel>? threadById = null;
 
-            await ViewModel.MailCollection.CollapseAllThreadsAsync();
-            if (except != null && wasExpanded)
-            {
-                // We'll expand explicitly when required by logic below.
-                except.IsThreadExpanded = true;
-            }
-        }
-
-        ThreadMailItemViewModel? FindParentThread(MailItemViewModel mail)
+        List<ThreadMailItemViewModel> GetThreadItems()
         {
+            if (threadItems != null) return threadItems;
+
+            threadItems = [];
+
             foreach (var group in ViewModel.MailCollection.MailItems)
             {
                 foreach (var item in group)
                 {
-                    if (item is ThreadMailItemViewModel thread && thread.ThreadEmails.Contains(mail))
+                    if (item is ThreadMailItemViewModel thread)
                     {
-                        return thread;
+                        threadItems.Add(thread);
                     }
                 }
             }
 
-            return null;
+            return threadItems;
+        }
+
+        ThreadMailItemViewModel? FindParentThread(MailItemViewModel mail)
+        {
+            if (string.IsNullOrEmpty(mail.ThreadId))
+            {
+                return null;
+            }
+
+            threadById ??= GetThreadItems()
+                .Where(t => !string.IsNullOrEmpty(t.ThreadId))
+                .GroupBy(t => t.ThreadId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+            return threadById.TryGetValue(mail.ThreadId, out var threadItem) ? threadItem : null;
+        }
+
+        void CollapseAllThreadsExcept(ThreadMailItemViewModel? except)
+        {
+            foreach (var thread in GetThreadItems())
+            {
+                if (!ReferenceEquals(thread, except) && thread.IsThreadExpanded)
+                {
+                    thread.IsThreadExpanded = false;
+                }
+            }
         }
 
         static void SyncThreadSelectionFromChildren(ThreadMailItemViewModel? thread)
         {
             if (thread == null) return;
 
-            bool hasSelectedChildren = thread.ThreadEmails.Any(child => child.IsSelected);
+            bool hasSelectedChildren = false;
+            foreach (var child in thread.ThreadEmails)
+            {
+                if (child.IsSelected)
+                {
+                    hasSelectedChildren = true;
+                    break;
+                }
+            }
+
             thread.IsSelected = hasSelectedChildren;
 
             // Keep thread open while it has selected children.
-            if (hasSelectedChildren)
+            if (hasSelectedChildren && !thread.IsThreadExpanded)
             {
                 thread.IsThreadExpanded = true;
             }
@@ -727,7 +782,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             // Reset everything first (exclusive selection scenario)
             await ViewModel.MailCollection.UnselectAllAsync();
-            await CollapseAllThreadsExceptAsync(clickedThread);
+            CollapseAllThreadsExcept(clickedThread);
 
             if (wasThreadSelected && wasThreadExpanded)
             {
@@ -787,20 +842,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
             // If parent thread is already expanded, keep it as-is to avoid collapse/expand animation.
             if (parentThread != null && parentThread.IsThreadExpanded)
             {
-                foreach (var group in ViewModel.MailCollection.MailItems)
-                {
-                    foreach (var item in group)
-                    {
-                        if (item is ThreadMailItemViewModel thread && !ReferenceEquals(thread, parentThread))
-                        {
-                            thread.IsThreadExpanded = false;
-                        }
-                    }
-                }
+                CollapseAllThreadsExcept(parentThread);
             }
             else
             {
-                await ViewModel.MailCollection.CollapseAllThreadsAsync();
+                CollapseAllThreadsExcept(null);
             }
 
             if (parentThread != null && selectExpandThread)

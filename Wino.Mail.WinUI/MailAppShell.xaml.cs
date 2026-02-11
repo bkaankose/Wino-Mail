@@ -64,28 +64,12 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
             {
                 if (droppedContainer.DataContext is IBaseFolderMenuItem draggingFolder)
                 {
-                    var mailCopies = new List<MailCopy>();
-
                     var dragPackage = e.DataView.Properties[nameof(MailDragPackage)] as MailDragPackage;
 
                     if (dragPackage == null) return;
 
                     e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
-
-                    // Extract mail copies from IMailItem.
-                    // ThreadViewModels will be divided into pieces.
-
-                    foreach (var item in dragPackage.DraggingMails)
-                    {
-                        if (item is MailItemViewModel singleMailItemViewModel)
-                        {
-                            mailCopies.Add(singleMailItemViewModel.MailCopy);
-                        }
-                        else if (item is ThreadMailItemViewModel threadViewModel)
-                        {
-                            mailCopies.AddRange(threadViewModel.ThreadEmails.Select(a => a.MailCopy));
-                        }
-                    }
+                    var mailCopies = ExtractMailCopies(dragPackage).ToList();
 
                     await ViewModel.PerformMoveOperationAsync(mailCopies, draggingFolder);
                 }
@@ -125,9 +109,34 @@ public sealed partial class MailAppShell : MailAppShellAbstract,
         // Check whether the moving item's account has at least one same as the target folder's account.
         var draggedAccountIds = folderMenuItem.HandlingFolders.Select(a => a.MailAccountId);
 
-        if (!dragPackage.DraggingMails.Cast<MailCopy>().Any(a => draggedAccountIds.Contains(a.AssignedAccount.Id))) return false;
+        var draggedMails = ExtractMailCopies(dragPackage);
+
+        if (!draggedMails.Any()) return false;
+        if (!draggedMails.Any(a => draggedAccountIds.Contains(a.AssignedAccount.Id))) return false;
 
         return true;
+    }
+
+    private static IEnumerable<MailCopy> ExtractMailCopies(MailDragPackage dragPackage)
+    {
+        foreach (var item in dragPackage.DraggingMails)
+        {
+            if (item is MailCopy mailCopy)
+            {
+                yield return mailCopy;
+            }
+            else if (item is MailItemViewModel singleMailItemViewModel)
+            {
+                yield return singleMailItemViewModel.MailCopy;
+            }
+            else if (item is ThreadMailItemViewModel threadViewModel)
+            {
+                foreach (var threadMail in threadViewModel.ThreadEmails)
+                {
+                    yield return threadMail.MailCopy;
+                }
+            }
+        }
     }
 
     private void ItemDragEnterOnFolder(object sender, DragEventArgs e)

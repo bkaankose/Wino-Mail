@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.ViewModels.Data;
 
@@ -21,12 +23,16 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
     [GeneratedDependencyProperty]
     public partial ICommand? LoadMoreCommand { get; set; }
 
+    public event EventHandler<MailDragStateChangedEventArgs>? MailDragStateChanged;
+
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
 
-        DragItemsStarting += ItemDragStarting;
         DragItemsStarting -= ItemDragStarting;
+        DragItemsStarting += ItemDragStarting;
+        DragItemsCompleted -= ItemDragCompleted;
+        DragItemsCompleted += ItemDragCompleted;
 
         internalScrollviewer = GetTemplateChild(PART_ScrollViewer) as ScrollViewer;
 
@@ -222,6 +228,7 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
     public void Cleanup()
     {
         DragItemsStarting -= ItemDragStarting;
+        DragItemsCompleted -= ItemDragCompleted;
 
         if (internalScrollviewer != null)
         {
@@ -236,20 +243,99 @@ public partial class WinoListView : Microsoft.UI.Xaml.Controls.ListView
         // Meaning that if users drag 1 mail from Account A/Inbox and 1 mail from Account B/Inbox,
         // and drop to Account A/Inbox, the mail from Account B/Inbox will NOT be moved.
 
+        var itemsToDrag = ResolveDraggedMailItems(args);
+
+        if (itemsToDrag.Count == 0)
+        {
+            return;
+        }
+
+        var dragPackage = new MailDragPackage(itemsToDrag.Cast<object>());
+        args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
+
+        var draggingText = string.Format(Translator.MailsDragging, itemsToDrag.Count);
+        args.Data.SetText(draggingText);
+        args.Data.Properties.Title = draggingText;
+        // args.DragUI.SetContentFromDataPackage();
+
+        MailDragStateChanged?.Invoke(this, new MailDragStateChangedEventArgs(true, itemsToDrag.Count));
+    }
+
+    private void ItemDragCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        MailDragStateChanged?.Invoke(this, new MailDragStateChangedEventArgs(false, 0));
+    }
+
+    private List<MailItemViewModel> ResolveDraggedMailItems(DragItemsStartingEventArgs args)
+    {
+        var draggedItems = ExpandDragItems(args.Items.Cast<object>());
+        var selectedItems = GetSelectedMailItemsFromCurrentList();
+
+        if (selectedItems.Count > 1)
+        {
+            var selectedIds = selectedItems.Select(a => a.UniqueId).ToHashSet();
+            bool dragStartedFromSelection = draggedItems.Any(a => selectedIds.Contains(a.UniqueId));
+
+            if (dragStartedFromSelection)
+            {
+                return selectedItems;
+            }
+        }
+
+        return draggedItems.Count > 0 ? draggedItems : selectedItems;
+    }
+
+    private List<MailItemViewModel> GetSelectedMailItemsFromCurrentList()
+    {
         if (IsThreadListView)
         {
-            var allItems = args.Items.Cast<MailItemViewModel>();
-
-            // Set native drag arg properties.
-            var dragPackage = new MailDragPackage(allItems.Cast<IMailListItem>());
-
-            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
+            return Items
+                .Cast<object>()
+                .OfType<MailItemViewModel>()
+                .Where(a => a.IsSelected)
+                .GroupBy(a => a.UniqueId)
+                .Select(a => a.First())
+                .ToList();
         }
-        else
-        {
-            var dragPackage = new MailDragPackage(args.Items.Cast<IMailListItem>());
 
-            args.Data.Properties.Add(nameof(MailDragPackage), dragPackage);
-        }
+        return Items
+            .Cast<object>()
+            .OfType<IMailListItem>()
+            .SelectMany(a => a.GetSelectedMailItems())
+            .GroupBy(a => a.UniqueId)
+            .Select(a => a.First())
+            .ToList();
     }
+
+    private static List<MailItemViewModel> ExpandDragItems(IEnumerable<object> dragItems)
+    {
+        var result = new List<MailItemViewModel>();
+
+        foreach (var dragItem in dragItems)
+        {
+            if (dragItem is MailItemViewModel mailItem)
+            {
+                result.Add(mailItem);
+            }
+            else if (dragItem is ThreadMailItemViewModel threadItem)
+            {
+                result.AddRange(threadItem.ThreadEmails);
+            }
+            else if (dragItem is IMailListItem mailListItem)
+            {
+                result.AddRange(mailListItem.GetSelectedMailItems());
+            }
+        }
+
+        return result
+            .GroupBy(a => a.UniqueId)
+            .Select(a => a.First())
+            .ToList();
+    }
+}
+
+public sealed class MailDragStateChangedEventArgs(bool isDragging, int draggedItemCount) : EventArgs
+{
+    public bool IsDragging { get; } = isDragging;
+    public int DraggedItemCount { get; } = draggedItemCount;
 }

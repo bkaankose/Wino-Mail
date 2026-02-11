@@ -234,6 +234,11 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     }
 
     /// <summary>
+    /// Checks whether a mail with the given UniqueId currently exists in this collection.
+    /// </summary>
+    public bool ContainsMailUniqueId(Guid uniqueId) => MailCopyIdHashSet.ContainsKey(uniqueId);
+
+    /// <summary>
     /// Finds a MailItemViewModel by its UniqueId, searching through all items including those inside threads.
     /// </summary>
     /// <param name="uniqueId">The UniqueId of the mail item to find.</param>
@@ -444,7 +449,14 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         // Try cache first
         if (_itemToGroupMap.TryGetValue(item, out var cachedGroup))
         {
-            return cachedGroup;
+            // Cache can become stale during concurrent list refreshes/moves.
+            // Validate before returning so we don't mutate a detached group.
+            if (_mailItemSource.Contains(cachedGroup) && cachedGroup.Contains(item))
+            {
+                return cachedGroup;
+            }
+
+            _itemToGroupMap.TryRemove(item, out _);
         }
 
         // Fallback to search if not in cache
@@ -487,6 +499,8 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         {
             MailCopyIdHashSet.Clear();
             _threadIdToItemsMap.Clear();
+            _itemToGroupMap.Clear();
+            _uniqueIdToMailItemMap.Clear();
             _uniqueIdToThreadMap.Clear();
         }
 
@@ -741,9 +755,6 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
     /// <returns></returns>
     public Task UpdateMailCopy(MailCopy updatedMailCopy, MailUpdateSource mailUpdateSource)
     {
-        // This item doesn't exist in the list.
-        if (!MailCopyIdHashSet.ContainsKey(updatedMailCopy.UniqueId)) return Task.CompletedTask;
-
         return ExecuteUIThread(() =>
         {
             var itemContainer = GetMailItemContainer(updatedMailCopy.UniqueId);
@@ -762,6 +773,12 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
                 itemContainer.ItemViewModel.IsBusy = mailUpdateSource == MailUpdateSource.ClientUpdated;
 
                 UpdateUniqueIdHashes(itemContainer.ItemViewModel, true);
+
+                // Keep thread membership cache in sync for items rendered inside thread containers.
+                if (itemContainer.ThreadViewModel != null)
+                {
+                    _uniqueIdToThreadMap[itemContainer.ItemViewModel.MailCopy.UniqueId] = itemContainer.ThreadViewModel;
+                }
             }
 
             // Trigger thread property notifications if this item is in a thread
@@ -836,17 +853,19 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
 
     public async Task RemoveAsync(MailCopy removeItem)
     {
-        // This item doesn't exist in the list.
-        if (!MailCopyIdHashSet.ContainsKey(removeItem.UniqueId)) return;
+        var itemContainer = GetMailItemContainer(removeItem.UniqueId);
 
-        if (_uniqueIdToThreadMap.TryGetValue(removeItem.UniqueId, out var threadMailItemViewModel))
+        // This item doesn't exist in the list.
+        if (itemContainer?.ItemViewModel == null) return;
+
+        if (itemContainer.ThreadViewModel != null)
         {
             // Item is inside a thread - use cached lookups instead of scanning all groups.
+            var threadMailItemViewModel = itemContainer.ThreadViewModel;
             var group = FindGroupContainingItem(threadMailItemViewModel);
             if (group == null) return;
 
-            var removalItem = threadMailItemViewModel.ThreadEmails.FirstOrDefault(e => e.MailCopy.UniqueId == removeItem.UniqueId);
-            if (removalItem == null) return;
+            var removalItem = itemContainer.ItemViewModel;
 
             // Update ThreadId cache before modifying the thread
             UpdateThreadIdCache(threadMailItemViewModel, false);
@@ -889,36 +908,11 @@ public class WinoMailCollection : ObservableRecipient, IRecipient<SelectedItemsC
         }
         else
         {
-            // Standalone item - use cached lookup.
-            IMailListItem mailItem = null;
-            ObservableGroup<object, IMailListItem> group = null;
+            // Standalone item.
+            IMailListItem mailItem = itemContainer.ItemViewModel;
+            var group = FindGroupContainingItem(mailItem);
 
-            if (_uniqueIdToMailItemMap.TryGetValue(removeItem.UniqueId, out var cachedItem))
-            {
-                mailItem = cachedItem;
-                group = FindGroupContainingItem(mailItem);
-            }
-
-            // Fallback to scan if not in cache
-            if (mailItem == null || group == null)
-            {
-                for (int i = 0; i < _mailItemSource.Count; i++)
-                {
-                    var g = _mailItemSource[i];
-                    for (int k = 0; k < g.Count; k++)
-                    {
-                        if (g[k] is MailItemViewModel mvm && mvm.MailCopy.UniqueId == removeItem.UniqueId)
-                        {
-                            mailItem = mvm;
-                            group = g;
-                            break;
-                        }
-                    }
-                    if (mailItem != null) break;
-                }
-            }
-
-            if (mailItem != null && group != null)
+            if (group != null)
             {
                 await RemoveItemInternalAsync(group, mailItem);
             }

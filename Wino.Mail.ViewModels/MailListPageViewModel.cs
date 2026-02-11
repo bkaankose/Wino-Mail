@@ -100,6 +100,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private bool isMultiSelectionModeEnabled;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedMessageText))]
+    [NotifyPropertyChangedFor(nameof(DraggingMessageText))]
+    public partial bool IsDragInProgress { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedMessageText))]
+    [NotifyPropertyChangedFor(nameof(DraggingMessageText))]
+    public partial int DraggingItemsCount { get; set; }
+
+    [ObservableProperty]
     public partial string SearchQuery { get; set; }
 
     [ObservableProperty]
@@ -291,7 +301,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public bool IsFolderSynchronizationEnabled => ActiveFolder?.IsSynchronizationEnabled ?? false;
     public bool IsArchiveSpecialFolder => ActiveFolder?.SpecialFolderType == SpecialFolderType.Archive;
 
-    public string SelectedMessageText => MailCollection.SelectedItemsCount > 0 ? string.Format(Translator.MailsSelected, MailCollection.SelectedItemsCount) : Translator.NoMailSelected;
+    public string SelectedMessageText => IsDragInProgress
+        ? string.Format(Translator.MailsDragging, DraggingItemsCount)
+        : MailCollection.SelectedItemsCount > 0
+            ? string.Format(Translator.MailsSelected, MailCollection.SelectedItemsCount)
+            : Translator.NoMailSelected;
+
+    public string DraggingMessageText => string.Format(Translator.MailsDragging, DraggingItemsCount);
 
     /// <summary>
     /// Indicates current state of the mail list. Doesn't matter it's loading or no.
@@ -359,6 +375,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         OnPropertyChanged(nameof(SelectedMessageText));
 
         SelectedFolderPivot?.SelectedItemCount = MailCollection.SelectedItemsCount;
+    }
+
+    public void SetDragState(bool isDragInProgress, int draggingItemsCount = 0)
+    {
+        IsDragInProgress = isDragInProgress;
+        DraggingItemsCount = isDragInProgress ? Math.Max(1, draggingItemsCount) : 0;
     }
 
     private void NotifyItemFoundState()
@@ -718,7 +740,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnMailUpdated(updatedMail, source);
 
-        await MailCollection.UpdateMailCopy(updatedMail, source);
+        try
+        {
+            await listManipulationSemepahore.WaitAsync();
+            await MailCollection.UpdateMailCopy(updatedMail, source);
+        }
+        finally
+        {
+            listManipulationSemepahore.Release();
+        }
 
         // await ExecuteUIThread(() => { SetupTopBarActions(); });
     }
@@ -727,56 +757,60 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         base.OnMailRemoved(removedMail);
 
-        if (removedMail.AssignedAccount == null || removedMail.AssignedFolder == null) return;
+        if (removedMail.AssignedAccount == null) return;
 
-        // We should delete the items only if:
-        // 1. They are deleted from the active folder.
-        // 2. Deleted from draft or sent folder.
-        // 3. Removal is not caused by Gmail Unread folder action.
-        // Delete/sent are special folders that can list their items in other folders.
-
-        bool removedFromActiveFolder = ActiveFolder.HandlingFolders.Any(a => a.Id == removedMail.AssignedFolder.Id);
-        bool removedFromDraftOrSent = removedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
-                                      removedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent;
-
-        bool isDeletedByGmailUnreadFolderAction = ActiveFolder.SpecialFolderType == SpecialFolderType.Unread &&
-                                                  gmailUnreadFolderMarkedAsReadUniqueIds.Contains(removedMail.UniqueId);
-
-        if ((removedFromActiveFolder || removedFromDraftOrSent) && !isDeletedByGmailUnreadFolderAction)
+        try
         {
-            bool isDeletedMailSelected = MailCollection.SelectedItems.Any(a => a.MailCopy.UniqueId == removedMail.UniqueId);
+            await listManipulationSemepahore.WaitAsync();
 
-            // Automatically select the next item in the list if the setting is enabled.
-            MailItemViewModel nextItem = null;
+            // Remove only if this specific mail copy currently exists in this list.
+            // Using AssignedFolder-based checks is unreliable for move flows because the
+            // same MailCopy instance can be updated before this message is handled.
+            bool removedItemExistsInCurrentList = MailCollection.ContainsMailUniqueId(removedMail.UniqueId);
 
-            if (isDeletedMailSelected && PreferencesService.AutoSelectNextItem)
+            bool isDeletedByGmailUnreadFolderAction = ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
+                                                      gmailUnreadFolderMarkedAsReadUniqueIds.Contains(removedMail.UniqueId);
+
+            if (removedItemExistsInCurrentList && !isDeletedByGmailUnreadFolderAction)
             {
-                await ExecuteUIThread(() =>
+                bool isDeletedMailSelected = MailCollection.SelectedItems.Any(a => a.MailCopy.UniqueId == removedMail.UniqueId);
+
+                // Automatically select the next item in the list if the setting is enabled.
+                MailItemViewModel nextItem = null;
+
+                if (isDeletedMailSelected && PreferencesService.AutoSelectNextItem)
                 {
-                    nextItem = MailCollection.GetNextItem(removedMail);
-                });
+                    await ExecuteUIThread(() =>
+                    {
+                        nextItem = MailCollection.GetNextItem(removedMail);
+                    });
+                }
+
+                // RemoveAsync already handles UI threading internally
+                await MailCollection.RemoveAsync(removedMail);
+
+                if (nextItem != null)
+                    WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem.UniqueId, ScrollToItem: true));
+                else if (isDeletedMailSelected)
+                {
+                    // There are no next item to select, but we removed the last item which was selected.
+                    // Clearing selected item will dispose rendering page.
+
+                    // UnselectAllAsync already handles UI threading internally
+                    await MailCollection.UnselectAllAsync();
+                }
+
+                await ExecuteUIThread(() => { NotifyItemFoundState(); });
             }
-
-            // RemoveAsync already handles UI threading internally
-            await MailCollection.RemoveAsync(removedMail);
-
-            if (nextItem != null)
-                WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem.UniqueId, ScrollToItem: true));
-            else if (isDeletedMailSelected)
+            else if (isDeletedByGmailUnreadFolderAction)
             {
-                // There are no next item to select, but we removed the last item which was selected.
-                // Clearing selected item will dispose rendering page.
-
-                // UnselectAllAsync already handles UI threading internally
-                await MailCollection.UnselectAllAsync();
+                // Remove the entry from the set so we can listen to actual deletes next time.
+                gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
             }
-
-            await ExecuteUIThread(() => { NotifyItemFoundState(); });
         }
-        else if (isDeletedByGmailUnreadFolderAction)
+        finally
         {
-            // Remove the entry from the set so we can listen to actual deletes next time.
-            gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
+            listManipulationSemepahore.Release();
         }
     }
 

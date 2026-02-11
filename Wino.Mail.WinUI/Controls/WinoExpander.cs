@@ -62,28 +62,13 @@ public partial class WinoExpander : Control
         clipComposition.Clip = clipComposition.Compositor.CreateInsetClip();
 
         ContentAreaWrapper.SizeChanged += ContentSizeChanged;
-        HeaderGrid.Tapped += HeaderTapped;
+
     }
 
     private void ContentSizeChanged(object sender, SizeChangedEventArgs e)
     {
         TemplateSettings.ContentHeight = e.NewSize.Height;
         TemplateSettings.NegativeContentHeight = -1 * (double)e.NewSize.Height;
-    }
-
-    private void HeaderTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
-    {
-        // Tapped is delegated from executing hover action like flag or delete.
-        // No need to toggle the expander.
-
-        if (Header is MailItemDisplayInformationControl itemDisplayInformationControl &&
-            itemDisplayInformationControl.IsRunningHoverAction)
-        {
-            itemDisplayInformationControl.IsRunningHoverAction = false;
-            return;
-        }
-
-        // IsExpanded = !IsExpanded;
     }
 
     private static void OnIsExpandedChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
