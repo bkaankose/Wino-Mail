@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
 using Wino.Core.WinUI.Services;
+using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
 
@@ -29,6 +30,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IStoreRatingService, StoreRatingService>();
         services.AddTransient<IKeyPressService, KeyPressService>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
+        services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
         services.AddTransient<IClipboardService, ClipboardService>();
         services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
         services.AddSingleton<IPrintService, PrintService>();

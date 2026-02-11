@@ -80,6 +80,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     public bool HasAttachments => ThreadEmails.Any(e => e.HasAttachments);
 
     /// <summary>
+    /// Gets whether any email in this thread is a calendar invitation.
+    /// </summary>
+    public bool IsCalendarEvent => ThreadEmails.Any(e => e.IsCalendarEvent);
+
+    /// <summary>
     /// Gets whether any email in this thread is flagged
     /// </summary>
     public bool IsFlagged => ThreadEmails.Any(e => e.IsFlagged);
@@ -167,6 +172,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
     [NotifyPropertyChangedFor(nameof(FromAddress))]
     [NotifyPropertyChangedFor(nameof(PreviewText))]
     [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    [NotifyPropertyChangedFor(nameof(IsCalendarEvent))]
     [NotifyPropertyChangedFor(nameof(IsFlagged))]
     [NotifyPropertyChangedFor(nameof(IsFocused))]
     [NotifyPropertyChangedFor(nameof(IsRead))]
@@ -275,6 +281,7 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         OnPropertyChanged(nameof(FromAddress));
         OnPropertyChanged(nameof(PreviewText));
         OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(IsCalendarEvent));
         OnPropertyChanged(nameof(IsFlagged));
         OnPropertyChanged(nameof(IsFocused));
         OnPropertyChanged(nameof(IsRead));

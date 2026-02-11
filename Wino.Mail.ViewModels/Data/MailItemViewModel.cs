@@ -26,6 +26,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
     [NotifyPropertyChangedFor(nameof(PreviewText))]
     [NotifyPropertyChangedFor(nameof(FromAddress))]
     [NotifyPropertyChangedFor(nameof(HasAttachments))]
+    [NotifyPropertyChangedFor(nameof(IsCalendarEvent))]
     [NotifyPropertyChangedFor(nameof(Importance))]
     [NotifyPropertyChangedFor(nameof(ThreadId))]
     [NotifyPropertyChangedFor(nameof(MessageId))]
@@ -139,6 +140,8 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         get => MailCopy.HasAttachments;
         set => SetProperty(MailCopy.HasAttachments, value, MailCopy, (u, n) => u.HasAttachments = n);
     }
+
+    public bool IsCalendarEvent => MailCopy.ItemType == MailItemType.CalendarInvitation;
 
     public MailImportance Importance
     {
@@ -258,6 +261,7 @@ public partial class MailItemViewModel(MailCopy mailCopy) : ObservableRecipient,
         OnPropertyChanged(nameof(PreviewText));
         OnPropertyChanged(nameof(FromAddress));
         OnPropertyChanged(nameof(HasAttachments));
+        OnPropertyChanged(nameof(IsCalendarEvent));
         OnPropertyChanged(nameof(Importance));
         OnPropertyChanged(nameof(ThreadId));
         OnPropertyChanged(nameof(MessageId));

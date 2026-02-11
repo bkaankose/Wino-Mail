@@ -15,6 +15,7 @@ using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Services;
@@ -179,6 +180,16 @@ public partial class App : WinoApplication,
     {
         var toastArguments = ToastArguments.Parse(toastArgs.Argument);
 
+        // Check calendar reminder toast activation first.
+        if (toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string calendarAction) &&
+            calendarAction == Constants.ToastCalendarNavigateAction &&
+            toastArguments.TryGetValue(Constants.ToastCalendarItemIdKey, out string calendarItemIdString) &&
+            Guid.TryParse(calendarItemIdString, out Guid calendarItemId))
+        {
+            await HandleCalendarToastNavigationAsync(calendarItemId);
+            return;
+        }
+
         // Check if this is a navigation toast (user clicked the notification).
         if (toastArguments.TryGetValue(Constants.ToastActionKey, out MailOperation action) &&
             Guid.TryParse(toastArguments[Constants.ToastMailUniqueIdKey], out Guid mailItemUniqueId))
@@ -196,6 +207,31 @@ public partial class App : WinoApplication,
                 await HandleToastActionAsync(action, mailItemUniqueId);
             }
         }
+    }
+
+    private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
+    {
+        var calendarService = Services.GetRequiredService<ICalendarService>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
+
+        var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId).ConfigureAwait(false);
+        if (calendarItem == null)
+            return;
+
+        var target = new CalendarItemTarget(calendarItem, CalendarEventTargetType.Single);
+
+        if (!IsAppRunning())
+        {
+            await CreateAndActivateWindow(null!);
+        }
+        else
+        {
+            MainWindow.BringToFront();
+            MainWindow.Activate();
+        }
+
+        navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
+        navigationService.Navigate(WinoPage.EventDetailsPage, target);
     }
 
     /// <summary>

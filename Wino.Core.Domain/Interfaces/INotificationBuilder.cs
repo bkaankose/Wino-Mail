@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 
@@ -29,4 +30,9 @@ public interface INotificationBuilder
     /// </summary>
     /// <param name="account">Account that needs attention.</param>
     void CreateAttentionRequiredNotification(MailAccount account);
+
+    /// <summary>
+    /// Creates a calendar reminder toast for the specified calendar item.
+    /// </summary>
+    Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds);
 }

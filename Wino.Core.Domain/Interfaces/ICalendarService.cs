@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
@@ -18,7 +19,7 @@ public interface ICalendarService
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
     Task CreateNewCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
-    
+
     /// <summary>
     /// Retrieves calendar events for a given calendar within the specified time period.
     /// </summary>
@@ -26,7 +27,7 @@ public interface ICalendarService
     /// <param name="period">The time period to query events for.</param>
     /// <returns>List of calendar items that fall within the requested period.</returns>
     Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
-    
+
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 
@@ -41,6 +42,11 @@ public interface ICalendarService
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);
     Task<List<Reminder>> GetRemindersAsync(Guid calendarItemId);
     Task SaveRemindersAsync(Guid calendarItemId, List<Reminder> reminders);
+
+    /// <summary>
+    /// Checks due reminder windows and returns reminder notifications that should trigger now.
+    /// </summary>
+    Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets predefined reminder options in minutes (1 Hour, 30 Min, 15 Min, 5 Min, 1 Min).

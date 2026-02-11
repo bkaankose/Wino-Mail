@@ -29,4 +29,14 @@
                 Icon="Attachment" />
         </Viewbox>
     </DataTemplate>
+
+    <!--  Calendar invitation  -->
+    <DataTemplate x:Key="CalendarInvitationSymbolControlTemplate">
+        <Viewbox
+            Width="14"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom">
+            <controls:WinoFontIcon Margin="2,0,0,0" Icon="Calendar" />
+        </Viewbox>
+    </DataTemplate>
 </ResourceDictionary>

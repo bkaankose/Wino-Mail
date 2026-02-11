@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Itenso.TimePeriod;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 
@@ -32,26 +33,8 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         }
         set
         {
-            // When setting from UI (in local time), convert to event's timezone for storage
-            if (!string.IsNullOrEmpty(CalendarItem.StartTimeZone))
-            {
-                try
-                {
-                    var sourceTimeZone = TimeZoneInfo.Local;
-                    var targetTimeZone = TimeZoneInfo.FindSystemTimeZoneById(CalendarItem.StartTimeZone);
-                    CalendarItem.StartDate = TimeZoneInfo.ConvertTime(value, sourceTimeZone, targetTimeZone);
-                }
-                catch
-                {
-                    // If timezone lookup fails, set as-is
-                    CalendarItem.StartDate = value;
-                }
-            }
-            else
-            {
-                // No timezone info, set as-is
-                CalendarItem.StartDate = value;
-            }
+            // When setting from UI (in local time), convert to event's timezone for storage.
+            CalendarItem.StartDate = value.ToTimeZoneFromLocal(CalendarItem.StartTimeZone);
         }
     }
 

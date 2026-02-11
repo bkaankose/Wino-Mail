@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Itenso.TimePeriod;
 using SQLite;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 
@@ -168,28 +169,7 @@ public class CalendarItem : ICalendarItem
     {
         get
         {
-            if (string.IsNullOrEmpty(StartTimeZone))
-            {
-                // No timezone info, return as-is
-                return StartDate;
-            }
-
-            try
-            {
-                var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(StartTimeZone);
-                var localTimeZone = TimeZoneInfo.Local;
-
-                // Ensure DateTime is Unspecified kind before conversion
-                var unspecifiedDateTime = DateTime.SpecifyKind(StartDate, DateTimeKind.Unspecified);
-
-                // Convert from source timezone to local timezone
-                return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
-            }
-            catch
-            {
-                // If timezone lookup fails, return as-is
-                return StartDate;
-            }
+            return this.GetLocalStartDate();
         }
     }
 
@@ -202,28 +182,7 @@ public class CalendarItem : ICalendarItem
     {
         get
         {
-            if (string.IsNullOrEmpty(EndTimeZone))
-            {
-                // No timezone info, return as-is
-                return EndDate;
-            }
-
-            try
-            {
-                var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(EndTimeZone);
-                var localTimeZone = TimeZoneInfo.Local;
-
-                // Ensure DateTime is Unspecified kind before conversion
-                var unspecifiedDateTime = DateTime.SpecifyKind(EndDate, DateTimeKind.Unspecified);
-
-                // Convert from source timezone to local timezone
-                return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
-            }
-            catch
-            {
-                // If timezone lookup fails, return as-is
-                return EndDate;
-            }
+            return this.GetLocalEndDate();
         }
     }
 

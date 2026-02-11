@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Core.Domain.Extensions;
@@ -29,4 +30,56 @@ public static class DateTimeExtensions
         // Start loading from this date instead of visible date.
         return date.AddDays(-diff).Date;
     }
+
+    /// <summary>
+    /// Converts a datetime from source timezone into local timezone.
+    /// If timezone lookup fails, returns original value.
+    /// </summary>
+    public static DateTime ToLocalTimeFromTimeZone(this DateTime dateTime, string sourceTimeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceTimeZoneId))
+            return dateTime;
+
+        try
+        {
+            var sourceTimeZone = TimeZoneInfo.FindSystemTimeZoneById(sourceTimeZoneId);
+            var localTimeZone = TimeZoneInfo.Local;
+            var unspecifiedDateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Unspecified);
+
+            return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, localTimeZone);
+        }
+        catch
+        {
+            return dateTime;
+        }
+    }
+
+    /// <summary>
+    /// Converts local datetime into target timezone.
+    /// If timezone lookup fails, returns original value.
+    /// </summary>
+    public static DateTime ToTimeZoneFromLocal(this DateTime localDateTime, string targetTimeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(targetTimeZoneId))
+            return localDateTime;
+
+        try
+        {
+            var sourceTimeZone = TimeZoneInfo.Local;
+            var targetTimeZone = TimeZoneInfo.FindSystemTimeZoneById(targetTimeZoneId);
+            var unspecifiedDateTime = DateTime.SpecifyKind(localDateTime, DateTimeKind.Unspecified);
+
+            return TimeZoneInfo.ConvertTime(unspecifiedDateTime, sourceTimeZone, targetTimeZone);
+        }
+        catch
+        {
+            return localDateTime;
+        }
+    }
+
+    public static DateTime GetLocalStartDate(this CalendarItem calendarItem)
+        => calendarItem.StartDate.ToLocalTimeFromTimeZone(calendarItem.StartTimeZone);
+
+    public static DateTime GetLocalEndDate(this CalendarItem calendarItem)
+        => calendarItem.EndDate.ToLocalTimeFromTimeZone(calendarItem.EndTimeZone);
 }

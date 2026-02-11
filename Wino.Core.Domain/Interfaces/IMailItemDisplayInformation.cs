@@ -17,6 +17,7 @@ public interface IMailItemDisplayInformation : INotifyPropertyChanged
     bool IsRead { get; }
     bool IsDraft { get; }
     bool HasAttachments { get; }
+    bool IsCalendarEvent { get; }
     bool IsFlagged { get; }
     DateTime CreationDate { get; }
     string Base64ContactPicture { get; }

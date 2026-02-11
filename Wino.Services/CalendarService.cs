@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Itenso.TimePeriod;
@@ -9,6 +10,7 @@ using Serilog;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Calendar;
@@ -332,6 +334,60 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         });
     }
 
+    public async Task<List<CalendarReminderNotificationRequest>> CheckAndNotifyAsync(DateTime lastCheckLocal, DateTime nowLocal, ISet<string> sentReminderKeys, CancellationToken cancellationToken = default)
+    {
+        if (sentReminderKeys == null)
+            return [];
+
+        var candidates = await Connection.QueryAsync<CalendarReminderCandidate>(
+            @"
+            SELECT
+                c.Id AS CalendarItemId,
+                c.StartDate,
+                c.StartTimeZone,
+                r.DurationInSeconds AS ReminderDurationInSeconds
+            FROM CalendarItem c
+            INNER JOIN Reminder r ON r.CalendarItemId = c.Id
+            INNER JOIN AccountCalendar ac ON ac.Id = c.CalendarId
+            INNER JOIN MailAccount ma ON ma.Id = ac.AccountId
+            WHERE
+                c.IsHidden = 0
+                AND ma.IsCalendarAccessGranted = 1
+                AND r.ReminderType = 0
+                AND NOT (IFNULL(c.Recurrence, '') != '' AND c.RecurringCalendarItemId IS NULL)")
+            .ConfigureAwait(false);
+
+        var dueNotifications = new List<CalendarReminderNotificationRequest>();
+
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var eventStartLocal = candidate.StartDate.ToLocalTimeFromTimeZone(candidate.StartTimeZone);
+            var triggerTimeLocal = eventStartLocal.AddSeconds(-candidate.ReminderDurationInSeconds);
+
+            if (triggerTimeLocal <= lastCheckLocal || triggerTimeLocal > nowLocal)
+                continue;
+
+            var reminderKey = $"{candidate.CalendarItemId:N}:{candidate.ReminderDurationInSeconds}";
+            if (!sentReminderKeys.Add(reminderKey))
+                continue;
+
+            var calendarItem = await GetCalendarItemAsync(candidate.CalendarItemId).ConfigureAwait(false);
+            if (calendarItem == null)
+                continue;
+
+            dueNotifications.Add(new CalendarReminderNotificationRequest()
+            {
+                CalendarItem = calendarItem,
+                ReminderDurationInSeconds = candidate.ReminderDurationInSeconds,
+                ReminderKey = reminderKey
+            });
+        }
+
+        return dueNotifications;
+    }
+
     #region Attachments
 
     public Task<List<CalendarAttachment>> GetAttachmentsAsync(Guid calendarItemId)
@@ -379,4 +435,12 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     }
 
     #endregion
+
+    private sealed class CalendarReminderCandidate
+    {
+        public Guid CalendarItemId { get; set; }
+        public DateTime StartDate { get; set; }
+        public string StartTimeZone { get; set; }
+        public long ReminderDurationInSeconds { get; set; }
+    }
 }

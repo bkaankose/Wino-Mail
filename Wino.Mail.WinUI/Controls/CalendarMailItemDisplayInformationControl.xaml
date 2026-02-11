@@ -7,7 +7,6 @@
     xmlns:helpers="using:Wino.Helpers"
     HorizontalAlignment="Stretch"
     VerticalAlignment="Stretch">
-
     <Grid x:DefaultBindMode="OneWay">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -23,14 +22,30 @@
             Prefer24HourTimeFormat="{x:Bind Prefer24HourTimeFormat, Mode=OneWay}"
             ShowPreviewText="False" />
 
-        <TextBlock
-            x:Name="EventDateText"
+        <Grid
+            x:Name="EventDateContainer"
             Grid.Row="1"
-            Margin="53,0,12,8"
-            FontSize="12"
-            Opacity="0.75"
-            Text="{x:Bind EventDateRangeText, Mode=OneWay}"
-            TextTrimming="CharacterEllipsis" />
+            Margin="46,0,12,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ContentPresenter
+                x:Name="CalendarInvitationContent"
+                Grid.Column="0"
+                Margin="0,0,4,0"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind MailItem.IsCalendarEvent, Mode=OneWay}"
+                ContentTemplate="{StaticResource CalendarInvitationSymbolControlTemplate}" />
+            <TextBlock
+                x:Name="EventDateText"
+                Grid.Column="1"
+                Margin="4,0,2,0"
+                FontSize="12"
+                Opacity="0.75"
+                Text="{x:Bind EventDateRangeText, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
+        </Grid>
     </Grid>
 
     <VisualStateManager.VisualStateGroups>

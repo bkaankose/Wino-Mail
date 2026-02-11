@@ -7,6 +7,7 @@ using Microsoft.Toolkit.Uwp.Notifications;
 using Serilog;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -249,5 +250,39 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
         builder.AddButton(new ToastButton().SetContent(Translator.Buttons_FixAccount));
         builder.Show();
+    }
+
+    public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
+    {
+        if (calendarItem == null)
+            return Task.CompletedTask;
+
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Reminder);
+
+        var localStart = calendarItem.LocalStartDate;
+        var reminderMinutes = (int)Math.Max(0, reminderDurationInSeconds / 60);
+        var reminderContext = reminderMinutes > 0
+            ? $"Starts in {reminderMinutes} minute{(reminderMinutes == 1 ? string.Empty : "s")}"
+            : "Starting now";
+
+        builder.AddText(calendarItem.Title);
+        builder.AddText($"{reminderContext} - {localStart:g}");
+
+        if (!string.IsNullOrWhiteSpace(calendarItem.Location))
+            builder.AddText(calendarItem.Location);
+
+        builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
+        builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
+        builder.AddButton(GetDismissButton());
+        builder.AddAudio(new ToastAudio()
+        {
+            Src = new Uri("ms-winsoundevent:Notification.Reminder")
+        });
+
+        var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
+        builder.Show(toast => toast.Tag = tag);
+
+        return Task.CompletedTask;
     }
 }

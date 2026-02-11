@@ -338,6 +338,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public bool IsRead { get; } = false;
         public bool IsDraft { get; } = false;
         public bool HasAttachments { get; } = false;
+        public bool IsCalendarEvent { get; } = false;
         public bool IsFlagged { get; } = false;
         public DateTime CreationDate { get; } = DateTime.Now;
         public string Base64ContactPicture { get; } = string.Empty;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -34,6 +35,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public ICommand ExitWinoCommand { get; set; }
 
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
+    private bool _calendarReminderServerStartAttempted;
 
     public ShellWindow()
     {
@@ -155,6 +157,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void MainFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
+        if (!_calendarReminderServerStartAttempted)
+        {
+            _calendarReminderServerStartAttempted = true;
+            _ = StartCalendarReminderServerAsync();
+        }
+
         // Mail shell has shell content only for mail list page
         // Thus, we check if the current content is MailAppShell
 
@@ -162,6 +170,23 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             ShellTitleBar.Content = mailAppShellPage.TopShellContent;
         else if (e.Content is BasePage basePage)
             ShellTitleBar.Content = basePage.ShellContent;
+    }
+
+    private async Task StartCalendarReminderServerAsync()
+    {
+        try
+        {
+            var reminderServer = WinoApplication.Current.Services.GetService<ICalendarReminderServer>();
+            if (reminderServer != null)
+            {
+                await reminderServer.StartAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _calendarReminderServerStartAttempted = false;
+            Serilog.Log.Error(ex, "Failed to start calendar reminder server.");
+        }
     }
 
     private void PaneButtonClicked(Microsoft.UI.Xaml.Controls.TitleBar sender, object args)
