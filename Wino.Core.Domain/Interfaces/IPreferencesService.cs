@@ -92,11 +92,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsShowPreviewEnabled { get; set; }
 
     /// <summary>
-    /// Setting: Enable/disable semantic zoom on clicking date headers.
-    /// </summary>
-    bool IsSemanticZoomEnabled { get; set; }
-
-    /// <summary>
     /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.
     /// </summary>
     bool RenderImages { get; set; }
