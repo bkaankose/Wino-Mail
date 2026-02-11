@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,7 +34,13 @@ public partial class App : WinoApplication,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<NewCalendarSynchronizationRequested>
 {
+    private const int InboxSyncsPerFullSync = 20;
     private ISynchronizationManager? _synchronizationManager;
+    private IPreferencesService? _preferencesService;
+    private IAccountService? _accountService;
+    private CancellationTokenSource? _autoSynchronizationLoopCts;
+    private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
+    private readonly Dictionary<Guid, int> _inboxSyncCounters = [];
 
     public App()
     {
@@ -136,6 +144,12 @@ public partial class App : WinoApplication,
         await InitializeServicesAsync();
 
         _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
+        _preferencesService = Services.GetRequiredService<IPreferencesService>();
+        _accountService = Services.GetRequiredService<IAccountService>();
+
+        _preferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        _preferencesService.PreferenceChanged += PreferencesServiceChanged;
+        RestartAutoSynchronizationLoop();
 
         // Check if launched from toast notification.
         if (IsNotificationActivation(out AppNotificationActivatedEventArgs toastArgs))
@@ -461,6 +475,132 @@ public partial class App : WinoApplication,
             MailSynchronizationType.UpdateProfile => Translator.Exception_FailedToSynchronizeProfileInformation,
             _ => Translator.Exception_FailedToSynchronizeFolders
         };
+    }
+
+    private void PreferencesServiceChanged(object? sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.EmailSyncIntervalMinutes))
+            return;
+
+        RestartAutoSynchronizationLoop();
+    }
+
+    private void RestartAutoSynchronizationLoop()
+    {
+        if (_preferencesService == null)
+            return;
+
+        StopAutoSynchronizationLoop();
+
+        int intervalMinutes = Math.Max(1, _preferencesService.EmailSyncIntervalMinutes);
+        _autoSynchronizationLoopCts = new CancellationTokenSource();
+
+        _ = RunAutoSynchronizationLoopAsync(TimeSpan.FromMinutes(intervalMinutes), _autoSynchronizationLoopCts.Token);
+        LogActivation($"Automatic sync loop started. Interval: {intervalMinutes} minute(s).");
+    }
+
+    private void StopAutoSynchronizationLoop()
+    {
+        if (_autoSynchronizationLoopCts == null)
+            return;
+
+        _autoSynchronizationLoopCts.Cancel();
+        _autoSynchronizationLoopCts.Dispose();
+        _autoSynchronizationLoopCts = null;
+    }
+
+    private async Task RunAutoSynchronizationLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ExecuteAutoSynchronizationAsync(cancellationToken).ConfigureAwait(false);
+
+            using var timer = new PeriodicTimer(interval);
+
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            {
+                await ExecuteAutoSynchronizationAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // no-op
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Automatic sync loop failed: {ex.Message}");
+        }
+    }
+
+    private async Task ExecuteAutoSynchronizationAsync(CancellationToken cancellationToken)
+    {
+        if (_synchronizationManager == null || _accountService == null)
+            return;
+
+        bool lockTaken = false;
+
+        try
+        {
+            lockTaken = await _autoSynchronizationSemaphore.WaitAsync(0, cancellationToken).ConfigureAwait(false);
+            if (!lockTaken)
+                return;
+
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+            var currentAccountIds = accounts.Select(a => a.Id).ToHashSet();
+            _inboxSyncCounters.Keys.Where(a => !currentAccountIds.Contains(a)).ToList().ForEach(a => _inboxSyncCounters.Remove(a));
+
+            foreach (var account in accounts)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+                    continue;
+
+                var inboxSyncOptions = new MailSynchronizationOptions()
+                {
+                    AccountId = account.Id,
+                    Type = MailSynchronizationType.InboxOnly
+                };
+
+                var inboxSyncResult = await _synchronizationManager.SynchronizeMailAsync(inboxSyncOptions, cancellationToken).ConfigureAwait(false);
+
+                if (inboxSyncResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+                {
+                    _inboxSyncCounters.TryAdd(account.Id, 0);
+                    _inboxSyncCounters[account.Id]++;
+
+                    if (_inboxSyncCounters[account.Id] >= InboxSyncsPerFullSync)
+                    {
+                        var fullSyncOptions = new MailSynchronizationOptions()
+                        {
+                            AccountId = account.Id,
+                            Type = MailSynchronizationType.FullFolders
+                        };
+
+                        await _synchronizationManager.SynchronizeMailAsync(fullSyncOptions, cancellationToken).ConfigureAwait(false);
+                        _inboxSyncCounters[account.Id] = 0;
+                    }
+                }
+
+                if (!account.IsCalendarAccessGranted)
+                    continue;
+
+                var calendarOptions = new CalendarSynchronizationOptions()
+                {
+                    AccountId = account.Id,
+                    Type = CalendarSynchronizationType.CalendarMetadata
+                };
+
+                await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            if (lockTaken)
+            {
+                _autoSynchronizationSemaphore.Release();
+            }
+        }
     }
 
     /// <summary>

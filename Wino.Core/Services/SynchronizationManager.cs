@@ -26,6 +26,7 @@ public class SynchronizationManager : ISynchronizationManager
     public static SynchronizationManager Instance => _instance.Value;
 
     private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache = new();
+    private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _accountSynchronizationCancellationSources = new();
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly ILogger _logger = Log.ForContext<SynchronizationManager>();
 
@@ -141,9 +142,14 @@ public class SynchronizationManager : ISynchronizationManager
         _logger.Information("Starting mail synchronization for account {AccountId} with type {SyncType}",
                           options.AccountId, options.Type);
 
+        var accountCancellationSource = _accountSynchronizationCancellationSources.GetOrAdd(options.AccountId, _ => new CancellationTokenSource());
+        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            accountCancellationSource.Token);
+
         try
         {
-            var result = await synchronizer.SynchronizeMailsAsync(options, cancellationToken);
+            var result = await synchronizer.SynchronizeMailsAsync(options, linkedCancellationTokenSource.Token);
 
             _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
@@ -155,6 +161,11 @@ public class SynchronizationManager : ISynchronizationManager
             await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
 
             return result;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Information("Mail synchronization canceled for account {AccountId}", options.AccountId);
+            return MailSynchronizationResult.Canceled;
         }
         catch (AuthenticationAttentionException authEx)
         {
@@ -350,9 +361,14 @@ public class SynchronizationManager : ISynchronizationManager
         _logger.Information("Starting calendar synchronization for account {AccountId} with type {SyncType}",
                           options.AccountId, options.Type);
 
+        var accountCancellationSource = _accountSynchronizationCancellationSources.GetOrAdd(options.AccountId, _ => new CancellationTokenSource());
+        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            accountCancellationSource.Token);
+
         try
         {
-            var result = await synchronizer.SynchronizeCalendarEventsAsync(options, cancellationToken);
+            var result = await synchronizer.SynchronizeCalendarEventsAsync(options, linkedCancellationTokenSource.Token);
 
             _logger.Information("Calendar synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
@@ -362,6 +378,11 @@ public class SynchronizationManager : ISynchronizationManager
             //     await _notificationBuilder.CreateCalendarNotificationsAsync(result.DownloadedEvents);
 
             return result;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Information("Calendar synchronization canceled for account {AccountId}", options.AccountId);
+            return CalendarSynchronizationResult.Canceled;
         }
         catch (AuthenticationAttentionException authEx)
         {
@@ -492,12 +513,45 @@ public class SynchronizationManager : ISynchronizationManager
     }
 
     /// <summary>
+    /// Cancels all in-flight synchronizations for the given account.
+    /// </summary>
+    /// <param name="accountId">Account ID to cancel synchronizations for</param>
+    public Task CancelSynchronizationsAsync(Guid accountId)
+    {
+        EnsureInitialized();
+
+        if (_accountSynchronizationCancellationSources.TryRemove(accountId, out var cancellationSource))
+        {
+            try
+            {
+                if (!cancellationSource.IsCancellationRequested)
+                {
+                    cancellationSource.Cancel();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // no-op
+            }
+            finally
+            {
+                cancellationSource.Dispose();
+            }
+
+            _logger.Information("Canceled ongoing synchronizations for account {AccountId}", accountId);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Destroys the synchronizer for the given account.
     /// </summary>
     /// <param name="accountId">Account ID to destroy synchronizer for</param>
     public async Task DestroySynchronizerAsync(Guid accountId)
     {
         EnsureInitialized();
+        await CancelSynchronizationsAsync(accountId);
 
         if (_synchronizerCache.TryRemove(accountId, out var synchronizer))
         {
@@ -505,6 +559,10 @@ public class SynchronizationManager : ISynchronizationManager
             {
                 await synchronizer.KillSynchronizerAsync();
                 _logger.Information("Destroyed synchronizer for account {AccountId}", accountId);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Information("Synchronizer destruction canceled for account {AccountId}", accountId);
             }
             catch (Exception ex)
             {

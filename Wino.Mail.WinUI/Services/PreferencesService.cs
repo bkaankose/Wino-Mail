@@ -50,12 +50,6 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(MailItemDisplayMode), value);
     }
 
-    public bool IsSemanticZoomEnabled
-    {
-        get => _configurationService.Get(nameof(IsSemanticZoomEnabled), true);
-        set => SetPropertyAndSave(nameof(IsSemanticZoomEnabled), value);
-    }
-
     public bool IsHardDeleteProtectionEnabled
     {
         get => _configurationService.Get(nameof(IsHardDeleteProtectionEnabled), true);

@@ -82,6 +82,11 @@ public interface ISynchronizationManager
     IWinoSynchronizerBase CreateSynchronizerForAccount(MailAccount account);
 
     /// <summary>
+    /// Cancels ongoing synchronizations for the given account.
+    /// </summary>
+    Task CancelSynchronizationsAsync(Guid accountId);
+
+    /// <summary>
     /// Destroys the synchronizer for the given account.
     /// </summary>
     Task DestroySynchronizerAsync(Guid accountId);
