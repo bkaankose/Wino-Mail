@@ -27,13 +27,13 @@ public record TentativeEventRequest(CalendarItem Item, string ResponseMessage = 
         Item.Status = CalendarItemStatus.Tentative;
         
         // Notify UI that the event status was updated
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, CalendarItemUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If tentative acceptance fails, revert to the previous status
         Item.Status = _previousStatus;
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, CalendarItemUpdateSource.ClientReverted));
     }
 }

@@ -33,7 +33,7 @@ public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAt
     public override void ApplyUIChanges()
     {
         // Notify UI that the event was updated locally
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, CalendarItemUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
@@ -42,12 +42,12 @@ public record UpdateCalendarEventRequest(CalendarItem Item, List<CalendarEventAt
         if (OriginalItem != null && OriginalAttendees != null)
         {
             // Send the original item back to restore UI state
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(OriginalItem));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(OriginalItem, CalendarItemUpdateSource.ClientReverted));
         }
         else
         {
             // Fallback: just notify with current item to trigger refresh
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, CalendarItemUpdateSource.ClientReverted));
         }
     }
 }

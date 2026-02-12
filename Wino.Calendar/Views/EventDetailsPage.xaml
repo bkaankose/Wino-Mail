@@ -6,9 +6,12 @@
     xmlns:abstract="using:Wino.Calendar.Views.Abstract"
     xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
     xmlns:calendarHelpers="using:Wino.Calendar.Helpers"
+    xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
     xmlns:coreControls="using:Wino.Core.UWP.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -44,6 +47,7 @@
     <Grid Padding="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -60,16 +64,16 @@
                 DefaultLabelPosition="Right"
                 IsSticky="True"
                 OverflowButtonVisibility="Auto">
-                <AppBarToggleButton
-                    x:Name="ReadOnlyToggle"
-                    Content="Read-only event"
-                    IsChecked="True" />
-                <AppBarButton Label="{x:Bind domain:Translator.Buttons_Save}">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    Label="{x:Bind domain:Translator.Buttons_Save}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="Save" />
                     </AppBarButton.Icon>
                 </AppBarButton>
-                <AppBarButton Label="{x:Bind domain:Translator.Buttons_Delete}">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.DeleteCommand}"
+                    Label="{x:Bind domain:Translator.Buttons_Delete}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="Delete" />
                     </AppBarButton.Icon>
@@ -78,7 +82,9 @@
                 <AppBarSeparator />
 
                 <!--  Join Online  -->
-                <AppBarButton Label="Join Online">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.JoinOnlineCommand}"
+                    Label="Join Online">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="EventJoinOnline" />
                     </AppBarButton.Icon>
@@ -86,27 +92,37 @@
 
                 <AppBarSeparator />
 
-                <!--  Join Options  -->
-                <AppBarButton Label="Accept">
+                <!--  RSVP Actions  -->
+                <AppBarButton
+                    Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                    CommandParameter="{x:Bind enums:AttendeeStatus.Accepted}"
+                    Label="Accept">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Foreground="#527257" Icon="EventAccept" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Label="Tentative">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                    CommandParameter="{x:Bind enums:AttendeeStatus.Tentative}"
+                    Label="Tentative">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Foreground="#805682" Icon="EventTentative" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Label="Decline">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                    CommandParameter="{x:Bind enums:AttendeeStatus.Declined}"
+                    Label="Decline">
                     <AppBarButton.Icon>
                         <PathIcon Data="F1 M 10.253906 9.375 L 16.064453 15.185547 C 16.18815 15.309245 16.25 15.455729 16.25 15.625 C 16.25 15.794271 16.18815 15.940756 16.064453 16.064453 C 15.940754 16.188152 15.79427 16.25 15.625 16.25 C 15.455729 16.25 15.309244 16.188152 15.185547 16.064453 L 9.375 10.253906 L 3.564453 16.064453 C 3.440755 16.188152 3.294271 16.25 3.125 16.25 C 2.955729 16.25 2.809245 16.188152 2.685547 16.064453 C 2.561849 15.940756 2.5 15.794271 2.5 15.625 C 2.5 15.455729 2.561849 15.309245 2.685547 15.185547 L 8.496094 9.375 L 2.685547 3.564453 C 2.561849 3.440756 2.5 3.294271 2.5 3.125 C 2.5 2.95573 2.561849 2.809246 2.685547 2.685547 C 2.809245 2.56185 2.955729 2.5 3.125 2.5 C 3.294271 2.5 3.440755 2.56185 3.564453 2.685547 L 9.375 8.496094 L 15.185547 2.685547 C 15.309244 2.56185 15.455729 2.5 15.625 2.5 C 15.79427 2.5 15.940754 2.56185 16.064453 2.685547 C 16.18815 2.809246 16.25 2.95573 16.25 3.125 C 16.25 3.294271 16.18815 3.440756 16.064453 3.564453 Z " Foreground="#d94b4e" />
-
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Label="Respond">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.ToggleRsvpPanelCommand}"
+                    Label="{x:Bind ViewModel.CurrentRsvpText, Mode=OneWay}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Foreground="#805682" Icon="EventRespond" />
                     </AppBarButton.Icon>
@@ -118,7 +134,11 @@
                 <AppBarElementContainer>
                     <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
                         <TextBlock VerticalAlignment="Center" Text="Show as" />
-                        <ComboBox Width="150" />
+                        <ComboBox
+                            Width="150"
+                            DisplayMemberPath="DisplayText"
+                            ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
+                            SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}" />
                     </StackPanel>
                 </AppBarElementContainer>
 
@@ -127,14 +147,33 @@
                     <StackPanel Style="{StaticResource ActionBarElementContainerStackStyle}">
                         <coreControls:WinoFontIcon FontSize="16" Icon="Reminder" />
                         <TextBlock VerticalAlignment="Center" Text="Reminder" />
-                        <ComboBox Width="150" />
+                        <Button Content="Set">
+                            <Button.Flyout>
+                                <Flyout>
+                                    <ListView
+                                        Width="200"
+                                        MaxHeight="300"
+                                        ItemsSource="{x:Bind ViewModel.ReminderOptions}"
+                                        SelectionMode="None">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="calendarViewModels:ReminderOption">
+                                                <CheckBox Content="{x:Bind DisplayText}" IsChecked="{x:Bind IsSelected, Mode=TwoWay}" />
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                     </StackPanel>
                 </AppBarElementContainer>
 
                 <AppBarSeparator />
 
                 <!--  Edit Series  -->
-                <AppBarButton Label="Edit Series">
+                <AppBarButton
+                    Command="{x:Bind ViewModel.ViewSeriesCommand}"
+                    Label="Edit Series"
+                    Visibility="{x:Bind ViewModel.CanEditSeries, Mode=OneWay}">
                     <AppBarButton.Icon>
                         <coreControls:WinoFontIcon Icon="EventEditSeries" />
                     </AppBarButton.Icon>
@@ -142,8 +181,51 @@
             </CommandBar>
         </Border>
 
+        <!-- RSVP Panel -->
+        <Border
+            Grid.Row="1"
+            Margin="0,8,0,0"
+            Padding="12"
+            Background="{ThemeResource WinoContentZoneBackgroud}"
+            BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="7"
+            Visibility="{x:Bind ViewModel.IsRsvpPanelVisible, Mode=OneWay}">
+            <Grid RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                        CommandParameter="{x:Bind enums:AttendeeStatus.Accepted}"
+                        Content="Accept" />
+                    <Button
+                        Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                        CommandParameter="{x:Bind enums:AttendeeStatus.Tentative}"
+                        Content="Tentative" />
+                    <Button
+                        Command="{x:Bind ViewModel.SendRsvpResponseCommand}"
+                        CommandParameter="{x:Bind enums:AttendeeStatus.Declined}"
+                        Content="Decline" />
+                    <Button
+                        Command="{x:Bind ViewModel.CloseRsvpPanelCommand}"
+                        Content="Close" />
+                </StackPanel>
+
+                <TextBox
+                    Grid.Row="1"
+                    AcceptsReturn="True"
+                    PlaceholderText="Add a message (optional)"
+                    Text="{x:Bind ViewModel.RsvpMessage, Mode=TwoWay}"
+                    TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
         <!--  Event details  -->
-        <ScrollViewer Grid.Row="1">
+        <ScrollViewer Grid.Row="2">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*" />
@@ -170,8 +252,7 @@
                         <!--  Read-Only Event  -->
                         <Grid
                             x:Name="ReadOnlyDetailsGrid"
-                            RowSpacing="6"
-                            Visibility="{x:Bind ReadOnlyToggle.IsChecked, Mode=OneWay}">
+                            RowSpacing="6">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="16" />
@@ -195,7 +276,7 @@
                             <Grid
                                 Grid.Row="3"
                                 ColumnSpacing="6"
-                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringEvent}">
+                                Visibility="{x:Bind ViewModel.CurrentEvent.IsRecurringEvent, Mode=OneWay}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -208,12 +289,6 @@
                                     Text="{x:Bind calendarHelpers:CalendarXamlHelpers.GetRecurrenceString(ViewModel.CurrentEvent), Mode=OneWay}"
                                     TextWrapping="Wrap" />
                             </Grid>
-
-                        </Grid>
-
-                        <!--  Editable Event  -->
-                        <Grid Visibility="{x:Bind helpers:XamlHelpers.ReverseVisibilityConverter(ReadOnlyDetailsGrid.Visibility), Mode=OneWay}">
-                            <TextBlock Text="editing" />
                         </Grid>
                     </Grid>
                 </Grid>
@@ -238,7 +313,8 @@
                         <AutoSuggestBox
                             Margin="6,0"
                             BorderThickness="0"
-                            PlaceholderText="Invite someone" />
+                            PlaceholderText="Invite someone"
+                            Visibility="{x:Bind ViewModel.IsCurrentUserOrganizer, Mode=OneWay}" />
 
                         <ListView
                             Grid.Row="1"
@@ -251,6 +327,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <PersonPicture
@@ -285,6 +362,19 @@
                                                     Text="{x:Bind domain:Translator.CalendarEventDetails_Organizer}" />
                                             </Border>
                                         </Grid>
+
+                                        <Border
+                                            Grid.Column="2"
+                                            Padding="6,2"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            CornerRadius="4">
+                                            <TextBlock
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="{x:Bind AttendenceStatus}" />
+                                        </Border>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
@@ -296,7 +386,8 @@
                 <Grid
                     x:Name="AttachmentsGrid"
                     Grid.Column="2"
-                    Style="{StaticResource EventDetailsPanelGridStyle}">
+                    Style="{StaticResource EventDetailsPanelGridStyle}"
+                    Visibility="{x:Bind ViewModel.HasAttachments, Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -304,6 +395,82 @@
 
                     <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="Attachments" />
 
+                    <ListView
+                        Grid.Row="1"
+                        IsItemClickEnabled="True"
+                        ItemClick="AttachmentClicked"
+                        ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
+                        SelectionMode="None">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="data:CalendarAttachmentViewModel">
+                                <Grid Height="51">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="50" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <Grid
+                                        Grid.Row="0"
+                                        Height="50"
+                                        Background="Transparent"
+                                        ColumnSpacing="6">
+                                        <Grid.ContextFlyout>
+                                            <MenuFlyout Placement="Right">
+                                                <MenuFlyoutItem
+                                                    Click="OpenCalendarAttachment_Click"
+                                                    CommandParameter="{x:Bind}"
+                                                    Text="{x:Bind domain:Translator.Buttons_Open}" />
+                                                <MenuFlyoutItem
+                                                    Click="SaveCalendarAttachment_Click"
+                                                    CommandParameter="{x:Bind}"
+                                                    Text="{x:Bind domain:Translator.Buttons_Save}" />
+                                            </MenuFlyout>
+                                        </Grid.ContextFlyout>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <SymbolIcon Symbol="Attach" />
+
+                                        <Grid
+                                            Grid.Column="1"
+                                            MaxWidth="200"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock
+                                                FontSize="13"
+                                                MaxLines="1"
+                                                Text="{x:Bind FileName}"
+                                                TextTrimming="CharacterEllipsis"
+                                                TextWrapping="Wrap" />
+
+                                            <TextBlock
+                                                Grid.Row="1"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Bottom"
+                                                FontSize="11"
+                                                Foreground="Gray"
+                                                Text="{x:Bind ReadableSize}" />
+                                        </Grid>
+                                    </Grid>
+                                    <ProgressBar
+                                        Grid.Row="1"
+                                        Margin="0,-5,0,0"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Top"
+                                        IsIndeterminate="{x:Bind IsBusy, Mode=OneWay}"
+                                        ShowError="False"
+                                        ShowPaused="False"
+                                        Visibility="{x:Bind IsBusy, Mode=OneWay}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </Grid>
             </Grid>
         </ScrollViewer>

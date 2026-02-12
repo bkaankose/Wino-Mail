@@ -105,6 +105,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     public bool IncludeRsvpMessage => !string.IsNullOrEmpty(RsvpMessage);
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IncludeRsvpMessage))]
     public partial string RsvpMessage { get; set; } = string.Empty;
 
     public ObservableCollection<RsvpStatusOption> RsvpStatusOptions { get; } = new ObservableCollection<RsvpStatusOption>();
@@ -129,7 +130,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                 CalendarItemStatus.Tentative => Translator.CalendarEventResponse_TentativeResponse,
                 CalendarItemStatus.Cancelled => Translator.CalendarEventResponse_DeclinedResponse,
                 CalendarItemStatus.NotResponded => Translator.CalendarEventResponse_NotResponded,
-                _ => throw new NotImplementedException()
+                _ => Translator.CalendarEventResponse_NotResponded
             };
         }
     }
@@ -179,19 +180,33 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         await LoadCalendarItemTargetAsync(args);
     }
 
-    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem)
+    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source)
     {
-        base.OnCalendarItemUpdated(calendarItem);
+        base.OnCalendarItemUpdated(calendarItem, source);
 
         // If the current event was updated, reload it
         if (CurrentEvent?.CalendarItem?.Id == calendarItem.Id || CurrentEvent?.CalendarItem.RecurringCalendarItemId == calendarItem.Id)
         {
-            // Refresh the current event data by reloading from service
+            // Reflect client-side optimistic changes immediately; fallback to DB for server updates.
+            if (source == CalendarItemUpdateSource.ClientUpdated || source == CalendarItemUpdateSource.ClientReverted)
+            {
+                var previousAttendees = CurrentEvent?.Attendees?.ToList() ?? [];
+                CurrentEvent = new CalendarItemViewModel(calendarItem);
+
+                foreach (var attendee in previousAttendees)
+                {
+                    CurrentEvent.Attendees.Add(attendee);
+                }
+
+                return;
+            }
+
+            // Refresh from DB when update comes from server sync.
             var refreshedEvent = await _calendarService.GetCalendarItemAsync(calendarItem.Id);
             if (refreshedEvent != null)
             {
                 CurrentEvent = new CalendarItemViewModel(refreshedEvent);
-                await LoadAttendeesAsync(refreshedEvent.EventTrackingId, refreshedEvent);
+                await LoadAttendeesAsync(refreshedEvent.Id, refreshedEvent);
             }
         }
     }
@@ -218,17 +233,17 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
             CurrentEvent = new CalendarItemViewModel(currentEventItem);
 
-            await LoadAttendeesAsync(currentEventItem.EventTrackingId, currentEventItem);
+            await LoadAttendeesAsync(currentEventItem.Id, currentEventItem);
 
             // Initialize SelectedShowAsOption based on current event's ShowAs
             SelectedShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == currentEventItem.ShowAs) ?? ShowAsOptions[2];
 
             // Load reminders for this calendar item
-            Reminders = await _calendarService.GetRemindersAsync(currentEventItem.EventTrackingId);
+            Reminders = await _calendarService.GetRemindersAsync(currentEventItem.Id);
             InitializeReminderOptions();
 
             // Load attachments
-            await LoadAttachmentsAsync(currentEventItem.EventTrackingId);
+            await LoadAttachmentsAsync(currentEventItem.Id);
         }
         catch (Exception ex)
         {
@@ -236,11 +251,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         }
     }
 
-    private async Task LoadAttendeesAsync(Guid eventTrackingId, CalendarItem calendarItem)
+    private async Task LoadAttendeesAsync(Guid calendarItemId, CalendarItem calendarItem)
     {
         CurrentEvent.Attendees.Clear();
 
-        var attendees = await _calendarService.GetAttendeesAsync(eventTrackingId);
+        var attendees = await _calendarService.GetAttendeesAsync(calendarItemId);
 
         // Separate organizer from other attendees to ensure organizer is always first
         var organizer = attendees.FirstOrDefault(a => a.IsOrganizer);
@@ -348,7 +363,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         {
             // Capture original state BEFORE making any changes for potential revert
             var originalItem = await _calendarService.GetCalendarItemAsync(CurrentEvent.CalendarItem.Id);
-            var originalAttendees = await _calendarService.GetAttendeesAsync(CurrentEvent.CalendarItem.EventTrackingId);
+            var originalAttendees = await _calendarService.GetAttendeesAsync(CurrentEvent.CalendarItem.Id);
 
             // Get selected reminder options
             var selectedOptions = ReminderOptions.Where(o => o.IsSelected).ToList();
@@ -370,7 +385,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             }
 
             // Save reminders to database
-            await _calendarService.SaveRemindersAsync(CurrentEvent.CalendarItem.EventTrackingId, newReminders);
+            await _calendarService.SaveRemindersAsync(CurrentEvent.CalendarItem.Id, newReminders);
             Reminders = newReminders;
 
             // Update ShowAs if changed
@@ -499,7 +514,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             await _winoRequestDelegator.ExecuteAsync(preparationRequest);
 
             // Reload attendees to get the updated status from the server
-            await LoadAttendeesAsync(CurrentEvent.CalendarItem.EventTrackingId, CurrentEvent.CalendarItem);
+            await LoadAttendeesAsync(CurrentEvent.CalendarItem.Id, CurrentEvent.CalendarItem);
 
             OnPropertyChanged(nameof(CurrentRsvpText));
             OnPropertyChanged(nameof(CurrentRsvpStatus));

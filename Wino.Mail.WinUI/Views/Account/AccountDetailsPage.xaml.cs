@@ -51,8 +51,13 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
 
         if (e.NavigationMode == NavigationMode.New)
         {
-            // Set initial tab to Mail (index 1)
-            TabSelector.SelectedItem = TabSelector.Items[1];
+            var targetTabIndex = ViewModel.SelectedTabIndex;
+            if (targetTabIndex < 0 || targetTabIndex >= TabSelector.Items.Count)
+            {
+                targetTabIndex = 1;
+            }
+
+            TabSelector.SelectedItem = TabSelector.Items[targetTabIndex];
         }
     }
 }

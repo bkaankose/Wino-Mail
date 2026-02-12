@@ -26,6 +26,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
+    private readonly IStatePersistanceService _statePersistanceService;
     private bool isLoaded = false;
 
     public MailAccount Account { get; set; }
@@ -60,12 +61,14 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public AccountDetailsPageViewModel(IMailDialogService dialogService,
         IAccountService accountService,
         IFolderService folderService,
-        ICalendarService calendarService)
+        ICalendarService calendarService,
+        IStatePersistanceService statePersistanceService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
         _calendarService = calendarService;
+        _statePersistanceService = statePersistanceService;
     }
 
     [RelayCommand]
@@ -131,6 +134,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
 
             OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
+
+            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar ? 2 : 1;
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 

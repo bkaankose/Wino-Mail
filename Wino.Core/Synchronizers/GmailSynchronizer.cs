@@ -484,7 +484,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
 
-        var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var localCalendars = (await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false))
+            .Where(c => c.IsSynchronizationEnabled)
+            .ToList();
 
         // TODO: Better logging and exception handling.
         foreach (var calendar in localCalendars)
@@ -566,6 +568,7 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
 
         var localCalendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var remotePrimaryCalendarId = GetPrimaryCalendarId(calendarListResponse.Items);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -596,14 +599,21 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             {
                 // Insert new calendar.
                 var localCalendar = calendar.AsCalendar(Account.Id);
+                localCalendar.IsPrimary = string.Equals(localCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
                 insertedCalendars.Add(localCalendar);
             }
             else
             {
                 // Update existing calendar. Right now we only update the name.
-                if (ShouldUpdateCalendar(calendar, existingLocalCalendar))
+                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId))
                 {
                     existingLocalCalendar.Name = calendar.Summary;
+                    existingLocalCalendar.TimeZone = calendar.TimeZone;
+                    if (!string.IsNullOrEmpty(calendar.BackgroundColor))
+                        existingLocalCalendar.BackgroundColorHex = calendar.BackgroundColor;
+                    if (!string.IsNullOrEmpty(calendar.ForegroundColor))
+                        existingLocalCalendar.TextColorHex = calendar.ForegroundColor;
+                    existingLocalCalendar.IsPrimary = string.Equals(existingLocalCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
 
                     updatedCalendars.Add(existingLocalCalendar);
                 }
@@ -770,14 +780,41 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         }
     }
 
-    private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar)
+    private bool ShouldUpdateCalendar(CalendarListEntry calendarListEntry, AccountCalendar accountCalendar, string remotePrimaryCalendarId)
     {
-        // TODO: Only calendar name is updated for now. We can add more checks here.
-
         var remoteCalendarName = calendarListEntry.Summary;
-        var localCalendarName = accountCalendar.Name;
+        var remoteTimeZone = calendarListEntry.TimeZone;
+        var remoteBackgroundColor = string.IsNullOrEmpty(calendarListEntry.BackgroundColor) ? accountCalendar.BackgroundColorHex : calendarListEntry.BackgroundColor;
+        var remoteTextColor = string.IsNullOrEmpty(calendarListEntry.ForegroundColor) ? accountCalendar.TextColorHex : calendarListEntry.ForegroundColor;
+        var remoteIsPrimary = string.Equals(calendarListEntry.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
 
-        return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
+        bool isNameChanged = !string.Equals(accountCalendar.Name, remoteCalendarName, StringComparison.OrdinalIgnoreCase);
+        bool isTimeZoneChanged = !string.Equals(accountCalendar.TimeZone, remoteTimeZone, StringComparison.OrdinalIgnoreCase);
+        bool isBackgroundColorChanged = !string.Equals(accountCalendar.BackgroundColorHex, remoteBackgroundColor, StringComparison.OrdinalIgnoreCase);
+        bool isTextColorChanged = !string.Equals(accountCalendar.TextColorHex, remoteTextColor, StringComparison.OrdinalIgnoreCase);
+        bool isPrimaryChanged = accountCalendar.IsPrimary != remoteIsPrimary;
+
+        return isNameChanged || isTimeZoneChanged || isBackgroundColorChanged || isTextColorChanged || isPrimaryChanged;
+    }
+
+    private string GetPrimaryCalendarId(IList<CalendarListEntry> remoteCalendars)
+    {
+        if (remoteCalendars == null || remoteCalendars.Count == 0)
+            return string.Empty;
+
+        var explicitPrimary = remoteCalendars.FirstOrDefault(c => c.Primary.GetValueOrDefault());
+        if (explicitPrimary != null)
+            return explicitPrimary.Id;
+
+        var byPrimaryKeyword = remoteCalendars.FirstOrDefault(c => string.Equals(c.Id, "primary", StringComparison.OrdinalIgnoreCase));
+        if (byPrimaryKeyword != null)
+            return byPrimaryKeyword.Id;
+
+        var byAccountAddress = remoteCalendars.FirstOrDefault(c => string.Equals(c.Id, Account.Address, StringComparison.OrdinalIgnoreCase));
+        if (byAccountAddress != null)
+            return byAccountAddress.Id;
+
+        return remoteCalendars.First().Id;
     }
 
     private bool ShouldUpdateFolder(Label remoteFolder, MailItemFolder existingLocalFolder)

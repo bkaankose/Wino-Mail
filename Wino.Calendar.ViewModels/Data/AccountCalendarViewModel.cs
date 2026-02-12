@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Calendar.ViewModels.Data;
@@ -54,6 +55,12 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
         set => SetProperty(AccountCalendar.IsPrimary, value, AccountCalendar, (u, i) => u.IsPrimary = i);
     }
 
+    public bool IsSynchronizationEnabled
+    {
+        get => AccountCalendar.IsSynchronizationEnabled;
+        set => SetProperty(AccountCalendar.IsSynchronizationEnabled, value, AccountCalendar, (u, i) => u.IsSynchronizationEnabled = i);
+    }
+
     public Guid AccountId
     {
         get => AccountCalendar.AccountId;
@@ -64,6 +71,12 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
     {
         get => AccountCalendar.RemoteCalendarId;
         set => SetProperty(AccountCalendar.RemoteCalendarId, value, AccountCalendar, (u, r) => u.RemoteCalendarId = r);
+    }
+
+    public CalendarItemShowAs DefaultShowAs
+    {
+        get => AccountCalendar.DefaultShowAs;
+        set => SetProperty(AccountCalendar.DefaultShowAs, value, AccountCalendar, (u, s) => u.DefaultShowAs = s);
     }
     public Guid Id { get => ((IAccountCalendar)AccountCalendar).Id; set => ((IAccountCalendar)AccountCalendar).Id = value; }
     public MailAccount MailAccount { get => MailAccount; set => MailAccount = value; }

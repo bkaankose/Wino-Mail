@@ -144,7 +144,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
                 }
             });
 
-            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(calendarItem, CalendarItemUpdateSource.Server));
         }
         catch (Exception ex)
         {

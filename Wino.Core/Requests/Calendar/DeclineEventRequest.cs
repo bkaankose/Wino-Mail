@@ -27,13 +27,13 @@ public record DeclineEventRequest(CalendarItem Item, string ResponseMessage = nu
         Item.Status = CalendarItemStatus.Cancelled;
 
         // Notify UI that the event status was updated
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, CalendarItemUpdateSource.ClientUpdated));
     }
 
     public override void RevertUIChanges()
     {
         // If decline fails, revert to the previous status
         Item.Status = _previousStatus;
-        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item));
+        WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(Item, CalendarItemUpdateSource.ClientReverted));
     }
 }

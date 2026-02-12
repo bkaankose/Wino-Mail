@@ -40,7 +40,18 @@ public class CoreBaseViewModel : ObservableRecipient, INavigationAware
 
     public virtual void OnPageLoaded() { }
 
-    public async Task ExecuteUIThread(Action action) => await Dispatcher?.ExecuteOnUIThread(action);
+    public Task ExecuteUIThread(Action action)
+    {
+        if (action == null) return Task.CompletedTask;
+
+        if (Dispatcher == null)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        return Dispatcher.ExecuteOnUIThread(action);
+    }
     public void ReportUIChange<TMessage>(TMessage message) where TMessage : class, IUIMessage => Messenger.Send(message);
 
     protected virtual void OnDispatcherAssigned() { }

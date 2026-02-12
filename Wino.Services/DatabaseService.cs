@@ -64,4 +64,5 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<MailInvitationCalendarMapping>()
             );
     }
+
 }

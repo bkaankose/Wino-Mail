@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -77,6 +78,12 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
 
     private async Task RenderDescriptionAsync()
     {
+        if (DispatcherQueue != null && !DispatcherQueue.HasThreadAccess)
+        {
+            await DispatcherQueue.EnqueueAsync(RenderDescriptionAsync);
+            return;
+        }
+
         if (ViewModel?.CurrentEvent?.CalendarItem == null)
             return;
 
@@ -141,6 +148,12 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
 
     private async Task UpdateEditorThemeAsync()
     {
+        if (DispatcherQueue != null && !DispatcherQueue.HasThreadAccess)
+        {
+            await DispatcherQueue.EnqueueAsync(UpdateEditorThemeAsync);
+            return;
+        }
+
         await DOMLoadedTask.Task;
 
         if (ViewModel.IsDarkWebviewRenderer)
@@ -171,9 +184,9 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         _ = UpdateEditorThemeAsync();
     }
 
-    async void IRecipient<CalendarDescriptionRenderingRequested>.Receive(CalendarDescriptionRenderingRequested message)
+    void IRecipient<CalendarDescriptionRenderingRequested>.Receive(CalendarDescriptionRenderingRequested message)
     {
-        await RenderDescriptionAsync();
+        _ = RenderDescriptionAsync();
     }
 
     protected override void RegisterRecipients()

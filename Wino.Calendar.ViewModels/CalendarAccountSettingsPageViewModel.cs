@@ -60,29 +60,30 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     {
         base.OnNavigatedTo(mode, parameters);
 
-        if (parameters is not Guid accountId)
+        if (parameters is AccountCalendar selectedCalendar)
+        {
+            Account = await _accountService.GetAccountAsync(selectedCalendar.AccountId);
+            AccountCalendar = await _calendarService.GetAccountCalendarAsync(selectedCalendar.Id) ?? selectedCalendar;
+        }
+        else if (parameters is Guid accountId)
+        {
+            Account = await _accountService.GetAccountAsync(accountId);
+            var calendars = await _calendarService.GetAccountCalendarsAsync(accountId);
+            AccountCalendar = calendars.FirstOrDefault(c => c.IsPrimary) ?? calendars.FirstOrDefault();
+        }
+        else
+        {
             return;
+        }
 
-        // Load account
-        Account = await _accountService.GetAccountAsync(accountId);
-        
-        if (Account == null)
-            return;
-
-        // Load first primary calendar for this account
-        var calendars = await _calendarService.GetAccountCalendarsAsync(accountId);
-        AccountCalendar = calendars.FirstOrDefault(c => c.IsPrimary) ?? calendars.FirstOrDefault();
-
-        if (AccountCalendar == null)
+        if (Account == null || AccountCalendar == null)
             return;
 
         // Initialize properties from AccountCalendar
         AccountColorHex = AccountCalendar.BackgroundColorHex ?? "#0078D4";
-        IsSyncEnabled = AccountCalendar.IsExtended;
+        IsSyncEnabled = AccountCalendar.IsSynchronizationEnabled;
         IsPrimaryCalendar = AccountCalendar.IsPrimary;
-
-        // TODO: Default ShowAs is not stored in AccountCalendar yet, defaulting to Busy
-        SelectedDefaultShowAsOption = ShowAsOptions[2]; // Busy
+        SelectedDefaultShowAsOption = ShowAsOptions.FirstOrDefault(o => o.ShowAs == AccountCalendar.DefaultShowAs) ?? ShowAsOptions[2];
     }
 
     partial void OnAccountColorHexChanged(string value)
@@ -98,7 +99,7 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
     {
         if (AccountCalendar != null)
         {
-            AccountCalendar.IsExtended = value;
+            AccountCalendar.IsSynchronizationEnabled = value;
             SaveChangesAsync();
         }
     }
@@ -114,11 +115,10 @@ public partial class CalendarAccountSettingsPageViewModel : CalendarBaseViewMode
 
     partial void OnSelectedDefaultShowAsOptionChanged(ShowAsOption value)
     {
-        // TODO: Default ShowAs should be stored in AccountCalendar or account preferences
-        // For now, this is just a placeholder as the property doesn't exist yet
-        if (value != null)
+        if (AccountCalendar != null && value != null)
         {
-            // Future: Store value.ShowAs somewhere
+            AccountCalendar.DefaultShowAs = value.ShowAs;
+            SaveChangesAsync();
         }
     }
 

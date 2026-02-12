@@ -1961,7 +1961,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
-        var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var localCalendars = (await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false))
+            .Where(c => c.IsSynchronizationEnabled)
+            .ToList();
 
         Microsoft.Graph.Me.Calendars.Item.CalendarView.Delta.DeltaGetResponse eventsDeltaResponse = null;
 
@@ -2078,6 +2080,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
     {
         var calendars = await _graphClient.Me.Calendars.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        var remotePrimaryCalendarId = await GetPrimaryCalendarIdAsync(calendars.Value, cancellationToken).ConfigureAwait(false);
 
         var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
 
@@ -2110,14 +2113,18 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             {
                 // Insert new calendar.
                 var localCalendar = calendar.AsCalendar(Account);
+                localCalendar.IsPrimary = string.Equals(localCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
                 insertedCalendars.Add(localCalendar);
             }
             else
             {
                 // Update existing calendar. Right now we only update the name.
-                if (ShouldUpdateCalendar(calendar, existingLocalCalendar))
+                if (ShouldUpdateCalendar(calendar, existingLocalCalendar, remotePrimaryCalendarId))
                 {
                     existingLocalCalendar.Name = calendar.Name;
+                    existingLocalCalendar.IsPrimary = string.Equals(existingLocalCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+                    if (!string.IsNullOrEmpty(calendar.HexColor))
+                        existingLocalCalendar.BackgroundColorHex = calendar.HexColor;
 
                     updatedCalendars.Add(existingLocalCalendar);
                 }
@@ -2147,14 +2154,40 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         }
     }
 
-    private bool ShouldUpdateCalendar(Calendar calendar, AccountCalendar accountCalendar)
+    private bool ShouldUpdateCalendar(Calendar calendar, AccountCalendar accountCalendar, string remotePrimaryCalendarId)
     {
-        // TODO: Only calendar name is updated for now. We can add more checks here.
-
         var remoteCalendarName = calendar.Name;
-        var localCalendarName = accountCalendar.Name;
+        var remoteBackgroundColor = string.IsNullOrEmpty(calendar.HexColor) ? accountCalendar.BackgroundColorHex : calendar.HexColor;
+        var remoteIsPrimary = string.Equals(calendar.Id, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
 
-        return !localCalendarName.Equals(remoteCalendarName, StringComparison.OrdinalIgnoreCase);
+        bool isNameChanged = !string.Equals(accountCalendar.Name, remoteCalendarName, StringComparison.OrdinalIgnoreCase);
+        bool isBackgroundColorChanged = !string.Equals(accountCalendar.BackgroundColorHex, remoteBackgroundColor, StringComparison.OrdinalIgnoreCase);
+        bool isPrimaryChanged = accountCalendar.IsPrimary != remoteIsPrimary;
+
+        return isNameChanged || isBackgroundColorChanged || isPrimaryChanged;
+    }
+
+    private async Task<string> GetPrimaryCalendarIdAsync(IList<Calendar> remoteCalendars, CancellationToken cancellationToken)
+    {
+        if (remoteCalendars == null || remoteCalendars.Count == 0)
+            return string.Empty;
+
+        var explicitPrimary = remoteCalendars.FirstOrDefault(c => c.IsDefaultCalendar.GetValueOrDefault());
+        if (explicitPrimary != null)
+            return explicitPrimary.Id;
+
+        try
+        {
+            var meCalendar = await _graphClient.Me.Calendar.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(meCalendar?.Id))
+                return meCalendar.Id;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to fetch default Outlook calendar for {Name}. Falling back to first available calendar.", Account.Name);
+        }
+
+        return remoteCalendars.First().Id;
     }
 
     #region Calendar Operations

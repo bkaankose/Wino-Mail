@@ -286,6 +286,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 Description = string.Empty,
                 Location = Location ?? string.Empty,
                 Title = EventName,
+                ShowAs = SelectedQuickEventAccountCalendar.DefaultShowAs,
                 IsHidden = false,
                 AssignedCalendar = SelectedQuickEventAccountCalendar
             };
@@ -907,9 +908,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         });
     }
 
-    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem)
+    protected override async void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source)
     {
-        base.OnCalendarItemUpdated(calendarItem);
+        base.OnCalendarItemUpdated(calendarItem, source);
         Debug.WriteLine($"Calendar item updated: {calendarItem.Id}");
 
         // Series master events should not be visible on the UI.

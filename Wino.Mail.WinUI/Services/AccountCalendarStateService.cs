@@ -225,6 +225,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
                     existingCalendar.BackgroundColorHex = accountCalendar.BackgroundColorHex;
                     existingCalendar.IsExtended = accountCalendar.IsExtended;
                     existingCalendar.IsPrimary = accountCalendar.IsPrimary;
+                    existingCalendar.IsSynchronizationEnabled = accountCalendar.IsSynchronizationEnabled;
+                    existingCalendar.DefaultShowAs = accountCalendar.DefaultShowAs;
                 }
             });
         }
@@ -241,6 +243,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
                 existingCalendar.BackgroundColorHex = accountCalendar.BackgroundColorHex;
                 existingCalendar.IsExtended = accountCalendar.IsExtended;
                 existingCalendar.IsPrimary = accountCalendar.IsPrimary;
+                existingCalendar.IsSynchronizationEnabled = accountCalendar.IsSynchronizationEnabled;
+                existingCalendar.DefaultShowAs = accountCalendar.DefaultShowAs;
             }
         }
     }

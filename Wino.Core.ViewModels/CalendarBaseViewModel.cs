@@ -1,5 +1,7 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
+using System;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Enums;
 using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Core.ViewModels;
@@ -9,13 +11,18 @@ public class CalendarBaseViewModel : CoreBaseViewModel,
     IRecipient<CalendarItemUpdated>,
     IRecipient<CalendarItemDeleted>
 {
-    public void Receive(CalendarItemAdded message) => OnCalendarItemAdded(message.CalendarItem);
-    public void Receive(CalendarItemUpdated message) => OnCalendarItemUpdated(message.CalendarItem);
-    public void Receive(CalendarItemDeleted message) => OnCalendarItemDeleted(message.CalendarItem);
+    public void Receive(CalendarItemAdded message) => DispatchToUIThread(() => OnCalendarItemAdded(message.CalendarItem));
+    public void Receive(CalendarItemUpdated message) => DispatchToUIThread(() => OnCalendarItemUpdated(message.CalendarItem, message.Source));
+    public void Receive(CalendarItemDeleted message) => DispatchToUIThread(() => OnCalendarItemDeleted(message.CalendarItem));
 
     protected virtual void OnCalendarItemAdded(CalendarItem calendarItem) { }
-    protected virtual void OnCalendarItemUpdated(CalendarItem calendarItem) { }
+    protected virtual void OnCalendarItemUpdated(CalendarItem calendarItem, CalendarItemUpdateSource source) { }
     protected virtual void OnCalendarItemDeleted(CalendarItem calendarItem) { }
+
+    private void DispatchToUIThread(Action action)
+    {
+        _ = ExecuteUIThread(action);
+    }
 
     protected override void RegisterRecipients()
     {
@@ -35,3 +42,4 @@ public class CalendarBaseViewModel : CoreBaseViewModel,
         Messenger.Unregister<CalendarItemDeleted>(this);
     }
 }
+

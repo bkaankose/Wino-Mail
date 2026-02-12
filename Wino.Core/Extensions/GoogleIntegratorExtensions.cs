@@ -141,6 +141,7 @@ public static class GoogleIntegratorExtensions
             Id = Guid.NewGuid(),
             TimeZone = calendarListEntry.TimeZone,
             IsPrimary = calendarListEntry.Primary.GetValueOrDefault(),
+            IsSynchronizationEnabled = true,
         };
 
         // Bg color must present. Generate one if doesnt exists.

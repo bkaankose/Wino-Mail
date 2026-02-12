@@ -183,6 +183,7 @@ public static class OutlookIntegratorExtensions
             RemoteCalendarId = outlookCalendar.Id,
             IsPrimary = outlookCalendar.IsDefaultCalendar.GetValueOrDefault(),
             Name = outlookCalendar.Name,
+            IsSynchronizationEnabled = true,
             IsExtended = true,
         };
 
