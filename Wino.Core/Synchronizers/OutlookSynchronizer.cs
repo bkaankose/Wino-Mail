@@ -260,6 +260,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public async Task DownloadSearchResultMessageAsync(string messageId, MailItemFolder assignedFolder, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(messageId) || assignedFolder == null) return;
+
+        // Online search can return the same message across repeated invocations/races.
+        // Guard before network+MIME download and before database insert.
+        var existing = await _outlookChangeProcessor.AreMailsExistsAsync([messageId]).ConfigureAwait(false);
+        if (existing.Contains(messageId))
+        {
+            return;
+        }
+
         Log.Information("Downloading search result message {messageId} for {Name} - {FolderName}", messageId, Account.Name, assignedFolder.FolderName);
 
         // Outlook message handling was a little strange.
@@ -292,7 +302,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            await _outlookChangeProcessor.CreateMailRawAsync(Account, assignedFolder, package).ConfigureAwait(false);
+            // Use safe upsert path to avoid duplicate rows when message already exists.
+            await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
         }
     }
 
@@ -1770,12 +1781,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
-        List<Message> messagesReturnedByApi = [];
+        var messagesById = new Dictionary<string, Message>(StringComparer.Ordinal);
 
         // Perform search for each folder separately.
         if (folders?.Count > 0)
         {
-            var folderIds = folders.Select(a => a.RemoteFolderId);
+            var folderIds = folders
+                .Where(a => a != null && !string.IsNullOrWhiteSpace(a.RemoteFolderId))
+                .Select(a => a.RemoteFolderId)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
 
             var tasks = folderIds.Select(async folderId =>
             {
@@ -1785,15 +1800,19 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         requestConfig.QueryParameters.Search = $"\"{queryText}\"";
                         requestConfig.QueryParameters.Select = ["Id, ParentFolderId"];
                         requestConfig.QueryParameters.Top = 1000;
-                    });
+                    }, cancellationToken);
 
                 var result = await mailQuery;
 
                 if (result?.Value != null)
                 {
-                    lock (messagesReturnedByApi)
+                    lock (messagesById)
                     {
-                        messagesReturnedByApi.AddRange(result.Value);
+                        foreach (var message in result.Value)
+                        {
+                            if (string.IsNullOrWhiteSpace(message?.Id)) continue;
+                            messagesById[message.Id] = message;
+                        }
                     }
                 }
             });
@@ -1815,22 +1834,24 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             if (result?.Value != null)
             {
-                messagesReturnedByApi.AddRange(result.Value);
+                foreach (var message in result.Value)
+                {
+                    if (string.IsNullOrWhiteSpace(message?.Id)) continue;
+                    messagesById[message.Id] = message;
+                }
             }
         }
 
-        if (messagesReturnedByApi.Count == 0) return [];
+        if (messagesById.Count == 0) return [];
 
         var localFolders = (await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false))
             .ToDictionary(x => x.RemoteFolderId);
 
-        var messagesDictionary = messagesReturnedByApi.ToDictionary(a => a.Id);
-
         // Contains a list of message ids that potentially can be downloaded.
-        List<string> messageIdsWithKnownFolder = [];
+        var messageIdsWithKnownFolder = new HashSet<string>(StringComparer.Ordinal);
 
         // Validate that all messages are in a known folder.
-        foreach (var message in messagesReturnedByApi)
+        foreach (var message in messagesById.Values)
         {
             if (!localFolders.ContainsKey(message.ParentFolderId))
             {
@@ -1841,13 +1862,18 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             messageIdsWithKnownFolder.Add(message.Id);
         }
 
+        if (messageIdsWithKnownFolder.Count == 0) return [];
+
         var locallyExistingMails = await _outlookChangeProcessor.AreMailsExistsAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
 
         // Find messages that are not downloaded yet.
         List<Message> messagesToDownload = [];
-        foreach (var id in messagesDictionary.Keys.Except(locallyExistingMails))
+        foreach (var id in messageIdsWithKnownFolder.Except(locallyExistingMails, StringComparer.Ordinal))
         {
-            messagesToDownload.Add(messagesDictionary[id]);
+            if (messagesById.TryGetValue(id, out var message))
+            {
+                messagesToDownload.Add(message);
+            }
         }
 
         foreach (var message in messagesToDownload)

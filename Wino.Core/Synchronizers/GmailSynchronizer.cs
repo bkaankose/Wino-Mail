@@ -248,6 +248,20 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
             // Gmail's Messages API doesn't expose Draft IDs, so we query the Drafts API separately.
             // This ensures DraftId is correctly set for both Wino-created and externally-created drafts.
             await MapDraftIdsAsync(cancellationToken).ConfigureAwait(false);
+
+            // Keep virtual Archive folder assignments in sync with Gmail "in:archive" query.
+            try
+            {
+                await MapArchivedMailsAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to map Gmail archive folder for {Name}", Account.Name);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1175,52 +1189,89 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(string queryText, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
-        var request = _gmailService.Users.Messages.List("me");
-        request.Q = queryText;
-        request.MaxResults = 500; // Max 500 is returned.
+        if (string.IsNullOrWhiteSpace(queryText))
+            return [];
 
-        string pageToken = null;
+        static bool IsArchiveFolder(IMailItemFolder folder)
+            => folder?.SpecialFolderType == SpecialFolderType.Archive || folder?.RemoteFolderId == ServiceConstants.ARCHIVE_LABEL_ID;
 
-        List<Message> messagesToDownload = [];
+        var messageIds = new HashSet<string>(StringComparer.Ordinal);
 
-        do
+        async Task CollectMessageIdsAsync(UsersResource.MessagesResource.ListRequest request)
         {
-            if (queryText.StartsWith("label:") || queryText.StartsWith("in:"))
+            string pageToken = null;
+
+            do
             {
-                // Ignore the folders if the query starts with these keywords.
-                // User is trying to list everything.
-            }
-            else if (folders?.Count > 0)
+                if (!string.IsNullOrEmpty(pageToken))
+                {
+                    request.PageToken = pageToken;
+                }
+
+                var response = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                if (response.Messages == null || response.Messages.Count == 0) break;
+
+                foreach (var message in response.Messages)
+                {
+                    if (!string.IsNullOrEmpty(message.Id))
+                    {
+                        messageIds.Add(message.Id);
+                    }
+                }
+
+                pageToken = response.NextPageToken;
+            } while (!string.IsNullOrEmpty(pageToken));
+        }
+
+        bool hasScopedQuery = queryText.StartsWith("label:", StringComparison.OrdinalIgnoreCase) ||
+                              queryText.StartsWith("in:", StringComparison.OrdinalIgnoreCase);
+
+        if (hasScopedQuery || folders?.Count == 0)
+        {
+            var request = _gmailService.Users.Messages.List("me");
+            request.Q = queryText;
+            request.MaxResults = 500;
+
+            await CollectMessageIdsAsync(request).ConfigureAwait(false);
+        }
+        else
+        {
+            foreach (var folder in folders)
             {
-                request.LabelIds = folders.Select(a => a.RemoteFolderId).ToList();
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var request = _gmailService.Users.Messages.List("me");
+                request.MaxResults = 500;
+
+                if (IsArchiveFolder(folder))
+                {
+                    // Gmail archive is virtual. Query via search operator instead of label id.
+                    request.Q = $"in:archive {queryText}".Trim();
+                }
+                else
+                {
+                    request.Q = queryText;
+                    request.LabelIds = new List<string> { folder.RemoteFolderId };
+                }
+
+                await CollectMessageIdsAsync(request).ConfigureAwait(false);
             }
+        }
 
-            if (!string.IsNullOrEmpty(pageToken))
-            {
-                request.PageToken = pageToken;
-            }
+        if (messageIds.Count == 0)
+            return [];
 
-            var response = await request.ExecuteAsync(cancellationToken);
-            if (response.Messages == null) break;
+        var messageIdList = messageIds.ToList();
 
-            // Handle skipping manually
-            messagesToDownload.AddRange(response.Messages);
+        // Do not download messages that already exist locally.
+        var existingMessageIds = await _gmailChangeProcessor.AreMailsExistsAsync(messageIdList).ConfigureAwait(false);
+        var messagesToDownload = messageIdList.Except(existingMessageIds, StringComparer.Ordinal);
 
-            pageToken = response.NextPageToken;
-        } while (!string.IsNullOrEmpty(pageToken));
-
-        // Do not download messages that exists, but return them for listing.
-
-        var messageIds = messagesToDownload.Select(a => a.Id);
-
-        var downloadRequireMessageIds = messageIds.Except(await _gmailChangeProcessor.AreMailsExistsAsync(messageIds));
-
-        // Download missing messages in batch.
-        await DownloadMessagesInBatchAsync(downloadRequireMessageIds, cancellationToken).ConfigureAwait(false);
+        // Download missing messages in batch with metadata only.
+        await DownloadMessagesInBatchAsync(messagesToDownload, cancellationToken).ConfigureAwait(false);
 
         // Get results from database and return.
-
-        return await _gmailChangeProcessor.GetMailCopiesAsync(messageIds);
+        return await _gmailChangeProcessor.GetMailCopiesAsync(messageIdList).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1644,41 +1695,62 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
     /// <param name="cancellationToken">Cancellation token.</param>
     private async Task MapArchivedMailsAsync(CancellationToken cancellationToken)
     {
+        if (!archiveFolderId.HasValue) return;
+
         var request = _gmailService.Users.Messages.List("me");
         request.Q = "in:archive";
-        request.MaxResults = InitialMessageDownloadCountPerFolder;
+        request.MaxResults = 500;
 
         string pageToken = null;
 
-        var archivedMessageIds = new List<string>();
+        var archivedMessageIds = new HashSet<string>(StringComparer.Ordinal);
 
         do
         {
             if (!string.IsNullOrEmpty(pageToken)) request.PageToken = pageToken;
 
-            var response = await request.ExecuteAsync(cancellationToken);
+            var response = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
             if (response.Messages == null) break;
 
             foreach (var message in response.Messages)
             {
-                if (archivedMessageIds.Contains(message.Id)) continue;
-
-                archivedMessageIds.Add(message.Id);
+                if (!string.IsNullOrEmpty(message.Id))
+                {
+                    archivedMessageIds.Add(message.Id);
+                }
             }
 
             pageToken = response.NextPageToken;
         } while (!string.IsNullOrEmpty(pageToken));
 
-        var result = await _gmailChangeProcessor.GetGmailArchiveComparisonResultAsync(archiveFolderId.Value, archivedMessageIds).ConfigureAwait(false);
+        var result = await _gmailChangeProcessor.GetGmailArchiveComparisonResultAsync(archiveFolderId.Value, archivedMessageIds.ToList()).ConfigureAwait(false);
 
-        foreach (var archiveAddedItem in result.Added)
+        var addedArchiveIds = result.Added.Distinct(StringComparer.Ordinal).ToList();
+        var removedArchiveIds = result.Removed.Distinct(StringComparer.Ordinal).ToList();
+
+        if (addedArchiveIds.Count > 0)
         {
-            await HandleArchiveAssignmentAsync(archiveAddedItem);
+            // Archive sync can surface messages that were never downloaded before.
+            // Download metadata first so assignment creation can succeed.
+            var existingBeforeDownload = await _gmailChangeProcessor.AreMailsExistsAsync(addedArchiveIds).ConfigureAwait(false);
+            var missingArchiveIds = addedArchiveIds.Except(existingBeforeDownload, StringComparer.Ordinal).ToList();
+
+            if (missingArchiveIds.Count > 0)
+            {
+                await DownloadMessagesInBatchAsync(missingArchiveIds, cancellationToken).ConfigureAwait(false);
+            }
+
+            var existingAfterDownload = await _gmailChangeProcessor.AreMailsExistsAsync(addedArchiveIds).ConfigureAwait(false);
+
+            foreach (var archiveAddedItem in existingAfterDownload)
+            {
+                await HandleArchiveAssignmentAsync(archiveAddedItem).ConfigureAwait(false);
+            }
         }
 
-        foreach (var unAarchivedRemovedItem in result.Removed)
+        foreach (var unAarchivedRemovedItem in removedArchiveIds)
         {
-            await HandleUnarchiveAssignmentAsync(unAarchivedRemovedItem);
+            await HandleUnarchiveAssignmentAsync(unAarchivedRemovedItem).ConfigureAwait(false);
         }
     }
 

@@ -550,6 +550,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         IsOnlineSearchEnabled = false;
         AreSearchResultsOnline = false;
+        HasNoOnlineSearchResult = false;
+        OnPropertyChanged(nameof(HasNoOnlineSearchResult));
         IsInSearchMode = !string.IsNullOrEmpty(SearchQuery);
 
         if (IsInSearchMode)
@@ -619,6 +621,57 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         return condition;
     }
 
+    private static bool IsDraftOrSentFolder(MailCopy mailItem)
+        => mailItem?.AssignedFolder?.SpecialFolderType is SpecialFolderType.Draft or SpecialFolderType.Sent;
+
+    private bool IsMailMatchingLocalSearch(MailCopy mailItem)
+    {
+        if (!IsInSearchMode) return true;
+        if (string.IsNullOrWhiteSpace(SearchQuery)) return true;
+
+        var query = SearchQuery.Trim();
+
+        return (!string.IsNullOrEmpty(mailItem.Subject) && mailItem.Subject.Contains(query, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(mailItem.PreviewText) && mailItem.PreviewText.Contains(query, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(mailItem.FromName) && mailItem.FromName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(mailItem.FromAddress) && mailItem.FromAddress.Contains(query, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool ShouldRemoveUpdatedMailFromCurrentList(MailCopy updatedMail)
+    {
+        if (ActiveFolder == null || updatedMail?.AssignedFolder == null) return true;
+
+        bool isFromDraftOrSentFolder = IsDraftOrSentFolder(updatedMail);
+
+        if (!isFromDraftOrSentFolder && !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedMail.AssignedFolder.Id))
+        {
+            return true;
+        }
+
+        if (isFromDraftOrSentFolder && !ThreadIdExistsInCollection(updatedMail))
+        {
+            return true;
+        }
+
+        if (ShouldPreventItemAdd(updatedMail))
+        {
+            return true;
+        }
+
+        if (SelectedFolderPivot?.IsFocused is bool isFocused && updatedMail.IsFocused != isFocused)
+        {
+            return true;
+        }
+
+        // Online search results are a server-provided snapshot. Keep current items stable.
+        if (IsInSearchMode && (IsOnlineSearchEnabled || AreSearchResultsOnline))
+        {
+            return false;
+        }
+
+        return !IsMailMatchingLocalSearch(updatedMail);
+    }
+
     [RelayCommand]
     public void RemoveFirst()
     {
@@ -652,8 +705,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (!ActiveFolder.HandlingFolders.Any(a => a.MailAccountId == addedMail.AssignedAccount.Id)) return;
 
             // Messages coming to sent or draft folder should only be inserted if their ThreadId exists in the collection.
-            bool isFromDraftOrSentFolder = addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft ||
-                                           addedMail.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent;
+            bool isFromDraftOrSentFolder = IsDraftOrSentFolder(addedMail);
 
             if (isFromDraftOrSentFolder)
             {
@@ -719,6 +771,20 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (ShouldPreventItemAdd(addedMail)) return;
             }
 
+            if (SelectedFolderPivot?.IsFocused is bool isFocused && addedMail.IsFocused != isFocused)
+            {
+                return;
+            }
+
+            if (IsInSearchMode)
+            {
+                // Online search results are loaded from a dedicated query snapshot.
+                // Ignore live additions while that snapshot is active.
+                if (IsOnlineSearchEnabled || AreSearchResultsOnline) return;
+
+                if (!IsMailMatchingLocalSearch(addedMail)) return;
+            }
+
             await listManipulationSemepahore.WaitAsync();
 
             // AddAsync already handles UI threading internally, no need to wrap it
@@ -743,6 +809,17 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         try
         {
             await listManipulationSemepahore.WaitAsync();
+
+            bool isItemListed = MailCollection.ContainsMailUniqueId(updatedMail.UniqueId);
+            if (!isItemListed) return;
+
+            if (ShouldRemoveUpdatedMailFromCurrentList(updatedMail))
+            {
+                await MailCollection.RemoveAsync(updatedMail);
+                await ExecuteUIThread(() => { NotifyItemFoundState(); });
+                return;
+            }
+
             await MailCollection.UpdateMailCopy(updatedMail, source);
         }
         finally
@@ -890,6 +967,36 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await InitializeFolderAsync();
     }
 
+    private async Task<List<MailCopy>> PerformSynchronizerOnlineSearchAsync(string queryText,
+                                                                             IEnumerable<IMailItemFolder> handlingFolders,
+                                                                             CancellationToken cancellationToken)
+    {
+        if (handlingFolders == null) return [];
+
+        var foldersByAccount = handlingFolders
+            .GroupBy(a => a.MailAccountId)
+            .ToList();
+
+        if (foldersByAccount.Count == 0) return [];
+
+        var searchTasks = foldersByAccount.Select(async groupedFolders =>
+        {
+            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(groupedFolders.Key).ConfigureAwait(false);
+            if (synchronizer == null) return new List<MailCopy>();
+
+            var accountResults = await synchronizer.OnlineSearchAsync(queryText, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
+            return accountResults ?? new List<MailCopy>();
+        });
+
+        var allResults = await Task.WhenAll(searchTasks).ConfigureAwait(false);
+
+        return allResults
+            .SelectMany(a => a)
+            .GroupBy(a => a.UniqueId)
+            .Select(a => a.First())
+            .ToList();
+    }
+
     private async Task InitializeFolderAsync()
     {
         if (SelectedFilterOption == null || SelectedFolderPivot == null || SelectedSortingOption == null)
@@ -921,6 +1028,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // Here items are sorted and filtered.
 
             List<MailCopy> items = null;
+            List<MailCopy> onlineSearchItems = null;
 
             bool isDoingSearch = !string.IsNullOrEmpty(SearchQuery);
             bool isDoingOnlineSearch = false;
@@ -932,52 +1040,31 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // Perform online search.
                 if (isDoingOnlineSearch)
                 {
-                    // TODO: Burak: Handle online search.
-                    //WinoServerResponse<OnlineSearchResult> onlineSearchResult = null;
-                    //string onlineSearchFailedMessage = null;
+                    try
+                    {
+                        onlineSearchItems = await PerformSynchronizerOnlineSearchAsync(SearchQuery, ActiveFolder.HandlingFolders, cancellationToken).ConfigureAwait(false);
+                        await ExecuteUIThread(() => { AreSearchResultsOnline = true; });
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to perform online search.");
 
-                    //try
-                    //{
-                    //    var accountIds = ActiveFolder.HandlingFolders.Select(a => a.MailAccountId).ToList();
-                    //    var folders = ActiveFolder.HandlingFolders.ToList();
-                    //    var searchRequest = new OnlineSearchRequested(accountIds, SearchQuery, folders);
+                        isDoingOnlineSearch = false;
+                        onlineSearchItems = null;
 
-                    //    onlineSearchResult = await _winoServerConnectionManager.GetResponseAsync<OnlineSearchResult, OnlineSearchRequested>(searchRequest, cancellationToken);
+                        await ExecuteUIThread(() =>
+                        {
+                            IsOnlineSearchEnabled = false;
+                            AreSearchResultsOnline = false;
 
-                    //    if (onlineSearchResult.IsSuccess)
-                    //    {
-                    //        await ExecuteUIThread(() => { AreSearchResultsOnline = true; });
-
-                    //        onlineSearchItems = onlineSearchResult.Data.SearchResult;
-                    //    }
-                    //    else
-                    //    {
-                    //        onlineSearchFailedMessage = onlineSearchResult.Message;
-                    //    }
-                    //}
-                    //catch (OperationCanceledException)
-                    //{
-                    //    throw;
-                    //}
-                    //catch (Exception ex)
-                    //{
-                    //    Log.Warning(ex, "Failed to perform online search.");
-                    //    onlineSearchFailedMessage = ex.Message;
-                    //}
-
-                    //if (onlineSearchResult != null && !onlineSearchResult.IsSuccess)
-                    //{
-                    //    // Query or server error.
-                    //    var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchResult.Message);
-                    //    _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
-
-                    //}
-                    //else if (!string.IsNullOrEmpty(onlineSearchFailedMessage))
-                    //{
-                    //    // Fatal error.
-                    //    var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, onlineSearchFailedMessage);
-                    //    _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
-                    //}
+                            var serverErrorMessage = string.Format(Translator.OnlineSearchFailed_Message, ex.Message);
+                            _mailDialogService.InfoBarMessage(Translator.GeneralTitle_Error, serverErrorMessage, InfoBarMessageType.Warning);
+                        });
+                    }
                 }
             }
 
@@ -986,8 +1073,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                                           SelectedSortingOption.Type,
                                                                           PreferencesService.IsThreadingEnabled,
                                                                           SelectedFolderPivot.IsFocused,
-                                                                          SearchQuery,
-                                                                          MailCollection.MailCopyIdHashSet);
+                                                                          isDoingOnlineSearch ? string.Empty : SearchQuery,
+                                                                          MailCollection.MailCopyIdHashSet,
+                                                                          onlineSearchItems);
 
             items = await _mailService.FetchMailsAsync(initializationOptions, cancellationToken).ConfigureAwait(false);
 
@@ -1003,6 +1091,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
                 await ExecuteUIThread(() =>
                 {
+                    HasNoOnlineSearchResult = isDoingOnlineSearch && items.Count == 0;
+                    OnPropertyChanged(nameof(HasNoOnlineSearchResult));
+
                     if (isDoingSearch && !isDoingOnlineSearch)
                     {
                         IsOnlineSearchButtonVisible = true;
@@ -1060,6 +1151,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         IsInSearchMode = false;
         IsOnlineSearchButtonVisible = false;
         AreSearchResultsOnline = false;
+        HasNoOnlineSearchResult = false;
+        OnPropertyChanged(nameof(HasNoOnlineSearchResult));
 
         // Prepare Focused - Other or folder name tabs.
         await UpdateFolderPivotsAsync();
@@ -1093,6 +1186,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             SearchQuery = string.Empty;
             IsInSearchMode = false;
             IsOnlineSearchEnabled = false;
+            HasNoOnlineSearchResult = false;
         }
     }
 

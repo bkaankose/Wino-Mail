@@ -230,6 +230,67 @@ public class MailService : BaseDatabaseService, IMailService
         return (sql.ToString(), parameters.ToArray());
     }
 
+    private static List<MailCopy> ApplyOptionsToPreFetchedMails(MailListInitializationOptions options)
+    {
+        var allowedFolderIds = options.Folders.Select(f => f.Id).ToHashSet();
+
+        IEnumerable<MailCopy> query = options.PreFetchMailCopies
+            .Where(m => m != null && allowedFolderIds.Contains(m.FolderId))
+            .GroupBy(m => m.UniqueId)
+            .Select(g => g.First());
+
+        switch (options.FilterType)
+        {
+            case FilterOptionType.Unread:
+                query = query.Where(m => !m.IsRead);
+                break;
+            case FilterOptionType.Flagged:
+                query = query.Where(m => m.IsFlagged);
+                break;
+            case FilterOptionType.Files:
+                query = query.Where(m => m.HasAttachments);
+                break;
+        }
+
+        if (options.IsFocusedOnly is bool isFocused)
+        {
+            query = query.Where(m => m.IsFocused == isFocused);
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.SearchQuery))
+        {
+            var search = options.SearchQuery.Trim();
+            query = query.Where(m =>
+                (!string.IsNullOrEmpty(m.PreviewText) && m.PreviewText.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(m.Subject) && m.Subject.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(m.FromName) && m.FromName.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrEmpty(m.FromAddress) && m.FromAddress.Contains(search, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (options.ExistingUniqueIds?.Any() ?? false)
+        {
+            query = query.Where(m => !options.ExistingUniqueIds.ContainsKey(m.UniqueId));
+        }
+
+        query = options.SortingOptionType switch
+        {
+            SortingOptionType.Sender => query.OrderBy(m => m.FromName).ThenByDescending(m => m.CreationDate),
+            _ => query.OrderByDescending(m => m.CreationDate)
+        };
+
+        if (options.Skip > 0)
+        {
+            query = query.Skip(options.Skip);
+        }
+
+        if (options.Take > 0)
+        {
+            query = query.Take(options.Take);
+        }
+
+        return query.ToList();
+    }
+
     public async Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default)
     {
         List<MailCopy> mails = null;
@@ -237,7 +298,7 @@ public class MailService : BaseDatabaseService, IMailService
         // If user performs an online search, mail copies are passed to options.
         if (options.PreFetchMailCopies != null)
         {
-            mails = options.PreFetchMailCopies;
+            mails = ApplyOptionsToPreFetchedMails(options);
         }
         else
         {
@@ -1163,12 +1224,23 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds)
     {
+        onlineArchiveMailIds ??= [];
+
         var localArchiveMails = await Connection.Table<MailCopy>()
                                             .Where(a => a.FolderId == archiveFolderId)
                                             .ToListAsync().ConfigureAwait(false);
 
-        var removedMails = localArchiveMails.Where(a => !onlineArchiveMailIds.Contains(a.Id)).Select(a => a.Id).Distinct().ToArray();
-        var addedMails = onlineArchiveMailIds.Where(a => !localArchiveMails.Select(b => b.Id).Contains(a)).Distinct().ToArray();
+        var onlineArchiveIdSet = onlineArchiveMailIds
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var localArchiveIdSet = localArchiveMails
+            .Select(a => a.Id)
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var removedMails = localArchiveIdSet.Except(onlineArchiveIdSet).ToArray();
+        var addedMails = onlineArchiveIdSet.Except(localArchiveIdSet).ToArray();
 
         return new GmailArchiveComparisonResult(addedMails, removedMails);
     }
