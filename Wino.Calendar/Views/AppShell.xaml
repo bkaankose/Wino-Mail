@@ -1,4 +1,4 @@
-﻿<abstract:AppShellAbstract
+<abstract:AppShellAbstract
     x:Class="Wino.Calendar.Views.AppShell"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -119,6 +119,7 @@
                                 FontSize="14"
                                 FontWeight="Normal"
                                 IsHitTestVisible="False"
+                                DisplayType="{x:Bind ViewModel.StatePersistenceService.CalendarDisplayType, Mode=OneWay}"
                                 ItemsSource="{x:Bind ViewModel.DateNavigationHeaderItems}"
                                 SelectedIndex="{x:Bind ViewModel.SelectedDateNavigationHeaderIndex, Mode=OneWay}">
                                 <FlipView.ItemTemplate>

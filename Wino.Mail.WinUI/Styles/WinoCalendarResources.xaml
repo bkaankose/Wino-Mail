@@ -390,6 +390,9 @@
                     <RowDefinition Height="*" MinHeight="35" />
                 </Grid.RowDefinitions>
 
+                <!--  Day number  -->
+                <TextBlock x:Name="PART_HeaderDateDayText" FontSize="17" />
+
                 <!--  Extras  -->
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" />
 

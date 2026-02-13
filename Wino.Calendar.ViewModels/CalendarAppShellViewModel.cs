@@ -99,6 +99,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         {
             Messenger.Send(new CalendarDisplayTypeChangedMessage(StatePersistenceService.CalendarDisplayType));
 
+            UpdateDateNavigationHeaderItems();
 
             // Change the calendar.
             DateClicked(new CalendarViewDayClickedEventArgs(GetDisplayTypeSwitchDate()));
@@ -253,8 +254,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                 break;
             case CalendarDisplayType.Month:
                 break;
-            case CalendarDisplayType.Year:
-                break;
             default:
                 break;
         }
@@ -320,49 +319,88 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     /// </summary>
     private void UpdateDateNavigationHeaderItems()
     {
-        DateNavigationHeaderItems.Clear();
+        var settings = PreferencesService.GetCurrentCalendarSettings();
+        var cultureInfo = settings.CultureInfo ?? CultureInfo.CurrentUICulture;
 
-        // TODO: From settings
-        var testInfo = new CultureInfo("en-US");
+        var visibleRange = HighlightedDateRange ?? new DateRange(DateTime.Today, DateTime.Today.AddDays(1));
+        var headerText = GetHeaderText(visibleRange, cultureInfo);
+
+        DateNavigationHeaderItems.ReplaceRange([headerText]);
+        SelectedDateNavigationHeaderIndex = DateNavigationHeaderItems.Count > 0 ? 0 : -1;
+    }
+
+    private string GetHeaderText(DateRange visibleRange, CultureInfo cultureInfo)
+    {
+        var startDate = visibleRange.StartDate.Date;
+        var endDate = visibleRange.EndDate.Date > startDate ? visibleRange.EndDate.Date.AddDays(-1) : startDate;
 
         switch (StatePersistenceService.CalendarDisplayType)
         {
             case CalendarDisplayType.Day:
+                return startDate.ToString("MMMM d, dddd", cultureInfo);
             case CalendarDisplayType.Week:
             case CalendarDisplayType.WorkWeek:
+                if (startDate.Month == endDate.Month && startDate.Year == endDate.Year)
+                {
+                    return $"{startDate.ToString("MMMM d", cultureInfo)} - {endDate.ToString("%d", cultureInfo)}";
+                }
+
+                return $"{startDate.ToString("MMMM d", cultureInfo)} - {endDate.ToString("MMMM d", cultureInfo)}";
             case CalendarDisplayType.Month:
-                DateNavigationHeaderItems.ReplaceRange(testInfo.DateTimeFormat.MonthNames);
-                break;
-            case CalendarDisplayType.Year:
-                break;
+                return GetDominantMonthHeaderText(startDate, endDate, cultureInfo);
             default:
-                break;
+                return startDate.ToString("d", cultureInfo);
         }
-
-        SetDateNavigationHeaderItems();
     }
 
-    partial void OnHighlightedDateRangeChanged(DateRange value) => SetDateNavigationHeaderItems();
-
-    private void SetDateNavigationHeaderItems()
+    private static string GetDominantMonthHeaderText(DateTime startDate, DateTime endDate, CultureInfo cultureInfo)
     {
-        if (HighlightedDateRange == null) return;
-
-        if (DateNavigationHeaderItems.Count == 0)
+        if (endDate < startDate)
         {
-            UpdateDateNavigationHeaderItems();
+            endDate = startDate;
         }
 
-        // TODO: Year view
-        var monthIndex = HighlightedDateRange.GetMostVisibleMonthIndex();
+        var monthDayCounts = new Dictionary<(int Year, int Month), int>();
 
-        SelectedDateNavigationHeaderIndex = Math.Max(monthIndex - 1, -1);
+        for (var day = startDate; day <= endDate; day = day.AddDays(1))
+        {
+            var key = (day.Year, day.Month);
+
+            if (monthDayCounts.TryGetValue(key, out var count))
+            {
+                monthDayCounts[key] = count + 1;
+            }
+            else
+            {
+                monthDayCounts[key] = 1;
+            }
+        }
+
+        var dominantKey = (Year: startDate.Year, Month: startDate.Month);
+        var dominantCount = -1;
+
+        foreach (var pair in monthDayCounts)
+        {
+            if (pair.Value > dominantCount)
+            {
+                dominantCount = pair.Value;
+                dominantKey = pair.Key;
+            }
+        }
+
+        return new DateTime(dominantKey.Year, dominantKey.Month, 1).ToString("Y", cultureInfo);
     }
+
+    partial void OnHighlightedDateRangeChanged(DateRange value) => UpdateDateNavigationHeaderItems();
 
     public async void Receive(CalendarEnableStatusChangedMessage message)
         => await ExecuteUIThread(() => IsCalendarEnabled = message.IsEnabled);
 
     public void Receive(NavigateManageAccountsRequested message) => SelectedMenuItemIndex = 1;
 
-    public void Receive(CalendarDisplayTypeChangedMessage message) => OnPropertyChanged(nameof(IsVerticalCalendar));
+    public void Receive(CalendarDisplayTypeChangedMessage message)
+    {
+        OnPropertyChanged(nameof(IsVerticalCalendar));
+        UpdateDateNavigationHeaderItems();
+    }
 }

@@ -34,7 +34,7 @@ public partial class WinoCalendarControl : Control
     public static readonly DependencyProperty VerticalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(VerticalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
     public static readonly DependencyProperty HorizontalItemsPanelTemplateProperty = DependencyProperty.Register(nameof(HorizontalItemsPanelTemplate), typeof(ItemsPanelTemplate), typeof(WinoCalendarControl), new PropertyMetadata(null, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
     public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(nameof(Orientation), typeof(CalendarOrientation), typeof(WinoCalendarControl), new PropertyMetadata(CalendarOrientation.Horizontal, new PropertyChangedCallback(OnCalendarOrientationPropertiesUpdated)));
-    public static readonly DependencyProperty DisplayTypeProperty = DependencyProperty.Register(nameof(DisplayType), typeof(CalendarDisplayType), typeof(WinoCalendarControl), new PropertyMetadata(CalendarDisplayType.Day));
+    public static readonly DependencyProperty DisplayTypeProperty = DependencyProperty.Register(nameof(DisplayType), typeof(CalendarDisplayType), typeof(WinoCalendarControl), new PropertyMetadata(CalendarDisplayType.Day, new PropertyChangedCallback(OnDisplayTypeChanged)));
 
     /// <summary>
     /// Gets or sets the day-week-month-year display type.
@@ -171,11 +171,26 @@ public partial class WinoCalendarControl : Control
         }
     }
 
+    private static void OnDisplayTypeChanged(DependencyObject calendar, DependencyPropertyChangedEventArgs e)
+    {
+        if (calendar is WinoCalendarControl calendarControl)
+        {
+            calendarControl.ManageDisplayType();
+        }
+    }
+
     private void ManageCalendarOrientation()
     {
         if (InternalFlipView == null || HorizontalItemsPanelTemplate == null || VerticalItemsPanelTemplate == null) return;
 
         InternalFlipView.ItemsPanel = Orientation == CalendarOrientation.Horizontal ? HorizontalItemsPanelTemplate : VerticalItemsPanelTemplate;
+    }
+
+    private void ManageDisplayType()
+    {
+        if (InternalFlipView == null) return;
+
+        InternalFlipView.DisplayType = DisplayType;
     }
 
     private void ManageHighlightedDateRange()
@@ -232,6 +247,7 @@ public partial class WinoCalendarControl : Control
 
         UpdateIdleState();
         ManageCalendarOrientation();
+        ManageDisplayType();
     }
 
     private void UpdateIdleState()

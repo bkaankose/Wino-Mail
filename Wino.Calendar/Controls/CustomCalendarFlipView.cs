@@ -1,5 +1,7 @@
-﻿using Windows.UI.Xaml.Automation.Peers;
+using Windows.UI.Xaml;
+using Windows.UI.Xaml.Automation.Peers;
 using Windows.UI.Xaml.Controls;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Calendar.Controls;
 
@@ -8,35 +10,73 @@ namespace Wino.Calendar.Controls;
 /// </summary>
 public partial class CustomCalendarFlipView : FlipView
 {
-    private const string PART_PreviousButton = "PreviousButtonHorizontal";
-    private const string PART_NextButton = "NextButtonHorizontal";
+    private const string PART_PreviousButtonHorizontal = "PreviousButtonHorizontal";
+    private const string PART_NextButtonHorizontal = "NextButtonHorizontal";
+    private const string PART_PreviousButtonVertical = "PreviousButtonVertical";
+    private const string PART_NextButtonVertical = "NextButtonVertical";
 
-    private Button PreviousButton;
-    private Button NextButton;
+    public static readonly DependencyProperty DisplayTypeProperty = DependencyProperty.Register(
+        nameof(DisplayType),
+        typeof(CalendarDisplayType),
+        typeof(CustomCalendarFlipView),
+        new PropertyMetadata(CalendarDisplayType.Week));
+
+    public CalendarDisplayType DisplayType
+    {
+        get => (CalendarDisplayType)GetValue(DisplayTypeProperty);
+        set => SetValue(DisplayTypeProperty, value);
+    }
+
+    private Button PreviousButtonHorizontal;
+    private Button NextButtonHorizontal;
+    private Button PreviousButtonVertical;
+    private Button NextButtonVertical;
 
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
 
-        PreviousButton = GetTemplateChild(PART_PreviousButton) as Button;
-        NextButton = GetTemplateChild(PART_NextButton) as Button;
+        PreviousButtonHorizontal = GetTemplateChild(PART_PreviousButtonHorizontal) as Button;
+        NextButtonHorizontal = GetTemplateChild(PART_NextButtonHorizontal) as Button;
+        PreviousButtonVertical = GetTemplateChild(PART_PreviousButtonVertical) as Button;
+        NextButtonVertical = GetTemplateChild(PART_NextButtonVertical) as Button;
 
         // Hide navigation buttons
-        PreviousButton.Opacity = NextButton.Opacity = 0;
-        PreviousButton.IsHitTestVisible = NextButton.IsHitTestVisible = false;
+        HideButton(PreviousButtonHorizontal);
+        HideButton(NextButtonHorizontal);
+        HideButton(PreviousButtonVertical);
+        HideButton(NextButtonVertical);
+    }
 
-        var t = FindName("ScrollingHost");
+    private static void HideButton(Button button)
+    {
+        if (button == null) return;
+
+        button.Opacity = 0;
+        button.IsHitTestVisible = false;
     }
 
     public void GoPreviousFlip()
     {
-        var backPeer = new ButtonAutomationPeer(PreviousButton);
+        var previousButton = DisplayType == CalendarDisplayType.Month
+            ? PreviousButtonVertical ?? PreviousButtonHorizontal
+            : PreviousButtonHorizontal ?? PreviousButtonVertical;
+
+        if (previousButton == null) return;
+
+        var backPeer = new ButtonAutomationPeer(previousButton);
         backPeer.Invoke();
     }
 
     public void GoNextFlip()
     {
-        var nextPeer = new ButtonAutomationPeer(NextButton);
+        var nextButton = DisplayType == CalendarDisplayType.Month
+            ? NextButtonVertical ?? NextButtonHorizontal
+            : NextButtonHorizontal ?? NextButtonVertical;
+
+        if (nextButton == null) return;
+
+        var nextPeer = new ButtonAutomationPeer(nextButton);
         nextPeer.Invoke();
     }
 }

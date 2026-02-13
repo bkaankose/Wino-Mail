@@ -22,8 +22,6 @@ public partial class WinoCalendarItemTemplateSelector : DataTemplateSelector
                 return DayWeekWorkWeekTemplate;
             case CalendarDisplayType.Month:
                 return MonthlyTemplate;
-            case CalendarDisplayType.Year:
-                break;
             default:
                 break;
         }

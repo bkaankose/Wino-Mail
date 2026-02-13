@@ -232,7 +232,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
-        if (mode == NavigationMode.Back) return;
+        if (mode == NavigationMode.Back)
+        {
+            // We unregister recipients on navigate-away, so mutations that happened while this page
+            // was not active (e.g. CalendarItemDeleted from details page) can be missed.
+            // Rehydrate currently visible ranges to guarantee UI and DB are consistent on return.
+            _ = RefreshVisibleRangesAsync();
+            return;
+        }
 
         RefreshSettings();
 
@@ -679,6 +686,34 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                     });
                 }
             }
+        }
+    }
+
+    private async Task RefreshVisibleRangesAsync()
+    {
+        try
+        {
+            await _calendarLoadingSemaphore.WaitAsync().ConfigureAwait(false);
+
+            if (DayRanges == null || DayRanges.Count == 0)
+                return;
+
+            RefreshSettings();
+
+            foreach (var dayRange in DayRanges)
+            {
+                await InitializeCalendarEventsForDayRangeAsync(dayRange).ConfigureAwait(false);
+            }
+
+            FilterActiveCalendars(DayRanges);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to refresh calendar ranges after navigation back.");
+        }
+        finally
+        {
+            _calendarLoadingSemaphore.Release();
         }
     }
 

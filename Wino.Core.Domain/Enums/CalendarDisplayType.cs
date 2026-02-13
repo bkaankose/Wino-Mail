@@ -5,6 +5,5 @@ public enum CalendarDisplayType
     Day,
     Week,
     WorkWeek,
-    Month,
-    Year
+    Month
 }

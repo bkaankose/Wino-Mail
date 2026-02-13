@@ -61,16 +61,6 @@
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
-                                <!--  Year  -->
-                                <AppBarToggleButton
-                                    x:Name="PART_YearToggle"
-                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"
-                                    Label="Year">
-                                    <AppBarToggleButton.Icon>
-                                        <controls1:WinoFontIcon Icon="CalendarYear" />
-                                    </AppBarToggleButton.Icon>
-                                </AppBarToggleButton>
-
                             </CommandBar.PrimaryCommands>
                         </CommandBar>
                     </ControlTemplate>

@@ -22,7 +22,7 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
 
         _openPaneLength = _configurationService.Get(OpenPaneLengthKey, 320d);
         _mailListPaneLength = _configurationService.Get(MailListPaneLengthKey, 420d);
-        _calendarDisplayType = _configurationService.Get(nameof(CalendarDisplayType), CalendarDisplayType.Week);
+        _calendarDisplayType = EnsureValidCalendarDisplayType(_configurationService.Get(nameof(CalendarDisplayType), CalendarDisplayType.Week));
         _dayDisplayCount = _configurationService.Get(nameof(DayDisplayCount), 1);
 
         PropertyChanged += ServicePropertyChanged;
@@ -176,9 +176,11 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
         get => _calendarDisplayType;
         set
         {
-            if (SetProperty(ref _calendarDisplayType, value))
+            var validValue = EnsureValidCalendarDisplayType(value);
+
+            if (SetProperty(ref _calendarDisplayType, validValue))
             {
-                _configurationService.Set(nameof(CalendarDisplayType), value);
+                _configurationService.Set(nameof(CalendarDisplayType), validValue);
             }
         }
     }
@@ -197,4 +199,11 @@ public class StatePersistenceService : ObservableObject, IStatePersistanceServic
     }
 
     private void UpdateAppCoreWindowTitle() => WinoApplication.MainWindow.Title = CoreWindowTitle;
+
+    private static CalendarDisplayType EnsureValidCalendarDisplayType(CalendarDisplayType displayType)
+    {
+        return Enum.IsDefined(typeof(CalendarDisplayType), displayType)
+            ? displayType
+            : CalendarDisplayType.Week;
+    }
 }

@@ -87,6 +87,9 @@ public partial class WinoCalendarControl : Control
     partial void OnOrientationChanged(CalendarOrientation newValue)
         => ManageCalendarOrientation();
 
+    partial void OnDisplayTypeChanged(CalendarDisplayType newValue)
+        => ManageDisplayType();
+
     partial void OnIsFlipIdleChanged(bool newValue)
         => UpdateIdleState();
 
@@ -129,6 +132,13 @@ public partial class WinoCalendarControl : Control
         if (InternalFlipView == null || HorizontalItemsPanelTemplate == null || VerticalItemsPanelTemplate == null) return;
 
         InternalFlipView.ItemsPanel = Orientation == CalendarOrientation.Horizontal ? HorizontalItemsPanelTemplate : VerticalItemsPanelTemplate;
+    }
+
+    private void ManageDisplayType()
+    {
+        if (InternalFlipView == null) return;
+
+        InternalFlipView.DisplayType = DisplayType;
     }
 
     private void ManageHighlightedDateRange()
@@ -185,6 +195,7 @@ public partial class WinoCalendarControl : Control
 
         UpdateIdleState();
         ManageCalendarOrientation();
+        ManageDisplayType();
     }
 
     private void UpdateIdleState()

@@ -19,13 +19,13 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
         InitializeComponent();
 
         // Window.Current.SetTitleBar(DragArea);
-        ManageCalendarDisplayType();
+        ManageCalendarDisplayType(ViewModel.StatePersistenceService.CalendarDisplayType);
     }
 
-    private void ManageCalendarDisplayType()
+    private void ManageCalendarDisplayType(Core.Domain.Enums.CalendarDisplayType displayType)
     {
         // Go to different states based on the display type.
-        if (ViewModel.IsVerticalCalendar)
+        if (displayType == Core.Domain.Enums.CalendarDisplayType.Month)
         {
             VisualStateManager.GoToState(this, STATE_VerticalCalendar, false);
         }
@@ -41,7 +41,7 @@ public sealed partial class CalendarAppShell : CalendarAppShellAbstract,
 
     public void Receive(CalendarDisplayTypeChangedMessage message)
     {
-        ManageCalendarDisplayType();
+        ManageCalendarDisplayType(message.NewDisplayType);
     }
 
     //private void ShellFrameContentNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
