@@ -113,6 +113,8 @@ public partial class WinoCalendarView : Control
     {
         if (d is WinoCalendarView control)
         {
+            if (control.HighlightedDateRange == null) return;
+
             control.SetInnerDisplayDate(control.HighlightedDateRange.StartDate);
             control.UpdateVisibleDateRangeBackgrounds();
         }
@@ -120,7 +122,7 @@ public partial class WinoCalendarView : Control
 
     public void UpdateVisibleDateRangeBackgrounds()
     {
-        if (HighlightedDateRange == null || VisibleDateBackground == null || TodayBackgroundColor == null || CalendarView == null) return;
+        if (HighlightedDateRange == null || VisibleDateBackground == null || CalendarView == null) return;
 
         var markDateCalendarDayItems = WinoVisualTreeHelper.FindDescendants<CalendarViewDayItem>(CalendarView);
 
