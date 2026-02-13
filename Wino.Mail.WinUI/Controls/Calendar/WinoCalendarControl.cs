@@ -142,7 +142,14 @@ public partial class WinoCalendarControl : Control
     }
 
     private void ManageHighlightedDateRange()
-        => SelectedFlipViewDayRange = InternalFlipView.SelectedItem as DayRangeRenderModel;
+    {
+        if (InternalFlipView?.IsProgrammaticNavigationInProgress == true)
+        {
+            return;
+        }
+
+        SelectedFlipViewDayRange = InternalFlipView?.SelectedItem as DayRangeRenderModel;
+    }
 
     private void DeregisterCanvas(WinoDayTimelineCanvas canvas)
     {
@@ -190,12 +197,27 @@ public partial class WinoCalendarControl : Control
     {
         base.OnApplyTemplate();
 
+        if (InternalFlipView != null)
+        {
+            InternalFlipView.ProgrammaticNavigationCompleted -= InternalFlipViewProgrammaticNavigationCompleted;
+        }
+
         InternalFlipView = GetTemplateChild(PART_WinoFlipView) as WinoCalendarFlipView;
         IdleGrid = GetTemplateChild(PART_IdleGrid) as Grid;
+
+        if (InternalFlipView != null)
+        {
+            InternalFlipView.ProgrammaticNavigationCompleted += InternalFlipViewProgrammaticNavigationCompleted;
+        }
 
         UpdateIdleState();
         ManageCalendarOrientation();
         ManageDisplayType();
+    }
+
+    private void InternalFlipViewProgrammaticNavigationCompleted(object? sender, ProgrammaticNavigationCompletedEventArgs e)
+    {
+        SelectedFlipViewDayRange = e.DayRange;
     }
 
     private void UpdateIdleState()
