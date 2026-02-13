@@ -43,6 +43,12 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         set { SetValue(IsIdleProperty, value); }
     }
 
+    internal bool IsProgrammaticNavigationInProgress { get; private set; }
+
+    internal int? PendingTargetIndex { get; private set; }
+
+    internal event EventHandler<ProgrammaticNavigationCompletedEventArgs>? ProgrammaticNavigationCompleted;
+
     public WinoCalendarFlipView()
     {
         RegisterPropertyChangedCallback(ItemsSourceProperty, new DependencyPropertyChangedCallback(OnItemsSourceChanged));
@@ -123,36 +129,60 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         await DispatcherQueue.EnqueueAsync(() =>
         {
             // Find the day range that contains the date.
-            var dayRange = GetItemsSource()?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
+            var dayRanges = GetItemsSource();
+            var dayRange = dayRanges?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
 
-            if (dayRange != null)
+            if (dayRange != null && dayRanges != null)
             {
-                var navigationItemIndex = GetItemsSource().IndexOf(dayRange);
+                var navigationItemIndex = dayRanges.IndexOf(dayRange);
+                var hasNavigationWork = navigationItemIndex != SelectedIndex;
 
-                if (Math.Abs(navigationItemIndex - SelectedIndex) > 4)
+                IsProgrammaticNavigationInProgress = hasNavigationWork;
+                PendingTargetIndex = navigationItemIndex;
+
+                if (!hasNavigationWork)
                 {
-                    // Difference between dates are high.
-                    // No need to animate this much, just go without animating.
-
-                    SelectedIndex = navigationItemIndex;
+                    PendingTargetIndex = null;
+                    return;
                 }
-                else
-                {
-                    // Until we reach the day in the flip, simulate next-prev button clicks.
-                    // This will make sure the FlipView animations are triggered.
-                    // Setting SelectedIndex directly doesn't trigger the animations.
 
-                    while (SelectedIndex != navigationItemIndex)
+                try
+                {
+                    if (Math.Abs(navigationItemIndex - SelectedIndex) > 4)
                     {
-                        if (SelectedIndex > navigationItemIndex)
+                        // Difference between dates are high.
+                        // No need to animate this much, just go without animating.
+
+                        SelectedIndex = navigationItemIndex;
+                    }
+                    else
+                    {
+                        // Until we reach the day in the flip, simulate next-prev button clicks.
+                        // This will make sure the FlipView animations are triggered.
+                        // Setting SelectedIndex directly doesn't trigger the animations.
+
+                        while (SelectedIndex != navigationItemIndex)
                         {
-                            GoPreviousFlip();
-                        }
-                        else
-                        {
-                            GoNextFlip();
+                            if (SelectedIndex > navigationItemIndex)
+                            {
+                                GoPreviousFlip();
+                            }
+                            else
+                            {
+                                GoNextFlip();
+                            }
                         }
                     }
+                }
+                finally
+                {
+                    if (SelectedIndex == PendingTargetIndex)
+                    {
+                        ProgrammaticNavigationCompleted?.Invoke(this, new ProgrammaticNavigationCompletedEventArgs(SelectedItem as DayRangeRenderModel ?? dayRange));
+                    }
+
+                    IsProgrammaticNavigationInProgress = false;
+                    PendingTargetIndex = null;
                 }
             }
         });
@@ -160,4 +190,14 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
 
     private ObservableRangeCollection<DayRangeRenderModel> GetItemsSource()
         => ItemsSource as ObservableRangeCollection<DayRangeRenderModel>;
+}
+
+internal sealed class ProgrammaticNavigationCompletedEventArgs : EventArgs
+{
+    public ProgrammaticNavigationCompletedEventArgs(DayRangeRenderModel dayRange)
+    {
+        DayRange = dayRange;
+    }
+
+    public DayRangeRenderModel DayRange { get; }
 }
