@@ -1,7 +1,0 @@
-﻿{
-    "profiles": {
-        "Wino.Calendar": {
-            "commandName": "MsixPackage"
-        }
-    }
-}
