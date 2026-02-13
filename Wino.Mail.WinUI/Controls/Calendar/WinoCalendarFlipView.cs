@@ -43,11 +43,11 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         set { SetValue(IsIdleProperty, value); }
     }
 
-    public bool IsProgrammaticNavigationInProgress { get; private set; }
+    internal bool IsProgrammaticNavigationInProgress { get; private set; }
 
-    public int? PendingTargetIndex { get; private set; }
+    internal int? PendingTargetIndex { get; private set; }
 
-    public event EventHandler<ProgrammaticNavigationCompletedEventArgs>? ProgrammaticNavigationCompleted;
+    internal event EventHandler<ProgrammaticNavigationCompletedEventArgs>? ProgrammaticNavigationCompleted;
 
     public WinoCalendarFlipView()
     {
@@ -129,11 +129,12 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         await DispatcherQueue.EnqueueAsync(() =>
         {
             // Find the day range that contains the date.
-            var dayRange = GetItemsSource()?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
+            var dayRanges = GetItemsSource();
+            var dayRange = dayRanges?.FirstOrDefault(a => a.CalendarDays.Any(b => b.RepresentingDate.Date == dateTime.Date));
 
-            if (dayRange != null)
+            if (dayRange != null && dayRanges != null)
             {
-                var navigationItemIndex = GetItemsSource().IndexOf(dayRange);
+                var navigationItemIndex = dayRanges.IndexOf(dayRange);
                 var hasNavigationWork = navigationItemIndex != SelectedIndex;
 
                 IsProgrammaticNavigationInProgress = hasNavigationWork;
@@ -175,7 +176,7 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
                 }
                 finally
                 {
-                    if (SelectedIndex == navigationItemIndex)
+                    if (SelectedIndex == PendingTargetIndex)
                     {
                         ProgrammaticNavigationCompleted?.Invoke(this, new ProgrammaticNavigationCompletedEventArgs(SelectedItem as DayRangeRenderModel ?? dayRange));
                     }
@@ -191,12 +192,12 @@ public partial class WinoCalendarFlipView : CustomCalendarFlipView
         => ItemsSource as ObservableRangeCollection<DayRangeRenderModel>;
 }
 
-public sealed class ProgrammaticNavigationCompletedEventArgs : EventArgs
+internal sealed class ProgrammaticNavigationCompletedEventArgs : EventArgs
 {
-    public ProgrammaticNavigationCompletedEventArgs(DayRangeRenderModel? dayRange)
+    public ProgrammaticNavigationCompletedEventArgs(DayRangeRenderModel dayRange)
     {
         DayRange = dayRange;
     }
 
-    public DayRangeRenderModel? DayRange { get; }
+    public DayRangeRenderModel DayRange { get; }
 }
