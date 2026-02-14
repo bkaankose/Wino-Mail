@@ -29,6 +29,8 @@ public class MailItemFolder : IMailItemFolder
     // For IMAP
     public uint UidValidity { get; set; }
     public long HighestModeSeq { get; set; }
+    public uint HighestKnownUid { get; set; }
+    public DateTime? LastUidReconcileUtc { get; set; }
 
     /// <summary>
     /// Outlook shares delta changes per-folder. Gmail is for per-account.

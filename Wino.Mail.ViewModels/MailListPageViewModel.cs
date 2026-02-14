@@ -624,6 +624,37 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private static bool IsDraftOrSentFolder(MailCopy mailItem)
         => mailItem?.AssignedFolder?.SpecialFolderType is SpecialFolderType.Draft or SpecialFolderType.Sent;
 
+    private bool IsActiveDraftFolder()
+        => ActiveFolder?.SpecialFolderType == SpecialFolderType.Draft;
+
+    private bool BelongsToActiveFolder(MailCopy mailItem)
+        => mailItem?.AssignedFolder != null && ActiveFolder?.HandlingFolders?.Any(a => a.Id == mailItem.AssignedFolder.Id) == true;
+
+    private bool ShouldIncludeByThread(MailCopy mailItem)
+        => PreferencesService.IsThreadingEnabled
+           && !string.IsNullOrEmpty(mailItem?.ThreadId)
+           && ThreadIdExistsInCollection(mailItem);
+
+    private bool ShouldIncludeAddedMailInCurrentList(MailCopy addedMail)
+    {
+        if (addedMail == null || ActiveFolder == null || addedMail.AssignedFolder == null)
+            return false;
+
+        // 1) If threading is enabled and we already have the same conversation in view, include it.
+        if (ShouldIncludeByThread(addedMail))
+            return true;
+
+        // 2) Include items that belong to the active folder.
+        if (BelongsToActiveFolder(addedMail))
+            return true;
+
+        // 3) Draft-specific visibility: include drafts while viewing Drafts.
+        if (addedMail.IsDraft && IsActiveDraftFolder())
+            return true;
+
+        return false;
+    }
+
     private bool IsMailMatchingLocalSearch(MailCopy mailItem)
     {
         if (!IsInSearchMode) return true;
@@ -639,37 +670,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private bool ShouldRemoveUpdatedMailFromCurrentList(MailCopy updatedMail)
     {
-        if (ActiveFolder == null || updatedMail?.AssignedFolder == null) return true;
-
-        bool isFromDraftOrSentFolder = IsDraftOrSentFolder(updatedMail);
-
-        if (!isFromDraftOrSentFolder && !ActiveFolder.HandlingFolders.Any(a => a.Id == updatedMail.AssignedFolder.Id))
-        {
-            return true;
-        }
-
-        if (isFromDraftOrSentFolder && !ThreadIdExistsInCollection(updatedMail))
-        {
-            return true;
-        }
-
-        if (ShouldPreventItemAdd(updatedMail))
-        {
-            return true;
-        }
-
-        if (SelectedFolderPivot?.IsFocused is bool isFocused && updatedMail.IsFocused != isFocused)
-        {
-            return true;
-        }
-
-        // Online search results are a server-provided snapshot. Keep current items stable.
-        if (IsInSearchMode && (IsOnlineSearchEnabled || AreSearchResultsOnline))
-        {
-            return false;
-        }
-
-        return !IsMailMatchingLocalSearch(updatedMail);
+        // Update flow already checks if this item is currently listed.
+        // Keep the item in the list and update in-place.
+        _ = updatedMail;
+        return false;
     }
 
     [RelayCommand]
@@ -704,72 +708,58 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // At least one of the accounts we are listing must match with the account of the added mail.
             if (!ActiveFolder.HandlingFolders.Any(a => a.MailAccountId == addedMail.AssignedAccount.Id)) return;
 
-            // Messages coming to sent or draft folder should only be inserted if their ThreadId exists in the collection.
-            bool isFromDraftOrSentFolder = IsDraftOrSentFolder(addedMail);
-
-            if (isFromDraftOrSentFolder)
+            // Fix for draft duplication: When a draft is created for reply/forward, it's first added as local draft.
+            // Then the server sync fetches it back. We should skip adding remote drafts if a local draft already exists
+            // with the same ThreadId. The mapping system (DraftMapped) will handle updating the existing local draft.
+            if (addedMail.IsDraft && !addedMail.IsLocalDraft && !string.IsNullOrEmpty(addedMail.ThreadId))
             {
-                // Fix for draft duplication: When a draft is created for reply/forward, it's first added as local draft.
-                // Then the server sync fetches it back. We should skip adding remote drafts if a local draft already exists
-                // with the same ThreadId. The mapping system (DraftMapped) will handle updating the existing local draft.
-                if (addedMail.IsDraft && !addedMail.IsLocalDraft && !string.IsNullOrEmpty(addedMail.ThreadId))
+                // Check if collection already has a local draft with the same ThreadId in the same folder
+                bool hasLocalDraftInSameThread = false;
+
+                foreach (var group in MailCollection.MailItems)
                 {
-                    // Check if collection already has a local draft with the same ThreadId in the same folder
-                    bool hasLocalDraftInSameThread = false;
-                    
-                    foreach (var group in MailCollection.MailItems)
+                    foreach (var item in group)
                     {
-                        foreach (var item in group)
+                        if (item is MailItemViewModel mailItem)
                         {
-                            if (item is MailItemViewModel mailItem)
+                            if (mailItem.IsDraft &&
+                                mailItem.MailCopy.IsLocalDraft &&
+                                mailItem.MailCopy.ThreadId == addedMail.ThreadId &&
+                                mailItem.MailCopy.FolderId == addedMail.FolderId)
                             {
-                                if (mailItem.IsDraft &&
-                                    mailItem.MailCopy.IsLocalDraft &&
-                                    mailItem.MailCopy.ThreadId == addedMail.ThreadId &&
-                                    mailItem.MailCopy.FolderId == addedMail.FolderId)
+                                hasLocalDraftInSameThread = true;
+                                break;
+                            }
+                        }
+                        else if (item is ThreadMailItemViewModel threadItem)
+                        {
+                            foreach (var threadEmail in threadItem.ThreadEmails)
+                            {
+                                if (threadEmail.IsDraft &&
+                                    threadEmail.MailCopy.IsLocalDraft &&
+                                    threadEmail.MailCopy.ThreadId == addedMail.ThreadId &&
+                                    threadEmail.MailCopy.FolderId == addedMail.FolderId)
                                 {
                                     hasLocalDraftInSameThread = true;
                                     break;
                                 }
                             }
-                            else if (item is ThreadMailItemViewModel threadItem)
-                            {
-                                foreach (var threadEmail in threadItem.ThreadEmails)
-                                {
-                                    if (threadEmail.IsDraft &&
-                                        threadEmail.MailCopy.IsLocalDraft &&
-                                        threadEmail.MailCopy.ThreadId == addedMail.ThreadId &&
-                                        threadEmail.MailCopy.FolderId == addedMail.FolderId)
-                                    {
-                                        hasLocalDraftInSameThread = true;
-                                        break;
-                                    }
-                                }
-                                if (hasLocalDraftInSameThread) break;
-                            }
+                            if (hasLocalDraftInSameThread) break;
                         }
-                        if (hasLocalDraftInSameThread) break;
                     }
-
-                    if (hasLocalDraftInSameThread)
-                    {
-                        // Local draft exists in the same thread - skip adding remote duplicate
-                        // The mapping system will update the local draft with remote IDs when DraftMapped message is received
-                        return;
-                    }
+                    if (hasLocalDraftInSameThread) break;
                 }
 
-                // Only add if the ThreadId exists in the collection (can be threaded with existing items)
-                if (!ThreadIdExistsInCollection(addedMail)) return;
+                if (hasLocalDraftInSameThread)
+                {
+                    // Local draft exists in the same thread - skip adding remote duplicate
+                    // The mapping system will update the local draft with remote IDs when DraftMapped message is received
+                    return;
+                }
             }
-            else
-            {
-                // Item does not belong to this folder.
-                if (!ActiveFolder.HandlingFolders.Any(a => a.Id == addedMail.AssignedFolder.Id)) return;
 
-                // Item should be prevented from being added to the list due to filter.
-                if (ShouldPreventItemAdd(addedMail)) return;
-            }
+            if (!ShouldIncludeAddedMailInCurrentList(addedMail)) return;
+            if (ShouldPreventItemAdd(addedMail)) return;
 
             if (SelectedFolderPivot?.IsFocused is bool isFocused && addedMail.IsFocused != isFocused)
             {

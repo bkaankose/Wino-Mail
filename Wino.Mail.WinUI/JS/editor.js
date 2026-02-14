@@ -97,7 +97,7 @@ function initializeJodit(fonts, defaultComposerFont, defaultComposerFontSize, de
 }
 
 function RenderHTML(htmlString) {
-    editor.s.insertHTML(htmlString);
+    editor.value = htmlString;
     editor.synchronizeValues();
 }
 

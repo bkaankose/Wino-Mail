@@ -1,4 +1,5 @@
-﻿using System.IO;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using SQLite;
 using Wino.Core.Domain.Entities.Calendar;
@@ -63,6 +64,26 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<Reminder>(),
             Connection.CreateTableAsync<MailInvitationCalendarMapping>()
             );
+
+        await EnsureSchemaUpgradesAsync().ConfigureAwait(false);
     }
 
+    private async Task EnsureSchemaUpgradesAsync()
+    {
+        var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
+
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.HighestKnownUid)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.LastUidReconcileUtc)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.LastUidReconcileUtc)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+    }
 }

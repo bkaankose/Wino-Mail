@@ -80,6 +80,13 @@ public interface IFolderService
     Task UpdateFolderAsync(MailItemFolder folder);
 
     /// <summary>
+    /// Updates only IMAP HighestModeSeq for the given folder.
+    /// </summary>
+    /// <param name="folderId">Folder id to update.</param>
+    /// <param name="highestModeSeq">Latest known mod-seq value.</param>
+    Task UpdateFolderHighestModeSeqAsync(Guid folderId, long highestModeSeq);
+
+    /// <summary>
     /// Returns the active folder menu items for the given account for UI.
     /// </summary>
     /// <param name="accountMenuItem">Account to get folder menu items for.</param>

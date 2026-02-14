@@ -10,12 +10,14 @@ public interface IMailItemFolder
     string DeltaToken { get; set; }
     string FolderName { get; set; }
     long HighestModeSeq { get; set; }
+    uint HighestKnownUid { get; set; }
     Guid Id { get; set; }
     bool IsHidden { get; set; }
     bool IsSticky { get; set; }
     bool IsSynchronizationEnabled { get; set; }
     bool IsSystemFolder { get; set; }
     DateTime? LastSynchronizedDate { get; set; }
+    DateTime? LastUidReconcileUtc { get; set; }
     Guid MailAccountId { get; set; }
     string ParentRemoteFolderId { get; set; }
     string RemoteFolderId { get; set; }

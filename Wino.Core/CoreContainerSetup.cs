@@ -36,10 +36,6 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
 
-        services.AddTransient<IImapSynchronizationStrategyProvider, ImapSynchronizationStrategyProvider>();
-        services.AddTransient<CondstoreSynchronizer>();
-        services.AddTransient<QResyncSynchronizer>();
-        services.AddTransient<UidBasedSynchronizer>();
         services.AddTransient<UnifiedImapSynchronizer>();
 
         // Register Outlook error handlers

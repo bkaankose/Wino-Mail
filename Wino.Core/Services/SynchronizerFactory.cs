@@ -14,7 +14,6 @@ public class SynchronizerFactory : ISynchronizerFactory
     private bool isInitialized = false;
 
     private readonly IAccountService _accountService;
-    private readonly IImapSynchronizationStrategyProvider _imapSynchronizationStrategyProvider;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IOutlookSynchronizerErrorHandlerFactory _outlookSynchronizerErrorHandlerFactory;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
@@ -32,7 +31,6 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IImapChangeProcessor imapChangeProcessor,
                                IAuthenticationProvider authenticationProvider,
                                IAccountService accountService,
-                               IImapSynchronizationStrategyProvider imapSynchronizationStrategyProvider,
                                IApplicationConfiguration applicationConfiguration,
                                IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
                                IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
@@ -44,7 +42,6 @@ public class SynchronizerFactory : ISynchronizerFactory
         _imapChangeProcessor = imapChangeProcessor;
         _authenticationProvider = authenticationProvider;
         _accountService = accountService;
-        _imapSynchronizationStrategyProvider = imapSynchronizationStrategyProvider;
         _applicationConfiguration = applicationConfiguration;
         _outlookSynchronizerErrorHandlerFactory = outlookSynchronizerErrorHandlerFactory;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
@@ -85,7 +82,7 @@ public class SynchronizerFactory : ISynchronizerFactory
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
                 return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _imapSynchronizationStrategyProvider, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory);
+                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory);
             default:
                 break;
         }

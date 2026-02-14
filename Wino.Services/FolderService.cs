@@ -490,6 +490,9 @@ public class FolderService : BaseDatabaseService, IFolderService
         await Connection.UpdateAsync(folder, typeof(MailItemFolder)).ConfigureAwait(false);
     }
 
+    public Task UpdateFolderHighestModeSeqAsync(Guid folderId, long highestModeSeq)
+        => Connection.ExecuteAsync("UPDATE MailItemFolder SET HighestModeSeq = ? WHERE Id = ?", highestModeSeq, folderId);
+
     private async Task DeleteFolderAsync(MailItemFolder folder)
     {
         if (folder == null)
