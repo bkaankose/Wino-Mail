@@ -214,11 +214,6 @@
                                 </AppBarButton.Icon>
                             </AppBarButton>
 
-                            <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="Delete" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
                             <AppBarButton
                                 Width="Auto"
                                 MinWidth="40"
@@ -229,6 +224,13 @@
                                     <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+
+                            <AppBarButton Command="{x:Bind ViewModel.DiscardCommand}" Label="{x:Bind domain:Translator.Buttons_Discard}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="Delete" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
 
                             <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="{x:Bind domain:Translator.Buttons_Send}">
                                 <AppBarButton.Icon>

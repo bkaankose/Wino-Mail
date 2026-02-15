@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:Wino.Controls"
+    xmlns:controls1="using:Wino.Mail.WinUI.Controls"
     xmlns:customcontrols="using:Wino.Mail.WinUI.Controls.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
@@ -269,12 +270,12 @@
                         Grid.Column="4"
                         Width="Auto"
                         MinWidth="40"
+                        VerticalAlignment="Top"
                         Click="PopOutButtonClicked"
                         LabelPosition="Collapsed"
-                        ToolTipService.ToolTip="Open in new window"
-                        VerticalAlignment="Top">
+                        ToolTipService.ToolTip="Open in new window">
                         <AppBarButton.Icon>
-                            <customcontrols:WinoFontIcon Icon="OpenInNewWindow" />
+                            <controls1:WinoFontIcon Icon="OpenInNewWindow" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                 </Grid>
