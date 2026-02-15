@@ -183,6 +183,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             RendererGridFrame.Margin = new Thickness(0, 0, 0, 0);
     }
 
+    private void PopOutButtonClicked(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new PopOutRenderingFrameRequested());
+    }
+
     private async void CoreWebViewInitialized(WebView2 sender, CoreWebView2InitializedEventArgs args)
     {
         if (Chromium.CoreWebView2 == null) return;

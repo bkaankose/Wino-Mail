@@ -308,6 +308,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
         isInitialFocusHandled = false;
     }
 
+    private void PopOutButtonClicked(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new PopOutRenderingFrameRequested());
+    }
+
     private void ImportanceClicked(object sender, RoutedEventArgs e)
     {
         ImportanceFlyout.Hide();

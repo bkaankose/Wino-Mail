@@ -44,7 +44,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ClearMailSelectionsRequested>,
     IRecipient<ActiveMailItemChangedEvent>,
     IRecipient<SelectMailItemContainerEvent>,
-    IRecipient<DisposeRenderingFrameRequested>
+    IRecipient<DisposeRenderingFrameRequested>,
+    IRecipient<PopOutRenderingFrameRequested>
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
 
@@ -536,6 +537,25 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
+    async void IRecipient<PopOutRenderingFrameRequested>.Receive(PopOutRenderingFrameRequested message)
+    {
+        if (RenderingFrame.Content is not UIElement pageContent)
+            return;
+
+        if (pageContent is IdlePage)
+            return;
+
+        RenderingFrame.Content = null;
+
+        var detachedWindow = new DetachedRenderingWindow(pageContent);
+        detachedWindow.Activate();
+
+        await ViewModel.MailCollection.UnselectAllAsync();
+
+        ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.None);
+        UpdateAdaptiveness();
+    }
+
     public void Receive(DisposeRenderingFrameRequested message)
     {
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
@@ -548,6 +568,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Register<ActiveMailItemChangedEvent>(this);
         WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
         WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
+        WeakReferenceMessenger.Default.Register<PopOutRenderingFrameRequested>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -556,6 +577,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Unregister<ActiveMailItemChangedEvent>(this);
         WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
         WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<PopOutRenderingFrameRequested>(this);
     }
 
     private void PageSizeChanged(object sender, SizeChangedEventArgs e)

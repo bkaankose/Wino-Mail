@@ -219,6 +219,17 @@
                                     <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+                            <AppBarButton
+                                Width="Auto"
+                                MinWidth="40"
+                                Click="PopOutButtonClicked"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="Open in new window">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
                             <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="{x:Bind domain:Translator.Buttons_Send}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Send" />
