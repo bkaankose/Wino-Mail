@@ -119,7 +119,8 @@ public class ImapSynchronizerCalDavConfigurationTests
             unifiedSynchronizer,
             Mock.Of<IImapSynchronizerErrorHandlerFactory>(),
             Mock.Of<ICalDavClient>(),
-            autoDiscoveryService ?? Mock.Of<IAutoDiscoveryService>());
+            autoDiscoveryService ?? Mock.Of<IAutoDiscoveryService>(),
+            Mock.Of<ICalendarService>());
     }
 
     private static CustomServerInformation CreateServerInformation()
