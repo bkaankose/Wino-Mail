@@ -77,6 +77,18 @@
             Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
             TextTrimming="CharacterEllipsis" />
 
+
+        <muxc:ProgressRing
+            x:Name="BusyRing"
+            Width="14"
+            Height="14"
+            Grid.Column="2"
+            Margin="0,2,2,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            IsActive="False"
+            Visibility="Collapsed" />
+
         <!--  TODO: Event attributes  -->
         <StackPanel
             x:Name="AttributeStack"
@@ -126,6 +138,20 @@
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
+            <VisualStateGroup x:Name="BusyStates">
+                <VisualState x:Name="NotBusy" />
+                <VisualState x:Name="Busy">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind CalendarItem.IsBusy, Mode=OneWay, FallbackValue=False}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="MainBackground.Opacity" Value="0.55" />
+                        <Setter Target="BusyRing.IsActive" Value="True" />
+                        <Setter Target="BusyRing.Visibility" Value="Visible" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
             <VisualStateGroup x:Name="EventDurationStates">
                 <!--  Regular event template in the panel.  -->
                 <VisualState x:Name="RegularEvent" />
