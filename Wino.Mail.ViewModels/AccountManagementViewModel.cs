@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
@@ -25,6 +26,8 @@ namespace Wino.Mail.ViewModels;
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
     private readonly IWinoLogger _winoLogger;
+    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
+    private readonly ICalDavClient _calDavClient;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -34,11 +37,15 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IProviderService providerService,
                                       IStoreManagementService storeManagementService,
                                       IWinoLogger winoLogger,
+                                      ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
+                                      ICalDavClient calDavClient,
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _winoLogger = winoLogger;
+        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
+        _calDavClient = calDavClient;
     }
 
     [RelayCommand]
@@ -86,7 +93,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             var providers = ProviderService.GetAvailableProviders();
 
             // Select provider.
-            var accountCreationDialogResult = await MailDialogService.ShowAccountProviderSelectionDialogAsync(providers);
+            var accountCreationDialogResult = await ExecuteUIThreadTaskAsync(() => MailDialogService.ShowAccountProviderSelectionDialogAsync(providers));
 
             if (accountCreationDialogResult != null)
             {
@@ -104,35 +111,61 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
                 if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
                 {
-                    var completionSource = new TaskCompletionSource<ImapCalDavSetupResult>();
-                    var setupContext = ImapCalDavSettingsNavigationContext.CreateForCreateMode(accountCreationDialogResult, completionSource);
+                    if (createdAccount.SpecialImapProvider == SpecialImapProvider.iCloud || createdAccount.SpecialImapProvider == SpecialImapProvider.Yahoo)
+                    {
+                        var accountCreationCancellationTokenSource = new CancellationTokenSource();
+                        creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
 
-                    Messenger.Send(new BreadcrumbNavigationRequested(
-                        Translator.ImapCalDavSettingsPage_TitleCreate,
-                        WinoPage.ImapCalDavSettingsPage,
-                        setupContext));
+                        await ExecuteUIThreadTaskAsync(() => creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource));
+                        await Task.Delay(500);
 
-                    var setupResult = await completionSource.Task.ConfigureAwait(false)
-                        ?? throw new AccountSetupCanceledException();
+                        await ExecuteUIThread(() => creationDialog.State = AccountCreationDialogState.SigningIn);
 
-                    customServerInformation = setupResult.ServerInformation ?? throw new AccountSetupCanceledException();
-                    customServerInformation.Id = Guid.NewGuid();
-                    customServerInformation.AccountId = createdAccount.Id;
+                        customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult)
+                            ?? throw new AccountSetupCanceledException();
 
-                    createdAccount.Address = setupResult.EmailAddress;
-                    createdAccount.SenderName = setupResult.DisplayName;
-                    createdAccount.IsCalendarAccessGranted = setupResult.IsCalendarAccessGranted;
-                    createdAccount.ServerInformation = customServerInformation;
+                        customServerInformation.Id = Guid.NewGuid();
+                        customServerInformation.AccountId = createdAccount.Id;
+
+                        createdAccount.Address = accountCreationDialogResult.SpecialImapProviderDetails.Address;
+                        createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
+                        createdAccount.IsCalendarAccessGranted = customServerInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
+                        createdAccount.ServerInformation = customServerInformation;
+
+                        await ValidateSpecialImapConnectivityAsync(customServerInformation).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        var completionSource = new TaskCompletionSource<ImapCalDavSetupResult>();
+                        var setupContext = ImapCalDavSettingsNavigationContext.CreateForCreateMode(accountCreationDialogResult, completionSource);
+
+                        await ExecuteUIThread(() => Messenger.Send(new BreadcrumbNavigationRequested(
+                            Translator.ImapCalDavSettingsPage_TitleCreate,
+                            WinoPage.ImapCalDavSettingsPage,
+                            setupContext)));
+
+                        var setupResult = await completionSource.Task.ConfigureAwait(false)
+                            ?? throw new AccountSetupCanceledException();
+
+                        customServerInformation = setupResult.ServerInformation ?? throw new AccountSetupCanceledException();
+                        customServerInformation.Id = Guid.NewGuid();
+                        customServerInformation.AccountId = createdAccount.Id;
+
+                        createdAccount.Address = setupResult.EmailAddress;
+                        createdAccount.SenderName = setupResult.DisplayName;
+                        createdAccount.IsCalendarAccessGranted = setupResult.IsCalendarAccessGranted;
+                        createdAccount.ServerInformation = customServerInformation;
+                    }
                 }
                 else
                 {
                     var accountCreationCancellationTokenSource = new CancellationTokenSource();
                     creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
 
-                    await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
+                    await ExecuteUIThreadTaskAsync(() => creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource));
                     await Task.Delay(500);
 
-                    creationDialog.State = AccountCreationDialogState.SigningIn;
+                    await ExecuteUIThread(() => creationDialog.State = AccountCreationDialogState.SigningIn);
 
                     // OAuth authentication is handled here.
                     // Use SynchronizationManager to handle OAuth authentication.
@@ -142,7 +175,10 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                         createdAccount,
                         createdAccount.ProviderType == MailProviderType.Gmail);
 
-                    if (creationDialog.State == AccountCreationDialogState.Canceled)
+                    bool creationCanceled = false;
+                    await ExecuteUIThread(() => creationCanceled = creationDialog.State == AccountCreationDialogState.Canceled);
+
+                    if (creationCanceled)
                         throw new AccountSetupCanceledException();
 
                     // Update account address with authenticated user information
@@ -182,7 +218,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 }
 
                 if (creationDialog != null)
-                    creationDialog.State = AccountCreationDialogState.PreparingFolders;
+                    await ExecuteUIThread(() => creationDialog.State = AccountCreationDialogState.PreparingFolders);
 
                 var folderSynchronizationResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(createdAccount.Id);
 
@@ -207,10 +243,10 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 }
 
                 // Send changes to listeners.
-                ReportUIChange(new AccountCreatedMessage(createdAccount));
+                await ExecuteUIThread(() => ReportUIChange(new AccountCreatedMessage(createdAccount)));
 
                 // Notify success.
-                DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success);
+                await ExecuteUIThread(() => DialogService.InfoBarMessage(Translator.Info_AccountCreatedTitle, string.Format(Translator.Info_AccountCreatedMessage, createdAccount.Address), InfoBarMessageType.Success));
             }
         }
         catch (Exception ex) when (ex.Message.Contains(nameof(GmailServiceDisabledException)))
@@ -219,7 +255,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             // Wino can't continue synchronization in this case.
             // We must notify the user about this and prevent account creation.
 
-            DialogService.InfoBarMessage(Translator.GmailServiceDisabled_Title, Translator.GmailServiceDisabled_Message, InfoBarMessageType.Error);
+            await ExecuteUIThread(() => DialogService.InfoBarMessage(Translator.GmailServiceDisabled_Title, Translator.GmailServiceDisabled_Message, InfoBarMessageType.Error));
 
             if (createdAccount != null)
             {
@@ -243,17 +279,17 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
             _winoLogger.TrackEvent("IMAP Test Failed", properties);
 
-            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, testClientPoolException.Message, InfoBarMessageType.Error);
+            await ExecuteUIThread(() => DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, testClientPoolException.Message, InfoBarMessageType.Error));
         }
         catch (ImapClientPoolException clientPoolException) when (clientPoolException.InnerException != null)
         {
-            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error);
+            await ExecuteUIThread(() => DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, clientPoolException.InnerException.Message, InfoBarMessageType.Error));
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to create account.");
 
-            DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+            await ExecuteUIThread(() => DialogService.InfoBarMessage(Translator.Info_AccountCreationFailedTitle, ex.Message, InfoBarMessageType.Error));
 
             // Delete account in case of failure.
             if (createdAccount != null)
@@ -263,8 +299,113 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         }
         finally
         {
-            creationDialog?.Complete(false);
+            await ExecuteUIThread(() => { creationDialog?.Complete(false); });
         }
+    }
+
+    private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
+    {
+        var connectivityResult = await SynchronizationManager.Instance
+            .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: false)
+            .ConfigureAwait(false);
+
+        if (connectivityResult.IsCertificateUIRequired)
+        {
+            var certificateMessage =
+                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row0}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateIssuer}: {connectivityResult.CertificateIssuer}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidFrom}: {connectivityResult.CertificateValidFromDateString}\n" +
+                $"{Translator.IMAPSetupDialog_CertificateValidTo}: {connectivityResult.CertificateExpirationDateString}\n\n" +
+                $"{Translator.IMAPSetupDialog_CertificateAllowanceRequired_Row1}";
+
+            var allowCertificate = await ExecuteUIThreadTaskAsync(
+                () => MailDialogService.ShowConfirmationDialogAsync(certificateMessage, Translator.GeneralTitle_Warning, Translator.Buttons_Allow))
+                .ConfigureAwait(false);
+
+            if (!allowCertificate)
+                throw new InvalidOperationException(Translator.IMAPSetupDialog_CertificateDenied);
+
+            connectivityResult = await SynchronizationManager.Instance
+                .TestImapConnectivityAsync(serverInformation, allowSSLHandshake: true)
+                .ConfigureAwait(false);
+        }
+
+        if (!connectivityResult.IsSuccess)
+            throw new InvalidOperationException(connectivityResult.FailedReason ?? Translator.IMAPSetupDialog_ConnectionFailedMessage);
+
+        if (serverInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+            return;
+
+        if (string.IsNullOrWhiteSpace(serverInformation.CalDavServiceUrl))
+            throw new InvalidOperationException(Translator.ImapCalDavSettingsPage_CalDavUrlRequired);
+
+        var settings = new CalDavConnectionSettings
+        {
+            ServiceUri = new Uri(serverInformation.CalDavServiceUrl, UriKind.Absolute),
+            Username = serverInformation.CalDavUsername,
+            Password = serverInformation.CalDavPassword
+        };
+
+        await _calDavClient.DiscoverCalendarsAsync(settings).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteUIThreadTaskAsync(Func<Task> action)
+    {
+        if (Dispatcher == null)
+        {
+            await action().ConfigureAwait(false);
+            return;
+        }
+
+        var completionSource = new TaskCompletionSource<object>();
+
+        await ExecuteUIThread(() =>
+        {
+            _ = ExecuteAndCaptureAsync();
+
+            async Task ExecuteAndCaptureAsync()
+            {
+                try
+                {
+                    await action().ConfigureAwait(false);
+                    completionSource.TrySetResult(null);
+                }
+                catch (Exception ex)
+                {
+                    completionSource.TrySetException(ex);
+                }
+            }
+        });
+
+        await completionSource.Task.ConfigureAwait(false);
+    }
+
+    private async Task<T> ExecuteUIThreadTaskAsync<T>(Func<Task<T>> action)
+    {
+        if (Dispatcher == null)
+            return await action().ConfigureAwait(false);
+
+        var completionSource = new TaskCompletionSource<T>();
+
+        await ExecuteUIThread(() =>
+        {
+            _ = ExecuteAndCaptureAsync();
+
+            async Task ExecuteAndCaptureAsync()
+            {
+                try
+                {
+                    var result = await action().ConfigureAwait(false);
+                    completionSource.TrySetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    completionSource.TrySetException(ex);
+                }
+            }
+        });
+
+        return await completionSource.Task.ConfigureAwait(false);
     }
 
     [RelayCommand]

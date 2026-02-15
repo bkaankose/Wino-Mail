@@ -25,6 +25,7 @@ using Wino.Core.Extensions;
 using Wino.Core.Integration;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.ImapSync;
@@ -63,9 +64,12 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly IImapSynchronizerErrorHandlerFactory _errorHandlerFactory;
     private readonly ICalDavClient _calDavClient;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly ICalendarService _calendarService;
     private readonly SemaphoreSlim _calDavDiscoveryLock = new(1, 1);
     private Uri _cachedCalDavServiceUri;
     private bool _isCalDavDiscoveryAttempted;
+    private readonly IImapCalendarOperationHandler _localCalendarOperationHandler;
+    private readonly IImapCalendarOperationHandler _calDavCalendarOperationHandler;
 
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
@@ -73,7 +77,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                             UnifiedImapSynchronizer unifiedSynchronizer,
                             IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
                             ICalDavClient calDavClient,
-                            IAutoDiscoveryService autoDiscoveryService) : base(account, WeakReferenceMessenger.Default)
+                            IAutoDiscoveryService autoDiscoveryService,
+                            ICalendarService calendarService) : base(account, WeakReferenceMessenger.Default)
     {
         // Create client pool with account protocol log.
         _imapChangeProcessor = imapChangeProcessor;
@@ -82,11 +87,14 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _errorHandlerFactory = errorHandlerFactory;
         _calDavClient = calDavClient;
         _autoDiscoveryService = autoDiscoveryService;
+        _calendarService = calendarService;
 
         var protocolLogStream = CreateAccountProtocolLogFileStream();
         var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
 
         _clientPool = new ImapClientPool(poolOptions);
+        _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, "local");
+        _calDavCalendarOperationHandler = new CalDavCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService);
     }
 
     private Stream CreateAccountProtocolLogFileStream()
@@ -317,6 +325,87 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             var parentFolder = await client.GetFolderAsync(request.Folder.RemoteFolderId).ConfigureAwait(false);
             await parentFolder.CreateAsync(request.NewFolderName, true).ConfigureAwait(false);
         }, request, request);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.CreateCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.UpdateCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.DeleteCalendarEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> AcceptEvent(AcceptEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.AcceptEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> DeclineEvent(DeclineEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.DeclineEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    public override List<IRequestBundle<ImapRequest>> TentativeEvent(TentativeEventRequest request)
+    {
+        var handler = ResolveCalendarOperationHandler();
+        return CreateCalendarOperationTaskBundle(
+            request,
+            async value => await handler.TentativeEventAsync(value).ConfigureAwait(false),
+            handler.RequiresConnectedClient);
+    }
+
+    private IImapCalendarOperationHandler ResolveCalendarOperationHandler()
+    {
+        var mode = Account.ServerInformation?.CalendarSupportMode ?? ImapCalendarSupportMode.Disabled;
+
+        return mode switch
+        {
+            ImapCalendarSupportMode.LocalOnly => _localCalendarOperationHandler,
+            ImapCalendarSupportMode.CalDav => _calDavCalendarOperationHandler,
+            _ => throw new NotSupportedException("Calendar operations are disabled for this IMAP account.")
+        };
+    }
+
+    private List<IRequestBundle<ImapRequest>> CreateCalendarOperationTaskBundle<TRequest>(
+        TRequest request,
+        Func<TRequest, Task> operation,
+        bool requiresConnectedClient)
+        where TRequest : IRequestBase, IUIChangeRequest
+    {
+        return
+        [
+            new ImapRequestBundle(
+                new ImapRequest<TRequest>((client, value) => operation(value), request, requiresConnectedClient),
+                request,
+                request)
+        ];
     }
 
     #endregion
@@ -635,7 +724,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             try
             {
-                executorClient = await _clientPool.GetClientAsync();
+                if (item.NativeRequest.RequiresConnectedClient)
+                {
+                    executorClient = await _clientPool.GetClientAsync();
+                }
             }
             catch (ImapClientPoolException)
             {
@@ -682,7 +774,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
             finally
             {
-                _clientPool.Release(executorClient);
+                if (executorClient != null)
+                {
+                    _clientPool.Release(executorClient);
+                }
             }
         }
     }
@@ -1240,6 +1335,11 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         var remoteCalendarsById = remoteCalendars
             .GroupBy(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var usedCalendarColors = new HashSet<string>(
+            localCalendars
+                .Select(a => a.BackgroundColorHex)
+                .Where(a => !string.IsNullOrWhiteSpace(a)),
+            StringComparer.OrdinalIgnoreCase);
 
         var remotePrimaryCalendarId = remoteCalendars.FirstOrDefault()?.RemoteCalendarId;
 
@@ -1274,11 +1374,12 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     IsSynchronizationEnabled = true,
                     IsExtended = true,
                     TextColorHex = "#000000",
-                    BackgroundColorHex = ColorHelpers.GenerateFlatColorHex(),
+                    BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors),
                     TimeZone = "UTC",
                     SynchronizationDeltaToken = string.Empty
                 };
 
+                usedCalendarColors.Add(newCalendar.BackgroundColorHex);
                 await _imapChangeProcessor.InsertAccountCalendarAsync(newCalendar).ConfigureAwait(false);
                 continue;
             }
@@ -1293,6 +1394,254 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             existingLocal.IsPrimary = isPrimary;
             await _imapChangeProcessor.UpdateAccountCalendarAsync(existingLocal).ConfigureAwait(false);
         }
+    }
+
+    private interface IImapCalendarOperationHandler
+    {
+        bool RequiresConnectedClient { get; }
+        Task CreateCalendarEventAsync(CreateCalendarEventRequest request);
+        Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request);
+        Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request);
+        Task AcceptEventAsync(AcceptEventRequest request);
+        Task DeclineEventAsync(DeclineEventRequest request);
+        Task TentativeEventAsync(TentativeEventRequest request);
+    }
+
+    private class LocalCalendarOperationHandler : IImapCalendarOperationHandler
+    {
+        private readonly MailAccount _account;
+        private readonly IImapChangeProcessor _changeProcessor;
+        private readonly ICalendarService _calendarService;
+        private readonly string _resourceScheme;
+
+        public bool RequiresConnectedClient => false;
+
+        public LocalCalendarOperationHandler(MailAccount account, IImapChangeProcessor changeProcessor, ICalendarService calendarService, string resourceScheme)
+        {
+            _account = account;
+            _changeProcessor = changeProcessor;
+            _calendarService = calendarService;
+            _resourceScheme = resourceScheme;
+        }
+
+        public async Task CreateCalendarEventAsync(CreateCalendarEventRequest request)
+        {
+            var item = request.Item;
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var existing = await _calendarService.GetCalendarItemAsync(item.Id).ConfigureAwait(false);
+
+            if (existing == null)
+                await _calendarService.CreateNewCalendarItemAsync(item, request.Attendees).ConfigureAwait(false);
+            else
+                await _calendarService.UpdateCalendarItemAsync(item, request.Attendees).ConfigureAwait(false);
+
+            await PersistIcsAsync(item, request.Attendees).ConfigureAwait(false);
+        }
+
+        public async Task UpdateCalendarEventAsync(UpdateCalendarEventRequest request)
+        {
+            var item = request.Item;
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var attendees = request.Attendees ?? await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
+
+            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
+        }
+
+        public Task DeleteCalendarEventAsync(DeleteCalendarEventRequest request)
+            => _changeProcessor.DeleteCalendarItemAsync(request.Item.Id);
+
+        public async Task AcceptEventAsync(AcceptEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Accepted;
+            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
+        }
+
+        public async Task DeclineEventAsync(DeclineEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Cancelled;
+            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
+        }
+
+        public async Task TentativeEventAsync(TentativeEventRequest request)
+        {
+            request.Item.Status = CalendarItemStatus.Tentative;
+            await UpdateStatusAsync(request.Item).ConfigureAwait(false);
+        }
+
+        private async Task UpdateStatusAsync(CalendarItem item)
+        {
+            EnsureCalendarItemDefaults(item, _account, "local");
+            item.AssignedCalendar ??= await _calendarService.GetAccountCalendarAsync(item.CalendarId).ConfigureAwait(false);
+
+            var attendees = await _calendarService.GetAttendeesAsync(item.Id).ConfigureAwait(false);
+            await _calendarService.UpdateCalendarItemAsync(item, attendees).ConfigureAwait(false);
+            await PersistIcsAsync(item, attendees).ConfigureAwait(false);
+        }
+
+        private Task PersistIcsAsync(CalendarItem item, List<CalendarEventAttendee> attendees)
+        {
+            var resourceHref = $"{_resourceScheme}://calendar/{item.CalendarId:N}/{item.Id:N}";
+            var icsContent = BuildIcsContent(item, attendees);
+
+            return _changeProcessor.SaveCalendarItemIcsAsync(
+                _account.Id,
+                item.CalendarId,
+                item.Id,
+                item.RemoteEventId,
+                resourceHref,
+                DateTimeOffset.UtcNow.ToString("O"),
+                icsContent);
+        }
+    }
+
+    private sealed class CalDavCalendarOperationHandler : LocalCalendarOperationHandler
+    {
+        public CalDavCalendarOperationHandler(MailAccount account, IImapChangeProcessor changeProcessor, ICalendarService calendarService)
+            : base(account, changeProcessor, calendarService, "caldav")
+        {
+        }
+    }
+
+    private static void EnsureCalendarItemDefaults(CalendarItem item, MailAccount account, string idPrefix)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+
+        if (item.Id == Guid.Empty)
+            item.Id = Guid.NewGuid();
+
+        if (string.IsNullOrWhiteSpace(item.RemoteEventId))
+            item.RemoteEventId = $"{idPrefix}-{item.Id:N}";
+
+        if (item.CreatedAt == default)
+            item.CreatedAt = DateTimeOffset.UtcNow;
+
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        item.OrganizerDisplayName ??= account?.SenderName ?? string.Empty;
+        item.OrganizerEmail ??= account?.Address ?? string.Empty;
+        item.StartTimeZone ??= TimeZoneInfo.Local.Id;
+        item.EndTimeZone ??= item.StartTimeZone;
+    }
+
+    private static string BuildIcsContent(CalendarItem item, List<CalendarEventAttendee> attendees)
+    {
+        var uid = item.RemoteEventId?.Split(new[] { "::" }, StringSplitOptions.None)[0] ?? item.Id.ToString("N");
+        var dtStamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmss'Z'");
+
+        var lines = new List<string>
+        {
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Wino Mail//Calendar//EN",
+            "CALSCALE:GREGORIAN",
+            "BEGIN:VEVENT",
+            $"UID:{EscapeIcs(uid)}",
+            $"DTSTAMP:{dtStamp}",
+        };
+
+        if (item.IsAllDayEvent)
+        {
+            lines.Add($"DTSTART;VALUE=DATE:{item.StartDate:yyyyMMdd}");
+            lines.Add($"DTEND;VALUE=DATE:{item.EndDate:yyyyMMdd}");
+        }
+        else
+        {
+            lines.Add($"DTSTART:{item.StartDate.ToUniversalTime():yyyyMMdd'T'HHmmss'Z'}");
+            lines.Add($"DTEND:{item.EndDate.ToUniversalTime():yyyyMMdd'T'HHmmss'Z'}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Title))
+            lines.Add($"SUMMARY:{EscapeIcs(item.Title)}");
+
+        if (!string.IsNullOrWhiteSpace(item.Description))
+            lines.Add($"DESCRIPTION:{EscapeIcs(item.Description)}");
+
+        if (!string.IsNullOrWhiteSpace(item.Location))
+            lines.Add($"LOCATION:{EscapeIcs(item.Location)}");
+
+        lines.Add($"STATUS:{MapStatus(item.Status)}");
+        lines.Add($"TRANSP:{(item.ShowAs == CalendarItemShowAs.Free ? "TRANSPARENT" : "OPAQUE")}");
+        lines.Add($"CLASS:{MapVisibility(item.Visibility)}");
+
+        if (!string.IsNullOrWhiteSpace(item.Recurrence))
+        {
+            var recurrenceLines = item.Recurrence
+                .Split(Wino.Core.Domain.Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l));
+
+            lines.AddRange(recurrenceLines);
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.OrganizerEmail))
+        {
+            var organizerName = string.IsNullOrWhiteSpace(item.OrganizerDisplayName)
+                ? item.OrganizerEmail
+                : item.OrganizerDisplayName;
+            lines.Add($"ORGANIZER;CN={EscapeIcs(organizerName)}:mailto:{EscapeIcs(item.OrganizerEmail)}");
+        }
+
+        if (attendees != null)
+        {
+            foreach (var attendee in attendees.Where(a => !string.IsNullOrWhiteSpace(a.Email)))
+            {
+                var role = attendee.IsOptionalAttendee ? "OPT-PARTICIPANT" : "REQ-PARTICIPANT";
+                var partStat = attendee.AttendenceStatus switch
+                {
+                    AttendeeStatus.Accepted => "ACCEPTED",
+                    AttendeeStatus.Declined => "DECLINED",
+                    AttendeeStatus.Tentative => "TENTATIVE",
+                    _ => "NEEDS-ACTION"
+                };
+
+                var cn = string.IsNullOrWhiteSpace(attendee.Name) ? attendee.Email : attendee.Name;
+                lines.Add($"ATTENDEE;CN={EscapeIcs(cn)};ROLE={role};PARTSTAT={partStat}:mailto:{EscapeIcs(attendee.Email)}");
+            }
+        }
+
+        lines.Add("END:VEVENT");
+        lines.Add("END:VCALENDAR");
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string EscapeIcs(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace(";", "\\;", StringComparison.Ordinal)
+            .Replace(",", "\\,", StringComparison.Ordinal)
+            .Replace("\r\n", "\\n", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal);
+    }
+
+    private static string MapStatus(CalendarItemStatus status)
+    {
+        return status switch
+        {
+            CalendarItemStatus.Cancelled => "CANCELLED",
+            CalendarItemStatus.Tentative => "TENTATIVE",
+            _ => "CONFIRMED"
+        };
+    }
+
+    private static string MapVisibility(CalendarItemVisibility visibility)
+    {
+        return visibility switch
+        {
+            CalendarItemVisibility.Public => "PUBLIC",
+            CalendarItemVisibility.Private => "PRIVATE",
+            CalendarItemVisibility.Confidential => "CONFIDENTIAL",
+            _ => "PUBLIC"
+        };
     }
 
     public Task StartIdleClientAsync()

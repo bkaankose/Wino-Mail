@@ -7,61 +7,70 @@ namespace Wino.Services;
 
 public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResolver
 {
-    private readonly CustomServerInformation iCloudServerConfig = new CustomServerInformation()
-    {
-        IncomingServer = "imap.mail.me.com",
-        IncomingServerPort = "993",
-        IncomingServerType = CustomIncomingServerType.IMAP4,
-        IncomingServerSocketOption = ImapConnectionSecurity.Auto,
-        IncomingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-        OutgoingServer = "smtp.mail.me.com",
-        OutgoingServerPort = "587",
-        OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
-        OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-        MaxConcurrentClients = 5,
-    };
-
-    private readonly CustomServerInformation yahooServerConfig = new CustomServerInformation()
-    {
-        IncomingServer = "imap.mail.yahoo.com",
-        IncomingServerPort = "993",
-        IncomingServerType = CustomIncomingServerType.IMAP4,
-        IncomingServerSocketOption = ImapConnectionSecurity.Auto,
-        IncomingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-        OutgoingServer = "smtp.mail.yahoo.com",
-        OutgoingServerPort = "587",
-        OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
-        OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-        MaxConcurrentClients = 5,
-    };
-
-
     public CustomServerInformation GetServerInformation(MailAccount account, AccountCreationDialogResult dialogResult)
     {
         CustomServerInformation resolvedConfig = null;
+        var details = dialogResult.SpecialImapProviderDetails;
 
-        if (dialogResult.SpecialImapProviderDetails.SpecialImapProvider == SpecialImapProvider.iCloud)
+        if (details.SpecialImapProvider == SpecialImapProvider.iCloud)
         {
-            resolvedConfig = iCloudServerConfig;
+            resolvedConfig = new CustomServerInformation()
+            {
+                IncomingServer = "imap.mail.me.com",
+                IncomingServerPort = "993",
+                IncomingServerType = CustomIncomingServerType.IMAP4,
+                IncomingServerSocketOption = ImapConnectionSecurity.Auto,
+                IncomingAuthenticationMethod = ImapAuthenticationMethod.Auto,
+                OutgoingServer = "smtp.mail.me.com",
+                OutgoingServerPort = "587",
+                OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
+                OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
+                MaxConcurrentClients = 5,
+                CalDavServiceUrl = "https://caldav.icloud.com/"
+            };
 
             // iCloud takes username before the @icloud part for incoming, but full address as outgoing.
-            resolvedConfig.IncomingServerUsername = dialogResult.SpecialImapProviderDetails.Address.Split('@')[0];
-            resolvedConfig.OutgoingServerUsername = dialogResult.SpecialImapProviderDetails.Address;
+            resolvedConfig.IncomingServerUsername = details.Address.Split('@')[0];
+            resolvedConfig.OutgoingServerUsername = details.Address;
         }
-        else if (dialogResult.SpecialImapProviderDetails.SpecialImapProvider == SpecialImapProvider.Yahoo)
+        else if (details.SpecialImapProvider == SpecialImapProvider.Yahoo)
         {
-            resolvedConfig = yahooServerConfig;
+            resolvedConfig = new CustomServerInformation()
+            {
+                IncomingServer = "imap.mail.yahoo.com",
+                IncomingServerPort = "993",
+                IncomingServerType = CustomIncomingServerType.IMAP4,
+                IncomingServerSocketOption = ImapConnectionSecurity.Auto,
+                IncomingAuthenticationMethod = ImapAuthenticationMethod.Auto,
+                OutgoingServer = "smtp.mail.yahoo.com",
+                OutgoingServerPort = "587",
+                OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
+                OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
+                MaxConcurrentClients = 5,
+                CalDavServiceUrl = "https://caldav.calendar.yahoo.com/"
+            };
 
             // Yahoo uses full address for both incoming and outgoing.
-            resolvedConfig.IncomingServerUsername = dialogResult.SpecialImapProviderDetails.Address;
-            resolvedConfig.OutgoingServerUsername = dialogResult.SpecialImapProviderDetails.Address;
+            resolvedConfig.IncomingServerUsername = details.Address;
+            resolvedConfig.OutgoingServerUsername = details.Address;
         }
 
         // Fill in account details.
-        resolvedConfig.Address = dialogResult.SpecialImapProviderDetails.Address;
-        resolvedConfig.IncomingServerPassword = dialogResult.SpecialImapProviderDetails.Password;
-        resolvedConfig.OutgoingServerPassword = dialogResult.SpecialImapProviderDetails.Password;
-        resolvedConfig.DisplayName = dialogResult.SpecialImapProviderDetails.SenderName;
+        resolvedConfig.Address = details.Address;
+        resolvedConfig.IncomingServerPassword = details.Password;
+        resolvedConfig.OutgoingServerPassword = details.Password;
+        resolvedConfig.DisplayName = details.SenderName;
+        resolvedConfig.CalendarSupportMode = details.CalendarSupportMode;
+        resolvedConfig.CalDavUsername = details.Address;
+        resolvedConfig.CalDavPassword = details.Password;
+
+        if (details.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+        {
+            resolvedConfig.CalDavServiceUrl = string.Empty;
+            resolvedConfig.CalDavUsername = string.Empty;
+            resolvedConfig.CalDavPassword = string.Empty;
+        }
+
         return resolvedConfig;
     }
 }

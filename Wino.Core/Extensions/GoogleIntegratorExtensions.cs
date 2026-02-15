@@ -131,7 +131,7 @@ public static class GoogleIntegratorExtensions
         }).ToList();
     }
 
-    public static AccountCalendar AsCalendar(this CalendarListEntry calendarListEntry, Guid accountId)
+    public static AccountCalendar AsCalendar(this CalendarListEntry calendarListEntry, Guid accountId, string fallbackBackgroundColor = null)
     {
         var calendar = new AccountCalendar()
         {
@@ -147,7 +147,9 @@ public static class GoogleIntegratorExtensions
         // Bg color must present. Generate one if doesnt exists.
         // Text color is optional. It'll be overriden by UI for readibility.
 
-        calendar.BackgroundColorHex = string.IsNullOrEmpty(calendarListEntry.BackgroundColor) ? ColorHelpers.GenerateFlatColorHex() : calendarListEntry.BackgroundColor;
+        calendar.BackgroundColorHex = string.IsNullOrEmpty(calendarListEntry.BackgroundColor)
+            ? fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex()
+            : calendarListEntry.BackgroundColor;
         calendar.TextColorHex = string.IsNullOrEmpty(calendarListEntry.ForegroundColor) ? "#000000" : calendarListEntry.ForegroundColor;
 
         return calendar;

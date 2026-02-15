@@ -105,6 +105,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -142,8 +143,14 @@
                 Header="App-Specific Password"
                 PasswordChanged="ImapPasswordChanged" />
 
-            <HyperlinkButton
+            <ComboBox
                 Grid.Row="4"
+                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader, Mode=OneWay}"
+                ItemsSource="{x:Bind CalendarModeOptions, Mode=OneWay}"
+                SelectedIndex="{x:Bind SelectedCalendarModeIndex, Mode=TwoWay}" />
+
+            <HyperlinkButton
+                Grid.Row="5"
                 HorizontalAlignment="Right"
                 Click="AppSpecificHelpButtonClicked"
                 Content="How do I get app-specific password?" />

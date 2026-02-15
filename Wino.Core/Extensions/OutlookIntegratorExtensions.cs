@@ -174,7 +174,7 @@ public static class OutlookIntegratorExtensions
         return message;
     }
 
-    public static AccountCalendar AsCalendar(this Calendar outlookCalendar, MailAccount assignedAccount)
+    public static AccountCalendar AsCalendar(this Calendar outlookCalendar, MailAccount assignedAccount, string fallbackBackgroundColor = null)
     {
         var calendar = new AccountCalendar()
         {
@@ -191,7 +191,9 @@ public static class OutlookIntegratorExtensions
         // Bg must be present. Generate flat one if doesn't exists.
         // Text doesnt exists for Outlook.
 
-        calendar.BackgroundColorHex = string.IsNullOrEmpty(outlookCalendar.HexColor) ? ColorHelpers.GenerateFlatColorHex() : outlookCalendar.HexColor;
+        calendar.BackgroundColorHex = string.IsNullOrEmpty(outlookCalendar.HexColor)
+            ? fallbackBackgroundColor ?? ColorHelpers.GenerateFlatColorHex()
+            : outlookCalendar.HexColor;
         calendar.TextColorHex = "#000000";
 
         return calendar;

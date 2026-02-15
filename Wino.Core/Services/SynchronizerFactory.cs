@@ -25,6 +25,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
     private readonly ICalDavClient _calDavClient;
     private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly ICalendarService _calendarService;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
@@ -39,7 +40,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IImapSynchronizerErrorHandlerFactory imapSynchronizerErrorHandlerFactory,
                                UnifiedImapSynchronizer unifiedImapSynchronizer,
                                ICalDavClient calDavClient,
-                               IAutoDiscoveryService autoDiscoveryService)
+                               IAutoDiscoveryService autoDiscoveryService,
+                               ICalendarService calendarService)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -53,6 +55,7 @@ public class SynchronizerFactory : ISynchronizerFactory
         _unifiedImapSynchronizer = unifiedImapSynchronizer;
         _calDavClient = calDavClient;
         _autoDiscoveryService = autoDiscoveryService;
+        _calendarService = calendarService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -88,7 +91,7 @@ public class SynchronizerFactory : ISynchronizerFactory
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
                 return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService);
+                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService, _calendarService);
             default:
                 break;
         }

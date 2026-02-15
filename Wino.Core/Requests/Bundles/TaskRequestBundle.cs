@@ -9,18 +9,20 @@ public class ImapRequest
 {
     public Func<IImapClient, IRequestBase, Task> IntegratorTask { get; }
     public IRequestBase Request { get; }
+    public bool RequiresConnectedClient { get; }
 
-    public ImapRequest(Func<IImapClient, IRequestBase, Task> integratorTask, IRequestBase request)
+    public ImapRequest(Func<IImapClient, IRequestBase, Task> integratorTask, IRequestBase request, bool requiresConnectedClient = true)
     {
         IntegratorTask = integratorTask;
         Request = request;
+        RequiresConnectedClient = requiresConnectedClient;
     }
 }
 
 public class ImapRequest<TRequestBaseType> : ImapRequest where TRequestBaseType : IRequestBase
 {
-    public ImapRequest(Func<IImapClient, TRequestBaseType, Task> integratorTask, TRequestBaseType request)
-        : base((client, request) => integratorTask(client, (TRequestBaseType)request), request)
+    public ImapRequest(Func<IImapClient, TRequestBaseType, Task> integratorTask, TRequestBaseType request, bool requiresConnectedClient = true)
+        : base((client, request) => integratorTask(client, (TRequestBaseType)request), request, requiresConnectedClient)
     {
     }
 }

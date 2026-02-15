@@ -36,6 +36,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
@@ -2109,6 +2110,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var remotePrimaryCalendarId = await GetPrimaryCalendarIdAsync(calendars.Value, cancellationToken).ConfigureAwait(false);
 
         var localCalendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var usedCalendarColors = new HashSet<string>(
+            localCalendars
+                .Select(a => a.BackgroundColorHex)
+                .Where(a => !string.IsNullOrWhiteSpace(a)),
+            StringComparer.OrdinalIgnoreCase);
 
         List<AccountCalendar> insertedCalendars = new();
         List<AccountCalendar> updatedCalendars = new();
@@ -2138,8 +2144,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             if (existingLocalCalendar == null)
             {
                 // Insert new calendar.
-                var localCalendar = calendar.AsCalendar(Account);
+                var fallbackColor = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors);
+                var localCalendar = calendar.AsCalendar(Account, fallbackColor);
                 localCalendar.IsPrimary = string.Equals(localCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+                if (string.IsNullOrWhiteSpace(localCalendar.BackgroundColorHex) || usedCalendarColors.Contains(localCalendar.BackgroundColorHex))
+                    localCalendar.BackgroundColorHex = ColorHelpers.GetDistinctFlatColorHex(usedCalendarColors);
+                usedCalendarColors.Add(localCalendar.BackgroundColorHex);
                 insertedCalendars.Add(localCalendar);
             }
             else

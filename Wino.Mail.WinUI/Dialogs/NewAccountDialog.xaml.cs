@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.System;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -24,12 +25,19 @@ public sealed partial class NewAccountDialog : ContentDialog
     public static readonly DependencyProperty IsSpecialImapServerPartVisibleProperty = DependencyProperty.Register(nameof(IsSpecialImapServerPartVisible), typeof(bool), typeof(NewAccountDialog), new PropertyMetadata(false));
     public static readonly DependencyProperty SelectedMailProviderProperty = DependencyProperty.Register(nameof(SelectedMailProvider), typeof(ProviderDetail), typeof(NewAccountDialog), new PropertyMetadata(null, new PropertyChangedCallback(OnSelectedProviderChanged)));
     public static readonly DependencyProperty SelectedColorProperty = DependencyProperty.Register(nameof(SelectedColor), typeof(AppColorViewModel), typeof(NewAccountDialog), new PropertyMetadata(null, new PropertyChangedCallback(OnSelectedColorChanged)));
+    public static readonly DependencyProperty SelectedCalendarModeIndexProperty = DependencyProperty.Register(nameof(SelectedCalendarModeIndex), typeof(int), typeof(NewAccountDialog), new PropertyMetadata(0));
 
 
     public AppColorViewModel SelectedColor
     {
         get { return (AppColorViewModel)GetValue(SelectedColorProperty); }
         set { SetValue(SelectedColorProperty, value); }
+    }
+
+    public int SelectedCalendarModeIndex
+    {
+        get { return (int)GetValue(SelectedCalendarModeIndexProperty); }
+        set { SetValue(SelectedCalendarModeIndexProperty, value); }
     }
 
     /// <summary>
@@ -59,6 +67,12 @@ public sealed partial class NewAccountDialog : ContentDialog
     public List<IProviderDetail> Providers { get; set; }
 
     public List<AppColorViewModel> AvailableColors { get; set; }
+    public List<string> CalendarModeOptions { get; } =
+    [
+        Translator.ImapCalDavSettingsPage_CalendarModeCalDav,
+        Translator.ImapCalDavSettingsPage_CalendarModeLocalOnly,
+        Translator.ImapCalDavSettingsPage_CalendarModeDisabled
+    ];
 
 
     public AccountCreationDialogResult Result = null;
@@ -102,8 +116,19 @@ public sealed partial class NewAccountDialog : ContentDialog
         if (IsSpecialImapServerPartVisible)
         {
             // Special imap detail input.
+            var calendarSupportMode = SelectedCalendarModeIndex switch
+            {
+                1 => ImapCalendarSupportMode.LocalOnly,
+                2 => ImapCalendarSupportMode.Disabled,
+                _ => ImapCalendarSupportMode.CalDav
+            };
 
-            var details = new SpecialImapProviderDetails(SpecialImapAddress.Text.Trim(), AppSpecificPassword.Password.Trim(), DisplayNameTextBox.Text.Trim(), SelectedMailProvider.SpecialImapProvider);
+            var details = new SpecialImapProviderDetails(
+                SpecialImapAddress.Text.Trim(),
+                AppSpecificPassword.Password.Trim(),
+                DisplayNameTextBox.Text.Trim(),
+                SelectedMailProvider.SpecialImapProvider,
+                calendarSupportMode);
             Result = new AccountCreationDialogResult(SelectedMailProvider.Type, AccountNameTextbox.Text.Trim(), details, SelectedColor?.Hex ?? string.Empty);
             Hide();
 
