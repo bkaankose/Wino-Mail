@@ -713,7 +713,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         {
             DisplayName = DisplayName.Trim(),
             EmailAddress = EmailAddress.Trim(),
-            IsCalendarAccessGranted = serverInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav,
+            IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
             ServerInformation = serverInformation
         });
 
@@ -735,7 +735,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         account.SenderName = DisplayName.Trim();
         account.Address = EmailAddress.Trim();
-        account.IsCalendarAccessGranted = serverInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
+        account.IsCalendarAccessGranted = serverInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled;
 
         serverInformation.Id = account.ServerInformation?.Id ?? Guid.NewGuid();
         serverInformation.AccountId = account.Id;
