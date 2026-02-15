@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -17,6 +19,22 @@ namespace Wino.Services;
 
 public class AccountService : BaseDatabaseService, IAccountService
 {
+    private static readonly string[] DefaultCalendarFlatColors =
+    [
+        "#B91C1C",
+        "#15803D",
+        "#0E7490",
+        "#1D4ED8",
+        "#7C3AED",
+        "#C026D3",
+        "#EC4899",
+        "#F97316",
+        "#EAB308",
+        "#22C55E",
+        "#06B6D4",
+        "#60A5FA"
+    ];
+
     public IAuthenticator ExternalAuthenticationAuthenticator { get; set; }
 
     private readonly ISignatureService _signatureService;
@@ -528,35 +546,49 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (customServerInformation != null)
             await Connection.InsertAsync(customServerInformation, typeof(CustomServerInformation));
+
+        if (account.ProviderType == MailProviderType.IMAP4 &&
+            customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly)
+        {
+            await EnsureDefaultLocalCalendarForImapAsync(account.Id).ConfigureAwait(false);
+        }
     }
 
-    //public async Task<string> UpdateSynchronizationIdentifierAsync(Guid accountId, string newIdentifier)
-    //{
-    //    var account = await GetAccountAsync(accountId);
+    private async Task EnsureDefaultLocalCalendarForImapAsync(Guid accountId)
+    {
+        var existingCalendarCount = await Connection.Table<AccountCalendar>()
+            .Where(a => a.AccountId == accountId)
+            .CountAsync()
+            .ConfigureAwait(false);
 
-    //    if (account == null)
-    //    {
-    //        _logger.Error("Could not find account with id {AccountId}", accountId);
-    //        return string.Empty;
-    //    }
+        if (existingCalendarCount > 0)
+            return;
 
-    //    var currentIdentifier = account.SynchronizationDeltaIdentifier;
+        var localCalendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            Name = Translator.AccountDetailsPage_TabCalendar,
+            IsPrimary = true,
+            IsSynchronizationEnabled = true,
+            IsExtended = true,
+            RemoteCalendarId = string.Empty,
+            TimeZone = string.Empty,
+            BackgroundColorHex = GetDefaultCalendarFlatColor(accountId),
+            TextColorHex = "#FFFFFF"
+        };
 
-    //    bool shouldUpdateIdentifier = account.ProviderType == MailProviderType.Gmail ?
-    //            string.IsNullOrEmpty(currentIdentifier) ? true : !string.IsNullOrEmpty(currentIdentifier)
-    //            && ulong.TryParse(currentIdentifier, out ulong currentIdentifierValue)
-    //            && ulong.TryParse(newIdentifier, out ulong newIdentifierValue)
-    //            && newIdentifierValue > currentIdentifierValue : true;
+        await Connection.InsertAsync(localCalendar, typeof(AccountCalendar)).ConfigureAwait(false);
+    }
 
-    //    if (shouldUpdateIdentifier)
-    //    {
-    //        account.SynchronizationDeltaIdentifier = newIdentifier;
+    private static string GetDefaultCalendarFlatColor(Guid accountId)
+    {
+        var bytes = accountId.ToByteArray();
+        var hash = BitConverter.ToUInt32(bytes, 0);
+        var index = (int)(hash % (uint)DefaultCalendarFlatColors.Length);
 
-    //        await UpdateAccountAsync(account);
-    //    }
-
-    //    return account.SynchronizationDeltaIdentifier;
-    //}
+        return DefaultCalendarFlatColors[index];
+    }
 
     public async Task UpdateAccountOrdersAsync(Dictionary<Guid, int> accountIdOrderPair)
     {

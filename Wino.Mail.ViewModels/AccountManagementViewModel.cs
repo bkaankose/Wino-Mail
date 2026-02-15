@@ -129,7 +129,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
                         createdAccount.Address = accountCreationDialogResult.SpecialImapProviderDetails.Address;
                         createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
-                        createdAccount.IsCalendarAccessGranted = customServerInformation.CalendarSupportMode == ImapCalendarSupportMode.CalDav;
+                        createdAccount.IsCalendarAccessGranted = customServerInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled;
                         createdAccount.ServerInformation = customServerInformation;
 
                         await ValidateSpecialImapConnectivityAsync(customServerInformation).ConfigureAwait(false);
