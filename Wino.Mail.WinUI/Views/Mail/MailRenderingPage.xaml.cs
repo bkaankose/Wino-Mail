@@ -26,7 +26,8 @@ namespace Wino.Views.Mail;
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IRecipient<HtmlRenderingRequested>,
     IRecipient<CancelRenderingContentRequested>,
-    IRecipient<ApplicationThemeChanged>
+    IRecipient<ApplicationThemeChanged>,
+    IPopupWindowAwarePage
 {
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
     private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
@@ -49,6 +50,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             return Chromium.CoreWebView2.PrintToPdfAsync(path, null).AsTask();
         });
+    }
+
+    public UIElement? GetPopupTitleBarElement() => PopupTitleBar;
+
+    public void OnPopupWindowStateChanged(bool isOpenedInPopupWindow)
+    {
+        ViewModel.IsOpenedInPopupWindow = isOpenedInPopupWindow;
     }
 
     private async Task<PrintingResult> DirectPrintAsync(WebView2PrintSettingsModel settings)
@@ -181,6 +189,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             RendererGridFrame.Margin = new Thickness(0, 24, 0, 0);
         else
             RendererGridFrame.Margin = new Thickness(0, 0, 0, 0);
+    }
+
+    private void PopOutButtonClicked(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new PopOutRenderingFrameRequested());
     }
 
     private async void CoreWebViewInitialized(WebView2 sender, CoreWebView2InitializedEventArgs args)

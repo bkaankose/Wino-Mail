@@ -127,6 +127,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     public partial DateTime CreationDate { get; set; }
+    [ObservableProperty]
+    public partial bool IsOpenedInPopupWindow { get; set; }
     public ObservableCollection<AccountContactViewModel> ToItems { get; set; } = [];
     public ObservableCollection<AccountContactViewModel> CcItems { get; set; } = [];
     public ObservableCollection<AccountContactViewModel> BccItems { get; set; } = [];

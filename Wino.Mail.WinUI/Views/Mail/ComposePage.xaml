@@ -159,10 +159,22 @@
         RowSpacing="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <muxc:TitleBar
+            x:Name="PopupTitleBar"
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsOpenedInPopupWindow), Mode=OneWay}"
+            Grid.Row="0"
+            Margin="-2"
+            Background="Transparent"
+            IsBackButtonVisible="False"
+            IsPaneToggleButtonVisible="False"
+            Title="{x:Bind domain:Translator.Compose}" />
+
         <Border
+            Grid.Row="1"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
@@ -219,6 +231,17 @@
                                     <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
+                            <AppBarButton
+                                Width="Auto"
+                                MinWidth="40"
+                                Click="PopOutButtonClicked"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="Open in new window">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="OpenInNewWindow" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+
                             <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="{x:Bind domain:Translator.Buttons_Send}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Send" />
@@ -698,7 +721,7 @@
             </Grid>
         </Border>
         <Border
-            Grid.Row="1"
+            Grid.Row="2"
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"

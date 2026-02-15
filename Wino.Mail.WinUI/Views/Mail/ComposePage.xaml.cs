@@ -32,7 +32,8 @@ namespace Wino.Views.Mail;
 public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<CreateNewComposeMailRequested>,
     IRecipient<ApplicationThemeChanged>,
-    IRecipient<NewComposeDraftItemRequestedEvent>
+    IRecipient<NewComposeDraftItemRequestedEvent>,
+    IPopupWindowAwarePage
 {
     public WebView2 GetWebView() => WebViewEditor.GetUnderlyingWebView();
 
@@ -41,6 +42,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
+    }
+
+    public UIElement? GetPopupTitleBarElement() => PopupTitleBar;
+
+    public void OnPopupWindowStateChanged(bool isOpenedInPopupWindow)
+    {
+        ViewModel.IsOpenedInPopupWindow = isOpenedInPopupWindow;
     }
 
     private async void GlobalFocusManagerGotFocus(object? sender, FocusManagerGotFocusEventArgs e)
@@ -306,6 +314,11 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         // Reset the initial focus flag so ToBox gets focus for the new draft.
         isInitialFocusHandled = false;
+    }
+
+    private void PopOutButtonClicked(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new PopOutRenderingFrameRequested());
     }
 
     private void ImportanceClicked(object sender, RoutedEventArgs e)

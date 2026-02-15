@@ -44,9 +44,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ClearMailSelectionsRequested>,
     IRecipient<ActiveMailItemChangedEvent>,
     IRecipient<SelectMailItemContainerEvent>,
-    IRecipient<DisposeRenderingFrameRequested>
+    IRecipient<DisposeRenderingFrameRequested>,
+    IRecipient<PopOutRenderingFrameRequested>
 {
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
+
+    private readonly List<DetachedRenderingWindow> _detachedWindows = [];
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
     private IKeyPressService KeyPressService { get; } = WinoApplication.Current.Services.GetService<IKeyPressService>() ?? throw new Exception($"Can't resolve {nameof(KeyPressService)}");
@@ -536,6 +539,36 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
+    async void IRecipient<PopOutRenderingFrameRequested>.Receive(PopOutRenderingFrameRequested message)
+    {
+        if (RenderingFrame.Content is not UIElement pageContent)
+            return;
+
+        if (pageContent is IdlePage)
+            return;
+
+        RenderingFrame.Content = null;
+
+        var detachedWindow = new DetachedRenderingWindow(pageContent);
+        detachedWindow.Closed += DetachedWindowClosed;
+        _detachedWindows.Add(detachedWindow);
+        detachedWindow.Activate();
+
+        await ViewModel.MailCollection.UnselectAllAsync();
+
+        ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.None);
+        UpdateAdaptiveness();
+    }
+
+    private void DetachedWindowClosed(object sender, WindowEventArgs args)
+    {
+        if (sender is DetachedRenderingWindow detachedWindow)
+        {
+            detachedWindow.Closed -= DetachedWindowClosed;
+            _detachedWindows.Remove(detachedWindow);
+        }
+    }
+
     public void Receive(DisposeRenderingFrameRequested message)
     {
         ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
@@ -548,6 +581,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Register<ActiveMailItemChangedEvent>(this);
         WeakReferenceMessenger.Default.Register<SelectMailItemContainerEvent>(this);
         WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
+        WeakReferenceMessenger.Default.Register<PopOutRenderingFrameRequested>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -556,6 +590,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Unregister<ActiveMailItemChangedEvent>(this);
         WeakReferenceMessenger.Default.Unregister<SelectMailItemContainerEvent>(this);
         WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
+        WeakReferenceMessenger.Default.Unregister<PopOutRenderingFrameRequested>(this);
     }
 
     private void PageSizeChanged(object sender, SizeChangedEventArgs e)

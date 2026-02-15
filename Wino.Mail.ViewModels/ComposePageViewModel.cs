@@ -85,6 +85,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public partial bool IsSmimeSignatureEnabled { get; set; }
     [ObservableProperty]
     public partial bool IsSmimeEncryptionEnabled { get; set; }
+    [ObservableProperty]
+    public partial bool IsOpenedInPopupWindow { get; set; }
 
     [ObservableProperty]
     public partial X509Certificate2 SelectedSigningCertificate { get; set; }
