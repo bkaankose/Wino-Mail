@@ -11,6 +11,8 @@ public interface ICalendarItemViewModel
 {
     bool IsSelected { get; set; }
 
+    bool IsBusy { get; set; }
+
     /// <summary>
     /// The period of the day where this item is currently being displayed.
     /// </summary>

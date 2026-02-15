@@ -191,7 +191,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             if (source == CalendarItemUpdateSource.ClientUpdated || source == CalendarItemUpdateSource.ClientReverted)
             {
                 var previousAttendees = CurrentEvent?.Attendees?.ToList() ?? [];
-                CurrentEvent = new CalendarItemViewModel(calendarItem);
+                CurrentEvent = new CalendarItemViewModel(calendarItem)
+                {
+                    IsBusy = source == CalendarItemUpdateSource.ClientUpdated
+                };
 
                 foreach (var attendee in previousAttendees)
                 {

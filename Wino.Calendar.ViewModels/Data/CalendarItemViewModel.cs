@@ -74,6 +74,9 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
     /// <summary>
     /// The period of the day where this item is currently being displayed.
     /// Used for multi-day event title formatting.

@@ -902,6 +902,21 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
+    private void UpdateCalendarItemBusyState(Guid calendarItemId, bool isBusy)
+    {
+        var calendarItems = DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .Select(b => b.EventsCollection.GetCalendarItem(calendarItemId))
+            .Where(c => c != null)
+            .OfType<CalendarItemViewModel>()
+            .Distinct();
+
+        foreach (var item in calendarItems)
+        {
+            item.IsBusy = isBusy;
+        }
+    }
+
     public void Receive(CalendarItemTappedMessage message)
     {
         if (message.CalendarItemViewModel == null) return;
@@ -970,6 +985,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         await ExecuteUIThread(() =>
         {
+            if (source == CalendarItemUpdateSource.ClientUpdated)
+            {
+                UpdateCalendarItemBusyState(calendarItem.Id, true);
+            }
+            else if (source == CalendarItemUpdateSource.ClientReverted || source == CalendarItemUpdateSource.Server)
+            {
+                UpdateCalendarItemBusyState(calendarItem.Id, false);
+            }
+
             // Update existing items in-place where the item should remain
             foreach (var calendarDay in currentDaysWithItem)
             {
@@ -977,6 +1001,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 {
                     // Item should stay in this day - update in-place
                     calendarDay.EventsCollection.UpdateCalendarItem(calendarItem);
+
+                    if (source == CalendarItemUpdateSource.Server)
+                    {
+                        var existingViewModel = calendarDay.EventsCollection.GetCalendarItem(calendarItem.Id) as CalendarItemViewModel;
+                        if (existingViewModel != null)
+                        {
+                            existingViewModel.IsBusy = false;
+                        }
+                    }
                 }
                 else
                 {
@@ -1069,7 +1102,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         foreach (var calendarDay in allDaysForEvent)
         {
-            var calendarItemViewModel = new CalendarItemViewModel(calendarItem);
+            var calendarItemViewModel = new CalendarItemViewModel(calendarItem)
+            {
+                IsBusy = string.IsNullOrEmpty(calendarItem.RemoteEventId)
+            };
 
             await ExecuteUIThread(() =>
             {
