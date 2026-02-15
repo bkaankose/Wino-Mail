@@ -14,6 +14,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
@@ -87,6 +88,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
         MailAccount createdAccount = null;
         IAccountCreationDialog creationDialog = null;
+        bool creationDialogClosed = false;
 
         try
         {
@@ -225,6 +227,21 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 if (folderSynchronizationResult == null || folderSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
                     throw new Exception(Translator.Exception_FailedToSynchronizeFolders);
 
+                if (createdAccount.IsCalendarAccessGranted)
+                {
+                    if (creationDialog != null)
+                        await ExecuteUIThread(() => creationDialog.State = AccountCreationDialogState.CalendarMetadataFetch);
+
+                    var calendarMetadataSynchronizationResult = await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                    {
+                        AccountId = createdAccount.Id,
+                        Type = CalendarSynchronizationType.CalendarMetadata
+                    });
+
+                    if (calendarMetadataSynchronizationResult == null || calendarMetadataSynchronizationResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeCalendarMetadata);
+                }
+
                 // Sync aliases if supported.
                 if (createdAccount.IsAliasSyncSupported)
                 {
@@ -240,6 +257,12 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                     // This is only available for accounts that do not support alias synchronization.
 
                     await AccountService.CreateRootAliasAsync(createdAccount.Id, createdAccount.Address);
+                }
+
+                if (creationDialog != null)
+                {
+                    await ExecuteUIThread(() => creationDialog.Complete(false));
+                    creationDialogClosed = true;
                 }
 
                 // Send changes to listeners.
@@ -299,7 +322,12 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         }
         finally
         {
-            await ExecuteUIThread(() => { creationDialog?.Complete(false); });
+            if (creationDialog != null && !creationDialogClosed)
+            {
+                bool isCanceled = false;
+                await ExecuteUIThread(() => isCanceled = creationDialog.State == AccountCreationDialogState.Canceled);
+                await ExecuteUIThread(() => creationDialog.Complete(isCanceled));
+            }
         }
     }
 

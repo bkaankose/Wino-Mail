@@ -1988,6 +1988,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
+        if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
+            return CalendarSynchronizationResult.Empty;
+
         var localCalendars = (await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false))
             .Where(c => c.IsSynchronizationEnabled)
             .ToList();

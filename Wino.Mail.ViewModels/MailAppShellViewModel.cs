@@ -1095,6 +1095,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         Messenger.Send(new NewMailSynchronizationRequested(options));
 
+        if (createdAccount.IsCalendarAccessGranted)
+        {
+            var calendarOptions = new CalendarSynchronizationOptions()
+            {
+                AccountId = createdAccount.Id,
+                Type = CalendarSynchronizationType.CalendarEvents
+            };
+
+            Messenger.Send(new NewCalendarSynchronizationRequested(calendarOptions));
+        }
+
         try
         {
             await _nativeAppService.PinAppToTaskbarAsync();

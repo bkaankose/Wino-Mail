@@ -1163,6 +1163,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         await SynchronizeCalendarMetadataAsync(remoteCalendars).ConfigureAwait(false);
 
+        if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
+            return CalendarSynchronizationResult.Empty;
+
         var localCalendars = await _imapChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
         var remoteCalendarsById = remoteCalendars.ToDictionary(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase);
 

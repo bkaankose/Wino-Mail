@@ -495,6 +495,9 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
 
         await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
 
+        if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
+            return CalendarSynchronizationResult.Empty;
+
         bool isInitialSync = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier);
 
         _logger.Debug("Is initial synchronization: {IsInitialSync}", isInitialSync);
