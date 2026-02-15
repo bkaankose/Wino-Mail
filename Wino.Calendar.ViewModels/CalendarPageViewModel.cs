@@ -963,6 +963,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         base.OnCalendarItemUpdated(calendarItem, source);
         Debug.WriteLine($"Calendar item updated: {calendarItem.Id}");
 
+        // Local-only calendar operations are persisted immediately without real network I/O.
+        // Ignore optimistic client updates to prevent applying the same mutation twice.
+        var isLocalCalendarUpdate = string.IsNullOrWhiteSpace(calendarItem.RemoteEventId) ||
+                                    calendarItem.RemoteEventId.StartsWith("local-", StringComparison.OrdinalIgnoreCase);
+        if (isLocalCalendarUpdate && source == CalendarItemUpdateSource.ClientUpdated)
+        {
+            return;
+        }
+
         // Series master events should not be visible on the UI.
         if (calendarItem.IsRecurringParent)
         {

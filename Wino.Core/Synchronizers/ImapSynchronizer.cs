@@ -705,7 +705,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
         foreach (var item in batchedRequests)
         {
-            item.Request.ApplyUIChanges();
+            if (ShouldApplyOptimisticUIChanges(item.Request))
+            {
+                item.Request.ApplyUIChanges();
+            }
         }
 
         // All task bundles will execute on the same client.
@@ -734,7 +737,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 // Client pool failed to get a client.
                 // Requests may not be executed at this point.
 
-                item.Request.RevertUIChanges();
+                if (ShouldApplyOptimisticUIChanges(item.Request))
+                {
+                    item.Request.RevertUIChanges();
+                }
 
                 isCrashed = true;
                 throw;
@@ -768,7 +774,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
                 if (!handled)
                 {
-                    item.Request.RevertUIChanges();
+                    if (ShouldApplyOptimisticUIChanges(item.Request))
+                    {
+                        item.Request.RevertUIChanges();
+                    }
                     throw;
                 }
             }
@@ -780,6 +789,21 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 }
             }
         }
+    }
+
+    private bool ShouldApplyOptimisticUIChanges(IRequestBase request)
+    {
+        // Mail changes are always applied.
+        // Calendar changes are applied only if calendar is not in local mode.
+        // Database updates are immidiate and will be reflected in the UI right after the request is processed, so no need for optimistic changes.
+
+        if (request is not ICalendarActionRequest)
+        {
+            return true;
+        }
+
+        var mode = Account.ServerInformation?.CalendarSupportMode ?? ImapCalendarSupportMode.Disabled;
+        return mode != ImapCalendarSupportMode.LocalOnly;
     }
 
     /// <summary>
