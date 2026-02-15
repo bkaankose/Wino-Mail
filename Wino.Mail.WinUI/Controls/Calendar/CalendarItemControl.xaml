@@ -60,7 +60,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             Canvas.ZIndex="10000"
-            Content="{x:Bind CalendarItem}"
+            Content="{x:Bind CalendarItem, Mode=OneWay}"
             ContentTemplateSelector="{StaticResource ShowAsStripeSelector}"
             IsTabStop="False" />
 
