@@ -54,6 +54,7 @@ public class ImapClientPool : IDisposable
     private readonly CancellationTokenSource _maintenanceCts = new();
     private readonly SemaphoreSlim _initializeSemaphore = new(1, 1);
     private readonly object _idleClientLock = new();
+    private readonly object _initialWarmupLock = new();
     private readonly ImapServerQuirkProfile _quirks;
     private readonly ImapImplementation _implementation;
     private readonly int _maxConnections;
@@ -64,6 +65,7 @@ public class ImapClientPool : IDisposable
     private bool _disposedValue;
     private bool _initialized;
     private Task _maintenanceTask;
+    private Task _initialWarmupTask = Task.CompletedTask;
 
     public bool ThrowOnSSLHandshakeCallback { get; set; }
     public ImapClientPoolOptions ImapClientPoolOptions { get; }
@@ -112,30 +114,20 @@ public class ImapClientPool : IDisposable
 
             _logger.Information("Initializing IMAP client pool with {MinimumConnections} minimum active connections (max: {MaxConnections})", _targetMinimumConnections, _maxConnections);
 
-            for (int i = 0; i < _targetMinimumConnections; i++)
+            // Fast-path startup: create one client eagerly so first RentAsync() is not blocked by full warm-up.
+            var initialClient = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
+            if (initialClient == null)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var client = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
-                if (client != null)
-                {
-                    _clientStates[client] = ImapClientState.Available;
-                    await _availableClients.Writer.WriteAsync(client, cancellationToken).ConfigureAwait(false);
-                }
+                throw CreatePoolException("Failed to create initial IMAP connection for the pool.");
             }
 
-            if (CanCreateAdditionalConnection())
-            {
-                _dedicatedIdleClient = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
-                if (_dedicatedIdleClient != null)
-                {
-                    _clientStates[_dedicatedIdleClient] = ImapClientState.Idle;
-                }
-            }
+            _clientStates[initialClient] = ImapClientState.Available;
+            await _availableClients.Writer.WriteAsync(initialClient, cancellationToken).ConfigureAwait(false);
 
             _maintenanceTask = Task.Run(() => MaintenanceLoopAsync(_maintenanceCts.Token), _maintenanceCts.Token);
-
             _initialized = true;
+
+            ScheduleInitialWarmup();
             _logger.Information("IMAP client pool initialized. Health: {Health}", Health.Summary);
         }
         catch (Exception ex)
@@ -152,7 +144,21 @@ public class ImapClientPool : IDisposable
     /// <summary>
     /// Pre-warms the pool (legacy compatibility method).
     /// </summary>
-    public Task PreWarmPoolAsync() => InitializeAsync(CancellationToken.None);
+    public async Task PreWarmPoolAsync()
+    {
+        await InitializeAsync(CancellationToken.None).ConfigureAwait(false);
+
+        Task warmupTask;
+        lock (_initialWarmupLock)
+        {
+            warmupTask = _initialWarmupTask;
+        }
+
+        if (warmupTask != null)
+        {
+            await warmupTask.ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// Rents a client from the pool with the default timeout.
@@ -437,6 +443,63 @@ public class ImapClientPool : IDisposable
                 _logger.Warning(ex, "Failed to create minimum pool connection during maintenance.");
                 break;
             }
+        }
+    }
+
+    private void ScheduleInitialWarmup()
+    {
+        lock (_initialWarmupLock)
+        {
+            if (_initialWarmupTask != null && !_initialWarmupTask.IsCompleted)
+                return;
+
+            _initialWarmupTask = Task.Run(() => EnsureWarmBaselineAsync(_maintenanceCts.Token), _maintenanceCts.Token);
+        }
+    }
+
+    private async Task EnsureWarmBaselineAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await EnsureMinimumConnectionsAsync(cancellationToken).ConfigureAwait(false);
+
+            lock (_idleClientLock)
+            {
+                if (_dedicatedIdleClient != null && _dedicatedIdleClient.IsConnected)
+                    return;
+            }
+
+            if (!CanCreateAdditionalConnection())
+                return;
+
+            var idleCandidate = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
+            if (idleCandidate == null)
+                return;
+
+            bool assignedAsIdle = false;
+            lock (_idleClientLock)
+            {
+                if (_dedicatedIdleClient == null || !_dedicatedIdleClient.IsConnected)
+                {
+                    _dedicatedIdleClient = idleCandidate;
+                    _clientStates[idleCandidate] = ImapClientState.Idle;
+                    assignedAsIdle = true;
+                }
+            }
+
+            if (!assignedAsIdle)
+            {
+                _clientStates[idleCandidate] = ImapClientState.Available;
+                _availableClients.Writer.TryWrite(idleCandidate);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Pool is shutting down.
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Initial IMAP pool warm-up failed. Pool will continue with maintenance recovery.");
         }
     }
 

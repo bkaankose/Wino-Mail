@@ -74,6 +74,8 @@ public class ImapSynchronizerIdleTests
             Mock.Of<IImapChangeProcessor>(),
             applicationConfiguration.Object,
             unifiedSynchronizer,
-            Mock.Of<IImapSynchronizerErrorHandlerFactory>());
+            Mock.Of<IImapSynchronizerErrorHandlerFactory>(),
+            Mock.Of<ICalDavClient>(),
+            Mock.Of<IAutoDiscoveryService>());
     }
 }

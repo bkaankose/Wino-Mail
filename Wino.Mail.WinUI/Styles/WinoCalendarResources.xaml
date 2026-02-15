@@ -35,7 +35,7 @@
     </DataTemplate>
 
     <DataTemplate x:Key="BusyStripeTemplate" x:DataType="data:CalendarItemViewModel">
-        <Border Background="#F44336" />
+        <Border Background="#ff7675" />
     </DataTemplate>
 
     <DataTemplate x:Key="OutOfOfficeStripeTemplate" x:DataType="data:CalendarItemViewModel">

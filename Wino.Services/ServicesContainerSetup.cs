@@ -14,6 +14,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
+        services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
         services.AddTransient<IMimeStorageService, MimeStorageService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
@@ -25,5 +26,6 @@ public static class ServicesContainerSetup
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
+        services.AddTransient<ICalDavClient, CalDavClient>();
     }
 }

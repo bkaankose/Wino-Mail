@@ -64,8 +64,8 @@ public class AutoDiscoverySettings
     }
 
     public AutoDiscoveryProviderSetting GetImapSettings()
-        => Settings?.Find(a => a.Protocol == "IMAP");
+        => Settings?.Find(a => string.Equals(a.Protocol, "IMAP", StringComparison.OrdinalIgnoreCase));
 
     public AutoDiscoveryProviderSetting GetSmptpSettings()
-        => Settings?.Find(a => a.Protocol == "SMTP");
+        => Settings?.Find(a => string.Equals(a.Protocol, "SMTP", StringComparison.OrdinalIgnoreCase));
 }

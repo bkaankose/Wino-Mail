@@ -1,4 +1,5 @@
 using SQLite;
+using System.IO;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -12,12 +13,14 @@ namespace Wino.Core.Tests.Helpers;
 /// </summary>
 public class InMemoryDatabaseService : IDatabaseService
 {
+    private readonly string _databasePath;
     public SQLiteAsyncConnection Connection { get; private set; }
 
     public InMemoryDatabaseService()
     {
-        // Use :memory: for a truly in-memory database or a temporary file
-        Connection = new SQLiteAsyncConnection(":memory:");
+        // Use a unique temporary file per test instance for stable async access.
+        _databasePath = Path.Combine(Path.GetTempPath(), $"wino-tests-{Guid.NewGuid():N}.db");
+        Connection = new SQLiteAsyncConnection(_databasePath);
     }
 
     public async Task InitializeAsync()
@@ -27,23 +30,24 @@ public class InMemoryDatabaseService : IDatabaseService
 
     private async Task CreateTablesAsync()
     {
-        await Task.WhenAll(
-            Connection.CreateTableAsync<MailCopy>(),
-            Connection.CreateTableAsync<MailItemFolder>(),
-            Connection.CreateTableAsync<MailAccount>(),
-            Connection.CreateTableAsync<AccountContact>(),
-            Connection.CreateTableAsync<CustomServerInformation>(),
-            Connection.CreateTableAsync<AccountSignature>(),
-            Connection.CreateTableAsync<MergedInbox>(),
-            Connection.CreateTableAsync<MailAccountPreferences>(),
-            Connection.CreateTableAsync<MailAccountAlias>(),
-            Connection.CreateTableAsync<Thumbnail>(),
-            Connection.CreateTableAsync<KeyboardShortcut>(),
-            Connection.CreateTableAsync<AccountCalendar>(),
-            Connection.CreateTableAsync<CalendarEventAttendee>(),
-            Connection.CreateTableAsync<CalendarItem>(),
-            Connection.CreateTableAsync<Reminder>()
-        );
+        // Keep table creation sequential for in-memory SQLite to avoid connection contention.
+        await Connection.CreateTableAsync<MailCopy>();
+        await Connection.CreateTableAsync<MailItemFolder>();
+        await Connection.CreateTableAsync<MailAccount>();
+        await Connection.CreateTableAsync<AccountContact>();
+        await Connection.CreateTableAsync<CustomServerInformation>();
+        await Connection.CreateTableAsync<AccountSignature>();
+        await Connection.CreateTableAsync<MergedInbox>();
+        await Connection.CreateTableAsync<MailAccountPreferences>();
+        await Connection.CreateTableAsync<MailAccountAlias>();
+        await Connection.CreateTableAsync<Thumbnail>();
+        await Connection.CreateTableAsync<KeyboardShortcut>();
+        await Connection.CreateTableAsync<AccountCalendar>();
+        await Connection.CreateTableAsync<CalendarEventAttendee>();
+        await Connection.CreateTableAsync<CalendarItem>();
+        await Connection.CreateTableAsync<CalendarAttachment>();
+        await Connection.CreateTableAsync<Reminder>();
+        await Connection.CreateTableAsync<MailInvitationCalendarMapping>();
     }
 
     public async ValueTask DisposeAsync()
@@ -52,6 +56,11 @@ public class InMemoryDatabaseService : IDatabaseService
         {
             await Connection.CloseAsync();
             Connection = null!;
+        }
+
+        if (File.Exists(_databasePath))
+        {
+            File.Delete(_databasePath);
         }
     }
 }

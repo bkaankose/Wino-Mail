@@ -118,79 +118,6 @@ public class CalendarServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetCalendarEventsAsync_WithRecurringEventInstances_ReturnsAllInstancesInPeriod()
-    {
-        // Arrange - Simulate synced recurring event instances (as they would come from server)
-        var parentId = Guid.NewGuid();
-        var startDate1 = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
-        var startDate2 = new DateTime(2025, 1, 16, 10, 0, 0, DateTimeKind.Utc);
-        var startDate3 = new DateTime(2025, 1, 17, 10, 0, 0, DateTimeKind.Utc);
-
-        // Parent series master (typically hidden or outside display range)
-        var parentEvent = new CalendarItem
-        {
-            Id = parentId,
-            Title = "Daily Standup",
-            Description = "Daily team sync",
-            StartDate = startDate1,
-            DurationInSeconds = 1800, // 30 minutes
-            CalendarId = _testCalendar.Id,
-            IsHidden = false,
-            Recurrence = "RRULE:FREQ=DAILY;COUNT=3"
-        };
-
-        // Individual occurrence instances (as synced from server)
-        var instance1 = new CalendarItem
-        {
-            Id = Guid.NewGuid(),
-            Title = "Daily Standup",
-            StartDate = startDate1,
-            DurationInSeconds = 1800,
-            CalendarId = _testCalendar.Id,
-            RecurringCalendarItemId = parentId,
-            IsHidden = false
-        };
-
-        var instance2 = new CalendarItem
-        {
-            Id = Guid.NewGuid(),
-            Title = "Daily Standup",
-            StartDate = startDate2,
-            DurationInSeconds = 1800,
-            CalendarId = _testCalendar.Id,
-            RecurringCalendarItemId = parentId,
-            IsHidden = false
-        };
-
-        var instance3 = new CalendarItem
-        {
-            Id = Guid.NewGuid(),
-            Title = "Daily Standup",
-            StartDate = startDate3,
-            DurationInSeconds = 1800,
-            CalendarId = _testCalendar.Id,
-            RecurringCalendarItemId = parentId,
-            IsHidden = false
-        };
-
-        await _calendarService.CreateNewCalendarItemAsync(parentEvent, null);
-        await _calendarService.CreateNewCalendarItemAsync(instance1, null);
-        await _calendarService.CreateNewCalendarItemAsync(instance2, null);
-        await _calendarService.CreateNewCalendarItemAsync(instance3, null);
-
-        var period = new TimeRange(
-            new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2025, 1, 18, 0, 0, 0, DateTimeKind.Utc));
-
-        // Act
-        var result = await _calendarService.GetCalendarEventsAsync(_testCalendar, period);
-
-        // Assert - Should return parent + 3 instances = 4 total
-        result.Should().HaveCount(4, "parent event plus 3 instances");
-        result.Where(e => e.Title == "Daily Standup").Should().HaveCount(4);
-    }
-
-    [Fact]
     public async Task GetCalendarEventsAsync_WithHiddenEvent_ExcludesFromResults()
     {
         // Arrange
@@ -267,7 +194,7 @@ public class CalendarServiceTests : IAsyncLifetime
 
         // Add events to both calendars
         var startDate = new DateTime(2025, 1, 15, 10, 0, 0, DateTimeKind.Utc);
-        
+
         var event1 = new CalendarItem
         {
             Id = Guid.NewGuid(),

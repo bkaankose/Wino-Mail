@@ -10,11 +10,13 @@ using MailKit.Net.Imap;
 using MailKit.Search;
 using MimeKit;
 using Serilog;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -26,6 +28,7 @@ using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.ImapSync;
+using Wino.Core.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services.Extensions;
@@ -58,18 +61,27 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly UnifiedImapSynchronizer _unifiedSynchronizer;
     private readonly IImapSynchronizerErrorHandlerFactory _errorHandlerFactory;
+    private readonly ICalDavClient _calDavClient;
+    private readonly IAutoDiscoveryService _autoDiscoveryService;
+    private readonly SemaphoreSlim _calDavDiscoveryLock = new(1, 1);
+    private Uri _cachedCalDavServiceUri;
+    private bool _isCalDavDiscoveryAttempted;
 
     public ImapSynchronizer(MailAccount account,
                             IImapChangeProcessor imapChangeProcessor,
                             IApplicationConfiguration applicationConfiguration,
                             UnifiedImapSynchronizer unifiedSynchronizer,
-                            IImapSynchronizerErrorHandlerFactory errorHandlerFactory) : base(account, WeakReferenceMessenger.Default)
+                            IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
+                            ICalDavClient calDavClient,
+                            IAutoDiscoveryService autoDiscoveryService) : base(account, WeakReferenceMessenger.Default)
     {
         // Create client pool with account protocol log.
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
         _unifiedSynchronizer = unifiedSynchronizer;
         _errorHandlerFactory = errorHandlerFactory;
+        _calDavClient = calDavClient;
+        _autoDiscoveryService = autoDiscoveryService;
 
         var protocolLogStream = CreateAccountProtocolLogFileStream();
         var poolOptions = ImapClientPoolOptions.CreateDefault(Account.ServerInformation, protocolLogStream);
@@ -978,8 +990,310 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     public bool ShouldUpdateFolder(IMailFolder remoteFolder, MailItemFolder localFolder)
         => !localFolder.FolderName.Equals(remoteFolder.Name, StringComparison.OrdinalIgnoreCase);
 
-    protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
+    protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        if (Account.ProviderType != MailProviderType.IMAP4 || !Account.IsCalendarAccessGranted || Account.ServerInformation == null)
+            return CalendarSynchronizationResult.Empty;
+
+        if (Account.ServerInformation.CalendarSupportMode is ImapCalendarSupportMode.Disabled or ImapCalendarSupportMode.LocalOnly)
+            return CalendarSynchronizationResult.Empty;
+
+        var calDavServiceUri = await ResolveCalDavServiceUriAsync(cancellationToken).ConfigureAwait(false);
+        if (calDavServiceUri == null)
+        {
+            _logger.Information("Skipping calendar sync for {AccountName}: CalDAV endpoint is not configured.", Account.Name);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        var password = ResolveCalDavPassword();
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            _logger.Warning("Skipping calendar sync for {AccountName}: empty credentials.", Account.Name);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var calDavUsername = ResolveCalDavUsername();
+        if (string.IsNullOrWhiteSpace(calDavUsername))
+        {
+            _logger.Warning("Skipping calendar sync for {AccountName}: account email address is empty for CalDAV credentials.", Account.Name);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        var activeConnection = new CalDavConnectionSettings
+        {
+            ServiceUri = calDavServiceUri,
+            Username = calDavUsername,
+            Password = password
+        };
+
+        IReadOnlyList<CalDavCalendar> remoteCalendars;
+
+        try
+        {
+            remoteCalendars = await _calDavClient
+                .DiscoverCalendarsAsync(activeConnection, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _logger.Warning("Skipping calendar sync for {AccountName}: CalDAV authentication failed for username {Username}.", Account.Name, calDavUsername);
+            return CalendarSynchronizationResult.Empty;
+        }
+
+        await SynchronizeCalendarMetadataAsync(remoteCalendars).ConfigureAwait(false);
+
+        var localCalendars = await _imapChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var remoteCalendarsById = remoteCalendars.ToDictionary(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase);
+
+        if (options?.Type == CalendarSynchronizationType.SingleCalendar && options.SynchronizationCalendarIds?.Count > 0)
+        {
+            localCalendars = localCalendars
+                .Where(c => options.SynchronizationCalendarIds.Contains(c.Id))
+                .ToList();
+        }
+
+        localCalendars = localCalendars
+            .Where(c => c.IsSynchronizationEnabled)
+            .ToList();
+
+        var periodStartUtc = DateTimeOffset.UtcNow.AddYears(-1);
+        var periodEndUtc = DateTimeOffset.UtcNow.AddYears(2);
+
+        foreach (var localCalendar in localCalendars)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!remoteCalendarsById.TryGetValue(localCalendar.RemoteCalendarId, out var remoteCalendar))
+                continue;
+
+            var remoteToken = !string.IsNullOrWhiteSpace(remoteCalendar.SyncToken)
+                ? remoteCalendar.SyncToken
+                : remoteCalendar.CTag;
+
+            var isInitialSync = string.IsNullOrWhiteSpace(localCalendar.SynchronizationDeltaToken);
+            var tokenChanged = !string.Equals(localCalendar.SynchronizationDeltaToken, remoteToken, StringComparison.Ordinal);
+            var forceSync = options?.Type is CalendarSynchronizationType.ExecuteRequests or CalendarSynchronizationType.SingleCalendar;
+
+            if (!isInitialSync && !tokenChanged && !forceSync)
+                continue;
+
+            var remoteEvents = await _calDavClient.GetCalendarEventsAsync(
+                activeConnection,
+                remoteCalendar,
+                periodStartUtc,
+                periodEndUtc,
+                cancellationToken).ConfigureAwait(false);
+
+            foreach (var remoteEvent in remoteEvents)
+            {
+                await _imapChangeProcessor
+                    .ManageCalendarEventAsync(remoteEvent, localCalendar, Account)
+                    .ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(remoteEvent.IcsContent))
+                    continue;
+
+                var localItem = await _imapChangeProcessor
+                    .GetCalendarItemAsync(localCalendar.Id, remoteEvent.RemoteEventId)
+                    .ConfigureAwait(false);
+
+                if (localItem == null)
+                    continue;
+
+                await _imapChangeProcessor
+                    .SaveCalendarItemIcsAsync(
+                        Account.Id,
+                        localCalendar.Id,
+                        localItem.Id,
+                        remoteEvent.RemoteEventId,
+                        remoteEvent.RemoteResourceHref,
+                        remoteEvent.ETag,
+                        remoteEvent.IcsContent)
+                    .ConfigureAwait(false);
+            }
+
+            localCalendar.SynchronizationDeltaToken = remoteToken;
+            await _imapChangeProcessor.UpdateAccountCalendarAsync(localCalendar).ConfigureAwait(false);
+        }
+
+        return CalendarSynchronizationResult.Empty;
+    }
+
+    private async Task<Uri> ResolveCalDavServiceUriAsync(CancellationToken cancellationToken)
+    {
+        var explicitCalDavUri = TryGetExplicitCalDavServiceUri();
+        if (explicitCalDavUri != null)
+        {
+            _cachedCalDavServiceUri = explicitCalDavUri;
+            _isCalDavDiscoveryAttempted = true;
+            return _cachedCalDavServiceUri;
+        }
+
+        if (_cachedCalDavServiceUri != null)
+            return _cachedCalDavServiceUri;
+
+        if (_isCalDavDiscoveryAttempted)
+            return null;
+
+        await _calDavDiscoveryLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (_cachedCalDavServiceUri != null)
+                return _cachedCalDavServiceUri;
+
+            if (_isCalDavDiscoveryAttempted)
+                return null;
+
+            _isCalDavDiscoveryAttempted = true;
+
+            var emailCandidates = new[]
+            {
+                Account.ServerInformation?.Address,
+                Account.Address
+            }
+            .Where(value => !string.IsNullOrWhiteSpace(value) && value.Contains('@'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+            foreach (var email in emailCandidates)
+            {
+                var discoveredUri = await _autoDiscoveryService
+                    .DiscoverCalDavServiceUriAsync(email, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (discoveredUri == null)
+                    continue;
+
+                _cachedCalDavServiceUri = discoveredUri;
+                return _cachedCalDavServiceUri;
+            }
+
+            if (Account.SpecialImapProvider == SpecialImapProvider.iCloud)
+            {
+                _cachedCalDavServiceUri = new Uri("https://caldav.icloud.com/");
+                return _cachedCalDavServiceUri;
+            }
+
+            if (Account.SpecialImapProvider == SpecialImapProvider.Yahoo)
+            {
+                _cachedCalDavServiceUri = new Uri("https://caldav.calendar.yahoo.com/");
+                return _cachedCalDavServiceUri;
+            }
+
+            return null;
+        }
+        finally
+        {
+            _calDavDiscoveryLock.Release();
+        }
+    }
+
+    private string ResolveCalDavPassword()
+    {
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.CalDavPassword))
+            return Account.ServerInformation.CalDavPassword;
+
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.IncomingServerPassword))
+            return Account.ServerInformation.IncomingServerPassword;
+
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.OutgoingServerPassword))
+            return Account.ServerInformation.OutgoingServerPassword;
+
+        return string.Empty;
+    }
+
+    private string ResolveCalDavUsername()
+    {
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.CalDavUsername))
+            return Account.ServerInformation.CalDavUsername.Trim();
+
+        if (!string.IsNullOrWhiteSpace(Account.ServerInformation?.Address))
+            return Account.ServerInformation.Address.Trim();
+
+        if (!string.IsNullOrWhiteSpace(Account.Address))
+            return Account.Address.Trim();
+
+        return string.Empty;
+    }
+
+    private Uri TryGetExplicitCalDavServiceUri()
+    {
+        var configuredUrl = Account.ServerInformation?.CalDavServiceUrl;
+        if (string.IsNullOrWhiteSpace(configuredUrl))
+            return null;
+
+        if (!Uri.TryCreate(configuredUrl, UriKind.Absolute, out var uri))
+        {
+            _logger.Warning("Configured CalDAV URL is invalid for account {AccountName}: {Url}", Account.Name, configuredUrl);
+            return null;
+        }
+
+        return uri;
+    }
+
+    private async Task SynchronizeCalendarMetadataAsync(IReadOnlyList<CalDavCalendar> remoteCalendars)
+    {
+        var localCalendars = await _imapChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        var remoteCalendarsById = remoteCalendars
+            .GroupBy(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var remotePrimaryCalendarId = remoteCalendars.FirstOrDefault()?.RemoteCalendarId;
+
+        foreach (var localCalendar in localCalendars.ToList())
+        {
+            if (remoteCalendarsById.ContainsKey(localCalendar.RemoteCalendarId))
+                continue;
+
+            await _imapChangeProcessor
+                .DeleteCalendarIcsForCalendarAsync(Account.Id, localCalendar.Id)
+                .ConfigureAwait(false);
+            await _imapChangeProcessor.DeleteAccountCalendarAsync(localCalendar).ConfigureAwait(false);
+            localCalendars.Remove(localCalendar);
+        }
+
+        foreach (var remoteCalendar in remoteCalendars)
+        {
+            var existingLocal = localCalendars.FirstOrDefault(c =>
+                string.Equals(c.RemoteCalendarId, remoteCalendar.RemoteCalendarId, StringComparison.OrdinalIgnoreCase));
+
+            var isPrimary = string.Equals(remoteCalendar.RemoteCalendarId, remotePrimaryCalendarId, StringComparison.OrdinalIgnoreCase);
+
+            if (existingLocal == null)
+            {
+                var newCalendar = new AccountCalendar
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = Account.Id,
+                    RemoteCalendarId = remoteCalendar.RemoteCalendarId,
+                    Name = remoteCalendar.Name,
+                    IsPrimary = isPrimary,
+                    IsSynchronizationEnabled = true,
+                    IsExtended = true,
+                    TextColorHex = "#000000",
+                    BackgroundColorHex = ColorHelpers.GenerateFlatColorHex(),
+                    TimeZone = "UTC",
+                    SynchronizationDeltaToken = string.Empty
+                };
+
+                await _imapChangeProcessor.InsertAccountCalendarAsync(newCalendar).ConfigureAwait(false);
+                continue;
+            }
+
+            var shouldUpdate = !string.Equals(existingLocal.Name, remoteCalendar.Name, StringComparison.Ordinal)
+                               || existingLocal.IsPrimary != isPrimary;
+
+            if (!shouldUpdate)
+                continue;
+
+            existingLocal.Name = remoteCalendar.Name;
+            existingLocal.IsPrimary = isPrimary;
+            await _imapChangeProcessor.UpdateAccountCalendarAsync(existingLocal).ConfigureAwait(false);
+        }
+    }
 
     public Task StartIdleClientAsync()
     {

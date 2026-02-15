@@ -237,9 +237,6 @@
     <Page Update="Dialogs\MoveMailDialog.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Update="Dialogs\NewImapSetupDialog.xaml">
-      <SubType>Designer</SubType>
-    </Page>
     <Page Update="Dialogs\SignatureEditorDialog.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -264,6 +261,9 @@
     <Page Update="Views\Account\AccountManagementPage.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Update="Views\Account\ImapCalDavSettingsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Update="Views\Account\MergedAccountDetailsPage.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -271,21 +271,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Views\IdlePage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\ImapSetup\AdvancedImapSetupPage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\ImapSetup\ImapConnectionFailedPage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\ImapSetup\PreparingImapFoldersPage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\ImapSetup\TestingImapConnectionPage.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="Views\ImapSetup\WelcomeImapSetupPage.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Views\MailListPage.xaml">

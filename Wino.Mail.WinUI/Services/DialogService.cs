@@ -32,33 +32,6 @@ public class DialogService : DialogServiceBase, IMailDialogService
 
     }
 
-    public override IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult)
-    {
-        if (accountCreationDialogResult.SpecialImapProviderDetails == null)
-        {
-            if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
-            {
-
-                return new NewImapSetupDialog
-                {
-                    RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme(),
-                    XamlRoot = GetXamlRoot()
-                };
-            }
-            else
-            {
-                return base.GetAccountCreationDialog(accountCreationDialogResult);
-            }
-        }
-        else
-        {
-            // Special IMAP provider like iCloud or Yahoo.
-
-            return base.GetAccountCreationDialog(accountCreationDialogResult);
-        }
-    }
-
-
     public async Task<ICreateAccountAliasDialog> ShowCreateAccountAliasDialogAsync()
     {
         var createAccountAliasDialog = new CreateAccountAliasDialog()

@@ -15,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Services;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
 
@@ -91,7 +92,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     [RelayCommand]
     private void EditAccountDetails()
-        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsEditAccountDetails_Title, WinoPage.EditAccountDetailsPage, Account));
+    {
+        if (Account?.ProviderType == MailProviderType.IMAP4)
+        {
+            var context = ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id);
+            Messenger.Send(new BreadcrumbNavigationRequested(Translator.ImapCalDavSettingsPage_TitleEdit, WinoPage.ImapCalDavSettingsPage, context));
+            return;
+        }
+
+        Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsEditAccountDetails_Title, WinoPage.EditAccountDetailsPage, Account));
+    }
 
     [RelayCommand]
     private async Task DeleteAccount()

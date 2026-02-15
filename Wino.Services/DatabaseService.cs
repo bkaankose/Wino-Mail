@@ -85,5 +85,35 @@ public class DatabaseService : IDatabaseService
                 .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.LastUidReconcileUtc)} TEXT NULL")
                 .ConfigureAwait(false);
         }
+
+        var customServerColumns = await Connection.GetTableInfoAsync(nameof(CustomServerInformation)).ConfigureAwait(false);
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CalDavServiceUrl)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalDavServiceUrl)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CalDavUsername)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalDavUsername)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CalDavPassword)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalDavPassword)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CalendarSupportMode)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalendarSupportMode)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
     }
 }

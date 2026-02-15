@@ -13,7 +13,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Core.ViewModels.Data;
@@ -25,8 +24,6 @@ namespace Wino.Mail.ViewModels;
 
 public partial class AccountManagementViewModel : AccountManagementPageViewModelBase
 {
-    private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
-    private readonly IImapTestService _imapTestService;
     private readonly IWinoLogger _winoLogger;
 
     public IMailDialogService MailDialogService { get; }
@@ -34,17 +31,13 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     public AccountManagementViewModel(IMailDialogService dialogService,
                                       INavigationService navigationService,
                                       IAccountService accountService,
-                                      ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       IProviderService providerService,
-                                      IImapTestService imapTestService,
                                       IStoreManagementService storeManagementService,
                                       IWinoLogger winoLogger,
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, storeManagementService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
-        _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
-        _imapTestService = imapTestService;
         _winoLogger = winoLogger;
     }
 
@@ -95,12 +88,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
             // Select provider.
             var accountCreationDialogResult = await MailDialogService.ShowAccountProviderSelectionDialogAsync(providers);
 
-            var accountCreationCancellationTokenSource = new CancellationTokenSource();
-
             if (accountCreationDialogResult != null)
             {
-                creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
-
                 CustomServerInformation customServerInformation = null;
 
                 createdAccount = new MailAccount()
@@ -113,76 +102,51 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                     IsCalendarAccessGranted = true // New accounts have calendar scopes
                 };
 
-                await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
-                await Task.Delay(500);
-
-                creationDialog.State = AccountCreationDialogState.SigningIn;
-
-                string tokenInformation = string.Empty;
-
-                // Custom server implementation requires more async waiting.
-                if (creationDialog is IImapAccountCreationDialog customServerDialog)
+                if (accountCreationDialogResult.ProviderType == MailProviderType.IMAP4)
                 {
-                    // Pass along the account properties and perform initial navigation on the imap frame.
-                    customServerDialog.StartImapConnectionSetup(createdAccount);
+                    var completionSource = new TaskCompletionSource<ImapCalDavSetupResult>();
+                    var setupContext = ImapCalDavSettingsNavigationContext.CreateForCreateMode(accountCreationDialogResult, completionSource);
 
-                    customServerInformation = await customServerDialog.GetCustomServerInformationAsync()
+                    Messenger.Send(new BreadcrumbNavigationRequested(
+                        Translator.ImapCalDavSettingsPage_TitleCreate,
+                        WinoPage.ImapCalDavSettingsPage,
+                        setupContext));
+
+                    var setupResult = await completionSource.Task.ConfigureAwait(false)
                         ?? throw new AccountSetupCanceledException();
 
-                    // At this point connection is successful.
-                    // Save the server setup information and later on we'll fetch folders.
-
+                    customServerInformation = setupResult.ServerInformation ?? throw new AccountSetupCanceledException();
+                    customServerInformation.Id = Guid.NewGuid();
                     customServerInformation.AccountId = createdAccount.Id;
 
-                    createdAccount.Address = customServerInformation.Address;
+                    createdAccount.Address = setupResult.EmailAddress;
+                    createdAccount.SenderName = setupResult.DisplayName;
+                    createdAccount.IsCalendarAccessGranted = setupResult.IsCalendarAccessGranted;
                     createdAccount.ServerInformation = customServerInformation;
-                    createdAccount.SenderName = customServerInformation.DisplayName;
                 }
                 else
                 {
-                    // Hanle special imap providers like iCloud and Yahoo.
-                    if (accountCreationDialogResult.SpecialImapProviderDetails != null)
-                    {
-                        // Special imap provider testing dialog. This is only available for iCloud and Yahoo.
-                        customServerInformation = _specialImapProviderConfigResolver.GetServerInformation(createdAccount, accountCreationDialogResult);
-                        customServerInformation.Id = Guid.NewGuid();
-                        customServerInformation.AccountId = createdAccount.Id;
+                    var accountCreationCancellationTokenSource = new CancellationTokenSource();
+                    creationDialog = MailDialogService.GetAccountCreationDialog(accountCreationDialogResult);
 
-                        createdAccount.SenderName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
-                        createdAccount.Address = customServerInformation.Address;
+                    await creationDialog.ShowDialogAsync(accountCreationCancellationTokenSource);
+                    await Task.Delay(500);
 
-                        // Let server validate the imap/smtp connection.
-                        // TODO: Protocol log with detailed failure.
+                    creationDialog.State = AccountCreationDialogState.SigningIn;
 
-                        await _imapTestService.TestImapConnectionAsync(customServerInformation, true);
-                        //var testResultResponse = await WinoServerConnectionManager.GetResponseAsync<ImapConnectivityTestResults, ImapConnectivityTestRequested>(new ImapConnectivityTestRequested(customServerInformation, true));
+                    // OAuth authentication is handled here.
+                    // Use SynchronizationManager to handle OAuth authentication.
 
-                        //if (!testResultResponse.IsSuccess)
-                        //{
-                        //    throw new Exception($"{Translator.IMAPSetupDialog_ConnectionFailedTitle}\n{testResultResponse.Message}");
-                        //}
-                        //else if (!testResultResponse.Data.IsSuccess)
-                        //{
-                        //    // Server connectivity might succeed, but result might be failed.
-                        //    throw new ImapClientPoolException(testResultResponse.Data.FailedReason, customServerInformation, testResultResponse.Data.FailureProtocolLog);
-                        //}
-                    }
-                    else
-                    {
-                        // OAuth authentication is handled here.
-                        // Use SynchronizationManager to handle OAuth authentication.
+                    var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
+                        accountCreationDialogResult.ProviderType,
+                        createdAccount,
+                        createdAccount.ProviderType == MailProviderType.Gmail);
 
-                        var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
-                            accountCreationDialogResult.ProviderType,
-                            createdAccount,
-                            createdAccount.ProviderType == MailProviderType.Gmail);
+                    if (creationDialog.State == AccountCreationDialogState.Canceled)
+                        throw new AccountSetupCanceledException();
 
-                        if (creationDialog.State == AccountCreationDialogState.Canceled)
-                            throw new AccountSetupCanceledException();
-
-                        // Update account address with authenticated user information
-                        createdAccount.Address = authTokenInfo.AccountAddress;
-                    }
+                    // Update account address with authenticated user information
+                    createdAccount.Address = authTokenInfo.AccountAddress;
                 }
 
                 // Address is still doesn't have a value for API synchronizers.
@@ -197,12 +161,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                 {
                     // Start profile information synchronization.
                     // It's only available for Outlook and Gmail synchronizers.
-
-                    var profileSyncOptions = new MailSynchronizationOptions()
-                    {
-                        AccountId = createdAccount.Id,
-                        Type = MailSynchronizationType.UpdateProfile
-                    };
 
                     var profileSynchronizationResult = await SynchronizationManager.Instance.SynchronizeProfileAsync(createdAccount.Id);
 
@@ -223,17 +181,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                     }
                 }
 
-                if (creationDialog is IImapAccountCreationDialog customServerAccountCreationDialog)
-                    customServerAccountCreationDialog.ShowPreparingFolders();
-                else
+                if (creationDialog != null)
                     creationDialog.State = AccountCreationDialogState.PreparingFolders;
-
-                // Start synchronizing folders.
-                var folderSyncOptions = new MailSynchronizationOptions()
-                {
-                    AccountId = createdAccount.Id,
-                    Type = MailSynchronizationType.FoldersOnly
-                };
 
                 var folderSynchronizationResult = await SynchronizationManager.Instance.SynchronizeFoldersAsync(createdAccount.Id);
 

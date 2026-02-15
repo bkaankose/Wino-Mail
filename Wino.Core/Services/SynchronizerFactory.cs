@@ -23,6 +23,8 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IImapChangeProcessor _imapChangeProcessor;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
+    private readonly ICalDavClient _calDavClient;
+    private readonly IAutoDiscoveryService _autoDiscoveryService;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
@@ -35,7 +37,9 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IOutlookSynchronizerErrorHandlerFactory outlookSynchronizerErrorHandlerFactory,
                                IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
                                IImapSynchronizerErrorHandlerFactory imapSynchronizerErrorHandlerFactory,
-                               UnifiedImapSynchronizer unifiedImapSynchronizer)
+                               UnifiedImapSynchronizer unifiedImapSynchronizer,
+                               ICalDavClient calDavClient,
+                               IAutoDiscoveryService autoDiscoveryService)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -47,6 +51,8 @@ public class SynchronizerFactory : ISynchronizerFactory
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
         _imapSynchronizerErrorHandlerFactory = imapSynchronizerErrorHandlerFactory;
         _unifiedImapSynchronizer = unifiedImapSynchronizer;
+        _calDavClient = calDavClient;
+        _autoDiscoveryService = autoDiscoveryService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -82,7 +88,7 @@ public class SynchronizerFactory : ISynchronizerFactory
                 var gmailAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Gmail) as IGmailAuthenticator;
                 return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
-                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory);
+                return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService);
             default:
                 break;
         }

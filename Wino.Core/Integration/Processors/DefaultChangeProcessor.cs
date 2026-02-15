@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Services;
 
@@ -117,6 +118,11 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
     /// <param name="folderId">Folder ID.</param>
     /// <param name="count">Number of recent mails to return.</param>
     Task<IEnumerable<string>> GetRecentMailIdsForFolderAsync(Guid folderId, int count);
+
+    Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
+    Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
+    Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
+    Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
 }
 
 public class DefaultChangeProcessor(IDatabaseService databaseService,
@@ -196,10 +202,10 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task<List<AccountCalendar>> GetAccountCalendarsAsync(Guid accountId)
         => CalendarService.GetAccountCalendarsAsync(accountId);
 
-    public Task DeleteCalendarItemAsync(Guid calendarItemId)
+    public virtual Task DeleteCalendarItemAsync(Guid calendarItemId)
         => CalendarService.DeleteCalendarItemAsync(calendarItemId);
 
-    public Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
+    public virtual Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId)
         => CalendarService.DeleteCalendarItemAsync(calendarRemoteEventId, calendarId);
 
     public Task<CalendarItem> GetCalendarItemAsync(Guid calendarId, string remoteEventId)

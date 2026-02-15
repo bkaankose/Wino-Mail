@@ -63,6 +63,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.AliasManagementPage => typeof(AliasManagementPage),
             WinoPage.LanguageTimePage => typeof(LanguageTimePage),
             WinoPage.EditAccountDetailsPage => typeof(EditAccountDetailsPage),
+            WinoPage.ImapCalDavSettingsPage => typeof(ImapCalDavSettingsPage),
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),
             WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),

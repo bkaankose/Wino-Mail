@@ -89,6 +89,8 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         {
             await Connection.Table<CalendarItem>().DeleteAsync(x => x.Id == @event.Id).ConfigureAwait(false);
             await Connection.Table<CalendarEventAttendee>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
+            await Connection.Table<Reminder>().DeleteAsync(r => r.CalendarItemId == @event.Id).ConfigureAwait(false);
+            await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == @event.Id).ConfigureAwait(false);
 
             WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(@event));
         }
