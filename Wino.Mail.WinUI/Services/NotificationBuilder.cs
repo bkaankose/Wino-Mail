@@ -252,6 +252,18 @@ public class NotificationBuilder : INotificationBuilder
         builder.Show();
     }
 
+    public void CreateWebView2RuntimeMissingNotification()
+    {
+        var builder = new ToastContentBuilder();
+        builder.SetToastScenario(ToastScenario.Default);
+
+        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Title);
+        builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
+
+        builder.AddButton(GetDismissButton());
+        builder.Show();
+    }
+
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {
         if (calendarItem == null)
