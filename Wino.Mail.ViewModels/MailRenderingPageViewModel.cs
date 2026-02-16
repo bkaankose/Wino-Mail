@@ -17,6 +17,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
@@ -42,6 +43,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private readonly IMimeFileService _mimeFileService;
     private readonly Core.Domain.Interfaces.IMailService _mailService;
+    private readonly IFolderService _folderService;
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly IContactService _contactService;
@@ -145,6 +147,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IUnderlyingThemeService underlyingThemeService,
         IMimeFileService mimeFileService,
         IMailService mailService,
+        IFolderService folderService,
         IFileService fileService,
         IWinoRequestDelegator requestDelegator,
         IStatePersistanceService statePersistenceService,
@@ -167,6 +170,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         _underlyingThemeService = underlyingThemeService;
         _mimeFileService = mimeFileService;
         _mailService = mailService;
+        _folderService = folderService;
         _fileService = fileService;
         _requestDelegator = requestDelegator;
     }
@@ -258,69 +262,92 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private async Task HandleMailOperationAsync(MailOperation operation)
     {
-        // Toggle theme
-        if (operation == MailOperation.DarkEditor || operation == MailOperation.LightEditor)
-            IsDarkWebviewRenderer = !IsDarkWebviewRenderer;
-        else if (operation == MailOperation.SaveAs)
+        try
         {
-            await SaveAsAsync();
-        }
-        else if (operation == MailOperation.Print)
-        {
-            var settings = await _dialogService.ShowPrintDialogAsync();
-
-            if (settings == null) return;
-
-            var printingResult = await DirectPrintFuncAsync.Invoke(settings);
-
-            // TODO: More detailed printing result handling.
-            if (printingResult == PrintingResult.Submitted)
+            // Toggle theme
+            if (operation == MailOperation.DarkEditor || operation == MailOperation.LightEditor)
+                IsDarkWebviewRenderer = !IsDarkWebviewRenderer;
+            else if (operation == MailOperation.SaveAs)
             {
-                _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
+                await SaveAsAsync();
             }
-            else if (printingResult == PrintingResult.Failed)
+            else if (operation == MailOperation.Print)
             {
-                _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, Translator.DialogMessage_PrintingFailedMessage, InfoBarMessageType.Error);
-            }
+                var settings = await _dialogService.ShowPrintDialogAsync();
 
-        }
-        else if (operation == MailOperation.ViewMessageSource)
-        {
-            await _dialogService.ShowMessageSourceDialogAsync(initializedMimeMessageInformation.MimeMessage.ToString());
-        }
-        else if (operation == MailOperation.Reply || operation == MailOperation.ReplyAll || operation == MailOperation.Forward)
-        {
-            if (initializedMailItemViewModel == null) return;
+                if (settings == null) return;
 
-            // Create new draft.
-            var draftOptions = new DraftCreationOptions()
-            {
-                Reason = operation switch
+                var printingResult = await DirectPrintFuncAsync.Invoke(settings);
+
+                // TODO: More detailed printing result handling.
+                if (printingResult == PrintingResult.Submitted)
                 {
-                    MailOperation.Reply => DraftCreationReason.Reply,
-                    MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
-                    MailOperation.Forward => DraftCreationReason.Forward,
-                    _ => DraftCreationReason.Empty
-                },
-                ReferencedMessage = new ReferencedMessage()
-                {
-                    MimeMessage = initializedMimeMessageInformation.MimeMessage,
-                    MailCopy = initializedMailItemViewModel.MailCopy
+                    _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingSuccessTitle, Translator.DialogMessage_PrintingSuccessMessage, InfoBarMessageType.Success);
                 }
-            };
+                else if (printingResult == PrintingResult.Failed)
+                {
+                    _dialogService.InfoBarMessage(Translator.DialogMessage_PrintingFailedTitle, Translator.DialogMessage_PrintingFailedMessage, InfoBarMessageType.Error);
+                }
 
-            var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
+            }
+            else if (operation == MailOperation.ViewMessageSource)
+            {
+                await _dialogService.ShowMessageSourceDialogAsync(initializedMimeMessageInformation.MimeMessage.ToString());
+            }
+            else if (operation == MailOperation.Reply || operation == MailOperation.ReplyAll || operation == MailOperation.Forward)
+            {
+                if (initializedMailItemViewModel == null) return;
 
-            var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
+                // Create new draft.
+                var draftOptions = new DraftCreationOptions()
+                {
+                    Reason = operation switch
+                    {
+                        MailOperation.Reply => DraftCreationReason.Reply,
+                        MailOperation.ReplyAll => DraftCreationReason.ReplyAll,
+                        MailOperation.Forward => DraftCreationReason.Forward,
+                        _ => DraftCreationReason.Empty
+                    },
+                    ReferencedMessage = new ReferencedMessage()
+                    {
+                        MimeMessage = initializedMimeMessageInformation.MimeMessage,
+                        MailCopy = initializedMailItemViewModel.MailCopy
+                    }
+                };
 
-            await _requestDelegator.ExecuteAsync(draftPreparationRequest);
+                var (draftMailCopy, draftBase64MimeMessage) = await _mailService.CreateDraftAsync(initializedMailItemViewModel.MailCopy.AssignedAccount.Id, draftOptions).ConfigureAwait(false);
 
+                var draftPreparationRequest = new DraftPreparationRequest(initializedMailItemViewModel.MailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason, initializedMailItemViewModel.MailCopy);
+
+                await _requestDelegator.ExecuteAsync(draftPreparationRequest);
+
+            }
+            else if (initializedMailItemViewModel != null)
+            {
+                // All other operations require a mail item.
+                var prepRequest = new MailOperationPreperationRequest(operation, initializedMailItemViewModel.MailCopy);
+                await _requestDelegator.ExecuteAsync(prepRequest);
+            }
         }
-        else if (initializedMailItemViewModel != null)
+        catch (UnavailableSpecialFolderException unavailableSpecialFolderException)
         {
-            // All other operations require a mail item.
-            var prepRequest = new MailOperationPreperationRequest(operation, initializedMailItemViewModel.MailCopy);
-            await _requestDelegator.ExecuteAsync(prepRequest);
+            _dialogService.InfoBarMessage(Translator.Info_MissingFolderTitle,
+                                          string.Format(Translator.Info_MissingFolderMessage, unavailableSpecialFolderException.SpecialFolderType),
+                                          InfoBarMessageType.Warning,
+                                          Translator.SettingConfigureSpecialFolders_Button,
+                                          () =>
+                                          {
+                                              _dialogService.HandleSystemFolderConfigurationDialogAsync(unavailableSpecialFolderException.AccountId, _folderService);
+                                          });
+        }
+        catch (NotImplementedException)
+        {
+            _dialogService.ShowNotSupportedMessage();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Mail operation execution failed. Operation: {Operation}", operation);
+            _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
         }
     }
 
