@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.UI;
 
@@ -289,7 +290,39 @@ public class AccountService : BaseDatabaseService, IAccountService
 
     public async Task DeleteAccountAsync(MailAccount account)
     {
+        // Collect calendar entities before deletion so we can notify UI subscribers.
+        var accountCalendars = await Connection.Table<AccountCalendar>()
+            .Where(a => a.AccountId == account.Id)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var deletedCalendarItems = new List<CalendarItem>();
+        foreach (var accountCalendar in accountCalendars)
+        {
+            var calendarItems = await Connection.Table<CalendarItem>()
+                .Where(a => a.CalendarId == accountCalendar.Id)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            deletedCalendarItems.AddRange(calendarItems);
+        }
+
         await DeleteAccountMailCacheAsync(account.Id, AccountCacheResetReason.AccountRemoval);
+
+        // Delete calendar metadata and related records for this account.
+        foreach (var calendarItem in deletedCalendarItems)
+        {
+            await Connection.Table<CalendarEventAttendee>().DeleteAsync(a => a.CalendarItemId == calendarItem.Id).ConfigureAwait(false);
+            await Connection.Table<Reminder>().DeleteAsync(a => a.CalendarItemId == calendarItem.Id).ConfigureAwait(false);
+            await Connection.Table<CalendarAttachment>().DeleteAsync(a => a.CalendarItemId == calendarItem.Id).ConfigureAwait(false);
+        }
+
+        foreach (var accountCalendar in accountCalendars)
+        {
+            await Connection.Table<CalendarItem>().DeleteAsync(a => a.CalendarId == accountCalendar.Id).ConfigureAwait(false);
+        }
+
+        await Connection.Table<AccountCalendar>().DeleteAsync(a => a.AccountId == account.Id).ConfigureAwait(false);
 
         await Connection.Table<MailItemFolder>().DeleteAsync(a => a.MailAccountId == account.Id);
         await Connection.Table<AccountSignature>().DeleteAsync(a => a.MailAccountId == account.Id);
@@ -336,6 +369,16 @@ public class AccountService : BaseDatabaseService, IAccountService
             {
                 _preferencesService.StartupEntityId = null;
             }
+        }
+
+        foreach (var calendarItem in deletedCalendarItems)
+        {
+            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem));
+        }
+
+        foreach (var accountCalendar in accountCalendars)
+        {
+            WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
         }
 
         ReportUIChange(new AccountRemovedMessage(account));

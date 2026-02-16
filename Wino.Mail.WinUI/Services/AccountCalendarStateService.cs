@@ -10,6 +10,7 @@ using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -21,7 +22,8 @@ public partial class AccountCalendarStateService : ObservableRecipient,
     IAccountCalendarStateService,
     IRecipient<CalendarListAdded>,
     IRecipient<CalendarListUpdated>,
-    IRecipient<CalendarListDeleted>
+    IRecipient<CalendarListDeleted>,
+    IRecipient<AccountRemovedMessage>
 {
     public IDispatcher? Dispatcher { get; set; }
 
@@ -71,6 +73,7 @@ public partial class AccountCalendarStateService : ObservableRecipient,
         Messenger.Register<CalendarListAdded>(this);
         Messenger.Register<CalendarListUpdated>(this);
         Messenger.Register<CalendarListDeleted>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
 
     private void SingleGroupCalendarCollectiveStateChanged(object? sender, EventArgs e)
@@ -274,6 +277,33 @@ public partial class AccountCalendarStateService : ObservableRecipient,
             if (existingCalendar != null)
             {
                 RemoveAccountCalendar(existingCalendar);
+            }
+        }
+    }
+
+    public async void Receive(AccountRemovedMessage message)
+    {
+        var removedAccountId = message.Account.Id;
+
+        if (Dispatcher != null)
+        {
+            await Dispatcher.ExecuteOnUIThread(() =>
+            {
+                var groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == removedAccountId);
+
+                if (groupedAccount != null)
+                {
+                    RemoveGroupedAccountCalendar(groupedAccount);
+                }
+            });
+        }
+        else
+        {
+            var groupedAccount = _internalGroupedAccountCalendars.FirstOrDefault(a => a.Account.Id == removedAccountId);
+
+            if (groupedAccount != null)
+            {
+                RemoveGroupedAccountCalendar(groupedAccount);
             }
         }
     }

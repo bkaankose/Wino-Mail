@@ -115,6 +115,18 @@ public class CalendarEventCollection
         }
     }
 
+    public void RemoveCalendarItems(Func<ICalendarItem, bool> predicate)
+    {
+        if (predicate == null) return;
+
+        var itemsToRemove = _allItems.Where(predicate).ToList();
+
+        foreach (var item in itemsToRemove)
+        {
+            RemoveCalendarItem(item);
+        }
+    }
+
     private void AddCalendarItemInternal(ObservableRangeCollection<ICalendarItem> collection, ICalendarItem calendarItem, bool create = true)
     {
         if (calendarItem is not ICalendarItemViewModel viewModel)

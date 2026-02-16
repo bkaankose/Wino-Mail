@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.Calendar.CalendarTypeStrategies;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
+using Wino.Messaging.UI;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -31,7 +32,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     IRecipient<CalendarSettingsUpdatedMessage>,
     IRecipient<CalendarItemTappedMessage>,
     IRecipient<CalendarItemDoubleTappedMessage>,
-    IRecipient<CalendarItemRightTappedMessage>
+    IRecipient<CalendarItemRightTappedMessage>,
+    IRecipient<AccountRemovedMessage>
 {
     #region Quick Event Creation
 
@@ -177,6 +179,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Register<CalendarItemTappedMessage>(this);
         Messenger.Register<CalendarItemDoubleTappedMessage>(this);
         Messenger.Register<CalendarItemRightTappedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
     protected override void UnregisterRecipients()
     {
@@ -187,6 +190,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarItemTappedMessage>(this);
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
+        Messenger.Unregister<AccountRemovedMessage>(this);
     }
 
     private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
@@ -927,6 +931,29 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public void Receive(CalendarItemDoubleTappedMessage message) => NavigateEvent(message.CalendarItemViewModel, CalendarEventTargetType.Single);
 
     public void Receive(CalendarItemRightTappedMessage message) { }
+
+    public async void Receive(AccountRemovedMessage message)
+    {
+        var removedAccountId = message.Account.Id;
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var dayRange in DayRanges)
+            {
+                foreach (var calendarDay in dayRange.CalendarDays)
+                {
+                    calendarDay.EventsCollection.RemoveCalendarItems(item => item.AssignedCalendar?.AccountId == removedAccountId);
+                }
+            }
+
+            if (DisplayDetailsCalendarItemViewModel?.AssignedCalendar?.AccountId == removedAccountId)
+            {
+                DisplayDetailsCalendarItemViewModel = null;
+            }
+
+            SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary);
+        });
+    }
 
     protected override async void OnCalendarItemDeleted(CalendarItem calendarItem)
     {

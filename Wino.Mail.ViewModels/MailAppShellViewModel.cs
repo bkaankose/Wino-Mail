@@ -221,7 +221,13 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
-        if (mode == NavigationMode.Back) return;
+        if (mode == NavigationMode.Back)
+        {
+            // Account list may have changed while this shell was inactive.
+            await RecreateMenuItemsAsync();
+            await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+            return;
+        }
 
         await CreateFooterItemsAsync();
 
@@ -904,22 +910,50 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         await LoadAccountsAsync();
     }
 
+    private async Task RestoreSelectedAccountAfterMenuRefreshAsync(bool automaticallyNavigateFirstItem)
+    {
+        IAccountMenuItem validSelectedMenuItem = null;
+        bool hasPreviousSelection = latestSelectedAccountMenuItem != null;
+
+        if (hasPreviousSelection)
+        {
+            var selectedEntityId = latestSelectedAccountMenuItem.EntityId.GetValueOrDefault();
+
+            if (selectedEntityId != Guid.Empty &&
+                MenuItems.TryGetAccountMenuItem(selectedEntityId, out IAccountMenuItem foundSelectedMenuItem))
+            {
+                validSelectedMenuItem = foundSelectedMenuItem;
+            }
+            else
+            {
+                latestSelectedAccountMenuItem = null;
+            }
+        }
+
+        if (validSelectedMenuItem == null)
+        {
+            validSelectedMenuItem = MenuItems.FirstOrDefault(a => a is IAccountMenuItem) as IAccountMenuItem;
+            hasPreviousSelection = false;
+        }
+
+        if (validSelectedMenuItem != null)
+        {
+            await ChangeLoadedAccountAsync(validSelectedMenuItem, hasPreviousSelection || automaticallyNavigateFirstItem);
+        }
+        else
+        {
+            await ExecuteUIThread(() => SelectedMenuItem = null);
+            NavigationService.Navigate(WinoPage.WelcomePage);
+        }
+    }
+
     public async void Receive(RefreshUnreadCountsMessage message)
         => await UpdateUnreadItemCountAsync();
 
     public async void Receive(AccountsMenuRefreshRequested message)
     {
         await RecreateMenuItemsAsync();
-
-        // Try to restore latest selected account.
-        if (latestSelectedAccountMenuItem != null)
-        {
-            await ChangeLoadedAccountAsync(latestSelectedAccountMenuItem, navigateInbox: true);
-        }
-        else if (MenuItems.FirstOrDefault(a => a is IAccountMenuItem) is IAccountMenuItem firstAccount)
-        {
-            await ChangeLoadedAccountAsync(firstAccount, message.AutomaticallyNavigateFirstItem);
-        }
+        await RestoreSelectedAccountAfterMenuRefreshAsync(message.AutomaticallyNavigateFirstItem);
     }
 
     public async void Receive(AccountFolderConfigurationUpdated message)
@@ -949,8 +983,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         await CreateFooterItemsAsync();
         await RecreateMenuItemsAsync();
-
-        await ChangeLoadedAccountAsync(latestSelectedAccountMenuItem, navigateInbox: false);
+        await RestoreSelectedAccountAfterMenuRefreshAsync(false);
     }
 
     private void ReorderAccountMenuItems(Dictionary<Guid, int> newAccountOrder)
@@ -1073,7 +1106,17 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
     }
 
-    public void Receive(AccountRemovedMessage message) => Messenger.Send(new AccountsMenuRefreshRequested(false));
+    public async void Receive(AccountRemovedMessage message)
+    {
+        if (latestSelectedAccountMenuItem?.HoldingAccounts?.Any(a => a.Id == message.Account.Id) == true)
+        {
+            latestSelectedAccountMenuItem = null;
+            await ExecuteUIThread(() => SelectedMenuItem = null);
+        }
+
+        await RecreateMenuItemsAsync();
+        await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+    }
 
     public async void Receive(AccountCreatedMessage message)
     {

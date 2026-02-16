@@ -20,6 +20,7 @@ using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -27,7 +28,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     IRecipient<VisibleDateRangeChangedMessage>,
     IRecipient<CalendarEnableStatusChangedMessage>,
     IRecipient<NavigateManageAccountsRequested>,
-    IRecipient<CalendarDisplayTypeChangedMessage>
+    IRecipient<CalendarDisplayTypeChangedMessage>,
+    IRecipient<AccountRemovedMessage>
 {
     public IPreferencesService PreferencesService { get; }
     public IStatePersistanceService StatePersistenceService { get; }
@@ -110,7 +112,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
 
-        if (mode == NavigationMode.Back) return;
+        // Account list may have changed while this shell was inactive.
+        if (mode == NavigationMode.Back)
+        {
+            await InitializeAccountCalendarsAsync();
+            return;
+        }
 
         UpdateDateNavigationHeaderItems();
 
@@ -300,6 +307,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         Messenger.Register<CalendarEnableStatusChangedMessage>(this);
         Messenger.Register<NavigateManageAccountsRequested>(this);
         Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -310,6 +318,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarEnableStatusChangedMessage>(this);
         Messenger.Unregister<NavigateManageAccountsRequested>(this);
         Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
+        Messenger.Unregister<AccountRemovedMessage>(this);
     }
 
     public void Receive(VisibleDateRangeChangedMessage message) => HighlightedDateRange = message.DateRange;
@@ -403,4 +412,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         OnPropertyChanged(nameof(IsVerticalCalendar));
         UpdateDateNavigationHeaderItems();
     }
+
+    public async void Receive(AccountRemovedMessage message)
+        => await InitializeAccountCalendarsAsync();
 }
