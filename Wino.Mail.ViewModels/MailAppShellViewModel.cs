@@ -77,6 +77,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
     private readonly IMimeFileService _mimeFileService;
+    private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
@@ -98,7 +99,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IFolderService folderService,
                              IStatePersistanceService statePersistanceService,
                              IConfigurationService configurationService,
-                             IStartupBehaviorService startupBehaviorService)
+                             IStartupBehaviorService startupBehaviorService,
+                             IWebView2RuntimeValidatorService webView2RuntimeValidatorService)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -118,6 +120,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _launchProtocolService = launchProtocolService;
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
+        _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
     }
 
     protected override void OnDispatcherAssigned()
@@ -233,6 +236,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         await RecreateMenuItemsAsync();
         await ProcessLaunchOptionsAsync();
+        await ValidateWebView2RuntimeAsync();
 
         if (!Debugger.IsAttached)
         {
@@ -240,6 +244,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
 
         await MakeSureEnableStartupLaunchAsync();
+    }
+
+    private async Task ValidateWebView2RuntimeAsync()
+    {
+        var isRuntimeAvailable = await _webView2RuntimeValidatorService.IsRuntimeAvailableAsync();
+
+        if (!isRuntimeAvailable)
+        {
+            await ExecuteUIThread(() => _notificationBuilder.CreateWebView2RuntimeMissingNotification());
+        }
     }
 
     private async Task MakeSureEnableStartupLaunchAsync()

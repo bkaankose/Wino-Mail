@@ -238,6 +238,8 @@
     "Error_FailedToSetupSystemFolders_Title": "Failed to setup system folders",
     "Exception_AccountNeedsAttention_Title": "Account needs attention",
     "Exception_AccountNeedsAttention_Message": "'{0}' requires your attention to continue working.",
+    "Exception_WebView2RuntimeMissing_Message": "Wino Mail could not find Microsoft Edge WebView2 Runtime. Please install or repair the runtime to render message content correctly.",
+    "Exception_WebView2RuntimeMissing_Title": "WebView2 runtime is required",
     "Exception_AuthenticationCanceled": "Authentication canceled",
     "Exception_CustomThemeExists": "This theme already exists.",
     "Exception_CustomThemeMissingName": "You must provide a name.",
