@@ -55,6 +55,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private MailItemViewModel currentMailDraftItem;
 
     [ObservableProperty]
+    private bool isCurrentDraftSending;
+
+    [ObservableProperty]
     private bool isImportanceSelected;
 
     [ObservableProperty]
@@ -312,6 +315,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                                                           CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
                                                                           base64EncodedMessage);
 
+        IsCurrentDraftSending = true;
+
         await _worker.ExecuteAsync(draftSendPreparationRequest);
     }
 
@@ -430,6 +435,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             CurrentMailDraftItem = mailItem;
 
+            await UpdatePendingOperationStateAsync();
             await TryPrepareComposeAsync(true);
         }
     }
@@ -446,6 +452,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         // Set the new draft item and prepare it.
         CurrentMailDraftItem = message.MailItemViewModel;
+        await UpdatePendingOperationStateAsync();
         await TryPrepareComposeAsync(true);
     }
 
@@ -498,6 +505,23 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         });
 
         return true;
+    }
+
+    private async Task UpdatePendingOperationStateAsync()
+    {
+        IsCurrentDraftSending = false;
+
+        if (CurrentMailDraftItem?.MailCopy == null || !CurrentMailDraftItem.MailCopy.IsDraft)
+            return;
+
+        var accountId = CurrentMailDraftItem.MailCopy.AssignedAccount?.Id ?? Guid.Empty;
+
+        if (accountId == Guid.Empty)
+            return;
+
+        var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+
+        IsCurrentDraftSending = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
     }
 
     private async Task TryPrepareComposeAsync(bool downloadIfNeeded)

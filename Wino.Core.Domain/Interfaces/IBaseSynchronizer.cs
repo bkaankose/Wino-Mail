@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
@@ -22,6 +23,18 @@ public interface IBaseSynchronizer
     /// </summary>
     /// <param name="request">Request to queue.</param>
     void QueueRequest(IRequestBase request);
+
+    /// <summary>
+    /// Returns whether there is an in-progress (queued or currently executing) operation for the given mail unique id.
+    /// </summary>
+    /// <param name="mailUniqueId">Mail unique id to check.</param>
+    bool HasPendingOperation(Guid mailUniqueId);
+
+    /// <summary>
+    /// Returns whether there is an in-progress (queued or currently executing) operation for the given calendar item id.
+    /// </summary>
+    /// <param name="calendarItemId">Calendar item id to check.</param>
+    bool HasPendingCalendarOperation(Guid calendarItemId);
 
     /// <summary>
     /// Synchronizes profile information with the server.
