@@ -13,8 +13,18 @@ namespace Wino.Core.Domain.Models.MailItem;
 /// </summary>
 public class HtmlPreviewVisitor : MimeVisitor
 {
-    List<MultipartRelated> stack = new List<MultipartRelated>();
-    List<MimeEntity> attachments = new List<MimeEntity>();
+    private static readonly HashSet<string> BlockedTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "script", "iframe", "frame", "frameset", "object", "embed", "applet", "base", "meta", "form"
+    };
+
+    private static readonly HashSet<string> AllowedDataImageMimeTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/bmp", "image/x-icon", "image/avif", "image/svg+xml"
+    };
+
+    private readonly List<MultipartRelated> stack = [];
+    private readonly List<MimeEntity> attachments = [];
 
     readonly string tempDir;
 
@@ -89,9 +99,14 @@ public class HtmlPreviewVisitor : MimeVisitor
     // look up the image based on the img src url within our multipart/related stack
     bool TryGetImage(string url, out MimePart image)
     {
+        image = null;
+
+        if (string.IsNullOrWhiteSpace(url))
+            return false;
+
         UriKind kind;
         int index;
-        Uri uri;
+        Uri uri = null;
 
         if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
             kind = UriKind.Absolute;
@@ -106,22 +121,48 @@ public class HtmlPreviewVisitor : MimeVisitor
         }
         catch
         {
-            image = null;
-            return false;
+            // noop: we still attempt CID/content-id lookup below.
         }
 
         for (int i = stack.Count - 1; i >= 0; i--)
         {
-            if ((index = stack[i].IndexOf(uri)) == -1)
+            if (uri != null && (index = stack[i].IndexOf(uri)) != -1)
+            {
+                image = stack[i][index] as MimePart;
+
+                if (image != null)
+                    return true;
+            }
+
+            var normalizedContentId = NormalizeContentId(url);
+
+            if (string.IsNullOrEmpty(normalizedContentId))
                 continue;
 
-            image = stack[i][index] as MimePart;
-            return image != null;
+            foreach (var relatedPart in stack[i])
+            {
+                if (relatedPart is not MimePart candidate || string.IsNullOrEmpty(candidate.ContentId))
+                    continue;
+
+                if (string.Equals(candidate.ContentId.Trim('<', '>'), normalizedContentId, StringComparison.OrdinalIgnoreCase))
+                {
+                    image = candidate;
+                    return true;
+                }
+            }
         }
 
-        image = null;
-
         return false;
+    }
+
+    private static string NormalizeContentId(string url)
+    {
+        var trimmed = url.Trim().Trim('\'', '"', '<', '>');
+
+        if (trimmed.StartsWith("cid:", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed[4..];
+
+        return trimmed.Trim('<', '>');
     }
 
     // Save the image to our temp directory and return a "file://" url suitable for
@@ -139,83 +180,173 @@ public class HtmlPreviewVisitor : MimeVisitor
 
             return string.Format("data:{0};base64,{1}", image.ContentType.MimeType, base64);
         }
-
-        //string fileName = url
-        //    .Replace(':', '_')
-        //    .Replace('\\', '_')
-        //    .Replace('/', '_');
-
-        //string path = Path.Combine(tempDir, fileName);
-
-        //if (!File.Exists(path))
-        //{
-        //    using (var output = File.Create(path))
-        //        image.Content.DecodeTo(output);
-        //}
-
-        //return "file://" + path.Replace('\\', '/');
     }
 
-    // Replaces <img src=...> urls that refer to images embedded within the message with
-    // "file://" urls that the browser control will actually be able to load.
+    // Replaces image references that refer to images embedded within the message with
+    // "data:" urls the browser control can load. Also sanitizes dangerous tags/attributes.
     void HtmlTagCallback(HtmlTagContext ctx, HtmlWriter htmlWriter)
     {
-        if (ctx.TagId == HtmlTagId.Image && !ctx.IsEndTag && stack.Count > 0)
+        var tagName = ctx.TagName;
+
+        if (BlockedTags.Contains(tagName))
         {
-            ctx.WriteTag(htmlWriter, false);
-
-            // replace the src attribute with a file:// URL
-            foreach (var attribute in ctx.Attributes)
-            {
-                if (attribute.Id == HtmlAttributeId.Src)
-                {
-                    MimePart image;
-                    string url;
-
-                    if (!TryGetImage(attribute.Value, out image))
-                    {
-                        htmlWriter.WriteAttribute(attribute);
-                        continue;
-                    }
-
-                    url = SaveImage(image);
-
-                    htmlWriter.WriteAttributeName(attribute.Name);
-                    htmlWriter.WriteAttributeValue(url);
-                }
-                else
-                {
-                    htmlWriter.WriteAttribute(attribute);
-                }
-            }
+            ctx.DeleteTag = true;
+            ctx.DeleteEndTag = true;
+            return;
         }
-        else if (ctx.TagId == HtmlTagId.Body && !ctx.IsEndTag)
-        {
-            ctx.WriteTag(htmlWriter, false);
 
-            // add and/or replace oncontextmenu="return false;"
-            foreach (var attribute in ctx.Attributes)
+        if (ctx.IsEndTag)
+        {
+            ctx.WriteTag(htmlWriter, true);
+            return;
+        }
+
+        ctx.WriteTag(htmlWriter, false);
+
+        foreach (var attribute in ctx.Attributes)
+        {
+            var attributeName = attribute.Name;
+
+            if (ShouldDropAttribute(tagName, attributeName))
+                continue;
+
+            if (TryResolveImageAttribute(tagName, attributeName, attribute.Value, out var resolvedValue))
             {
-                if (attribute.Name.ToLowerInvariant() == "oncontextmenu")
+                htmlWriter.WriteAttributeName(attributeName);
+                htmlWriter.WriteAttributeValue(resolvedValue);
+                continue;
+            }
+
+            if (IsUrlAttribute(attributeName))
+            {
+                if (!TrySanitizeUrlValue(attribute.Value, out var sanitizedUrl))
                     continue;
 
-                htmlWriter.WriteAttribute(attribute);
+                htmlWriter.WriteAttributeName(attributeName);
+                htmlWriter.WriteAttributeValue(sanitizedUrl);
+                continue;
             }
 
+            htmlWriter.WriteAttribute(attribute);
+        }
+
+        if (ctx.TagId == HtmlTagId.Body)
             htmlWriter.WriteAttribute("oncontextmenu", "return false;");
-        }
-        else
+    }
+
+    private bool TryResolveImageAttribute(string tagName, string attributeName, string value, out string resolvedValue)
+    {
+        resolvedValue = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var lowerAttributeName = attributeName.ToLowerInvariant();
+        var isImageTag = string.Equals(tagName, "img", StringComparison.OrdinalIgnoreCase);
+
+        if (isImageTag && lowerAttributeName == "srcset")
         {
-            if (ctx.TagId == HtmlTagId.Unknown)
-            {
-                ctx.DeleteTag = true;
-                ctx.DeleteEndTag = true;
-            }
-            else
-            {
-                ctx.WriteTag(htmlWriter, true);
-            }
+            resolvedValue = ResolveSrcSet(value);
+            return resolvedValue != value;
         }
+
+        if (lowerAttributeName != "src" && lowerAttributeName != "background" && lowerAttributeName != "poster")
+            return false;
+
+        if (TryGetImage(value, out var image))
+        {
+            resolvedValue = SaveImage(image);
+            return true;
+        }
+
+        return false;
+    }
+
+    private string ResolveSrcSet(string srcSetValue)
+    {
+        var candidates = srcSetValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var updatedCandidates = new List<string>(candidates.Length);
+
+        foreach (var candidate in candidates)
+        {
+            var parts = candidate.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 0)
+                continue;
+
+            var imageSource = parts[0];
+
+            if (TryGetImage(imageSource, out var image))
+                imageSource = SaveImage(image);
+
+            updatedCandidates.Add(parts.Length == 2 ? $"{imageSource} {parts[1]}" : imageSource);
+        }
+
+        return string.Join(", ", updatedCandidates);
+    }
+
+    private static bool ShouldDropAttribute(string tagName, string attributeName)
+    {
+        if (attributeName.StartsWith("on", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (string.Equals(tagName, "body", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(attributeName, "oncontextmenu", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (string.Equals(attributeName, "srcdoc", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    private static bool IsUrlAttribute(string attributeName)
+        => string.Equals(attributeName, "href", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(attributeName, "src", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(attributeName, "action", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(attributeName, "xlink:href", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(attributeName, "background", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(attributeName, "poster", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TrySanitizeUrlValue(string rawValue, out string sanitizedValue)
+    {
+        sanitizedValue = null;
+
+        if (string.IsNullOrWhiteSpace(rawValue))
+            return false;
+
+        var value = rawValue.Trim().Trim('"', '\'');
+
+        if (value.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("vbscript:", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (value.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && !IsAllowedImageDataUrl(value))
+            return false;
+
+        sanitizedValue = value;
+        return true;
+    }
+
+    private static bool IsAllowedImageDataUrl(string value)
+    {
+        const string dataPrefix = "data:";
+
+        if (!value.StartsWith(dataPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var payloadStart = value.IndexOf(',', StringComparison.Ordinal);
+
+        if (payloadStart <= dataPrefix.Length)
+            return false;
+
+        var metadata = value[dataPrefix.Length..payloadStart];
+        var metadataParts = metadata.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (metadataParts.Length == 0)
+            return false;
+
+        return AllowedDataImageMimeTypes.Contains(metadataParts[0]);
     }
 
     protected override void VisitTextPart(TextPart entity)
@@ -300,12 +431,6 @@ public class HtmlPreviewVisitor : MimeVisitor
             {
                 bool valid = signature.Verify();
                 Signatures.Add(signature, valid);
-
-                // If valid is true, then it signifies that the signed content has not
-                // been modified since this particular signer signed the content.
-                //
-                // However, if it is false, then it indicates that the signed content
-                // has been modified.
             }
             catch (DigitalSignatureVerifyException)
             {
