@@ -118,7 +118,19 @@ public class WinoMailCollectionTests
     };
 
     private static List<IMailListItem> FlattenItems(WinoMailCollection collection)
-        => collection.MailItems.SelectMany(group => group).ToList();
+    {
+        var items = new List<IMailListItem>();
+
+        foreach (var group in collection.MailItems)
+        {
+            foreach (var item in group)
+            {
+                items.Add(item);
+            }
+        }
+
+        return items;
+    }
 
     private static MailCopy CreateMailCopy(string threadId, DateTime? creationDate = null)
         => new()
