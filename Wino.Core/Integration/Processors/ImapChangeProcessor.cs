@@ -131,6 +131,9 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
     public Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent)
         => _calendarIcsFileService.SaveCalendarItemIcsAsync(accountId, calendarId, calendarItemId, remoteEventId, remoteResourceHref, eTag, icsContent);
 
+    public Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+        => _calendarIcsFileService.GetCalendarItemIcsETagAsync(accountId, calendarId, calendarItemId);
+
     public Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId)
         => _calendarIcsFileService.DeleteCalendarItemIcsAsync(accountId, calendarItemId);
 

@@ -23,6 +23,8 @@ public sealed class CalDavClient : ICalDavClient
 {
     private static readonly HttpMethod PropFindMethod = new("PROPFIND");
     private static readonly HttpMethod ReportMethod = new("REPORT");
+    private static readonly HttpMethod PutMethod = HttpMethod.Put;
+    private static readonly HttpMethod DeleteMethod = HttpMethod.Delete;
     private static readonly ILogger Logger = Log.ForContext<CalDavClient>();
 
     private readonly HttpClient _httpClient;
@@ -126,6 +128,58 @@ public sealed class CalDavClient : ICalDavClient
             .OrderByDescending(e => e.IsSeriesMaster)
             .ThenBy(e => e.Start)
             .ToList();
+    }
+
+    public Task UpsertCalendarEventAsync(
+        CalDavConnectionSettings connectionSettings,
+        CalDavCalendar calendar,
+        string remoteEventId,
+        string icsContent,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateConnectionSettings(connectionSettings);
+
+        if (calendar == null || string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
+            throw new ArgumentException("Calendar remote ID is required for CalDAV writes.");
+
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            throw new ArgumentException("Remote event ID is required for CalDAV writes.");
+
+        if (string.IsNullOrWhiteSpace(icsContent))
+            throw new ArgumentException("ICS content is required for CalDAV writes.");
+
+        var resourceUri = BuildEventResourceUri(calendar.RemoteCalendarId, remoteEventId);
+
+        return SendAsync(
+            connectionSettings,
+            PutMethod,
+            resourceUri,
+            new StringContent(icsContent, Encoding.UTF8, "text/calendar"),
+            cancellationToken);
+    }
+
+    public Task DeleteCalendarEventAsync(
+        CalDavConnectionSettings connectionSettings,
+        CalDavCalendar calendar,
+        string remoteEventId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateConnectionSettings(connectionSettings);
+
+        if (calendar == null || string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
+            throw new ArgumentException("Calendar remote ID is required for CalDAV deletes.");
+
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            throw new ArgumentException("Remote event ID is required for CalDAV deletes.");
+
+        var resourceUri = BuildEventResourceUri(calendar.RemoteCalendarId, remoteEventId);
+
+        return SendAsync(
+            connectionSettings,
+            DeleteMethod,
+            resourceUri,
+            null,
+            cancellationToken);
     }
 
     private static void ValidateConnectionSettings(CalDavConnectionSettings connectionSettings)
@@ -240,6 +294,33 @@ public sealed class CalDavClient : ICalDavClient
             return new XDocument(new XElement("empty"));
 
         return XDocument.Parse(xml);
+    }
+
+    private async Task SendAsync(
+        CalDavConnectionSettings connectionSettings,
+        HttpMethod method,
+        Uri uri,
+        HttpContent content,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Basic",
+            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{connectionSettings.Username}:{connectionSettings.Password}")));
+
+        if (content != null)
+            request.Content = content;
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            throw new UnauthorizedAccessException("CalDAV authorization failed.");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var failureBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            throw new HttpRequestException($"CalDAV request failed ({(int)response.StatusCode}): {failureBody}");
+        }
     }
 
     private static List<CalDavCalendar> ParseCalendarCollection(XDocument xml, Uri baseUri)
@@ -501,12 +582,14 @@ public sealed class CalDavClient : ICalDavClient
             end = start.AddHours(1);
 
         var status = MapStatus(sourceEvent.Status);
+        var organizerEmail = NormalizeCalendarEmail(sourceEvent.Organizer?.Value);
+        var organizerDisplayName = NormalizeOrganizerDisplayName(sourceEvent.Organizer?.CommonName, organizerEmail);
         var attendees = sourceEvent.Attendees?
             .Where(a => a != null && a.Value != null)
             .Select(a => new CalDavEventAttendee
             {
-                Name = a.CommonName ?? string.Empty,
                 Email = NormalizeCalendarEmail(a.Value),
+                Name = NormalizeAttendeeName(a.CommonName, NormalizeCalendarEmail(a.Value)),
                 AttendenceStatus = MapAttendeeStatus(a.ParticipationStatus),
                 IsOrganizer = string.Equals(a.Role, "CHAIR", StringComparison.OrdinalIgnoreCase),
                 IsOptionalAttendee = string.Equals(a.Role, "OPT-PARTICIPANT", StringComparison.OrdinalIgnoreCase)
@@ -544,8 +627,8 @@ public sealed class CalDavClient : ICalDavClient
             StartTimeZone = sourceEvent.Start?.TzId ?? string.Empty,
             EndTimeZone = sourceEvent.End?.TzId ?? string.Empty,
             Recurrence = recurrence,
-            OrganizerDisplayName = sourceEvent.Organizer?.CommonName ?? string.Empty,
-            OrganizerEmail = NormalizeCalendarEmail(sourceEvent.Organizer?.Value),
+            OrganizerDisplayName = organizerDisplayName,
+            OrganizerEmail = organizerEmail,
             Status = status,
             Visibility = MapVisibility(sourceEvent.Class),
             ShowAs = MapShowAs(sourceEvent.Transparency),
@@ -656,11 +739,55 @@ public sealed class CalDavClient : ICalDavClient
         if (emailUri == null)
             return string.Empty;
 
-        var value = emailUri.OriginalString;
+        var value = emailUri.OriginalString?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
         if (value.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
-            value = value[7..];
+            value = value[7..].Trim();
+
+        // CalDAV providers may use non-mail identifiers (urn:uuid, principal paths, etc.) here.
+        // Keep only valid email-like values.
+        if (!value.Contains('@'))
+            return string.Empty;
 
         return value;
+    }
+
+    private static string NormalizeAttendeeName(string attendeeName, string attendeeEmail)
+    {
+        var normalizedName = NormalizeOrganizerDisplayName(attendeeName, attendeeEmail);
+        return string.IsNullOrWhiteSpace(normalizedName) ? attendeeEmail : normalizedName;
+    }
+
+    private static string NormalizeOrganizerDisplayName(string organizerDisplayName, string organizerEmail)
+    {
+        var normalizedName = organizerDisplayName?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            return organizerEmail ?? string.Empty;
+
+        if (LooksLikeOpaqueIdentifier(normalizedName))
+            return organizerEmail ?? normalizedName;
+
+        return normalizedName;
+    }
+
+    private static bool LooksLikeOpaqueIdentifier(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (Guid.TryParse(value, out _))
+            return true;
+
+        if (value.StartsWith("urn:", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (value.Contains("/", StringComparison.Ordinal) && !value.Contains('@'))
+            return true;
+
+        return false;
     }
 
     private static Uri CreateAbsoluteUri(Uri baseUri, string href)
@@ -669,6 +796,18 @@ public sealed class CalDavClient : ICalDavClient
             return absolute;
 
         return new Uri(baseUri, href);
+    }
+
+    private static Uri BuildEventResourceUri(string remoteCalendarId, string remoteEventId)
+    {
+        var calendarUri = new Uri($"{remoteCalendarId.TrimEnd('/')}/");
+        var normalizedEventId = remoteEventId.Split(new[] { "::" }, StringSplitOptions.None)[0];
+        var safeEventId = Uri.EscapeDataString(normalizedEventId);
+        var fileName = safeEventId.EndsWith(".ics", StringComparison.OrdinalIgnoreCase)
+            ? safeEventId
+            : $"{safeEventId}.ics";
+
+        return new Uri(calendarUri, fileName);
     }
 
     private sealed record CalDavEventResponse(string Href, string ETag, string CalendarData);

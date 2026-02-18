@@ -921,6 +921,56 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
+    private CalendarItemViewModel FindPendingBusyMatchByRemoteEventId(CalendarItem syncedItem)
+    {
+        if (syncedItem == null ||
+            string.IsNullOrWhiteSpace(syncedItem.RemoteEventId) ||
+            !TryExtractClientItemIdFromRemoteEventId(syncedItem.RemoteEventId, out var clientItemId))
+        {
+            return null;
+        }
+
+        return DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .SelectMany(b => b.EventsCollection.RegularEvents.Concat(b.EventsCollection.AllDayEvents))
+            .OfType<CalendarItemViewModel>()
+            .FirstOrDefault(vm => vm.IsBusy &&
+                                  vm.Id == clientItemId &&
+                                  vm.AssignedCalendar?.Id == syncedItem.CalendarId);
+    }
+
+    private static bool TryExtractClientItemIdFromRemoteEventId(string remoteEventId, out Guid clientItemId)
+    {
+        clientItemId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            return false;
+
+        var uid = remoteEventId.Split(new[] { "::" }, StringSplitOptions.None)[0];
+        const string calDavPrefix = "caldav-";
+
+        if (!uid.StartsWith(calDavPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var guidPart = uid[calDavPrefix.Length..];
+        return Guid.TryParseExact(guidPart, "N", out clientItemId) || Guid.TryParse(guidPart, out clientItemId);
+    }
+
+    private void RemoveCalendarItemEverywhere(Guid calendarItemId)
+    {
+        foreach (var dayRange in DayRanges)
+        {
+            foreach (var calendarDay in dayRange.CalendarDays)
+            {
+                var existingItem = calendarDay.EventsCollection.GetCalendarItem(calendarItemId);
+                if (existingItem != null)
+                {
+                    calendarDay.EventsCollection.RemoveCalendarItem(existingItem);
+                }
+            }
+        }
+    }
+
     public void Receive(CalendarItemTappedMessage message)
     {
         if (message.CalendarItemViewModel == null) return;
@@ -1088,43 +1138,19 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         // Check if event falls into the current date range.
         if (DayRanges.DisplayRange == null) return;
 
-        // Check if this is a server-synced item that matches a local preview
-        // Local previews don't have RemoteEventId, server-synced items do
+        // If this is server data, reconcile against optimistic client-side items first.
+        // This prevents duplicate rendering when a pending busy item is replaced by the synced one.
         if (!string.IsNullOrEmpty(calendarItem.RemoteEventId))
         {
-            // Find local preview items that match this event's properties
-            var localPreviewItems = DayRanges
-                .SelectMany(a => a.CalendarDays)
-                .SelectMany(b => b.EventsCollection.RegularEvents.Concat(b.EventsCollection.AllDayEvents))
-                .OfType<CalendarItemViewModel>()
-                .Where(c => c.AssignedCalendar.Id == calendarItem.CalendarId &&
-                           c.CalendarItem.IsLocalPreview && // Local preview (no RemoteEventId)
-                           c.Title == calendarItem.Title &&
-                           Math.Abs((c.StartDate - calendarItem.LocalStartDate).TotalSeconds) < 60 &&
-                           Math.Abs(c.DurationInSeconds - calendarItem.DurationInSeconds) < 1)
-                .ToList();
+            var pendingMatch = FindPendingBusyMatchByRemoteEventId(calendarItem);
 
-            if (localPreviewItems.Any())
+            if (pendingMatch != null)
             {
-                Debug.WriteLine($"Found {localPreviewItems.Count} matching local preview items for {calendarItem.Title}, removing them.");
+                Debug.WriteLine($"Mapped pending busy item {pendingMatch.Id} with synced server event {calendarItem.Id}.");
 
-                // Remove all matching local preview items
                 await ExecuteUIThread(() =>
                 {
-                    foreach (var dayRange in DayRanges)
-                    {
-                        foreach (var calendarDay in dayRange.CalendarDays)
-                        {
-                            foreach (var localPreview in localPreviewItems)
-                            {
-                                var itemInDay = calendarDay.EventsCollection.GetCalendarItem(localPreview.Id);
-                                if (itemInDay != null)
-                                {
-                                    calendarDay.EventsCollection.RemoveCalendarItem(itemInDay);
-                                }
-                            }
-                        }
-                    }
+                    RemoveCalendarItemEverywhere(pendingMatch.Id);
                 });
             }
         }

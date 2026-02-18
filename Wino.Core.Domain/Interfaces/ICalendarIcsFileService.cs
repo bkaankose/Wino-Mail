@@ -9,6 +9,7 @@ namespace Wino.Core.Domain.Interfaces;
 public interface ICalendarIcsFileService
 {
     Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
+    Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
     Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
     Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
 }

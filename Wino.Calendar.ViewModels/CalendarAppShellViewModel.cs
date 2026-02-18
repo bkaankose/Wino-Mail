@@ -230,7 +230,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             var t = new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions()
             {
                 AccountId = account.Id,
-                Type = CalendarSynchronizationType.CalendarMetadata
+                Type = CalendarSynchronizationType.CalendarEvents
             });
 
             Messenger.Send(t);

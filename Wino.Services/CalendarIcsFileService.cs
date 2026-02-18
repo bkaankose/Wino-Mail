@@ -45,6 +45,37 @@ public class CalendarIcsFileService : ICalendarIcsFileService
         }
     }
 
+    public async Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+    {
+        if (accountId == Guid.Empty || calendarId == Guid.Empty || calendarItemId == Guid.Empty)
+            return string.Empty;
+
+        try
+        {
+            var itemPath = await GetCalendarItemPathAsync(accountId, calendarId, calendarItemId).ConfigureAwait(false);
+            var metaPath = Path.Combine(itemPath, "event.meta.json");
+
+            if (!File.Exists(metaPath))
+                return string.Empty;
+
+            var lines = await File.ReadAllLinesAsync(metaPath).ConfigureAwait(false);
+
+            foreach (var line in lines)
+            {
+                if (!line.StartsWith("ETag=", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return line["ETag=".Length..].Trim();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to load ICS metadata for account {AccountId}, calendar {CalendarId}, item {CalendarItemId}", accountId, calendarId, calendarItemId);
+        }
+
+        return string.Empty;
+    }
+
     public async Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId)
     {
         if (accountId == Guid.Empty || calendarItemId == Guid.Empty)
@@ -99,6 +130,17 @@ public class CalendarIcsFileService : ICalendarIcsFileService
         var itemDirectory = Path.Combine(calendarPath, calendarItemId.ToString("N"));
         Directory.CreateDirectory(itemDirectory);
         return itemDirectory;
+    }
+
+    private async Task<string> GetCalendarItemPathAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+    {
+        var root = await GetIcsRootPathAsync().ConfigureAwait(false);
+        return Path.Combine(
+            root,
+            accountId.ToString("N"),
+            "calendars",
+            calendarId.ToString("N"),
+            calendarItemId.ToString("N"));
     }
 
     private async Task<string> GetCalendarFolderPathAsync(Guid accountId, Guid calendarId)
