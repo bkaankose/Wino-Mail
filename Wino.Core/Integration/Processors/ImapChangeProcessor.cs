@@ -40,18 +40,29 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         var savingItemId = existingItem?.Id ?? Guid.NewGuid();
         var savingItem = existingItem ?? new CalendarItem { Id = savingItemId };
 
-        var start = calendarEvent.Start.UtcDateTime;
-        var end = calendarEvent.End.UtcDateTime;
+        var startTimeZone = NormalizeTimeZoneId(calendarEvent.StartTimeZone, calendarEvent.Start);
+        var endTimeZone = NormalizeTimeZoneId(calendarEvent.EndTimeZone, calendarEvent.End);
+        if (string.IsNullOrWhiteSpace(endTimeZone))
+            endTimeZone = startTimeZone;
 
-        if (end <= start)
-            end = start.AddHours(1);
+        var start = ConvertToEventWallClock(calendarEvent.Start, startTimeZone);
+        var end = ConvertToEventWallClock(calendarEvent.End, endTimeZone);
+
+        var durationInSeconds = (calendarEvent.End - calendarEvent.Start).TotalSeconds;
+        if (durationInSeconds <= 0)
+        {
+            if (end <= start)
+                end = start.AddHours(1);
+
+            durationInSeconds = (end - start).TotalSeconds;
+        }
 
         savingItem.RemoteEventId = calendarEvent.RemoteEventId;
         savingItem.CalendarId = assignedCalendar.Id;
         savingItem.StartDate = start;
-        savingItem.DurationInSeconds = (end - start).TotalSeconds;
-        savingItem.StartTimeZone = calendarEvent.StartTimeZone;
-        savingItem.EndTimeZone = calendarEvent.EndTimeZone;
+        savingItem.DurationInSeconds = durationInSeconds;
+        savingItem.StartTimeZone = startTimeZone;
+        savingItem.EndTimeZone = endTimeZone;
         savingItem.Title = calendarEvent.Title;
         savingItem.Description = calendarEvent.Description;
         savingItem.Location = calendarEvent.Location;
@@ -157,5 +168,36 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
             return;
 
         await DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
+    }
+
+    private static string NormalizeTimeZoneId(string timeZoneId, DateTimeOffset value)
+    {
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+            return timeZoneId;
+
+        if (value != default && value.Offset == TimeSpan.Zero)
+            return TimeZoneInfo.Utc.Id;
+
+        return string.Empty;
+    }
+
+    private static DateTime ConvertToEventWallClock(DateTimeOffset value, string eventTimeZoneId)
+    {
+        if (value == default)
+            return default;
+
+        if (string.IsNullOrWhiteSpace(eventTimeZoneId))
+            return DateTime.SpecifyKind(value.DateTime, DateTimeKind.Unspecified);
+
+        try
+        {
+            var eventTimeZone = TimeZoneInfo.FindSystemTimeZoneById(eventTimeZoneId);
+            var inEventTimeZone = TimeZoneInfo.ConvertTime(value, eventTimeZone);
+            return DateTime.SpecifyKind(inEventTimeZone.DateTime, DateTimeKind.Unspecified);
+        }
+        catch
+        {
+            return DateTime.SpecifyKind(value.DateTime, DateTimeKind.Unspecified);
+        }
     }
 }

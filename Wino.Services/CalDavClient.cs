@@ -624,8 +624,8 @@ public sealed class CalDavClient : ICalDavClient
             Location = sourceEvent.Location ?? string.Empty,
             Start = start,
             End = end,
-            StartTimeZone = sourceEvent.Start?.TzId ?? string.Empty,
-            EndTimeZone = sourceEvent.End?.TzId ?? string.Empty,
+            StartTimeZone = ResolveTimeZoneId(sourceEvent.Start, start),
+            EndTimeZone = ResolveTimeZoneId(sourceEvent.End, end),
             Recurrence = recurrence,
             OrganizerDisplayName = organizerDisplayName,
             OrganizerEmail = organizerEmail,
@@ -636,6 +636,21 @@ public sealed class CalDavClient : ICalDavClient
             Attendees = attendees,
             Reminders = reminders
         };
+    }
+
+    private static string ResolveTimeZoneId(IDateTime sourceDateTime, DateTimeOffset parsedDateTime)
+    {
+        var explicitTimeZoneId = sourceDateTime?.TzId;
+        if (!string.IsNullOrWhiteSpace(explicitTimeZoneId))
+            return explicitTimeZoneId;
+
+        // Explicit UTC values usually don't carry TZID in CalDAV payloads.
+        // Preserve UTC so downstream local-time conversion stays correct.
+        if (parsedDateTime != default && parsedDateTime.Offset == TimeSpan.Zero)
+            return TimeZoneInfo.Utc.Id;
+
+        // Floating times without TZID should remain floating.
+        return string.Empty;
     }
 
     private static string BuildRecurrenceString(CalendarEvent sourceEvent)

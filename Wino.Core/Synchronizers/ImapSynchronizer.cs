@@ -1768,8 +1768,11 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         }
         else
         {
-            lines.Add($"DTSTART:{item.StartDate.ToUniversalTime():yyyyMMdd'T'HHmmss'Z'}");
-            lines.Add($"DTEND:{item.EndDate.ToUniversalTime():yyyyMMdd'T'HHmmss'Z'}");
+            var startUtc = ConvertEventTimeToUtc(item.StartDate, item.StartTimeZone);
+            var endUtc = ConvertEventTimeToUtc(item.EndDate, item.EndTimeZone ?? item.StartTimeZone);
+
+            lines.Add($"DTSTART:{startUtc:yyyyMMdd'T'HHmmss'Z'}");
+            lines.Add($"DTEND:{endUtc:yyyyMMdd'T'HHmmss'Z'}");
         }
 
         if (!string.IsNullOrWhiteSpace(item.Title))
@@ -1825,6 +1828,23 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         lines.Add("END:VCALENDAR");
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static DateTime ConvertEventTimeToUtc(DateTime eventDateTime, string eventTimeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(eventTimeZoneId))
+            return eventDateTime.ToUniversalTime();
+
+        try
+        {
+            var eventTimeZone = TimeZoneInfo.FindSystemTimeZoneById(eventTimeZoneId);
+            var unspecifiedDateTime = DateTime.SpecifyKind(eventDateTime, DateTimeKind.Unspecified);
+            return TimeZoneInfo.ConvertTimeToUtc(unspecifiedDateTime, eventTimeZone);
+        }
+        catch
+        {
+            return eventDateTime.ToUniversalTime();
+        }
     }
 
     private static string EscapeIcs(string value)
