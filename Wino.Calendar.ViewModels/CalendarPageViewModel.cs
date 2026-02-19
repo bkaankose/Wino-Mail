@@ -168,22 +168,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
+
+        // We don't register on navigation here. This page is cached.
+        RegisterRecipients();
     }
 
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-
-        Messenger.Register<LoadCalendarMessage>(this);
-        Messenger.Register<CalendarSettingsUpdatedMessage>(this);
-        Messenger.Register<CalendarItemTappedMessage>(this);
-        Messenger.Register<CalendarItemDoubleTappedMessage>(this);
-        Messenger.Register<CalendarItemRightTappedMessage>(this);
-        Messenger.Register<AccountRemovedMessage>(this);
-    }
-    protected override void UnregisterRecipients()
-    {
-        base.UnregisterRecipients();
 
         Messenger.Unregister<LoadCalendarMessage>(this);
         Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
@@ -191,6 +183,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+
+        Messenger.Register<LoadCalendarMessage>(this);
+        Messenger.Register<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Register<CalendarItemTappedMessage>(this);
+        Messenger.Register<CalendarItemDoubleTappedMessage>(this);
+        Messenger.Register<CalendarItemRightTappedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
 
     private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
@@ -234,18 +233,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnNavigatedTo(mode, parameters);
-
-        if (mode == NavigationMode.Back)
-        {
-            // We unregister recipients on navigate-away, so mutations that happened while this page
-            // was not active (e.g. CalendarItemDeleted from details page) can be missed.
-            // Rehydrate currently visible ranges to guarantee UI and DB are consistent on return.
-            _ = RefreshVisibleRangesAsync();
-            return;
-        }
-
         RefreshSettings();
+
+        if (mode == NavigationMode.Back) return;
 
         // Automatically select the first primary calendar for quick event dialog.
         SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary);

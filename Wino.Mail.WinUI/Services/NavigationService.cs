@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
@@ -15,6 +16,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Navigation;
 using Wino.Views;
 using Wino.Views.Account;
@@ -136,6 +138,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
                          NavigationTransitionType transition = NavigationTransitionType.None)
     {
         var pageType = GetPageType(page);
+        if (pageType == null) return false;
 
         var currentApplicationMode = GetCoreFrame(NavigationReferenceFrame.ShellFrame)?.Content?.GetType() == typeof(MailAppShell)
             ? WinoApplicationMode.Mail
@@ -151,6 +154,30 @@ public class NavigationService : NavigationServiceBase, INavigationService
             // Calendar navigations.
             if (currentApplicationMode == WinoApplicationMode.Calendar)
             {
+                var currentFrameType = GetCurrentFrameType(ref innerShellFrame);
+
+                if (page == WinoPage.CalendarPage &&
+                    parameter is CalendarPageNavigationArgs calendarNavigationArgs)
+                {
+                    var loadCalendarMessage = CreateLoadCalendarMessage(calendarNavigationArgs);
+
+                    // Date changes while CalendarPage is already active should not re-navigate the frame.
+                    if (currentFrameType == pageType)
+                    {
+                        WeakReferenceMessenger.Default.Send(loadCalendarMessage);
+                        return true;
+                    }
+
+                    // If CalendarPage is the previous page, reuse it instead of creating a second instance.
+                    var lastBackStackEntry = innerShellFrame.BackStack.Count > 0 ? innerShellFrame.BackStack[^1] : null;
+                    if (innerShellFrame.CanGoBack && lastBackStackEntry?.SourcePageType == pageType)
+                    {
+                        innerShellFrame.GoBack();
+                        WeakReferenceMessenger.Default.Send(loadCalendarMessage);
+                        return true;
+                    }
+                }
+
                 return innerShellFrame.Navigate(pageType, parameter);
             }
             else
@@ -219,6 +246,19 @@ public class NavigationService : NavigationServiceBase, INavigationService
         }
 
         return false;
+    }
+
+    private static LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
+    {
+        var targetDate = args.RequestDefaultNavigation
+            ? DateTime.Now.Date
+            : args.NavigationDate;
+
+        var initiative = args.RequestDefaultNavigation
+            ? CalendarInitInitiative.App
+            : CalendarInitInitiative.User;
+
+        return new LoadCalendarMessage(targetDate, initiative);
     }
 
     public void GoBack(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
