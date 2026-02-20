@@ -8,6 +8,7 @@ using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Itenso.TimePeriod;
 using MoreLinq;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
@@ -1001,8 +1002,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         Debug.WriteLine($"Calendar item deleted: {calendarItem.Id}");
 
-        // Check if the deleted item is currently displayed in details view
-        if (DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id)
+        // Check if the deleted item (or its series master) is currently displayed in details view.
+        var isDeletedDetailsItem = DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id;
+        var isDeletedSeriesMasterOfDetailsItem = DisplayDetailsCalendarItemViewModel?.CalendarItem?.RecurringCalendarItemId == calendarItem.Id;
+
+        if (isDeletedDetailsItem || isDeletedSeriesMasterOfDetailsItem)
         {
             // Clear the details view since this item was deleted
             DisplayDetailsCalendarItemViewModel = null;
@@ -1015,11 +1019,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             {
                 foreach (var calendarDay in dayRange.CalendarDays)
                 {
-                    var existingItem = calendarDay.EventsCollection.GetCalendarItem(calendarItem.Id);
-                    if (existingItem != null)
-                    {
-                        calendarDay.EventsCollection.RemoveCalendarItem(existingItem);
-                    }
+                    calendarDay.EventsCollection.RemoveCalendarItems(item =>
+                        item.Id == calendarItem.Id ||
+                        (item is CalendarItemViewModel vm && vm.CalendarItem.RecurringCalendarItemId == calendarItem.Id));
                 }
             }
         });
@@ -1119,9 +1121,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         // Series master events should not be visible on the UI.
         // Their instances are already expanded and synced individually.
+        // For revert scenarios, restore visible child instances from local storage.
         if (calendarItem.IsRecurringParent)
         {
             Debug.WriteLine($"Skipping series master event: {calendarItem.Title}");
+            await RestoreVisibleRecurringSeriesInstancesAsync(calendarItem);
             return;
         }
 
@@ -1164,6 +1168,47 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
             });
         }
+
+        FilterActiveCalendars(DayRanges);
+    }
+
+    private async Task RestoreVisibleRecurringSeriesInstancesAsync(CalendarItem recurringParent)
+    {
+        if (DayRanges.DisplayRange == null || recurringParent?.AssignedCalendar == null)
+            return;
+
+        var visibleRange = new TimeRange(DayRanges.DisplayRange.StartDate, DayRanges.DisplayRange.EndDate);
+        var visibleItems = await _calendarService.GetCalendarEventsAsync(recurringParent.AssignedCalendar, visibleRange).ConfigureAwait(false);
+
+        var recurringChildren = visibleItems
+            .Where(item => item.RecurringCalendarItemId == recurringParent.Id && !item.IsHidden && !item.IsRecurringParent)
+            .ToList();
+
+        if (!recurringChildren.Any())
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var child in recurringChildren)
+            {
+                child.AssignedCalendar ??= recurringParent.AssignedCalendar;
+
+                var targetDays = DayRanges
+                    .SelectMany(a => a.CalendarDays)
+                    .Where(day => day.Period.OverlapsWith(child.Period));
+
+                foreach (var day in targetDays)
+                {
+                    if (day.EventsCollection.GetCalendarItem(child.Id) != null)
+                        continue;
+
+                    day.EventsCollection.AddCalendarItem(new CalendarItemViewModel(child)
+                    {
+                        IsBusy = string.IsNullOrEmpty(child.RemoteEventId)
+                    });
+                }
+            }
+        });
 
         FilterActiveCalendars(DayRanges);
     }
