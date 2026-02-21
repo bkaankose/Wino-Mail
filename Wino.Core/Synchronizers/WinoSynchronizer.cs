@@ -219,7 +219,14 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
 
-                await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    UntrackProcessedRequests(requestCopies);
+                }
 
                 Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
 
@@ -370,29 +377,43 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     switch (calendarSynchronizerOperation)
                     {
                         case CalendarSynchronizerOperation.CreateEvent:
-                            nativeRequests.AddRange(CreateCalendarEvent(group.ElementAt(0) as CreateCalendarEventRequest));
+                            nativeRequests.AddRange(group
+                                .OfType<CreateCalendarEventRequest>()
+                                .SelectMany(CreateCalendarEvent));
                             break;
                         case CalendarSynchronizerOperation.AcceptEvent:
-                            nativeRequests.AddRange(AcceptEvent(group.ElementAt(0) as AcceptEventRequest));
+                            nativeRequests.AddRange(group
+                                .OfType<AcceptEventRequest>()
+                                .SelectMany(AcceptEvent));
                             break;
                         case CalendarSynchronizerOperation.DeclineEvent:
                             if (Account.ProviderType == MailProviderType.Outlook)
                             {
-                                nativeRequests.AddRange(OutlookDeclineEvent(group.ElementAt(0) as OutlookDeclineEventRequest));
+                                nativeRequests.AddRange(group
+                                    .OfType<OutlookDeclineEventRequest>()
+                                    .SelectMany(OutlookDeclineEvent));
                             }
                             else
                             {
-                                nativeRequests.AddRange(DeclineEvent(group.ElementAt(0) as DeclineEventRequest));
+                                nativeRequests.AddRange(group
+                                    .OfType<DeclineEventRequest>()
+                                    .SelectMany(DeclineEvent));
                             }
                             break;
                         case CalendarSynchronizerOperation.TentativeEvent:
-                            nativeRequests.AddRange(TentativeEvent(group.ElementAt(0) as TentativeEventRequest));
+                            nativeRequests.AddRange(group
+                                .OfType<TentativeEventRequest>()
+                                .SelectMany(TentativeEvent));
                             break;
                         case CalendarSynchronizerOperation.UpdateEvent:
-                            nativeRequests.AddRange(UpdateCalendarEvent(group.ElementAt(0) as UpdateCalendarEventRequest));
+                            nativeRequests.AddRange(group
+                                .OfType<UpdateCalendarEventRequest>()
+                                .SelectMany(UpdateCalendarEvent));
                             break;
                         case CalendarSynchronizerOperation.DeleteEvent:
-                            nativeRequests.AddRange(DeleteCalendarEvent(group.ElementAt(0) as DeleteCalendarEventRequest));
+                            nativeRequests.AddRange(group
+                                .OfType<DeleteCalendarEventRequest>()
+                                .SelectMany(DeleteCalendarEvent));
                             break;
                         default:
                             break;
@@ -405,7 +426,14 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
             Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
 
-            await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                UntrackProcessedRequests(requestCopies);
+            }
 
             Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
 

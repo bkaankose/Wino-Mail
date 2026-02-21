@@ -191,6 +191,14 @@
                             IsDynamicOverflowEnabled="True"
                             OverflowButtonAlignment="Left">
                             <AppBarButton
+                                MinWidth="40"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Visibility="{x:Bind ViewModel.IsDraftBusy, Mode=OneWay}">
+                                <ProgressRing IsActive="True" />
+                            </AppBarButton>
+
+                            <AppBarButton
                                 Width="Auto"
                                 MinWidth="40"
                                 Click="{x:Bind WebViewEditor.ToggleEditorTheme}"

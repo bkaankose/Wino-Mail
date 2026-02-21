@@ -8,6 +8,7 @@ using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Itenso.TimePeriod;
 using MoreLinq;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
@@ -168,22 +169,14 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         AccountCalendarStateService.AccountCalendarSelectionStateChanged += UpdateAccountCalendarRequested;
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged += AccountCalendarStateCollectivelyChanged;
+
+        // We don't register on navigation here. This page is cached.
+        RegisterRecipients();
     }
 
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
-
-        Messenger.Register<LoadCalendarMessage>(this);
-        Messenger.Register<CalendarSettingsUpdatedMessage>(this);
-        Messenger.Register<CalendarItemTappedMessage>(this);
-        Messenger.Register<CalendarItemDoubleTappedMessage>(this);
-        Messenger.Register<CalendarItemRightTappedMessage>(this);
-        Messenger.Register<AccountRemovedMessage>(this);
-    }
-    protected override void UnregisterRecipients()
-    {
-        base.UnregisterRecipients();
 
         Messenger.Unregister<LoadCalendarMessage>(this);
         Messenger.Unregister<CalendarSettingsUpdatedMessage>(this);
@@ -191,6 +184,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         Messenger.Unregister<CalendarItemDoubleTappedMessage>(this);
         Messenger.Unregister<CalendarItemRightTappedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+
+        Messenger.Register<LoadCalendarMessage>(this);
+        Messenger.Register<CalendarSettingsUpdatedMessage>(this);
+        Messenger.Register<CalendarItemTappedMessage>(this);
+        Messenger.Register<CalendarItemDoubleTappedMessage>(this);
+        Messenger.Register<CalendarItemRightTappedMessage>(this);
+        Messenger.Register<AccountRemovedMessage>(this);
     }
 
     private void AccountCalendarStateCollectivelyChanged(object sender, GroupedAccountCalendarViewModel e)
@@ -234,18 +234,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
-        base.OnNavigatedTo(mode, parameters);
-
-        if (mode == NavigationMode.Back)
-        {
-            // We unregister recipients on navigate-away, so mutations that happened while this page
-            // was not active (e.g. CalendarItemDeleted from details page) can be missed.
-            // Rehydrate currently visible ranges to guarantee UI and DB are consistent on return.
-            _ = RefreshVisibleRangesAsync();
-            return;
-        }
-
         RefreshSettings();
+
+        if (mode == NavigationMode.Back) return;
 
         // Automatically select the first primary calendar for quick event dialog.
         SelectedQuickEventAccountCalendar = AccountCalendarStateService.ActiveCalendars.FirstOrDefault(a => a.IsPrimary);
@@ -921,6 +912,56 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
     }
 
+    private CalendarItemViewModel FindPendingBusyMatchByRemoteEventId(CalendarItem syncedItem)
+    {
+        if (syncedItem == null ||
+            string.IsNullOrWhiteSpace(syncedItem.RemoteEventId) ||
+            !TryExtractClientItemIdFromRemoteEventId(syncedItem.RemoteEventId, out var clientItemId))
+        {
+            return null;
+        }
+
+        return DayRanges
+            .SelectMany(a => a.CalendarDays)
+            .SelectMany(b => b.EventsCollection.RegularEvents.Concat(b.EventsCollection.AllDayEvents))
+            .OfType<CalendarItemViewModel>()
+            .FirstOrDefault(vm => vm.IsBusy &&
+                                  vm.Id == clientItemId &&
+                                  vm.AssignedCalendar?.Id == syncedItem.CalendarId);
+    }
+
+    private static bool TryExtractClientItemIdFromRemoteEventId(string remoteEventId, out Guid clientItemId)
+    {
+        clientItemId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            return false;
+
+        var uid = remoteEventId.Split(new[] { "::" }, StringSplitOptions.None)[0];
+        const string calDavPrefix = "caldav-";
+
+        if (!uid.StartsWith(calDavPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var guidPart = uid[calDavPrefix.Length..];
+        return Guid.TryParseExact(guidPart, "N", out clientItemId) || Guid.TryParse(guidPart, out clientItemId);
+    }
+
+    private void RemoveCalendarItemEverywhere(Guid calendarItemId)
+    {
+        foreach (var dayRange in DayRanges)
+        {
+            foreach (var calendarDay in dayRange.CalendarDays)
+            {
+                var existingItem = calendarDay.EventsCollection.GetCalendarItem(calendarItemId);
+                if (existingItem != null)
+                {
+                    calendarDay.EventsCollection.RemoveCalendarItem(existingItem);
+                }
+            }
+        }
+    }
+
     public void Receive(CalendarItemTappedMessage message)
     {
         if (message.CalendarItemViewModel == null) return;
@@ -961,8 +1002,11 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         Debug.WriteLine($"Calendar item deleted: {calendarItem.Id}");
 
-        // Check if the deleted item is currently displayed in details view
-        if (DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id)
+        // Check if the deleted item (or its series master) is currently displayed in details view.
+        var isDeletedDetailsItem = DisplayDetailsCalendarItemViewModel?.Id == calendarItem.Id;
+        var isDeletedSeriesMasterOfDetailsItem = DisplayDetailsCalendarItemViewModel?.CalendarItem?.RecurringCalendarItemId == calendarItem.Id;
+
+        if (isDeletedDetailsItem || isDeletedSeriesMasterOfDetailsItem)
         {
             // Clear the details view since this item was deleted
             DisplayDetailsCalendarItemViewModel = null;
@@ -975,11 +1019,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             {
                 foreach (var calendarDay in dayRange.CalendarDays)
                 {
-                    var existingItem = calendarDay.EventsCollection.GetCalendarItem(calendarItem.Id);
-                    if (existingItem != null)
-                    {
-                        calendarDay.EventsCollection.RemoveCalendarItem(existingItem);
-                    }
+                    calendarDay.EventsCollection.RemoveCalendarItems(item =>
+                        item.Id == calendarItem.Id ||
+                        (item is CalendarItemViewModel vm && vm.CalendarItem.RecurringCalendarItemId == calendarItem.Id));
                 }
             }
         });
@@ -1079,52 +1121,30 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
         // Series master events should not be visible on the UI.
         // Their instances are already expanded and synced individually.
+        // For revert scenarios, restore visible child instances from local storage.
         if (calendarItem.IsRecurringParent)
         {
             Debug.WriteLine($"Skipping series master event: {calendarItem.Title}");
+            await RestoreVisibleRecurringSeriesInstancesAsync(calendarItem);
             return;
         }
 
         // Check if event falls into the current date range.
         if (DayRanges.DisplayRange == null) return;
 
-        // Check if this is a server-synced item that matches a local preview
-        // Local previews don't have RemoteEventId, server-synced items do
+        // If this is server data, reconcile against optimistic client-side items first.
+        // This prevents duplicate rendering when a pending busy item is replaced by the synced one.
         if (!string.IsNullOrEmpty(calendarItem.RemoteEventId))
         {
-            // Find local preview items that match this event's properties
-            var localPreviewItems = DayRanges
-                .SelectMany(a => a.CalendarDays)
-                .SelectMany(b => b.EventsCollection.RegularEvents.Concat(b.EventsCollection.AllDayEvents))
-                .OfType<CalendarItemViewModel>()
-                .Where(c => c.AssignedCalendar.Id == calendarItem.CalendarId &&
-                           c.CalendarItem.IsLocalPreview && // Local preview (no RemoteEventId)
-                           c.Title == calendarItem.Title &&
-                           Math.Abs((c.StartDate - calendarItem.LocalStartDate).TotalSeconds) < 60 &&
-                           Math.Abs(c.DurationInSeconds - calendarItem.DurationInSeconds) < 1)
-                .ToList();
+            var pendingMatch = FindPendingBusyMatchByRemoteEventId(calendarItem);
 
-            if (localPreviewItems.Any())
+            if (pendingMatch != null)
             {
-                Debug.WriteLine($"Found {localPreviewItems.Count} matching local preview items for {calendarItem.Title}, removing them.");
+                Debug.WriteLine($"Mapped pending busy item {pendingMatch.Id} with synced server event {calendarItem.Id}.");
 
-                // Remove all matching local preview items
                 await ExecuteUIThread(() =>
                 {
-                    foreach (var dayRange in DayRanges)
-                    {
-                        foreach (var calendarDay in dayRange.CalendarDays)
-                        {
-                            foreach (var localPreview in localPreviewItems)
-                            {
-                                var itemInDay = calendarDay.EventsCollection.GetCalendarItem(localPreview.Id);
-                                if (itemInDay != null)
-                                {
-                                    calendarDay.EventsCollection.RemoveCalendarItem(itemInDay);
-                                }
-                            }
-                        }
-                    }
+                    RemoveCalendarItemEverywhere(pendingMatch.Id);
                 });
             }
         }
@@ -1148,6 +1168,47 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 calendarDay.EventsCollection.AddCalendarItem(calendarItemViewModel);
             });
         }
+
+        FilterActiveCalendars(DayRanges);
+    }
+
+    private async Task RestoreVisibleRecurringSeriesInstancesAsync(CalendarItem recurringParent)
+    {
+        if (DayRanges.DisplayRange == null || recurringParent?.AssignedCalendar == null)
+            return;
+
+        var visibleRange = new TimeRange(DayRanges.DisplayRange.StartDate, DayRanges.DisplayRange.EndDate);
+        var visibleItems = await _calendarService.GetCalendarEventsAsync(recurringParent.AssignedCalendar, visibleRange).ConfigureAwait(false);
+
+        var recurringChildren = visibleItems
+            .Where(item => item.RecurringCalendarItemId == recurringParent.Id && !item.IsHidden && !item.IsRecurringParent)
+            .ToList();
+
+        if (!recurringChildren.Any())
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            foreach (var child in recurringChildren)
+            {
+                child.AssignedCalendar ??= recurringParent.AssignedCalendar;
+
+                var targetDays = DayRanges
+                    .SelectMany(a => a.CalendarDays)
+                    .Where(day => day.Period.OverlapsWith(child.Period));
+
+                foreach (var day in targetDays)
+                {
+                    if (day.EventsCollection.GetCalendarItem(child.Id) != null)
+                        continue;
+
+                    day.EventsCollection.AddCalendarItem(new CalendarItemViewModel(child)
+                    {
+                        IsBusy = string.IsNullOrEmpty(child.RemoteEventId)
+                    });
+                }
+            }
+        });
 
         FilterActiveCalendars(DayRanges);
     }

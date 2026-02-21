@@ -35,7 +35,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     // Update is triggered when we leave the page.
     private bool isUpdatingMimeBlocked = false;
 
-    private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null;
+    private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy;
 
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
@@ -52,24 +52,29 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(IsLocalDraft))]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    private MailItemViewModel currentMailDraftItem;
-
-    [ObservableProperty]
-    private bool isImportanceSelected;
-
-    [ObservableProperty]
-    private MessageImportance selectedMessageImportance;
-
-    [ObservableProperty]
-    private bool isCCBCCVisible;
-
-    [ObservableProperty]
-    private string subject;
+    public partial MailItemViewModel CurrentMailDraftItem { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    private MailAccount composingAccount;
+    public partial bool IsDraftBusy { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsImportanceSelected { get; set; }
+
+    [ObservableProperty]
+    public partial MessageImportance SelectedMessageImportance { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsCCBCCVisible { get; set; }
+
+    [ObservableProperty]
+    public partial string Subject { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    public partial MailAccount ComposingAccount { get; set; }
 
     [ObservableProperty]
     public partial List<MailAccountAlias> AvailableAliases { get; set; }
@@ -312,6 +317,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                                                           CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
                                                                           base64EncodedMessage);
 
+        IsDraftBusy = true;
+
         await _worker.ExecuteAsync(draftSendPreparationRequest);
     }
 
@@ -430,6 +437,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             CurrentMailDraftItem = mailItem;
 
+            await UpdatePendingOperationStateAsync();
             await TryPrepareComposeAsync(true);
         }
     }
@@ -446,6 +454,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         // Set the new draft item and prepare it.
         CurrentMailDraftItem = message.MailItemViewModel;
+        await UpdatePendingOperationStateAsync();
         await TryPrepareComposeAsync(true);
     }
 
@@ -498,6 +507,23 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         });
 
         return true;
+    }
+
+    private async Task UpdatePendingOperationStateAsync()
+    {
+        IsDraftBusy = false;
+
+        if (CurrentMailDraftItem?.MailCopy == null || !CurrentMailDraftItem.MailCopy.IsDraft)
+            return;
+
+        var accountId = CurrentMailDraftItem.MailCopy.AssignedAccount?.Id ?? Guid.Empty;
+
+        if (accountId == Guid.Empty)
+            return;
+
+        var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+
+        IsDraftBusy = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
     }
 
     private async Task TryPrepareComposeAsync(bool downloadIfNeeded)
@@ -674,11 +700,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         if (updatedMail.UniqueId == CurrentMailDraftItem.MailCopy.UniqueId)
         {
-            await ExecuteUIThread(() =>
+            await ExecuteUIThread(async () =>
             {
                 CurrentMailDraftItem.UpdateFrom(updatedMail);
                 DiscardCommand.NotifyCanExecuteChanged();
                 SendCommand.NotifyCanExecuteChanged();
+
+                await UpdatePendingOperationStateAsync();
             });
         }
     }

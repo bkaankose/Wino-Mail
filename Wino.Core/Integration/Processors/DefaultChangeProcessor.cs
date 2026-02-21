@@ -121,6 +121,7 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
 
     Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
+    Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
     Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
     Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
 }
