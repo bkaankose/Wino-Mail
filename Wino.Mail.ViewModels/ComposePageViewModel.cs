@@ -317,7 +317,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                                                           CurrentMailDraftItem.MailCopy.AssignedAccount.Preferences,
                                                                           base64EncodedMessage);
 
-        IsDraftBusy = true;
+        await ExecuteUIThread(() =>
+        {
+            IsDraftBusy = true;
+        });
 
         await _worker.ExecuteAsync(draftSendPreparationRequest);
     }

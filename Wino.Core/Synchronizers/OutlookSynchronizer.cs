@@ -70,6 +70,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override uint BatchModificationSize => 20;
     public override uint InitialMessageDownloadCountPerFolder => 1000;
     private const uint MaximumAllowedBatchRequestSize = 20;
+    private const int SimpleAttachmentUploadLimitBytes = 3 * 1024 * 1024;
+    private const int MaximumUploadSessionAttachmentSizeBytes = 150 * 1024 * 1024;
+    private const int LargeAttachmentUploadChunkSizeBytes = 320 * 1024;
 
     private const string INBOX_NAME = "inbox";
     private const string SENT_NAME = "sentitems";
@@ -1487,35 +1490,101 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var conversationId = sendDraftPreparationRequest.MailItem.ThreadId;
         var outlookMessage = mimeMessage.AsOutlookMessage(false, conversationId);
 
-        // Build the request sequence: upload attachments -> patch draft -> send.
-        // These execute serially via batch DependsOn (see ConfigureSerialExecution).
-        var attachmentBundles = CreateAttachmentUploadBundles(mimeMessage, mailCopyId);
-
         var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
         var patchDraftBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request);
 
         var sendRequest = PreparePostRequestInformation(_graphClient.Me.Messages[mailCopyId].Send.ToPostRequestInformation());
         var sendBundle = new HttpRequestBundle<RequestInformation>(sendRequest, request);
 
-        return [.. attachmentBundles, patchDraftBundle, sendBundle];
+        // Attachment uploads are handled outside batching because large attachments
+        // require upload sessions whose URLs are generated dynamically.
+        return [patchDraftBundle, sendBundle];
     }
 
-    /// <summary>
-    /// Extracts attachments from the MIME message and creates individual
-    /// Graph API upload requests using the SDK's FileAttachment type.
-    /// </summary>
-    private List<IRequestBundle<RequestInformation>> CreateAttachmentUploadBundles(MimeMessage mime, string mailCopyId)
+    private async Task UploadDraftAttachmentsAsync(SendDraftRequest sendDraftRequest, CancellationToken cancellationToken)
     {
-        var attachments = mime.ExtractAttachments();
-        var bundles = new List<IRequestBundle<RequestInformation>>(attachments.Count);
+        var mailCopyId = sendDraftRequest.Request.MailItem.Id;
+        var attachments = sendDraftRequest.Request.Mime.ExtractAttachments();
+
+        if (!attachments.Any())
+        {
+            return;
+        }
 
         foreach (var attachment in attachments)
         {
-            var uploadRequest = _graphClient.Me.Messages[mailCopyId].Attachments.ToPostRequestInformation(attachment);
-            bundles.Add(new HttpRequestBundle<RequestInformation>(uploadRequest, null));
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        return bundles;
+            var contentBytes = attachment.ContentBytes ?? [];
+            if (contentBytes.Length <= SimpleAttachmentUploadLimitBytes)
+            {
+                await _graphClient.Me.Messages[mailCopyId].Attachments.PostAsync(attachment, cancellationToken: cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (contentBytes.Length > MaximumUploadSessionAttachmentSizeBytes)
+            {
+                var attachmentSizeMb = contentBytes.LongLength / (1024d * 1024d);
+                var maximumSizeMb = MaximumUploadSessionAttachmentSizeBytes / (1024d * 1024d);
+
+                throw new InvalidOperationException(
+                    $"Attachment '{attachment.Name}' is {attachmentSizeMb:F1} MB, which exceeds Outlook's upload limit of {maximumSizeMb:F0} MB per attachment.");
+            }
+
+            var sessionBody = new Microsoft.Graph.Me.Messages.Item.Attachments.CreateUploadSession.CreateUploadSessionPostRequestBody
+            {
+                AttachmentItem = new AttachmentItem
+                {
+                    AttachmentType = AttachmentType.File,
+                    ContentType = attachment.ContentType,
+                    Name = attachment.Name,
+                    Size = contentBytes.LongLength
+                }
+            };
+
+            var uploadSession = await _graphClient.Me.Messages[mailCopyId].Attachments.CreateUploadSession.PostAsync(sessionBody, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (uploadSession?.UploadUrl == null)
+            {
+                throw new InvalidOperationException($"Failed to create upload session for attachment '{attachment.Name}'.");
+            }
+
+            await UploadAttachmentInChunksAsync(uploadSession.UploadUrl, contentBytes, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task UploadAttachmentInChunksAsync(string uploadUrl, byte[] content, CancellationToken cancellationToken)
+    {
+        using var client = new HttpClient();
+
+        var totalSize = content.Length;
+        var offset = 0;
+
+        while (offset < totalSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var chunkLength = Math.Min(LargeAttachmentUploadChunkSizeBytes, totalSize - offset);
+            var end = offset + chunkLength - 1;
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, uploadUrl)
+            {
+                Content = new ByteArrayContent(content, offset, chunkLength)
+            };
+
+            request.Content.Headers.Add("Content-Range", $"bytes {offset}-{end}/{totalSize}");
+
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+            // Upload session returns either 202 (continue) or 201/200 (completed).
+            if (!response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException($"Attachment chunk upload failed with status {(int)response.StatusCode}: {responseContent}");
+            }
+
+            offset += chunkLength;
+        }
     }
 
     public override List<IRequestBundle<RequestInformation>> Archive(BatchArchiveRequest request)
@@ -1641,6 +1710,23 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         foreach (var bundle in batchedRequests)
         {
             bundle.UIChangeRequest?.ApplyUIChanges();
+        }
+
+        // SendDraft requests may include large attachments, which require upload sessions.
+        // Upload these attachments before the batched patch/send sequence.
+        foreach (var sendDraftBundle in batchedRequests.Where(b => b.UIChangeRequest is SendDraftRequest))
+        {
+            var sendDraftRequest = sendDraftBundle.UIChangeRequest as SendDraftRequest;
+
+            try
+            {
+                await UploadDraftAttachmentsAsync(sendDraftRequest, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                sendDraftRequest?.RevertUIChanges();
+                throw;
+            }
         }
 
         // Now batch and execute the network requests.
