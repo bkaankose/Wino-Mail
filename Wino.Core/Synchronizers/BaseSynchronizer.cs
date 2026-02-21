@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
@@ -20,6 +21,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     protected CancellationToken activeSynchronizationCancellationToken;
 
     protected List<IRequestBase> changeRequestQueue = [];
+    private readonly ConcurrentDictionary<Guid, byte> _pendingMailOperationIds = new();
+    private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
     protected readonly IMessenger Messenger;
     
     public MailAccount Account { get; }
@@ -119,7 +122,47 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     /// Queues a single request to be executed in the next synchronization.
     /// </summary>
     /// <param name="request">Request to execute.</param>
-    public void QueueRequest(IRequestBase request) => changeRequestQueue.Add(request);
+    public void QueueRequest(IRequestBase request)
+    {
+        changeRequestQueue.Add(request);
+        TrackQueuedRequest(request);
+    }
+
+    public bool HasPendingOperation(Guid mailUniqueId) => _pendingMailOperationIds.ContainsKey(mailUniqueId);
+
+    public bool HasPendingCalendarOperation(Guid calendarItemId) => _pendingCalendarOperationIds.ContainsKey(calendarItemId);
+
+    protected void TrackQueuedRequest(IRequestBase request)
+    {
+        if (request is IMailActionRequest mailActionRequest)
+        {
+            _pendingMailOperationIds.TryAdd(mailActionRequest.Item.UniqueId, 0);
+        }
+
+        if (request is ICalendarActionRequest calendarActionRequest)
+        {
+            _pendingCalendarOperationIds.TryAdd(calendarActionRequest.Item.Id, 0);
+        }
+    }
+
+    protected void UntrackProcessedRequest(IRequestBase request)
+    {
+        if (request is IMailActionRequest mailActionRequest)
+        {
+            _pendingMailOperationIds.TryRemove(mailActionRequest.Item.UniqueId, out _);
+        }
+
+        if (request is ICalendarActionRequest calendarActionRequest)
+        {
+            _pendingCalendarOperationIds.TryRemove(calendarActionRequest.Item.Id, out _);
+        }
+    }
+
+    protected void UntrackProcessedRequests(IEnumerable<IRequestBase> requests)
+    {
+        foreach (var request in requests)
+            UntrackProcessedRequest(request);
+    }
 
     /// <summary>
     /// Runs existing queued requests in the queue.
