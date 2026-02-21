@@ -71,6 +71,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     public override uint InitialMessageDownloadCountPerFolder => 1000;
     private const uint MaximumAllowedBatchRequestSize = 20;
     private const int SimpleAttachmentUploadLimitBytes = 3 * 1024 * 1024;
+    private const int MaximumUploadSessionAttachmentSizeBytes = 150 * 1024 * 1024;
     private const int LargeAttachmentUploadChunkSizeBytes = 320 * 1024;
 
     private const string INBOX_NAME = "inbox";
@@ -1521,6 +1522,15 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 continue;
             }
 
+            if (contentBytes.Length > MaximumUploadSessionAttachmentSizeBytes)
+            {
+                var attachmentSizeMb = contentBytes.LongLength / (1024d * 1024d);
+                var maximumSizeMb = MaximumUploadSessionAttachmentSizeBytes / (1024d * 1024d);
+
+                throw new InvalidOperationException(
+                    $"Attachment '{attachment.Name}' is {attachmentSizeMb:F1} MB, which exceeds Outlook's upload limit of {maximumSizeMb:F0} MB per attachment.");
+            }
+
             var sessionBody = new Microsoft.Graph.Me.Messages.Item.Attachments.CreateUploadSession.CreateUploadSessionPostRequestBody
             {
                 AttachmentItem = new AttachmentItem
@@ -1528,7 +1538,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     AttachmentType = AttachmentType.File,
                     ContentType = attachment.ContentType,
                     Name = attachment.Name,
-                    Size = contentBytes.Length
+                    Size = contentBytes.LongLength
                 }
             };
 
