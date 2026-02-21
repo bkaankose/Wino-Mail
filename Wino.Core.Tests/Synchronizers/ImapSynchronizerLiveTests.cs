@@ -10,10 +10,12 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 using Wino.Services.Extensions;
 using Xunit;
+using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
 namespace Wino.Core.Tests.Synchronizers;
 
@@ -243,7 +245,7 @@ public sealed class ImapSynchronizerLiveTests
         changeProcessor.Setup(x => x.GetRecentMailIdsForFolderAsync(inboxFolder.Id, It.IsAny<int>()))
             .ReturnsAsync((Guid _, int count) => storedMails.Keys.Take(count).ToList());
         changeProcessor.Setup(x => x.GetDownloadedUnreadMailsAsync(account.Id, It.IsAny<IEnumerable<string>>()))
-            .ReturnsAsync([] as List<MailCopy>);
+            .ReturnsAsync(new List<MailCopy>());
 
         var appConfiguration = new Mock<IApplicationConfiguration>();
         appConfiguration.SetupProperty(x => x.ApplicationDataFolderPath, tempDirectory);
