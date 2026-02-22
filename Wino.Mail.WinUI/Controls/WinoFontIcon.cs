@@ -124,7 +124,7 @@ public partial class WinoFontIcon : FontIcon
 
     public WinoFontIcon()
     {
-        FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Assets/WinoIcons.ttf#WinoIcons");
+        FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("ms-appx:///Assets/WinoIcons.ttf#WinoIcons");
         FontSize = 32;
     }
 

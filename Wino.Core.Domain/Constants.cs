@@ -16,6 +16,9 @@ public static class Constants
     public const string ToastCalendarItemIdKey = nameof(ToastCalendarItemIdKey);
     public const string ToastCalendarActionKey = nameof(ToastCalendarActionKey);
     public const string ToastCalendarNavigateAction = nameof(ToastCalendarNavigateAction);
+    public const string ToastModeKey = nameof(ToastModeKey);
+    public const string ToastModeMail = nameof(ToastModeMail);
+    public const string ToastModeCalendar = nameof(ToastModeCalendar);
 
     public const string ClientLogFile = "Client_.log";
     public const string ServerLogFile = "Server_.log";

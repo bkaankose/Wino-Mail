@@ -5,10 +5,11 @@
   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap com desktop">
+  IgnorableNamespaces="uap uap10 rescap com desktop">
 	
 	<!-- Publisher Cache Folders -->
 	<Extensions>
@@ -44,15 +45,16 @@
   <Applications>
     <Application Id="App"
       Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$">
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--mode=mail">
       <uap:VisualElements
         DisplayName="Wino Mail"
         Description="Wino.Mail.WinUI"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"  Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png"/>
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\MailAssets\Wide310x150Logo.png"  Square71x71Logo="Assets\AppEntries\MailAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\MailAssets\LargeTile.png"/>
+        <uap:SplashScreen Image="Assets\AppEntries\MailAssets\SplashScreen.png" />
       </uap:VisualElements>
 
 		<Extensions>
@@ -98,6 +100,46 @@
 				</uap:FileTypeAssociation>
 			</uap:Extension>
 		</Extensions>
+    </Application>
+
+    <Application Id="CalendarApp"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--mode=calendar">
+      <uap:VisualElements
+        DisplayName="Wino Calendar"
+        Description="Wino.Mail.WinUI.Calendar"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\CalendarAssets\Wide310x150Logo.png"  Square71x71Logo="Assets\AppEntries\CalendarAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\CalendarAssets\LargeTile.png"/>
+        <uap:SplashScreen Image="Assets\AppEntries\CalendarAssets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Protocol activation: webcal -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="webcal">
+            <uap:DisplayName>Calendar Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="webcals">
+            <uap:DisplayName>Calendar Protocol (Secure)</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+
+        <!-- File Association: ICS -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="ics">
+            <uap:Logo>Assets\AppEntries\CalendarAssets\Square44x44Logo.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.ics</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

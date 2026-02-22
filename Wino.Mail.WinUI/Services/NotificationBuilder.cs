@@ -85,6 +85,7 @@ public class NotificationBuilder : INotificationBuilder
 
                 builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
                 builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
+                builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
                 builder.AddButton(GetDismissButton());
                 builder.AddAudio(new ToastAudio()
@@ -136,6 +137,7 @@ public class NotificationBuilder : INotificationBuilder
 
         builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
         builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
         builder.AddButton(GetMarkAsReadButton(mailItem.UniqueId));
         builder.AddButton(GetDeleteButton(mailItem.UniqueId));
@@ -160,6 +162,7 @@ public class NotificationBuilder : INotificationBuilder
         .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/archive.png"))
         .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
         .AddArgument(Constants.ToastActionKey, MailOperation.Archive)
+        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
         .SetBackgroundActivation();
 
     private ToastButton GetDeleteButton(Guid mailUniqueId)
@@ -168,6 +171,7 @@ public class NotificationBuilder : INotificationBuilder
         .SetImageUri(new Uri("ms-appx:///Assets/NotificationIcons/delete.png"))
         .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
         .AddArgument(Constants.ToastActionKey, MailOperation.SoftDelete)
+        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
         .SetBackgroundActivation();
 
     private static ToastButton GetMarkAsReadButton(Guid mailUniqueId)
@@ -176,6 +180,7 @@ public class NotificationBuilder : INotificationBuilder
         .SetImageUri(new System.Uri("ms-appx:///Assets/NotificationIcons/markread.png"))
         .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
         .AddArgument(Constants.ToastActionKey, MailOperation.MarkAsRead)
+        .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail)
         .SetBackgroundActivation();
 
     public async Task UpdateTaskbarIconBadgeAsync()
@@ -248,6 +253,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(GetDismissButton());
 
         builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.AddButton(new ToastButton().SetContent(Translator.Buttons_FixAccount));
         builder.Show();
     }
@@ -261,6 +267,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddText(Translator.Exception_WebView2RuntimeMissing_Message);
 
         builder.AddButton(GetDismissButton());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.Show();
     }
 
@@ -286,6 +293,7 @@ public class NotificationBuilder : INotificationBuilder
 
         builder.AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction);
         builder.AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString());
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar);
         builder.AddButton(GetDismissButton());
         builder.AddAudio(new ToastAudio()
         {

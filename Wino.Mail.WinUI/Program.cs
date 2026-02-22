@@ -35,7 +35,6 @@ public class Program
     {
         bool isRedirect = false;
         AppActivationArguments args = AppInstance.GetCurrent().GetActivatedEventArgs();
-        ExtendedActivationKind kind = args.Kind;
         AppInstance keyInstance = AppInstance.FindOrRegisterForKey("WinoMailSingleInstance");
 
         if (keyInstance.IsCurrent)

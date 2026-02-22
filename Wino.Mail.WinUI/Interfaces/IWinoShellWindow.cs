@@ -7,7 +7,7 @@ namespace Wino.Mail.WinUI.Interfaces;
 
 public interface IWinoShellWindow : IRecipient<TitleBarShellContentUpdated>
 {
-    void HandleAppActivation(LaunchActivatedEventArgs args);
+    void HandleAppActivation(string? launchArguments, string? tileId = null, string? appId = null);
     TitleBar GetTitleBar();
     Frame GetMainFrame();
     FrameworkElement GetRootContent();
