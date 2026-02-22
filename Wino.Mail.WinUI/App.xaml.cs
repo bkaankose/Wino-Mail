@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -11,6 +12,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
 using MimeKit.Cryptography;
+using Windows.ApplicationModel.Activation;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Interfaces;
 using Wino.Core;
@@ -22,11 +24,12 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
+using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
-using Wino.Messaging.UI;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Server;
+using Wino.Messaging.UI;
 using Wino.Services;
 namespace Wino.Mail.WinUI;
 
@@ -133,11 +136,10 @@ public partial class App : WinoApplication,
     {
         base.OnLaunched(args);
 
-        AppNotificationManager notificationManager = AppNotificationManager.Default;
-
-        notificationManager.NotificationInvoked -= AppNotificationInvoked;
-        notificationManager.NotificationInvoked += AppNotificationInvoked;
-        notificationManager.Register();
+        if (ShouldRegisterAppNotifications(args))
+        {
+            TryRegisterAppNotifications();
+        }
 
         // Initialize required services regardless of launch activation type.
         // All activation scenarios require these services to be ready.
@@ -187,6 +189,42 @@ public partial class App : WinoApplication,
 
     private async void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
         => await HandleToastActivationAsync(args);
+
+    private bool ShouldRegisterAppNotifications(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
+    {
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        // Always allow registration when activated from a toast.
+        if (activationArgs.Kind == ExtendedActivationKind.AppNotification)
+            return true;
+
+        var launchMode = AppModeActivationResolver.Resolve(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
+        bool shouldRegister = launchMode == WinoApplicationMode.Mail;
+
+        if (!shouldRegister)
+        {
+            LogActivation("Skipping app notification registration for non-mail launch mode.");
+        }
+
+        return shouldRegister;
+    }
+
+    private void TryRegisterAppNotifications()
+    {
+        var notificationManager = AppNotificationManager.Default;
+
+        notificationManager.NotificationInvoked -= AppNotificationInvoked;
+        notificationManager.NotificationInvoked += AppNotificationInvoked;
+
+        try
+        {
+            notificationManager.Register();
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"App notification registration failed: {ex.GetType().Name} - {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// Handles toast notification activation scenarios.
@@ -256,6 +294,7 @@ public partial class App : WinoApplication,
     private async Task HandleToastNavigationAsync(Guid mailItemUniqueId)
     {
         var mailService = Services.GetRequiredService<IMailService>();
+        var navigationService = Services.GetRequiredService<INavigationService>();
 
         var account = await mailService.GetMailAccountByUniqueIdAsync(mailItemUniqueId).ConfigureAwait(false);
         if (account == null) return;
@@ -278,6 +317,7 @@ public partial class App : WinoApplication,
         else
         {
             // App is already running - send message and bring window to front.
+            navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
             WeakReferenceMessenger.Default.Send(message);
             MainWindow.BringToFront();
         }
@@ -377,7 +417,7 @@ public partial class App : WinoApplication,
     /// <summary>
     /// Creates the main window and activates it.
     /// </summary>
-    private async Task CreateAndActivateWindow(LaunchActivatedEventArgs args)
+    private async Task CreateAndActivateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
     {
         CreateWindow(args);
 
@@ -392,7 +432,7 @@ public partial class App : WinoApplication,
     /// Creates the main window without activating it.
     /// Used for both normal launch and startup task launch (tray only).
     /// </summary>
-    private void CreateWindow(LaunchActivatedEventArgs args)
+    private void CreateWindow(Microsoft.UI.Xaml.LaunchActivatedEventArgs? args)
     {
         LogActivation("Creating main window.");
 
@@ -404,7 +444,22 @@ public partial class App : WinoApplication,
         if (MainWindow is not IWinoShellWindow shellWindow)
             throw new ArgumentException("MainWindow must implement IWinoShellWindow");
 
-        shellWindow.HandleAppActivation(args);
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
+        {
+            shellWindow.HandleAppActivation(launchArgs.Arguments, launchArgs.TileId, Environment.CommandLine);
+            return;
+        }
+
+        if (TryResolveActivationMode(activationArgs, out var activationMode))
+        {
+            shellWindow.HandleAppActivation(GetModeLaunchArgument(activationMode));
+            return;
+        }
+
+        shellWindow.HandleAppActivation(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
     }
 
     private void RegisterRecipients()
@@ -622,11 +677,92 @@ public partial class App : WinoApplication,
             }
             else
             {
-                // For other activation types (Launch, Protocol, etc.), bring window to front
+                if (MainWindow is IWinoShellWindow shellWindow)
+                {
+                    if (args.Kind == ExtendedActivationKind.Launch &&
+                        args.Data is ILaunchActivatedEventArgs launchArgs)
+                    {
+                        shellWindow.HandleAppActivation(launchArgs.Arguments, launchArgs.TileId);
+                    }
+                    else if (TryResolveActivationMode(args, out var redirectedMode))
+                    {
+                        shellWindow.HandleAppActivation(GetModeLaunchArgument(redirectedMode));
+                    }
+                }
+
+                // Bring the existing window to front after handling redirected activation.
                 MainWindow?.BringToFront();
                 MainWindow?.Activate();
             }
         });
     }
 
+    private static string GetModeLaunchArgument(WinoApplicationMode mode)
+        => mode == WinoApplicationMode.Calendar ? "--mode=calendar" : "--mode=mail";
+
+    private static bool TryResolveActivationMode(AppActivationArguments activationArgs, out WinoApplicationMode mode)
+    {
+        mode = WinoApplicationMode.Mail;
+
+        if (activationArgs.Kind == ExtendedActivationKind.Protocol &&
+            activationArgs.Data is IProtocolActivatedEventArgs protocolArgs)
+        {
+            var scheme = protocolArgs.Uri?.Scheme;
+
+            if (string.Equals(scheme, "webcal", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scheme, "webcals", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Calendar;
+                return true;
+            }
+
+            if (string.Equals(scheme, "mailto", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scheme, "google.pw.oauth2", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Mail;
+                return true;
+            }
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.File &&
+            activationArgs.Data is IFileActivatedEventArgs fileArgs)
+        {
+            var fileItem = fileArgs.Files?.FirstOrDefault();
+            var extension = Path.GetExtension(fileItem?.Name ?? string.Empty);
+
+            if (string.Equals(extension, ".ics", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Calendar;
+                return true;
+            }
+
+            if (string.Equals(extension, ".eml", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Mail;
+                return true;
+            }
+        }
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
+        {
+            mode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, null);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string? GetCurrentLaunchTileId()
+    {
+        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
+
+        if (activationArgs.Kind == ExtendedActivationKind.Launch &&
+            activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
+        {
+            return launchArgs.TileId;
+        }
+
+        return null;
+    }
 }

@@ -11,8 +11,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.UI;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -36,6 +38,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public ObservableCollection<SynchronizationActionItem> SyncActionItems { get; } = new();
     private bool _calendarReminderServerStartAttempted;
+    private bool _isApplyingActivationMode;
+    private WinoApplicationMode _currentMode = WinoApplicationMode.Mail;
 
     public ShellWindow()
     {
@@ -105,43 +109,16 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         }
     }
 
-    public void HandleAppActivation(LaunchActivatedEventArgs args)
+    public void HandleAppActivation(string? launchArguments, string? tileId = null, string? appId = null)
     {
-        // Parse launch arguments to determine the application mode
-        var launchArguments = args?.Arguments?.ToLower() ?? string.Empty;
+        var targetMode = AppModeActivationResolver.Resolve(launchArguments, tileId, appId);
+        _currentMode = targetMode;
 
-        Core.Domain.Enums.WinoApplicationMode targetMode;
+        _isApplyingActivationMode = true;
+        AppModeSegmentedControl.SelectedIndex = targetMode == WinoApplicationMode.Mail ? 0 : 1;
+        _isApplyingActivationMode = false;
 
-        if (launchArguments.Contains("wino-calendar"))
-        {
-            targetMode = Core.Domain.Enums.WinoApplicationMode.Calendar;
-        }
-        else if (launchArguments.Contains("wino-mail"))
-        {
-            targetMode = Core.Domain.Enums.WinoApplicationMode.Mail;
-        }
-        else if (!string.IsNullOrEmpty(launchArguments))
-        {
-            // TODO: Handle other protocol activations (e.g., .eml files)
-            // For now, default to Mail mode for unknown protocols
-            targetMode = Core.Domain.Enums.WinoApplicationMode.Mail;
-        }
-        else
-        {
-            // Default to Mail mode when no arguments provided
-            targetMode = Core.Domain.Enums.WinoApplicationMode.Mail;
-        }
-
-        // Use NavigationService to change application mode with proper navigation
-
-        if (targetMode == Core.Domain.Enums.WinoApplicationMode.Mail)
-        {
-            AppModeSegmentedControl.SelectedIndex = 0;
-        }
-        else
-        {
-            AppModeSegmentedControl.SelectedIndex = 1;
-        }
+        NavigationService.ChangeApplicationMode(targetMode);
     }
 
     public Microsoft.UI.Xaml.Controls.TitleBar GetTitleBar() => ShellTitleBar;
@@ -339,16 +316,17 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void SegmentedChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is Segmented segmentedControl)
-        {
-            if (segmentedControl.SelectedIndex == 0)
-            {
-                NavigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
-            }
-            else if (segmentedControl.SelectedIndex == 1)
-            {
-                NavigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Calendar);
-            }
-        }
+        if (_isApplyingActivationMode || sender is not Segmented segmentedControl)
+            return;
+
+        var selectedMode = segmentedControl.SelectedIndex == 1
+            ? WinoApplicationMode.Calendar
+            : WinoApplicationMode.Mail;
+
+        if (selectedMode == _currentMode)
+            return;
+
+        _currentMode = selectedMode;
+        NavigationService.ChangeApplicationMode(selectedMode);
     }
 }

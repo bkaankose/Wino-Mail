@@ -40,6 +40,11 @@
     <Content Remove="Assets\BadgeLogo.scale-150.png" />
     <Content Remove="Assets\BadgeLogo.scale-200.png" />
     <Content Remove="Assets\BadgeLogo.scale-400.png" />
+    <Content Remove="Assets\CalendarAppBase.png" />
+    <Content Remove="Assets\CalendarLargeTile.png" />
+    <Content Remove="Assets\CalendarSmallTile.png" />
+    <Content Remove="Assets\CalendarSquare150x150Logo.png" />
+    <Content Remove="Assets\CalendarSquare44x44Logo.png" />
     <Content Remove="Assets\LargeTile.scale-100.png" />
     <Content Remove="Assets\LargeTile.scale-125.png" />
     <Content Remove="Assets\LargeTile.scale-150.png" />
@@ -86,8 +91,11 @@
     <Content Remove="Assets\Wide310x150Logo.scale-125.png" />
     <Content Remove="Assets\Wide310x150Logo.scale-150.png" />
     <Content Remove="Assets\Wide310x150Logo.scale-400.png" />
+    <Content Remove="Assets\AppEntries\MailAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
+    <Content Remove="Assets\AppEntries\CalendarAssets\Square44x44Logo.altform-unplated_targetsize-24.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="Assets\CalendarWide310x150Logo.png" />
     <None Remove="BackgroundImages\Acrylic.jpg" />
     <None Remove="BackgroundImages\Clouds.jpg" />
     <None Remove="BackgroundImages\Forest.jpg" />
@@ -131,7 +139,6 @@
     <Content Include="AppThemes\Nighty.xaml" />
     <Content Include="AppThemes\Snowflake.xaml" />
     <Content Include="AppThemes\TestTheme.xaml" />
-    <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="BackgroundImages\Acrylic.jpg" />
     <Content Include="BackgroundImages\Clouds.jpg" />
