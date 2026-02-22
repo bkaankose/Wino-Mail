@@ -15,6 +15,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
@@ -23,11 +24,15 @@ using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Messaging.Client.Mails;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class ComposePageViewModel : MailBaseViewModel,
-    IRecipient<NewComposeDraftItemRequestedEvent>
+    IRecipient<NewComposeDraftItemRequestedEvent>,
+    IRecipient<SynchronizationActionsAdded>,
+    IRecipient<SynchronizationActionsCompleted>,
+    IRecipient<AccountSynchronizerStateChanged>
 {
     public Func<Task<string>> GetHTMLBodyFunction;
 
@@ -36,9 +41,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private bool isUpdatingMimeBlocked = false;
 
     private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy;
+    private bool canSendLocalDraftToServer => ComposingAccount != null && IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy && !IsRetryingSendToServer;
 
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     [ObservableProperty]
     private MimeMessage currentMimeMessage = null;
 
@@ -50,14 +57,23 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLocalDraft))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowSendToServerButton))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowSendButton))]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     public partial MailItemViewModel CurrentMailDraftItem { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShouldShowSendToServerButton))]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     public partial bool IsDraftBusy { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    public partial bool IsRetryingSendToServer { get; set; }
 
     [ObservableProperty]
     public partial bool IsImportanceSelected { get; set; }
@@ -74,6 +90,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
     public partial MailAccount ComposingAccount { get; set; }
 
     [ObservableProperty]
@@ -103,6 +120,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContact> ToItems { get; set; } = [];
     public ObservableCollection<AccountContact> CCItems { get; set; } = [];
     public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
+    public bool ShouldShowSendToServerButton => IsLocalDraft && !IsDraftBusy;
+    public bool ShouldShowSendButton => !IsLocalDraft;
 
     #endregion
 
@@ -325,6 +344,48 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         await _worker.ExecuteAsync(draftSendPreparationRequest);
     }
 
+    [RelayCommand(CanExecute = nameof(canSendLocalDraftToServer))]
+    private async Task SendToServerAsync()
+    {
+        if (CurrentMailDraftItem?.MailCopy == null || ComposingAccount == null || CurrentMimeMessage == null)
+            return;
+
+        try
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsRetryingSendToServer = true;
+                IsDraftBusy = true;
+                NotifyComposeActionStateChanged();
+            });
+
+            await UpdateMimeChangesAsync().ConfigureAwait(false);
+
+            var localDraftCopy = CurrentMailDraftItem.MailCopy;
+            var draftPreparationRequest = new DraftPreparationRequest(
+                localDraftCopy.AssignedAccount ?? ComposingAccount,
+                localDraftCopy,
+                CurrentMimeMessage.GetBase64MimeMessage(),
+                DraftCreationReason.Empty);
+
+            await _worker.ExecuteAsync(draftPreparationRequest).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.Info_RequestCreationFailedTitle, ex.Message, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsRetryingSendToServer = false;
+            });
+
+            await UpdatePendingOperationStateAsync().ConfigureAwait(false);
+            NotifyComposeActionStateChanged();
+        }
+    }
+
     public async Task UpdateMimeChangesAsync()
     {
         if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
@@ -424,13 +485,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
-    {
-        base.OnNavigatedFrom(mode, parameters);
+    //public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    //{
+    //    base.OnNavigatedFrom(mode, parameters);
 
-        /// Do not put any code here.
-        /// Make sure to use Page's OnNavigatedTo instead.
-    }
+    //    /// Do not put any code here.
+    //    /// Make sure to use Page's OnNavigatedTo instead.
+    //}
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
@@ -461,11 +522,38 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         await TryPrepareComposeAsync(true);
     }
 
+    public async void Receive(SynchronizationActionsAdded message)
+    {
+        if (!ShouldTrackDraftSynchronizationState(message.AccountId))
+            return;
+
+        await UpdatePendingOperationStateAsync().ConfigureAwait(false);
+    }
+
+    public async void Receive(SynchronizationActionsCompleted message)
+    {
+        if (!ShouldTrackDraftSynchronizationState(message.AccountId))
+            return;
+
+        await UpdatePendingOperationStateAsync().ConfigureAwait(false);
+    }
+
+    public async void Receive(AccountSynchronizerStateChanged message)
+    {
+        if (message.NewState != AccountSynchronizerState.Idle || !ShouldTrackDraftSynchronizationState(message.AccountId))
+            return;
+
+        await UpdatePendingOperationStateAsync().ConfigureAwait(false);
+    }
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
 
         Messenger.Register<NewComposeDraftItemRequestedEvent>(this);
+        Messenger.Register<SynchronizationActionsAdded>(this);
+        Messenger.Register<SynchronizationActionsCompleted>(this);
+        Messenger.Register<AccountSynchronizerStateChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -473,6 +561,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         base.UnregisterRecipients();
 
         Messenger.Unregister<NewComposeDraftItemRequestedEvent>(this);
+        Messenger.Unregister<SynchronizationActionsAdded>(this);
+        Messenger.Unregister<SynchronizationActionsCompleted>(this);
+        Messenger.Unregister<AccountSynchronizerStateChanged>(this);
     }
 
     private async Task<bool> InitializeComposerAccountAsync()
@@ -514,19 +605,31 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private async Task UpdatePendingOperationStateAsync()
     {
-        IsDraftBusy = false;
+        var hasPendingOperation = false;
 
         if (CurrentMailDraftItem?.MailCopy == null || !CurrentMailDraftItem.MailCopy.IsDraft)
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsDraftBusy = false;
+                NotifyComposeActionStateChanged();
+            });
             return;
+        }
 
         var accountId = CurrentMailDraftItem.MailCopy.AssignedAccount?.Id ?? Guid.Empty;
 
-        if (accountId == Guid.Empty)
-            return;
+        if (accountId != Guid.Empty)
+        {
+            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
+            hasPendingOperation = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
+        }
 
-        var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
-
-        IsDraftBusy = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
+        await ExecuteUIThread(() =>
+        {
+            IsDraftBusy = hasPendingOperation;
+            NotifyComposeActionStateChanged();
+        });
     }
 
     private async Task TryPrepareComposeAsync(bool downloadIfNeeded)
@@ -706,11 +809,32 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             await ExecuteUIThread(async () =>
             {
                 CurrentMailDraftItem.UpdateFrom(updatedMail);
-                DiscardCommand.NotifyCanExecuteChanged();
-                SendCommand.NotifyCanExecuteChanged();
-
                 await UpdatePendingOperationStateAsync();
+                NotifyComposeActionStateChanged();
             });
         }
+    }
+
+    private void NotifyComposeActionStateChanged()
+    {
+        OnPropertyChanged(nameof(IsLocalDraft));
+        OnPropertyChanged(nameof(ShouldShowSendToServerButton));
+        OnPropertyChanged(nameof(ShouldShowSendButton));
+
+        DiscardCommand.NotifyCanExecuteChanged();
+        SendCommand.NotifyCanExecuteChanged();
+        SendToServerCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool ShouldTrackDraftSynchronizationState(Guid accountId)
+    {
+        if (accountId == Guid.Empty)
+            return false;
+
+        var currentDraftAccountId = CurrentMailDraftItem?.MailCopy?.AssignedAccount?.Id
+                                    ?? ComposingAccount?.Id
+                                    ?? Guid.Empty;
+
+        return currentDraftAccountId != Guid.Empty && currentDraftAccountId == accountId;
     }
 }

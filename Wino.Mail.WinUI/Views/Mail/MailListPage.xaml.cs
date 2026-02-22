@@ -280,7 +280,14 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // No active mail item. Go to empty page.
         if (message.SelectedMailItemViewModel == null)
         {
-            WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
+            if (IsRenderingPageActive())
+            {
+                WeakReferenceMessenger.Default.Send(new CancelRenderingContentRequested());
+            }
+
+            // Ensure rendering frame actually navigates away from Compose/Rendering pages.
+            // Otherwise those pages keep their messenger registrations alive.
+            ViewModel.NavigationService.Navigate(WinoPage.IdlePage, null, NavigationReferenceFrame.RenderingFrame, NavigationTransitionType.DrillIn);
         }
         else
         {

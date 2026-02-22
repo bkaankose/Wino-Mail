@@ -52,6 +52,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     int EmailSyncIntervalMinutes { get; set; }
 
+    /// <summary>
+    /// Setting: Default application mode to open when activation does not specify one.
+    /// </summary>
+    WinoApplicationMode DefaultApplicationMode { get; set; }
+
     #endregion
 
     #region Mail

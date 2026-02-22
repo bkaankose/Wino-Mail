@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
-using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests.Mail;
 
@@ -24,6 +22,7 @@ public record CreateDraftRequest(DraftPreparationRequest DraftPreperationRequest
 
     public override void RevertUIChanges()
     {
-        WeakReferenceMessenger.Default.Send(new MailRemovedMessage(Item));
+        // Keep local draft intact when create-draft synchronization fails.
+        // This allows users to retry sending the local draft to the server.
     }
 }

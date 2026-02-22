@@ -17,6 +17,9 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     public partial List<string> SearchModes { get; set; }
 
     [ObservableProperty]
+    public partial List<string> ApplicationModes { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
     private StartupBehaviorResult startupBehaviorResult;
@@ -48,6 +51,18 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         }
     }
 
+    private string _selectedDefaultApplicationMode;
+    public string SelectedDefaultApplicationMode
+    {
+        get => _selectedDefaultApplicationMode;
+        set
+        {
+            SetProperty(ref _selectedDefaultApplicationMode, value);
+
+            PreferencesService.DefaultApplicationMode = (WinoApplicationMode)ApplicationModes.IndexOf(value);
+        }
+    }
+
     private readonly IMailDialogService _dialogService;
     private readonly IStartupBehaviorService _startupBehaviorService;
 
@@ -65,7 +80,14 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             Translator.SettingsAppPreferences_SearchMode_Online
         ];
 
+        ApplicationModes =
+        [
+            Translator.SettingsAppPreferences_ApplicationMode_Mail,
+            Translator.SettingsAppPreferences_ApplicationMode_Calendar
+        ];
+
         SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
+        SelectedDefaultApplicationMode = ApplicationModes[(int)PreferencesService.DefaultApplicationMode];
         EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
     }
 

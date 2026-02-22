@@ -198,7 +198,10 @@ public partial class App : WinoApplication,
         if (activationArgs.Kind == ExtendedActivationKind.AppNotification)
             return true;
 
-        var launchMode = AppModeActivationResolver.Resolve(args?.Arguments, GetCurrentLaunchTileId(), Environment.CommandLine);
+        var launchMode = AppModeActivationResolver.Resolve(args?.Arguments,
+                                                           GetCurrentLaunchTileId(),
+                                                           Environment.CommandLine,
+                                                           _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail);
         bool shouldRegister = launchMode == WinoApplicationMode.Mail;
 
         if (!shouldRegister)
@@ -313,6 +316,7 @@ public partial class App : WinoApplication,
         {
             // Pass null for args since we're handling toast navigation
             await CreateAndActivateWindow(null!);
+            navigationService.ChangeApplicationMode(Core.Domain.Enums.WinoApplicationMode.Mail);
         }
         else
         {
@@ -453,7 +457,7 @@ public partial class App : WinoApplication,
             return;
         }
 
-        if (TryResolveActivationMode(activationArgs, out var activationMode))
+        if (TryResolveActivationMode(activationArgs, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var activationMode))
         {
             shellWindow.HandleAppActivation(GetModeLaunchArgument(activationMode));
             return;
@@ -684,7 +688,7 @@ public partial class App : WinoApplication,
                     {
                         shellWindow.HandleAppActivation(launchArgs.Arguments, launchArgs.TileId);
                     }
-                    else if (TryResolveActivationMode(args, out var redirectedMode))
+                    else if (TryResolveActivationMode(args, _preferencesService?.DefaultApplicationMode ?? WinoApplicationMode.Mail, out var redirectedMode))
                     {
                         shellWindow.HandleAppActivation(GetModeLaunchArgument(redirectedMode));
                     }
@@ -700,9 +704,9 @@ public partial class App : WinoApplication,
     private static string GetModeLaunchArgument(WinoApplicationMode mode)
         => mode == WinoApplicationMode.Calendar ? "--mode=calendar" : "--mode=mail";
 
-    private static bool TryResolveActivationMode(AppActivationArguments activationArgs, out WinoApplicationMode mode)
+    private static bool TryResolveActivationMode(AppActivationArguments activationArgs, WinoApplicationMode defaultMode, out WinoApplicationMode mode)
     {
-        mode = WinoApplicationMode.Mail;
+        mode = defaultMode;
 
         if (activationArgs.Kind == ExtendedActivationKind.Protocol &&
             activationArgs.Data is IProtocolActivatedEventArgs protocolArgs)
@@ -746,7 +750,7 @@ public partial class App : WinoApplication,
         if (activationArgs.Kind == ExtendedActivationKind.Launch &&
             activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
         {
-            mode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, null);
+            mode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, null, defaultMode);
             return true;
         }
 

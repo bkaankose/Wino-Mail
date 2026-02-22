@@ -5,7 +5,7 @@ namespace Wino.Mail.WinUI.Activation;
 
 internal static class AppModeActivationResolver
 {
-    public static WinoApplicationMode Resolve(string? launchArguments, string? tileId, string? appId)
+    public static WinoApplicationMode Resolve(string? launchArguments, string? tileId, string? appId, WinoApplicationMode defaultMode = WinoApplicationMode.Mail)
     {
         if (TryResolveFromText(launchArguments, out var mode))
             return mode;
@@ -16,7 +16,7 @@ internal static class AppModeActivationResolver
         if (TryResolveFromText(appId, out mode))
             return mode;
 
-        return WinoApplicationMode.Mail;
+        return defaultMode;
     }
 
     private static bool TryResolveFromText(string? value, out WinoApplicationMode mode)

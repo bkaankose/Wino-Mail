@@ -227,9 +227,21 @@
                                     <coreControls:WinoFontIcon Icon="Delete" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
-                            <AppBarButton Command="{x:Bind ViewModel.SendCommand}" Label="{x:Bind domain:Translator.Buttons_Send}">
+                            <AppBarButton
+                                Command="{x:Bind ViewModel.SendCommand}"
+                                Label="{x:Bind domain:Translator.Buttons_Send}"
+                                Visibility="{x:Bind ViewModel.ShouldShowSendButton, Mode=OneWay}">
                                 <AppBarButton.Icon>
                                     <coreControls:WinoFontIcon Icon="Send" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
+                            <AppBarButton
+                                Command="{x:Bind ViewModel.SendToServerCommand}"
+                                Label="{x:Bind domain:Translator.Buttons_SendToServer}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LocalDraftSyncInfo}"
+                                Visibility="{x:Bind ViewModel.ShouldShowSendToServerButton, Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Icon="SendNew" />
                                 </AppBarButton.Icon>
                             </AppBarButton>
                         </toolkit:TabbedCommandBarItem>

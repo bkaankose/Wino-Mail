@@ -30,6 +30,13 @@
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
 
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_ApplicationMode_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_ApplicationMode_Title}">
+                <ComboBox ItemsSource="{x:Bind ViewModel.ApplicationModes, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedDefaultApplicationMode, Mode=TwoWay}" />
+                <controls:SettingsCard.HeaderIcon>
+                    <PathIcon Data="F1 M 2.5 3.125 C 2.5 2.955729 2.561849 2.809245 2.685547 2.685547 C 2.809244 2.56185 2.955729 2.5 3.125 2.5 L 16.875 2.5 C 17.044271 2.5 17.190756 2.56185 17.314453 2.685547 C 17.43815 2.809245 17.5 2.955729 17.5 3.125 L 17.5 16.875 C 17.5 17.044271 17.43815 17.190756 17.314453 17.314453 C 17.190756 17.43815 17.044271 17.5 16.875 17.5 L 3.125 17.5 C 2.955729 17.5 2.809244 17.43815 2.685547 17.314453 C 2.561849 17.190756 2.5 17.044271 2.5 16.875 Z M 3.75 3.75 L 3.75 16.25 L 16.25 16.25 L 16.25 3.75 Z M 9.375 5 C 9.375 4.830729 9.436849 4.684245 9.560547 4.560547 C 9.684244 4.43685 9.830729 4.375 10 4.375 C 10.169271 4.375 10.315755 4.43685 10.439453 4.560547 C 10.56315 4.684245 10.625 4.830729 10.625 5 L 10.625 15 C 10.625 15.169271 10.56315 15.315756 10.439453 15.439453 C 10.315755 15.56315 10.169271 15.625 10 15.625 C 9.830729 15.625 9.684244 15.56315 9.560547 15.439453 C 9.436849 15.315756 9.375 15.169271 9.375 15 Z " />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
+
             <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Title}">
                 <NumberBox
                     Minimum="1"

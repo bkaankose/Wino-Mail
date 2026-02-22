@@ -290,6 +290,19 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(EmailSyncIntervalMinutes), value);
     }
 
+    public WinoApplicationMode DefaultApplicationMode
+    {
+        get
+        {
+            var configuredMode = _configurationService.Get(nameof(DefaultApplicationMode), WinoApplicationMode.Mail);
+
+            return Enum.IsDefined(typeof(WinoApplicationMode), configuredMode)
+                ? configuredMode
+                : WinoApplicationMode.Mail;
+        }
+        set => SaveProperty(propertyName: nameof(DefaultApplicationMode), value);
+    }
+
     public CalendarSettings GetCurrentCalendarSettings()
     {
         var workingDays = GetDaysBetween(WorkingDayStart, WorkingDayEnd);
