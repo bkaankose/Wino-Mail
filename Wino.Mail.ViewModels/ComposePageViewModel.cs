@@ -34,6 +34,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     IRecipient<SynchronizationActionsCompleted>,
     IRecipient<AccountSynchronizerStateChanged>
 {
+    private static readonly TimeSpan LocalDraftRetryGracePeriod = TimeSpan.FromSeconds(15);
+
     public Func<Task<string>> GetHTMLBodyFunction;
 
     // When we send the message or discard it, we need to block the mime update
@@ -606,6 +608,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private async Task UpdatePendingOperationStateAsync()
     {
         var hasPendingOperation = false;
+        var keepBusyForInitialGracePeriod = false;
 
         if (CurrentMailDraftItem?.MailCopy == null || !CurrentMailDraftItem.MailCopy.IsDraft)
         {
@@ -625,9 +628,17 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             hasPendingOperation = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
         }
 
+        // Newly created local drafts can have a short period where request queue is empty
+        // while folder synchronization/mapping is still in progress.
+        // Keep progress visible during this grace period to prevent "Send to server" flicker.
+        if (!hasPendingOperation && CurrentMailDraftItem.MailCopy.IsLocalDraft)
+        {
+            keepBusyForInitialGracePeriod = IsWithinLocalDraftRetryGracePeriod(CurrentMailDraftItem.MailCopy);
+        }
+
         await ExecuteUIThread(() =>
         {
-            IsDraftBusy = hasPendingOperation;
+            IsDraftBusy = hasPendingOperation || keepBusyForInitialGracePeriod;
             NotifyComposeActionStateChanged();
         });
     }
@@ -836,5 +847,19 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                     ?? Guid.Empty;
 
         return currentDraftAccountId != Guid.Empty && currentDraftAccountId == accountId;
+    }
+
+    private bool IsWithinLocalDraftRetryGracePeriod(MailCopy localDraft)
+    {
+        if (localDraft == null || localDraft.CreationDate == default)
+            return false;
+
+        var elapsed = DateTime.UtcNow - localDraft.CreationDate;
+
+        // Clock skew safety.
+        if (elapsed < TimeSpan.Zero)
+            return true;
+
+        return elapsed < LocalDraftRetryGracePeriod;
     }
 }
